@@ -2205,6 +2205,10 @@ import type {
   TeamLeaderActiveOrderSupplementMaterialDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import {
+  getEdhrBatchActiveOrderDossierFiles,
+  type EdhrBatchActiveOrderDossierQuery
+} from '@/api/mes/pro/edhr/batchExecution'
+import {
   deleteActiveOrderDossierFile,
   getActiveOrderDossierFiles,
   uploadActiveOrderDossierFile
@@ -2284,6 +2288,8 @@ let gxpAuditDetailRequestId = 0
 type DossierContextIdentity = {
   activeOrderId: number | string
   applicationId?: number | string
+  scope?: 'BATCH'
+  batchExecutionId?: number | string
 }
 
 type DossierContextToken = {
@@ -2301,7 +2307,9 @@ const createDossierRequestContext = () => {
 
   const resolveKey = (identity?: DossierContextIdentity) => JSON.stringify([
     identity?.activeOrderId == null ? null : String(identity.activeOrderId),
-    identity?.applicationId == null ? null : String(identity.applicationId)
+    identity?.applicationId == null ? null : String(identity.applicationId),
+    identity?.scope ?? null,
+    identity?.batchExecutionId == null ? null : String(identity.batchExecutionId)
   ])
 
   const begin = (identity?: DossierContextIdentity): DossierContextToken => {
@@ -4313,21 +4321,63 @@ const formatDossierFileSize = (value?: number | string) => {
   return `${Number(size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1))} ${units[unitIndex]}`
 }
 
-const loadDossierFiles = async () => {
+const resolveDossierReadContext = (): {
+  identity: DossierContextIdentity
+  batchQuery?: EdhrBatchActiveOrderDossierQuery
+} | undefined => {
   const activeOrderId = props.detail?.activeOrderId
   const applicationId = props.pqcReleaseApplicationId
-  if (!activeOrderId) {
+  if (!activeOrderId || props.loading || props.error) return undefined
+  if (auditScopeTypeValue.value !== 'BATCH') {
+    return { identity: { activeOrderId, applicationId } }
+  }
+  const scopeId = auditScopeIdValue.value
+  if (!scopeId || typeof scopeId !== 'object' || Array.isArray(scopeId)) {
+    throw new Error('批次资料查询缺少明确的批次或活跃订单身份。')
+  }
+  const hasBatchId = scopeId.batchExecutionId !== undefined
+  const hasActiveOrderId = scopeId.activeOrderId !== undefined
+  if (hasBatchId === hasActiveOrderId) {
+    throw new Error('批次资料查询必须且只能提供一种正式身份。')
+  }
+  const queryId = hasBatchId ? scopeId.batchExecutionId : scopeId.activeOrderId
+  if (!(typeof queryId === 'string'
+    ? /^[1-9]\d*$/.test(queryId)
+    : Number.isSafeInteger(queryId) && Number(queryId) > 0)) {
+    throw new Error('批次资料查询身份无效。')
+  }
+  if (hasActiveOrderId && String(queryId) !== String(activeOrderId)) {
+    throw new Error('批次资料查询与当前详情的活跃订单身份不一致。')
+  }
+  const batchQuery: EdhrBatchActiveOrderDossierQuery = hasBatchId
+    ? { batchExecutionId: queryId as number | string }
+    : { activeOrderId: queryId as number | string }
+  return {
+    identity: { activeOrderId, scope: 'BATCH', batchExecutionId: batchQuery.batchExecutionId },
+    batchQuery
+  }
+}
+
+const loadDossierFiles = async () => {
+  let readContext: ReturnType<typeof resolveDossierReadContext> = undefined
+  let contextError = ''
+  try {
+    readContext = resolveDossierReadContext()
+  } catch (error) {
+    contextError = error instanceof Error ? error.message : String(error)
+  }
+  if (!readContext) {
     dossierRequestContext.begin()
     dossierFiles.value = undefined
     dossierFileLoading.value = false
-    dossierFileError.value = ''
+    dossierFileError.value = contextError
     dossierFileUploadingKey.value = ''
     dossierPreviewDialogVisible.value = false
     selectedDossierPreviewSource.value = null
     selectedDossierPreviewTitle.value = ''
     return
   }
-  const requestToken = dossierRequestContext.begin({ activeOrderId, applicationId })
+  const requestToken = dossierRequestContext.begin(readContext.identity)
   if (requestToken.contextChanged) {
     dossierFiles.value = undefined
     dossierFileUploadingKey.value = ''
@@ -4338,10 +4388,12 @@ const loadDossierFiles = async () => {
   dossierFileLoading.value = true
   dossierFileError.value = ''
   try {
-    const response = await getActiveOrderDossierFiles({
-      activeOrderId,
-      applicationId
-    })
+    const response = readContext.batchQuery
+      ? await getEdhrBatchActiveOrderDossierFiles(readContext.batchQuery)
+      : await getActiveOrderDossierFiles({
+          activeOrderId: readContext.identity.activeOrderId as number,
+          applicationId: readContext.identity.applicationId
+        })
     if (dossierRequestContext.isCurrentRequest(requestToken)) {
       dossierFiles.value = response
     }
@@ -4370,10 +4422,16 @@ const uploadDossierFile = async (categoryKey: string, options: UploadRequestOpti
     options.onError?.(new Error('缺少活跃订单ID') as UploadError)
     return
   }
-  const operationToken = dossierRequestContext.capture({
-    activeOrderId,
-    applicationId: props.pqcReleaseApplicationId
-  })
+  let operationIdentity: DossierContextIdentity | undefined
+  try {
+    operationIdentity = resolveDossierReadContext()?.identity
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error(String(error))
+    dossierFileError.value = failure.message
+    options.onError?.(failure as UploadError)
+    return
+  }
+  const operationToken = operationIdentity && dossierRequestContext.capture(operationIdentity)
   if (!operationToken) {
     options.onError?.(new Error('资料上下文已切换，不能继续上传。') as UploadError)
     return
@@ -4479,10 +4537,14 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
     ElMessage.error('缺少资料文件来源，不能删除。')
     return
   }
-  const operationToken = dossierRequestContext.capture({
-    activeOrderId,
-    applicationId: props.pqcReleaseApplicationId
-  })
+  let operationIdentity: DossierContextIdentity | undefined
+  try {
+    operationIdentity = resolveDossierReadContext()?.identity
+  } catch (error) {
+    dossierFileError.value = error instanceof Error ? error.message : String(error)
+    return
+  }
+  const operationToken = operationIdentity && dossierRequestContext.capture(operationIdentity)
   if (!operationToken) return
   await ElMessageBox.confirm(`确认删除资料文件“${file.fileName || file.attachmentId}”？`, '删除确认', {
     confirmButtonText: '删除',
@@ -4533,11 +4595,18 @@ watch(
 )
 
 watch(
-  () => [props.detail?.activeOrderId, props.pqcReleaseApplicationId],
+  () => [
+    props.detail?.activeOrderId,
+    props.pqcReleaseApplicationId,
+    auditScopeTypeValue.value,
+    auditScopeIdValue.value,
+    props.loading,
+    props.error
+  ],
   () => {
     void loadDossierFiles()
   },
-  { immediate: true }
+  { immediate: true, deep: true, flush: 'sync' }
 )
 
 watch(

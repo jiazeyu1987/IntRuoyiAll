@@ -27,6 +27,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,6 +60,10 @@ class MesProductionReleaseManagerStageInitializerTest {
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
                 applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
                 candidateResolver, businessReadinessService);
+        ReflectionTestUtils.setField(initializer, "notificationService",
+                org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
+        // URL binding occurs only in active-order cases; old four-report cases intentionally do not use it.
+        org.mockito.Mockito.lenient().when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
     }
 
     @AfterEach

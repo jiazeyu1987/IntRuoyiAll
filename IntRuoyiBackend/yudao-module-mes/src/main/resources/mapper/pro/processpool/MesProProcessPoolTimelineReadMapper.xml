@@ -214,14 +214,23 @@
                     AND NULLIF(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')), '') IS NOT NULL
                 )
                 OR pool_event.id = (
-                    SELECT MAX(group_event.id)
+                    SELECT group_event.id
                     FROM mes_pro_process_pool_event group_event
+                    LEFT JOIN (<include refid="LatestSubmissionReviewRows"/>) group_review
+                      ON group_review.tenant_id = group_event.tenant_id
+                     AND group_review.event_id = group_event.id
                     WHERE group_event.tenant_id = pool_event.tenant_id
                       AND group_event.deleted = 0
                       AND group_event.event_type = 'PQC_INSPECTION'
                       AND JSON_VALID(group_event.raw_payload)
                       AND JSON_UNQUOTE(JSON_EXTRACT(group_event.raw_payload, '$.pqcSubmissionGroupId')) =
                           JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId'))
+                    ORDER BY CASE
+                        WHEN group_review.review_status = 'REJECTED' THEN 0
+                        WHEN group_review.review_status IS NULL OR group_review.review_status = 'PENDING' THEN 1
+                        ELSE 2
+                    END, group_event.id DESC
+                    LIMIT 1
                 )
             )
         </if>
@@ -269,16 +278,50 @@
          AND pqc_task.id = pool_event.pqc_task_id
     </sql>
 
-    <sql id="LatestSubmissionReviewJoin">
-        LEFT JOIN (
-            SELECT tenant_id,
-                   event_id,
-                   leader_user_id,
-                   review_status,
-                   review_remark,
-                   reviewed_at
+    <!-- A signed correction superseding the latest rejected decision makes that member reviewable again.
+         The write command still verifies the formal signature and complete group before any mutation. -->
+    <sql id="LatestSubmissionReviewRows">
+            SELECT ranked_review.tenant_id,
+                   ranked_review.event_id,
+                   ranked_review.leader_user_id,
+                   CASE WHEN ranked_review.review_status = 'REJECTED'
+                        AND review_event.event_type = 'PQC_INSPECTION'
+                        AND EXISTS (
+                            SELECT 1 FROM mes_pro_process_pool_event_revision correction
+                            WHERE correction.tenant_id = ranked_review.tenant_id
+                              AND correction.event_id = ranked_review.event_id
+                              AND correction.deleted = 0
+                              AND correction.revision_status = 'EFFECTIVE'
+                              AND correction.id = (
+                                  SELECT latest_correction.id
+                                  FROM mes_pro_process_pool_event_revision latest_correction
+                                  WHERE latest_correction.tenant_id = ranked_review.tenant_id
+                                    AND latest_correction.event_id = ranked_review.event_id
+                                    AND latest_correction.deleted = 0
+                                    AND latest_correction.revision_status = 'EFFECTIVE'
+                                  ORDER BY latest_correction.server_revision_time DESC, latest_correction.id DESC
+                                  LIMIT 1
+                              )
+                              AND correction.revision_signature_id <![CDATA[>]]> 0
+                              AND correction.revision_signature_user_id = correction.modified_by_user_id
+                              AND JSON_VALID(correction.revision_signature_snapshot)
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.signatureId')) =
+                                  CAST(correction.revision_signature_id AS CHAR)
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.actorId')) =
+                                  CAST(correction.revision_signature_user_id AS CHAR)
+                              AND JSON_EXTRACT(correction.revision_signature_snapshot, '$.signedAt') IS NOT NULL
+                              AND JSON_TYPE(JSON_EXTRACT(correction.revision_signature_snapshot, '$.signedAt')) != 'NULL'
+                              AND JSON_VALID(correction.after_payload)
+                              AND JSON_TYPE(JSON_EXTRACT(correction.after_payload, '$.supersededReviewId')) = 'INTEGER'
+                              AND JSON_UNQUOTE(JSON_EXTRACT(correction.after_payload, '$.supersededReviewId')) =
+                                  CAST(ranked_review.id AS CHAR)
+                              AND JSON_EXTRACT(correction.after_payload, '$') = JSON_EXTRACT(review_event.raw_payload, '$')
+                        ) THEN 'PENDING' ELSE ranked_review.review_status END AS review_status,
+                   ranked_review.review_remark,
+                   ranked_review.reviewed_at
             FROM (
-                SELECT review_log.tenant_id,
+                SELECT review_log.id,
+                       review_log.tenant_id,
                        review_log.event_id,
                        review_log.leader_user_id,
                        review_log.review_status,
@@ -291,7 +334,16 @@
                 FROM mes_pro_process_pool_submission_review review_log
                 WHERE review_log.deleted = 0
             ) ranked_review
+            LEFT JOIN mes_pro_process_pool_event review_event
+              ON review_event.id = ranked_review.event_id
+             AND review_event.tenant_id = ranked_review.tenant_id
+             AND review_event.deleted = 0
             WHERE ranked_review.review_rank = 1
+    </sql>
+
+    <sql id="LatestSubmissionReviewJoin">
+        LEFT JOIN (
+            <include refid="LatestSubmissionReviewRows"/>
         ) latest_submission_review
           ON latest_submission_review.event_id = pool_event.id
          AND latest_submission_review.tenant_id = pool_event.tenant_id

@@ -2238,6 +2238,39 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void managerReleaseCandidateCanReadOwnBatchAndWorkbenchWithoutOverview() {
+        stubCurrentFillerUsers();
+        when(permissionApi.hasAnyPermissions(10003L, MesProEdhrBatchTaskVisibilityService.OVERVIEW_PERMISSION))
+                .thenReturn(false);
+        VisibleBatchFixture target = openBatchWithSecondProcessCurrentFillers("MANAGER-READ-OWN", 10001L);
+        VisibleBatchFixture other = openBatchWithSecondProcessCurrentFillers("MANAGER-READ-OTHER", 10002L);
+        MesProEdhrReleaseTransactionDO release = new MesProEdhrReleaseTransactionDO()
+                .setBatchExecutionId(target.batch().getId()).setReleaseCode("MANAGER-READ-RELEASE")
+                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL);
+        releaseTransactionMapper.insert(release);
+        workTaskMapper.insert(new MesProEdhrWorkTaskDO().setTaskCode("MANAGER-READ-TODO")
+                .setTaskType("RELEASE_APPROVE").setBatchExecutionId(target.batch().getId())
+                .setBusinessScopeType("RELEASE_TRANSACTION").setBusinessScopeId(release.getId())
+                .setOwnershipLocked(true).setAssigneeUserId(1L).setCandidateUserSnapshot("1,10003")
+                .setActionUrl("/mes/pro/feedback/edhr-batch-execution/detail?id=" + target.batch().getId())
+                .setStatus(MesProEdhrWorkTaskStatus.TODO));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10003L);
+            assertEquals(target.batch().getId(), batchExecutionService.get(target.batch().getId()).getId());
+            assertEquals(target.batch().getId(), batchWorkbenchService.getWorkbench(target.batch().getId())
+                    .getBatchExecutionId());
+            assertEquals(target.batch().getId(), batchExecutionService.getReviewTimeline(target.batch().getId())
+                    .getBatchExecutionId());
+            PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
+                    new EdhrBatchExecutionPageReqVO().setBatchCode("MANAGER-READ-"));
+            assertEquals(List.of(target.batch().getId()), page.getList().stream()
+                    .map(EdhrBatchExecutionRespVO::getId).toList());
+            assertServiceException(() -> batchExecutionService.get(other.batch().getId()),
+                    PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE);
+        }
+    }
+
+    @Test
     void openOrCreate_usesFrozenRouteBindingReportAndFrozenFillersAfterNewVersionIsApproved() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()

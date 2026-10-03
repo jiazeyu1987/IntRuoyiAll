@@ -745,7 +745,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                            List<MesProcessPoolActiveOrderReleaseApplicationDO> applications) {
         when(applicationMapper.selectPqcReleasePage(
                 any(PageParam.class), eq(TENANT_ID), eq(PQC_USER_ID), eq(viewStatus),
-                isNull(String.class), isNull(String.class)))
+                isNull(String.class), isNull(String.class), isNull(Long.class), isNull(Long.class)))
                 .thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(
                         applications, (long) applications.size()));
     }

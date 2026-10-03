@@ -617,6 +617,8 @@
                   embedded
                   :display-mode="selectedInlineSubmissionFormMode"
                   :record-scope="'FORMAL_BATCH_SOURCE_DETAIL'"
+                  audit-scope-type="BATCH"
+                  :audit-scope-id="detail?.id ? { batchExecutionId: detail.id } : undefined"
                   :production-route-process-id="selectedInlineProductionRouteProcessId"
                   @retry="reloadInlineActiveOrderSubmissionDetail"
                 />

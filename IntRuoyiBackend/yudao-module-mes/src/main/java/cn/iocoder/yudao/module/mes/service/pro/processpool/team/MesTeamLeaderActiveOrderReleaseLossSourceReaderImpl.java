@@ -16,6 +16,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -35,6 +37,9 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
         implements MesTeamLeaderActiveOrderReleaseLossSourceReader {
 
     private static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
+
+    @Resource
+    private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProFeedbackMapper feedbackMapper;
@@ -252,7 +257,7 @@ public class MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl
                                     MesProcessPoolSubmissionReviewDO review) {
         return event.getActualEmployeeId() != null && event.getSignatureId() != null
                 && event.getSignatureUserId() != null && event.getServerSubmitTime() != null
-                && StrUtil.isNotBlank(event.getSignatureSnapshot())
+                && productionSignatureEvidenceService.isValidForEvent(event)
                 && Objects.equals(event.getActualEmployeeId(), event.getSignatureUserId())
                 && Objects.equals(feedback.getFeedbackUserId(), event.getSignatureUserId())
                 && "PRODUCTION".equals(review.getLeaderType())

@@ -151,6 +151,11 @@
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 240)" fixed="right">
               <template #default="{ row }">
+                <ReleaseTaskNotificationEntry
+                  v-hasPermi="['mes:pro-edhr-work-task:query']"
+                  :batch-execution-id="row.id"
+                  :release-transaction-id="row.releaseTransactionId"
+                />
                 <div
                   v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
                   class="edhr-batch-page__actions"
@@ -219,6 +224,15 @@
                     @click="handleRejectClick(row)"
                   >
                     驳回
+                  </el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-edhr-release:approve']"
+                    link
+                    type="primary"
+                    data-edhr-batch-action="release"
+                    @click="openReleaseDialog(row)"
+                  >
+                    上市放行
                   </el-button>
                 </div>
                 <div v-else class="edhr-batch-page__actions">
@@ -777,6 +791,7 @@
 </template>
 
 <script setup lang="ts">
+import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import {
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_CLOSED,
@@ -791,6 +806,7 @@ import {
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
   getLatestEdhrBatchArchive,
+  getEdhrBatchExecution,
   getEdhrBatchExecutionPage,
   type EdhrBatchExecutionArchiveRespVO,
   type EdhrBatchExecutionPageReqVO,
@@ -801,6 +817,7 @@ import {
 } from '@/api/mes/pro/edhr/batchExecution'
 import {
   approveEdhrRelease,
+  getEdhrRelease,
   getEdhrReleasePage,
   type EdhrReleasePageReqVO,
   type EdhrReleaseRowVO
@@ -1523,7 +1540,72 @@ const releaseForm = reactive({
   idempotencyKey: ''
 })
 
-const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
+type MarketReleaseRouteContext = {
+  batchExecutionId: string
+  releaseTransactionId: string
+  workTaskId: string
+}
+
+let marketReleaseRouteGeneration = 0
+
+const resetMarketReleaseDialog = () => {
+  marketReleaseRouteGeneration++
+  selectedReleaseBatch.value = undefined
+  releaseContext.value = undefined
+  releaseTransactionMissing.value = false
+  releaseContextLoading.value = false
+  releaseLoading.value = false
+  releaseError.value = ''
+  releaseForm.password = ''
+  releaseForm.idempotencyKey = ''
+}
+
+const readMarketReleaseRouteContext = (): MarketReleaseRouteContext | undefined => {
+  if (route.query.action === undefined) return undefined
+  if (route.query.action !== 'marketRelease') throw new Error('上市放行入口动作不正确。')
+  const result = {} as MarketReleaseRouteContext
+  for (const key of ['batchExecutionId', 'releaseTransactionId', 'workTaskId'] as const) {
+    const value = route.query[key]
+    if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+      throw new Error('上市放行入口缺少精确批次、事务或工作任务编号。')
+    }
+    result[key] = value
+  }
+  return result
+}
+
+const openMarketReleaseFromRoute = async () => {
+  releaseDialogVisible.value = false
+  resetMarketReleaseDialog()
+  const generation = marketReleaseRouteGeneration
+  const isCurrent = () => generation === marketReleaseRouteGeneration
+  try {
+    const context = readMarketReleaseRouteContext()
+    if (!context) return
+    if (!userStore.permissions.has('mes:pro-edhr-release:approve') && !userStore.permissions.has('*:*:*')) {
+      throw new Error('当前账号没有上市放行权限。')
+    }
+    const batch = await getEdhrBatchExecution(context.batchExecutionId)
+    if (!isCurrent()) return
+    if (String(batch.id) !== context.batchExecutionId || batch.pendingVoidChangeEventId || isVoidedBatchExecutionStatus(batch.status)) {
+      throw new Error('上市放行入口批次身份或当前作废状态不符合正式任务。')
+    }
+    await openReleaseDialog(batch, context)
+  } catch (error) {
+    if (!isCurrent()) return
+    releaseContext.value = undefined
+    loadError.value = resolveErrorMessage(error, '上市放行待办加载失败。')
+  }
+}
+
+const openReleaseDialog = async (
+  row: EdhrBatchExecutionRespVO,
+  taskContext?: MarketReleaseRouteContext
+) => {
+  resetMarketReleaseDialog()
+  const generation = marketReleaseRouteGeneration
+  const isCurrent = () => generation === marketReleaseRouteGeneration &&
+    releaseDialogVisible.value && String(selectedReleaseBatch.value?.id) === String(row.id)
   if (!row.id) {
     message.error('当前批次缺少批次执行编号，无法发起上市放行。')
     return
@@ -1537,15 +1619,29 @@ const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
   releaseDialogVisible.value = true
   releaseContextLoading.value = true
   try {
-    const params: EdhrReleasePageReqVO = {
-      pageNo: 1,
-      pageSize: 20,
-      batchExecutionCode: row.batchExecutionCode
+    let context: EdhrReleaseRowVO | undefined
+    if (taskContext) {
+      context = await getEdhrRelease(taskContext.releaseTransactionId)
+      if (!isCurrent()) return
+      if (String(row.id) !== taskContext.batchExecutionId ||
+        String(context.batchExecutionId) !== taskContext.batchExecutionId ||
+        String(context.releaseTransactionId) !== taskContext.releaseTransactionId ||
+        String(context.releaseApprovalWorkTaskId) !== taskContext.workTaskId ||
+        context.releaseStatus !== 'PENDING_APPROVAL') {
+        throw new Error('上市放行事务、批次或工作任务与当前待办不一致。')
+      }
+    } else {
+      const params: EdhrReleasePageReqVO = {
+        pageNo: 1,
+        pageSize: 20,
+        batchExecutionCode: row.batchExecutionCode
+      }
+      const result = await getEdhrReleasePage(params)
+      if (!isCurrent()) return
+      context = (result.list || []).find(
+        (item) => String(item.batchExecutionId) === String(row.id)
+      )
     }
-    const result = await getEdhrReleasePage(params)
-    const context = (result.list || []).find(
-      (item) => String(item.batchExecutionId) === String(row.id)
-    )
     if (!context) {
       throw new Error('未查询到此批次的放行状态，请刷新列表后重试。')
     }
@@ -1555,9 +1651,10 @@ const openReleaseDialog = async (row: EdhrBatchExecutionRespVO) => {
       return
     }
   } catch (error) {
+    if (!isCurrent()) return
     releaseError.value = resolveErrorMessage(error, '上市放行事务加载失败。')
   } finally {
-    releaseContextLoading.value = false
+    if (isCurrent()) releaseContextLoading.value = false
   }
 }
 
@@ -1589,6 +1686,8 @@ const submitRelease = async () => {
     releaseError.value = '当前批次缺少正式放行事务，无法确认上市放行。'
     return
   }
+  const generation = marketReleaseRouteGeneration
+  const isCurrent = () => generation === marketReleaseRouteGeneration && releaseDialogVisible.value
   releaseLoading.value = true
   releaseError.value = ''
   try {
@@ -1602,6 +1701,7 @@ const submitRelease = async () => {
       signoffEvidenceHash: context.approvalSignoffEvidenceHash || undefined,
       password: releaseForm.password
     })
+    if (!isCurrent()) return
     releaseDialogVisible.value = false
     message.success('上市放行成功')
     await router.push({
@@ -1609,9 +1709,10 @@ const submitRelease = async () => {
       query: { batchExecutionId: String(batch.id) }
     })
   } catch (error) {
+    if (!isCurrent()) return
     releaseError.value = resolveErrorMessage(error, '上市放行失败，请查看后端错误后重试。')
   } finally {
-    releaseLoading.value = false
+    if (isCurrent()) releaseLoading.value = false
   }
 }
 
@@ -1791,7 +1892,18 @@ const handleViewArchive = async (row: EdhrBatchExecutionRespVO) => {
 onMounted(() => {
   applyRouteQueryFilters()
   getList()
+  void openMarketReleaseFromRoute()
 })
+
+watch(
+  () => [route.query.action, route.query.batchExecutionId, route.query.releaseTransactionId, route.query.workTaskId],
+  () => { void openMarketReleaseFromRoute() }
+)
+
+watch(releaseDialogVisible, (visible) => {
+  if (!visible) resetMarketReleaseDialog()
+}, { flush: 'sync' })
+onBeforeUnmount(() => { resetMarketReleaseDialog() })
 </script>
 
 <style scoped>

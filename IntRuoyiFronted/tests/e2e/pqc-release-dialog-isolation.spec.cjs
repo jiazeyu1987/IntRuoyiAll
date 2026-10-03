@@ -19,8 +19,8 @@ const receipt=id=>({applicationId:id,decision:'APPROVE',status:'REPORT_UPLOAD_PE
 function harness(overrides={}) {
  const messages=[]
  const context={message:{error:x=>messages.push(x),success:x=>messages.push(x),warning:x=>messages.push(x)},crypto:{randomUUID:()=> 'key'},activeView:ref('PENDING'),queryParams:reactive({pageNo:1}),getList:async()=>{},getPqcProductionRelease:async id=>receipt(id),approvePqcProductionRelease:async data=>receipt(data.applicationId),resolveErrorMessage:(e,d)=>e?.message||d,PQC_RELEASE_VIEW_CONCESSION_RELEASED:'CONCESSION',PQC_RELEASE_VIEW_RELEASED:'RELEASED',PQC_RELEASE_VIEW_REWORKED:'REWORKED',PQC_RELEASE_VIEW_VOIDED:'VOIDED',...overrides}
- const names=['releaseDialogVisible','releaseSubmitting','releaseError','selectedRow','releaseResult','releaseOutcomeUncertain','releaseIdempotencyKeys','releaseDialogGeneration','captureReleaseContext','openReleaseDialog','resetReleaseDialog','getOrCreateReleaseIdempotencyKey','isDefinitiveReleaseBusinessFailure','assertReleasedReceipt','applyReleaseSuccess','recoverUncertainRelease','submitRelease','releaseForm']
- const h=execute('src/views/mes/pro/production-release/PqcProductionReleasePage.vue',names,context,names.filter(n=>!['releaseDialogGeneration','captureReleaseContext'].includes(n)))
+ const names=['releaseDialogVisible','releaseSubmitting','releaseError','selectedRow','releaseResult','releaseOutcomeUncertain','releaseIdempotencyKeys','releaseDialogGeneration','pqcReleaseRouteGeneration','captureReleaseContext','openReleaseDialog','resetReleaseDialog','getOrCreateReleaseIdempotencyKey','isDefinitiveReleaseBusinessFailure','assertReleasedReceipt','applyReleaseSuccess','recoverUncertainRelease','submitRelease','releaseForm']
+ const h=execute('src/views/mes/pro/production-release/PqcProductionReleasePage.vue',names,context,names.filter(n=>!['releaseDialogGeneration','pqcReleaseRouteGeneration','captureReleaseContext'].includes(n)))
  const open=id=>{h.openReleaseDialog(row(id));Object.assign(h.releaseForm,{signaturePassword:'p',udiControlDocumentNo:'udi',approvalOpinion:id})}
  return {...h,open,messages,context}
 }

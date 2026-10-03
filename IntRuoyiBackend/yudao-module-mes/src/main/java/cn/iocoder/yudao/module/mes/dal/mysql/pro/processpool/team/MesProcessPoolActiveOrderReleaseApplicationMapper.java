@@ -232,6 +232,14 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                 .last("LIMIT 1"));
     }
 
+    default MesProcessPoolActiveOrderReleaseApplicationDO selectByBatchExecutionId(Long batchExecutionId) {
+        if (batchExecutionId == null || batchExecutionId <= 0) {
+            throw new IllegalArgumentException("正式批次编号无效");
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId));
+    }
+
     default MesProcessPoolActiveOrderReleaseApplicationDO selectLatestByActiveOrderId(Long activeOrderId) {
         if (activeOrderId == null) {
             return null;
@@ -331,13 +339,14 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
 
     default PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> selectPqcReleasePage(
             PageParam pageParam, Long tenantId, Long actorUserId, String viewStatus,
-            String workOrderCode, String batchCode) {
+            String workOrderCode, String batchCode, Long applicationId, Long pqcReleaseWorkTaskId) {
         if (pageParam == null || tenantId == null || actorUserId == null || viewStatus == null) {
             throw new IllegalArgumentException("PQC release page query is incomplete");
         }
         IPage<MesProcessPoolActiveOrderReleaseApplicationDO> page =
                 new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
-        selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode);
+        selectPqcReleasePage(page, tenantId, actorUserId, viewStatus, workOrderCode, batchCode,
+                applicationId, pqcReleaseWorkTaskId);
         return new PageResult<>(page.getRecords(), page.getTotal());
     }
 
@@ -393,6 +402,12 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "WHERE a.tenant_id = #{tenantId} AND a.deleted = 0",
             "  AND CONCAT(',', REPLACE(COALESCE(t.candidate_user_snapshot, ''), ' ', ''), ',')",
             "      LIKE CONCAT('%,', #{actorUserId}, ',%')",
+            "<if test='applicationId != null'>",
+            "  AND a.id = #{applicationId}",
+            "</if>",
+            "<if test='pqcReleaseWorkTaskId != null'>",
+            "  AND a.pqc_release_work_task_id = #{pqcReleaseWorkTaskId}",
+            "</if>",
             "<if test='workOrderCode != null and workOrderCode != \"\"'>",
             "  AND a.work_order_code LIKE CONCAT('%', #{workOrderCode}, '%')",
             "</if>",
@@ -429,7 +444,9 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             @Param("actorUserId") Long actorUserId,
             @Param("viewStatus") String viewStatus,
             @Param("workOrderCode") String workOrderCode,
-            @Param("batchCode") String batchCode);
+            @Param("batchCode") String batchCode,
+            @Param("applicationId") Long applicationId,
+            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId);
 
     default int deleteByActiveOrderId(Long activeOrderId) {
         return activeOrderId == null ? 0 : physicalDeleteByActiveOrderId(activeOrderId);

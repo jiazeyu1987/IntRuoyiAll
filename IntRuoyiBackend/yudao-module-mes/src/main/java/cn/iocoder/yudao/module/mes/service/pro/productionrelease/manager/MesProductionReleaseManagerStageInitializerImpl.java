@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProdu
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRequiredCandidateResolver;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCodes;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
+import jakarta.annotation.Resource;
 import com.alibaba.fastjson.JSON;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -45,6 +47,7 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private final MesProEdhrWorkTaskMapper workTaskMapper;
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesProductionReleaseBusinessReadinessService businessReadinessService;
+    @Resource private MesReleaseTaskNotificationService notificationService;
 
     public MesProductionReleaseManagerStageInitializerImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
@@ -142,6 +145,16 @@ public class MesProductionReleaseManagerStageInitializerImpl
         MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, application, transaction, candidates);
         if (workTaskMapper.insert(workTask) != 1 || workTask.getId() == null) {
             throw new IllegalStateException("manager release work task insert failed");
+        }
+        if (isActiveOrderFormalFacts(command)) {
+            workTask.setActionUrl("/mes/pro/feedback/edhr-batch-execution?batchExecutionId=" + batch.getId()
+                    + "&releaseTransactionId=" + transaction.getId() + "&workTaskId=" + workTask.getId()
+                    + "&action=marketRelease");
+            if (workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(workTask.getId())
+                    .setActionUrl(workTask.getActionUrl())) != 1) {
+                throw new IllegalStateException("manager release task navigation binding failed");
+            }
+            notificationService.scheduleAssigned(workTask, application.getPqcDecidedBy());
         }
         return new MesProductionReleaseManagerStageInitializationResult()
                 .setReleaseTransactionId(transaction.getId())

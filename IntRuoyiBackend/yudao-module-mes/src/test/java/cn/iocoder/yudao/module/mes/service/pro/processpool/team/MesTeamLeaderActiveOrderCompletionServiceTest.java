@@ -58,6 +58,10 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         // Unit boundary only; the real collector/transaction proof is in MesCompletionAggregationAuditTransactionTest.
         ReflectionTestUtils.setField(service, "affectedStateCollector", affectedStateCollector);
+        org.mockito.Mockito.lenient().when(affectedStateCollector.captureCompletion(anyLong(), anyLong()))
+                .thenReturn(java.util.Map.of());
+        org.mockito.Mockito.lenient().when(gxpAuditService.append(any()))
+                .thenReturn(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(881L, 1L, "fragment-audit-hash", false));
     }
 
     @Test
@@ -124,7 +128,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         verify(activeOrderTransferTraceService).recordProductIssueInventoryTracesForActiveOrder(order);
         verify(gxpAuditService).acquireLedgerLock();
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
-        verify(gxpAuditService).append(auditCaptor.capture());
+        verify(gxpAuditService, org.mockito.Mockito.times(2)).append(auditCaptor.capture());
         assertEquals("mes.active-order.complete", auditCaptor.getValue().getOperationId());
         assertEquals("ACTIVE_ORDER_COMPLETE:99", auditCaptor.getValue().getIdempotencyKey());
         assertEquals("COMPLETED", auditCaptor.getValue().getAfterState().getState());
@@ -151,6 +155,45 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         verify(gxpAuditService).acquireLedgerLock();
         verify(gxpAuditService).append(any(GxpAuditCommand.class));
         verify(receiptMapper).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
+    }
+
+    @Test
+    void completionKeepsTheEntireFormalReceiptWhenAuditUsesItsHashBoundReference() {
+        var order = order();
+        var prepared = draft();
+        String sourceJson = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                java.util.Map.of("formalSource", "生产来源".repeat(1024), "originalEventId", 282240L));
+        String signatureJson = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                java.util.Map.of("signatureId", 12742L, "canonicalContentJson", sourceJson));
+        prepared.setFormalSourceSnapshotJson(sourceJson).setSignatureSnapshotJson(signatureJson);
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order);
+        when(receiptMapper.selectByActiveOrderIdForUpdate(10L)).thenReturn(null);
+        when(receiptMapper.selectByIdempotencyKeyForUpdate("key-1")).thenReturn(null);
+        when(progressPort.read(anyLong(), any())).thenReturn(progress());
+        when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(prepared);
+        when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
+        when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            return 1;
+        });
+
+        service.complete(20L, command());
+
+        var receiptCaptor = ArgumentCaptor.forClass(MesProcessPoolActiveOrderCompletionReceiptDO.class);
+        verify(receiptMapper).insert(receiptCaptor.capture());
+        var receipt = receiptCaptor.getValue();
+        assertEquals(sourceJson, receipt.getFormalSourceSnapshotJson());
+        assertEquals(signatureJson, receipt.getSignatureSnapshotJson());
+        assertEquals(prepared.getSourceSnapshotHash(), receipt.getSourceSnapshotHash());
+        assertEquals(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt), receipt.getReceiptHash());
+        var auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
+        verify(gxpAuditService, org.mockito.Mockito.times(2)).append(auditCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertTrue(auditCaptor.getValue().getLinks().contains(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE", "COMPLETION_RECEIPT",
+                        "99", "3", receipt.getReceiptHash())));
+        org.junit.jupiter.api.Assertions.assertTrue(auditCaptor.getValue().getEvidences().contains(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence("FORMAL_COMPLETION_RECEIPT",
+                        "99", "3", receipt.getReceiptHash(), "COMPLETION")));
     }
 
     @Test

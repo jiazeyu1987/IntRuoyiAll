@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.security.core.LoginUser;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
@@ -26,6 +28,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,8 +59,36 @@ class MesProEdhrBatchExecutionControllerTest {
     private MesProEdhrRehearsalReadinessService rehearsalReadinessService;
     @Mock
     private MesProEdhrLocalStateSampleService localStateSampleService;
+    @Mock
+    private MesActiveOrderDossierFileService dossierFileService;
     @InjectMocks
     private MesProEdhrBatchExecutionController controller;
+
+    @Test
+    void dossierReaderDelegatesExactScopeWithAuthenticatedActor() {
+        LoginUser actor = new LoginUser().setId(347L).setTenantId(1L);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null, List.of()));
+        try {
+            controller.getActiveOrderDossierFiles(1225L, null);
+            controller.getActiveOrderDossierFiles(null, 1009L);
+            verify(dossierFileService).listForBatchScope(347L, 1225L, null);
+            verify(dossierFileService).listForBatchScope(347L, null, 1009L);
+            org.mockito.Mockito.verifyNoInteractions(batchExecutionService, batchActiveOrderDetailService);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void dossierRouteRequiresBatchPermissionAndPreservesOptionalExactScopes() throws Exception {
+        Method method = MesProEdhrBatchExecutionController.class.getDeclaredMethod("getActiveOrderDossierFiles", Long.class, Long.class);
+        assertArrayEquals(new String[]{"/active-order-dossier-files"}, method.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-edhr-batch-execution:query')", method.getAnnotation(PreAuthorize.class).value());
+        assertEquals("batchExecutionId", method.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("activeOrderId", method.getParameters()[1].getAnnotation(RequestParam.class).value());
+        assertFalse(method.getParameters()[0].getAnnotation(RequestParam.class).required());
+        assertFalse(method.getParameters()[1].getAnnotation(RequestParam.class).required());
+    }
 
     @Test
     void listGetOpenTaskAndClose_delegateToService() {

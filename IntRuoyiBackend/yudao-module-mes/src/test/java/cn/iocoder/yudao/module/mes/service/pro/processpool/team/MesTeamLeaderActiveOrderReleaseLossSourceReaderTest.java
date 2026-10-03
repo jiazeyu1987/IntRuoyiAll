@@ -58,11 +58,15 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
     @Mock private ErpKingdeeProductionReplenishmentListItemMapper replenishmentItemMapper;
     private MesTeamLeaderActiveOrderReleaseLossSourceReader reader;
 
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService signatureEvidenceService;
+
     @BeforeEach
     void setUp() {
         reader = new MesTeamLeaderActiveOrderReleaseLossSourceReaderImpl(
                 eventMapper, feedbackMapper, allocationMapper, reviewMapper,
                 workOrderMapper, materialService, replenishmentItemMapper, replenishmentMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(reader, "productionSignatureEvidenceService", signatureEvidenceService);
+        org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
         when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID))
                 .thenReturn(MesProWorkOrderDO.builder().id(WORK_ORDER_ID).code("MO-9001").build());
         var event = event("{}");
@@ -82,6 +86,7 @@ class MesTeamLeaderActiveOrderReleaseLossSourceReaderTest {
         var writer = new MesTeamLeaderActiveOrderReleaseLossReportWriterImpl(
                 reader, null, null, null, null, null, null, null, null, null, null);
 
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "productionSignatureEvidenceService", signatureEvidenceService);
         var plan = writer.plan(command().setConfirmNoReplenishmentInfo(true));
 
         assertTrue(plan.getBlockers().isEmpty(), () -> plan.getBlockers().toString());

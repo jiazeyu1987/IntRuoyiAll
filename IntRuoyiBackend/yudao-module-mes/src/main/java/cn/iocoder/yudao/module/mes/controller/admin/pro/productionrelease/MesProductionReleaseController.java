@@ -104,7 +104,9 @@ public class MesProductionReleaseController {
                         .setPageSize(reqVO.getPageSize())
                         .setViewStatus(reqVO.getViewStatus())
                         .setWorkOrderCode(reqVO.getWorkOrderCode())
-                        .setBatchCode(reqVO.getBatchCode()));
+                        .setBatchCode(reqVO.getBatchCode())
+                        .setApplicationId(reqVO.getApplicationId())
+                        .setPqcReleaseWorkTaskId(reqVO.getPqcReleaseWorkTaskId()));
         return success(new PageResult<>(page.getList().stream().map(this::toPageItemResp).toList(), page.getTotal()));
     }
 

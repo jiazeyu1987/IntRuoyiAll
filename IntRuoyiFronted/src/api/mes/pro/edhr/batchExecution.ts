@@ -2,7 +2,10 @@ import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
 import type { FormRecognizedFieldVO } from '@/api/form-center/template'
-import type { TeamLeaderActiveOrderDetailRespVO } from '@/api/mes/pro/processpool/teamLeader'
+import type {
+  ActiveOrderDossierFilesRespVO,
+  TeamLeaderActiveOrderDetailRespVO
+} from '@/api/mes/pro/processpool/teamLeader'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
@@ -854,6 +857,19 @@ export const getEdhrBatchActiveOrderDetail = async (params: {
 }) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/active-order-detail`,
+    params
+  })
+}
+
+export type EdhrBatchActiveOrderDossierQuery =
+  | { batchExecutionId: EdhrRouteId; activeOrderId?: undefined }
+  | { activeOrderId: EdhrRouteId; batchExecutionId?: undefined }
+
+export const getEdhrBatchActiveOrderDossierFiles = async (
+  params: EdhrBatchActiveOrderDossierQuery
+) => {
+  return await request.get<ActiveOrderDossierFilesRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/active-order-dossier-files`,
     params
   })
 }

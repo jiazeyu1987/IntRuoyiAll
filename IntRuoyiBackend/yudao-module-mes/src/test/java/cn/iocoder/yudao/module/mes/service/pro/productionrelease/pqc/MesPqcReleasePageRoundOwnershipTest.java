@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.BeanWrapperImpl;
 
 import jakarta.annotation.Resource;
 import javax.sql.DataSource;
@@ -16,6 +17,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
 
@@ -162,6 +165,73 @@ class MesPqcReleasePageRoundOwnershipTest extends BaseDbUnitTest {
                 LocalDateTime.of(2026, 9, 4, 10, 0), LocalDateTime.of(2026, 9, 5, 10, 0));
         assertEquals(2, jdbcTemplate.update(
                 "UPDATE mes_pro_edhr_nonconformance_review SET deleted = TRUE WHERE id IN (201, 202)"));
+    }
+
+    @Test
+    void exactApplicationAndTaskAreFilteredBeforePagination() {
+        seedApplicationAndTask(4L);
+        seedApplicationAndTask(5L);
+        var result = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("RELEASED", 4L, 104L));
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of(4L), ids(result));
+        assertEquals(104L, result.getList().get(0).getPqcReleaseWorkTaskId());
+    }
+
+    @Test
+    void exactPendingApplicationKeepsItsFormalTaskIdentity() {
+        seedApplicationAndTask(3L);
+        var result = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("PENDING", 3L, 103L));
+        assertEquals(1L, result.getTotal());
+        assertEquals(List.of(3L), ids(result));
+    }
+
+    @Test
+    void mismatchedTaskCannotReturnTheApplicationOrAnotherRow() {
+        seedApplicationAndTask(4L);
+        seedApplicationAndTask(5L);
+        var result = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("RELEASED", 4L, 105L));
+        assertEquals(0L, result.getTotal());
+        assertEquals(List.of(), ids(result));
+    }
+
+    @Test
+    void exactIdentityDoesNotExpandFrozenCandidateVisibility() {
+        seedApplicationAndTask(4L);
+        var result = service.getPqcReleasePage(901L, exactQuery("RELEASED", 4L, 104L));
+        assertEquals(0L, result.getTotal());
+        assertEquals(List.of(), ids(result));
+    }
+
+    @Test
+    void exactIdentityDoesNotCrossTenantBoundary() {
+        seedApplicationAndTask(4L);
+        var previousTenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
+        try {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(2L);
+            var result = service.getPqcReleasePage(ACTOR_USER_ID, exactQuery("RELEASED", 4L, 104L));
+            assertEquals(0L, result.getTotal());
+            assertEquals(List.of(), ids(result));
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(previousTenant);
+        }
+    }
+
+    @Test
+    void partialOrNonPositiveExactIdentityIsRejectedRatherThanBecomingAnUnfilteredPage() {
+        for (Long[] pair : new Long[][] {{4L, null}, {null, 104L}, {0L, 104L}, {4L, 0L}, {-1L, 104L}}) {
+            var query = exactQuery("RELEASED", pair[0], pair[1]);
+            assertThrows(RuntimeException.class, () -> service.getPqcReleasePage(ACTOR_USER_ID, query));
+        }
+    }
+
+    private MesPqcProductionReleasePageQuery exactQuery(String view, Long applicationId, Long taskId) {
+        var query = new MesPqcProductionReleasePageQuery().setPageNo(1).setPageSize(1).setViewStatus(view);
+        var wrapper = new BeanWrapperImpl(query);
+        assertTrue(wrapper.isWritableProperty("applicationId"), "PQC page needs a formal application identity filter");
+        assertTrue(wrapper.isWritableProperty("pqcReleaseWorkTaskId"), "PQC page needs a formal task identity filter");
+        wrapper.setPropertyValue("applicationId", applicationId);
+        wrapper.setPropertyValue("pqcReleaseWorkTaskId", taskId);
+        return query;
     }
 
     private void assertPage(String viewStatus, long total, long expectedApplicationId) {

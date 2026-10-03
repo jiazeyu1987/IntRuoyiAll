@@ -9150,7 +9150,11 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
       return
     }
     if (isPqcSubmissionRow(event)) {
-      openPqcCorrection(event, eventId)
+      const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+      if (Number(current.id) !== eventId || current.released || !canCorrectSubmission(current)) {
+        throw new Error('当前PQC记录已变化或已放行，请刷新后核对')
+      }
+      openPqcCorrection(current, eventId)
       return
     }
     await openProductionCorrection(event, eventId)

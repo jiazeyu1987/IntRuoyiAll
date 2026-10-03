@@ -1,0 +1,63 @@
+# Proposal only. Root must merge/register/approve and activate against the actual runtime bundle.
+proposalType: GXP_AUDIT_OPERATION_FRAGMENT
+schemaVersion: gxp-audit-policy.v2
+status: DRAFT
+approvalReference: null
+runtimeLoad: false
+operations:
+  - operationId: mes.release-task-notification.created
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService#scheduleAssigned]
+    domain: MES
+    subjectType: MES_RELEASE_NOTIFY_DELIVERY
+    actionType: ADD
+    reasonPolicy: SYSTEM
+    signaturePolicy: NONE
+    statePolicy: ABSENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [MesReleaseTaskNotificationReliabilityTest#allFrozenRecipientsPersistBeforeCommitAndMessagesStartAfterCommit, MesReleaseTaskNotificationReliabilityTest#businessRollbackRemovesEveryDeliveryAndAuditAndSendsNothing]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.release-task-notification.attempted
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationTransactionService#beginAttempt]
+    domain: MES
+    subjectType: MES_RELEASE_NOTIFY_DELIVERY
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [MesReleaseTaskNotificationReliabilityTest#attemptReallyCommitsInIndependentTransactionBeforeCallerRollback, MesReleaseTaskNotificationReliabilityTest#auditFailureRollsBackAttemptAndSuccessfulAuditRowsTogether]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.release-task-notification.sent
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationTransactionService#markSent]
+    domain: MES
+    subjectType: MES_RELEASE_NOTIFY_DELIVERY
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [MesReleaseTaskNotificationReliabilityTest#platformCommitSurvivesAckRollbackAndRetryReturnsExactlySameMessage, MesReleaseTaskNotificationReliabilityTest#oldFailureCannotOverwriteSentAndSentCannotBeRetried]
+    ownerRole: mes-owner
+    applicability: GXP
+  - operationId: mes.release-task-notification.failed
+    sourceType: SERVICE_METHOD
+    sourceLocators: [cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationTransactionService#markFailed]
+    domain: MES
+    subjectType: MES_RELEASE_NOTIFY_DELIVERY
+    actionType: UPDATE
+    reasonPolicy: SYSTEM_WITH_OPTIONAL_TEXT
+    signaturePolicy: NONE
+    statePolicy: PRESENT_TO_PRESENT
+    snapshotProfile: APPLICATION
+    retentionClass: GXP_MES_WORK_TASK
+    testIds: [MesReleaseTaskNotificationReliabilityTest#missingTemplateDoesNotRollBackBusinessAndPersistsVisibleFailureAfterCommit, MesReleaseTaskNotificationReliabilityTest#committedPlatformMessageStillRequiresEnabledTemplateOnReplayThenRecoversSameId]
+    ownerRole: mes-owner
+    applicability: GXP

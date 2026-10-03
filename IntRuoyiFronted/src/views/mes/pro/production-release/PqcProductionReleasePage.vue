@@ -101,9 +101,13 @@
             <span v-else class="pqc-release-page__secondary">--</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <div class="pqc-release-page__actions">
+              <ReleaseTaskNotificationEntry
+                v-hasPermi="['mes:pro-edhr-work-task:query']"
+                :work-task-id="row.pqcReleaseWorkTaskId"
+              />
               <el-button
                 link
                 type="primary"
@@ -240,6 +244,7 @@
 </template>
 
 <script setup lang="ts">
+import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
 import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
@@ -258,12 +263,14 @@ import {
   type MesPqcProductionReleaseViewStatus
 } from '@/api/mes/pro/productionRelease'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { useUserStore } from '@/store/modules/user'
 
 defineOptions({ name: 'MesPqcProductionRelease' })
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
+const userStore = useUserStore()
 const loading = ref(false)
 const loadError = ref('')
 const list = ref<MesPqcProductionReleasePageItemRespVO[]>([])
@@ -287,6 +294,8 @@ let listRequestSequence = 0
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
+  applicationId: undefined as string | undefined,
+  pqcReleaseWorkTaskId: undefined as string | undefined,
   workOrderCode: typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : '',
   batchCode: ''
 })
@@ -316,10 +325,19 @@ const getList = async (isCurrent: () => boolean = () => true) => {
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
       viewStatus: activeView.value,
+      applicationId: queryParams.applicationId,
+      pqcReleaseWorkTaskId: queryParams.pqcReleaseWorkTaskId,
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
     })
     if (requestId !== listRequestSequence || !isCurrent()) return
+    if (queryParams.applicationId && (
+      data.list?.length !== 1 || data.total !== 1 ||
+      String(data.list[0].applicationId) !== queryParams.applicationId ||
+      String(data.list[0].pqcReleaseWorkTaskId) !== queryParams.pqcReleaseWorkTaskId
+    )) {
+      throw new Error('未查询到唯一匹配当前申请和工作任务的生产放行记录。')
+    }
     list.value = data.list || []
     total.value = data.total || 0
   } catch (error) {
@@ -332,13 +350,59 @@ const getList = async (isCurrent: () => boolean = () => true) => {
   }
 }
 
-watch(
-  () => route.query.workOrderCode,
-  (value) => {
-    queryParams.workOrderCode = typeof value === 'string' ? value : ''
-    queryParams.pageNo = 1
-    getList()
+type PqcReleaseRouteContext = { applicationId: string; pqcReleaseWorkTaskId: string }
+let pqcReleaseRouteGeneration = 0
+
+const readPqcReleaseRouteContext = (): PqcReleaseRouteContext | undefined => {
+  const applicationId = route.query.applicationId
+  const workTaskId = route.query.workTaskId
+  if (applicationId === undefined && workTaskId === undefined) return undefined
+  if (typeof applicationId !== 'string' || !/^[1-9]\d*$/.test(applicationId) ||
+    typeof workTaskId !== 'string' || !/^[1-9]\d*$/.test(workTaskId)) {
+    throw new Error('生产放行入口必须提供唯一且精确的申请和工作任务编号。')
   }
+  return { applicationId, pqcReleaseWorkTaskId: workTaskId }
+}
+
+const openPqcReleaseFromRoute = async () => {
+  const generation = ++pqcReleaseRouteGeneration
+  releaseDialogVisible.value = false
+  resetReleaseDialog()
+  const dialogGeneration = releaseDialogGeneration
+  const isCurrent = () => generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration
+  queryParams.applicationId = undefined
+  queryParams.pqcReleaseWorkTaskId = undefined
+  queryParams.workOrderCode = typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : ''
+  queryParams.pageNo = 1
+  try {
+    const context = readPqcReleaseRouteContext()
+    if (context) {
+      activeView.value = PQC_RELEASE_VIEW_PENDING
+      queryParams.applicationId = context.applicationId
+      queryParams.pqcReleaseWorkTaskId = context.pqcReleaseWorkTaskId
+    }
+    await getList(isCurrent)
+    if (!isCurrent() || loadError.value || !context) return
+    const row = list.value[0]
+    if (!row || row.viewStatus !== PQC_RELEASE_VIEW_PENDING ||
+      row.applicationStatus !== 'PQC_RELEASE_PENDING' || row.underReview || row.approvalReady === false) {
+      throw new Error(row?.approvalBlockerReason || '当前生产放行申请不符合待放行任务状态。')
+    }
+    if (!userStore.permissions.has('mes:pro-production-release:pqc-approve') && !userStore.permissions.has('*:*:*')) {
+      throw new Error('当前账号没有生产放行权限。')
+    }
+    openReleaseDialog(row)
+  } catch (error) {
+    if (!isCurrent()) return
+    list.value = []
+    total.value = 0
+    loadError.value = resolveErrorMessage(error, '生产放行待办加载失败。')
+  }
+}
+
+watch(
+  () => [route.query.workOrderCode, route.query.applicationId, route.query.workTaskId],
+  () => { void openPqcReleaseFromRoute() }
 )
 
 const handleTabChange = () => {
@@ -397,7 +461,7 @@ const captureReleaseContext = () => {
 watch(releaseDialogVisible, (visible) => {
   if (!visible) resetReleaseDialog()
 }, { flush: 'sync' })
-onBeforeUnmount(() => { releaseDialogGeneration++ })
+onBeforeUnmount(() => { releaseDialogGeneration++; pqcReleaseRouteGeneration++ })
 
 const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   resetReleaseDialog()
@@ -612,7 +676,7 @@ const retryOrderDetail = () => {
   if (detailRow.value) void openActiveOrderDetail(detailRow.value)
 }
 
-onMounted(() => getList())
+onMounted(() => openPqcReleaseFromRoute())
 </script>
 
 <style scoped>

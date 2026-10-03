@@ -68,11 +68,15 @@ class MesTeamLeaderActiveOrderReleaseBatchRecordWriterTest {
 
     private MesTeamLeaderActiveOrderReleaseBatchRecordWriter writer;
 
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService signatureEvidenceService;
+
     @BeforeEach
     void setUp() {
         writer = new MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
                 bindingMapper, reportMapper, ruleMapper, batchTaskMapper, backfillService,
                 productionPickListSourceService, routeVersionSnapshotResolver);
+        org.springframework.test.util.ReflectionTestUtils.setField(writer, "productionSignatureEvidenceService", signatureEvidenceService);
+        org.mockito.Mockito.lenient().when(signatureEvidenceService.isValidForEvent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
     }
 
     @Test

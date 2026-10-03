@@ -24,9 +24,27 @@ final class GxpAuditTransactionContext {
         TransactionSynchronizationManager.bindResource(RESOURCE_KEY, transactionId);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
-            public void afterCompletion(int status) {
+            public void suspend() {
+                if (!transactionId.equals(TransactionSynchronizationManager.getResource(RESOURCE_KEY))) {
+                    throw new IllegalStateException("GxP transaction context does not belong to the suspended transaction");
+                }
+                TransactionSynchronizationManager.unbindResource(RESOURCE_KEY);
+            }
+
+            @Override
+            public void resume() {
+                // Spring suspends JDBC resources and synchronizations for REQUIRES_NEW separately.
+                // This resource must follow its owning physical transaction as well.
                 if (TransactionSynchronizationManager.hasResource(RESOURCE_KEY)) {
-                    TransactionSynchronizationManager.unbindResourceIfPossible(RESOURCE_KEY);
+                    throw new IllegalStateException("GxP transaction context is occupied while resuming its owner");
+                }
+                TransactionSynchronizationManager.bindResource(RESOURCE_KEY, transactionId);
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (transactionId.equals(TransactionSynchronizationManager.getResource(RESOURCE_KEY))) {
+                    TransactionSynchronizationManager.unbindResource(RESOURCE_KEY);
                 }
             }
         });

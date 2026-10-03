@@ -31,6 +31,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditValueType;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService;
+import jakarta.annotation.Resource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
@@ -73,6 +75,9 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
     private static final String LEADER_TYPE_PRODUCTION = "PRODUCTION";
+
+    @Resource
+    private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
     private static final List<String> DYNAMIC_SUMMARY_FIELDS = List.of(
             "productLabel", "productSpec", "productionSummary", "lossDetailsSummary", "approvalSummary");
     private static final DateTimeFormatter DATETIME_FORMATTER =
@@ -556,7 +561,7 @@ public class MesTeamLeaderActiveOrderReleaseLossReportWriterImpl
                                     MesProcessPoolSubmissionReviewDO review) {
         return event.getActualEmployeeId() != null && event.getSignatureId() != null
                 && event.getSignatureUserId() != null && event.getServerSubmitTime() != null
-                && StrUtil.isNotBlank(event.getSignatureSnapshot())
+                && productionSignatureEvidenceService.isValidForEvent(event)
                 && Objects.equals(event.getActualEmployeeId(), event.getSignatureUserId())
                 && Objects.equals(feedback.getFeedbackUserId(), event.getSignatureUserId())
                 && LEADER_TYPE_PRODUCTION.equals(review.getLeaderType())

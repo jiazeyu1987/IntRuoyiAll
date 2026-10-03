@@ -284,6 +284,25 @@ public class MesProBatchRecordExecutionSignatureService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public Long recordTeamLeaderReviewSignature(Long actorId, String password, String comment,
+                                                MesTeamLeaderReviewSignatureContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Formal review signature context is required");
+        }
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null || !authorizationService.isElectronicSignatureEnabled(actorId)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        return recordSignatureForSystemUser(actorId, user, 0L, password, comment, ACTION_TEAM_LEADER_REVIEW,
+                null, null, null, null, null, null, null,
+                MesTeamLeaderReviewSignatureContext.SOURCE_TYPE, context.eventId(), context.sourceName(),
+                context.reviewStatus(), null, context.revisionId(), null, context.payloadHash(), null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public Long recordProductionSubmitSignature(Long actorId, String password, String comment,
                                                 MesProductionSubmitSignatureContext context) {
         if (context == null) {
@@ -800,7 +819,10 @@ public class MesProBatchRecordExecutionSignatureService {
                 MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
                 password,
                 StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.blankToDefault(StrUtil.trim(comment), actionType)),
-                ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                (ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                        || (ACTION_TEAM_LEADER_REVIEW.equals(actionType)
+                            && MesTeamLeaderReviewSignatureContext.SOURCE_TYPE.equals(reviewSourceType)
+                            && approvalResult != null && cellValuesHash != null))
                         ? "MES|" + actorId + "|" + actionType + "|" + DigestUtil.sha256Hex(subjectId)
                         : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),

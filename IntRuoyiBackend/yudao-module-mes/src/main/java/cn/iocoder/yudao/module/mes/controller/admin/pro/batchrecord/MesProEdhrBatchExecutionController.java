@@ -109,6 +109,16 @@ public class MesProEdhrBatchExecutionController {
     private MesProductionReleaseReportService productionReleaseReportService;
     @Resource
     private GxpAuditQueryService gxpAuditQueryService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService dossierFileService;
+
+    @GetMapping("/active-order-dossier-files")
+    @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService.Result> getActiveOrderDossierFiles(
+            @RequestParam(value = "batchExecutionId", required = false) Long batchExecutionId,
+            @RequestParam(value = "activeOrderId", required = false) Long activeOrderId) {
+        return success(dossierFileService.listForBatchScope(SecurityFrameworkUtils.getLoginUserId(), batchExecutionId, activeOrderId));
+    }
 
     @GetMapping("/page")
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:query')")

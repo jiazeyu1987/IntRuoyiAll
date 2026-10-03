@@ -229,12 +229,14 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private void appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
                                           MesProcessPoolActiveOrderCompletionReceiptDO receipt,
                                           String affectedRowsBefore) {
+        var affectedManifest = MesCompletionAffectedRowAudit.append(gxpAuditService, receipt, affectedRowsBefore,
+                JsonUtils.toJsonString(affectedStateCollector.captureCompletion(activeOrder.getId(), activeOrder.getWorkOrderId())));
         Map<String, Object> before = new java.util.LinkedHashMap<>();
         before.put("activeOrderId", activeOrder.getId());
         before.put("activeStatus", activeOrder.getActiveStatus());
         before.put("businessStatus", activeOrder.getBusinessStatus());
         before.put("version", receipt.getExpectedVersion());
-        before.put("affectedRows", JsonUtils.parseObject(affectedRowsBefore, Map.class));
+        before.put("affectedRowAuditManifest", affectedManifest);
         Map<String, Object> after = new java.util.LinkedHashMap<>();
         after.put("activeOrderId", receipt.getActiveOrderId());
         after.put("completedVersion", receipt.getCompletedVersion());
@@ -249,16 +251,18 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         after.put("lossQuantity", receipt.getLossQuantity());
         after.put("zeroLossConfirmationSnapshot", receipt.getZeroLossConfirmationSnapshot());
         after.put("sourceSnapshotHash", receipt.getSourceSnapshotHash());
-        after.put("formalSourceSnapshotJson", receipt.getFormalSourceSnapshotJson());
-        after.put("signatureSnapshotJson", receipt.getSignatureSnapshotJson());
-        after.put("affectedRows", affectedStateCollector.captureCompletion(
-                activeOrder.getId(), activeOrder.getWorkOrderId()));
+        after.put("completionReceiptHash", receipt.getReceiptHash());
+        after.put("affectedRowAuditManifest", affectedManifest);
         List<GxpAuditRelation> links = new java.util.ArrayList<>();
         links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
                 String.valueOf(activeOrder.getId()), String.valueOf(receipt.getCompletedVersion()), null));
         links.add(new GxpAuditRelation("SOURCE", "COMPLETION_RECEIPT",
                 String.valueOf(receipt.getId()), String.valueOf(receipt.getCompletedVersion()),
                 receipt.getReceiptHash()));
+        for (var part : (List<Map<String, Object>>) affectedManifest.get("parts")) {
+            links.add(new GxpAuditRelation("SOURCE", "GXP_AUDIT_EVENT", String.valueOf(part.get("eventId")),
+                    null, String.valueOf(part.get("eventHash"))));
+        }
         if (receipt.getBatchRecordId() != null) {
             links.add(new GxpAuditRelation("SOURCE", "BATCH_RECORD",
                     String.valueOf(receipt.getBatchRecordId()), null, null));

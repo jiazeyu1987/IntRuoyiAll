@@ -464,8 +464,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(event.getWorkOrderId(), task.getWorkOrderId())
                 || !Objects.equals(event.getRouteId(), task.getRouteId())
-                || !Objects.equals(event.getRouteProcessId(), task.getRouteProcessId())
-                || !Objects.equals(event.getProcessId(), task.getProcessId())
+                || task.getQaProcessId() == null || task.getQaProcessId() <= 0
+                || !Objects.equals(event.getQaProcessId(), task.getQaProcessId())
+                || !Objects.equals(event.getId(), task.getSubmittedEventId())
+                || task.getRouteProcessId() == null || task.getRouteProcessId() <= 0
+                || task.getProcessId() == null || task.getProcessId() <= 0
                 || !(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
                 || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionTask");

@@ -106,8 +106,16 @@ public class MesActiveOrderReworkCycleTransactionTest {
         completion = new MesTeamLeaderActiveOrderCompletionServiceImpl(orders, receipts, progress, backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
-        org.springframework.test.util.ReflectionTestUtils.setField(completion, "gxpAuditService",
-                mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        // This fixture tests rework/completion transactions. The dedicated audit transaction
+        // test uses the real GxP writer; here its boundary must return distinct event bindings.
+        var audit = mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
+        var auditSequence = new java.util.concurrent.atomic.AtomicLong(8800L);
+        when(audit.append(any())).thenAnswer(invocation -> {
+            long sequence = auditSequence.incrementAndGet();
+            return new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                    sequence, sequence, "fixture-audit-hash-" + sequence, false);
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(completion, "gxpAuditService", audit);
         org.springframework.test.util.ReflectionTestUtils.setField(completion, "affectedStateCollector",
                 new MesReleaseAffectedStateCollector(source));
         // The real collector and completion mappers must join this fixture's physical transaction,

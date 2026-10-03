@@ -1,5 +1,9 @@
 # 项目经验索引
 
+- Keywords: CDP自然响应, Playwright正文读取失败, inspector cache evicted, requestId唯一对应, 大响应原始字节hash, 重复响应歧义, 禁止重发API补证 -> `docs/e2e-rules.md#长流程响应证据与覆盖层诊断经验`
+- Keywords: 资料只读授权, preview权限, readOnly不禁止写入, blocked详情旁路, 纯可见性守卫, 正式批次来源, 不触发任务恢复 -> `docs/backend-development.md#只读追溯结果完整性门禁`
+- Keywords: Winmgmt, WMI超时, Get-CimInstance超时, Get-NetTCPConnection超时, Windows服务权限拒绝, 标准启动归属查询 -> `docs/local-runtime.md#windows-管理查询阻断标准启动`
+
 - Keywords: DCC 90步静态检查, 新项目授权入口, 产品建档续办, 模板分类与上传不一致, 检入丢关联, 审批预览旧原件, 影响评估小版本跟踪 -> `docs/bugs/20260912-dcc-90-step-static-audit.md`；检查顺序 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`
 - Keywords: DCC 路线配置未执行, 重复审批环节丢人, 路线未来生效, CAD配套PDF, 仅元数据检入, 重放文本碰撞, 培训并发计时, 发布连续重试, Master逻辑身份漂移, 大版本正式基线 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`；追加静态证据 -> `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`
 

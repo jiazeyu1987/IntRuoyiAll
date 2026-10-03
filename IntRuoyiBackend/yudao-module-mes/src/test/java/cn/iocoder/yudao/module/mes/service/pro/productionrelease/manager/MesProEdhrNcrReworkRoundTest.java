@@ -22,15 +22,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,6 +64,9 @@ class MesProEdhrNcrReworkRoundTest {
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
                 applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
                 candidateResolver, businessReadinessService);
+        ReflectionTestUtils.setField(initializer, "notificationService",
+                org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
+        org.mockito.Mockito.lenient().when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
     }
 
     @AfterEach
@@ -90,6 +98,7 @@ class MesProEdhrNcrReworkRoundTest {
         AtomicLong ids = new AtomicLong(1100L);
         List<MesProEdhrReleaseTransactionDO> transactions = new ArrayList<>();
         List<MesProEdhrWorkTaskDO> tasks = new ArrayList<>();
+        List<MesProEdhrWorkTaskDO> urlBindings = new ArrayList<>();
         when(releaseTransactionMapper.insert(any(MesProEdhrReleaseTransactionDO.class))).thenAnswer(invocation -> {
             MesProEdhrReleaseTransactionDO transaction = invocation.getArgument(0);
             transaction.setId(ids.incrementAndGet());
@@ -100,6 +109,21 @@ class MesProEdhrNcrReworkRoundTest {
             MesProEdhrWorkTaskDO task = invocation.getArgument(0);
             task.setId(ids.incrementAndGet());
             tasks.add(task);
+            return 1;
+        });
+        when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenAnswer(invocation -> {
+            MesProEdhrWorkTaskDO binding = invocation.getArgument(0);
+            // At each round only the row just inserted may receive its generated-ID URL binding.
+            // A call targeting an earlier (now historical) row or carrying business fields fails here.
+            assertEquals(tasks.get(tasks.size() - 1).getId(), binding.getId());
+            Map<?, ?> values = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(binding), Map.class);
+            assertEquals(Set.of("id", "actionUrl"), values.entrySet().stream()
+                    .filter(entry -> entry.getValue() != null).map(entry -> entry.getKey().toString())
+                    .collect(java.util.stream.Collectors.toSet()));
+            assertNull(binding.getStatus()); assertNull(binding.getReason());
+            assertNull(binding.getCandidateUserSnapshot()); assertNull(binding.getBusinessScopeId());
+            urlBindings.add(binding);
             return 1;
         });
         when(releaseTransactionMapper.selectCurrentByBatchExecutionId(901L)).thenAnswer(invocation -> transactions.stream()
@@ -157,8 +181,15 @@ class MesProEdhrNcrReworkRoundTest {
         assertEquals(901L, latestTask.getBatchExecutionId());
         verify(releaseTransactionMapper, org.mockito.Mockito.never())
                 .updateById(any(MesProEdhrReleaseTransactionDO.class));
-        verify(workTaskMapper, org.mockito.Mockito.never())
+        verify(workTaskMapper, org.mockito.Mockito.times(3))
                 .updateById(any(MesProEdhrWorkTaskDO.class));
+        assertEquals(3, urlBindings.size());
+        for (int index = 0; index < urlBindings.size(); index++) {
+            assertEquals(tasks.get(index).getId(), urlBindings.get(index).getId());
+            assertEquals("/mes/pro/feedback/edhr-batch-execution?batchExecutionId=901&releaseTransactionId="
+                    + transactions.get(index).getId() + "&workTaskId=" + tasks.get(index).getId()
+                    + "&action=marketRelease", urlBindings.get(index).getActionUrl());
+        }
         verify(releaseTransactionMapper, org.mockito.Mockito.times(3))
                 .insert(any(MesProEdhrReleaseTransactionDO.class));
         verify(workTaskMapper, org.mockito.Mockito.times(3)).insert(any(MesProEdhrWorkTaskDO.class));

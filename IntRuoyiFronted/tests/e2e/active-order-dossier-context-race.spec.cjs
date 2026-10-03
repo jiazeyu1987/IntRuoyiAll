@@ -4,21 +4,14 @@ const path = require('node:path')
 const vm = require('node:vm')
 const ts = require('typescript')
 const { test } = require('node:test')
+const { parse } = require('vue/compiler-sfc')
 
 const panelPath = path.resolve(
   __dirname,
   '../../src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 )
 const source = fs.readFileSync(panelPath, 'utf8')
-const start = source.indexOf('const createDossierRequestContext = () =>')
-const resetTabsStart = source.indexOf('const resetTabs =', start)
-const loadEnd = source.indexOf('const uploadDossierFile =', start)
-const unmountStart = source.indexOf('onBeforeUnmount(() => {', resetTabsStart)
-const unmountEnd = source.indexOf('\n})', unmountStart) + 3
-assert(
-  start >= 0 && loadEnd > start && resetTabsStart > start && unmountEnd > unmountStart,
-  '必须找到资料竞态生产函数边界'
-)
+const ast = ts.createSourceFile('actual-dossier-panel.ts', parse(source).descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
 
 const compile = (value) => ts.transpileModule(value, {
   compilerOptions: { target: ts.ScriptTarget.ES2020 }
@@ -69,7 +62,12 @@ const createHarness = ({ mutations = false } = {}) => {
     ElMessageBox: { confirm: () => Promise.resolve() }
   }
   vm.createContext(context)
-  const end = mutations ? resetTabsStart : loadEnd
+  const names = ['createDossierRequestContext', 'dossierRequestContext', 'recordScope', 'auditScopeTypeValue', 'auditScopeIdValue', 'resolveDossierReadContext', 'loadDossierFiles',
+    ...(mutations ? ['activeOrderDossierMutationLockReason', 'activeOrderDossierMutationLocked', 'uploadDossierFile', 'deleteDossierFile'] : [])]
+  const statements = ast.statements.filter(statement => ts.isVariableStatement(statement) && statement.declarationList.declarations.some(declaration => names.includes(declaration.name.getText(ast))))
+  assert.equal(statements.length, names.length, '必须提取实际资料上下文和读写函数，不能复制实现替代测试')
+  const unmount = ast.statements.find(statement => ts.isExpressionStatement(statement) && statement.getText(ast).startsWith('onBeforeUnmount(') && statement.getText(ast).includes('dossierRequestContext.invalidate()'))
+  assert.ok(unmount, '必须提取实际资料卸载回调')
   const exposed = [
     'globalThis.loadDossierFiles = loadDossierFiles;',
     ...(mutations ? [
@@ -78,8 +76,8 @@ const createHarness = ({ mutations = false } = {}) => {
     ] : []),
     'globalThis.invalidateDossierContext = () => dossierRequestContext.invalidate();'
   ].join('\n')
-  vm.runInContext(compile(`${source.slice(start, end)}\n${exposed}`), context)
-  vm.runInContext(compile(source.slice(unmountStart, unmountEnd)), context)
+  vm.runInContext(compile(`${statements.map(statement => statement.getText(ast)).join('\n')}\n${exposed}`), context)
+  vm.runInContext(compile(unmount.getText(ast)), context)
   return {
     ...context,
     pendingLoads,

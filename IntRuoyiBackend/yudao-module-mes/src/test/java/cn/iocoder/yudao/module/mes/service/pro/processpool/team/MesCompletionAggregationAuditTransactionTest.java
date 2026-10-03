@@ -77,6 +77,9 @@ class MesCompletionAggregationAuditTransactionTest {
     private Object previousBeanFactory;
     private Object previousMybatisContext;
     private GenericApplicationContext fixtureContext;
+    private MesReleaseAffectedStateCollector completionCollector;
+    private DataSourceTransactionManager completionTransactionManager;
+    private MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
 
     @BeforeEach
     void fixture() throws Exception {
@@ -85,6 +88,9 @@ class MesCompletionAggregationAuditTransactionTest {
         var source = new DriverManagerDataSource("jdbc:h2:mem:completion_aggregation_" + UUID.randomUUID()
                 + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", "sa", "");
         jdbc = new JdbcTemplate(source);
+        String jsonFunctions = "cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelinePqcGroupSqlTest";
+        jdbc.execute("CREATE ALIAS JSON_EXTRACT FOR '" + jsonFunctions + ".jsonExtract'");
+        jdbc.execute("CREATE ALIAS JSON_UNQUOTE FOR '" + jsonFunctions + ".jsonUnquote'");
         for (Class<?> row : List.of(MesProcessPoolActiveOrderDO.class,
                 MesProcessPoolOrderProcessCompletionDO.class, MesProcessPoolActiveOrderCompletionReceiptDO.class,
                 MesProcessPoolActiveOrderCompletionBackfillDO.class, MesProProcessPoolEventDO.class,
@@ -115,6 +121,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 GxpAuditEventMapper.class, GxpAuditEventRelationMapper.class, GxpAuditLedgerSequenceMapper.class,
                 GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class)) config.addMapper(mapper);
         var sessions = new SqlSessionTemplate(sqlFactory);
+        completionReceiptMapper = sessions.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class);
         var tx = new DataSourceTransactionManager(source);
         // BaseMapperX uses Hutool for DB type and MyBatis Plus's separate context for Db.saveBatch's mapper.
         // Both must point to this fixture; a previous Spring test's mapper must never supply batch writes.
@@ -163,6 +170,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionBackfillMapper.class), null, null, null, null, null, null);
         var sourceBoundary = mock(MesTeamLeaderActiveOrderCompletionBackfillPort.class);
         when(sourceBoundary.prepare(anyLong(), any(), any())).thenAnswer(invocation -> draft());
+        when(sourceBoundary.matchesReceiptSources(anyLong(), any(), any(), any())).thenReturn(true);
         doAnswer(invocation -> {
             actualBackfill.write(invocation.getArgument(0), invocation.getArgument(1));
             return null;
@@ -176,14 +184,16 @@ class MesCompletionAggregationAuditTransactionTest {
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
         inject(completion, "gxpAuditService", audit);
-        inject(completion, "affectedStateCollector", new MesReleaseAffectedStateCollector(source));
+        completionCollector = new MesReleaseAffectedStateCollector(source);
+        completionTransactionManager = tx;
+        inject(completion, "affectedStateCollector", completionCollector);
         completionService = (MesTeamLeaderActiveOrderCompletionService) transactional(completion, tx);
         var review = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class),
                 sessions.getMapper(MesProProcessPoolEventMapper.class),
                 sessions.getMapper(MesProcessPoolSubmissionReviewMapper.class), aggregation);
         var signatureBoundary = mock(MesProBatchRecordExecutionSignatureService.class);
         when(signatureBoundary.recordTeamLeaderReviewSignature(anyLong(), anyString(), anyString(),
-                anyString(), anyLong(), anyString())).thenReturn(9101L);
+                any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext.class))).thenReturn(9101L);
         inject(review, "signatureService", signatureBoundary);
         inject(review, "revisionMapper", sessions.getMapper(MesProProcessPoolEventRevisionMapper.class));
         inject(review, "pqcTaskMapper", sessions.getMapper(MesPqcInspectionTaskMapper.class));
@@ -232,6 +242,40 @@ class MesCompletionAggregationAuditTransactionTest {
     }
 
     @Test
+    void groupApprovalConfirmsBothTasksAndReplayPreservesAllRows() {
+        seedReviewGroup();
+        Long reviewId = reviewService.reviewSubmission(reviewRequest("APPROVED"));
+        assertEquals(List.of("CONFIRMED", "CONFIRMED"), jdbc.queryForList(
+                "SELECT task_status FROM " + TASK + " ORDER BY id", String.class));
+        assertEquals(2, count(REVIEW));
+        assertEquals(2, count(AGGREGATE));
+        assertEquals(2, count("gxp_audit_event"));
+        var completed = businessRows();
+        var audit = jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id");
+        assertEquals(reviewId, reviewService.reviewSubmission(reviewRequest("APPROVED")));
+        assertEquals(completed, businessRows());
+        assertEquals(audit, jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id"));
+    }
+
+    @Test
+    void secondGroupMembersAuditFailureRollsBackFirstAndSecondTogether() {
+        seedReviewGroup();
+        var before = businessRows();
+        jdbc.execute("CREATE TRIGGER fail_second_group_audit BEFORE INSERT ON gxp_audit_event_relation FOR EACH ROW CALL '"
+                + FailSecondGroupRelation.class.getName() + "'");
+        assertThrows(RuntimeException.class, () -> reviewService.reviewSubmission(reviewRequest("APPROVED")));
+        assertTrue(FAILURE_OBSERVED_WRITES.get(), "Failure must follow both real review/aggregation writes");
+        assertEquals(before, businessRows());
+        assertAuditRollback();
+    }
+
+    private void seedReviewGroup() {
+        seedPendingPqc(1002, 5102, 6002, 6102);
+        jdbc.update("UPDATE mes_pro_process_pool_event SET raw_payload=? WHERE id IN (1001,1002)",
+                "{\"pqcSubmissionGroupId\":\"audit-group\"}");
+    }
+
+    @Test
     void completionCapturesBindingAndCatchUpWithoutChangingAlreadyAggregatedNeighbor() {
         seedCompletionReviewAndNeighbor();
         var before = affectedRows(true);
@@ -244,7 +288,83 @@ class MesCompletionAggregationAuditTransactionTest {
         assertEquals(neighbor, jdbc.queryForList("SELECT * FROM " + AGGREGATE + " WHERE event_id=1002"));
         assertAffectedState("before_state_json", before);
         assertAffectedState("after_state_json", affectedRows(true));
-        assertEquals(1, count("gxp_audit_event"));
+        assertEquals(2, count("gxp_audit_event"));
+    }
+
+    @Test
+    void largeCompletionPersistsEveryFullRowAndVerifiedManifestReceiptAndLedgerHashes() {
+        seedCompletionReviewAndNeighbor();
+        String body = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                Map.of("qaSnapshot", "完整标准\\\"生产路径".repeat(9000), "selectedSignedAt", "unchanged"));
+        jdbc.update("UPDATE " + RECORD + " SET raw_payload=? WHERE event_id=1001", body);
+        String before = fullCompletionRows();
+        completionService.complete(20L, completionCommand());
+        String after = fullCompletionRows();
+        var parent = JSON.parseObject(jdbc.queryForObject("SELECT after_state_json FROM gxp_audit_event "
+                + "WHERE idempotency_key NOT LIKE '%:ROWS:%'", String.class));
+        var manifest = parent.getJSONObject("affectedRowAuditManifest");
+        assertNotNull(manifest);
+        assertTrue(manifest.getJSONArray("parts").size() > 1);
+        assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(before)), manifest.getString("beforeHash"));
+        assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(after)), manifest.getString("afterHash"));
+        assertEquals(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(before),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(reconstructCompletionRows("before_state_json")));
+        assertEquals(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(after),
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(reconstructCompletionRows("after_state_json")));
+        var receipt = completionReceiptMapper.selectById(jdbc.queryForObject("SELECT id FROM " + RECEIPT, Long.class));
+        assertEquals(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt), receipt.getReceiptHash());
+        assertEquals(receipt.getReceiptHash(), parent.getString("completionReceiptHash"));
+        String previous = null;
+        for (var event : jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY ledger_sequence")) {
+            String canonical = (String) event.get("canonical_event_json");
+            String oldState = (String) event.get("before_state_json");
+            String newState = (String) event.get("after_state_json");
+            assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical), event.get("event_hash"));
+            assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(oldState + "\u001f" + newState), event.get("state_payload_hash"));
+            assertEquals(previous, event.get("previous_event_hash")); previous = (String) event.get("event_hash");
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event_relation WHERE event_id=? "
+                            + "AND target_type='COMPLETION_RECEIPT' AND target_id=? AND target_hash=?", Integer.class,
+                    event.get("id"), String.valueOf(receipt.getId()), receipt.getReceiptHash()));
+        }
+        for (Object part : manifest.getJSONArray("parts")) {
+            var ref = (JSONObject) part;
+            assertEquals(ref.getString("eventHash"), jdbc.queryForObject("SELECT event_hash FROM gxp_audit_event WHERE id=?",
+                    String.class, ref.getLong("eventId")));
+        }
+        var allEvents = jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id");
+        completionService.complete(20L, completionCommand());
+        assertEquals(allEvents, jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id"));
+    }
+
+    @Test
+    void laterFragmentFailureRollsBackEarlierFragmentsReceiptAndBusinessWrites() {
+        seedCompletionReviewAndNeighbor();
+        jdbc.update("UPDATE " + RECORD + " SET raw_payload=? WHERE event_id=1001",
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of("raw", "完整标准".repeat(30000))));
+        var before = businessRows();
+        jdbc.execute("CREATE TRIGGER fail_later_fragment BEFORE INSERT ON gxp_audit_event_relation FOR EACH ROW CALL '"
+                + FailLaterFragment.class.getName() + "'");
+        assertThrows(RuntimeException.class, () -> completionService.complete(20L, completionCommand()));
+        assertTrue(FAILURE_OBSERVED_WRITES.get(), "An earlier fragment and receipt must have been persisted before failure");
+        assertEquals(before, businessRows()); assertAuditRollback();
+    }
+
+    private String fullCompletionRows() {
+        return new org.springframework.transaction.support.TransactionTemplate(completionTransactionManager)
+                .execute(status -> cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                        completionCollector.captureCompletion(10L, 30L)));
+    }
+
+    private String reconstructCompletionRows(String column) {
+        Map<String, List<com.fasterxml.jackson.databind.JsonNode>> tables = new LinkedHashMap<>();
+        for (String json : jdbc.queryForList("SELECT " + column + " FROM gxp_audit_event "
+                + "WHERE idempotency_key LIKE '%:ROWS:%' ORDER BY ledger_sequence", String.class)) {
+            cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(json).path("affectedRows").fields().forEachRemaining(table -> {
+                var rows = tables.computeIfAbsent(table.getKey(), key -> new ArrayList<>());
+                table.getValue().forEach(rows::add);
+            });
+        }
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(tables);
     }
 
     @Test
@@ -309,8 +429,13 @@ class MesCompletionAggregationAuditTransactionTest {
     }
 
     private void assertAffectedState(String column, Map<String, List<Map<String, Object>>> expected) {
-        var envelope = JSON.parseObject(jdbc.queryForObject("SELECT " + column + " FROM gxp_audit_event", String.class));
-        JSONObject tables = envelope.getJSONObject("affectedRows");
+        JSONObject tables;
+        if (count(RECEIPT) > 0) {
+            tables = JSON.parseObject(reconstructCompletionRows(column));
+        } else {
+            var envelope = JSON.parseObject(jdbc.queryForObject("SELECT " + column + " FROM gxp_audit_event", String.class));
+            tables = envelope.getJSONObject("affectedRows");
+        }
         assertNotNull(tables, column + " must capture actual affected rows, not a literal AGGREGATED or receipt IDs");
         expected.forEach((table, rows) -> {
             var actual = tables.getJSONArray(table);
@@ -376,6 +501,34 @@ class MesCompletionAggregationAuditTransactionTest {
                         && rows.getInt(5) == 1 && (rows.getInt(6) == 0 || "SUCCESS".equals(rows.getString(7))));
             }
             throw new SQLException("Injected relation failure after real parent and subordinate writes");
+        }
+    }
+
+    public static class FailSecondGroupRelation implements Trigger {
+        @Override
+        public void fire(Connection connection, Object[] oldRow, Object[] newRow) throws SQLException {
+            try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                    "SELECT (SELECT COUNT(*) FROM gxp_audit_event),"
+                            + "(SELECT COUNT(*) FROM " + AGGREGATE + "),"
+                            + "(SELECT COUNT(*) FROM " + REVIEW + "),"
+                            + "(SELECT COUNT(*) FROM " + TASK + " WHERE task_status='CONFIRMED')")) {
+                rows.next();
+                if (rows.getInt(1) < 2) return;
+                FAILURE_OBSERVED_WRITES.set(rows.getInt(2) == 2 && rows.getInt(3) == 2 && rows.getInt(4) == 2);
+            }
+            throw new SQLException("Injected second group member audit failure");
+        }
+    }
+
+    public static class FailLaterFragment implements Trigger {
+        @Override
+        public void fire(Connection connection, Object[] oldRow, Object[] newRow) throws SQLException {
+            try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                    "SELECT (SELECT COUNT(*) FROM gxp_audit_event),(SELECT COUNT(*) FROM " + RECEIPT + ")")) {
+                rows.next(); if (rows.getInt(1) < 2) return;
+                FAILURE_OBSERVED_WRITES.set(rows.getInt(1) >= 2 && rows.getInt(2) == 1);
+            }
+            throw new SQLException("Injected later fragment failure after earlier audit and receipt writes");
         }
     }
 

@@ -9,6 +9,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -45,6 +47,10 @@ public class MesProEdhrBatchExecutionVisibilityService {
     private MesProBatchRecordReportMapper reportMapper;
     @Resource
     private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
+    private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource
+    private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
 
     public boolean hasOverviewPermission(Long currentUserId) {
         return currentUserId == null || currentUserId <= 0
@@ -59,6 +65,9 @@ public class MesProEdhrBatchExecutionVisibilityService {
                                 List<MesProEdhrBatchExecutionTaskDO> tasks,
                                 Long currentUserId) {
         if (hasOverviewPermission(currentUserId)) {
+            return true;
+        }
+        if (isCurrentManagerReleaseCandidate(batch, currentUserId)) {
             return true;
         }
         MesProEdhrBatchExecutionTaskDO currentProcessTask = resolveCurrentProcessTask(tasks);
@@ -77,6 +86,24 @@ public class MesProEdhrBatchExecutionVisibilityService {
         return fillerUserIdMap.values().stream()
                 .flatMap(List::stream)
                 .anyMatch(userId -> Objects.equals(userId, currentUserId));
+    }
+
+    private boolean isCurrentManagerReleaseCandidate(MesProEdhrBatchExecutionDO batch, Long userId) {
+        var transaction = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
+        if (transaction == null || transaction.getId() == null
+                || !Objects.equals(transaction.getBatchExecutionId(), batch.getId())) {
+            return false;
+        }
+        return workTaskMapper.selectTimelineListByBatchExecutionId(batch.getId()).stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), batch.getId()))
+                .filter(task -> "RELEASE_APPROVE".equals(task.getTaskType()))
+                .filter(task -> "RELEASE_TRANSACTION".equals(task.getBusinessScopeType()))
+                .filter(task -> Objects.equals(task.getBusinessScopeId(), transaction.getId()))
+                .filter(task -> Boolean.TRUE.equals(task.getOwnershipLocked()))
+                .filter(task -> "TODO".equals(task.getStatus()) || "DOING".equals(task.getStatus())
+                        || "DONE".equals(task.getStatus()))
+                .anyMatch(task -> MesProEdhrWorkTaskAuthorization.containsCandidate(
+                        task.getCandidateUserSnapshot(), userId));
     }
 
     private boolean isDefaultReportRequired(ServiceException ex) {

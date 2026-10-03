@@ -385,7 +385,8 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         PageResult<MesProcessPoolActiveOrderReleaseApplicationDO> applicationPage =
                 applicationMapper.selectPqcReleasePage(
                         pageParam, TenantContextHolder.getTenantId(), actorUserId, query.getViewStatus(),
-                        StrUtil.trim(query.getWorkOrderCode()), StrUtil.trim(query.getBatchCode()));
+                        StrUtil.trim(query.getWorkOrderCode()), StrUtil.trim(query.getBatchCode()),
+                        query.getApplicationId(), query.getPqcReleaseWorkTaskId());
         if (applicationPage == null) {
             throw new IllegalStateException("PQC release page query returned no page result");
         }
@@ -473,6 +474,13 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
                     "PQC_RELEASE_PAGE", null, "PQC release page query is invalid",
                     "provide a valid authenticated page query and view status");
+        }
+        if ((query.getApplicationId() == null) != (query.getPqcReleaseWorkTaskId() == null)
+                || (query.getApplicationId() != null && query.getApplicationId() <= 0)
+                || (query.getPqcReleaseWorkTaskId() != null && query.getPqcReleaseWorkTaskId() <= 0)) {
+            throw blocker(MesReleaseFlowBlockerType.UNSUPPORTED_RELEASE_ACTION, null,
+                    "PQC_RELEASE_PAGE", null, "PQC release exact query identity is invalid",
+                    "provide positive applicationId and pqcReleaseWorkTaskId together");
         }
     }
 

@@ -66,6 +66,8 @@ public class MesActiveOrderDossierFileService {
 
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private MesActiveOrderDossierReadScopeService dossierReadScopeService;
 
     @Transactional(readOnly = true)
     public Result list(Long actorUserId, Query query) {
@@ -73,12 +75,22 @@ public class MesActiveOrderDossierFileService {
             throw ServiceExceptionUtil.invalidParamException("资料文件查询参数为空。");
         }
         ResolvedContext context = resolveContext(actorUserId, query.activeOrderId(), query.applicationId());
+        return listResolved(context.activeOrder().getId(), context.application() == null ? null : context.application().getId());
+    }
+
+    @Transactional(readOnly = true)
+    public Result listForBatchScope(Long actorUserId, Long batchExecutionId, Long activeOrderId) {
+        var context = dossierReadScopeService.requireBatch(actorUserId, batchExecutionId, activeOrderId);
+        return listResolved(context.activeOrder().getId(), context.application().getId());
+    }
+
+    private Result listResolved(Long activeOrderId, Long applicationId) {
         List<MesProcessPoolActiveOrderDossierFileDO> rows = dossierFileMapper
-                .selectListByActiveOrderId(context.activeOrder().getId());
+                .selectListByActiveOrderId(activeOrderId);
         Map<String, List<MesProcessPoolActiveOrderDossierFileDO>> rowsByCategory = new LinkedHashMap<>();
         for (MesProcessPoolActiveOrderDossierFileDO row : rows) {
             validateDossierRow(row);
-            if (!Objects.equals(row.getActiveOrderId(), context.activeOrder().getId())) {
+            if (!Objects.equals(row.getActiveOrderId(), activeOrderId)) {
                 throw new IllegalStateException("活跃订单资料文件归属与查询订单不一致：" + row.getId());
             }
             rowsByCategory.computeIfAbsent(row.getCategoryKey(), ignored -> new java.util.ArrayList<>()).add(row);
@@ -89,8 +101,7 @@ public class MesActiveOrderDossierFileService {
                                 .map(MesActiveOrderDossierFileService::toFileItem)
                                 .toList()))
                 .toList();
-        Long applicationId = context.application() == null ? null : context.application().getId();
-        return new Result(context.activeOrder().getId(), applicationId, categories);
+        return new Result(activeOrderId, applicationId, categories);
     }
 
     @Transactional(readOnly = true)
@@ -104,10 +115,7 @@ public class MesActiveOrderDossierFileService {
         }
         MesProcessPoolActiveOrderDossierFileDO row = rows.get(0);
         validateDossierRow(row);
-        ResolvedContext context = resolveContext(actorUserId, row.getActiveOrderId(), row.getApplicationId());
-        if (!Objects.equals(context.activeOrder().getId(), row.getActiveOrderId())) {
-            throw dossierFileBlocked("资料文件与活跃订单归属不一致，不能预览：" + fileId);
-        }
+        dossierReadScopeService.requirePreview(actorUserId, row);
         return row;
     }
 

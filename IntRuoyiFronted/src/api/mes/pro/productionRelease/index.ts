@@ -99,6 +99,8 @@ export interface MesPqcProductionReleaseDecisionRespVO {
 
 export interface MesPqcProductionReleasePageReqVO extends PageParam {
   viewStatus: MesPqcProductionReleaseViewStatus
+  applicationId?: string
+  pqcReleaseWorkTaskId?: string
   workOrderCode?: string
   batchCode?: string
 }

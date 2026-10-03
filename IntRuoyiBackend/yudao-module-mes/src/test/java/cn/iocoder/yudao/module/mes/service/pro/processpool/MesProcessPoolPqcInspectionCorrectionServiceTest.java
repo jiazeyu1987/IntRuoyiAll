@@ -57,6 +57,42 @@ import static org.mockito.Mockito.when;
 
 class MesProcessPoolPqcInspectionCorrectionServiceTest {
 
+    @Test
+    void correctsQaSubmissionWhoseProductionIdentityBelongsToTheBoundTask() {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
+        event.setRouteProcessId(null).setProcessId(null);
+
+        assertEquals(701L, fixture.service.correct(fixture.command("合格")));
+
+        verify(fixture.signatureService).recordFieldChangeSignature(any());
+        verify(fixture.revisionService).updatePqcInspectionRecord(any());
+        var taskUpdate = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(fixture.taskMapper).updateById(taskUpdate.capture());
+        assertEquals(Fixture.TASK_ID, taskUpdate.getValue().getId());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "qaProcess", "missingQaProcess", "submittedEvent", "missingProductionProcess"})
+    void rejectsBrokenQaTaskBindingBeforeCorrectionSignature(String defect) {
+        Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
+        var task = fixture.taskMapper.selectById(Fixture.TASK_ID);
+        switch (defect) {
+            case "qaProcess" -> event.setQaProcessId(6002L);
+            case "missingQaProcess" -> { event.setQaProcessId(null); task.setQaProcessId(null); }
+            case "submittedEvent" -> task.setSubmittedEventId(Fixture.EVENT_ID + 1);
+            case "missingProductionProcess" -> { event.setProcessId(null); task.setProcessId(null); }
+            default -> throw new IllegalArgumentException(defect);
+        }
+
+        var error = assertThrows(ServiceException.class, () -> fixture.service.correct(fixture.command("合格")));
+        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        verifyNoInteractions(fixture.signatureService, fixture.revisionService);
+        verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
+    }
+
     @org.junit.jupiter.api.AfterEach
     void clearSignatureTenant() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
@@ -388,6 +424,8 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class, () -> signatures.query);
         context.registerBean("signatureRecordMapper",
                 cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class, () -> signatures.mapper);
+        context.registerBean("adminUserApi", cn.iocoder.yudao.module.system.api.user.AdminUserApi.class,
+                () -> mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class));
         context.registerBean("mesBatchRecordSignatureSubjectAdapter",
                 cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.class,
                 () -> signatures.adapter);
@@ -1121,7 +1159,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                     .id(EVENT_ID).eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                     .feedbackSourceType("MES_PQC_INSPECTION_TASK").feedbackSourceId(TASK_ID)
                     .recordbookSourceType("MES_PQC_INSPECTION_TASK").recordbookSourceId(TASK_ID)
-                    .workOrderId(1001L).routeId(2001L).routeProcessId(3001L).processId(4001L)
+                    .workOrderId(1001L).routeId(2001L).routeProcessId(3001L).processId(4001L).qaProcessId(6001L)
                     .actualEmployeeId(101L).rawPayload("{\"inspectionResult\":\"SUCCESS\"," +
                             "\"scrapQuantity\":0,\"nonconformanceDescription\":\"纠正前\"}")
                     .build();
@@ -1132,6 +1170,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         private static MesPqcInspectionTaskDO task() {
             MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder().id(TASK_ID).activeOrderId(5001L)
                     .workOrderId(1001L).routeId(2001L).routeProcessId(3001L).processId(4001L)
+                    .qaProcessId(6001L).submittedEventId(EVENT_ID)
                     .actualInspectionQuantity(1).taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED).build();
             task.setTenantId(1L);
             return task;

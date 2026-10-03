@@ -19,6 +19,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRe
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProductionPickListSourceService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteVersionSnapshotResolver;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService;
+import jakarta.annotation.Resource;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -65,6 +67,9 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private final MesTeamLeaderBatchRecordBackfillService backfillService;
     private final MesProductionPickListSourceService productionPickListSourceService;
     private final MesProRouteVersionSnapshotResolver routeVersionSnapshotResolver;
+
+    @Resource
+    private MesProductionSignatureEvidenceService productionSignatureEvidenceService;
 
     public MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl(
             MesProRouteFlowProcessBatchRecordMapper bindingMapper,
@@ -601,8 +606,8 @@ public class MesTeamLeaderActiveOrderReleaseBatchRecordWriterImpl
     private boolean validEventSignature(MesProProcessPoolEventDO event) {
         return event.getActualEmployeeId() != null && event.getSignatureId() != null
                 && Objects.equals(event.getActualEmployeeId(), event.getSignatureUserId())
-                && event.getServerSubmitTime() != null && StrUtil.isNotBlank(event.getSignatureSnapshot())
-                && StrUtil.isNotBlank(event.getRawPayload());
+                && event.getServerSubmitTime() != null && StrUtil.isNotBlank(event.getRawPayload())
+                && productionSignatureEvidenceService.isValidForEvent(event);
     }
 
     private boolean validReview(Map<Long, MesProProcessPoolEventDO> eventById,

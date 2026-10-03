@@ -314,10 +314,12 @@ class MesPqcCorrectionMysqlTransactionTest {
         var piece = mapper(MesPqcInspectionPieceDetailMapper.class);
         var review = mapper(MesProcessPoolSubmissionReviewMapper.class);
         var aggregate = mapper(MesPqcProcessInspectionAggregateDetailMapper.class);
-        MesProcessPoolEventRevisionService revision = transactional(new MesProcessPoolEventRevisionServiceImpl(
+        var revisionTarget = new MesProcessPoolEventRevisionServiceImpl(
                 event, mapper(MesProProcessPoolEventRevisionMapper.class), mapper(MesProProcessPoolEventRevisionDiffMapper.class),
                 new MesProcessPoolFifoAllocationService(mapper(MesProcessPoolFifoAllocationLineMapper.class)),
-                review, mesSignature), null);
+                review, mesSignature);
+        inject(revisionTarget, "pqcTaskMapper", task);
+        MesProcessPoolEventRevisionService revision = transactional(revisionTarget, null);
         MesProEdhrNonconformanceReviewServiceImpl freezeGuard = new MesProEdhrNonconformanceReviewServiceImpl();
         inject(freezeGuard, "reviewMapper", mapper(MesProEdhrNonconformanceReviewMapper.class));
         inject(freezeGuard, "workOrderMapper", mapper(MesProWorkOrderMapper.class));

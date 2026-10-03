@@ -87,8 +87,13 @@
             <el-tag type="success" data-edhr-history-batch-status>{{ formatBatchStatus(row) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <ReleaseTaskNotificationEntry
+              v-hasPermi="['mes:pro-edhr-work-task:query']"
+              :batch-execution-id="row.id"
+              :release-transaction-id="row.releaseTransactionId"
+            />
             <el-button link type="primary" data-edhr-history-detail-action @click="openActiveOrderDetail(row)">
               详情
             </el-button>
@@ -121,6 +126,7 @@
 </template>
 
 <script setup lang="ts">
+import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'

@@ -116,24 +116,45 @@ class MesActiveOrderDossierFileServiceTest {
     }
 
     @Test
-    void requireReadableFileUsesActiveOrderApplicationWithoutP2Lookup() {
+    void requireReadableFileUsesFormalReadScopeForPersistedFileIdentity() {
         var fixture = fixture();
         MesProcessPoolActiveOrderDossierFileDO row = dossierFile(
                 8001L, 10L, 55L, "INCOMING_INSPECTION_FILE", 7001L, "incoming.pdf");
         when(fixture.dossierFileMapper.selectListByFileId(7001L)).thenReturn(List.of(row));
-        when(fixture.applicationMapper.selectById(55L)).thenReturn(
-                MesProcessPoolActiveOrderReleaseApplicationDO.builder()
-                        .id(55L).activeOrderId(10L).workOrderId(20L).build());
-        when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
-                .id(10L).leaderUserId(99L).workOrderId(20L).build());
 
         MesProcessPoolActiveOrderDossierFileDO readable = fixture.service.requireReadableFile(7L, 7001L);
 
         assertEquals(8001L, readable.getId());
         assertEquals(10L, readable.getActiveOrderId());
         verify(fixture.dossierFileMapper).selectListByFileId(7001L);
-        verify(fixture.applicationMapper).selectById(55L);
-        verify(fixture.activeOrderMapper).selectById(10L);
+        verify(fixture.readScope).requirePreview(7L, row);
+    }
+
+    @Test
+    void rejectedFormalScopeCannotExposeFileMetadata() {
+        var fixture = fixture();
+        var blocked = new ServiceException(1040760409, "formal scope rejected");
+        when(fixture.readScope.requireBatch(7L, 1225L, null)).thenThrow(blocked);
+        assertEquals(blocked, assertThrows(ServiceException.class,
+                () -> fixture.service.listForBatchScope(7L, 1225L, null)));
+        verify(fixture.dossierFileMapper, never()).selectListByActiveOrderId(any());
+    }
+
+    @Test
+    void formalScopeProjectionPreservesFourCategoriesAndUploaderIdentity() {
+        var fixture = fixture();
+        var active = MesProcessPoolActiveOrderDO.builder().id(10L).workOrderId(20L).build();
+        var app = MesProcessPoolActiveOrderReleaseApplicationDO.builder().id(55L).activeOrderId(10L).build();
+        when(fixture.readScope.requireBatch(7L, 1225L, null))
+                .thenReturn(new MesActiveOrderDossierReadScopeService.Context(active, app));
+        var row = dossierFile(8001L, 10L, 55L, "OTHER_FILE", 7001L, "evidence.pdf");
+        when(fixture.dossierFileMapper.selectListByActiveOrderId(10L)).thenReturn(List.of(row));
+        var result = fixture.service.listForBatchScope(7L, 1225L, null);
+        assertEquals(55L, result.applicationId());
+        assertEquals(4, result.categories().size());
+        assertEquals("evidence.pdf", result.categories().get(3).files().get(0).fileName());
+        assertEquals(row.getOperatorId(), result.categories().get(3).files().get(0).operatorId());
+        assertEquals(row.getSha256(), result.categories().get(3).files().get(0).sha256());
     }
 
     @Test
@@ -368,11 +389,13 @@ class MesActiveOrderDossierFileServiceTest {
         var operationAuditService = mock(MesProEdhrOperationAuditService.class);
         var nonconformanceReviewMapper = mock(MesProEdhrNonconformanceReviewMapper.class);
         var gxpAuditService = mock(GxpAuditService.class);
+        var readScope = mock(MesActiveOrderDossierReadScopeService.class);
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "dossierReadScopeService", readScope);
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
-                nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, gxpAuditService, service);
+                nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, gxpAuditService, readScope, service);
     }
 
     private record Fixture(
@@ -384,6 +407,7 @@ class MesActiveOrderDossierFileServiceTest {
             FileService fileService,
             MesProEdhrOperationAuditService operationAuditService,
             GxpAuditService gxpAuditService,
+            MesActiveOrderDossierReadScopeService readScope,
             MesActiveOrderDossierFileService service) {
     }
 }
