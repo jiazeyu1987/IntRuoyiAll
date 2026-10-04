@@ -143,9 +143,10 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !Objects.equals(subject[10], content.getString("reviewSourceId"))) {
             throw exception(EVIDENCE_INVALID);
         }
+        String correctionSignerName = null;
         for (Binding binding : related) {
             if (binding.pqcReviewer() && "FIELD_CHANGE".equals(evidence.actionCode())) {
-                requirePqcCorrection(binding, evidence, subject, detail.getActiveOrderId());
+                correctionSignerName = requirePqcCorrection(binding, evidence, subject, detail.getActiveOrderId());
                 continue;
             }
             if ((!binding.actions().isEmpty() && !binding.actions().contains(evidence.actionCode()))
@@ -170,7 +171,17 @@ public class MesActiveOrderSignatureEvidenceService {
                 && Objects.equals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash())
                 ? "VALID" : "MISMATCH";
         if (!Objects.equals(calculatedStatus, verification.verificationStatus())) throw exception(VERIFICATION_INVALID);
-        return new Result(detail.getActiveOrderId(), related.get(0).signerName(), evidence, verification);
+        String signerName;
+        if (Set.of("PRODUCTION_SUBMIT", "PQC_SUBMIT").contains(evidence.actionCode())) {
+            signerName = MesSubmissionSignatureIdentityReader.frozenName(evidence);
+        } else if ("FIELD_CHANGE".equals(evidence.actionCode())) {
+            // The correction reader has verified the persisted revision/review signature snapshot and audit association.
+            signerName = correctionSignerName;
+            if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
+        } else {
+            signerName = related.get(0).signerName();
+        }
+        return new Result(detail.getActiveOrderId(), signerName, evidence, verification);
     }
 
     private static void add(List<Binding> bindings, MesTeamLeaderActiveOrderDetail.SignatureDetail signature,
@@ -189,7 +200,7 @@ public class MesActiveOrderSignatureEvidenceService {
         }
     }
 
-    private void requirePqcCorrection(Binding binding, ElectronicSignatureEvidenceDTO evidence,
+    private String requirePqcCorrection(Binding binding, ElectronicSignatureEvidenceDTO evidence,
                                       String[] subject, Long activeOrderId) {
         Long tenantId = TenantContextHolder.getTenantId();
         if (!positive(tenantId) || !positive(evidence.actorId())
@@ -276,6 +287,9 @@ public class MesActiveOrderSignatureEvidenceService {
         }
         requireCorrectionAudit(evidence, event, review, revision, snapshot.getLong("supersededReviewId"),
                 activeOrderId, payloadHash, subject[16], tenantId);
+        String signerName = revisionSignature.getActorName();
+        if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
+        return signerName;
     }
 
     private void requireCorrectionAudit(ElectronicSignatureEvidenceDTO signature, MesProProcessPoolEventDO event,

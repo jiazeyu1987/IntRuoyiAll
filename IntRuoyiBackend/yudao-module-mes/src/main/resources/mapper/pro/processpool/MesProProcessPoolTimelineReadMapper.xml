@@ -2,6 +2,25 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper">
 
+    <sql id="ActualEmployeeDomain">
+        CASE WHEN pool_event.event_type = 'PRODUCTION_SUBMIT'
+                  AND pool_event.template_type = 'SIMULATED_PRODUCTION_SUBMIT'
+                  AND JSON_VALID(pool_event.raw_payload)
+                  AND JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.simulated')) = 'true' THEN 'SYSTEM_USER'
+             WHEN pool_event.event_type = 'PQC_INSPECTION' THEN 'SYSTEM_USER'
+             WHEN pool_event.event_type = 'PRODUCTION_SUBMIT' AND JSON_VALID(pool_event.raw_payload)
+                 THEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.signatureIdentityDomain'))
+        END
+    </sql>
+
+    <sql id="ActualEmployeeName">
+        CASE <include refid="ActualEmployeeDomain"/>
+            WHEN 'SYSTEM_USER' THEN COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee.username, ''))
+            WHEN 'MES_EMPLOYEE_PROFILE' THEN COALESCE(NULLIF(actual_employee_profile_by_id.display_name, ''),
+                                                     NULLIF(actual_employee_profile_by_id.employee_name, ''))
+        END
+    </sql>
+
     <sql id="TimelineColumns">
         pool_event.id AS id,
         pool_event.event_type AS eventType,
@@ -10,7 +29,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        COALESCE(NULLIF(actual_employee.nickname, ''), NULLIF(actual_employee_profile_by_user.display_name, ''), NULLIF(actual_employee_profile_by_user.employee_name, ''), NULLIF(actual_employee_profile_by_id.display_name, ''), NULLIF(actual_employee_profile_by_id.employee_name, ''), NULLIF(actual_employee.username, '')) AS actualEmployeeUserName,
+        <include refid="ActualEmployeeName"/> AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -243,34 +262,14 @@
          AND product_item.deleted = 0
         LEFT JOIN system_users actual_employee
           ON actual_employee.id = pool_event.actual_employee_id
+         AND <include refid="ActualEmployeeDomain"/> = 'SYSTEM_USER'
          AND actual_employee.tenant_id = pool_event.tenant_id
          AND actual_employee.deleted = 0
         LEFT JOIN mes_pro_process_pool_team_employee_profile actual_employee_profile_by_id
           ON actual_employee_profile_by_id.id = pool_event.actual_employee_id
+         AND <include refid="ActualEmployeeDomain"/> = 'MES_EMPLOYEE_PROFILE'
          AND actual_employee_profile_by_id.tenant_id = pool_event.tenant_id
          AND actual_employee_profile_by_id.deleted = 0
-        LEFT JOIN (
-            SELECT tenant_id,
-                   system_user_id,
-                   display_name,
-                   employee_name
-            FROM (
-                SELECT profile.tenant_id,
-                       profile.system_user_id,
-                       profile.display_name,
-                       profile.employee_name,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY profile.tenant_id, profile.system_user_id
-                           ORDER BY profile.enabled DESC, profile.update_time DESC, profile.id DESC
-                       ) AS row_rank
-                FROM mes_pro_process_pool_team_employee_profile profile
-                WHERE profile.deleted = 0
-                  AND profile.system_user_id IS NOT NULL
-            ) ranked_profile
-            WHERE ranked_profile.row_rank = 1
-        ) actual_employee_profile_by_user
-          ON actual_employee_profile_by_user.tenant_id = pool_event.tenant_id
-         AND actual_employee_profile_by_user.system_user_id = pool_event.actual_employee_id
         LEFT JOIN mes_pqc_inspection_task pqc_task
           ON pqc_task.tenant_id = pool_event.tenant_id
          AND pqc_task.deleted = 0

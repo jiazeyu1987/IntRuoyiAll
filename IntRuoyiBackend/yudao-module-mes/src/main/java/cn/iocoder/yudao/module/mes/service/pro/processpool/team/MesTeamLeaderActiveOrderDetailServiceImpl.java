@@ -104,6 +104,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
     private final MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     private final MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper;
     private final ElectronicSignatureQueryService signatureQueryService;
+    private final MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader;
     private final AdminUserService adminUserService;
 
     public MesTeamLeaderActiveOrderDetailServiceImpl(MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -126,6 +127,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                                                        MesProEdhrReleaseTransactionMapper releaseTransactionMapper,
                                                        MesProcessPoolTeamMaintenanceAuditMapper maintenanceAuditMapper,
                                                        ElectronicSignatureQueryService signatureQueryService,
+                                                       MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader,
                                                        AdminUserService adminUserService) {
         this.activeOrderMapper = activeOrderMapper;
         this.detailReadMapper = detailReadMapper;
@@ -147,6 +149,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         this.releaseTransactionMapper = releaseTransactionMapper;
         this.maintenanceAuditMapper = maintenanceAuditMapper;
         this.signatureQueryService = signatureQueryService;
+        this.submissionSignatureIdentityReader = submissionSignatureIdentityReader;
         this.adminUserService = adminUserService;
     }
 
@@ -1359,7 +1362,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
     }
 
-    private static final class PqcSubmissionAccumulator {
+    private final class PqcSubmissionAccumulator {
         private final MesPqcInspectionTaskDO firstTask;
         private final MesQaInspectionRegulationProcessDO qaProcess;
         private final boolean productQaSource;
@@ -1407,8 +1410,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 }
                 submitterNames.add(trimToNull(eventParty.getSubmitterName()));
                 reviewerNames.add(trimToNull(eventParty.getReviewerName()));
-                addSignature(submitterSignatures, eventParty.getSubmitterSignatureId(),
-                        eventParty.getSubmitterName(), eventParty.getSubmitterSignedAt(), "PQC_SUBMIT");
+                if (eventParty.getSubmitterSignatureId() != null && submitterSignatures.stream()
+                        .noneMatch(s -> Objects.equals(s.getSignatureId(), eventParty.getSubmitterSignatureId()))) {
+                    submitterSignatures.add(submissionSignatureIdentityReader.read(eventParty.getSubmitterSignatureId(),
+                            task.getSubmittedEventId(), activeOrderId, "PQC_SUBMIT"));
+                }
                 addSignature(reviewerSignatures, eventParty.getReviewerSignatureId(),
                         eventParty.getReviewerName(), eventParty.getReviewerSignedAt(), "FORM_REVIEW");
                 scrapQuantity = addScrapQuantity(scrapQuantity, eventParty.getScrapQuantity());
@@ -1441,11 +1447,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
             List<MesTeamLeaderActiveOrderDetail.SignatureDetail> productionSignatures = productionEventIds.stream()
                     .map(productionSignaturesByEventId::get)
                     .filter(Objects::nonNull)
-                    .filter(signature -> signature.getSignatureId() != null)
-                    .collect(Collectors.collectingAndThen(
-                            Collectors.toMap(MesTeamLeaderActiveOrderDetail.SignatureDetail::getSignatureId,
-                                    Function.identity(), (left, right) -> left, LinkedHashMap::new),
-                            signaturesById -> List.copyOf(signaturesById.values())));
+                    .distinct()
+                    .toList();
             return new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail()
                     .setPqcTaskId(taskIds.isEmpty() ? null : taskIds.get(0))
                     .setPqcTaskIds(taskIds)
@@ -1548,7 +1551,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return joined.isBlank() ? null : joined;
     }
 
-    private static final class ProcessAccumulator {
+    private final class ProcessAccumulator {
         private final MesTeamLeaderActiveOrderDetail.ProcessDetail process;
         private final List<MesTeamLeaderActiveOrderDetail.SubmissionDetail> submissions = new ArrayList<>();
         private final List<MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail> pqcSubmissions = new ArrayList<>();
@@ -1583,8 +1586,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setSubmitterName(row.getSubmitterName())
                     .setReviewerName(row.getReviewerName())
                     .setSubmittedAt(row.getSubmittedAt())
-                    .setSubmitterSignature(toSignatureDetail(row.getSubmitterSignatureId(),
-                            row.getSubmitterName(), row.getSubmitterSignedAt(), "PRODUCTION_SUBMIT"))
+                    .setSubmitterSignature(submissionSignatureIdentityReader.read(row.getSubmitterSignatureId(),
+                            row.getEventId(), activeOrderId, "PRODUCTION_SUBMIT"))
                     .setReviewerSignature(toSignatureDetail(row.getReviewerSignatureId(),
                             row.getReviewerName(), row.getReviewerSignedAt(), "FORM_REVIEW"))
                     .setDevices(resolveSubmissionDevices(row, activeOrderId))
@@ -1610,8 +1613,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         private Map<Long, MesTeamLeaderActiveOrderDetail.SignatureDetail> productionSubmitterSignaturesByEventId() {
             Map<Long, MesTeamLeaderActiveOrderDetail.SignatureDetail> signaturesByEventId = new LinkedHashMap<>();
             for (MesTeamLeaderActiveOrderDetail.SubmissionDetail submission : submissions) {
-                if (submission.getEventId() == null || submission.getSubmitterSignature() == null
-                        || submission.getSubmitterSignature().getSignatureId() == null) {
+                if (submission.getEventId() == null || submission.getSubmitterSignature() == null) {
                     continue;
                 }
                 signaturesByEventId.put(submission.getEventId(), submission.getSubmitterSignature());

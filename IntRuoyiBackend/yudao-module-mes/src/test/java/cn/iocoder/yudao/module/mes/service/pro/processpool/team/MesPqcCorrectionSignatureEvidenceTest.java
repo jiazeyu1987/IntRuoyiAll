@@ -890,7 +890,7 @@ class MesPqcCorrectionSignatureEvidenceTest {
                         new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(140L))
                                 .setSubmittedEventIds(List.of(EVENT)).setReviewerSignatures(List.of(
                                         new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(743L).setSignerName("原复核人员"),
-                                        new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(SIGNATURE).setSignerName("正式补正人员")))))));
+                                        new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(SIGNATURE).setSignerName("名单更新后的其他名称")))))));
     }
 
     private ElectronicSignatureEvidenceDTO signatureEvidence(Long id, Long actor, String action, String sourceType,

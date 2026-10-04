@@ -450,8 +450,18 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
     @InjectMocks
     private MesTeamLeaderActiveOrderDetailServiceImpl service;
 
+    @Mock private MesSubmissionSignatureIdentityReader submissionSignatureIdentityReader;
+
     @BeforeEach
     void setUp() {
+        lenient().when(submissionSignatureIdentityReader.read(anyLong(), anyLong(), anyLong(),
+                org.mockito.ArgumentMatchers.anyString())).thenAnswer(invocation -> {
+            Long id = invocation.getArgument(0);
+            String name = id == 17001L ? "甲" : id == 17002L ? "乙" : "冻结签名者B";
+            return new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(id)
+                    .setSignerName(name).setRole(invocation.getArgument(3))
+                    .setSignedAt(id == 17001L ? LocalDateTime.parse("2026-08-13T08:10:00") : LocalDateTime.parse("2026-08-13T15:20:00"));
+        });
         lenient().when(pickListMapper.selectBatchIds(anyList())).thenAnswer(invocation ->
                 ((List<Long>) invocation.getArgument(0)).stream()
                         .map(id -> cn.iocoder.yudao.module.erp.dal.dataobject.production.kingdee.ErpKingdeeProductionPickListDO.builder()
@@ -467,6 +477,41 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                     .toList();
         });
         lenient().when(eventRevisionMapper.selectListByEventId(anyLong())).thenReturn(List.of());
+    }
+
+    @Test
+    void currentAndArchivedDetailsKeepActualPersonnelSeparateFromFrozenSignerDisplay() {
+        var active = MesProcessPoolActiveOrderDO.builder().id(8101L).leaderUserId(3001L)
+                .workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build();
+        when(activeOrderMapper.selectById(8101L)).thenReturn(active);
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(active);
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L,5001L,6001L,"粗洗","100",7003L,"1","名单更新后的B",null,"2026-08-13T08:10:00")));
+        for (var detail : List.of(service.getDetail(3001L,8101L), service.getArchivedFormalDetail(8101L))) {
+            var submission = detail.getProcesses().get(0).getSubmissions().get(0);
+            assertEquals("名单更新后的B",submission.getSubmitterName());
+            assertEquals("冻结签名者B",submission.getSubmitterSignature().getSignerName());
+        }
+        org.mockito.Mockito.verify(submissionSignatureIdentityReader,org.mockito.Mockito.times(2))
+                .read(17003L,7003L,8101L,"PRODUCTION_SUBMIT");
+    }
+
+    @Test
+    void currentAndArchivedDetailsPreserveExplicitNonFormalSimulationDisplay() {
+        var active = MesProcessPoolActiveOrderDO.builder().id(8101L).leaderUserId(3001L)
+                .workOrderId(9001L).routeId(9201L).activeStatus("ACTIVE").build();
+        when(activeOrderMapper.selectById(8101L)).thenReturn(active);
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(active);
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L,5001L,6001L,"粗洗","100",7003L,"1","模拟组长",null,"2026-08-13T08:10:00")));
+        when(submissionSignatureIdentityReader.read(17003L,7003L,8101L,"PRODUCTION_SUBMIT"))
+                .thenReturn(new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignerName("模拟组长（模拟）")
+                        .setRole("SIMULATION_SESSION").setSignedAt(LocalDateTime.parse("2026-08-13T08:10:00")));
+        for (var detail : List.of(service.getDetail(3001L,8101L),service.getArchivedFormalDetail(8101L))) {
+            var signature=detail.getProcesses().get(0).getSubmissions().get(0).getSubmitterSignature();
+            assertEquals("模拟组长（模拟）",signature.getSignerName());
+            assertEquals("SIMULATION_SESSION",signature.getRole());assertNull(signature.getSignatureId());
+        }
     }
 
     @Test

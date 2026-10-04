@@ -19,8 +19,8 @@ class MesProcessPoolActiveOrderDetailReadMapperXmlTest {
 
         assertTrue(mapperXml.contains("mes_pro_process_pool_team_employee_profile submitter_profile"),
                 "active order detail read model must join team employee profile for temporary production employees");
-        assertTrue(mapperXml.contains("COALESCE(submitter.nickname, submitter_profile.display_name) AS submitterName"),
-                "active order detail submitter name must use system user nickname or temporary employee display name");
+        assertTrue(mapperXml.contains("<include refid=\"ActualEmployeeName\"/> AS submitterName"),
+                "active order detail must select actual personnel within the persisted identity domain");
         assertTrue(mapperXml.contains("submitter_profile.id = pool_event.actual_employee_id"),
                 "temporary employee profile id must be matched against the production submit actual employee id");
     }

@@ -3106,11 +3106,12 @@ const toActiveOrderProductionEventSubmissionRow = (
 const formatActiveOrderSignatureCellText = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
-  if (!signature?.signatureId) return '未签名'
+  const simulated = signature?.role === 'SIMULATION_SESSION'
+  if (!signature || (!signature.signatureId && !simulated)) return '未签名'
   const signerName = String(signature.signerName || '').trim() || '签名人未记录'
   const signedAt = formatDateTime(signature.signedAt)
   const signedAtText = signedAt && signedAt !== '-' ? signedAt : '签名时间未记录'
-  return `${signerName}（${signedAtText}）`
+  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）`
 }
 
 const openActiveOrderSignatureRecord = (

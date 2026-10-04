@@ -455,6 +455,47 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 ArgumentCaptor.forClass(MesProcessPoolCreatePqcInspectionReqDTO.class);
         org.mockito.Mockito.verify(processPoolEventService).createPqcInspectionEvent(pqcCaptor.capture());
         assertEquals(10003L, pqcCaptor.getValue().getSignatureId());
+        // The real simulation writer's emitted event and snapshot must stay readable as non-formal evidence.
+        var simulationProjectionMapper = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper.class);
+        var signatureQuery = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
+        var eventReaderMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class);
+        var identityReader = new MesSubmissionSignatureIdentityReader(signatureQuery, eventReaderMapper, simulationProjectionMapper);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var production = productionCaptor.getValue();
+            var pqc = pqcCaptor.getValue();
+            var productionEvent = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO()
+                    .setId(7001L).setEventType(production.getEventType()).setTemplateType(production.getTemplateType())
+                    .setActualEmployeeId(production.getActualEmployeeId()).setSignatureUserId(production.getSignatureUserId())
+                    .setSignatureId(production.getSignatureId()).setSignatureSnapshot(production.getSignatureSnapshot())
+                    .setRawPayload(production.getRawPayload());
+            productionEvent.setTenantId(1L);
+            var pqcEvent = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO()
+                    .setId(8001L).setEventType("PQC_INSPECTION").setTemplateType(pqc.getTemplateType())
+                    .setActualEmployeeId(pqc.getActualEmployeeId()).setSignatureUserId(pqc.getSignatureUserId())
+                    .setSignatureId(pqc.getSignatureId()).setSignatureSnapshot(pqc.getSignatureSnapshot()).setRawPayload(pqc.getRawPayload());
+            pqcEvent.setTenantId(1L);
+            org.mockito.Mockito.when(eventReaderMapper.selectById(7001L)).thenReturn(productionEvent);
+            org.mockito.Mockito.when(eventReaderMapper.selectById(8001L)).thenReturn(pqcEvent);
+            for (var event : java.util.List.of(productionEvent, pqcEvent)) {
+                String action = event == productionEvent ? "PRODUCTION_SUBMIT" : "PQC_SUBMIT";
+                org.mockito.Mockito.when(simulationProjectionMapper.selectById(event.getSignatureId())).thenReturn(
+                        cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO.builder()
+                                .id(event.getSignatureId()).actorId(3001L).actionType(action).actorName("模拟组长")
+                                .signatureMode("SIMULATION_SESSION").passwordVerified(false)
+                                .reviewSourceType("MES_ACTIVE_ORDER_SIMULATION").reviewSourceId(8101L)
+                                .signedAt(java.time.LocalDateTime.of(2026,10,4,10,0)).build());
+                var display = identityReader.read(event.getSignatureId(), event.getId(), 8101L, action);
+                assertEquals("模拟组长（模拟）", display.getSignerName());
+                assertEquals("SIMULATION_SESSION", display.getRole());
+                org.junit.jupiter.api.Assertions.assertNull(display.getSignatureId());
+            }
+            org.mockito.Mockito.verifyNoInteractions(signatureQuery);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         org.mockito.Mockito.verify(submissionReviewMapper, org.mockito.Mockito.times(2))

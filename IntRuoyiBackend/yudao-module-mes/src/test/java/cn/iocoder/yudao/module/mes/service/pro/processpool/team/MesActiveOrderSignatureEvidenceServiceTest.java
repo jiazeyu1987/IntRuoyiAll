@@ -34,11 +34,16 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Mock MesProcessPoolSubmissionReviewMapper reviewMapper;
     @InjectMocks MesActiveOrderSignatureEvidenceService service;
 
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
     @BeforeEach void sourceForeignKeys() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         lenient().when(eventMapper.selectById(240L)).thenReturn(new MesProProcessPoolEventDO()
-                .setId(240L).setSignatureId(742L).setSignatureUserId(342L));
+                .setId(240L).setSignatureId(742L).setSignatureUserId(342L).setDeviceAccountId(341L)
+                .setRawPayload("{\"signatureIdentityDomain\":\"SYSTEM_USER\"}"));
         lenient().when(eventMapper.selectById(241L)).thenReturn(new MesProProcessPoolEventDO()
-                .setId(241L).setSignatureId(744L).setSignatureUserId(344L));
+                .setId(241L).setSignatureId(744L).setSignatureUserId(344L).setDeviceAccountId(341L));
         lenient().when(reviewMapper.selectListByEventId(240L)).thenReturn(List.of(
                 new MesProcessPoolSubmissionReviewDO().setEventId(240L).setReviewSignatureId(743L).setReviewSignatureUserId(341L)));
     }
@@ -60,7 +65,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
         stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
         var result = service.getTeam(341L, 409L, 742L);
         assertEquals(742L, result.evidence().id());
-        assertEquals("正式生产人员", result.signerName());
+        assertEquals("冻结签名者B", result.signerName());
         // The formal detail's submittedAt is not the signature clock: do not invent a time identity.
         assertEquals(LocalDateTime.of(2026, 10, 1, 10, 43, 46), result.evidence().signedAt());
         assertEquals("VALID", result.verification().verificationStatus());
@@ -77,7 +82,8 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Test void newProductionIdentityMustMatchExactFormalSubmission() {
         when(teamDetailService.getDetail(341L, 409L)).thenReturn(production());
         when(eventMapper.selectById(240L)).thenReturn(new MesProProcessPoolEventDO()
-                .setId(240L).setSignatureId(742L).setSignatureUserId(342L)
+                .setId(240L).setSignatureId(742L).setSignatureUserId(342L).setDeviceAccountId(341L)
+                .setRawPayload("{\"signatureIdentityDomain\":\"SYSTEM_USER\"}")
                 .setRouteProcessId(520L).setProcessId(985L).setEventIdempotencyKey("submit-one"));
         stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
         when(signatureQueryService.getById(742L)).thenReturn(productionEvidence(
@@ -145,7 +151,9 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Test void historicalBatchUsesArchivedDetailAuthorizationNotActiveTeamOwner() {
         when(batchDetailService.getDetail(800L)).thenReturn(production());
         stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
-        assertEquals(409L, service.getBatch(800L, null, 742L).activeOrderId());
+        var result = service.getBatch(800L, null, 742L);
+        assertEquals(409L, result.activeOrderId());
+        assertEquals("冻结签名者B", result.signerName());
         verifyNoInteractions(teamDetailService, pqcDetailService);
     }
 
@@ -234,6 +242,12 @@ class MesActiveOrderSignatureEvidenceServiceTest {
                 null, null, null, null, null, sourceType, sourceId, null, null, null, null, null, null);
         String content = "{\"executionId\":\"0\",\"actionType\":\"" + action
                 + "\",\"reviewSourceType\":\"" + type + "\",\"reviewSourceId\":\"" + source + "\"}";
+        if (java.util.Set.of("PRODUCTION_SUBMIT", "PQC_SUBMIT").contains(action)) {
+            var json = com.alibaba.fastjson.JSON.parseObject(content);
+            json.put("signatureIdentity", java.util.Map.of("domain", "SYSTEM_USER", "signerId",
+                    id == 744L ? 344L : 342L, "operatorId", 341L, "tenantId", 1L, "displayName", "冻结签名者B"));
+            content = json.toJSONString();
+        }
         return new ElectronicSignatureEvidenceDTO(id, "MES", action, "MES_BATCH_RECORD", subject,
                 "v1", id == 743L ? 341L : id == 744L ? 344L : 342L, action, "业务签名", "真实原因", LocalDateTime.of(2026, 10, 1, 10, 43, 46),
                 "time", "SESSION_PLUS_PASSWORD", "content", "evidence", "SHA-256", "v1", "p1", "VALID",

@@ -350,6 +350,28 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
         assertEquals("SIMULATION_SESSION", signature.getAuthenticationMethod());
         assertTrue(signature.getAuthorizationBasis().contains("Stage1模拟"));
         assertTrue(!signature.getAuthorizationBasis().contains("正式签名记录"));
+        var eventMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class);
+        var unified = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
+        var event = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO()
+                .setId(7001L).setEventType("PRODUCTION_SUBMIT").setTemplateType("SIMULATED_PRODUCTION_SUBMIT")
+                .setActualEmployeeId(99L).setSignatureUserId(99L).setSignatureId(signatureId)
+                .setRawPayload("{\"simulated\":true,\"simulationStage\":\"stage1\",\"simulationRunId\":\"run-001\"}")
+                .setSignatureSnapshot("{\"simulated\":true,\"signatureId\":10001,\"actorId\":99,\"objectId\":8101,\"actionType\":\"PRODUCTION_SUBMIT\"}");
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            event.setTenantId(1L);
+            org.mockito.Mockito.when(eventMapper.selectById(7001L)).thenReturn(event);
+            org.mockito.Mockito.when(signatureMapper.selectById(signatureId)).thenReturn(signature);
+            var display = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader(
+                    unified,eventMapper,signatureMapper).read(signatureId,7001L,8101L,"PRODUCTION_SUBMIT");
+            assertEquals("签名人（模拟）",display.getSignerName());
+            assertEquals("SIMULATION_SESSION",display.getRole());
+            org.junit.jupiter.api.Assertions.assertNull(display.getSignatureId());
+            org.mockito.Mockito.verifyNoInteractions(unified);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+
         assertNotNull(signature.getSignedAt());
         verify(adminUserService, never()).isPasswordMatch(any(), any());
         verify(authorizationService, never()).isElectronicSignatureEnabled(any());
