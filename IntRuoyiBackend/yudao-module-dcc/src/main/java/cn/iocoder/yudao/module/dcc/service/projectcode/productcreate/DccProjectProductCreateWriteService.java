@@ -85,6 +85,7 @@ public class DccProjectProductCreateWriteService {
         var before=productAudit.snapshot(requestId);
         folderTemplateService.generate(projectCode.getId(), request.getFolderTemplateId(), request.getFolderTemplateSnapshotJson());
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
+                .tenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .dataSource(DATA_SOURCE)
                 .originalRowNo((maxRowNo == null ? 1 : maxRowNo) + 1)
                 .product(request.getProductName())

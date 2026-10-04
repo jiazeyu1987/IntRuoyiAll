@@ -10,15 +10,22 @@ import type { FormInstanceVO } from '@/api/form-center/instance'
 export type ControlledFileChangeType = 'NEW' | 'REVISION' | 'OBSOLETE'
 
 export interface ControlledFileProjectProduct {
-  projectCodeId: number
-  productMasterId: number | null
+  projectCodeId: string
+  productMasterId: string | null
+  productCatalogId: string | null
+  productRelationId: string | null
+  productCreateRequestId: string | null
   productCode: string | null
   productName: string | null
-  source: 'PRODUCT_MASTER' | 'PROJECT_CODE' | 'UNBOUND'
+  source: 'MDM_MASTER' | 'DCC_CATALOG' | 'UNBOUND'
 }
 
-export const previewControlledFileProjectProduct = (projectCodeId: number): Promise<ControlledFileProjectProduct> =>
-  request.get({ url: '/dcc/controlled-files/project-product', params: { projectCodeId } })
+export const previewControlledFileProjectProduct = (projectCodeId: string | number): Promise<ControlledFileProjectProduct> => {
+  if (typeof projectCodeId === 'number' && !Number.isSafeInteger(projectCodeId)) throw new Error('项目产品身份发生精度损失')
+  const id = String(projectCodeId)
+  if (!/^[1-9][0-9]*$/.test(id) || BigInt(id) > 9223372036854775807n) throw new Error('项目产品身份不合法')
+  return request.get({ url: '/dcc/controlled-files/project-product', params: { projectCodeId: id } })
+}
 
 export const DCC_CONTROLLED_FILE_ACTIONS = [
   'VIEW',
@@ -66,7 +73,7 @@ export interface ControlledFileSubmitReqVO {
   dccProjectCodeId?: number | string | null
   projectFolderId?: string
   projectFolderChangeReason?: string
-  fileTypeTaxonomyId?: number | null
+  fileTypeTaxonomyId?: number | string | null
   revisionTargetControlledFileId?: number | null
   relatedControlledFileIds?: Array<number | string>
   needTraining: boolean
@@ -199,7 +206,7 @@ export interface ControlledFileUploadPreviewContext {
   sessionId: string
   uploadContext?: 'NEW_UPLOAD' | 'CHECKIN' | 'EXTERNAL_REVIEW'
   dccProjectCodeId?: number | string
-  fileTypeTaxonomyId?: number
+  fileTypeTaxonomyId?: number | string
   fileName?: string
   controlledFileId?: number | string
   taskId?: string
@@ -1537,7 +1544,7 @@ const assertControlledFileSubmitRequest = (
         throw new DccControlledFileContractError(`${context} request requires unique nonempty signoff departments`)
       departments.forEach(id => assertControlledFileRequestIdentity({ id }, 'id', context))
     }
-    assertRequiredNumber(payload, 'fileTypeTaxonomyId', context)
+    assertControlledFileRequestIdentity(payload, 'fileTypeTaxonomyId', context)
   }
 }
 
@@ -1830,7 +1837,7 @@ export const getControlledFileTaskActionReadiness = async (
 
 export const getControlledFileUploadNameOptions = async (params: {
   dccProjectCodeId: number | string
-  fileTypeTaxonomyId: number
+  fileTypeTaxonomyId: number | string
 }): Promise<ControlledFileUploadNameOptionVO[]> => {
   return await request.get({ url: '/dcc/controlled-files/upload-name-options', params })
 }
@@ -1838,7 +1845,7 @@ export const getControlledFileUploadNameOptions = async (params: {
 export const getControlledFileCurrentVersion = async (
   fileNumber: string,
   dccProjectCodeId?: number | string | null,
-  fileTypeTaxonomyId?: number | null
+  fileTypeTaxonomyId?: number | string | null
 ): Promise<ControlledFileCurrentVersionRespVO> => {
   return await request.get({
     url: '/dcc/controlled-files/current-version',

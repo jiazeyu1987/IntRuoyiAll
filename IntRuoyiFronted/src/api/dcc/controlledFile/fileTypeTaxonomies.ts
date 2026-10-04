@@ -22,7 +22,13 @@ export const getFileTypeTaxonomyList = async (): Promise<DccFileTypeTaxonomyVO[]
   return await request.get({ url: '/dcc/file-type-taxonomies' })
 }
 
-export const getFileTypeTaxonomyUploadOptions = async (): Promise<DccFileTypeTaxonomyVO[]> => {
+export interface DccFileTypeTaxonomyUploadOption extends Omit<DccFileTypeTaxonomyVO, 'id' | 'parentId' | 'children'> {
+  id: number | string
+  parentId?: number | string | null
+  children?: DccFileTypeTaxonomyUploadOption[]
+}
+
+export const getFileTypeTaxonomyUploadOptions = async (): Promise<DccFileTypeTaxonomyUploadOption[]> => {
   return await request.get({ url: '/dcc/file-type-taxonomies/upload-options' })
 }
 

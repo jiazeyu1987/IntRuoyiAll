@@ -18,7 +18,7 @@ export interface UploadFormDraft {
   dccProjectCodeId: number | string | null
   projectFolderId?: string | null
   projectFolderChangeReason?: string
-  fileTypeTaxonomyId: number | null
+  fileTypeTaxonomyId: number | string | null
   revisionTargetControlledFileId: number | null
   revisionSourceControlledFileId: number | null
   relatedControlledFileIds: string[]

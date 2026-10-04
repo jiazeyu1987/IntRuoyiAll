@@ -30,6 +30,7 @@ class DccSourceUploadContextTest extends BaseMockitoUnitTest {
     @Mock private DccFileCategoryMapper categoryMapper;
     @Mock private DccProjectCodeMapper projectCodeMapper;
     @Mock private DccProjectFileTemplateService projectFileTemplateService;
+    @Mock private cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock private DccProjectAccessService projectAccessService;
     @Mock private DccControlledFileCategoryPermissionSupport categoryPermissionSupport;
     @Mock private DccControlledFileMapper controlledFileMapper;
@@ -44,6 +45,10 @@ class DccSourceUploadContextTest extends BaseMockitoUnitTest {
         lenient().when(categoryPermissionSupport.hasCategoryPermission(any(), any(), any())).thenReturn(true);
         lenient().when(projectCodeMapper.selectById(30L)).thenReturn(DccProjectCodeDO.builder()
                 .id(30L).status(DccProjectCodeStatusConstants.ENABLE).build());
+        lenient().when(fileTypeTaxonomyAdminService.resolveActivePath(20L)).thenReturn(
+                new cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath(20L,"体系","技术","报告",null,null));
+        lenient().when(fileTypeTaxonomyAdminService.listActiveDescendantIds(20L)).thenReturn(java.util.List.of(20L));
+        lenient().when(fileTypeTaxonomyAdminService.resolveActiveCategoryId(20L)).thenReturn(10L);
     }
 
     @AfterEach
@@ -52,7 +57,7 @@ class DccSourceUploadContextTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void newUploadRequiresTemplateAndCategoryMatch() {
+    void newUploadRequiresExactCategoryMapping() {
         var request = request("NEW_UPLOAD");
         request.setFileTypeTaxonomyId(null);
         assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request),
@@ -64,25 +69,51 @@ class DccSourceUploadContextTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void validTemplateRequiresProjectAccessAndConfiguredSelection() {
+    void validLeafRequiresProjectAccessWithoutTemplate() {
         var request = request("NEW_UPLOAD");
         workflowService.validateSourceUploadContext(99L, request);
         verify(projectAccessService).assertProjectEditorOrOwner(99L, 30L);
-        verify(projectFileTemplateService).validateUploadLocation(30L, 20L);
-        doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
+        lenient().doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
                 .validateUploadLocation(30L, 20L);
-        assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request),
-                PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        workflowService.validateSourceUploadContext(99L, request);
+        verifyNoInteractions(projectFileTemplateService);
     }
 
     @Test
-    void newUploadAllowsFreeNameForConfiguredType() {
+    void newUploadAllowsFreeNameForActiveLeafWithoutTemplate() {
         var request = request("NEW_UPLOAD");
         request.setFileName("新建文件-用户自定义名称");
         workflowService.validateSourceUploadContext(99L, request);
-        verify(projectFileTemplateService).validateUploadLocation(30L, 20L);
+        verify(projectFileTemplateService,never()).validateUploadLocation(any(),any());
         verify(projectFileTemplateService, never())
                 .validateUploadSelection(30L, 20L, "新建文件-用户自定义名称");
+    }
+
+    @Test
+    void nonLeafTypeAndProjectPermissionStillRejectBeforeAnyUpload() {
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(20L)).thenReturn(java.util.List.of(20L,21L));
+        assertServiceException(()->workflowService.validateSourceUploadContext(99L,request("NEW_UPLOAD")),
+                FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+        doThrow(exception(DCC_PROJECT_ACCESS_DENIED)).when(projectAccessService).assertProjectEditorOrOwner(99L,30L);
+        assertServiceException(()->workflowService.validateSourceUploadContext(99L,request("NEW_UPLOAD")),DCC_PROJECT_ACCESS_DENIED);
+        verifyNoInteractions(projectFileTemplateService);
+    }
+
+    @Test
+    void ambiguousActiveCategoryMappingStillBlocksNormalPreviewWithoutTemplate() {
+        var taxonomy=spy(new cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminServiceImpl());
+        org.springframework.test.util.ReflectionTestUtils.setField(taxonomy,"categoryMapper",categoryMapper);
+        var path=new cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath(20L,"体系","技术","报告",null,null);
+        doReturn(path).when(taxonomy).resolveActivePath(20L);
+        lenient().doReturn(java.util.List.of(20L)).when(taxonomy).listActiveDescendantIds(20L);
+        lenient().doReturn(java.util.List.of(path)).when(taxonomy).listActiveDescendantPaths(20L);
+        when(categoryMapper.selectList()).thenReturn(java.util.List.of(
+                DccFileCategoryDO.builder().id(10L).active(true).fileTypeTaxonomyId(20L).build(),
+                DccFileCategoryDO.builder().id(11L).active(true).fileTypeTaxonomyId(20L).build()));
+        org.springframework.test.util.ReflectionTestUtils.setField(workflowService,"fileTypeTaxonomyAdminService",taxonomy);
+        assertServiceException(()->workflowService.validateSourceUploadContext(99L,request("NEW_UPLOAD")),
+                PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        verifyNoInteractions(projectFileTemplateService,controlledFileMapper);
     }
 
     @Test

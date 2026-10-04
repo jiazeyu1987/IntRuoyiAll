@@ -395,6 +395,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .productMasterId(5000L).status(DccProjectCodeStatusConstants.ENABLE).build());
         when(mdmProductApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
                 .id(5000L).dccProductCode("A1234567890123").nameCn("Product").build());
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
         Object result = ReflectionTestUtils.invokeMethod(workflowService, "previewProjectProduct", 99L, 3000L);
         assertEquals("A1234567890123", ReflectionTestUtils.getField(result, "productCode"));
         assertEquals(5000L, ReflectionTestUtils.getField(result, "productMasterId"));
@@ -406,6 +407,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
                 .id(3000L).projectCode("PROJECT-CODE").projectName("Project")
                 .productMasterId(5000L).status(DccProjectCodeStatusConstants.ENABLE).build());
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
         assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(workflowService,
                 "previewProjectProduct", 99L, 3000L));
     }
@@ -415,6 +417,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
                 .id(3000L).projectCode("PROJECT-CODE").projectName("Project")
                 .status(DccProjectCodeStatusConstants.ENABLE).build());
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
         DccProjectProductRespVO result = workflowService.previewProjectProduct(99L, 3000L);
         assertNull(result.getProductMasterId());
         assertNull(result.getProductCode());
@@ -632,6 +635,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private PermissionApi permissionApi;
     @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper approvedProductIdentityMapper;
+    @Mock
     private MdmProductApi mdmProductApi;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
@@ -665,6 +670,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
     @BeforeEach
     void setDefaultUploadTicketBindings() {
+        lenient().when(fileTypeTaxonomyAdminService.resolveActiveCategoryId(8803L)).thenReturn(10L);
+        lenient().when(approvedProductIdentityMapper.selectApprovedProduct(anyLong(), anyLong())).thenReturn(List.of());
         var ownerService=new DccApprovalFileOwnerSelectionService();
         ReflectionTestUtils.setField(ownerService,"users",adminUserApi);ReflectionTestUtils.setField(ownerService,"files",controlledFileMapper);
         ReflectionTestUtils.setField(ownerService,"signatures",signatureMapper);ReflectionTestUtils.setField(workflowService,"fileOwnerSelection",ownerService);
@@ -921,7 +928,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(1, fileCaptor.getValue().getIterationNo());
         assertEquals(DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus(), fileCaptor.getValue().getStatus());
         assertEquals(reqVO.getEffectiveDate(), fileCaptor.getValue().getEffectiveDate());
-        verify(projectFileTemplateService).validateUploadSelection(3000L, 8803L, "SOP-001");
+        verify(projectFileTemplateService,never()).validateUploadSelection(any(),any(),any());
         ArgumentCaptor<DccControlledFileRouteSnapshotDO> snapshotCaptor =
                 ArgumentCaptor.forClass(DccControlledFileRouteSnapshotDO.class);
         verify(routeSnapshotMapper, org.mockito.Mockito.times(3)).insert(snapshotCaptor.capture());
@@ -1069,13 +1076,13 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void submitControlledFile_projectTemplateMismatchFailsBeforeInsert() {
+    void submitControlledFile_invalidSourceTicketStillFailsBeforeInsertWithoutTemplateGate() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("A/1");
-        doThrow(new ServiceException(PROJECT_FILE_TEMPLATE_SELECTION_INVALID))
-                .when(projectFileTemplateService).validateUploadSelection(3000L, 8803L, "SOP-001");
+        mockCommonSubmitDependencies();
+        doThrow(exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID)).when(uploadTicketService).resolveForBinding(any());
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(Long.class), any());
@@ -1126,13 +1133,12 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         String payloadHash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(reqVO));
         mockCommonSubmitDependencies();
-        doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
-                .validateUploadSelection(3000L, 8803L, "SOP-001");
+        doThrow(exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID)).when(uploadTicketService).resolveForBinding(any());
         when(controlledFileMapper.selectBySubmitIdempotencyForUpdate(1L, 99L, "dcc-submit-test-1"))
                 .thenReturn(DccControlledFileDO.builder().id(921L).submitPayloadHash(payloadHash).build());
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(bpmProcessInstanceApi, never()).createProcessInstance(any(), any());
@@ -3350,6 +3356,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setPassword("secret");
         reqVO.setReason("approved");
         reqVO.setFileOwnerUserId(901L);
+        lenient().when(approvedProductIdentityMapper.selectApprovedProduct(anyLong(), anyLong())).thenReturn(List.of());
         var ownerService=new DccApprovalFileOwnerSelectionService();
         ReflectionTestUtils.setField(ownerService,"users",adminUserApi);ReflectionTestUtils.setField(ownerService,"files",controlledFileMapper);
         ReflectionTestUtils.setField(ownerService,"signatures",signatureMapper);ReflectionTestUtils.setField(workflowService,"fileOwnerSelection",ownerService);
@@ -4291,16 +4298,67 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("need changes", updateCaptor.getValue().getRejectReason());
     }
 
+    @Test void normalNewUploadPreviewAndSubmitDoNotRequireProjectTemplateNames() {
+        var request=buildSubmitReqVO("A/1");prepareManagerSubmission();
+        request.setFileName("CUSTOM-REPORT");
+        request.setSessionId(DccSourceUploadSession.scope(
+                DccSourceUploadSession.newUploadPrefix(3000L,8803L,"CUSTOM-REPORT"),"session-custom"));
+        request.setSourceFileName("custom-technical-report.pdf");
+        var preview=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO();
+        preview.setCategoryId(10L);preview.setDccProjectCodeId(3000L);preview.setFileTypeTaxonomyId(8803L);
+        preview.setFileName("CUSTOM-REPORT");preview.setUploadContext("NEW_UPLOAD");
+        doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
+                .validateUploadLocation(anyLong(),anyLong());
+        doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
+                .validateUploadSelection(anyLong(),anyLong(),any());
+        when(uploadTicketService.resolveForBinding(any(DccUploadTicketResolveCommand.class))).thenReturn(
+                new DccUploadTicketBoundFile("UT-ORIGINAL",100L,"custom-technical-report.pdf","application/pdf",4L));
+        workflowService.validateSourceUploadContext(99L,preview);
+        assertEquals(900L,workflowService.submitControlledFile(99L,request));
+        verify(nameClaimService).claimNewSubmission(1L,"custom-technical-report.pdf",3000L,8803L,"SOP-001",700L,99L,100L);
+        verify(controlledFileMapper).insert(argThat((DccControlledFileDO file)->"CUSTOM-REPORT".equals(file.getFileName())
+                && "custom-technical-report.pdf".equals(file.getSourceOriginalFileName())));
+        verify(projectFileTemplateService,never()).validateUploadLocation(any(),any());
+        verify(projectFileTemplateService,never()).validateUploadSelection(any(),any(),any());
+    }
+
+    @Test void normalWorkingDraftCreationDoesNotRequireProjectTemplateNames() {
+        var request=buildSubmitReqVO(null);mockCommonSubmitDependencies();
+        doAnswer(call->{((DccControlledFileDO)call.getArgument(0)).setId(920L);return 1;})
+                .when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+        doThrow(exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID)).when(projectFileTemplateService)
+                .validateUploadSelection(anyLong(),anyLong(),any());
+        assertEquals(920L,workflowService.createWorkingControlledFile(99L,request));
+        verify(projectFileTemplateService,never()).validateUploadSelection(any(),any(),any());
+        verify(bpmProcessInstanceApi,never()).createProcessInstance(any(),any());
+    }
+
     @Test void submitUsesTheActualTicketSourceNameAndRecordsInitialIntent() {
         var request=buildSubmitReqVO("A/1");prepareManagerSubmission();
         doAnswer(call->{DccControlledFileDO file=call.getArgument(0);assertNull(file.getId());
             new DccControlledFileRevisionServiceImpl().recordInitialIntent(file);return null;})
                 .when(revisionService).recordInitialIntent(any());
         workflowService.submitControlledFile(99L,request);
-        verify(nameClaimService).claimIdentity(1L,"SOP-001.docx",3000L,8803L,"SOP-001",700L);
+        verify(nameClaimService).claimNewSubmission(1L,"SOP-001.docx",3000L,8803L,"SOP-001",700L,99L,100L);
         verify(revisionService).recordInitialIntent(argThat(file->"INITIAL".equals(file.getRevisionChangeType())
                 && "SOP-001.docx".equals(file.getSourceOriginalFileName())));
         verify(nameClaimService,never()).claim(any(),any(),any());
+    }
+    @Test void approvedDccCatalogAllowsDhfSubmitAndSavesDistinctServerProductFacts() {
+        var request=buildSubmitReqVO("A/1");prepareManagerSubmission();
+        projectCodeMapper.selectById(3000L).setTenantId(1L);
+        categoryMapper.selectById(10L).setCode("DCC_FVM_DHF_005");
+        when(approvedProductIdentityMapper.selectApprovedProduct(1L,3000L)).thenReturn(List.of(
+                new cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper.ApprovedProduct(
+                        3000L,9007199254740993L,9007199254740994L,9007199254740995L,"BUSINESS-PRODUCT-CODE-LONG","批准产品","BUSINESS-PRODUCT-CODE-LONG","批准产品")));
+        when(approvedProductIdentityMapper.countDeclaredProductEvidence(1L,3000L)).thenReturn(2L);
+        workflowService.submitControlledFile(99L,request);
+        verify(controlledFileMapper).insert(argThat((DccControlledFileDO file)->"DCC_CATALOG".equals(file.getProductSource())
+                && file.getProductMasterId()==null && Long.valueOf(9007199254740993L).equals(file.getProductCatalogId())
+                && Long.valueOf(9007199254740994L).equals(file.getProductRelationId())
+                && Long.valueOf(9007199254740995L).equals(file.getProductCreateRequestId())
+                && "BUSINESS-PRODUCT-CODE-LONG".equals(file.getProductCode()) && "批准产品".equals(file.getProductName())));
+        verifyNoInteractions(mdmProductApi);
     }
     @Test void submitFreezesActualAttributesAgainstThePersistedBpmRound() {
         var request=buildSubmitReqVO("A/1");prepareManagerSubmission();

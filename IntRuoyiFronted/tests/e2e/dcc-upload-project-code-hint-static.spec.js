@@ -22,14 +22,14 @@ assert.match(
 
 assert.match(
   uploadPage,
-  /const isRequiredProjectCodeBound = computed\(\(\) => Boolean\(formData\.productCode\.trim\(\)\)\)/,
-  'Upload page must explicitly detect when a required DCC project code has already been bound'
+  /const isRequiredProjectCodeBound = computed\(\(\) => Boolean\(projectProduct\.value[\s\S]*projectProduct\.value\.source !== 'UNBOUND'[\s\S]*projectProduct\.value\.projectCodeId === String\(formData\.dccProjectCodeId\)\)\)/,
+  'Upload readiness must bind the formal product projection to the exact selected project'
 )
 
 assert.match(
   uploadPage,
-  /const productCodeBindingHintText = computed\(\(\) => \{[\s\S]*已自动绑定 DCC 项目代码：\$\{formData\.productCode\.trim\(\)\}[\s\S]*DHF\/DMR 类别必须选择包含项目代码的 DCC 项目[\s\S]*\}\)/,
-  'DHF/DMR helper text must switch from blocking prompt to bound confirmation after project code autofill'
+  /const productCodeBindingHintText = computed\(\(\) => \{[\s\S]*已解析编号：\$\{formData\.productCode\.trim\(\)\}[\s\S]*DHF\/DMR 类别必须选择已绑定正式产品的 DCC 项目[\s\S]*\}\)/,
+  'Product-required helper distinguishes a formally bound product from UNBOUND'
 )
 
 assert.match(

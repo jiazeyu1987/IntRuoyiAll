@@ -1,0 +1,14 @@
+# LD02/G47 文件类型直接选择与真实文件名称
+
+Status: ready_for_closeout_for_Root_review。仅main/int_qms；FE owner只上传表单/type API/type helper/专属测试。Root统一types/build/真实页面/运行/Git，后端Owner删除NEW名单资格并保正式启用leaf/category guard。LD01产品projection、blocker3span、项目folder/票据/矩阵/属性/二次确认保持；NAS目录第3步不改。共享task仍in_progress。
+
+- Given启用项目/folder及正式upload-options含可用类型且项目文件模板为空，When选择类型/真实File，Then类型独立可选、唯一active-category解析、实际file.name建立名称/session，预览与送审不依赖预设item。
+- Given分类解析缺失/歧义或inactive/parent/非法Long类型，When选择，Then明确失败且不fallbackfirstcategory；旧ticket先正式清理，失败不改变其已有身份。
+- Given选定源完整名与模板建议不同，When上传及确认，Then只采用实际File.name/SOURCE票据原名，显示名readonly，模板suggestions可读辅助但不更改该次源或提交资格。
+- Given辅助模板空/读取失败，When显示，Then空不阻核心类型/文件操作，失败只在辅助提示准确展示。正式类型读取失败仍阻核心，不默认为空成功。
+
+验证actualSFC handler/validator/template经TS/Vue执行：旧空模板错误、旧实际File没有设名和名称validator名单拒绝有效RED；新版directtype/实际source预览calls/无模板送审GREEN，保持stage1产品与blocker/真实payload。有限离线transport/Element宿主不实际E2E，Root运行后核同名/binary/source。
+
+实际RED4项均因旧空模板资格/旧name上下文/名称validator/多stage表单失败；最初GREEN单项fixture缺isExternalReview及name测试选中外来file-name分支，准确补正式dependentref和受控分支，非产品RED。最终新增8场景并原LD01/upload8文件共55执行PASS，0fail/skip；5相关prodESLint最终exit0/0warning（首轮1linebreakwarning已修）。新实际Vue typecontrol render显示完整启用路径；源preview返回完整名与rawFile.name不一致会清理返回临时对象并准确拒绝，旧票据名不可换。共享workflow submit分类ID使用既有正式Long identity validator，字符串taxonomy大ID不Number化、unsafe或overflow仍拒。
+
+代码交付supersedes LD01 manifest中upload/index.vue，产品identityhelper与三来源投影合同未改变；原blocker3span保持，NAS提交目录块/handler原样。Root负责fulltypes/build、BE接口/schema、实际页面和Git，不重复累计此前54或旧46为独立场景。

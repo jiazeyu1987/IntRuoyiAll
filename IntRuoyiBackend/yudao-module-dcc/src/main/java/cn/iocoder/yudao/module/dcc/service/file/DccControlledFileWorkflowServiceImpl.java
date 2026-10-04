@@ -99,6 +99,9 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver;
+import cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductIdentityResolver.Product;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper;
 import jakarta.annotation.Resource;
 import org.flowable.task.api.Task;
 import org.springframework.dao.DuplicateKeyException;
@@ -172,6 +175,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW
 @Service
 @Validated
 public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWorkflowService {
+    @Resource private DccApprovedProductIdentityMapper approvedProductIdentityMapper;
     @Resource private DccPublicUploadPlacementService publicUploadPlacementService;
 
     public static final String BPM_PROCESS_DEFINITION_KEY = DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL;
@@ -380,6 +384,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .stampedFileName(stampedFileTrace.name())
                 .stampedFilePath(stampedFileTrace.path())
                 .productMasterId(activeFile.getProductMasterId())
+                .productSource(activeFile.getProductSource()).productCatalogId(activeFile.getProductCatalogId())
+                .productRelationId(activeFile.getProductRelationId()).productCreateRequestId(activeFile.getProductCreateRequestId())
                 .productCode(activeFile.getProductCode())
                 .productName(activeFile.getProductName())
                 .dccProjectCodeId(activeFile.getDccProjectCodeId())
@@ -628,12 +634,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             Long userId, Long projectCodeId) {
         DccProjectCodeDO project = validateEnabledProjectCode(projectCodeId, true);
         projectAccessService.assertProjectEditorOrOwner(userId, projectCodeId);
-        ResolvedDccProduct product = resolveDccProductFromProjectCode(project);
+        Product product = resolveDccProductFromProjectCode(project);
         validateScreenshotProductCode(product);
         return DccProjectProductRespVO.builder()
-                .projectCodeId(projectCodeId).productMasterId(product.id())
-                .productCode(product.dccProductCode()).productName(product.nameCn())
-                .source(product.id() == null ? "UNBOUND" : "PRODUCT_MASTER").build();
+                .projectCodeId(projectCodeId).productMasterId(product.masterId())
+                .productCode(product.code()).productName(product.name())
+                .source(product.source()).productCatalogId(product.catalogId())
+                .productRelationId(product.relationId()).productCreateRequestId(product.requestId()).build();
     }
 
     @Override
@@ -687,7 +694,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         DccProjectCodeDO project = validateEnabledProjectCode(request.getDccProjectCodeId(), true);
         projectAccessService.assertProjectEditorOrOwner(userId, project.getId());
-        projectFileTemplateService.validateUploadLocation(project.getId(), request.getFileTypeTaxonomyId());
+        if (!Objects.equals(request.getCategoryId(),fileTypeTaxonomyAdminService.resolveActiveCategoryId(request.getFileTypeTaxonomyId()))) {
+            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        }
+        validateNewFileTaxonomyLeaf(DccControlledFileChangeTypeEnum.NEW, true,
+                resolveFileTypeTaxonomy(request.getFileTypeTaxonomyId(), true));
     }
 
     private void requireApprovalUploadSession(Long fileId, String taskId, String sessionId) {
@@ -2096,11 +2107,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .toList();
     }
 
-    private void validateScreenshotProductCode(ResolvedDccProduct product) {
-        if (product == null || product.id() == null) {
+    private void validateScreenshotProductCode(Product product) {
+        if (product == null || !DccProjectProductIdentityResolver.MDM_MASTER.equals(product.source())) {
             return;
         }
-        if (!isValidProductCode(product.dccProductCode())) {
+        if (!isValidProductCode(product.code())) {
             throw exception(CONTROLLED_FILE_PRODUCT_CODE_INVALID);
         }
     }
@@ -2251,10 +2262,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         boolean existingRevisionSubmit = DccControlledFileChangeTypeEnum.REVISION.getCode()
                 .equals(StrUtil.trim(reqVO.getChangeType()))
                 && reqVO.getRevisionSourceControlledFileId() != null;
-        if (controlledUploadSubmit && !existingRevisionSubmit) {
-            projectFileTemplateService.validateUploadSelection(projectCode.getId(),
-                    reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
-        }
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
         if (controlledUploadSubmit) {
             if (existingRevisionSubmit) {
@@ -2271,8 +2278,12 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 && !Objects.equals(category.getFileTypeTaxonomyId(), reqVO.getFileTypeTaxonomyId())) {
             throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
         }
-        ResolvedDccProduct dccProduct = resolveDccProductFromProjectCode(projectCode);
-        if (isProductBoundCategory(category) && dccProduct.id() == null) {
+        if (controlledUploadSubmit && !Objects.equals(category.getId(),
+                fileTypeTaxonomyAdminService.resolveActiveCategoryId(reqVO.getFileTypeTaxonomyId()))) {
+            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        }
+        Product dccProduct = resolveDccProductFromProjectCode(projectCode);
+        if (isProductBoundCategory(category) && !dccProduct.bound()) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
         if (requireScreenshotMetadata) {
@@ -2434,9 +2445,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .fileName(context.reqVO().getFileName())
                 .title(context.reqVO().getFileName())
                 .fileNumber(context.reqVO().getFileNumber())
-                .productMasterId(context.dccProduct().id())
-                .productCode(context.dccProduct().dccProductCode())
-                .productName(context.dccProduct().nameCn())
+                .productMasterId(context.dccProduct().masterId())
+                .productSource(context.dccProduct().source())
+                .productCatalogId(context.dccProduct().catalogId())
+                .productRelationId(context.dccProduct().relationId())
+                .productCreateRequestId(context.dccProduct().requestId())
+                .productCode(context.dccProduct().code())
+                .productName(context.dccProduct().name())
                 .dccProjectCodeId(context.projectCode() == null ? null : context.projectCode().getId())
                 .fileTypeTaxonomyId(context.fileTypeTaxonomy() == null ? null : context.fileTypeTaxonomy().path().id())
                 .fileTypeLevel1(context.fileTypeTaxonomy() == null ? null : context.fileTypeTaxonomy().path().level1())
@@ -2826,22 +2841,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         return new FileTrace(file.getName(), file.getPath());
     }
 
-    private ResolvedDccProduct resolveDccProductFromProjectCode(DccProjectCodeDO projectCode) {
-        if (projectCode == null || StrUtil.isBlank(projectCode.getProjectCode())
-                || StrUtil.isBlank(projectCode.getProjectName())) {
-            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
-        }
-        if (projectCode.getProductMasterId() != null) {
-            MdmProductRespDTO product = mdmProductApi.getEnabledDccProduct(projectCode.getProductMasterId());
-            if (product == null || product.getId() == null || StrUtil.isBlank(product.getDccProductCode())
-                    || StrUtil.isBlank(product.getNameCn())) {
-                throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
-            }
-            return new ResolvedDccProduct(product.getId(),
-                    StrUtil.trimToNull(product.getDccProductCode()),
-                    StrUtil.trimToNull(product.getNameCn()));
-        }
-        return new ResolvedDccProduct(null, null, null);
+    private Product resolveDccProductFromProjectCode(DccProjectCodeDO projectCode) {
+        return DccProjectProductIdentityResolver.resolve(projectCode,mdmProductApi,approvedProductIdentityMapper);
     }
 
     private boolean isValidProductCode(String productCode) {
@@ -2979,7 +2980,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                                           Long selectedDirectoryId,
                                           DccControlledFileSubmitReqVO reqVO,
                                           ResolvedSubmitFiles submitFiles,
-                                          ResolvedDccProduct dccProduct,
+                                          Product dccProduct,
                                           DccProjectCodeDO projectCode,
                                           ResolvedFileTypeTaxonomy fileTypeTaxonomy,
                                           DccControlledFileChangeTypeEnum changeType,
@@ -2989,9 +2990,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private record WorkingIterationSubmissionPayload(Long iterationId, boolean needTraining,
                                                      List<Long> selectedSignoffUserIds) {
-    }
-
-    private record ResolvedDccProduct(Long id, String dccProductCode, String nameCn) {
     }
 
     private record ResolvedFileTypeTaxonomy(DccFileTypeTaxonomyPath path,

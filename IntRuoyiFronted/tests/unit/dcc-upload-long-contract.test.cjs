@@ -22,6 +22,11 @@ test('formal submit contract accepts exact project folder and relation Long stri
   assert.doesNotThrow(() => context.exports.validate(request, 'upload'))
   assert.equal(request.dccProjectCodeId, '9007199254740993')
 })
+test('free file type uses exact formal taxonomy Long rather than unsafe numeric conversion', () => {
+  assert.doesNotThrow(() => context.exports.validate({ ...request, fileTypeTaxonomyId: '9007199254740993' }, 'upload'))
+  for (const typeId of [9007199254740992, '9223372036854775808', '01', 0])
+    assert.throws(() => context.exports.validate({ ...request, fileTypeTaxonomyId: typeId }, 'upload'))
+})
 test('unsafe numeric and overflowing identities reject before transport', () => {
   for (const id of [Number.MAX_SAFE_INTEGER + 1, '9223372036854775808', 0, -1, '5.1']) {
     assert.throws(() => context.exports.validate({ ...request, dccProjectCodeId: id }, 'upload'))

@@ -47,7 +47,15 @@ public class DccControlledFileDO extends BaseDO {
     private String fileOwnerApprovalTaskId;
     private String fileOwnerProcessInstanceId;
     private LocalDateTime fileOwnerSelectedTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long productMasterId;
+    private String productSource;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCatalogId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productRelationId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCreateRequestId;
     private String productCode;
     private String productName;
     private Long dccProjectCodeId;

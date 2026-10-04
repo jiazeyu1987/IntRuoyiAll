@@ -44,7 +44,9 @@ const setup = overrides => {
     relatedFileRequestSequence: 0, relatedFileKeyword: ref(''), relatedFilePageNo: ref(1), relatedFileTotal: ref(1),
     relatedFileOptions: ref([8]), relatedFileOptionsError: ref(''), resetProjectFileTemplateSelection: () => calls.reset++,
     applyDccProjectCodeProductNumber() {}, loadRelatedFileOptions: async () => {}, loadProjectFileTemplate: async () => {},
-    projectProductLoading: ref(false), projectProductError: ref(''), projectProductResolvedId: ref(5), submitFieldErrors: {},
+    projectProductLoading: ref(false), projectProductError: ref(''), projectProductResolvedId: ref(5),
+    projectProduct: ref({ projectCodeId: '5', source: 'DCC_CATALOG', productMasterId: null,
+      productCatalogId: '51', productRelationId: '52', productCreateRequestId: '53', productCode: 'PRODUCT-5', productName: '正式产品' }), submitFieldErrors: {},
     clearSubmitFieldErrors() {}, formRef: ref({ validate: async () => true }), isVersionNoFormatValid: ref(true),
     versionFormatPreflightMessage: ref(''), resolveReadyAttachmentUploads: () => [], hasUnreadyAttachmentUploads: ref(false),
     currentVersionLookupTimer: undefined, loadCurrentVersionByFileNumber: async () => {}, currentVersionLookupError: ref(''),
@@ -94,6 +96,30 @@ test('confirmed upload sends a detached actual snapshot from the same selected p
   state.formData.projectAttributes.targetMarkets.push('FDA')
   assert.deepEqual(JSON.parse(JSON.stringify(calls.submitted[0][0].projectAttributes)), attributes)
   assert.equal(calls.navigated, 1)
+})
+test('formally unbound product cannot submit a product-required category', async () => {
+  const { state, calls } = setup({
+    projectProduct: ref({ projectCodeId: '5', source: 'UNBOUND', productMasterId: null,
+      productCatalogId: null, productRelationId: null, productCreateRequestId: null, productCode: null, productName: null }),
+    isProductRequiredForSelectedCategory: ref(true),
+    validateDccProjectProductCode: submitterModel.exports.validateDccProjectProductCode
+  })
+  state.formData.productCode = ''
+  await submit(state)
+  assert.equal(calls.confirmed, 0)
+  assert.equal(calls.submitted.length, 0)
+  assert.ok(calls.errors.length > 0)
+})
+test('formal product provenance changes during confirmation reject the exact pending upload', async () => {
+  const { state, calls } = setup()
+  state.message.confirm = async () => {
+    calls.confirmed++
+    state.projectProduct.value.productRelationId = '54'
+  }
+  await submit(state)
+  assert.equal(calls.confirmed, 1)
+  assert.equal(calls.submitted.length, 0)
+  assert.match(calls.errors.join(' '), /变化/)
 })
 test('project or file change during confirmation rejects the obsolete request visibly', async () => {
   const { state, calls } = setup(); state.message.confirm = async () => { state.previewUpload.value.uploadTicket = 'another-file' }

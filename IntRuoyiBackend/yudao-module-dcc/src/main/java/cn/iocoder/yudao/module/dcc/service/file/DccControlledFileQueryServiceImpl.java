@@ -1417,6 +1417,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .title(file.getTitle())
                 .fileNumber(file.getFileNumber())
                 .productMasterId(file.getProductMasterId())
+                .productSource(file.getProductSource()).productCatalogId(file.getProductCatalogId())
+                .productRelationId(file.getProductRelationId()).productCreateRequestId(file.getProductCreateRequestId())
                 .productCode(file.getProductCode())
                 .productName(file.getProductName())
                 .dccProjectCodeId(file.getDccProjectCodeId())
@@ -2870,6 +2872,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setStampedArtifactAvailable(hasFileRecord(file.getStampedFileId()));
         boolean nativeTrainingRecordAvailable = populateNativeWorkflowExecutionProjection(respVO, file);
         respVO.setProductMasterId(file.getProductMasterId());
+        respVO.setProductSource(file.getProductSource());respVO.setProductCatalogId(file.getProductCatalogId());
+        respVO.setProductRelationId(file.getProductRelationId());respVO.setProductCreateRequestId(file.getProductCreateRequestId());
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
         respVO.setDccProjectCodeId(file.getDccProjectCodeId());

@@ -1,0 +1,16 @@
+# LD01/G46 上传页正式产品预览
+
+Status: ready_for_closeout_for_Root_review。仅主仓C:/IntRuoyiAll-int_main/int_qms；本Agent拥有上传页产品投影、产品helper、workflow.ts既有产品API声明及对应行为测试。后端/Java/Maven由legacy Owner，Root唯一运行/Git/E2E及fulltypes/build。原会签blocker3span、文件模板/目录后续问题不改。共享task仍in_progress，本批不是完整目标完成。
+
+固定GET `/dcc/controlled-files/project-product?projectCodeId=...`：source为MDM_MASTER/DCC_CATALOG/UNBOUND；projectCodeId/productMasterId/productCatalogId/productRelationId/productCreateRequestId均正式Long字符串。MDM仅master有值；DCC masterNULL且catalog/relation/request完整；UNBOUND所有product身份及code/nameNULL。产品编码和名称来自正式服务器，与项目编码不同。
+
+- Given批准项目具正式DCCcatalog产品或真实MDM，When选择项目，Then读取公开正式preview且严格核同project/source/对应IDs，展示实际产品编码、名称、来源和已知身份，不把项目编码/目录ID冒充产品。
+- Given项目切换/清除/卸载时旧preview迟到，When完成，Then旧响应不覆盖当前选择，旧错误不污染新项目，也不释放新请求loading。
+- GivenUNBOUND或实际读取失败/非法产品来源，When显示/提交，Then明确未绑定或当前错误；产品必需分类不提交，不猜产品或降级到projectCode。非产品必需类别保留正式UNBOUND事实。
+- Given精确大Long、foreignproject、冲突source/ID/空编码名称，Whenpreview解析，Then大Long原样，非法响应明确失败。客户端提交不指定产品身份，后端仍权威解析。
+
+验证：实际SFC产品handler通过TS转译执行，实际产品form-item子树Vue编译渲染；公开API wrapper用离线transport核params字符串，边界清楚不真实HTTP；先有效RED再GREEN/受影响上传回归及ownedlint。Root统一types/build及真实页面。
+
+实际结果：旧SFC复制projectCode/没有产品name/source与正式读取caller的6项有效RED全FAIL；实现后6GREEN，扩必要actualwrapper/lateerror及publicsubmitUNBOUND/provenance确认行为，最终7文件46执行PASS、0fail/skip，2旧产品static合同更新到正式preview并分别PASS。首组合失败是旧application夹具缺projectProduct ref的ReferenceError，补实际依赖fixture（来源ID独立、MDM保持null）而不放宽行为，保留原日志；不记产品RED。3生产ownedeslint最终exit0；无fulltype/build或真实页面。
+
+产品身份保存在独立typedserverprojection中，Long仅string，MDM主ID与DCCcatalog3ID不混。formData.productMasterId保持null且buildSubmitPayload原有server-authoritative保护不改，客户端不指定产品ID。确认上下文包含正式productprojection，防中途provenance变化。原文件模板/目录/code选择和会签blocker显示不改，原封存清单不重写。
