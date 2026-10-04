@@ -23,7 +23,10 @@ Isolated H2 and in-memory Flowable only; Maven reactor targeted tests, main appl
 
 ## Current Status
 
-ready_for_closeout — G25sourcecollector prepared with16offline testsPASS, actualsourcecollector/backup/upgrade remainRoot; SDK39reader50PASS staysfrozen. Userrealwritescope recordedandRootclonePASS available; childnoDB/GETactions. Allpriorreceipts preserved.
+ready_for_closeout — LD04/G49 backend candidate implemented: native project-application TODO/DONE, exact authorized detail and same-transaction official station messages. Effective notification/native RED6→GREEN6 and query-permission RED1→102/7 PASS (2026-10-05 01:57:53); seven XML immutable. Final stage-specific timeline action RED1→43/2 PASS (2026-10-05 02:07:41, 0fail/error/skip), two additional XML immutable; counts are not additive. Single newtemplate/2-entry dependency closure prepared/staticPASS only, no actualMySQL. G48 seals unchanged. Root review/package/runtime/DB/E2E/Git and overall goal remain; this is finite G49 engineering delivery, not whole-goal completion.
+
+Previous finite delivery remains ready_for_closeout: LD03/G48 mapping17production/6tests/4schema, actual219/6 PASS and six XML permanently archived. The new G49 implementation does not rewrite that receipt or claim the overall goal completed.
+
 
 ## G02 Root review repair
 
@@ -67,6 +70,28 @@ Root resumes this existing record for a bounded obsolete readiness repair. Curre
 - No child agents, services, real DB, E2E or Git writes by this subtask. Root retains final authorized integration/closeout; historical no-authorization wording does not block this implementation.
 
 ## Cleanup Keep
+
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-query-permission-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-project-application-frontend-independent-review.md
+- doc/tasks/20261002-dcc-public-backend-completion/g49-project-application-todo-plan.md
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-delivery-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-notify-policy-red.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-notify-policy-green.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-notify-sql-static-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest.xml
 
 - doc/tasks/20261002-dcc-public-backend-completion/g43-auth-independent-review.md
 
@@ -270,6 +295,39 @@ G33 candidate is ready_for_closeout with final101/7 isolated PASS; master status
 - doc/tasks/20261002-dcc-public-backend-completion/integration-notes.md
 - doc/tasks/20261002-dcc-public-backend-completion/delivery-fingerprints.json
 - doc/tasks/20261002-dcc-public-backend-completion/test-counts.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-schema-contract.py
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-schema-contract.json
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-migration-fullclosure.json
+- doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-runtime-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-plan.md
+- doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccUploadEndpointHttpContractTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccFileTypeTaxonomyAdminServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccControlledFileUploadApiTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccControlledFileWorkflowServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccPublicUploadPlacementHttpContractTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccSourceUploadContextTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g47-DccProjectFileTemplateServiceImplTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g48-backend-storage-projection-plan.md
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-junit-archive.json
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-migration-fullclosure.json
+- doc/tasks/20261002-dcc-public-backend-completion/g48-storage-runtime-plan.md
+- doc/tasks/20261002-dcc-public-backend-completion/g48-DccControlledFileWorkflowServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAccessPermissionServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAdminServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g48-DccFileCategoryAdminServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g48-DccPublicUploadPlacementHttpContractTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g48-G48StorageProjectionTest.xml
 
 ## P05/P06/P07 verification and handoff
 

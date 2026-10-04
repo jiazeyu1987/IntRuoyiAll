@@ -1,0 +1,61 @@
+{
+  "status": "LD04_RAW_SEVEN_AND_FINAL_TWO_XML_PROTECTED_COPY_VERIFIED",
+  "files": [
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "sha256": "1623474feac7c30d233ea2490defff839e95a262d678099892c1dce1b681ef72",
+      "bytes": 99256
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "sha256": "92a4a36e9cd39940cc95105a9766d81a2e4e5e0e9e21d8dc13337b672a20b3ff",
+      "bytes": 97948
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest.xml",
+      "sha256": "eba3f46be294e734317beb7b6c6eb7c49310e4d9f1c4b7fd10ecc13cdeb775db",
+      "bytes": 98321
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest.xml",
+      "sha256": "2f5847cdf0529ee711dad180dbfc262dcc2336a64ddb9aa703995c38ec7ae65c",
+      "bytes": 97466
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest.xml",
+      "sha256": "9e594d11d3680a6920a44ec40f38b0f3dc87bf400613b9ed5164bd29bd38ab99",
+      "bytes": 100444
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest.xml",
+      "sha256": "7f91fc80ef18c90955c8a343dfe65e285a73d1d3ed742926b91368a869aeb592",
+      "bytes": 95889
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/related-regression/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest.xml",
+      "sha256": "04ab04ad30a5c4325257c17f81b433f445f65ca4b2e8a56f7a8a92f8be233ec7",
+      "bytes": 170806
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/final-timeline/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "sha256": "8758478e887cc3db82a7d8a4f232d534ed5c8b78a686e463e9167dfc2fd35e59",
+      "bytes": 99249
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld04/final-timeline/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "sha256": "811f6bed3b3ad364410b9e810b09c4d2358e25535c01654446d4da452ad1403a",
+      "bytes": 97760
+    }
+  ],
+  "originalFilesDeleted": false,
+  "rawXmlStagedForGit": false
+}

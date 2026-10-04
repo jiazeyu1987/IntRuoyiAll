@@ -763,3 +763,53 @@ G47工程提交64ba36ae92e4d2f08c3808b9130c085b55a2bea8：按4正式冻结manife
 
 - doc/tasks/20261001-dcc-integration-unblock/g47-implementation-stage-paths.json
 - doc/tasks/20261001-dcc-integration-unblock/g47-implementation-commit-proof.json
+
+G48状态：第三项backend/FE已派实施，方向依据g48-root-direction.md；第四项仅prepared方案未开始源码。原LD01四列授权卡片未答，实际库仍不执行新结构。
+
+- doc/tasks/20261001-dcc-integration-unblock/g48-root-direction.md
+- doc/tasks/20261001-dcc-integration-unblock/g48-storage-config-readonly-preflight.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g48-g49-mainflow-acceptance-plan.md
+
+G48前端冻结3prod/3tests manifest7cb78c16，最终62/9相关验证0fail/skip；Root16files含旧seal/helper/log精确一致、types59524实际0/build35653实际0。BE3仍有限H2/mapping/rollbackGreen中，无实际schema。为并行提升速度，在FE3已Root通过后启动LD04独立FE源（不改冻结upload），BE4仍待BE3源/Maven终態后接，Root不同时编译包。正式route /mdm/product-catalog与现APIbase已实际readonly核，无targettemplate、未DB写入。
+
+- doc/tasks/20261001-dcc-integration-unblock/g48-free-folder-frontend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g48-root-types-build-execution.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-route-template-readonly-preflight.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g49-project-entry-frontend-root-review.json
+
+G49FE第2seal affe52db Root18pin通过，仅notify原4候选数组类型声明改变（新helper e184920a）；旧types94613exit2保留，修后97698实际exit0、build28748实际exit0。原22/8finite回归及单filelint0，Source G48未漂。第四BE真实byId/待办/站内信尚未实施，不以完整前端类型/包冒后台成功。
+
+- doc/tasks/20261001-dcc-integration-unblock/g49-project-entry-frontend-root-review-r2.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-root-types-build-execution.json
+
+G48后端final70808终態219/6全0、6实际XML已原byte封存0c5982ff，Root解析全部统计/bytes/SHA通过g48-backend-root-review.json。源冻结，第四由missingagent独占BE源/Maven接g49-plan，G48无重做。第三仅等待最终source manifest以准确提交；第四FE标签native意义小分支并行，SQL四cols/newtable/新template实际均0，source开发继续不假授权执行。
+
+- doc/tasks/20261001-dcc-integration-unblock/g48-backend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-new-runtime-prerequisites-readonly.json
+
+G48工程Root Review/提交5e09a42d9997a247fde52122e4273132c502347b，36准确路径：BE27（17prod/6tests/4schema）+FE6+BDD/plan3。Source27pin+actual6XML219全部正确，FE62/type/build已pass；staged集合/diff check/runtime8061/48061守卫全0，没有夹带G49、infra/AGENTS/旧日志/产物。原第一二经验沉淀已做，本次第三mapped权限/锁序与第四单provider经验又补已有经验doc；未push/未DDL/未业务UI。
+
+- doc/tasks/20261001-dcc-integration-unblock/g48-implementation-stage-paths.json
+- doc/tasks/20261001-dcc-integration-unblock/g48-implementation-commit-proof.json
+
+G49 FE r3仅native两source字段分支“项目代码/当前审批节点”，missingbusinessCode不借requestID补；旧file4字段不改。Root20pin/26执行+types77291实际0/build37120实际0通过，不重复累计旧轮次。BE4本树am有效RED6fail/0error后01:41:36首GREEN6case全0；只保真实用户/tenant/配置、既有单DCC provider与sync消息事务。现在有限关联/失败回滚/分页语义补验证，Source未finalfreeze，不宣称全流程完成。
+
+- doc/tasks/20261001-dcc-integration-unblock/g49-project-entry-frontend-root-review-r3.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-root-types-build-execution-r3.json
+- doc/tasks/20261001-dcc-integration-unblock/g48-protected-junit-archive.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g50-four-direction-local-runtime-upgrade-plan.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g49-notify-idempotence-prerequisite-readonly.json
+
+G49最后SourceReview闭合R01及阶段历史，19BEpin/7原XML102+2finalXML43全部准确不相加；FE8source/test最终26与77291types0/37120build0，finalServer89977 package0、38prod73ClassBytes精准包内匹配、13inventory实际12unique。第四实现提交69caf4fe43694d7a86970b7fafe2e8671b8333e1，31精确paths/Gitcheck/8061/48061guard0；未加原3infra/AGENT、其他旧资产/rawXML/logs/env。Stage3/4 XML分别6及9原byte复制protectedbackup。四项工程实现完成本机int_qms，实际Schema/UI未执行、具体3SQL范围g50已准备待授权，mainTask/goal仍in_progress不冒全HTML完成。
+
+- doc/tasks/20261001-dcc-integration-unblock/g49-implementation-commit-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-implementation-stage-paths.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-backend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g49-protected-junit-archive.json
+- doc/tasks/20261001-dcc-integration-unblock/g50-four-direction-source-delivery.md
+- doc/tasks/20261001-dcc-integration-unblock/g50-final-package-source-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g50-verify-final-package.py

@@ -1,0 +1,15 @@
+{
+  "status": "LD04_FRONTEND_ROOT_PIN_TEST_REVIEW_PASS_NOT_UI",
+  "manifestSha256": "6af4e1bcff5424b8437f4d5d8fb2bce2460048a6a1c89803639f5ec3c20ef738",
+  "checkedAssets": 20,
+  "tests": 22,
+  "failures": 0,
+  "dedicatedTests": 8,
+  "accurateRequestIdAndStrictNotificationRoute": true,
+  "existingOpinionAndResubmissionContractRetained": true,
+  "G48UploadUnchanged": true,
+  "fullTypes": "RUNNING_94613",
+  "build": "RUNNING_31355",
+  "backendTaskAndNotification": "NOT_IMPLEMENTED",
+  "actualUiVerification": "PENDING"
+}

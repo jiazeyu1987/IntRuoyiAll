@@ -1,0 +1,32 @@
+{
+  "status": "LD04_FINAL_ROOT_SOURCE_PIN_ACTUAL_XML_REVIEW_PASS_NOT_UI",
+  "manifestSha256": "95ba26f307e21ad04975ddcacd136e792e9b4bd898a02d668398e4d57a3a9e41",
+  "sourceAssets": 19,
+  "regressionGroups": [
+    {
+      "receipt": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-verification-receipt.json",
+      "tests": 102,
+      "classes": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "receipt": "doc/tasks/20261002-dcc-public-backend-completion/g49-timeline-verification-receipt.json",
+      "tests": 43,
+      "classes": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "overlap": "102_and_43_overlap_not_added",
+  "creatorAndReceiverReadUpdateEligibilityAligned": true,
+  "nativeAndFileSourceMixedWindowAndStableIdentity": true,
+  "samePhysicalRequestGxpNotifyTransactions": true,
+  "existingProjectWriterSeparateTransactionPreserved": true,
+  "nativeHistoryStageResultsPreserved": true,
+  "fullFrontendTypesBuild": "PASS_R3",
+  "actualDatabaseMigration": false,
+  "actualUi": false
+}

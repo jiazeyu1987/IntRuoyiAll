@@ -140,3 +140,22 @@
 # G44 route blocker identity display
 
 2026-10-04：Root真实upload routepreflight有2个同message无人员/阶段提示，本Agent按有限授权只替换upload blocker message interpolation为3个text span并新增actualSFC-AST渲染测试。BDD先写；node专属RED4=1pass/3fail因stage/person展示缺失，GREEN4PASS；upload app/dept/display3files27PASS exit0。pnpm exec eslint初始因自动dependency检查无TTY purge确认退出1，保留原日志，不安装/清理依赖；直接已有eslint bin最终exit0。局部CRLF恢复后反向重建完整旧uploadSHA证明仅li显示改变；无其他源或API/guard变化。原G20seal不改，新fingerprints交Root。无DB/browser/service/Maven/fulltypes/build/Git动作，Root下一真实HMR核人员与任务可读性。
+# LD01/G46 frontend formal project product
+
+2026-10-05：Root指定仅main/int_qms，所有旧worktree已结束不再读/写。本Agent产品身份有限前端Owner，BDD先写；BE确认existingproject-productGET固定MDM_MASTER/DCC_CATALOG/UNBOUND/全LongstringDTO后，实际SFC/正式projection测试6RED失败（旧copyprojectCode/无真实preview/name/source）→6GREEN。typedprojection读取serveractualcode/name/source/真实MDM或catalogrelationrequestIDs，UNBOUND明确，lateproject/error/clear/unmount防污染；publicsubmit保backendderive产品ID，confirm上下文包含产品provenance。扩必要wrapper及提交拒绝行为，原applicationfixture缺projectProduct ReferenceError如实留初组合fail，补正式依赖不放宽guard；最终7文件46PASS、2产品static旧合同按新业务改且PASS、3prodownedeslint exit0。blocker3span原样、模板/目录后续问题未改。Rootfulltypes/build/后端schema/真实UI/Git独占，本Agent无上述动作。g46-project-product-frontend-fingerprints.json封当前成果，旧seal保留。
+# LD02/G47 direct file type and real source name
+
+Root本轮有限授权第2步source实现，main/int_qms不使用旧worktree。BDD先写，4实际SFC模板/validator/handler旧行为有效RED；实施singleupload-options正式启用leaf路径/stringID→existingactive-category唯一map，无模板空名单也可上传。项目template仅参考name/辅助error，类型独立读取；actualrawFile.name先建立SOURCEsession/display，readonlyname，返回preview原名不一致清理准确拒。旧nameitem/stagequalification已移除，真实folder/ticket/binary/globalclaim/product/attrs/部门training/confirmation保留，NAS目录3不改。最初GREEN两夹具问题（missingisExternalReview/AST选externalbranch）如实留证，纠正实际scope/依赖未放宽产品。最终8files55PASS0skip、5prodESLint finalexit0/0warn；新增actualVue typefullpathrender，globalworkflow taxonomyLong contract升级复用正式identityguard不弱化。共享类型/build/BE/实库/真实UI/GitRoot独占，Agent0上述动作。旧G46封存不改，G47source新seal只supersedesdeclaredidx/API/draft；文控blocker原3span不变。
+# LD03/G48 frontend single logical folder
+
+LD04 r3有限native关键字段：Root已确认r2types97698/build28748实际0后授权。唯一prod resolveDccKeyFields对DCC_PROJECT_PRODUCT_REVIEW/APPROVAL显示真实businessCode为项目代码和原node helper；不取file version/type、不借requestKey冒code，文件原四字段和template/导航保持。实际resolver+生产AST Vue渲染RED4=1PASS/3FAIL→GREEN4PASS；原22加4的9files26最终全PASS0skip/exit0、该源lint0warn/exit0（89024已终态），不扩测试。新r3 seal不改旧affe52r2，其他4prod/2existingtests、G48upload精确未变，Root重新全types/build/实际业务验收待续。
+
+LD04 r2 TYPE_FIX_MADE_NOT_UI：Root实际全类型94613唯一TS2677失败、Vite31355退出0并保原失败证据。获Root终态后的有限授权只将notifyMessageNavigation原4候选显式Array<NotifyMessageTarget|null>，不新增target或改filter/业务，不as any/改配置。原8files22重叠回归全PASS0skip/exit0、该源lint exit0日志空（session13606已结束）；source/test新冻结，其他4prod/2tests/G48upload精确未变，旧6af4 seal和BDD保留。Root统一新types/build结果尚待，不称旧Vite或离线PASS为新类型/UI通过。
+
+LD04实施：Root已核LD03完整types/build退出0后授权5前端入口及有限tests。专属7项有效RED→GREEN全PASS，实际精确Long GET/route打开原records、fail准确本地显示不pending fallback、late/close隔离；消息helper严格专用sameorigin3query/targetID、实际消息按钮Vue渲染及真实handler；中心只2native中文labels，无quick签名或权限变化。追加实际原review/approve经原意见wrapper及同一byId刷新，专属8PASS；关联8files22PASS0skip/exit0、5prodlint0warn/exit0。初关联21/22唯一旧reasons夹具缺G46确认helper import，补真实helper/人员模板和route/lifecycle宿主、原断言不动；保初fail证据。5prod/2tests冻结，G48seal/upload3+tests3精确未改；Root统一types/build和新BE/真实页面，Agent未环境/DB/Git。
+
+LD04有限前置：Root允许先写g49-project-application-entry-bdd.md，源码/测试在LD03统一types/build终态前保持冻结。只读确认准确product目录route与现records/pending缺精确GET、共享通知helper及原中心PROCESS_IN_MODULE分支；记录正式byId接口、原Longstring/后继、sameorigin专用通知目标与复用原意见办理的BDD。不执行测试，不伪造新BE接口，不改变签名/角色/DB或页面。
+
+2026-10-05最终冻结后执行一次9文件62项定向回归，exit0、0fail/skip；3当前生产文件ESLint --max-warnings 0退出0、0warning。日志final-frozen/lint-frozen与6source/test文件精确pin交Root。生产/测试此后不再写，完整types/build及实际服务/页面由Root统一。
+
+Root实施授权后仅normalcontrolledNEW取消第二NAS选择/必填/加载及发送。有效RED5=1pass/4fail，GREEN5PASS；实际type mapping不loaddirectory，NEW目录SFC不render、external原controller保留；publicsubmit实际无NAS tree也confirm/send，externalmissing拒。payloadNEW省略directoryownproperty，无null/root/folderproxy；working/submit同guard拒extra，包括真实normalizeProcessType默认CONTROLLED的空/省略。external/REVISION保原目录transport，draft旧dir不跨NEW。最终9files62PASS0skip、3prodlint0warn/exit0；VMfixture增加正式scope ref，不改产品断言。预检只说逻辑folder已选+系统提交时配置，没假映射/ACL通过。旧G47seal保留，新G48supersedes3prod；LD01产品helper/LD02typehelper及blocker3span保留。Agent无DB/API/browser/service/Maven/fulltypes/build/Git，Rootmapping/migration/combinedtypes/E2E负责。

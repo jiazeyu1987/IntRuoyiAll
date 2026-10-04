@@ -1,0 +1,40 @@
+{
+  "status": "LD03_CONFIG_STORAGE_READONLY_PREFLIGHT",
+  "database": "ruoyi-vue-pro",
+  "directoryTenantCounts": [
+    {
+      "tenant": 0,
+      "count": 1
+    },
+    {
+      "tenant": 1,
+      "count": 4829
+    },
+    {
+      "tenant": 122,
+      "count": 54
+    }
+  ],
+  "enabledBindingTenantCounts": [
+    {
+      "tenant": 1,
+      "count": 4
+    },
+    {
+      "tenant": 122,
+      "count": 5
+    }
+  ],
+  "ambiguousEnabledCategoryBindings": 0,
+  "G44ConfiguredCategory": {
+    "categoryId": "908710",
+    "bindingTenantId": "1",
+    "directoryDeleted": false,
+    "directoryActive": true,
+    "directoryTenantId": "1",
+    "baseDirectoryId": "908991"
+  },
+  "databaseWrites": false,
+  "credentialsPrinted": false,
+  "mappingImplementationOrMigration": "NOT_RUN"
+}

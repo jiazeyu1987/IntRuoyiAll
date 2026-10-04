@@ -1,0 +1,41 @@
+{
+  "status": "ACTUAL_219_6_JUNIT_XML_ARCHIVED_BEFORE_OTHER_MAVEN",
+  "files": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccFileCategoryAdminServiceImplTest.xml",
+      "bytes": 99839,
+      "sha256": "e04d13af76b0840c7ac9425302b87c317d7ea99f442bdae6e6293d77b1d97458",
+      "tests": 17
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAccessPermissionServiceTest.xml",
+      "bytes": 95018,
+      "sha256": "25910c16127f360c54b8bdd04bac2a420e0a038b2ad67adc9fb158500da5048d",
+      "tests": 5
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAdminServiceImplTest.xml",
+      "bytes": 99893,
+      "sha256": "1bc72e121ad895b7bf04dfb9055e9a63ce7de6436e87f5566b0f8398c0abf3e5",
+      "tests": 20
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 127464,
+      "sha256": "262f5330f3295512a6dca1ffcbf503e72aac1e37dd3016e5e321b0e292b6fbfc",
+      "tests": 170
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccPublicUploadPlacementHttpContractTest.xml",
+      "bytes": 95416,
+      "sha256": "a0e6228d674e29fd4df6fa50882e60f01ba79784800703db47d8c8b5cf4e85ec",
+      "tests": 2
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-G48StorageProjectionTest.xml",
+      "bytes": 96988,
+      "sha256": "1d7a222de4aec9d550f3fe44b2dd2c4544f5884b199af344918fccfd53f07bde",
+      "tests": 5
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "status": "LD04_FROZEN_R3_FRONTEND_FULL_TYPES_BUILD_PASS_NOT_UI",
+  "manifestSha256": "535ead21cdfd2aae95d21837ba8e57c910cc37a8696132513fe3c90393b1fc3b",
+  "tests": 26,
+  "types": {
+    "exitCode": 0,
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sessionId": 77291
+  },
+  "build": {
+    "indexSha256": "e4738f5090ea399d8b605d3a28e129ffe5cf5d0a6dd0121cdee3598b27ae55fa",
+    "exitCode": 0,
+    "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1",
+    "sessionId": 37120
+  },
+  "nativeBackend": "IN_PROGRESS_FIRST_6_GREEN",
+  "actualDatabaseMigration": false,
+  "actualUi": false
+}

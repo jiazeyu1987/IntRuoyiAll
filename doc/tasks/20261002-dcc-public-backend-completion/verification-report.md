@@ -339,3 +339,18 @@ H2/Flowable are isolated developer tests; account/permission/network/storage cli
 
 ## Closeout
 Implementation/tests enter ready_for_closeout, then task remains blocked for final repository Git closeout because Root explicitly prohibited commits/pushes. Cleanup preview is recorded; apply is intentionally not claimed PASS when blocked. Root can review the raw logs and 27-asset manifest before final task closeout.
+
+
+## LD01 / G46 产品创建到正常上传
+
+用户HTML为业务权威，批准DCC产品不新增14位要求。唯一server typedresolver区分MDM_MASTER/DCC_CATALOG；精确COMPLETEDrequest/ACTIVErelation/catalog/currenttenant/code/name，MDM失败不fallback。Root实证newcatalogtenant0，DO/Writer只修新insert当前tenant，old613/history不改。产品4provenance独立持久化/HTTPstringLong/Querycopy，metadata同源解析与审计source。有效真实previewRED1及metadataRED1→467/6全0，早期工具/fixturefail分别存原log不冒RED。SQL只四nullable/nohistoryDML，fullclosure9+offlineguardfirstrepeat变异PASS，actualDDL未执行。详g46BDD/fingerprints/verification/runtimeplan；无actualDB/Redis/token/service/package/Git/FE/E2E，Root接Review执行。
+
+
+## LD02 / G47 上传无需项目文件名单
+
+等待RootLD01packageexit0后改Workflow1+tests2；普通NEWpreviewlocation/submitselection名单不再必须。正式activepath>=3+leaf+uniquecategoryexact请求/projectrights/typeproduct/ticket/sourceOriginal/nameclaim/date/Placement仍严格；Template管理服务不改，CHECKIN/EXTERNAL不改。有效RED2旧模板拒→首178PASS；初关联226/2mocksetupErrors保留；actualtwoactivecategory有效RED1→正式resolveActiveCategoryId替代→final240/7全0， archived7JUnitXML/source/logSHA见g47封存。LD01余15assets0drift，NAS/FE/schema不改，无actualDB/token/service/package/Git/E2E，Root接Review。
+
+
+## LD03 / G48 只选择项目文件夹
+
+服务器正式tenant/folder/category→唯一base→DBleaf映射，非NASmkdir/ACL。正常NEW公开service/controller仅内部context，caller目录presence拒；真实mapping/leaf/File/placement/Gxp同事务与历史inherit隔离。有效RED1真实0mapping→219/6final全部0，5H2主事务/权限/维护case +Workflow170/HTTP2/Dir20/Category17/权限5，6actualXML永久归档。manualBoundleaf不投base、base撤权同步、当前category锁后active/type核、目录先base/dir后mapping以及配置/folder占用保留。17prod/6tests/4schema27asset rawSHA详g48fingerprints/receipt；工具/fixture错误原log保留不冒业务RED。new1table12列/9closure仅准备，无actualDDL/historyDML/DB/token/service/package/Git/E2E；Maven已移交4，RootReview/执行。

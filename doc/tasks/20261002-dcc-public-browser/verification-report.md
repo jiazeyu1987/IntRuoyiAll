@@ -1,5 +1,27 @@
 # Verification report
 
+## LD04/G49 exact project application entry
+
+r3 native关键字段修正：仅中心resolveDccKeyFields对两项目sourceType显示“项目代码/当前审批节点”，真实businessCode/node，不造文件版本/类型。实际resolver及原Vue子树有效RED3/4→GREEN4；原22+新增4的9files26执行PASS/0skip/exit0，单源lint exit0/0warning；文件分支四字段保原来源。其他前端源与旧seal精确保持，r3统一types/build由Root另验，非新真实页面PASS。
+
+r2 TYPE_FIX_MADE_NOT_UI：Root全类型94613退出2，唯一TS2677为原4候选推断union窄于filter谓词新增union；旧Vite31355退出0。唯一源修正显式Array<NotifyMessageTarget|null>，原同一filter/候选/导航保持。原8files22重叠执行全部PASS/0skip/exit0，单源lint exit0且0warning；其余4生产/2测试和旧BDD/G48upload seal未动。新r2指纹与旧6af4 seal独立保存，Root新完整类型/构建待验，非UI功能新验收。
+
+5前端生产入口已有限实现冻结：正式byId GET及全部record Longstring声明、原records精确query消费、专用sameorigin通知目标/真实消息详情按钮、中心2native source中文label。项目review/approve/resubmit沿原意见接口与真实原ID，不加quick签名或角色；upload3冻结未改。实际专属RED7FAIL→GREEN7PASS，加入准确原意见办理wrapper/读回后专属8；最终8files22执行全PASS/0skip，5prod lint exit0/0warning。初关联1FAIL为旧reasons夹具缺G46确认import，一次补真实helper/正式选项及新route宿主、原断言保持，最终通过。实际组件handler/wrapper/helper和Vue AST子树渲染，网络/Element宿主明确，非真实E2E。新BE/通知事务/配置、Root完整types/build与真实页面待其综合验证，本Agent无真实HTTP/DB/browser/service/Maven/Git动作，不宣称完整业务运行完成。
+
+## LD03/G48 normal NEW only logical project folder
+
+当前冻结源码最终日志：g48-frontend-single-folder-final-frozen.log，9文件62PASS/0fail/0skip/exit0；g48-frontend-single-folder-lint-frozen.log，3生产文件0warning/exit0。旧26项及其他62项为重叠执行，不增加案例数。G48指纹仅替代声明的源码/测试增量，旧G47seal和产品/类型helper保持。
+
+源码normalNEW不显示/加载/必填/发送额外NASdirectoryId，真实projectFolderId保留；external/REVISION按原storage合同隔离。有效RED4/5→GREEN5，actualSFC目录Vue渲染/typehandler/publicsubmit，actualsubmitter JSON ownproperty与两个正式working/submitwrapper transport守卫；最终9文件62PASS0skip，owned3prodlint exit0/0warn。产品/source/tickets/typecategory/attrs/matrix/twoconfirm保持，映射实际创建不由前端假readiness取代。Rootfulltypes/build/backendmapping/schema与actualUI待验证，无本Agent实际环境/DB/Git动作，不称goalcomplete。
+
+## LD02/G47 direct file type and source naming
+
+真实上传预设名单资格已在前端移除。独立启用typepaths/实际SFCcategorymapping与sourceFilehandler/真实formvalidator、实际Vue单typecontrol完整pathrender，共新8场景纳入8文件55执行PASS，0fail/skip；5ownedprodESLint finalexit0/0warn。有效RED4因旧业务，首GREEN2夹具问题明确分开。actualFile.name建立session与readonly显示，sourcepreviewreturnedname复核不一致清理，templateempty/auxerror不改coretypes，category错误不取firstfallback；原Long/namefileticket/产品/会签/二次confirm回归保留。Rootfulltype/build/后端配置/实际browser待其统一，旧G46seal保留新G47指纹阶段替代，不声明完整目标完成。
+
+## LD01/G46 frontend formal product identity
+
+前端仅正式serverpreview接线，不复制项目编码冒产品。实际SFC handler及产品form AST Vue渲染有效RED6→GREEN6；typed来源ID/payloadwrapper、大Long、late响应/错误、clear/unmount、UNBOUND及实际submitrequired/provenance确认行为已加入最终7文件46PASS。2产品static旧合约改为当前formalprojection并分别PASS，owned3prodeslint exit0。首relatedfail仅旧fixture缺正式productref，未产品guard改降级。传输、Element宿主及外部响应为明确离线边界，0实际HTTP/browser/DB/service/Maven/Git/fulltypes/build，本目标不宣称完成。Root按冻结指纹Review再统一types/构建及真实页面。
+
 ## G44 bounded route blocker display
 
 Root真实页面已证明两个同错误原因无法定位审批人。本增量只改upload readiness li展示。实际Vue parser提取生产template AST子树，Vue compiler/renderer执行formalVO字段fixture：同message两阶段/两大Long账号分别显示，缺身份明确未记录，原error/ready分支不显示旧blocker，文本字符不变成markup。有效RED3/4→GREEN4，受影响upload application/departments/display三文件27PASS，ownedeslint最终exit0。网络/Element宿主是离线边界，不是真实业务PASS；Root类型/HMR/页面验证待其执行。当前uploadSHA 651eb911f93f7f5cb6de5d7cc2d0425e40d4654528c6e3a0cdabf7b011343faa；反向替换该唯一显示块精确恢复原ac6d4acc...c7169，原G20seal保留。完整目标未完成。

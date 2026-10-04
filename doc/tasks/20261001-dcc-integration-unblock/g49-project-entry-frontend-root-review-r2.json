@@ -1,0 +1,15 @@
+{
+  "status": "LD04_ONE_SOURCE_TYPED_CANDIDATE_FIX_ROOT_PIN_PASS_NOT_UI",
+  "manifestSha256": "affe52dbce9a1396a376e650bdca5e9a64124f7f0800335f89376f21b210a792",
+  "checkedAssets": 18,
+  "tests": 22,
+  "failures": 0,
+  "oldRootTypesExit": 2,
+  "oldRootTypesError": "TS2677",
+  "oldRootViteExit": 0,
+  "onlyNotificationCandidateArrayDeclarationChanged": true,
+  "fullTypes": "PASS_ACTUAL_EXIT_0_97698",
+  "build": "PASS_ACTUAL_EXIT_0_28748",
+  "backendTaskAndNotification": "NOT_IMPLEMENTED",
+  "actualUiVerification": "PENDING"
+}

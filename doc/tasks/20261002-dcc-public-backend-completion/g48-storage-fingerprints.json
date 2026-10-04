@@ -1,0 +1,159 @@
+{
+  "status": "LD03_STORAGE_PROJECTION_SOURCE_FROZEN_FOR_ROOT_REVIEW",
+  "workspace": "MAIN_int_qms",
+  "productionFiles": 17,
+  "testFiles": 6,
+  "schemaFiles": 4,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectFolderStorageMappingDO.java",
+      "bytes": 625,
+      "sha256": "3529956841df1ba36cf94760706983d730ae403a65fcbb5eeaa7952fc7fa6482"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectFolderStorageMappingMapper.java",
+      "bytes": 3818,
+      "sha256": "93911a07fd49ad8a1d6554e194793e7c9f476cb19ac5a388b7182d5a98089a5a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDerivedUploadStorage.java",
+      "bytes": 697,
+      "sha256": "5fd161de02ee5124d5bcd067e1d54453f743d8fc9f55fcfa7c1597a10141e351"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectFolderStorageService.java",
+      "bytes": 4182,
+      "sha256": "9f71fe73fa0a3f2451581852ac71bfb69276c5fc0d39c710d531c7573e04d15a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccStorageMappingMutationGuard.java",
+      "bytes": 2701,
+      "sha256": "7a98701c25cccfddd8084b5ce84c977f4d49af028fe1b74b0c54056f5fbd2b2b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/directory/DccFileDirectoryDO.java",
+      "bytes": 903,
+      "sha256": "638ebb5a1acec2c1199b5adc05608054c0d6ea6efc62f0a4a8c595e3b1d015ed"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/directory/DccFileDirectoryMapper.java",
+      "bytes": 3422,
+      "sha256": "9dcca8a2668a50275a7c3f43f18d6640ae2b511892d75e09558e9d703e3aaeb6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicUploadPlacementService.java",
+      "bytes": 8128,
+      "sha256": "44d0eb527994c36506af6c1e30ae9ef24f121d4292f374c480c55f2555e4a947"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.java",
+      "bytes": 5553,
+      "sha256": "0878d27be677608b07398c4e20a3f861fe9cabe9839a739f8be06f0e43c37112"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 217545,
+      "sha256": "fb96ffa000189edf44a38f3788e6d6d95e40b85234d0b653933e513959baf626"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitReqVO.java",
+      "bytes": 3120,
+      "sha256": "ca51a2ff3e4ff66707e2ce8c9c18aa04abd80ecd5642518faabd979a57dfbdac"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "bytes": 70325,
+      "sha256": "a20012511b3a790402cf2f605478696ccbf4d4e3b2f4a90951da88a4051ec354"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFilePlacementService.java",
+      "bytes": 6912,
+      "sha256": "27e139a8cb6195103dd693eca5ba661fa390de49ce5e7fa1314e3e77cff94c00"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImpl.java",
+      "bytes": 22559,
+      "sha256": "cf010b8fe9a578782d33e78f094b3f6a18e688f2c70eac89e2e0a3f41acfa57e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.java",
+      "bytes": 9274,
+      "sha256": "2d4efa63434e64eb585e9e4096b960e6210cbb64d13b86cf59cb5269736e71f2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAdminServiceImpl.java",
+      "bytes": 48753,
+      "sha256": "24d00d0f54056864a38e1fe304f5d5fb2e419a33de9c5baca3cdda978ffe8f06"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceImpl.java",
+      "bytes": 6371,
+      "sha256": "cc357cc2dbe5ad14adf513c641773cfb9570bd5378d3cde4b1348aea3e3db999"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/G48StorageProjectionTest.java",
+      "bytes": 9805,
+      "sha256": "e277ac67ad9d12c6e9534120841d9418e3d566d57590aa0aebcbdd7b040a6c35"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 295153,
+      "sha256": "5915e3043429c74c688070e1ec0762d9d36ea3d303ae54d4a41dc516319d3701"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPublicUploadPlacementHttpContractTest.java",
+      "bytes": 3755,
+      "sha256": "b7ee84972d1aa8f4e24d724054a86de23af5c197047f5e674895e1c2d3bdf075"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceTest.java",
+      "bytes": 6932,
+      "sha256": "52ac26ba690d0db14a90d989fe044625d27b4c19ce527a071e89303701066a75"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAdminServiceImplTest.java",
+      "bytes": 40354,
+      "sha256": "bb34bc700d037f45a4c4904eda8e74759cb01166cd1f8ae37b0e400a6d6ad635"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImplTest.java",
+      "bytes": 20880,
+      "sha256": "84cde66f297390885dfca00a594a84d38dcfd9678691a24ac599ab389e60ad7c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql",
+      "bytes": 126801,
+      "sha256": "2fb94ce2c70cd2c4a9cea214e571635b0532a74efae4693fdd30641c902e86fc"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/clean.sql",
+      "bytes": 5031,
+      "sha256": "d382e35bc05a9bb0c7aa23362d4e86bd4b5e566efc44c9be45e7f5e6229bef4e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/g48_storage_mapping.sql",
+      "bytes": 559,
+      "sha256": "3ba2af2b8581fc41fe3732b026d01b55a36f598852f878bba51d3789efa44fee"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261005_dcc_project_folder_storage_mapping.sql",
+      "bytes": 1275,
+      "sha256": "afbdd3bbe5646dbb1e43f8db423e874cace07e4668bf578512f03c3009a5485a"
+    }
+  ],
+  "frontendSystemAndProductApprovalEditsByThisAgent": false,
+  "normalNewClientDirectoryRejected": true,
+  "onlyInternalDerivedContextToWorkflow": true,
+  "directoryIsDatabaseRecordNotRemoteNasCreation": true,
+  "noHistoricalDMLOrIdentityBackfill": true,
+  "noNewRolesOrPermissionRulesGranted": true,
+  "manualLeafRulesOverrideBaseProjection": true,
+  "baseRevocationImmediatelyRemovesDerivedProjection": true,
+  "currentCategoryLockedActiveTypeChecked": true,
+  "newTablePhysicalColumns": 12,
+  "migrationSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261005_dcc_project_folder_storage_mapping.sql",
+    "bytes": 1275,
+    "sha256": "afbdd3bbe5646dbb1e43f8db423e874cace07e4668bf578512f03c3009a5485a"
+  }
+}

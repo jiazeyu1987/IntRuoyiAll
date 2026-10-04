@@ -1,0 +1,93 @@
+{
+  "status": "ACTUAL_ISOLATED_REACTOR_TEST_PASS",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T01:57:53+08:00",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccProjectApplicationNotificationTest,DccApprovalTaskAdapterTest,DccProjectProductAttributesCreateTest,DccProjectProductDecisionPersistenceTest,DccProjectProductLedgerTest,DccProjectProductWriteRetryTest,DccProjectConfigurationHttpPersistenceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "tests": 102,
+  "classes": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-final-regression.log",
+    "bytes": 146825,
+    "sha256": "d03b3c4739a7582640bec3a5f9ddc9b7cea6b27513b3b97e96f5d9cdf6dcf2e8"
+  },
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "bytes": 99256,
+      "sha256": "1623474feac7c30d233ea2490defff839e95a262d678099892c1dce1b681ef72"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "bytes": 97948,
+      "sha256": "92a4a36e9cd39940cc95105a9766d81a2e4e5e0e9e21d8dc13337b672a20b3ff"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest.xml",
+      "bytes": 98321,
+      "sha256": "eba3f46be294e734317beb7b6c6eb7c49310e4d9f1c4b7fd10ecc13cdeb775db"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest.xml",
+      "bytes": 97466,
+      "sha256": "2f5847cdf0529ee711dad180dbfc262dcc2336a64ddb9aa703995c38ec7ae65c"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest.xml",
+      "bytes": 100444,
+      "sha256": "9e594d11d3680a6920a44ec40f38b0f3dc87bf400613b9ed5164bd29bd38ab99"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest.xml",
+      "bytes": 95889,
+      "sha256": "7f91fc80ef18c90955c8a343dfe65e285a73d1d3ed742926b91368a869aeb592"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g49-backend-junit-archive/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest.xml",
+      "bytes": 170806,
+      "sha256": "04ab04ad30a5c4325257c17f81b433f445f65ca4b2e8a56f7a8a92f8be233ec7"
+    }
+  ],
+  "actualBrowser": 0,
+  "actualBusinessDbWrites": 0,
+  "actualMySql": 0,
+  "MavenAgainstCurrentReactorSources": true,
+  "note": "Real isolated Spring/H2 official station-message and Gxp services; account/template ports are explicit fixtures. Other group notification mocks do not prove actual sending."
+}

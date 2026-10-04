@@ -442,3 +442,21 @@ G47实际backend Review：唯一正常NEWpreview/submit/working的项目模板�
 G47最终：LD02 FE冻结55/8，16项资产/helper/log指纹Root核一致，独立Review无新增主line P1/P2；完整类型实际86851终止0、Vite env.local构建实际21166终止0。保留原CJS/Browserslist提示，无重装依赖或宽松类型新配置。工程完成不等于实际库/真实UI：4cols授权未答；LD03正式映射和LD04待办继续按序开发。经验沉淀已更新 docs/dcc-business-integration-experience.md 与既有索引，有限复盘、不生成新业务限制。具体收据 g47-root-types-build-execution.json/g47-root-verification.md。
 
 G47工程提交64ba36ae92e4d2f08c3808b9130c085b55a2bea8：按4正式冻结manifest去重最新覆盖32准确文件，source/必要测试/2BDD单独提交；staged集合精确一致、diff check和8061/48061守卫PASS。AGENTS与2infra原改动哈希保留/未暂存，raw log/env/产物不入提交。未push，未DB/真实UI。本地实现提交不等于全业务完成。
+
+G47记录及经验提交4bf2516e8178151261f8c2d0da37a4a848904337，36准确md/json。首次cached check自有执行日志/验证报告新增EOF blankline失败，只有2自有doc TrimEnd修正后check及portguard0提交；无prod/data效果。G48有限mapping方向通过后backend/FE进入有效BDD/TDD，Root只读实际配置准确类别908710根908991同tenant1active，不存在多条根，保持data全部无DML。
+
+G48前端冻结3prod/3tests manifest7cb78c16，最终62/9相关验证0fail/skip；Root16files含旧seal/helper/log精确一致、types59524实际0/build35653实际0。BE3仍有限H2/mapping/rollbackGreen中，无实际schema。为并行提升速度，在FE3已Root通过后启动LD04独立FE源（不改冻结upload），BE4仍待BE3源/Maven终態后接，Root不同时编译包。正式route /mdm/product-catalog与现APIbase已实际readonly核，无targettemplate、未DB写入。
+
+G48首后端正向真实H2已GREEN（g48-storage-green-r3，1实际测试0fail/error，00:21:25）。新映射/叶子在Filecallback前创建、File和placement同一真实目录及Gxp确认，client无NAS directory。前两RED仅真实schema必填fixture错误、前两GREEN仅新签名/重载编译问题保留，不算业务RED；有效RED r3 mapping expected1/got0已留。还需同key复用/晚审计失败回滚、维护占用锁及派生base目录权益闭环；未实际DB/schema/E2E。本轮日期现2026-10-05，保同任务链不另建重复任务。
+
+G49FE初冻结7asset/1doc/6upload/5log/oldG48共20Root核，source/tests22通过，不代表types。Root types94613真实exit2：notifyHelper旧4candidate推断union与扩大NotifyMessageTarget predicate TS2677；agent已确认仅显式typedCandidateArray修复，待31355build终態再改源，无any/松tsconfig。初有效RED7→GREEN7及reasons夹具missingexistingG46confirmation一次修正22/0保留。G48tx-r2 line72Root初猜directory count，Owner核实际Filecount跨casefixture残留；准确改动前File基数+2，目录晚失败前后原本精确相等，不能将此当存储软件回滚失败。
+
+G49FE第2seal affe52db Root18pin通过，仅notify原4候选数组类型声明改变（新helper e184920a）；旧types94613exit2保留，修后97698实际exit0、build28748实际exit0。原22/8finite回归及单filelint0，Source G48未漂。第四BE真实byId/待办/站内信尚未实施，不以完整前端类型/包冒后台成功。
+
+G48后端final70808终態219/6全0、6实际XML已原byte封存0c5982ff，Root解析全部统计/bytes/SHA通过g48-backend-root-review.json。源冻结，第四由missingagent独占BE源/Maven接g49-plan，G48无重做。第三仅等待最终source manifest以准确提交；第四FE标签native意义小分支并行，SQL四cols/newtable/新template实际均0，source开发继续不假授权执行。
+
+G48工程Root Review/提交5e09a42d9997a247fde52122e4273132c502347b，36准确路径：BE27（17prod/6tests/4schema）+FE6+BDD/plan3。Source27pin+actual6XML219全部正确，FE62/type/build已pass；staged集合/diff check/runtime8061/48061守卫全0，没有夹带G49、infra/AGENTS/旧日志/产物。原第一二经验沉淀已做，本次第三mapped权限/锁序与第四单provider经验又补已有经验doc；未push/未DDL/未业务UI。
+
+G49 FE r3仅native两source字段分支“项目代码/当前审批节点”，missingbusinessCode不借requestID补；旧file4字段不改。Root20pin/26执行+types77291实际0/build37120实际0通过，不重复累计旧轮次。BE4本树am有效RED6fail/0error后01:41:36首GREEN6case全0；只保真实用户/tenant/配置、既有单DCC provider与sync消息事务。现在有限关联/失败回滚/分页语义补验证，Source未finalfreeze，不宣称全流程完成。
+
+G49最后SourceReview闭合R01及阶段历史，19BEpin/7原XML102+2finalXML43全部准确不相加；FE8source/test最终26与77291types0/37120build0，finalServer89977 package0、38prod73ClassBytes精准包内匹配、13inventory实际12unique。第四实现提交69caf4fe43694d7a86970b7fafe2e8671b8333e1，31精确paths/Gitcheck/8061/48061guard0；未加原3infra/AGENT、其他旧资产/rawXML/logs/env。Stage3/4 XML分别6及9原byte复制protectedbackup。四项工程实现完成本机int_qms，实际Schema/UI未执行、具体3SQL范围g50已准备待授权，mainTask/goal仍in_progress不冒全HTML完成。

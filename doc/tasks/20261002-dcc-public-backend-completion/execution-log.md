@@ -172,3 +172,28 @@ Readonly positiveVue→API trace identified actual mainline mismatch: returned d
 ## G43 development-only exact26 config preparation
 
 User explicitly removed developmentquality approval restriction; Root assigns onlytaskscript/SQL prep. OldQAdependentpureplan effectiveRED realqualityapprovalrequired; newDEVELOPMENT_TEST_ONLY exact5descriptor noQA/person/time/signature. Purefinal7testsPASSCLI0; exactcandidate26full14fields/policy661af/coverage3acca preserved. SQLonly26INSERToperation orall26match0replay, partial/conflict failwholebatch; transactionlatefailrollback/RESIGNAL, noUPDATEDELETE/upsert/ignore/preDROP/force. Oldpublish09/allotherop/qualityversionfullrows preserved byreadonlypostflight, zeroqualityversionINSERT. Rootactual23306/sourceUUID/schema/writer/backup/SQLfirstrepeat/latefailure retained; thisagent noactualDB/SQL/Maven/browser/service/Git. Statusready_for_root_review, assets/SQLdescriptor/impact/operatorplan/receiptvalidators/hashmanifest prepared; oldG22/G28 unchanged, actualQAfalse remainsaccurate. JavaOwner separatelydevlaneentry, noJavaeditsbythisagent.
+
+## LD01 / G46 产品创建到正常上传
+
+用户HTML为业务权威，批准DCC产品不新增14位要求。唯一server typedresolver区分MDM_MASTER/DCC_CATALOG；精确COMPLETEDrequest/ACTIVErelation/catalog/currenttenant/code/name，MDM失败不fallback。Root实证newcatalogtenant0，DO/Writer只修新insert当前tenant，old613/history不改。产品4provenance独立持久化/HTTPstringLong/Querycopy，metadata同源解析与审计source。有效真实previewRED1及metadataRED1→467/6全0，早期工具/fixturefail分别存原log不冒RED。SQL只四nullable/nohistoryDML，fullclosure9+offlineguardfirstrepeat变异PASS，actualDDL未执行。详g46BDD/fingerprints/verification/runtimeplan；无actualDB/Redis/token/service/package/Git/FE/E2E，Root接Review执行。
+
+
+## LD02 / G47 上传无需项目文件名单
+
+等待RootLD01packageexit0后改Workflow1+tests2；普通NEWpreviewlocation/submitselection名单不再必须。正式activepath>=3+leaf+uniquecategoryexact请求/projectrights/typeproduct/ticket/sourceOriginal/nameclaim/date/Placement仍严格；Template管理服务不改，CHECKIN/EXTERNAL不改。有效RED2旧模板拒→首178PASS；初关联226/2mocksetupErrors保留；actualtwoactivecategory有效RED1→正式resolveActiveCategoryId替代→final240/7全0， archived7JUnitXML/source/logSHA见g47封存。LD01余15assets0drift，NAS/FE/schema不改，无actualDB/token/service/package/Git/E2E，Root接Review。
+
+
+## LD03 / G48 只选择项目文件夹
+
+服务器正式tenant/folder/category→唯一base→DBleaf映射，非NASmkdir/ACL。正常NEW公开service/controller仅内部context，caller目录presence拒；真实mapping/leaf/File/placement/Gxp同事务与历史inherit隔离。有效RED1真实0mapping→219/6final全部0，5H2主事务/权限/维护case +Workflow170/HTTP2/Dir20/Category17/权限5，6actualXML永久归档。manualBoundleaf不投base、base撤权同步、当前category锁后active/type核、目录先base/dir后mapping以及配置/folder占用保留。17prod/6tests/4schema27asset rawSHA详g48fingerprints/receipt；工具/fixture错误原log保留不冒业务RED。new1table12列/9closure仅准备，无actualDDL/historyDML/DB/token/service/package/Git/E2E；Maven已移交4，RootReview/执行。
+
+
+## G49 / LD04 backend finite engineering delivery 2026-10-05
+
+Root handed sole Java/Maven ownership after G48 freeze. BDD g49-backend-bdd.md; actual effective notification/native RED6, GREEN6; broad current-reactor102/7 PASS01:57:53; missing-query reviewer effectiveRED1 fixed without grants or relaxed byId; final timeline effectiveRED1 followed by relevant43/2 PASS02:07:41. Immutable XML archives and receipts distinguish the two executions; no cumulative false full-package count.
+
+Only projectcreate/native delegate/uniqueDCC adapter/controller/VO/mapper and necessary related fixtures/new isolated resource/one forward notifytemplate changed. G48all source/test/schema SHA remain exact. System official notify API is REQUIRED in the same actual Spring/H2/Gxp transaction; message-after-INSERT failure rolls back all rows. Accounts and template-cache are explicit isolated ports, not real login/user grants/MySQL/E2E evidence.
+
+Formal migration policy RED rejected dependency .sql extension; corrected stem, complete2entry closure PASS. Template INSERT-only exact payload/no-op/conflict static contract receipt explicitly actualMySqlRuns0. Root must independently review/apply only the new seed after its specific execution scope; prior dependency is not silently replay-authorized.
+
+No actual business DB/API/browser/services/package/Git by this owner. Source/test writing and Maven stopped after final handoff freeze. Main goal/runtime/actualUI remain Root scope.

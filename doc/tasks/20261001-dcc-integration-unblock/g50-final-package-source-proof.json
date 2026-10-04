@@ -1,0 +1,382 @@
+{
+  "status": "FOUR_DIRECTION_REVIEWED_SOURCE_AND_NESTED_PACKAGE_CLASS_BYTES_PASS_NOT_UI",
+  "jar": {
+    "path": "C:/IntRuoyiAll-int_main/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar",
+    "bytes": 507357275,
+    "sha256": "8a88e65c69f5c088ab4916cf73ee455b2abd3656e379634b8c85cb2fb8a67b62"
+  },
+  "reviewedProductionSources": 38,
+  "matchedCompiledClasses": [
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccApprovedProductIdentityMapper.class",
+      "sha256": "8b7a932acd51c8ca499824dac08786bc873bf1f4bc1f0ff8d417c759a654542e",
+      "bytes": 2182
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccApprovedProductIdentityMapper$ApprovedProduct.class",
+      "sha256": "ff20a20331bc5034f1304b2daaf67f6b21526258fdc830f9a67dee3eafc0bbc3",
+      "bytes": 2558
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductIdentityResolver.class",
+      "sha256": "aa33332764b769e44963bf4c022199177686e4106c550c79f38736b34633f3f8",
+      "bytes": 3795
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductIdentityResolver$Product.class",
+      "sha256": "fa33bec327aff91b1888b567ed63b2d8eed516f279d83a94b3af18c72371207a",
+      "bytes": 2592
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.class",
+      "sha256": "e3c870fcb102e8f76c8eea6d183f7a51d07a8305f295bf7f44e8d88bfd551513",
+      "bytes": 59613
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO$DccControlledFileDOBuilder.class",
+      "sha256": "09bd544b1c0306497b7c6d8c5d4996229c3384fa52b2c1d6587ccddf93be2e48",
+      "bytes": 18307
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/productcatalog/DccProductCatalogDO.class",
+      "sha256": "634548cff14782ca73a5032ba2060e3b1e4d96cca33280ea67fa22eee9db07e3",
+      "bytes": 11690
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/productcatalog/DccProductCatalogDO$DccProductCatalogDOBuilder.class",
+      "sha256": "bf6fcb7b9e2dfe59ee836b84c842e5cb51992ead80f3bca0d8d171fa98161092",
+      "bytes": 5395
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCurrentVersionRespVO.class",
+      "sha256": "5d8f3b284c82871df2c08eccb93e9811c46789713059ead63313481a159ef531",
+      "bytes": 22819
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCurrentVersionRespVO$DccControlledFileCurrentVersionRespVOBuilder.class",
+      "sha256": "36303cc02d8b88162cf0a0763b55d0b35f339ec8d7582def25b42e3eff194586",
+      "bytes": 9251
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.class",
+      "sha256": "3685f7c2ad8379d0f55b11317e20420c535231b5a9d9f5a5e278523b1396f80f",
+      "bytes": 90689
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccProjectProductRespVO.class",
+      "sha256": "ed9d61480d6e138ca6ff5adf6701175504a181e0e5271e4af12c59c7240ccbe1",
+      "bytes": 5442
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccProjectProductRespVO$DccProjectProductRespVOBuilder.class",
+      "sha256": "ac1de3583b68f9f8c50a20f28085782a79ed7f25de21ddb4204aaca178094db9",
+      "bytes": 3335
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl.class",
+      "sha256": "671e95fe85b371041bf4a34de8e87d8f16517f270a1c119e4b229a0e1eb4a878",
+      "bytes": 22208
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl$FileTypeLevels.class",
+      "sha256": "66cb6c440ea71a4ea485b15554d3921365a45a8a5bc1a6b563c0158a88372a65",
+      "bytes": 2119
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl$NormalizedMetadata.class",
+      "sha256": "495194f881cae606dc1c66d35538a6a11859b6ec1bc602cd074d6fa80b403fab",
+      "bytes": 4387
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl$ResolvedFileTypeTaxonomy.class",
+      "sha256": "e5e9d9ff44fef293633518d9a4fa616b58ade9d76b0dcc1dd75edc99b5b22ebd",
+      "bytes": 2247
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "sha256": "f3fe2bdacf46dc036e79156b07669ee3d1ed7ad434aecbe6a9bca2a96c1f3553",
+      "bytes": 230874
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$1.class",
+      "sha256": "a369951c0ee7361d5035330213e19c884c2c2d393ed343e76a94a905ac8b5df7",
+      "bytes": 1206
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$AccessReason.class",
+      "sha256": "f1ee8b0e440b16dff44ef1fa88508f8978859b29d3a4844911dbcd15210b9341",
+      "bytes": 1816
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinReplayPayload.class",
+      "sha256": "0eea9ba31ccb3eb900f4111e5343b4115cd777180968e4742ab0c74ab742110b",
+      "bytes": 1942
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinVersionSelection.class",
+      "sha256": "ac894ee45c18fd656bdcc8a8d9a49c16b5f4968c557527618468c2515f57233f",
+      "bytes": 2242
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$LocalDateTimeComparator.class",
+      "sha256": "1493930fb9ef100cad72212301a9d451021b0c79cf839874896f7cf629500bc1",
+      "bytes": 1148
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$PreviewArtifactProjection.class",
+      "sha256": "6d480449045b024b74e113a253ff7d8fb80075adeb199e3374b884f650c3fc6f",
+      "bytes": 1952
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.class",
+      "sha256": "7b548a7c1558e7d0d05c200ebca8c7b3ef78da28eb71094015ef3cababbe77f2",
+      "bytes": 175627
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$1.class",
+      "sha256": "ad438bbc0a0b999ae29ad85d492abc14ebc4e6090217b8912b013fbee2714e80",
+      "bytes": 1147
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ControlledFileInsertConflict.class",
+      "sha256": "a35fceff0ee8cf6bc068e4ade13dce9316036c7901894276013fec6b8be4e6c7",
+      "bytes": 686
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalArtifacts.class",
+      "sha256": "0800916c39bb5c36c3371139bbcd3226f8e90cadb8ce34a370aa3abbfed27b3a",
+      "bytes": 2965
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalReadinessEvaluation.class",
+      "sha256": "cbc27e46622c9347f2cd2fa4fec4e584abd71c93609ba26c15d4b305303c9eee",
+      "bytes": 4433
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$FileTrace.class",
+      "sha256": "3224651020fc01291eb6a0b86c5d1484eac61aed23d21c05f13e83272557b97b",
+      "bytes": 1860
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$PreparedSubmitContext.class",
+      "sha256": "2cf722eee9a692734628f1ccc40d649f75c529a61aabf0154f3b7b41e760a823",
+      "bytes": 5447
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedDistributionPlan.class",
+      "sha256": "e61e5e6527a5d737e97a8ade066fdb8d6db9103e4641a01a8d9c36a4ecd71658",
+      "bytes": 2225
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedFileTypeTaxonomy.class",
+      "sha256": "ab6faf3ee80d669d9304296a30796081e672b285720fcafd5bc95f214d1bf57f",
+      "bytes": 2692
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedSubmitFiles.class",
+      "sha256": "c4e0f1e129a0b0cc6f02d6c6ab27ce14d520c3a9f0948ee47f0eab053d52b590",
+      "bytes": 3310
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$SubmitTicketBinding.class",
+      "sha256": "094ddc5ce35e47e6fccb014767765d3cd7c614d5561b8d15099de0e2b2d026a2",
+      "bytes": 2011
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedReturnTarget.class",
+      "sha256": "38315e1ee57048b1b67008854a208cfff72408b2dc93bd7e186202b984425f94",
+      "bytes": 1804
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedTaskActionContext.class",
+      "sha256": "21566d96cbbb6e802fd81737b2b5d2f4d384fe3c2b0c0f3bbf7504cebd33528c",
+      "bytes": 2802
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$WorkingIterationSubmissionPayload.class",
+      "sha256": "0efd41a5fb7612b4dafc0e1b3dd6be3d5806f944f81e43e08c5ceae60f16f0b3",
+      "bytes": 2223
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/assignmentaudit/DccProjectCodeMetadataChangeAuditServiceImpl.class",
+      "sha256": "77f240271a435724e58a3a72718cacbb2ae513574c3f7461c4ede79ffb0635e9",
+      "bytes": 21537
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/assignmentaudit/DccProjectCodeMetadataChangeAuditServiceImpl$FieldDiff.class",
+      "sha256": "9aa27d85472cf2ea0fcbc8012ecab4905368ac95f24375e9d775b67615f7d000",
+      "bytes": 2142
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.class",
+      "sha256": "ab064f36df00e7a2d740bec33c79e2aa9318f6f4f98e922ee572556e80838ba5",
+      "bytes": 13066
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/projectcode/DccProjectFolderStorageMappingDO.class",
+      "sha256": "71e6acc0383778ac33dcab081533648486380cd66695aa02765d15e33f713cc3",
+      "bytes": 3906
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectFolderStorageMappingMapper.class",
+      "sha256": "2f935c4c772d4a925d566574280b1d438b52b6fc22e90530fe612aa56d0504a4",
+      "bytes": 4743
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccDerivedUploadStorage.class",
+      "sha256": "4cae0f548a6c1c039e2098e6a0adf7a5e420e317892c8c4c13c075bdc0d707ce",
+      "bytes": 898
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccProjectFolderStorageService.class",
+      "sha256": "517209de7b1ec0f917c4d6f6b36036c4f28c72850a1278dc1114abdf77e8ec70",
+      "bytes": 7757
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccStorageMappingMutationGuard.class",
+      "sha256": "a73443d70c399c43212ca80ed1de83d3a8c6cac88f8d7ddf024cd546c8d419a4",
+      "bytes": 4610
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/directory/DccFileDirectoryDO.class",
+      "sha256": "eb6e510f85c1a9e6dde7ab69fbd8efe4381e2803b854728d1d00630e3e6161ea",
+      "bytes": 5887
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/dataobject/directory/DccFileDirectoryDO$DccFileDirectoryDOBuilder.class",
+      "sha256": "f4c85c48f24e083f1bd36a22a2409b8eada9a0647a8c75917e33d4f69542b8ae",
+      "bytes": 3274
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/mysql/directory/DccFileDirectoryMapper.class",
+      "sha256": "c0ac7f501cf036fa0ce6ee1271a07a528b1eecb2ed66728dcf6a3fc5866809ec",
+      "bytes": 9045
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccPublicUploadPlacementService.class",
+      "sha256": "5c22933f2729427ff8d903f89cdb19dd143cbd91b692e24d4c15971dead16d15",
+      "bytes": 11222
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.class",
+      "sha256": "7bf8fc92d3113af241c09c6f11ac639f9d85eefdd54891cc13c7487e9c4dc7b1",
+      "bytes": 6135
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitReqVO.class",
+      "sha256": "20bc3d078e2700083ec6159f8715999f75c626f355f9938f7a7ba3402fcb2cfe",
+      "bytes": 21453
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.class",
+      "sha256": "76dc72e045d6dae119a8a74b6ed52ac0a32719da5f181eee748d970725209c4b",
+      "bytes": 79244
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFilePlacementService.class",
+      "sha256": "ec6d1fdf6e2adfba3ec0c386ab34ba1115610cfbd1307eaf132c2b64c9573a26",
+      "bytes": 9785
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/category/DccFileCategoryAdminServiceImpl.class",
+      "sha256": "220497fb51d8d9d3fcbf344d5de774dfb18419ca7fb399589c0ba8509eb96c6c",
+      "bytes": 28152
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.class",
+      "sha256": "84dac8a3ea1998e8bfcab71010c2e1cfc2c7dd4f0a9af50eeb89e314d46fc59b",
+      "bytes": 15409
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService$Save.class",
+      "sha256": "cc48d216a86262311cfa302236c4dfb5b0fe343271bcbf971ef9ed4c466ca2b6",
+      "bytes": 2184
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAdminServiceImpl.class",
+      "sha256": "d63b3b93a2fb36aae2efd4349ade5bf59f8c2efc9277261d13a1f69b59cb1ce0",
+      "bytes": 59701
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAdminServiceImpl$VisibleDirectoryContext.class",
+      "sha256": "fae85b9fbe5e069355a63fefb87008b6696efcdf2bc7e81e4f250755d48d7c20",
+      "bytes": 2866
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceImpl.class",
+      "sha256": "2ec0b82adc4ec8b6efd8bbb35eddb713625e19198eb04e273b0c5f6fc4549214",
+      "bytes": 11223
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/directory/DccDirectoryAccessPermissionServiceImpl$1.class",
+      "sha256": "4c73b4389ad5b27ba9973cce5093bc5ffca34c47abf463dfc71b58e584045277",
+      "bytes": 970
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductActorSupport.class",
+      "sha256": "e7de24d221dfa793575f018935fd63ac16b81645c3d2ec4f8377b5f882ddfaf9",
+      "bytes": 4458
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductNotificationService.class",
+      "sha256": "55db3bc304d5bd39104c3d08eaad858b3b3a9048974d6447afe4d3d6d0a91930",
+      "bytes": 5558
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/approval/DccProjectProductTaskDelegate.class",
+      "sha256": "3d4060afc199e2078a2898f54eb1c8c167e0ec00a9c36c5fb7d25f21f174f468",
+      "bytes": 15280
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateService.class",
+      "sha256": "a936f074ae7d56ef774d5634de57f70809c06b1f4b81f05c8b1197c3da817c9f",
+      "bytes": 1464
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.class",
+      "sha256": "ffe603276384728395154327b6c437d4d22b43133ed4425ad5131fdbb126b802",
+      "bytes": 24898
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateStateService.class",
+      "sha256": "d23c02231588d00b0f82bb79c4fa509fa1959381a4b9d84fee37044f330ef713",
+      "bytes": 6302
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccProjectProductCreateRequestMapper.class",
+      "sha256": "2f769bba7776db8abe452924336fba7b870518733e1a59a3e43d6fbd18c71d08",
+      "bytes": 7464
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectProductCreateController.class",
+      "sha256": "5072fddc211f7b3ea37d908bd00504990151851dc2cc232723f782d7428b231f",
+      "bytes": 10206
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/controller/admin/projectcode/vo/productcreate/DccProjectProductCreateRespVO.class",
+      "sha256": "268cf1860572870d7790a550b90e0b69c2c70e5867eab166a2aaf1a60619f207",
+      "bytes": 21664
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.class",
+      "sha256": "0713c0044c8e1a47583a37957b6778d5c6211a65adc819e1ad3acbbbad182602",
+      "bytes": 44589
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter$1.class",
+      "sha256": "1ec4fcb0bd9da46b9f396d7e6f5f6f2e6e7e096da78fe0cbbae494eed59f158a",
+      "bytes": 892
+    },
+    {
+      "path": "cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter$VisibleWindow.class",
+      "sha256": "5d41eaec7e0e167319c6d75f5359285e139307305a4f06caa826b6b131244ada",
+      "bytes": 1713
+    }
+  ],
+  "lastStageCompiledInventoryEntries": 13,
+  "lastStageUniqueCompiledClasses": 12,
+  "packageSession": 89977,
+  "packageExitCode": 0,
+  "databaseMigrated": false,
+  "actualUiVerified": false
+}

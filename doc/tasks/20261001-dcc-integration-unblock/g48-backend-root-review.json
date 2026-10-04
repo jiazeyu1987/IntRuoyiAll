@@ -1,0 +1,57 @@
+{
+  "status": "LD03_ROOT_ACTUAL_ARCHIVED_219_6_JUNIT_REVIEW_PASS_NOT_UI",
+  "archiveSha256": "0c5982ffd56d354e3dfc02ae3caad05e6228e4561a300f43f4760604adb6a208",
+  "tests": 219,
+  "classes": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.category.DccFileCategoryAdminServiceImplTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAdminServiceImplTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccPublicUploadPlacementHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.G48StorageProjectionTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "sourceFinalManifest": "PASS_27_BYTE_SHA_ASSETS",
+  "fullFrontendTypesAndBuild": "PASS",
+  "actualDatabaseSchema": false,
+  "actualUi": false,
+  "sourceManifestSha256": "607d2fd03fd1b90e7d3a9310c865fc13a8934942eac0da4f0f9b47b52039d985",
+  "protectedManualLeafPermissionAndCurrentCategory": true,
+  "mappingLocksAndMutationLocksRead": true,
+  "oldVersionLocationInheritanceUnchanged": true
+}

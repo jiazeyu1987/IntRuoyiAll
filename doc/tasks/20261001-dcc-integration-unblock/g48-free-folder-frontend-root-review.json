@@ -1,0 +1,16 @@
+{
+  "status": "LD03_FRONTEND_ROOT_PIN_SOURCE_RENDER_PAYLOAD_TEST_REVIEW_PASS_NOT_UI",
+  "manifestSha256": "7cb78c16744e634b3749682a1d5af45be341aecffb3e1a5d401b7a25993d70d4",
+  "checkedAssets": 16,
+  "tests": 62,
+  "failures": 0,
+  "normalNewDirectoryPropertyOmitted": true,
+  "normalNewNasSelectionAndLoadingAbsent": true,
+  "logicalFolderIdRemainsExact": true,
+  "productAndFileTypeHelpersUnchanged": true,
+  "externalAndExplicitRevisionDirectoryContractRetained": true,
+  "fullTypes": "PASS_ACTUAL_EXIT_0_59524",
+  "build": "PASS_ACTUAL_EXIT_0_35653",
+  "backendMapping": "IN_PROGRESS",
+  "actualUiVerification": "PENDING"
+}

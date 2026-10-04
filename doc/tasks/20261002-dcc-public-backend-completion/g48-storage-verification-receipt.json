@@ -1,0 +1,202 @@
+{
+  "status": "LD03_STORAGE_MAPPING_EFFECTIVE_RED_GREEN_RELATED_REGRESSION_PASS_NO_RUNTIME",
+  "MavenExitCode": 0,
+  "finishedAt": "2026-10-05T01:17:58+08:00",
+  "executions": 219,
+  "classes": 6,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.category.DccFileCategoryAdminServiceImplTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAdminServiceImplTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccPublicUploadPlacementHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.G48StorageProjectionTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "finalJUnitArchive": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-junit-archive.json",
+    "bytes": 1567,
+    "sha256": "0c5982ffd56d354e3dfc02ae3caad05e6228e4561a300f43f4760604adb6a208"
+  },
+  "archivedActualJUnitXML": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccFileCategoryAdminServiceImplTest.xml",
+      "bytes": 99839,
+      "sha256": "e04d13af76b0840c7ac9425302b87c317d7ea99f442bdae6e6293d77b1d97458",
+      "tests": 17
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAccessPermissionServiceTest.xml",
+      "bytes": 95018,
+      "sha256": "25910c16127f360c54b8bdd04bac2a420e0a038b2ad67adc9fb158500da5048d",
+      "tests": 5
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAdminServiceImplTest.xml",
+      "bytes": 99893,
+      "sha256": "1bc72e121ad895b7bf04dfb9055e9a63ce7de6436e87f5566b0f8398c0abf3e5",
+      "tests": 20
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 127464,
+      "sha256": "262f5330f3295512a6dca1ffcbf503e72aac1e37dd3016e5e321b0e292b6fbfc",
+      "tests": 170
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccPublicUploadPlacementHttpContractTest.xml",
+      "bytes": 95416,
+      "sha256": "a0e6228d674e29fd4df6fa50882e60f01ba79784800703db47d8c8b5cf4e85ec",
+      "tests": 2
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-G48StorageProjectionTest.xml",
+      "bytes": 96988,
+      "sha256": "1d7a222de4aec9d550f3fe44b2dd2c4544f5884b199af344918fccfd53f07bde",
+      "tests": 5
+    }
+  ],
+  "logs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-effective-red.log",
+      "bytes": 66170,
+      "sha256": "aacf0b3260651becbc18ad517f0451437be897d23dac42c4efbb7e84af156550"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-effective-red-r2.log",
+      "bytes": 66271,
+      "sha256": "92f8dae79b796697ae4be9d98f0bc28094a8e2e8e31d336c1817a4ee946c1ca0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-effective-red-r3.log",
+      "bytes": 66243,
+      "sha256": "500899c8fb226988966dab42128e0789a5754cfb9021471dd471a68804c383aa"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-green.log",
+      "bytes": 38305,
+      "sha256": "7196972f3477fdb952ffba834de2d9e83ec9624f6817f6f267a71f9abd2bfaee"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-green-r2.log",
+      "bytes": 64516,
+      "sha256": "d20cf7c82e732920bc2083cd3ba2878e502bf569fd799b5fcfc28d11907a52b1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-green-r3.log",
+      "bytes": 61582,
+      "sha256": "dea9dd21929064885e945d02884bed2bb04f767c425aa3ecccd148f2bab639a7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-transaction-green.log",
+      "bytes": 71178,
+      "sha256": "89ed566ec4b61b312dcef376b5f0ccce18f0ee26db81811390de38b20a55b967"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-transaction-green-r2.log",
+      "bytes": 63799,
+      "sha256": "6151f0435baa16633eabf1d2defc9899df9ac4cce1a9b1f8e2b4d755c4514281"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-mainline-green.log",
+      "bytes": 43499,
+      "sha256": "9c6f8aff3c6586c12a8059d4233c818cad95afbb29c06825366b48345aaa5f84"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-mainline-green-r2.log",
+      "bytes": 66774,
+      "sha256": "e80540a0b301c2b45f74a4beb8b54dcb26b06b7946cb8f8fae5a48d637c0d274"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-mainline-maintenance-green.log",
+      "bytes": 69068,
+      "sha256": "1bb51e1538648f4403c9a8d7f5dc11b94c94cb92a028a45afc103d50c7e93aeb"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-final-regression.log",
+      "bytes": 72053,
+      "sha256": "8174201bcc47699f131858587ccf3dd49a814513573631c25f38ae1f6c33f9bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-final-regression-r2.log",
+      "bytes": 69507,
+      "sha256": "6ce60693f5652afe58e592bf25e128a8ca54ad394d4de864b095c9cd0e07ab5d"
+    }
+  ],
+  "effectiveRED": "r3 realproject/folder/uniquebase andpublicplacementcallback expectedmapping1 saw0;1assertionfailure0errors. FirsttwoRED attemptswere missingrequiredcategory.source/lifecycle fixtureerrors preservednotbusinessRED.",
+  "firstRealGREEN": "green-r3 firstrealH2 casePASS00:21:25. EarlierGREENcompilefailedmissingaddedMasterparameter/header thenoverloadedMockitoHTTP matcher ambiguity preservedtoolerrors.",
+  "interimCorrections": "txn initial duplicateownedDir101 fixturecleanup; txn-r2 Filecount2vs4 fromprior fixtureFiles changedtobaseline+2 (directory/mappingGxp exactbeforeafter retained). Mainline duplicateexistingMock compile then2oldbinding-port expectederrors mismatch, correctedexplicit orchestratorfailure ports withdoThrow avoidingMockitoAnswer(null). Finalfirst219 onlynewtenantpropertyexpectednullvsH2default0:productionordinaryDirectorycreateexplicitcurrenttenant1 +sameexacttenantexpected; noignoringfields. Alloriginalfailrawlogs preserved.",
+  "overlap": "5 G48 selectedmethods only, inheritedparenttests not run. Priorindividual/group results overlap219 and never summed as distinct scenarios.",
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-fingerprints.json",
+    "bytes": 7815,
+    "sha256": "607d2fd03fd1b90e7d3a9310c865fc13a8934942eac0da4f0f9b47b52039d985"
+  },
+  "migrationFullClosure": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g48-storage-migration-fullclosure.json",
+    "bytes": 4256,
+    "sha256": "d8ff6dbf5984c08a283b1233e0f053e4f87c228edf5a98aefdf7abc580b5b934"
+  },
+  "migrationClosureCount": 9,
+  "migrationExecutionWhitelist": [
+    "20261005_dcc_project_folder_storage_mapping"
+  ],
+  "actualSqlExecuted": false,
+  "permissionEvidence": "ActualH2 mapping proof+DirectoryPermissionImpl projects exactcurrentbase grants; manual leaf stopsprojection andbase active0 immediatelywithdraws. Existing ordinarypermission tests isolatenewmappingread port.",
+  "lockEvidence": "ActualH2 currentFORUPDATE guards blockmappedcategory/base/leaf/folder; staticsharedlock order proveninmatchingformal callers, notfullMySQLMVCC/parallelrace proof. Currentcategorylockedactive/type fresh rechecked.",
+  "transactionEvidence": "RealSpring/H2 directory+mapping+File callback+placement+officialGxp samephysicaltransaction; real latepolicy failure rollsbacks newlycreatedleaf/map/file/placement whileoriginalfixedfactsremain. ActualWorkflow170 uses explicit isolatedstoragecontext/otherports; notactualUI/body/NAS acceptance.",
+  "normalNewAllPublicPathsUseMapping": true,
+  "normalNewCallerDirectoryAnyPresenceRejectedInOrchestrator": true,
+  "oldExternalAndHistoryInheritPreserved": true,
+  "actualDatabaseConnectionsByAgent": 0,
+  "actualRedisConnections": 0,
+  "actualTokenReads": 0,
+  "servicesStarted": 0,
+  "packageRuns": 0,
+  "GitMutation": false,
+  "newAuditOperations": 0,
+  "oldHistoricalDataWritten": false,
+  "RootActualConfigPreflight": {
+    "path": "doc/tasks/20261001-dcc-integration-unblock/g48-storage-config-readonly-preflight.json",
+    "bytes": 812,
+    "sha256": "437f814a59b4522b822f0d783776c1019d7335294458ad49d375a3a37ad8e7c7"
+  }
+}

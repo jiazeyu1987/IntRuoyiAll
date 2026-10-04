@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "migrationCount": 2,
+  "migrations": [
+    {
+      "migrationId": "20260815_system_notify_message_business_key",
+      "file": "sql/mysql/20260815_system_notify_message_business_key.sql",
+      "sha256": "227eb5c335b0726d0a9b91a93341c6cba360f26f208788dd7948ce22765274a9",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261005_dcc_project_product_application_notify",
+      "file": "sql/mysql/20261005_dcc_project_product_application_notify.sql",
+      "sha256": "696bb80f60509ea453fe8c8fda07b42f8020e09415aaf2d2ed9b388ed907a810",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260815_system_notify_message_business_key"
+      ],
+      "riskLevel": "low"
+    }
+  ]
+}

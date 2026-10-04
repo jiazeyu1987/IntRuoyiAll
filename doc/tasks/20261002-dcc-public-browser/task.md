@@ -136,6 +136,24 @@ ready_for_closeout for Root review of this display-only increment; shared task r
 
 ## Cleanup Keep
 
+- doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-type-fix-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints-r3.json
+
+- doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-plan.md
+- doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-plan.md
+- doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-fingerprints.json
+
 - doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-bdd.md
 - doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-fingerprints.json
 

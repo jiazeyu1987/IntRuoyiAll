@@ -1,0 +1,141 @@
+{
+  "status": "LD03_G48_FRONTEND_FROZEN_READY_FOR_ROOT_REVIEW",
+  "workspace": "C:/IntRuoyiAll-int_main",
+  "branch": "int_qms",
+  "productionFiles": 3,
+  "testFiles": 3,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86222,
+      "sha256": "6e3079a4df6f335b90ce12de0ea0aa2b101151e96b5bf4dfaa946f033f88a8da"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-plan.md",
+      "bytes": 6703,
+      "sha256": "6893479976dbaf2673c0e9730a9ac35f9d3e1304bfbc0fca727f323968877358"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-bdd.md",
+      "bytes": 3020,
+      "sha256": "f9a7d839aa627616f1c8243fc9d376585444ac456796c357bcc4b064be8a68a3"
+    }
+  ],
+  "supersedes": "G47 only declared index.vue, submitter.ts and workflow.ts current source plus declared test increments; immutable historical manifests are retained.",
+  "oldG47Manifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-fingerprints.json",
+    "bytes": 4579,
+    "sha256": "5885677ce12e67e58c987f11f2daba838cd608e1daad3f86acdd1b67ba63c1e0"
+  },
+  "unchangedAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/project-product-identity.ts",
+      "bytes": 3012,
+      "sha256": "5f0562d96a02899d7c6b993483e507c64f12feddd142fc4ea4e18c659a73ec69"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/file-type-options.ts",
+      "bytes": 2097,
+      "sha256": "ca3f915d98aa7838d7d125ecc85992a4aa94cdbc7546ba66ae3cff61b2ca7122"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileTypeTaxonomies.ts",
+      "bytes": 1776,
+      "sha256": "9304ce47281aff0ad4727d63bdc5ebba7de151262c84bb322c2f66e9571350e5"
+    }
+  ],
+  "acceptedBlockerDisplayUnchanged": true,
+  "contracts": [
+    "CONTROLLED_FILE NEW request omits directoryId own property",
+    "Caller directoryId is rejected by both working and submit wrappers for normal NEW including backend default blank processType",
+    "EXTERNAL_REVIEW and explicit revision real storage contract preserved",
+    "No NEW NAS tree loading or required/rendered NAS field",
+    "Real logical projectFolderId retained; no storage proxy",
+    "Storage mapping is not reported ready before actual server resolution"
+  ],
+  "verification": {
+    "RED": {
+      "tests": 5,
+      "pass": 1,
+      "failures": 4,
+      "exitCode": 1,
+      "expected": "Old NEW storage property, directory load/render and wrapper acceptance; external retained test passed"
+    },
+    "GREEN": {
+      "tests": 5,
+      "pass": 5,
+      "failures": 0,
+      "exitCode": 0
+    },
+    "finalRegression": {
+      "files": 9,
+      "tests": 62,
+      "pass": 62,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Earlier 26/60/62 and LD01/LD02 executions are overlapping and not additive"
+    },
+    "ownedLint": {
+      "productionFiles": 3,
+      "warnings": 0,
+      "exitCode": 0,
+      "command": "node node_modules/eslint/bin/eslint.js <source3> --max-warnings 0"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-red.log",
+      "bytes": 3968,
+      "sha256": "a9ed8eaf7b2f0cd684ed7b4ad48a0f9ff079a8791e969a576969d0325e26581c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-green.log",
+      "bytes": 990,
+      "sha256": "1a57d4ec10f7af7480c7da57220bed9aa3f03881a2c92d2355ca299b3a59cae7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-final-frozen.log",
+      "bytes": 6317,
+      "sha256": "3012e094a704675513f5e49d5705abc8dddec05d0662de6a9bfe40713ecd57be"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g48-frontend-single-folder-lint-frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Node VM executes actual source handlers and payload/wrappers; Vue compiler/custom renderer executes actual directory template subtree with explicit Element/network hosts",
+    "This is not actual frontend E2E or server mapping execution",
+    "Root owns full types/build, backend integration, database/schema, services, real UI and Git",
+    "Shared task remains in_progress; this agent does not claim whole goal complete"
+  ]
+}
