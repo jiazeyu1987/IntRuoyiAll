@@ -720,3 +720,19 @@ BDD：Given六个相关工作区共享同基线而DCC成果未提交，When归�
 - doc/tasks/20261001-dcc-integration-unblock/g45-consolidation-review.md
 
 G45补充用户指令：HTML是业务需求，根据它选择worktree实现。源码存在/旧矩阵/技术编号规则不是默认业务约束；按已确认需求保留成果，四偏差必须修正而非baseline既成事实。
+
+G45当前实际：source开发基线127821f9d（819审定路径）＋主任务证据33d5fdc8d，经normalmerge ce88a18a295086285d27b2a59ba70fdf1f3fbea4进入int_qms，820候选规范化内容／500源码一一吻合，6保护字节不变；front10actualpostmerge tests PASS。共享根旧零字节index.lock已超过60秒且无Git进程后精确清除，未删除其他lock。原snapshotpatch含历史空格未重写，移出stage保持归档。500源码已有known业务LD01-04不是最终业务完成。
+
+G46第一项已派原legacyagent到唯一主树int_qms正式开发产品identity，保HTML产品编码而不新增14位业务要求；Root独占统一接线/Review/实库与Git，其他三项待第一mainflowclosure后顺序推进。
+- doc/tasks/20261001-dcc-integration-unblock/g46-four-direction-plan.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g45-protected-archive-receipt.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-integration-stage-receipt.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-owned-runtime-stop-receipt.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-local-merge-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-history-config-preservation.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-five-worktree-retirement.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-older-worktree-preservation.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-single-trunk-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-runtime-registry-retirement.json
+- doc/tasks/20261001-dcc-integration-unblock/g45-old-worktree-readonly-review.md

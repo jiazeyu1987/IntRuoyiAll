@@ -1,0 +1,79 @@
+{
+  "status": "OLDER_WORKTREES_WILL_BE_ARCHIVED_WHOLE_NOT_DISCARDED_OR_BLINDLY_MERGED",
+  "workspaces": [
+    {
+      "status": "OLDER_WORKTREE_PRE_MOVE_SOURCE_AND_METADATA_CAPTURED_FULL_DIRECTORY_TO_PRESERVE",
+      "source": "C:\\IntRuoyi\\20260918-001",
+      "destination": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\retired-full-20260918-001",
+      "dirtyPaths": 13,
+      "untrackedPaths": 4,
+      "head": "8f08a64c728c868a18c1b75d50aa94c82348af69",
+      "captures": [
+        {
+          "name": "branch-head.txt",
+          "bytes": 41,
+          "sha256": "a8001fb894a3b64ecd79c25e84bd8409fb1c87ccd58672334bac243d64d8beff"
+        },
+        {
+          "name": "status.bin",
+          "bytes": 1268,
+          "sha256": "ecbf1decf1446bf7c4ed45fc08442455f0cfc07a5d3ab166487914a2f2616e69"
+        },
+        {
+          "name": "tracked-working.diff",
+          "bytes": 1425459,
+          "sha256": "a6ead9354404eef1c938024deef68c1393296338a76a1f7543cb71d62215300d"
+        },
+        {
+          "name": "untracked-paths.bin",
+          "bytes": 245,
+          "sha256": "216326842a5d935788c6f9f6087d6ae47c7e3d77d2240fbdadb9cf987cfb2161"
+        },
+        {
+          "name": "worktree-metadata.txt",
+          "bytes": 52,
+          "sha256": "127c4f7ad2c20a9c126b4274ec248341c2a0804fe5be8b7be121ece6b79fa996"
+        }
+      ],
+      "repositoryHistoryBundle": "repository-history.bundle",
+      "oldFeaturesNotMerged": true
+    },
+    {
+      "status": "OLDER_WORKTREE_PRE_MOVE_SOURCE_AND_METADATA_CAPTURED_FULL_DIRECTORY_TO_PRESERVE",
+      "source": "C:\\IntRuoyi\\20260923-dcc-three-workflows-runtime",
+      "destination": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\retired-full-20260923-dcc-three-workflows-runtime",
+      "dirtyPaths": 16738,
+      "untrackedPaths": 307,
+      "head": "a9bcb6d36d96145ddc1252f111347b644b328deb",
+      "captures": [
+        {
+          "name": "branch-head.txt",
+          "bytes": 41,
+          "sha256": "562512e26380df1f9097667127cb9767a45fb265cc9aace191ee904171d678e1"
+        },
+        {
+          "name": "status.bin",
+          "bytes": 1805696,
+          "sha256": "152bda6749009c587937c9bcf862e5d3c92b53f18e7e7adb81b344b68bc58e78"
+        },
+        {
+          "name": "tracked-working.diff",
+          "bytes": 10919467,
+          "sha256": "536f7fdc7bd09a1a6ef333898299df17ff052e36458631b66ec3df22fe7c4b86"
+        },
+        {
+          "name": "untracked-paths.bin",
+          "bytes": 26056,
+          "sha256": "1821cc189781ae74fb00ac9d7c2f9de49b4742cda5d8f3b5d29abba38c6d30b7"
+        },
+        {
+          "name": "worktree-metadata.txt",
+          "bytes": 76,
+          "sha256": "13390f305bed3496c2e5a002cd7b2e05f2c1461ef01c124237aef74b779c365e"
+        }
+      ],
+      "repositoryHistoryBundle": "repository-history.bundle",
+      "oldFeaturesNotMerged": true
+    }
+  ]
+}

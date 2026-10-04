@@ -1,0 +1,14 @@
+{
+  "status": "SINGLE_REGISTERED_INT_QMS_MAIN_WORKSPACE_REMAINS_ALL_OLD_WORKTREES_PRESERVED",
+  "main": "C:\\IntRuoyiAll-int_main",
+  "head": "ce88a18a295086285d27b2a59ba70fdf1f3fbea4",
+  "worktreeInventory": "worktree C:/IntRuoyiAll-int_main\nHEAD ce88a18a295086285d27b2a59ba70fdf1f3fbea4\nbranch refs/heads/int_qms\n\n",
+  "currentFiveTaskArchivesHashVerified": true,
+  "olderTwoWholeDirectoriesArchived": true,
+  "allOldBranchRefsRetained": true,
+  "allGitHistoryBundled": true,
+  "otherBusinessOldChangesBlindlyMerged": false,
+  "runtimeRegistryRetirementPending": false,
+  "portsDeactivated": 7,
+  "activeDevelopmentBranch": "int_qms"
+}

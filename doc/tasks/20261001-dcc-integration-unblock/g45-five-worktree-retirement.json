@@ -1,0 +1,17 @@
+{
+  "status": "FIVE_CURRENT_DCC_WORKTREES_RETIRED_AFTER_LOCAL_MERGE_AND_HASH_ARCHIVE",
+  "paths": [
+    "C:\\IntRuoyi\\20260930-dcc-a",
+    "C:\\IntRuoyi\\20260930-dcc-b",
+    "C:\\IntRuoyi\\20260930-dcc-c",
+    "C:\\IntRuoyi\\20260930-dcc-d",
+    "C:/IntRuoyi/20261001-dcc-integration"
+  ],
+  "main": "C:/IntRuoyiAll-int_main",
+  "branch": "int_qms",
+  "residualsMovedNotDeleted": [
+    "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/retired-residual-a",
+    "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/retired-residual-b"
+  ],
+  "olderTwoWorktreesAwaitArchiveRetirement": true
+}
