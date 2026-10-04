@@ -460,7 +460,7 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
                 cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper.class);
         var signatureQuery = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
         var eventReaderMapper = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class);
-        var identityReader = new MesSubmissionSignatureIdentityReader(signatureQuery, eventReaderMapper, simulationProjectionMapper);
+        var identityReader = new MesSubmissionSignatureIdentityReader(signatureQuery, eventReaderMapper, simulationProjectionMapper, null);
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
         try {
             var production = productionCaptor.getValue();

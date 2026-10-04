@@ -173,6 +173,9 @@ public class MesProductionReleaseManagerApprovalServiceImpl
                             : "restore the four approved report evidences and retry with a fresh task receipt");
         }
         requireBusinessReadiness(application, batch);
+        if (StrUtil.isNotBlank(command.getSignoffSubjectId())) {
+            MesProductionReleaseSignoffService.requireBinding(workTask, application, transaction, batch);
+        }
         requireSignoffEvidence(workTask, actorUserId, command, application);
 
         return new MesProductionReleaseManagerApprovalResult()
@@ -427,6 +430,17 @@ public class MesProductionReleaseManagerApprovalServiceImpl
             throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
                     "stored manager approval receipt does not match released state",
                     "repair the atomic release transaction before replaying the receipt");
+        }
+        if (StrUtil.isNotBlank(command.getSignoffSubjectId())) {
+            MesProductionReleaseSignoffService.requireBinding(workTask, application, transaction, batch);
+            requireSignoffEvidence(workTask, actorUserId, command, application);
+            if (!Objects.equals(transaction.getApprovalSignatureId(), command.getSignatureId())
+                    || !Objects.equals(transaction.getApprovedBy(), actorUserId)
+                    || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), command.getSignoffEvidenceHash())
+                    || snapshot == null || !Objects.equals(snapshot.getLong("signatureId"), command.getSignatureId())) {
+                throw blocker(application, MesReleaseFlowBlockerType.RELEASE_TRANSACTION_NOT_PROCESSABLE,
+                        "replayed signature does not match the final release receipt", "use the original verified signature");
+            }
         }
         return new MesProductionReleaseManagerApprovalResult()
                 .setBatchExecution(batch)

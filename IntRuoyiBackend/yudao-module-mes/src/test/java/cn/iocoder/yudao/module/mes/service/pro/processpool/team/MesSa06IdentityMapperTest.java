@@ -88,7 +88,7 @@ public class MesSa06IdentityMapperTest {
         }
     }
 
-    private static Configuration config(String file, String probe) throws Exception {
+    static Configuration config(String file, String probe) throws Exception {
         var path = ROOT.resolve(file);
         // Dialect-only CHAR width / UNSIGNED conversion; joins and predicates remain production SQL.
         String xml = Files.readString(path).replace(" AS CHAR)", " AS VARCHAR)")

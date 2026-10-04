@@ -11,6 +11,10 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService;
@@ -18,6 +22,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolPqcInspectionCorrectionService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseOrderDetailService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
@@ -34,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
@@ -59,6 +65,12 @@ public class MesActiveOrderSignatureEvidenceService {
     private final MesProcessPoolSubmissionReviewMapper reviewMapper;
     private final MesProProcessPoolEventRevisionMapper revisionMapper;
     private final GxpAuditEventMapper auditEventMapper;
+    private final MesProductionSubmissionReadBinding productionBinding;
+    private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
+    private final MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
+    private final MesProEdhrWorkTaskMapper workTaskMapper;
+    private final MesProEdhrBatchExecutionMapper batchMapper;
+    private final MesProductionReleaseSignoffService marketSignoff;
 
     @Transactional(readOnly = true)
     public Result getTeam(Long viewerId, Long activeOrderId, Long signatureId) {
@@ -124,6 +136,9 @@ public class MesActiveOrderSignatureEvidenceService {
         var related = bindings.stream().filter(b -> Objects.equals(b.id(), signatureId)).toList();
         if (related.isEmpty()) throw exception(NOT_RELATED);
         ElectronicSignatureEvidenceDTO evidence = signatureQueryService.getById(signatureId);
+        if (evidence != null && Objects.equals(evidence.id(), signatureId) && "BPM".equals(evidence.moduleCode())) {
+            return readBpmMarketRelease(detail, related, evidence);
+        }
         if (evidence == null || !Objects.equals(evidence.id(), signatureId)
                 || !Objects.equals(evidence.moduleCode(), MesBatchRecordSignatureSubjectAdapter.MODULE_CODE)
                 || !Objects.equals(evidence.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)
@@ -182,6 +197,33 @@ public class MesActiveOrderSignatureEvidenceService {
             signerName = related.get(0).signerName();
         }
         return new Result(detail.getActiveOrderId(), signerName, evidence, verification);
+    }
+
+    private Result readBpmMarketRelease(MesTeamLeaderActiveOrderDetail detail, List<Binding> bindings,
+                                       ElectronicSignatureEvidenceDTO evidence) {
+        if (bindings.stream().anyMatch(b -> !b.actions().equals(Set.of("MARKET_RELEASE"))
+                || !Objects.equals(b.actorId(), evidence.actorId()))) throw exception(EVIDENCE_INVALID);
+        var owners = applicationMapper.selectListByActiveOrderIds(List.of(detail.getActiveOrderId())).stream()
+                .filter(a -> Objects.equals(a.getActiveOrderId(), detail.getActiveOrderId())
+                        && "RELEASED".equals(a.getApplicationStatus())).toList();
+        if (owners.size() != 1) throw exception(EVIDENCE_INVALID);
+        var application = owners.get(0);
+        var transaction = releaseTransactionMapper.selectById(application.getReleaseTransactionId());
+        var task = workTaskMapper.selectById(application.getReleaseApprovalWorkTaskId());
+        var batch = batchMapper.selectById(application.getBatchExecutionId());
+        MesProductionReleaseSignoffService.requireBinding(task, application, transaction, batch);
+        if (!"RELEASED".equals(transaction.getReleaseStatus()) || !"DONE".equals(task.getStatus())
+                || task.getCandidateUserSnapshot() == null
+                || Arrays.stream(task.getCandidateUserSnapshot().split(","))
+                    .noneMatch(candidate -> candidate.trim().equals(String.valueOf(evidence.actorId())))
+                || !Objects.equals(transaction.getApprovalSignatureId(), evidence.id())
+                || !Objects.equals(transaction.getApprovedBy(), evidence.actorId())
+                || !Objects.equals(transaction.getApprovalSignoffEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(marketSignoff.findVerifiedSignatureId(task.getId(), transaction.getApprovedBy(),
+                        evidence.subjectId(), transaction.getApprovalSignoffEvidenceHash(), transaction.getApprovalOpinion())
+                        .orElse(null), evidence.id())) throw exception(EVIDENCE_INVALID);
+        return new Result(detail.getActiveOrderId(), bindings.get(0).signerName(), evidence,
+                signatureQueryService.verifyEvidence(evidence.id()));
     }
 
     private static void add(List<Binding> bindings, MesTeamLeaderActiveOrderDetail.SignatureDetail signature,
@@ -372,12 +414,13 @@ public class MesActiveOrderSignatureEvidenceService {
                     }
                     if (binding.actions().contains("PRODUCTION_SUBMIT")
                             && MesProductionSubmitSignatureContext.SOURCE_TYPE.equals(subject[9])) {
+                        var source = productionBinding.require(event, activeOrderId);
                         if (!Objects.equals(subject[11], content.getString("reviewSourceName"))) {
                             throw exception(EVIDENCE_INVALID);
                         }
                         JSONObject identity = JSON.parseObject(subject[11]);
-                        if (identity == null || !Objects.equals(activeOrderId, identity.getLong("activeOrderId"))
-                                || !Objects.equals(activeOrderId, content.getLong("reviewSourceId"))
+                        if (identity == null || !Objects.equals(source.activeOrderId(), identity.getLong("activeOrderId"))
+                                || !Objects.equals(source.activeOrderId(), content.getLong("reviewSourceId"))
                                 || !Objects.equals(event.getRouteProcessId(), identity.getLong("routeProcessId"))
                                 || !Objects.equals(event.getProcessId(), identity.getLong("processId"))
                                 || !Objects.equals(event.getEventIdempotencyKey(),

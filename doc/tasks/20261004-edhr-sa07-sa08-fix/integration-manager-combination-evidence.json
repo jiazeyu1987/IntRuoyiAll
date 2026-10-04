@@ -1,0 +1,47 @@
+{
+  "source_thread_id": "01a10152-0f7c-7b33-afd6-9ffd217a38e1",
+  "execution_owner": "manager",
+  "observed_read_only": true,
+  "status": "PASS",
+  "runtime": "JDK 17.0.20",
+  "exit_code": 0,
+  "classes": 30,
+  "tests": 412,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "outputs_verified": 42,
+  "main_reference_count_reported_by_manager": 23,
+  "main_reference_drift": [],
+  "real_e2e_executed": false,
+  "evidence": [
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/combination-summary.json",
+      "sha256_utf8_lf": "B404BB6A975E7B432438038A3C6AD3D3F5E93251CE299D23378644B112D3898A"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/combination-regression-revision1.log",
+      "sha256_utf8_lf": "3743C0927480CB0DA4B3F17C11D68156263CD6FAEF6B802E0479C10169E06A28"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/exit-code-revision1.txt",
+      "sha256_utf8_lf": "9A271F2A916B0B6EE6CECB2426F0B3206EF074578BE55D9BC94F6F3FE3AB86AA"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/combined-output-manifest-revision1.json",
+      "sha256_utf8_lf": "1CA6EC119D53BF97F694BED670006303BF6A42FC9853769AF3EB317BA830DF17"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/fixture-patch-application.json",
+      "sha256_utf8_lf": "2637E4C53FECC879425521C3BDD20609D96BF57CC7C6BA230F123ADE52F5E49C"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/command-revision1.json",
+      "sha256_utf8_lf": "CDA59919434408FFBBE62866A97590A39D7F078E1A419C66C9B141C4B1EAAD2C"
+    },
+    {
+      "path": "C:/Users/BJB110/.codex/worktrees/a37a/IntRuoyi/doc/tasks/20261004-sa07-sa08-combination-review/input-manifest.json",
+      "sha256_utf8_lf": "E798CBC87495942521EC10062F11A5EFB368BF7D3E074C1C8A587E4E48BBE3D3"
+    }
+  ]
+}

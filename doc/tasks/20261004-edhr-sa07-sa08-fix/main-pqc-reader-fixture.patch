@@ -1,0 +1,12 @@
+--- a/IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseOrderDetailServiceTest.java
++++ b/IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseOrderDetailServiceTest.java
+@@ -375,7 +375,8 @@
+                     mock(MesProProcessPoolEventMapper.class), mock(MesProProcessPoolEventRevisionMapper.class),
+                     applications, mock(MesProEdhrNonconformanceReviewMapper.class),
+                     mock(MesProEdhrOperationAuditEventMapper.class), mock(MesProEdhrReleaseTransactionMapper.class),
+-                    mock(MesProcessPoolTeamMaintenanceAuditMapper.class), signatures, users);
++                    mock(MesProcessPoolTeamMaintenanceAuditMapper.class), signatures,
++                    mock(MesSubmissionSignatureIdentityReader.class), users);
+             when(materials.getPage(any())).thenReturn(new PageResult<>(List.of(), 0L));
+             service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
+         }

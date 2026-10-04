@@ -26,10 +26,24 @@ class MesSubmissionSignatureIdentityReaderTest {
     @Mock ElectronicSignatureQueryService signatures;
     @Mock MesProProcessPoolEventMapper events;
     @Mock MesProBatchRecordExecutionSignatureMapper simulations;
+    @Mock MesProductionSubmissionReadBinding productionBinding;
     @InjectMocks MesSubmissionSignatureIdentityReader reader;
     private final LocalDateTime signedAt = LocalDateTime.of(2026,10,4,10,0);
-    @BeforeEach void tenant() { TenantContextHolder.setTenantId(1L); }
+    @BeforeEach void tenant() {
+        TenantContextHolder.setTenantId(1L);
+        lenient().when(productionBinding.require(any(), any())).thenReturn(
+                new MesProductionSubmitSignatureContext(100L,40L,30L,"submission"));
+    }
     @AfterEach void clear() { TenantContextHolder.clear(); }
+
+    @Test void allocatedTargetDoesNotReplaceOriginalSignedOrder() {
+        var event = event("PRODUCTION_SUBMIT").setRawPayload(
+                "{\"activeOrderId\":100,\"signatureIdentityDomain\":\"MES_EMPLOYEE_PROFILE\"}");
+        when(events.selectById(11L)).thenReturn(event);
+        when(signatures.getById(70L)).thenReturn(evidence("PRODUCTION_SUBMIT", "MES_EMPLOYEE_PROFILE", 1L, 7L, 99L, "Frozen B"));
+        valid();
+        assertEquals("Frozen B", reader.read(70L, 11L, 101L, "PRODUCTION_SUBMIT").getSignerName());
+    }
 
     @Test void selectedTemporarySignerBUsesFrozenNameInsteadOfOperatorAOrSameIdSystemUser() {
         var event = event("PRODUCTION_SUBMIT");

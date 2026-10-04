@@ -95,7 +95,8 @@ class MesProductionReleaseManagerApprovalServiceTest {
         MesProductionReleaseManagerApprovalResult prepared = service.prepareForFinalization(
                 ACTOR_USER_ID, fixture.command());
         MesProductionReleaseManagerApprovalResult result = service.completeAfterFinalization(
-                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction());
+                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction().setApprovalSignatureId(7701L).setApprovedBy(ACTOR_USER_ID)
+                .setApprovalSignoffEvidenceHash(fixture.command().getSignoffEvidenceHash()));
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED,
                 result.getReleaseTransaction().getReleaseStatus());
@@ -120,7 +121,8 @@ class MesProductionReleaseManagerApprovalServiceTest {
         MesProductionReleaseManagerApprovalResult prepared = service.prepareForFinalization(
                 ACTOR_USER_ID, fixture.command());
         service.completeAfterFinalization(
-                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction());
+                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction().setApprovalSignatureId(7701L).setApprovedBy(ACTOR_USER_ID)
+                .setApprovalSignoffEvidenceHash(fixture.command().getSignoffEvidenceHash()));
 
         ArgumentCaptor<MesReleaseFlowAuditCommand> captor =
                 ArgumentCaptor.forClass(MesReleaseFlowAuditCommand.class);
@@ -211,8 +213,10 @@ class MesProductionReleaseManagerApprovalServiceTest {
         when(releaseEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
                 1001L, "APPROVE", fixture.command().getIdempotencyKey()))
                 .thenReturn(replayEvent(fixture));
-        when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction());
+        when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction().setApprovalSignatureId(7701L).setApprovedBy(ACTOR_USER_ID)
+                .setApprovalSignoffEvidenceHash(fixture.command().getSignoffEvidenceHash()));
         when(batchExecutionMapper.selectById(901L)).thenReturn(fixture.batch());
+        when(signoffService.findVerifiedSignatureId(any(), any(), any(), any(), any())).thenReturn(Optional.of(7701L));
 
         MesProductionReleaseManagerApprovalResult result = service.prepareForFinalization(
                 ACTOR_USER_ID, fixture.command());
@@ -252,8 +256,10 @@ class MesProductionReleaseManagerApprovalServiceTest {
         when(applicationMapper.selectByReleaseTransactionIdForUpdate(1001L)).thenReturn(fixture.application());
         when(releaseEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(
                 1001L, "APPROVE", fixture.command().getIdempotencyKey())).thenReturn(event);
-        when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction());
+        when(releaseTransactionMapper.selectById(1001L)).thenReturn(fixture.releasedTransaction().setApprovalSignatureId(7701L).setApprovedBy(ACTOR_USER_ID)
+                .setApprovalSignoffEvidenceHash(fixture.command().getSignoffEvidenceHash()));
         when(batchExecutionMapper.selectById(901L)).thenReturn(fixture.batch());
+        when(signoffService.findVerifiedSignatureId(any(), any(), any(), any(), any())).thenReturn(Optional.of(7701L));
 
         MesProductionReleaseManagerApprovalResult result = service.prepareForFinalization(
                 ACTOR_USER_ID, fixture.command());
@@ -339,12 +345,14 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 evidence(914L, "STERILIZATION_REPORT", "STER-001", 1014L, '4'));
         MesProcessPoolActiveOrderReleaseApplicationDO application = new MesProcessPoolActiveOrderReleaseApplicationDO()
                 .setId(701L)
+                .setActiveOrderId(801L)
                 .setBatchExecutionId(901L)
                 .setReleaseTransactionId(1001L)
                 .setReleaseApprovalWorkTaskId(2001L)
                 .setApplicationStatus(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING)
                 .setVersion(5);
         String reportSnapshotHash = MesProductionReleaseReportSnapshots.hash(application, evidences);
+        application.setTenantId(1L);
         application.setReportSnapshotHash(reportSnapshotHash);
         List<MesProEdhrBatchExecutionTaskDO> batchTasks = evidences.stream()
                 .map(evidence -> new MesProEdhrBatchExecutionTaskDO()
@@ -395,6 +403,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
                 fixture.command().getApprovalOpinion(),
                 fixture.reportSnapshotHash());
         JSONObject snapshot = new JSONObject(true);
+        snapshot.put("signatureId", 7701L);
         snapshot.put("reportSnapshotHash", fixture.reportSnapshotHash());
         snapshot.put("expectedVersion", fixture.command().getExpectedVersion());
         snapshot.put("managerApprovalPayloadHash", payloadHash);
@@ -450,7 +459,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         }
 
         MesProEdhrBatchExecutionDO batch() {
-            return new MesProEdhrBatchExecutionDO().setId(901L).setRouteId(501L);
+            return new MesProEdhrBatchExecutionDO().setId(901L).setTenantId(1L).setRouteId(501L);
         }
 
         java.time.LocalDateTime now() {

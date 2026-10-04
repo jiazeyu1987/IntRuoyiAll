@@ -1,0 +1,13 @@
+{
+  "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseOrderDetailServiceTest.java",
+  "owner": "main_parallel_reference_only",
+  "original_source": "E:/IntRuoyi/IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/productionrelease/pqc/MesPqcReleaseOrderDetailServiceTest.java",
+  "reference_source": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\IntRuoyiBackend\\yudao-module-mes\\src\\test\\java\\cn\\iocoder\\yudao\\module\\mes\\service\\pro\\productionrelease\\pqc\\MesPqcReleaseOrderDetailServiceTest.java",
+  "original_sha256_utf8_lf": "C289C54573C123819303E9A4349B180ED349CA5069564DB1208F94F360A3DA52",
+  "expected_output_sha256_utf8_lf": "EC28BB8F64272E6A87F53A02DFCD29E7BE7F215D39DAC47211CDBA1312E16367",
+  "patch": "main-pqc-reader-fixture.patch",
+  "patch_sha256_utf8_lf": "9CB2B2FE99C392AF0C90BBE3AFA5FD139E89AA4B505BD927EBCD3D31C999201D",
+  "change": "Only inject missing MesSubmissionSignatureIdentityReader mock; existing wildcard import covers it. No production/submission behavior changed.",
+  "applied_to_main_or_reference": false,
+  "in_memory_validation": "one removed line, two added lines, current main equals a37a recorded input"
+}

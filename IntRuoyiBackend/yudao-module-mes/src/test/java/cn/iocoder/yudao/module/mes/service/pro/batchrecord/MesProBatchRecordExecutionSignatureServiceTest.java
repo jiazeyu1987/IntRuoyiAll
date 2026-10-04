@@ -363,7 +363,7 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             org.mockito.Mockito.when(eventMapper.selectById(7001L)).thenReturn(event);
             org.mockito.Mockito.when(signatureMapper.selectById(signatureId)).thenReturn(signature);
             var display = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader(
-                    unified,eventMapper,signatureMapper).read(signatureId,7001L,8101L,"PRODUCTION_SUBMIT");
+                    unified,eventMapper,signatureMapper,null).read(signatureId,7001L,8101L,"PRODUCTION_SUBMIT");
             assertEquals("签名人（模拟）",display.getSignerName());
             assertEquals("SIMULATION_SESSION",display.getRole());
             org.junit.jupiter.api.Assertions.assertNull(display.getSignatureId());

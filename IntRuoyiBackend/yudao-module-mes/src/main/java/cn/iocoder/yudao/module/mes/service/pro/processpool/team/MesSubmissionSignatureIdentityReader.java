@@ -24,6 +24,7 @@ public class MesSubmissionSignatureIdentityReader {
     private final ElectronicSignatureQueryService signatureQueryService;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProBatchRecordExecutionSignatureMapper simulationSignatureMapper;
+    private final MesProductionSubmissionReadBinding productionBinding;
 
     public MesTeamLeaderActiveOrderDetail.SignatureDetail read(Long signatureId, Long eventId,
                                                                Long activeOrderId, String action) {
@@ -66,11 +67,10 @@ public class MesSubmissionSignatureIdentityReader {
                 && Objects.equals(subject[9], content.getString("reviewSourceType"))
                 && Objects.equals(subject[10], content.getString("reviewSourceId")));
         if ("PRODUCTION_SUBMIT".equals(action)) {
-            var context = new MesProductionSubmitSignatureContext(activeOrderId, event.getRouteProcessId(),
-                    event.getProcessId(), event.getEventIdempotencyKey());
+            var context = productionBinding.require(event, activeOrderId);
             require("PRODUCTION_SUBMIT".equals(event.getEventType())
                     && MesProductionSubmitSignatureContext.SOURCE_TYPE.equals(subject[9])
-                    && Objects.equals(activeOrderId, content.getLong("reviewSourceId"))
+                    && Objects.equals(context.activeOrderId(), content.getLong("reviewSourceId"))
                     && Objects.equals(context.sourceName(), subject[11])
                     && Objects.equals(subject[11], content.getString("reviewSourceName")));
         } else {

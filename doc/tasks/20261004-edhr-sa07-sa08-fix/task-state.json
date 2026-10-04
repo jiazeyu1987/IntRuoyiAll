@@ -1,0 +1,62 @@
+{
+  "task_id": "20261004-edhr-sa07-sa08-fix",
+  "status": "ready_for_closeout",
+  "baseline": "d3f1793c8831cc4d070b786553e3a2c002e17ca9",
+  "branch": "codex/edhr-sa07-sa08-fix",
+  "milestones": [
+    {
+      "id": 1,
+      "status": "completed"
+    },
+    {
+      "id": 2,
+      "status": "completed"
+    },
+    {
+      "id": 3,
+      "status": "completed"
+    },
+    {
+      "id": 4,
+      "status": "completed"
+    }
+  ],
+  "verification": {
+    "runtime": "Microsoft OpenJDK 17.0.20+8-LTS",
+    "exit_code": 0,
+    "classes": 28,
+    "tests": 338,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "blockers": [],
+  "pending": [
+    "precise_local_integration",
+    "task_owned_cleanup"
+  ],
+  "commit_push_merge_archive_executed": false,
+  "combination_status": "manager_revision1_PASS_30_classes_412_tests; original_testCompile_failure_retained",
+  "integration_fixture_verification": {
+    "runtime": "Microsoft OpenJDK 17.0.20+8-LTS",
+    "exit_code": 0,
+    "classes": 4,
+    "tests": 67,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "evidence": "integration-surefire-summary.json"
+  },
+  "manager_combination_verification": {
+    "owner": "manager",
+    "exit_code": 0,
+    "classes": 30,
+    "tests": 412,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "evidence": "integration-manager-combination-evidence.json",
+    "real_e2e_executed": false
+  },
+  "manager_review": "PASS_30_CLASSES_412_TESTS_JDK17_ACTUAL_MAIN_COMBINATION"
+}

@@ -105,8 +105,16 @@ import static org.mockito.Mockito.when;
 
 @Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class,
         MesProEdhrDeviationServiceImpl.class, MesProEdhrDeviationNumberGenerator.class,
+        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureH2DialectConfiguration.class,
         cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
+
+    @Resource private cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper actualSignatures;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper actualApplications;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper actualWorkTasks;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper actualOperationAudits;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper actualActiveOrders;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper actualEvents;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
 
@@ -1521,11 +1529,33 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void managedActiveOrderApprovalArchivesCreatedBatchAndAppendsDecisionToItsOriginWithoutArchiveTaskRule() {
+    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract.sql", "/sql/sa07-read-contract.sql"})
+    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract-clean.sql", "/sql/sa07-read-contract-clean.sql"}, executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @org.springframework.test.context.jdbc.SqlMergeMode(org.springframework.test.context.jdbc.SqlMergeMode.MergeMode.MERGE)
+    void managedActiveOrderApprovalArchivesCreatedBatchAndAppendsDecisionToItsOriginWithoutArchiveTaskRule() throws Exception {
+        var jdbc = new JdbcTemplate(dataSource);
+        cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
         var batch = insertCreatedBatch("BATCH-MANAGED-ACTIVE-ORDER");
         var precheck = insertPendingApprovalRelease(batch);
         var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7981L);
-        var request = approvalRequest(precheck, batch, task, "managed-active", "verified-signoff", "上市放行")
+        batch.setTenantId(1L); batchExecutionMapper.updateById(batch);
+        TenantContextHolder.setTenantId(1L);
+        task.setBatchExecutionId(batch.getId()).setCandidateSourceType("ROLE_GROUP").setCandidateSourceId(77L)
+                .setCandidateUserSnapshot("10001").setResponsibilitySourceKey("MES_MANAGEMENT_REPRESENTATIVE").setStatus("TODO")
+                .setTaskCode("SA08-TASK").setAssigneeUserId(10001L).setActionUrl("/test/manager-release");
+        actualWorkTasks.insert(task);
+        var application = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(5081L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId()).setWorkOrderCode(batch.getWorkOrderCode())
+                .setRouteId(batch.getRouteId()).setRouteVersionId(1L).setBatchCode(batch.getBatchCode())
+                .setBatchExecutionId(batch.getId()).setReleaseTransactionId(precheck.getReleaseTransactionId())
+                .setReleaseApprovalWorkTaskId(task.getId()).setPqcReleaseWorkTaskId(951L).setPqcDecision("APPROVE")
+                .setPqcDecidedBy(10001L).setPqcDecidedAt(LocalDateTime.of(2026,10,4,10,0))
+                .setSourceSnapshotHash("formal-source").setVersion(5).setApplicationStatus("MANAGER_RELEASE_PENDING")
+                .setRequestIdempotencyKey("sa08-request").setBusinessIdempotencyKey("sa08-business");
+        application.setTenantId(1L);
+        application.setReportSnapshotHash(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots.recomputeActiveOrderFactsSnapshot(application));
+        actualApplications.insert(application);
+        var request = approvalRequest(precheck, batch, task, "APPROVAL-CENTER-APPROVE-7981", "verified-signoff", "上市放行")
                 .setReleaseApplicationId(5081L).setActiveOrderId(8081L)
                 .setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
@@ -1535,7 +1565,15 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setBindingVersion(1L).setSourceSnapshotHash("pick-snapshot-81");
         org.mockito.Mockito.doAnswer(invocation -> {
             MesReleaseFinalizationCommand command = invocation.getArgument(0);
-            command.setPickListSources(List.of(pickSource));
+            // External completion/material owners are doubles; the signature/finalization graph is real.
+            command.setPickListSources(List.of(pickSource)).setOrigin(MesReleaseOrigin.ACTIVE_ORDER)
+                    .setEntryType(request.getEntryType()).setActiveOrderId(application.getActiveOrderId())
+                    .setReleaseApplicationId(application.getId()).setWorkOrderId(batch.getWorkOrderId())
+                    .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
+                    .setCompletionBackfillReceiptId(request.getCompletionBackfillReceiptId())
+                    .setCompletionEventId(request.getCompletionEventId()).setPickListBindingId(request.getPickListBindingId())
+                    .setPickListId(request.getPickListId()).setSourceRelation(request.getSourceRelation())
+                    .setSourceSnapshotHash(request.getSourceSnapshotHash());
             return new MesReleaseFinalizationEvidence().setMaterialGateReceipt(command.getMaterialGateReceipt())
                     .setCompletionBackfillReceipt(new CompletionBackfillReceipt().setReceiptId("completion-81")
                             .setTenantId(1L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId())
@@ -1548,32 +1586,140 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                             .setAuditEventId("completion-audit-81").setStatus("BACKFILL_SUCCEEDED")
                             .setIssuedAt(LocalDateTime.now()));
         }).when(authoritativeContextPort).require(any());
-        when(managerApprovalService.isManagedReleaseTransaction(precheck.getReleaseTransactionId())).thenReturn(true);
-        var prepared = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalResult()
-                .setBatchExecution(batch).setReleaseTransaction(releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()));
-        when(managerApprovalService.prepareForFinalization(any(), any())).thenReturn(prepared);
-        when(managerApprovalService.completeAfterFinalization(any(), any(), any(), any())).thenReturn(prepared);
+        var signatures = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignaturePersistenceFixture(actualSignatures, adminUserApi, gxpAuditService);
+        var readiness = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadinessService.class);
+        when(readiness.resolveActiveOrderFormalFactsReadiness(any(), any())).thenReturn(
+                new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadiness(
+                        "PASS","PASS","PASS","PASS","PASS","PASS",6,0,0,"{\"items\":[]}","business-hash",List.of()));
+        var directory = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.user.AdminUserService.class);
+        when(directory.getUser(10001L)).thenReturn(new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO().setId(10001L).setNickname("Manager"));
+        var auditWriter = new MesProEdhrOperationAuditServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(auditWriter,"auditEventMapper",actualOperationAudits);
+        var realManager = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerApprovalServiceImpl(
+                actualApplications,releaseTransactionMapper,terminalEventMapper,actualWorkTasks,batchExecutionMapper,batchTaskMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService(signatures.query),
+                readiness,new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseAuditRecorder(auditWriter,directory));
+        when(managerApprovalService.isManagedReleaseTransaction(any())).thenAnswer(inv -> realManager.isManagedReleaseTransaction(inv.getArgument(0)));
+        when(managerApprovalService.prepareForFinalization(any(),any())).thenAnswer(inv -> realManager.prepareForFinalization(inv.getArgument(0),inv.getArgument(1)));
+        when(managerApprovalService.completeAfterFinalization(any(),any(),any(),any())).thenAnswer(inv -> realManager.completeAfterFinalization(inv.getArgument(0),inv.getArgument(1),inv.getArgument(2),inv.getArgument(3)));
         when(batchTraceabilityService.getTraceability(batch.getId())).thenReturn(
                 new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO()
                         .setOrigins(List.of(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO.Origin()
                                 .setId(9081L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId())
                                 .setSourceSnapshotHash(request.getSourceSnapshotHash()))));
+        Long signatureId;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
-            releaseService.approve(request);
+            var recorded = signatures.bpm(10001L,task.getId(),"上市放行");
+            signatureId = recorded.getUnifiedSignatureId();
+            request.setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
+            // Wrong task/source/actor/tenant/hash must not advance the persisted release graph.
+            var wrongSource = signatures.bpm(10001L,task.getId(),"上市放行",
+                    cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.DCC,"EDHR_WORK_TASK");
+            for (String invalid : List.of("task","source","actor","tenant","hash")) {
+                request.setWorkTaskId(task.getId()).setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
+                security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+                TenantContextHolder.setTenantId(1L);
+                switch (invalid) {
+                    case "task" -> request.setWorkTaskId(9999L);
+                    case "source" -> request.setSignoffSubjectId(wrongSource.getSubjectId()).setSignoffEvidenceHash(wrongSource.getEvidenceHash());
+                    case "actor" -> security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10002L);
+                    case "tenant" -> TenantContextHolder.setTenantId(2L);
+                    case "hash" -> request.setSignoffEvidenceHash("b".repeat(64));
+                }
+                assertThrows(RuntimeException.class, () -> releaseService.approve(request),invalid);
+                assertEquals("PENDING_APPROVAL",releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus(),invalid);
+                assertEquals("MANAGER_RELEASE_PENDING",actualApplications.selectById(application.getId()).getApplicationStatus(),invalid);
+                assertEquals("TODO",actualWorkTasks.selectById(task.getId()).getStatus(),invalid);
+                assertEquals(0L,releaseDecisionMapper.selectCount(),invalid);
+                assertEquals(0L,actualOperationAudits.selectCount(),invalid);
+            }
+            request.setWorkTaskId(task.getId()).setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            TenantContextHolder.setTenantId(1L);
+            when(workTaskService.getReleaseApprovalTaskForReview(task.getId(),null)).thenReturn(task);
+            // Assemble the actual adapter's required dependencies from the real persistence graph.
+            // Constructor dependencies such as the completed-actor resolver remain real components.
+            var adapterBeans = new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+            adapterBeans.registerSingleton("workTaskService",workTaskService);
+            adapterBeans.registerSingleton("releaseService",releaseService);
+            adapterBeans.registerSingleton("workTaskMapper",actualWorkTasks);
+            adapterBeans.registerSingleton("releaseTransactionMapper",releaseTransactionMapper);
+            Class<cn.iocoder.yudao.module.mes.approval.MesProEdhrApprovalTaskAdapter> adapterType =
+                    cn.iocoder.yudao.module.mes.approval.MesProEdhrApprovalTaskAdapter.class;
+            for (Class<?> dependency : org.springframework.beans.BeanUtils.getResolvableConstructor(adapterType).getParameterTypes()) {
+                if (adapterBeans.getBeanNamesForType(dependency).length != 0) continue;
+                var definition = new org.springframework.beans.factory.support.RootBeanDefinition(dependency);
+                definition.setAutowireMode(org.springframework.beans.factory.support.AbstractBeanDefinition.AUTOWIRE_CONSTRUCTOR);
+                adapterBeans.registerBeanDefinition(dependency.getName(),definition);
+            }
+            var approvalAdapter = adapterBeans.createBean(adapterType);
+            var reviewContext = cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext.of(10001L,
+                    cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR,"EDHR_WORK_TASK",
+                    String.valueOf(task.getId()),String.valueOf(task.getId()),null,
+                    cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,"上市放行",request.getPassword(),false)
+                    .setSignatureSubjectId(recorded.getSubjectId()).setSignatureEvidenceHash(recorded.getEvidenceHash());
+            long signatureRecords = actualSignatures.selectCount();
+            approvalAdapter.review(reviewContext);
+            var first = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
+            assertEquals(signatureId, first.getApprovalSignatureId());
+            verify(upstreamStatePort).closeAfterRelease(argThat(command ->
+                    command.getActiveOrderId().equals(8081L) && command.getActiveOrderExpectedVersion().equals(5)
+                            && command.getReleaseDecisionId().equals(first.getReleaseDecisionId())
+                            && String.valueOf(signatureId).equals(command.getParentSignatureRecordId())));
+            verify(gxpAuditService).append(argThat(a -> "mes.market-release.approve".equals(a.getOperationId())
+                    && String.valueOf(signatureId).equals(a.getSignatureRecordId())));
+            long decisions = releaseDecisionMapper.selectCount();
+            long auditCount = actualOperationAudits.selectCount();
+            clearInvocations(upstreamStatePort,gxpAuditService);
+            approvalAdapter.review(reviewContext);
+            assertEquals(signatureRecords,actualSignatures.selectCount());
+            assertEquals(decisions,releaseDecisionMapper.selectCount());
+            assertEquals(auditCount,actualOperationAudits.selectCount());
+            verify(upstreamStatePort,never()).closeAfterRelease(any());
+            // Verify the same record is restored on replay, rather than supplied by the incoming command.
+            var replay = new MesProEdhrReleaseApproveReqVO().setReleaseTransactionId(precheck.getReleaseTransactionId())
+                    .setWorkTaskId(task.getId()).setExpectedVersion(request.getExpectedVersion()).setIdempotencyKey(request.getIdempotencyKey())
+                    .setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash()).setApprovalOpinion("上市放行");
+            assertTrue(realManager.prepareForFinalization(10001L,replay).isReplayed());
+            assertEquals(signatureId,replay.getSignatureId());
         }
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
                 batchExecutionMapper.selectById(batch.getId()).getStatus());
         var released = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
         assertEquals("RELEASED", released.getReleaseStatus());
+        assertEquals(signatureId, released.getApprovalSignatureId());
+        var decision = releaseDecisionMapper.selectById(released.getReleaseDecisionId());
+        assertEquals(signatureId,JSON.parseObject(decision.getAuditSnapshotJson()).getLong("signatureId"));
+        var approvalEvent = terminalEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(released.getId(),"APPROVE",request.getIdempotencyKey());
+        assertEquals(signatureId,JSON.parseObject(approvalEvent.getEventSnapshotJson()).getLong("signatureId"));
+        var formalAudit = actualOperationAudits.selectSuccessfulListByActiveOrderId(8081L).stream()
+                .filter(a -> "BATCH_RECORD_RELEASE_APPROVED".equals(a.getOperationType())).findFirst().orElseThrow();
+        assertEquals(signatureId,JSON.parseObject(formalAudit.getMetadataJson()).getLong("signatureId"));
+        var active = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO()
+                .setId(8081L).setLeaderUserId(10001L).setWorkOrderId(batch.getWorkOrderId()).setRouteId(batch.getRouteId()).setActiveStatus("ACTIVE");
+        active.setTenantId(1L); actualActiveOrders.insert(active);
+        jdbc.update("INSERT INTO mes_pro_process_pool_active_order_process_snapshot(active_order_id,work_order_id,route_id,route_version_id,route_process_id,process_id,erp_fixed_quantity_snapshot,production_quantity_factor_snapshot,planned_quantity_snapshot,process_name_snapshot,tenant_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                8081L,batch.getWorkOrderId(),batch.getRouteId(),1L,41L,30L,10,1,10,"Process",1L);
+        jdbc.update("INSERT INTO mes_pro_process(id,tenant_id,name) VALUES(30,1,'Process')");
+        jdbc.update("INSERT INTO mes_pro_route(id,tenant_id,name) VALUES(?,1,'Route')",batch.getRouteId());
+        jdbc.update("INSERT INTO mes_pro_work_order(id,tenant_id,code) VALUES(?,1,?)",batch.getWorkOrderId(),batch.getWorkOrderCode());
+        var detailService = cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.detail(
+                jdbc,actualActiveOrders,actualEvents,signatures.query,null,actualApplications,releaseTransactionMapper,actualOperationAudits);
+        var batchDetails = new MesProEdhrBatchActiveOrderDetailService(null,actualActiveOrders,detailService);
+        var evidenceReader = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService(
+                detailService,null,batchDetails,signatures.query,null,null,null,null,null,
+                actualApplications,releaseTransactionMapper,actualWorkTasks,batchExecutionMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService(signatures.query));
+        assertEquals(signatureId,detailService.getDetail(10001L,8081L).getOperationFacts().get(0).getSignatureId());
+        assertEquals("VALID",evidenceReader.getTeam(10001L,8081L,signatureId).verification().verificationStatus());
+        assertEquals("VALID",evidenceReader.getBatch(null,8081L,signatureId).verification().verificationStatus());
         assertNotNull(released.getReleaseDecisionId());
         verify(workTaskService, never()).createArchiveTaskAfterBatchClose(any());
         verify(batchTraceabilityService).appendReleaseDecision(argThat(command ->
                 command.getOriginId().equals(9081L) && command.getReleaseApplicationId().equals(5081L)
                         && command.getReleaseDecisionId().equals(released.getReleaseDecisionId())));
-        verify(upstreamStatePort).closeAfterRelease(argThat(command ->
-                command.getActiveOrderId().equals(8081L) && command.getActiveOrderExpectedVersion().equals(5)
-                        && command.getReleaseDecisionId().equals(released.getReleaseDecisionId())));
+        // The first upstream closure is captured before replay clears its interactions below.
     }
 
     @Test

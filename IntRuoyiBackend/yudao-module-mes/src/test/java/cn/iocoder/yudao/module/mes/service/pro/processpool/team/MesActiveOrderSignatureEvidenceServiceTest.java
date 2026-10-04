@@ -32,6 +32,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @Mock ElectronicSignatureQueryService signatureQueryService;
     @Mock MesProProcessPoolEventMapper eventMapper;
     @Mock MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @Mock MesProductionSubmissionReadBinding productionBinding;
     @InjectMocks MesActiveOrderSignatureEvidenceService service;
 
     @org.junit.jupiter.api.AfterEach void clearTenant() {
@@ -39,6 +40,8 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     }
     @BeforeEach void sourceForeignKeys() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        lenient().when(productionBinding.require(any(), any())).thenReturn(
+                new MesProductionSubmitSignatureContext(409L,520L,985L,"submit-one"));
         lenient().when(eventMapper.selectById(240L)).thenReturn(new MesProProcessPoolEventDO()
                 .setId(240L).setSignatureId(742L).setSignatureUserId(342L).setDeviceAccountId(341L)
                 .setRawPayload("{\"signatureIdentityDomain\":\"SYSTEM_USER\"}"));

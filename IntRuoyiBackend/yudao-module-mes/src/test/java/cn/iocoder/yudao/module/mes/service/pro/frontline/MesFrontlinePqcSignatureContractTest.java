@@ -215,7 +215,7 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
             assertEquals("SYSTEM_USER", identity.getString("domain"));
             assertEquals("VALID", actualQuery.verifyEvidence(record.getId()).verificationStatus());
             var detailService = mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchActiveOrderDetailService.class);
-            var reader = new MesActiveOrderSignatureEvidenceService(null, null, detailService, actualQuery, persistedEvents, null, null, null);
+            var reader = new MesActiveOrderSignatureEvidenceService(null, null, detailService, actualQuery, persistedEvents, null, null, null, null, null, null, null, null, null);
             var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(ACTIVE_ORDER_ID).setProcesses(List.of(
                     new MesTeamLeaderActiveOrderDetail.ProcessDetail().setPqcSubmissions(List.of(
                             new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(pqcTaskId))

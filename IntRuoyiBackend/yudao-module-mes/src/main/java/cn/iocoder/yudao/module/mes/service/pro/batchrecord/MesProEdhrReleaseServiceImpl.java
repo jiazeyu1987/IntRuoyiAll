@@ -722,6 +722,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setIdempotencyKey(command.getIdempotencyKey())
                 .setSignoffEvidenceHash(command.getSignoffEvidenceHash())
                 .setSignoffSubjectId(command.getSignoffSubjectId())
+                .setSignatureId(command.getSignatureId())
                 .setApprovalOpinion(command.getApprovalOpinion())
                 .setPasswordReauthenticated(command.isPasswordReauthenticated())
                 .setIndependentPrerequisiteReceipt(command.getIndependentPrerequisiteReceipt())
@@ -795,6 +796,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                     .setPasswordReauthenticated(command.isPasswordReauthenticated());
             MesProductionReleaseManagerApprovalResult prepared = managerApprovalService.prepareForFinalization(
                     command.getActorUserId(), approve);
+            // The authoritative verifier resolves BPM's record ID into the approval command.
+            // All finalization writes and downstream audit links consume this same verified ID.
+            command.setSignatureId(approve.getSignatureId());
             if (prepared.isReplayed()) {
                 return toResp(prepared.getBatchExecution(), prepared.getReleaseTransaction());
             }
@@ -1962,6 +1966,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("sourceRelation", command.getSourceRelation());
         snapshot.put("sourceSnapshotHash", command.getSourceSnapshotHash());
         snapshot.put("signoffSubjectId", command.getSignoffSubjectId());
+        snapshot.put("signatureId", command.getSignatureId());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());
         snapshot.put("materialGateReceiptId", gate == null ? null : gate.getReceiptId());
         snapshot.put("materialGateManifestHash", gate == null ? null : gate.getManifestHash());
@@ -2021,7 +2026,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setWorkOrderId(transaction.getWorkOrderId())
                 .setActorUserId(command.getActorUserId())
                 .setParentSignatureRecordId(command.getSignatureId() == null
-                        ? command.getSignoffSubjectId() : String.valueOf(command.getSignatureId())));
+                        ? null : String.valueOf(command.getSignatureId())));
     }
 
     private GxpAuditStateEnvelope releaseTerminalState(MesProEdhrReleaseTransactionDO transaction) {
@@ -2117,7 +2122,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         after.put("auditSnapshotJson", decision.getAuditSnapshotJson());
         after.put("affectedState", marketReleaseAffected(command, transaction));
         String signatureRecordId = command.getSignatureId() == null
-                ? command.getSignoffSubjectId() : String.valueOf(command.getSignatureId());
+                ? null : String.valueOf(command.getSignatureId());
         List<GxpAuditRelation> links = new java.util.ArrayList<>();
         if (command.getActiveOrderId() != null) {
             links.add(new GxpAuditRelation("SUBJECT", "ACTIVE_ORDER",
