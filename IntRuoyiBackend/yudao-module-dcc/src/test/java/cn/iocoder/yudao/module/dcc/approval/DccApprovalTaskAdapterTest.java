@@ -489,47 +489,29 @@ class DccApprovalTaskAdapterTest {
 
     @Test
     void reviewObsoleteApproveCompletesFormCenterBpmTask() {
-        ProcessInstance processInstance = mock(ProcessInstance.class);
-        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-obsolete-approval");
-        when(processInstanceService.getProcessInstance("obsolete-pi-approve")).thenReturn(processInstance);
-        when(routeSnapshotMapper.selectListByControlledFileId(6001L)).thenReturn(List.of(
-                DccControlledFileRouteSnapshotDO.builder()
-                        .controlledFileId(6001L).stageCode("MATRIX_REVIEW").resolvedUserIds("7001,7001").build(),
-                DccControlledFileRouteSnapshotDO.builder()
-                        .controlledFileId(6001L).stageCode("MATRIX_APPROVAL").resolvedUserIds("7001").build(),
-                DccControlledFileRouteSnapshotDO.builder()
-                        .controlledFileId(6001L).stageCode("DOC_CONTROL_REVIEW").resolvedUserIds("7001").build()));
-
         adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
                 "DCC_CONTROLLED_FILE_TASK", "obsolete-task-approve", "6001", "obsolete-pi-approve",
                 ApprovalTaskReviewResult.APPROVE, "作废审批通过", "secret", false));
 
-        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
-        verify(bpmTaskService).approveTask(eq(100L), captor.capture());
-        assertEquals("obsolete-task-approve", captor.getValue().getId());
-        assertEquals("作废审批通过", captor.getValue().getReason());
-        assertEquals(Map.of(
-                "MATRIX_REVIEW", List.of(7001L, 7001L),
-                "MATRIX_APPROVAL", List.of(7001L),
-                "DOC_CONTROL_REVIEW", List.of(7001L)), captor.getValue().getNextAssignees());
-        verify(workflowService, never()).approveTask(anyLong(), anyLong(), any());
+        ArgumentCaptor<DccControlledFileApproveTaskReqVO> captor=ArgumentCaptor.forClass(DccControlledFileApproveTaskReqVO.class);
+        verify(workflowService).approveTask(eq(100L),eq(6001L),captor.capture());
+        assertEquals("obsolete-task-approve",captor.getValue().getTaskId());
+        assertEquals("secret",captor.getValue().getPassword());
+        assertEquals("作废审批通过",captor.getValue().getReason());
+        verify(bpmTaskService,never()).approveTask(any(),any());
     }
 
     @Test
     void reviewObsoleteRejectCompletesFormCenterBpmTask() {
-        ProcessInstance processInstance = mock(ProcessInstance.class);
-        when(processInstance.getProcessDefinitionKey()).thenReturn("dcc-controlled-file-obsolete-approval");
-        when(processInstanceService.getProcessInstance("obsolete-pi-reject")).thenReturn(processInstance);
-
         adapter.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.DCC,
                 "DCC_CONTROLLED_FILE_TASK", "obsolete-task-reject", "6001", "obsolete-pi-reject",
                 ApprovalTaskReviewResult.REJECT, "作废申请退回", "secret", false));
 
-        ArgumentCaptor<BpmTaskRejectReqVO> captor = ArgumentCaptor.forClass(BpmTaskRejectReqVO.class);
-        verify(bpmTaskService).rejectTask(eq(100L), captor.capture());
-        assertEquals("obsolete-task-reject", captor.getValue().getId());
-        assertEquals("作废申请退回", captor.getValue().getReason());
-        verify(workflowService, never()).rejectTask(anyLong(), anyLong(), any());
+        ArgumentCaptor<DccControlledFileRejectTaskReqVO> captor=ArgumentCaptor.forClass(DccControlledFileRejectTaskReqVO.class);
+        verify(workflowService).rejectTask(eq(100L),eq(6001L),captor.capture());
+        assertEquals("obsolete-task-reject",captor.getValue().getTaskId());
+        assertEquals("secret",captor.getValue().getPassword());
+        verify(bpmTaskService,never()).rejectTask(any(),any());
     }
 
     @Test
@@ -972,5 +954,13 @@ class DccApprovalTaskAdapterTest {
         assertEquals(1L, page.getTotal());
         verify(bpmTaskService, org.mockito.Mockito.times(EXPECTED_DCC_PROCESS_DEFINITION_KEYS.size()))
                 .getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class));
+    }
+    @Test
+    void nativeOwnerApprovalActionsRequireTheModuleDialogForBothUploadAndRevision() {
+        for (String key : List.of(DccControlledFileProcessDefinitionKeys.UPLOAD, DccControlledFileProcessDefinitionKeys.REVISION)) {
+            Set<String> actions = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    DccApprovalTaskAdapter.class, "resolveTodoAvailableActions", key, "MATRIX_APPROVAL", "PENDING_MATRIX_APPROVAL");
+            assertEquals(Set.of("PROCESS_IN_MODULE"), actions);
+        }
     }
 }

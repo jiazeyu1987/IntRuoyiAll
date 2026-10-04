@@ -12,6 +12,25 @@ public class DccControlledFileVersionHistoryRespVO {
     private String title;
     private String fileNumber;
     private String versionNo;
+    private String processInstanceId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long fileOwnerUserId;
+    private String fileOwnerUsernameSnapshot;
+    private String fileOwnerNicknameSnapshot;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long fileOwnerSignatureId;
+    private String fileOwnerApprovalTaskId;
+    private String fileOwnerProcessInstanceId;
+    private LocalDateTime fileOwnerSelectedTime;
+    private String revisionChangeType;
+    private Integer revisionAttemptNo;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long reworkPredecessorControlledFileId;
+    private Long revisionSourceControlledFileId;
+    private String revisionSourceVersionNo;
+    private Long selectedIterationControlledFileId;
+    private String selectedIterationVersionNo;
+    private String sourceOriginalFileName;
     private String revisionCode;
     private Integer iterationNo;
     private Long predecessorControlledFileId;

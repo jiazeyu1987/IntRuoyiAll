@@ -1,0 +1,38 @@
+{
+  "status": "NINE_MODE_EXECUTABLE_SCRIPT_FAMILY_FROZEN_OFFLINE_REAL_DOM_PENDING",
+  "g31Modes": [
+    "distribution",
+    "obsolete"
+  ],
+  "obsoleteActions": [
+    "apply",
+    "verify-terminal"
+  ],
+  "offlineContractSecurityCases": 25,
+  "actualBrowserInvocations": 0,
+  "actualDatabaseOrApiActions": 0,
+  "runtimeE2ePassed": false,
+  "goalCompleted": false,
+  "originalG29G30SealsUnchanged": true,
+  "terminalAcceptanceRequiresReadonlyBpmRetentionCorroboration": true,
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g31-distribution-obsolete-runner.cjs",
+      "bytes": 23272,
+      "sha256": "e7c0333895246f932863c00262108fd6c5972f474e9d4d929676565356971264"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g31-final-lifecycle-contract-test.cjs",
+      "bytes": 4463,
+      "sha256": "ba200510fa69eb1fc12c45cd1d4cb1c80af47d62e8663afd2ee8c75a99c78990"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g31-final-lifecycle-contract.md",
+      "bytes": 9098,
+      "sha256": "9b58e6d679e0d572e39f7bc290371f11ebfef00497da60c6cc8d123a83feaca7"
+    }
+  ],
+  "terminalCliExit0StillIncompleteAcceptance": true,
+  "projectDefaultConditionalNotesAsserted": true,
+  "terminalHistoryActualLabelProtocol": "exact\u9009\u4e2d\u5b8c\u6574\u4f5c\u5e9f\u7533\u8bf7/\u5c5e\u6027\u8f6e/BPM\u6807\u7b7e+actual section containsBPM/type separately; no inventedsubstring"
+}

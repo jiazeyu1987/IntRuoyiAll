@@ -1,110 +1,23 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
-import java.util.Locale;
-import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-/**
- * Server-owned Windchill style revision/iteration number.
- *
- * <p>The initial number is deliberately independent of the client payload. Later
- * phases can use the parser and increment helpers without reintroducing a
- * client-controlled version string.</p>
- */
+/** Formal version facade for existing callers. All grammar and arithmetic delegate to the policy. */
 public record DccWindchillVersionNumber(String revisionCode, int iterationNo) {
-
-    private static final Pattern PATTERN = Pattern.compile("([A-Z]+)/([1-9][0-9]*)");
-
     public DccWindchillVersionNumber {
-        revisionCode = normalizeRevision(revisionCode);
-        if (iterationNo < 1) {
-            throw new IllegalArgumentException("iterationNo must be positive");
-        }
+        var value = DccControlledFileVersionPolicy.defaultPolicy().parse(revisionCode + "/" + iterationNo);
+        if (value == null || value.isWorkingIteration()) throw new IllegalArgumentException("invalid formal version");
+        revisionCode = value.majorIdentity();
     }
-
-    public static String initialForNewFile(String requestedVersion) {
-        if (requestedVersion == null || requestedVersion.isBlank()) {
-            return initial().display();
-        }
-        DccWindchillVersionNumber parsed = parse(requestedVersion);
-        if (parsed == null || parsed.iterationNo() != 1) {
-            throw new IllegalArgumentException("initial version must be a Windchill revision at iteration 1");
-        }
-        return parsed.display();
-    }
-
-    public static DccWindchillVersionNumber initial() {
-        return new DccWindchillVersionNumber("A", 1);
-    }
-
     public static DccWindchillVersionNumber parse(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        Matcher matcher = PATTERN.matcher(raw.trim().toUpperCase(Locale.ROOT));
-        if (!matcher.matches()) {
-            return null;
-        }
-        try {
-            return new DccWindchillVersionNumber(matcher.group(1), Integer.parseInt(matcher.group(2)));
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+        var value = DccControlledFileVersionPolicy.defaultPolicy().parse(raw);
+        return value == null || value.isWorkingIteration() ? null : new DccWindchillVersionNumber(value.majorIdentity(), value.iterationNo());
     }
-
-    public static DccWindchillVersionNumber parseStoredInitial(String raw) {
-        DccWindchillVersionNumber parsed = parse(raw);
-        if (parsed != null) {
-            return parsed;
-        }
-        if ("V1.0".equalsIgnoreCase(raw == null ? null : raw.trim())) {
-            return initial();
-        }
-        return null;
-    }
-
-    public DccWindchillVersionNumber nextIteration() {
-        if (iterationNo == Integer.MAX_VALUE) {
-            throw new IllegalStateException("iterationNo overflow");
-        }
-        return new DccWindchillVersionNumber(revisionCode, iterationNo + 1);
-    }
-
-    public DccWindchillVersionNumber nextRevision() {
-        return new DccWindchillVersionNumber(incrementRevision(revisionCode), 1);
-    }
-
-    public int compareRevisionTo(DccWindchillVersionNumber other) {
-        int lengthCompare = Integer.compare(revisionCode.length(), other.revisionCode.length());
-        return lengthCompare != 0 ? lengthCompare : revisionCode.compareTo(other.revisionCode);
-    }
-
-    public String display() {
-        return revisionCode + "/" + iterationNo;
-    }
-
-    public static String incrementRevision(String revision) {
-        String normalized = normalizeRevision(revision);
-        char[] chars = normalized.toCharArray();
-        int index = chars.length - 1;
-        while (index >= 0 && chars[index] == 'Z') {
-            chars[index] = 'A';
-            index--;
-        }
-        if (index < 0) {
-            return "A" + new String(chars);
-        }
-        chars[index]++;
-        return new String(chars);
-    }
-
-    private static String normalizeRevision(String value) {
-        String normalized = Objects.requireNonNull(value, "revisionCode").trim().toUpperCase(Locale.ROOT);
-        if (!normalized.matches("[A-Z]+")) {
-            throw new IllegalArgumentException("revisionCode must contain only A-Z");
-        }
-        return normalized;
-    }
-
+    public static DccWindchillVersionNumber initial() { return parse(DccControlledFileVersionPolicy.defaultPolicy().initial().display()); }
+    public static String initialForNewFile(String raw) { return DccControlledFileVersionPolicy.defaultPolicy().initialForNewFile(raw); }
+    public static DccWindchillVersionNumber parseStoredInitial(String raw) { return parse(raw); }
+    private DccControlledFileVersionPolicy.VersionNumber value() { return DccControlledFileVersionPolicy.defaultPolicy().parse(display()); }
+    public DccWindchillVersionNumber nextIteration() { return parse(value().nextMinor().display()); }
+    public DccWindchillVersionNumber nextRevision() { return parse(value().nextMajor().display()); }
+    public int compareRevisionTo(DccWindchillVersionNumber other) { return value().compareMajorIdentityTo(other.value()); }
+    public String display() { return revisionCode + "/" + iterationNo; }
+    public static String incrementRevision(String revision) { return DccControlledFileVersionPolicy.incrementRevisionLetter(revision); }
 }

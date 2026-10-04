@@ -51,11 +51,24 @@ class DccProjectAccessServiceImplTest {
     void setUpUser() {
         AdminUserRespDTO user = new AdminUserRespDTO();
         user.setId(99L);
+        user.setStatus(0);
         user.setDeptId(20L);
         user.setPostIds(Set.of(30L));
         lenient().when(adminUserApi.getUser(99L)).thenReturn(user);
         lenient().when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1})
+    void disabledOrUnknownAccountStatusCannotUseProjectOwnerOrEditor(Integer status) {
+        var user = new AdminUserRespDTO(); user.setId(99L); user.setStatus(status);
+        when(adminUserApi.getUser(99L)).thenReturn(user);
+        lenient().when(accessRuleMapper.selectActiveRules(eq(100L), any(LocalDateTime.class)))
+                .thenReturn(List.of(rule("USER", 99L, "OWNER")));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectOwner(99L, 100L));
+        org.junit.jupiter.api.Assertions.assertFalse(service.hasProjectEditorOrOwner(99L, 100L));
+        assertThrows(ServiceException.class, () -> service.assertProjectEditorOrOwner(99L, 100L));
     }
 
     @org.junit.jupiter.params.ParameterizedTest

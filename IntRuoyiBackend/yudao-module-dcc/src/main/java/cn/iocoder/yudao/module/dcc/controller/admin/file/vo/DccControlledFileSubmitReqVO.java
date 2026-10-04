@@ -56,6 +56,12 @@ public class DccControlledFileSubmitReqVO {
 
     private Long dccProjectCodeId;
 
+    @Schema(description = "Selected project logical folder; independent of directoryId storage identity")
+    private Long projectFolderId;
+
+    @Schema(description = "User reason for placing this file in the selected project folder")
+    private String projectFolderChangeReason;
+
     private Long fileTypeTaxonomyId;
 
     private Long revisionTargetControlledFileId;
@@ -73,8 +79,13 @@ public class DccControlledFileSubmitReqVO {
 
     @NotBlank(message = "changeType is required")
     private String changeType;
+    private String revisionChangeType;
 
     private List<Long> selectedSignoffUserIds;
+    /** This application's department list; the workflow validates and freezes it. */
+    private List<Long> selectedSignoffDepartmentIds;
+    /** User-selected actual attributes; the default source is read from the project by the server. */
+    private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes projectAttributes;
 
     @NotBlank(message = "fileName is required")
     private String fileName;

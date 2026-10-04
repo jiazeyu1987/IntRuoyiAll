@@ -36,5 +36,10 @@ public class DccControlledFileTaskAssigneeSnapshotDO extends BaseDO {
     private String bpmTaskId;
     private String obligationId;
     private Long tenantId;
+    private String processInstanceId;
+    private Long leaderUserId;
+    private Long assignmentSignatureId;
+    private String assignmentPayloadHash;
+    private java.time.LocalDateTime assignedTime;
 
 }

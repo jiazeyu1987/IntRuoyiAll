@@ -1,0 +1,48 @@
+{
+  "buildSuccess": true,
+  "classes": [
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileBrowserPageControllerTest"
+    },
+    {
+      "tests": 240,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectBrowserScopeIntegrationTest"
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSelectorBrowserMappingIntegrationTest"
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest"
+    }
+  ],
+  "executions": 274
+}

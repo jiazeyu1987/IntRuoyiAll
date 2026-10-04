@@ -1,0 +1,17 @@
+{
+  "status": "READONLY_SCHEMA_REVIEW_REFRESHED_DATETIME6",
+  "reportSha256": "aecb210478831925e8411186fd3d3014856b79cf609a30e6197c470513022485",
+  "inventorySha256": "935fcdc60ad9ee23a59921d2f1bb5c32221fd7a3f6f238950cc175fba71ab72a",
+  "sqlSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+  "supersedesSqlSha256": "2c7451a09f88c46c9243cda6ca89acfbd5f101da4fb108473a4da818da9f42eb",
+  "closureCount": 8,
+  "totalColumns": 70,
+  "generatedColumns": 2,
+  "datetime6Columns": 8,
+  "matchingTimestampDefaults": true,
+  "actualRootReadinessFactsSha256": "252b699b7ae740fbaac68ae4609bd26bca3b9ac8a7a9ab68a676361b78de8d6d",
+  "actualDatabaseActionsByReviewer": 0,
+  "productionEdits": 0,
+  "mavenRuns": 0,
+  "actualFirstRepeatPending": true
+}

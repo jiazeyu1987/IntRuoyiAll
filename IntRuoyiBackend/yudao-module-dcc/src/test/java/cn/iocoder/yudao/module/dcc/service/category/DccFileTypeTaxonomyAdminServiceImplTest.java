@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFileTemplateI
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.util.List;
 
@@ -21,16 +22,59 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAX
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
+import static cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyErrors.WRITE_INCOMPLETE;
 
 @Import(DccFileTypeTaxonomyAdminServiceImpl.class)
 class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
 
     @Resource
     private DccFileTypeTaxonomyAdminServiceImpl taxonomyAdminService;
-    @Resource
+    @MockitoSpyBean
     private DccFileTypeTaxonomyMapper taxonomyMapper;
     @Resource
     private DccProjectFileTemplateItemMapper templateItemMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper categoryMapper;
+
+    @Test
+    void activeCategoryMappingMustBeUniqueAndEnabled() {
+        Long root = createTaxonomy(null, "B-MAP-1", "映射根", 1);
+        Long stage = createTaxonomy(root, "B-MAP-2", "映射阶段", 2);
+        Long leaf = createTaxonomy(stage, "B-MAP-3", "映射类型", 3);
+        assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(leaf),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        var first = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+                .code("B-C1").name("分类1").parentId(0L).active(true).sort(0).source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(leaf).build();
+        categoryMapper.insert(first);
+        assertEquals(first.getId(), taxonomyAdminService.resolveActiveCategoryId(leaf));
+        var second = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+                .code("B-C2").name("分类2").parentId(0L).active(true).sort(0).source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(leaf).build();
+        categoryMapper.insert(second);
+        assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(leaf),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        second.setActive(false); categoryMapper.updateById(second);
+        assertEquals(first.getId(), taxonomyAdminService.resolveActiveCategoryId(leaf));
+        first.setActive(false); categoryMapper.updateById(first);
+        assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(leaf),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(stage), FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+    }
+
+    @Test
+    void usedTaxonomyCanDisableWithoutDeletingTemplateHistory() {
+        Long level1 = createTaxonomy(null, "B-USED-1", "使用保护根", 1);
+        Long level2 = createTaxonomy(level1, "B-USED-2", "使用保护阶段", 2);
+        Long leaf = createTaxonomy(level2, "B-USED-3", "使用保护类型", 3);
+        templateItemMapper.insert(DccProjectFileTemplateItemDO.builder().projectCodeId(910L)
+                .fileTypeTaxonomyId(leaf).fileName("历史正式文件").sortOrder(0).build());
+        var update = req(level2, "B-USED-3", "使用保护类型", 3);
+        update.setId(leaf); update.setActive(false);
+        taxonomyAdminService.updateTaxonomy(update);
+        assertEquals(false, taxonomyMapper.selectById(leaf).getActive());
+        assertEquals(1, templateItemMapper.selectListByProjectCodeId(910L).size());
+        assertServiceException(() -> taxonomyAdminService.resolveActivePath(leaf), FILE_TYPE_TAXONOMY_INACTIVE);
+        assertServiceException(() -> taxonomyAdminService.deleteTaxonomy(leaf), FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
+    }
 
     @Test
     void createFiveLevelPath_shouldPersistComputedLevelsAndResolvePath() {
@@ -104,8 +148,10 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
         DccFileTypeTaxonomySaveReqVO update = req(level2, "TEMPLATE-TYPE", "模板类型", 3);
         update.setId(level3);
         update.setActive(Boolean.FALSE);
-        assertServiceException(() -> taxonomyAdminService.updateTaxonomy(update),
-                FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
+        taxonomyAdminService.updateTaxonomy(update);
+        assertEquals(false, taxonomyMapper.selectById(level3).getActive());
+        assertEquals(1, templateItemMapper.selectListByProjectCodeId(900L).size());
+        assertServiceException(() -> taxonomyAdminService.resolveActivePath(level3), FILE_TYPE_TAXONOMY_INACTIVE);
     }
 
     @Test
@@ -151,6 +197,35 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
                 "技术文档-路径", "策划文件-路径", "项目策划书-路径", "草案-路径", null));
         assertNull(taxonomyAdminService.resolveActiveIdByPath(
                 "技术文档-路径", "策划文件-路径", "不存在", null, null));
+    }
+
+    @Test
+    void zeroCreateRowMustFailRatherThanReturnAnUnpersistedType() {
+        var input=req(null,"ZERO-CREATE","零行新增",0);
+        doReturn(0).when(taxonomyMapper).insert(any(DccFileTypeTaxonomyDO.class));
+        assertServiceException(()->taxonomyAdminService.createTaxonomy(input),
+                WRITE_INCOMPLETE,"新增分类");
+        assertTrue(taxonomyMapper.selectList().isEmpty());
+    }
+
+    @Test
+    void zeroUpdateRowMustKeepTheExistingTypeRatherThanReportSaved() {
+        Long id=createTaxonomy(null,"ZERO-UPDATE","零行修改",0);
+        var input=req(null,"ZERO-UPDATE-NEW","修改后名称",0);input.setId(id);
+        doReturn(0).when(taxonomyMapper).updateById(any(DccFileTypeTaxonomyDO.class));
+        assertServiceException(()->taxonomyAdminService.updateTaxonomy(input),
+                WRITE_INCOMPLETE,"修改分类");
+        assertEquals("ZERO-UPDATE",taxonomyMapper.selectById(id).getCode());
+        assertEquals("零行修改",taxonomyMapper.selectById(id).getName());
+    }
+
+    @Test
+    void zeroDeleteRowMustKeepTheTypeRatherThanReportDeleted() {
+        Long id=createTaxonomy(null,"ZERO-DELETE","零行删除",0);
+        doReturn(0).when(taxonomyMapper).deleteById(id);
+        assertServiceException(()->taxonomyAdminService.deleteTaxonomy(id),
+                WRITE_INCOMPLETE,"删除分类");
+        assertEquals(id,taxonomyMapper.selectById(id).getId());
     }
 
     private Long createTaxonomy(Long parentId, String code, String name, int sort) {

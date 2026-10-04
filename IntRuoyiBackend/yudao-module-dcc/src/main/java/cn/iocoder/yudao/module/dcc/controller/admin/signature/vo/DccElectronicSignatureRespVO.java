@@ -38,6 +38,8 @@ public class DccElectronicSignatureRespVO {
 
     @Schema(description = "BPM任务ID", example = "task-1")
     private String taskId;
+    private String processInstanceId;
+    private String fileNumberSnapshot;
 
     @Schema(description = "签名人用户ID", requiredMode = Schema.RequiredMode.REQUIRED, example = "99")
     private Long actorId;

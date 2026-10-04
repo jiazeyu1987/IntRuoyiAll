@@ -1,0 +1,19 @@
+{
+  "version": "G28-EXEC-1",
+  "status": "BLOCKED_MISSING_SPECIFIC_NEW_MIGRATION_USER_AUTHORIZATION_AND_FRESH_EXECUTION_PROOFS",
+  "database": "dcc_intqms_g18_rehearsal",
+  "operationId": "dcc-g28-local-new-sidecars",
+  "specificNewMigrationAuthorized": false,
+  "authorization": null,
+  "freshPreflight": null,
+  "freshOriginalBaseline": null,
+  "writerExclusion": null,
+  "freshBackup": null,
+  "prerequisiteProof": null,
+  "newMigrationClonePass": null,
+  "privateDirectory": null,
+  "actualWritesExecuted": false,
+  "automaticCloneCreation": false,
+  "automaticRestore": false,
+  "automaticRetry": false
+}

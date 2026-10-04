@@ -1,0 +1,8 @@
+{
+  "status": "READONLY_COLLECTOR_SOURCE_REVIEW_PASS_NOT_INVOKED",
+  "manifestSha256": "a8aef83b9cb50e7a6053384c48a43349d8c8fdc45f5dea955d2565102d54f653",
+  "assets": 2,
+  "actualCollectorInvocationsByReviewer": 0,
+  "reviewSha256": "6d55020742f928435f4d53ca874cff423bb6bfc1fafe03e12f0766a6b6b43f9a",
+  "ownerOfflineTests": 13
+}

@@ -136,13 +136,13 @@ class DccProjectCodeControllerTest extends BaseMockitoUnitTest {
         CommonResult<PageResult<DccProjectCodeRespVO>> result;
         try (MockedStatic<SecurityFrameworkUtils> securityFrameworkUtilsMock = mockStatic(SecurityFrameworkUtils.class)) {
             securityFrameworkUtilsMock.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
-            when(projectCodeService.getProjectCodePage(99L, reqVO)).thenReturn(new PageResult<>(List.of(row), 1L));
+            when(projectCodeService.getReadableProjectCodePage(99L, reqVO)).thenReturn(new PageResult<>(List.of(row), 1L));
             result = controller.getProjectCodePage(reqVO);
         }
 
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
         assertEquals(7L, result.getData().getList().get(0).getAssociatedFileCount());
-        verify(projectCodeService).getProjectCodePage(99L, reqVO);
+        verify(projectCodeService).getReadableProjectCodePage(99L, reqVO);
     }
 
     @Test

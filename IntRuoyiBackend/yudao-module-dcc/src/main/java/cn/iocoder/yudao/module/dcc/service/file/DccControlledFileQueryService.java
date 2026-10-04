@@ -17,6 +17,15 @@ import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOpera
 import java.util.List;
 
 public interface DccControlledFileQueryService {
+    List<DccApplicationRoundSummary> listApplicationRounds(Long userId, Long controlledFileId);
+    DccFileRelationPermissions getRelationPermissions(Long userId, Long controlledFileId);
+    DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,
+                                                               String applicationType, String bpmRound);
+    DccControlledFileRevisionOptions getRevisionOptions(Long userId, Long controlledBaselineId);
+    PageResult<DccControlledFileSelectorRow> getControlledFileSelectorPage(Long userId, DccControlledFileSelectorQuery query);
+    void assertRelationNameVisible(Long userId, Long id);
+    void assertRelationContentReadable(Long userId, Long id);
+    void assertRelationEditable(Long userId, Long id);
 
     PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, DccControlledFilePageReqVO reqVO);
 

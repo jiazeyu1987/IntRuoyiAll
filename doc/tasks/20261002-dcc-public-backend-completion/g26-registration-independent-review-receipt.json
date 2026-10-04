@@ -1,0 +1,31 @@
+{
+  "status": "FROZEN_CORE_579_ISOLATED_GREEN_RUNTIME_PENDING",
+  "reportSha256": "2dfbd515af93e0315a116d8503d3cfa8ba2434b63092b7e73ae791456520bf3f",
+  "observedSources": [
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccLegacySourceNameRegistrationService.java",
+      "sha256": "323d1d5611c29e9f9c63e2c1141d2e93f3adc3c21e27cead5704765a3114eef3"
+    },
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccLegacyNameVerifiedScope.java",
+      "sha256": "237620e9e66d2ddf15b40a5baa3c5dad7d61f2fa606d3bcc139e2b7d89f02311"
+    },
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccLegacySourceNameRegistrationTest.java",
+      "sha256": "b2826bcf287b5523beddedb82274575180ccd57ec98490cf45b9dcfa2e9aee7a"
+    }
+  ],
+  "actualDBActions": 0,
+  "actualNetworkActions": 0,
+  "mavenRunsByReviewer": 0,
+  "productionEditsByReviewer": 0,
+  "ownerBehaviorResultsPending": false,
+  "actualScope35Match4Missing": true,
+  "actualObjectRecoveryApproved": false,
+  "actualOwnerCorrected20Cases": "PASS20_FAIL0_ERROR0_SKIP0",
+  "latestExpanded22Cases": "PASS22_FAIL0_ERROR0_SKIP0",
+  "ownerFinalTests": 579,
+  "ownerFinalClasses": 17,
+  "actualScopeBytesComplete": false,
+  "laterSelectorBatchExcluded": true
+}

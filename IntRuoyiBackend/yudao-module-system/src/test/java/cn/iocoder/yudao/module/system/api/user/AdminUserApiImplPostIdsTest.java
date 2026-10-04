@@ -44,6 +44,7 @@ class AdminUserApiImplPostIdsTest {
                 .status(CommonStatusEnum.ENABLE.getStatus())
                 .postIds(Set.of(999L))
                 .build();
+        user.setTenantId(27L);
         when(userService.getUser(userId)).thenReturn(user);
         when(userPostMapper.selectListByUserId(userId)).thenReturn(List.of(
                 new UserPostDO().setUserId(userId).setPostId(701L),
@@ -52,6 +53,7 @@ class AdminUserApiImplPostIdsTest {
         AdminUserRespDTO respDTO = adminUserApi.getUser(userId);
 
         assertEquals(Set.of(701L, 702L), respDTO.getPostIds());
+        assertEquals(27L,respDTO.getTenantId(),"approval account snapshots must retain the formal owning tenant");
     }
 
     @Test

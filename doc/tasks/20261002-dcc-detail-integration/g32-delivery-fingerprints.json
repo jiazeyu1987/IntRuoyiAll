@@ -1,0 +1,50 @@
+{
+  "status": "G32_OFFLINE_BUILDER_FROZEN_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-manifest.py",
+      "bytes": 14974,
+      "sha256": "235ca00bdbdb4a81a0263ddc4334c80e624d637d76f4a69e19e70fe4a11e3e80"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-manifest-test.py",
+      "bytes": 10666,
+      "sha256": "734b79ea8f5cf05ec8c59681b0a0e094660ed18ba6155e5db6d7804f3a2c1b4d"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\G32ManifestSupport.java",
+      "bytes": 10222,
+      "sha256": "e8bc8154fce7afcdaa07b51f974bc4bce160d818ee108dc0187473dfe0758360"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-input-contract.json",
+      "bytes": 1772,
+      "sha256": "6bb02a328dcc295b133475def00f5e017e08fbac9e309a991f240a2243ba49ce"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-execution-design.md",
+      "bytes": 5294,
+      "sha256": "51c373b916aae95450eff2e9c6d3b49420d5ab42cd4c4d2f9c85b0336790b2be"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-runtime-extraction-receipt.json",
+      "bytes": 10796,
+      "sha256": "cef09b2a84ab32b30b8f876aa8e7dc833feee6e4f029fb240ff9dddfa238eb54"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\classes\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\G32ManifestSupport$1.class",
+      "bytes": 602,
+      "sha256": "86c6f02534e59841a06002777cc077a9442a3b004aeb1ffb9c32a38c9c873592"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\classes\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\G32ManifestSupport.class",
+      "bytes": 15061,
+      "sha256": "b778d9ed9b3225637b8b20c269a03011b0df4ba7b6c06fb9ab0326250a593aab"
+    }
+  ],
+  "sourceMainJarSha256": "81b56aa3e1c518ae8f989498a8624826a1ad946d8e2640e652e4cb3a32f30bc5",
+  "actualDBPreimageCollection": false,
+  "actualActivationManifestGenerated": false,
+  "actualLegacyActivation": false,
+  "productionSourceChanged": false
+}

@@ -131,6 +131,15 @@ public class DccControlledFileRouteReadinessService {
                 .build());
     }
 
+    public RouteReadinessEvaluation evaluateDepartments(Long categoryId,Long actorId,List<Long> departments,String actionType) {
+        var route=routeAssigneeResolver.resolveRouteForReadiness(categoryId,actorId,actionType,departments);
+        return evaluateResolvedRoute(route);
+    }
+    /** Formal callers may already have resolved and validated the exact frozen route. */
+    public void requireReadyResolvedRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route) {
+        evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route")).requireReady();
+    }
+
     public void requireReadyParticipants(String stageCode, List<Long> userIds) {
         String permission = requiredPermission(stageCode);
         Map<Long, Boolean> authorizations = signatureAuthorizationService.getAuthorizationMap(userIds);

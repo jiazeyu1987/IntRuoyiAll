@@ -1,0 +1,169 @@
+{
+  "status": "G33_CANDIDATE_READY_FOR_ROOT_REVIEW_NOT_ACTUAL_REGISTRATION",
+  "createdAtUtc": "2026-10-04T00:25:44.430520+00:00",
+  "branch": "codex/20261001-dcc-integration",
+  "mavenCliExitCode": 0,
+  "finishedAt": "2026-10-04T08:19:19+08:00",
+  "tests": 101,
+  "testClasses": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "newLaneTests": 33,
+  "originalRegressionTests": 68,
+  "actualCommand": "mvn -o -pl yudao-module-dcc -am test '-Dtest=DccLegacyMaintenanceEntryTest,DccLegacyMaintenanceCommandTest,DccLegacyMaintenanceGateTest,DccLegacyMaintenanceLoggingTest,DccLegacyMaintenanceKernelTest#maintenance*,DccLegacySourceNameRegistrationTest,DccLegacySourceNameOccupancyTest' '-Dsurefire.failIfNoSpecifiedTests=false'",
+  "workingDirectory": "IntRuoyiBackend",
+  "finalRawLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-final-regression-r3.log",
+    "bytes": 69732,
+    "sha256": "4812404b0da70864a5c00866c1c381c7f99517385a9462b9bf7e09562ca2e587"
+  },
+  "testResults": [
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacyMaintenanceEntryTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceEntryTest.xml",
+        "bytes": 95184,
+        "sha256": "52e3712f4240674caf6526ef472decf7b18489215fdbeb083d73d1ad9676aed2"
+      }
+    },
+    {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacyMaintenanceGateTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceGateTest.xml",
+        "bytes": 96890,
+        "sha256": "0a53754040deaa50554d3f3cfaaa283cde8dfd9e6e1c4cdff8c698feab722ea6"
+      }
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacyMaintenanceCommandTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceCommandTest.xml",
+        "bytes": 94724,
+        "sha256": "f359b219aa532e4e7223282b587eb1a52419f20fe5a78d8a89d61840a043bf45"
+      }
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacyMaintenanceKernelTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceKernelTest.xml",
+        "bytes": 96686,
+        "sha256": "80cec568a904f6df55445c4ba0a1bb9130374fb5bf7d070ba5080c4ef4da37fc"
+      }
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacyMaintenanceLoggingTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceLoggingTest.xml",
+        "bytes": 95100,
+        "sha256": "a1346343cf7a0b32458837df283f3a085ecb30cb532fed7124ad33b101997378"
+      }
+    },
+    {
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacySourceNameRegistrationTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameRegistrationTest.xml",
+        "bytes": 100445,
+        "sha256": "fb2a0187cd3627d0f13342e46b1835386c5c5e4ff25e84b46801eb9eb2e8928a"
+      }
+    },
+    {
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "DccLegacySourceNameOccupancyTest",
+      "rawXml": {
+        "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.xml",
+        "bytes": 105090,
+        "sha256": "993bdcbfa80a6f1f7e252aed89de39a6993ea158d69b8376510e5a930350907e"
+      }
+    }
+  ],
+  "evidenceLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-entry-red.log",
+      "bytes": 35472,
+      "sha256": "630b1289ff7c8eb0f0cd74600955126eba59b1e94388eff0bce39fe1aa3d796a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-review-boundaries-red.log",
+      "bytes": 68477,
+      "sha256": "c24d42ca5bbaa435601f34eddf9c82b39d82a55d6cb31722c9c2fffd6c6a94ed"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-schema-self-consistent-red.log",
+      "bytes": 63116,
+      "sha256": "60ad7c936361dc36d04ddf0d29ea57ebb18350877e09b3742c2d56b878ab7d0f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-final-regression.log",
+      "bytes": 74131,
+      "sha256": "c11a947e30cc99766789ab952db9a61ef29c67e887127acb41cd7b36b70c0ff4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-final-regression-r2.log",
+      "bytes": 73036,
+      "sha256": "1fdccb674bb775056516a27885da2a68526f29fd67b0418cd6d2e52c053cc2b7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g33-final-regression-r3.log",
+      "bytes": 69732,
+      "sha256": "4812404b0da70864a5c00866c1c381c7f99517385a9462b9bf7e09562ca2e587"
+    }
+  ],
+  "effectiveRed": {
+    "R01": "arbitrarySignatureReferenceWithoutProtectedSignedAndAuthorityProofRejects: old source accepted; assertion FAIL",
+    "R02": "actualOAuthServiceWarnMustBeOffBeforeReadingAnyToken: old source accepted; assertion FAIL",
+    "R03": "oldReceiptWithArbitraryContractAndEmptyPhaseObjectsNeverReachesLiveSchemaQueries: mocked readonly self-consistent wrong shapes accepted; assertion FAIL"
+  },
+  "structuralTransitionErrorsNotEffectiveDefectRed": true,
+  "authAndQualityReadPortsIsolated": true,
+  "realSpringH2GxpRegistrationCommitRollback": true,
+  "actualMySqlSchemaFirstRepeatRun": false,
+  "actualTokenLookupRun": false,
+  "actualQualityApproved": false,
+  "actualRegistrationAuthorized": false,
+  "actualRegistrationRun": false,
+  "actualDatabaseWrites": false,
+  "actualObjectGetsOrPuts": false,
+  "actualBrowserRun": false,
+  "serviceActions": false,
+  "jarPackageRun": false,
+  "gitWriteRun": false,
+  "frozenOriginalAssets": {
+    "count": 41,
+    "drift": [],
+    "manifest": {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g27-legacy-final-delivery-fingerprints.json",
+      "bytes": 10823,
+      "sha256": "740678d518f7d635cdd3aecda437861fdaa7f1e631ce38eb43219533505bbec6"
+    }
+  },
+  "processScope": "Owned Maven session39083 returned exit0; no matching live Java process in bounded inventory",
+  "runtimeGates": "Actual35MATCH/4missing, QA 尚未批准, new schema and exact registration authorization not supplied; failclosed"
+}

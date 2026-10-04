@@ -52,6 +52,108 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
+    @Mock private DccWorkflowFileStateAudit fileStateAudit;
+    @org.mockito.junit.jupiter.MockitoSettings(strictness=org.mockito.quality.Strictness.LENIENT)
+    @Test void lockedObsoleteEffectCannotWriteIntoAForeignTenantVersion() {
+        var locked=approvedEffectIdentity();locked.setTenantId(122L);assertObsoleteIdentityDenied();
+    }
+    @org.mockito.junit.jupiter.MockitoSettings(strictness=org.mockito.quality.Strictness.LENIENT)
+    @Test void lockedObsoleteEffectCannotRetainThePrelockMasterAfterItsFileMasterChanged() {
+        var locked=approvedEffectIdentity();locked.setMasterId(701L);assertObsoleteIdentityDenied();
+    }
+    @org.mockito.junit.jupiter.MockitoSettings(strictness=org.mockito.quality.Strictness.LENIENT)
+    @Test void lockedObsoleteEffectCannotUseAForeignTenantMasterForTheSelectedFile() {
+        approvedEffectIdentity();when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(DccControlledFileMasterDO.builder().id(700L).tenantId(122L).build());
+        assertObsoleteIdentityDenied();
+    }
+    @org.mockito.junit.jupiter.MockitoSettings(strictness=org.mockito.quality.Strictness.LENIENT)
+    @Test void lockedObsoleteEffectCannotReplaceTheRequestedFileWithAnotherReturnedId() {
+        var locked=approvedEffectIdentity();locked.setId(901L);assertObsoleteIdentityDenied();
+    }
+    private DccControlledFileDO approvedEffectIdentity() {
+        var initial=DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L).categoryId(10L).versionNo("A/1").status("ACTIVE").build();
+        var locked=DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L).categoryId(10L).versionNo("A/1").status("ACTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(initial);
+        org.mockito.Mockito.doReturn(locked).when(controlledFileMapper).selectByIdAndTenantForUpdate(1L,900L);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        var process=org.mockito.Mockito.mock(org.flowable.engine.history.HistoricProcessInstance.class);
+        when(process.getId()).thenReturn("approved-round");when(process.getTenantId()).thenReturn("1");when(process.getStartUserId()).thenReturn("99");
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(process.getProcessVariables()).thenReturn(Map.of("PROCESS_STATUS",2,"systemCode","DCC","objectType","CONTROLLED_FILE","actionCode","OBSOLETE","objectId","900","objectVersion","A/1"));
+        when(obsoleteProcessService.getHistoricProcessInstance("approved-round")).thenReturn(process);
+        when(obsoleteEvidenceGuard.require(any(),any(),any())).thenReturn(100L);
+        ReflectionTestUtils.setField(obsoleteService,"messageDeliveryService",org.mockito.Mockito.mock(DccControlledFileMessageDeliveryService.class));
+        return locked;
+    }
+    private void assertObsoleteIdentityDenied() {
+        var request=new DccControlledFileObsoleteReqVO();request.setReason("作废");request.setApprovalProcessInstanceId("approved-round");request.setApprovedVersionNo("A/1");
+        assertServiceException(()->obsoleteService.applyApprovedObsoleteControlledFile(99L,900L,request),CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        verify(obsoleteProcessService,never()).getHistoricProcessInstance(any());
+        verify(obsoleteArchiveRequestService,never()).request(any(),any());
+        verify(obsoleteRetentionService,never()).retain(any(),any(),any());
+        verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void obsoleteDomainEffectWithoutItsApprovedRoundCannotWriteAnObsoleteFact() {
+        var request=new DccControlledFileObsoleteReqVO();request.setReason("作废");
+        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L)
+                .categoryId(10L).versionNo("A/1").status("ACTIVE").build());
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        assertThrows(RuntimeException.class,()->obsoleteService.applyApprovedObsoleteControlledFile(99L,900L,request));
+        verify(obsoleteArchiveRequestService,never()).request(any(),any());
+        verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
+        verify(obsoleteAuditMapper,never()).insert(any(DccControlledFileObsoleteAuditDO.class));
+    }
+
+    @Test
+    void exactObsoleteCommandReplayReturnsSavedApplicationBeforeMutableStatusAndPendingChecks() {
+        var request=new DccControlledFileObsoleteReqVO();request.setReason("作废原因");request.setIdempotencyKey("obsolete-once");
+        var file=DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L).categoryId(10L)
+                .versionNo("A/1").status("OBSOLETE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        org.mockito.Mockito.lenient().when(controlledFileMasterMapper.selectByIdForUpdate(700L))
+                .thenReturn(DccControlledFileMasterDO.builder().id(700L).tenantId(1L).build());
+        org.mockito.Mockito.lenient().when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        var context=new BusinessActionContextReqVO();context.setTenantId(1L);context.setDataDomain("DCC");
+        context.setSystemCode("DCC");context.setObjectType("CONTROLLED_FILE");context.setObjectId("900");
+        context.setObjectVersion("A/1");context.setActionCode("OBSOLETE");context.setReason("作废原因");
+        var saved=new FormInstanceRespVO();saved.setId(31L);saved.setStatus("EFFECTIVE");saved.setContext(context);
+        org.mockito.Mockito.lenient().when(formCenterRuntimeService.findBusinessActionByIdempotency(any(),eq("obsolete-once"))).thenReturn(saved);
+        var snapshot=new cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceSnapshotRespVO();
+        snapshot.setSnapshotVersion(1);
+        snapshot.setSnapshotType("SUBMIT");snapshot.setFormData(Map.of("controlledFileId",900L,"reason","作废原因","dccObsoleteSubmitActorId",99L,
+                "dccApplicationPayloadHash",cn.hutool.crypto.digest.DigestUtil.sha256Hex(JsonUtils.toJsonString(
+                        java.util.Arrays.asList(99L,900L,"A/1","作废原因",null,null)))));
+        org.mockito.Mockito.lenient().when(formCenterRuntimeService.getInstanceSnapshots(31L)).thenReturn(List.of(snapshot));
+        assertEquals(saved,obsoleteService.obsoleteControlledFile(99L,900L,request));
+        verify(pendingActionGuard,never()).assertNoPendingBusinessAction(any());
+        verify(formCenterRuntimeService,never()).createInstance(any(),any());
+        verify(formCenterRuntimeService,never()).submitInstance(any(),any(),any());
+        verify(taskSnapshotMapper,never()).insert(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO.class));
+        request.setProjectAttributes(new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(List.of("CE"),null,"Y","N","N",null));
+        assertThrows(RuntimeException.class,()->obsoleteService.obsoleteControlledFile(99L,900L,request));
+        request.setProjectAttributes(null);request.setSelectedSignoffDepartmentIds(List.of(51L));
+        assertThrows(RuntimeException.class,()->obsoleteService.obsoleteControlledFile(99L,900L,request));
+        request.setSelectedSignoffDepartmentIds(null);
+        request.setReason("不同原因");
+        assertThrows(RuntimeException.class,()->obsoleteService.obsoleteControlledFile(99L,900L,request));
+        request.setReason("作废原因");
+        snapshot.setFormData(Map.of("controlledFileId",900L,"reason","作废原因","dccObsoleteSubmitActorId",98L));
+        assertThrows(RuntimeException.class,()->obsoleteService.obsoleteControlledFile(99L,900L,request));
+    }
+
+    @Test
+    void firstObsoleteSubmissionValidatesTheLockedFileInsteadOfAnEarlierActiveSnapshot() {
+        var request=new DccControlledFileObsoleteReqVO();request.setReason("作废");request.setIdempotencyKey("fresh-obsolete");
+        when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L)
+                .categoryId(10L).versionNo("A/1").status("ACTIVE").build());
+        when(controlledFileMapper.selectByIdAndTenantForUpdate(1L,900L)).thenReturn(DccControlledFileDO.builder()
+                .id(900L).masterId(700L).tenantId(1L).categoryId(10L).versionNo("A/1").status("OBSOLETE").build());
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        assertServiceException(()->obsoleteService.obsoleteControlledFile(99L,900L,request),CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
+        verify(formCenterRuntimeService,never()).createInstance(any(),any());
+    }
 
     @Mock
     private DccControlledFileMapper controlledFileMapper;
@@ -85,6 +187,14 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileApprovalRouteAssigneeResolver approvalRouteAssigneeResolver;
     @Mock
     private DccControlledFileNameClaimService nameClaimService;
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTaskAssigneeSnapshotMapper taskSnapshotMapper;
+    @Mock private DccWorkflowObsoleteArchiveRequestService obsoleteArchiveRequestService;
+    @Mock private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService obsoleteProcessService;
+    @Mock private DccWorkflowObsoleteEvidenceGuard obsoleteEvidenceGuard;
+    @Mock private DccObsoleteRetentionService obsoleteRetentionService;
+    @Mock private DccApplicationRoundService applicationRoundService;
+    @Mock private DccControlledFileRouteReadinessService routeReadinessService;
+    @Mock private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributesService projectAttributesService;
 
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @InjectMocks
@@ -95,6 +205,18 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(applicationRoundService.bind(any(),any(),any(),any())).thenReturn(4);
+        org.mockito.Mockito.lenient().when(approvalRouteAssigneeResolver.withSelectedSignoffDepartments(any(),any()))
+                .thenAnswer(call->call.getArgument(0));
+        org.mockito.Mockito.lenient().when(controlledFileMapper.selectByIdAndTenantForUpdate(any(),any())).thenAnswer(call -> controlledFileMapper.selectById(call.getArgument(1)));
+        org.mockito.Mockito.lenient().when(controlledFileMasterMapper.selectByIdForUpdate(any())).thenAnswer(call -> {
+            DccControlledFileMasterDO saved=controlledFileMasterMapper.selectById(call.getArgument(0));
+            return saved!=null ? saved:DccControlledFileMasterDO.builder().id(call.getArgument(0)).tenantId(1L).build();
+        });
+        org.mockito.Mockito.lenient().when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(obsoleteAuditMapper.insert(any(DccControlledFileObsoleteAuditDO.class))).thenReturn(1);
+        org.mockito.Mockito.lenient().when(controlledFileMasterMapper.clearCurrentActive(any(),any(),any())).thenReturn(1);
+        org.mockito.Mockito.lenient().when(taskSnapshotMapper.insert(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO.class))).thenReturn(1);
         messageDeliveryService = new DccControlledFileMessageDeliveryService();
         DccMessageDeliveryTestSupport.wire(messageDeliveryService, messageJobMapper);
         ReflectionTestUtils.setField(messageDeliveryService, "messageJobMapper", messageJobMapper);
@@ -121,10 +243,14 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         DccControlledFileObsoleteReqVO reqVO = new DccControlledFileObsoleteReqVO();
         reqVO.setReason("Superseded by FI-001 V2.0");
         reqVO.setIdempotencyKey("DCC-OBSOLETE-900-V1");
-        reqVO.setStartUserSelectAssignees(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
+        var actual=new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(List.of("CE"),null,"Y","N","N",null);
+        reqVO.setProjectAttributes(actual);
+        reqVO.setStartUserSelectAssignees(Map.of("MATRIX_APPROVAL", List.of(914518L)));
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(900L)
                 .masterId(700L)
+                .dccProjectCodeId(3000L)
+                .tenantId(1L)
                 .categoryId(10L)
                 .productCode("PRD-001")
                 .versionNo("V1.0")
@@ -140,13 +266,14 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         when(approvalRouteAssigneeResolver.buildStartUserSelectAssigneeMap(resolvedRoute.nodes()))
                 .thenReturn(Map.of("MATRIX_REVIEW", List.of(7201L, 7202L)));
         when(approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()))
-                .thenReturn(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
+                .thenReturn(Map.of("MATRIX_APPROVAL", List.of(914518L)));
         FormInstanceRespVO draft = new FormInstanceRespVO();
         draft.setId(37L);
         draft.setStatus("DRAFT");
         FormInstanceRespVO submitted = new FormInstanceRespVO();
         submitted.setId(37L);
         submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("form-process");
         submitted.setBpmProcessInstanceId("process-37");
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
         when(formCenterRuntimeService.submitInstance(eq(37L), any(FormInstanceSubmitReqVO.class), eq(99L)))
@@ -156,6 +283,10 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
 
         assertEquals("IN_APPROVAL", result.getStatus());
         assertEquals("process-37", result.getBpmProcessInstanceId());
+        verify(applicationRoundService).bind(3000L,"OBSOLETE",900L,"process-37");
+        verify(projectAttributesService).beginDraft(99L,3000L,"OBSOLETE",900L,4);
+        verify(projectAttributesService).saveDraft(99L,3000L,"OBSOLETE",900L,4,actual);
+        verify(projectAttributesService).freeze(99L,3000L,"OBSOLETE",900L,4);
         ArgumentCaptor<FormInstanceCreateReqVO> createCaptor = ArgumentCaptor.forClass(FormInstanceCreateReqVO.class);
         verify(formCenterRuntimeService).createInstance(createCaptor.capture(), eq(99L));
         BusinessActionContextReqVO context = createCaptor.getValue().getContext();
@@ -196,6 +327,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(900L)
                 .masterId(700L)
+                .tenantId(1L)
                 .categoryId(10L)
                 .productCode("PRD-001")
                 .versionNo("V1.0")
@@ -209,7 +341,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 DccControlledFileProcessDefinitionKeys.toActionType(DccControlledFileProcessDefinitionKeys.OBSOLETE)))
                 .thenReturn(resolvedRoute);
         when(approvalRouteAssigneeResolver.buildStartUserSelectAssigneeMap(resolvedRoute.nodes()))
-                .thenReturn(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)));
+                .thenReturn(Map.of("MATRIX_APPROVAL", List.of(914518L)));
         when(approvalRouteAssigneeResolver.buildApproveUserSelectAssigneeMap(resolvedRoute.nodes()))
                 .thenReturn(Map.of());
         FormInstanceRespVO draft = new FormInstanceRespVO();
@@ -218,6 +350,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         FormInstanceRespVO submitted = new FormInstanceRespVO();
         submitted.setId(38L);
         submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("form-process");
         submitted.setBpmProcessInstanceId("process-38");
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
         when(formCenterRuntimeService.submitInstance(eq(38L), any(FormInstanceSubmitReqVO.class), eq(99L)))
@@ -232,7 +365,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         verify(approvalRouteAssigneeResolver).buildApproveUserSelectAssigneeMap(resolvedRoute.nodes());
         ArgumentCaptor<FormInstanceSubmitReqVO> submitCaptor = ArgumentCaptor.forClass(FormInstanceSubmitReqVO.class);
         verify(formCenterRuntimeService).submitInstance(eq(38L), submitCaptor.capture(), eq(99L));
-        assertEquals(Map.of("DOC_CONTROL_REVIEW", List.of(914518L)),
+        assertEquals(Map.of("MATRIX_APPROVAL", List.of(914518L)),
                 submitCaptor.getValue().getStartUserSelectAssignees());
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
         verify(obsoleteAuditMapper, never()).insert(any(DccControlledFileObsoleteAuditDO.class));
@@ -246,6 +379,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(904L)
                 .masterId(704L)
+                .tenantId(1L)
                 .categoryId(10L)
                 .productCode("PRD-004")
                 .versionNo("V1.0")
@@ -269,6 +403,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         FormInstanceRespVO submitted = new FormInstanceRespVO();
         submitted.setId(39L);
         submitted.setStatus("IN_APPROVAL");
+        submitted.setBpmProcessInstanceId("form-process");
         submitted.setBpmProcessInstanceId("process-39");
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
         when(formCenterRuntimeService.submitInstance(eq(39L), any(FormInstanceSubmitReqVO.class), eq(99L)))
@@ -288,7 +423,9 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
     }
 
     private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute() {
-        return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(null, List.of());
+        return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(null,List.of(
+            new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(1,"MATRIX_REVIEW","会签",1,
+                "DEPT",51L,List.of(51L,52L),"ALL",100,true,List.of(7201L,7202L))));
     }
 
     @Test
@@ -318,6 +455,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         reqVO.setIdempotencyKey("DCC-OBSOLETE-900-LOCKED");
         DccControlledFileDO file = DccControlledFileDO.builder()
                 .id(900L)
+                .masterId(700L).tenantId(1L)
                 .categoryId(10L)
                 .versionNo("V1.0")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
@@ -341,13 +479,15 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         DccControlledFileObsoleteReqVO reqVO = new DccControlledFileObsoleteReqVO();
         reqVO.setReason("Superseded by FI-001 V2.0");
         when(controlledFileMapper.selectById(900L)).thenReturn(DccControlledFileDO.builder()
-                .id(900L)
+                .id(900L).versionNo("A/1")
                 .masterId(700L)
+                .tenantId(1L)
                 .categoryId(10L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build());
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(DccControlledFileMasterDO.builder()
                 .id(700L)
+                .tenantId(1L)
                 .currentActiveControlledFileId(900L)
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
@@ -364,21 +504,30 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenReturn(9001L, 9002L);
 
+        reqVO.setApprovalProcessInstanceId("approved-obsolete-ROUND");
+        reqVO.setApprovedVersionNo("A/1");
+        var process=org.mockito.Mockito.mock(org.flowable.engine.history.HistoricProcessInstance.class);
+        when(process.getId()).thenReturn("approved-obsolete-ROUND");
+        when(process.getTenantId()).thenReturn("1");
+        when(process.getStartUserId()).thenReturn("99");
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(process.getProcessVariables()).thenReturn(Map.of("PROCESS_STATUS",2,"systemCode","DCC","objectType","CONTROLLED_FILE",
+                "actionCode","OBSOLETE","objectId","900","objectVersion","A/1","PROCESS_LAST_APPROVER_USER_ID",100L));
+        when(obsoleteProcessService.getHistoricProcessInstance("approved-obsolete-ROUND")).thenReturn(process);
+        when(obsoleteEvidenceGuard.require(any(),eq("approved-obsolete-ROUND"),any())).thenReturn(100L);
         obsoleteService.applyApprovedObsoleteControlledFile(99L, 900L, reqVO);
 
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
         assertEquals(DccControlledFileStatusEnum.OBSOLETE.getStatus(), fileCaptor.getValue().getStatus());
         assertEquals("Superseded by FI-001 V2.0", fileCaptor.getValue().getObsoleteReason());
-        assertEquals(99L, fileCaptor.getValue().getObsoletedBy());
+        assertEquals(100L, fileCaptor.getValue().getObsoletedBy());
 
-        ArgumentCaptor<DccControlledFileMasterDO> masterCaptor = ArgumentCaptor.forClass(DccControlledFileMasterDO.class);
-        verify(controlledFileMasterMapper).updateById(masterCaptor.capture());
-        assertEquals(null, masterCaptor.getValue().getCurrentActiveControlledFileId());
-        assertEquals(DccControlledFileMasterStatusEnum.OBSOLETE_CHAIN.getCode(), masterCaptor.getValue().getStatus());
+        verify(controlledFileMasterMapper).clearCurrentActive(1L,700L,900L);
+        verify(nameClaimService,never()).release(any(),any());
 
-        verify(obsoleteAuditMapper).insert(org.mockito.ArgumentMatchers.any(DccControlledFileObsoleteAuditDO.class));
-        verify(obsoleteFileStorageService).moveControlledFileArtifactsToObsoleteFolder(
+        verify(obsoleteAuditMapper).insert(org.mockito.ArgumentMatchers.argThat((DccControlledFileObsoleteAuditDO audit) -> Long.valueOf(100L).equals(audit.getOperatorId())));
+        verify(obsoleteFileStorageService,never()).moveControlledFileArtifactsToObsoleteFolder(
                 org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(900L).equals(file.getId())));
         verify(messageJobMapper, times(2)).insert(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class));
         verify(messageJobMapper, times(2)).updateById(org.mockito.ArgumentMatchers.any(DccControlledFileMessageJobDO.class));
@@ -391,7 +540,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .allMatch(req -> "dcc_obsolete".equals(req.getTemplateCode())));
         verify(platformAdapter).recordObsoleted(
                 org.mockito.ArgumentMatchers.argThat(file -> Long.valueOf(900L).equals(file.getId())),
-                eq(99L), eq("Superseded by FI-001 V2.0"), eq("dcc-obsolete:900"));
+                eq(100L), eq("Superseded by FI-001 V2.0"), eq("dcc-obsolete:900"));
     }
 
     @Test
@@ -399,8 +548,9 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         DccControlledFileObsoleteReqVO reqVO = new DccControlledFileObsoleteReqVO();
         reqVO.setReason("No longer used");
         when(controlledFileMapper.selectById(902L)).thenReturn(DccControlledFileDO.builder()
-                .id(902L)
+                .id(902L).versionNo("A/1")
                 .masterId(702L)
+                .tenantId(1L)
                 .categoryId(10L)
                 .requesterId(701L)
                 .submitterId(702L)
@@ -408,6 +558,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .build());
         when(controlledFileMasterMapper.selectById(702L)).thenReturn(DccControlledFileMasterDO.builder()
                 .id(702L)
+                .tenantId(1L)
                 .currentActiveControlledFileId(902L)
                 .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
                 .build());
@@ -418,6 +569,17 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         when(notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(any(NotifySendSingleToUserIdempotentReqDTO.class)))
                 .thenReturn(9003L);
 
+        reqVO.setApprovalProcessInstanceId("approved-obsolete-ROUND");
+        reqVO.setApprovedVersionNo("A/1");
+        var process=org.mockito.Mockito.mock(org.flowable.engine.history.HistoricProcessInstance.class);
+        when(process.getId()).thenReturn("approved-obsolete-ROUND");
+        when(process.getTenantId()).thenReturn("1");
+        when(process.getStartUserId()).thenReturn("99");
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(process.getProcessVariables()).thenReturn(Map.of("PROCESS_STATUS",2,"systemCode","DCC","objectType","CONTROLLED_FILE",
+                "actionCode","OBSOLETE","objectId","902","objectVersion","A/1"));
+        when(obsoleteProcessService.getHistoricProcessInstance("approved-obsolete-ROUND")).thenReturn(process);
+        when(obsoleteEvidenceGuard.require(any(),eq("approved-obsolete-ROUND"),any())).thenReturn(99L);
         obsoleteService.applyApprovedObsoleteControlledFile(99L, 902L, reqVO);
 
         ArgumentCaptor<NotifySendSingleToUserIdempotentReqDTO> notifyCaptor =
@@ -437,7 +599,7 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
                 .categoryId(11L)
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .build());
-        when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
+        org.mockito.Mockito.lenient().when(permissionSupport.hasCategoryPermission(11L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(false);
 
         assertServiceException(() -> obsoleteService.applyApprovedObsoleteControlledFile(99L, 901L, reqVO),

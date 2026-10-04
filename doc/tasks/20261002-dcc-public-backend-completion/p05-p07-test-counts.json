@@ -1,0 +1,187 @@
+{
+  "p05-p07-final-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileBrowserPageControllerTest"
+      },
+      {
+        "tests": 239,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 164,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccObsoleteTaskReadinessTest"
+      },
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectBrowserScopeIntegrationTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionMigrationTest"
+      },
+      {
+        "tests": 50,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest"
+      },
+      {
+        "tests": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest"
+      },
+      {
+        "tests": 63,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionServiceTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionSourceSelectionTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccSelectorBrowserMappingIntegrationTest"
+      },
+      {
+        "tests": 43,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest"
+      },
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest"
+      },
+      {
+        "tests": 12,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductAttributesCreateTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductDecisionPersistenceTest"
+      },
+      {
+        "tests": 25,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductWriteRetryTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReviewerConfigurationTest"
+      }
+    ],
+    "executions": 697
+  },
+  "p05-p07-supplement-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionMigrationTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest"
+      }
+    ],
+    "executions": 18
+  },
+  "p07-account-mapping.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.system.api.user.AdminUserApiImplPostIdsTest"
+      }
+    ],
+    "executions": 2
+  },
+  "p05-browser-filter-contract.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectBrowserScopeIntegrationTest"
+      }
+    ],
+    "executions": 3
+  }
+}

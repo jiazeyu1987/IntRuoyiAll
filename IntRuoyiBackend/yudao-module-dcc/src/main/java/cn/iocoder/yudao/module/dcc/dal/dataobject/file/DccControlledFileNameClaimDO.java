@@ -9,13 +9,13 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import java.time.LocalDateTime;
 
 /**
  * A tenant-wide reservation for a controlled-file logical name.
  *
- * <p>The claim is released only after the owning logical file is approved
- * obsolete, so rejected and in-progress submissions continue to reserve the
- * name for their existing master.</p>
+ * <p>Original source name and formal number stay reserved through the explicit
+ * obsolete retention deadline. Release also requires no in-use version in the chain.</p>
  */
 @TableName("dcc_controlled_file_name_claim")
 @Data
@@ -32,6 +32,13 @@ public class DccControlledFileNameClaimDO extends BaseDO {
     private Long tenantId;
 
     private String normalizedName;
+
+    private String sourceOriginalFileName;
+    private Long dccProjectCodeId;
+    private Long fileTypeTaxonomyLeafId;
+    private String normalizedFileNumber;
+    private LocalDateTime obsoleteTime;
+    private LocalDateTime retainUntil;
 
     private Long masterId;
 }

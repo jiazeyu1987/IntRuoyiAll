@@ -813,6 +813,17 @@
         <el-descriptions-item label="优先级">{{ selectedProjectCode.priority || '-' }}</el-descriptions-item>
       </el-descriptions>
 
+      <el-descriptions v-if="selectedProjectCode" :column="2" border class="mt-12px">
+        <el-descriptions-item label="项目负责人账号ID">{{ selectedProjectCode.projectLeaderUserId || '历史未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="项目负责人">{{ selectedProjectCode.projectLeader || '历史未记录' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-alert v-if="projectDefaultAttributeResult.error" :title="projectDefaultAttributeResult.error" type="error" :closable="false" />
+      <el-form label-width="140px" class="mt-12px">
+        <ProjectAttributesFields v-if="!projectDefaultAttributeResult.error" :model-value="projectDefaultAttributeResult.attributes || emptyAttributes()" readonly :historical-missing="!selectedProjectCode?.defaultAttributesJson" />
+      </el-form>
+      <el-button v-if="selectedProjectCode?.id" v-hasPermi="['dcc:project-code:update']" type="primary" plain @click="projectAttributeDialogRef?.open(selectedProjectCode.id)">修改项目默认属性与负责人账号</el-button>
+      <el-button v-hasPermi="['dcc:project-code:update']" plain @click="folderTemplateLibraryRef?.open()">文件夹模板库</el-button>
+      <ProjectFolderTreePanel v-if="selectedProjectCode?.id" :key="String(selectedProjectCode.id)" :project-id="selectedProjectCode.id" />
       <div class="dcc-project-code-associated-heading">
         <span>项目文件模板</span>
         <div class="dcc-project-code-associated-heading-actions">
@@ -827,7 +838,7 @@
             v-hasPermi="['dcc:project-code:update']"
           >
             <Icon icon="ep:user-filled" class="mr-5px" />
-            正式负责人/编制权限
+            项目 OWNER/编制权限
           </el-button>
           <el-button
             class="scheme-d-btn scheme-d-btn--primary"
@@ -1059,6 +1070,8 @@
     </div>
   </el-drawer>
 
+  <ProjectAttributeConfigurationDialog ref="projectAttributeDialogRef" @saved="projectAttributesSaved" />
+  <FolderTemplateLibraryEditor ref="folderTemplateLibraryRef" />
   <ProjectFileTemplateEditor
     ref="projectFileTemplateEditorRef"
     @saved="handleProjectFileTemplateSaved"
@@ -1485,6 +1498,11 @@ import {
   updateProjectCode
 } from '@/api/dcc/controlledFile/projectCodes'
 import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
+import ProjectAttributeConfigurationDialog from './ProjectAttributeConfigurationDialog.vue'
+import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
+import ProjectFolderTreePanel from './ProjectFolderTreePanel.vue'
+import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
+import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
 import {
   getDccProjectGovernanceStatus,
   type DccProjectGovernanceStatusVO
@@ -1719,6 +1737,18 @@ const qaRegulationStatusByDccProjectCodeId = ref<
 >({})
 const qaRegulationStatusPermissionDenied = ref(false)
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
+const projectAttributeDialogRef = ref<InstanceType<typeof ProjectAttributeConfigurationDialog>>()
+const folderTemplateLibraryRef = ref<InstanceType<typeof FolderTemplateLibraryEditor>>()
+const projectDefaultAttributeResult = computed<{ attributes?: ProjectAttributes; error?: string }>(() => {
+  const json = selectedProjectCode.value?.defaultAttributesJson
+  if (!json) return {}
+  try { return { attributes: validateAttributes(JSON.parse(json)) } }
+  catch (cause) { return { error: cause instanceof Error ? cause.message : String(cause) } }
+})
+const projectAttributesSaved = async (id: number | string) => {
+  const refreshed = await getProjectCode(id)
+  if (String(selectedProjectCode.value?.id) === String(id)) selectedProjectCode.value = refreshed
+}
 const projectFileTemplateEditorRef = ref<InstanceType<typeof ProjectFileTemplateEditor>>()
 const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const projectFileTemplateLoading = ref(false)

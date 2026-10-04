@@ -1,0 +1,384 @@
+{
+  "g04-p10-p12-affected-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundMappingTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileApprovalRouteAssigneeResolverTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest"
+      },
+      {
+        "tests": 239,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRouteReadinessServiceTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+      },
+      {
+        "tests": 164,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest"
+      },
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccG04RouteAndHistoryDatabaseTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccObsoleteTaskReadinessTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRouteDepartmentPreviewHttpTest"
+      },
+      {
+        "tests": 45,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccSelectedWorkingAttributesDatabaseTest"
+      },
+      {
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest"
+      }
+    ],
+    "executions": 561
+  },
+  "g04-p10-p12-final-regression-2.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationHistoryGuardTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundMappingTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileApprovalRouteAssigneeResolverTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest"
+      },
+      {
+        "tests": 239,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRouteReadinessServiceTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+      },
+      {
+        "tests": 164,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest"
+      },
+      {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccG04RouteAndHistoryDatabaseTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccObsoleteTaskReadinessTest"
+      },
+      {
+        "tests": 50,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRouteDepartmentPreviewHttpTest"
+      },
+      {
+        "tests": 45,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccSelectedWorkingAttributesDatabaseTest"
+      },
+      {
+        "tests": 43,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest"
+      },
+      {
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest"
+      }
+    ],
+    "executions": 700
+  },
+  "g04-p10-p13-final-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationHistoryGuardTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundMappingTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileApprovalRouteAssigneeResolverTest"
+      },
+      {
+        "tests": 16,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest"
+      },
+      {
+        "tests": 240,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRouteReadinessServiceTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest"
+      },
+      {
+        "tests": 164,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest"
+      },
+      {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccG04RouteAndHistoryDatabaseTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccObsoleteTaskReadinessTest"
+      },
+      {
+        "tests": 50,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRouteDepartmentPreviewHttpTest"
+      },
+      {
+        "tests": 47,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccSelectedWorkingAttributesDatabaseTest"
+      },
+      {
+        "tests": 43,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest"
+      },
+      {
+        "tests": 22,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest"
+      },
+      {
+        "tests": 27,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest"
+      }
+    ],
+    "executions": 731
+  }
+}

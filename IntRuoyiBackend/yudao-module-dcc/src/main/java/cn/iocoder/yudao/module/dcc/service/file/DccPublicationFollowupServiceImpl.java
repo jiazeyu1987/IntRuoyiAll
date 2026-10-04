@@ -138,7 +138,8 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
 
         insertVisibilitySnapshots(batch, publishedFile, visibilityRules, userDirectory);
         insertRelationSnapshots(batch, relationDrafts, userDirectory, frozenAt);
-        impactAssessmentService.materializeForPublicationBatch(batch.getId());
+        // IC-1: remedial tasks are created only from explicit countersign arrangements at CONTROLLED.
+        // Publication/activation must never infer a task assignee from the related file requester.
         insertNotificationCandidates(batch, candidateReasons, userDirectory);
         publicationNotificationService.materializeForPublicationBatch(batch.getId());
         impactAssessmentService.resolveLinkedRevisionAfterPublication(publishedFile);
@@ -285,14 +286,6 @@ public class DccPublicationFollowupServiceImpl implements DccPublicationFollowup
                         REASON_FORMAL_DISTRIBUTION, recipient.getId(), null, "正式电子分发收件人"));
             }
         }
-        relationDrafts.values().forEach(draft -> {
-            DccControlledFileDO activeFile = draft.activeFile();
-            if (activeFile != null && activeFile.getRequesterId() != null) {
-                addCandidateReason(reasons, activeFile.getRequesterId(), new CandidateReasonDraft(
-                        REASON_RELATED_FILE_OWNER, draft.relatedMasterId(), draft.relatedMasterId(),
-                        "关联文件影响负责人"));
-            }
-        });
         return reasons;
     }
 

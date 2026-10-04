@@ -1,0 +1,1786 @@
+{
+  "version": "G28-SCHEMA-1",
+  "sqlSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+  "migrationId": "20261003_dcc_legacy_source_name_occupancy",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "tables": {
+    "dcc_legacy_source_name_scope": {
+      "table": {
+        "engine": "InnoDB",
+        "charset": "utf8mb4",
+        "collation": "utf8mb4_bin",
+        "rowFormat": "Dynamic"
+      },
+      "columns": {
+        "id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": true,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 1
+        },
+        "tenant_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 2
+        },
+        "scope_id": {
+          "type": "varchar(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 3
+        },
+        "manifest_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 4
+        },
+        "facts_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 5
+        },
+        "bytes_receipt_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 6
+        },
+        "user_decision_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 7
+        },
+        "scope_identity_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 8
+        },
+        "status": {
+          "type": "varchar(16)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 9
+        },
+        "claim_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 10
+        },
+        "version_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 11
+        },
+        "source_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 12
+        },
+        "edge_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 13
+        },
+        "name_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 14
+        },
+        "verified_at": {
+          "type": "datetime(6)",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 15
+        },
+        "activated_at": {
+          "type": "datetime(6)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 16
+        },
+        "actor_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 17
+        },
+        "reason": {
+          "type": "varchar(2000)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 18
+        },
+        "request_id": {
+          "type": "varchar(128)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 19
+        }
+      },
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "uk_dcc_legacy_scope_id": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "scope_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "uk_dcc_legacy_scope_manifest": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "manifest_sha256",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "in",
+          [
+            "identifier",
+            "status"
+          ],
+          [
+            [
+              "literal",
+              "'PREPARED'"
+            ],
+            [
+              "literal",
+              "'VERIFIED'"
+            ],
+            [
+              "literal",
+              "'INVALID'"
+            ]
+          ]
+        ],
+        [
+          "op",
+          "and",
+          [
+            "op",
+            "and",
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  ">",
+                  [
+                    "identifier",
+                    "claim_count"
+                  ],
+                  [
+                    "literal",
+                    "0"
+                  ]
+                ],
+                [
+                  "op",
+                  ">",
+                  [
+                    "identifier",
+                    "version_count"
+                  ],
+                  [
+                    "literal",
+                    "0"
+                  ]
+                ]
+              ],
+              [
+                "op",
+                ">",
+                [
+                  "identifier",
+                  "source_count"
+                ],
+                [
+                  "literal",
+                  "0"
+                ]
+              ]
+            ],
+            [
+              "op",
+              ">",
+              [
+                "identifier",
+                "edge_count"
+              ],
+              [
+                "literal",
+                "0"
+              ]
+            ]
+          ],
+          [
+            "op",
+            ">",
+            [
+              "identifier",
+              "name_count"
+            ],
+            [
+              "literal",
+              "0"
+            ]
+          ]
+        ],
+        [
+          "op",
+          "and",
+          [
+            "op",
+            "and",
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  "regexp",
+                  [
+                    "identifier",
+                    "manifest_sha256"
+                  ],
+                  [
+                    "literal",
+                    "'^[0-9a-f]{64}$'"
+                  ]
+                ],
+                [
+                  "op",
+                  "regexp",
+                  [
+                    "identifier",
+                    "facts_sha256"
+                  ],
+                  [
+                    "literal",
+                    "'^[0-9a-f]{64}$'"
+                  ]
+                ]
+              ],
+              [
+                "op",
+                "regexp",
+                [
+                  "identifier",
+                  "bytes_receipt_sha256"
+                ],
+                [
+                  "literal",
+                  "'^[0-9a-f]{64}$'"
+                ]
+              ]
+            ],
+            [
+              "op",
+              "regexp",
+              [
+                "identifier",
+                "user_decision_sha256"
+              ],
+              [
+                "literal",
+                "'^[0-9a-f]{64}$'"
+              ]
+            ]
+          ],
+          [
+            "op",
+            "regexp",
+            [
+              "identifier",
+              "scope_identity_sha256"
+            ],
+            [
+              "literal",
+              "'^[0-9a-f]{64}$'"
+            ]
+          ]
+        ]
+      ]
+    },
+    "dcc_legacy_source_name_evidence": {
+      "table": {
+        "engine": "InnoDB",
+        "charset": "utf8mb4",
+        "collation": "utf8mb4_bin",
+        "rowFormat": "Dynamic"
+      },
+      "columns": {
+        "id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": true,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 1
+        },
+        "tenant_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 2
+        },
+        "verification_scope_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 3
+        },
+        "legacy_claim_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 4
+        },
+        "legacy_master_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 5
+        },
+        "controlled_file_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 6
+        },
+        "source_file_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 7
+        },
+        "config_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 8
+        },
+        "source_path": {
+          "type": "varchar(1024)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 9
+        },
+        "storage_type": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 10
+        },
+        "storage_endpoint": {
+          "type": "varchar(1024)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 11
+        },
+        "storage_bucket": {
+          "type": "varchar(256)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 12
+        },
+        "storage_region": {
+          "type": "varchar(256)",
+          "nullable": "YES",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 13
+        },
+        "storage_path_style": {
+          "type": "tinyint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 14
+        },
+        "version_no": {
+          "type": "varchar(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 15
+        },
+        "source_original_file_name": {
+          "type": "varchar(256)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 16
+        },
+        "source_name_key": {
+          "type": "varbinary(1024)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": "stored",
+            "onUpdate": null
+          },
+          "expression": "CONVERT(source_original_file_name USING BINARY)",
+          "precision": null,
+          "ordinal": 17
+        },
+        "expected_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 18
+        },
+        "actual_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 19
+        },
+        "expected_size": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 20
+        },
+        "actual_size": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 21
+        },
+        "bytes_status": {
+          "type": "varchar(16)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 22
+        },
+        "expected_version_count": {
+          "type": "int",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 23
+        },
+        "claim_normalized_name": {
+          "type": "varchar(256)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 24
+        },
+        "claim_project_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 25
+        },
+        "claim_leaf_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 26
+        },
+        "claim_number": {
+          "type": "varchar(128)",
+          "nullable": "YES",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 27
+        },
+        "master_project_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 28
+        },
+        "master_leaf_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 29
+        },
+        "master_number": {
+          "type": "varchar(128)",
+          "nullable": "YES",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 30
+        },
+        "metadata_identity_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 31
+        },
+        "preimage_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 32
+        },
+        "proof_row_sha256": {
+          "type": "char(64)",
+          "nullable": "NO",
+          "charset": "ascii",
+          "collation": "ascii_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 33
+        },
+        "obsolete_time": {
+          "type": "datetime(6)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 34
+        },
+        "retain_until": {
+          "type": "datetime(6)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 35
+        },
+        "released_time": {
+          "type": "datetime(6)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 36
+        }
+      },
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "uk_dcc_legacy_claim_version": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "verification_scope_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "legacy_claim_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "controlled_file_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "uk_dcc_legacy_scope_version": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "verification_scope_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "controlled_file_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "idx_dcc_legacy_name_owner": {
+          "unique": false,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "source_name_key",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "legacy_master_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "op",
+          "and",
+          [
+            "op",
+            "and",
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  "=",
+                  [
+                    "identifier",
+                    "bytes_status"
+                  ],
+                  [
+                    "literal",
+                    "'MATCH'"
+                  ]
+                ],
+                [
+                  "op",
+                  "=",
+                  [
+                    "identifier",
+                    "expected_sha256"
+                  ],
+                  [
+                    "identifier",
+                    "actual_sha256"
+                  ]
+                ]
+              ],
+              [
+                "op",
+                "=",
+                [
+                  "identifier",
+                  "expected_size"
+                ],
+                [
+                  "identifier",
+                  "actual_size"
+                ]
+              ]
+            ],
+            [
+              "op",
+              ">=",
+              [
+                "identifier",
+                "expected_size"
+              ],
+              [
+                "literal",
+                "0"
+              ]
+            ]
+          ],
+          [
+            "op",
+            ">",
+            [
+              "identifier",
+              "expected_version_count"
+            ],
+            [
+              "literal",
+              "0"
+            ]
+          ]
+        ],
+        [
+          "op",
+          "and",
+          [
+            "op",
+            "and",
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  "regexp",
+                  [
+                    "identifier",
+                    "expected_sha256"
+                  ],
+                  [
+                    "literal",
+                    "'^[0-9a-f]{64}$'"
+                  ]
+                ],
+                [
+                  "op",
+                  "regexp",
+                  [
+                    "identifier",
+                    "actual_sha256"
+                  ],
+                  [
+                    "literal",
+                    "'^[0-9a-f]{64}$'"
+                  ]
+                ]
+              ],
+              [
+                "op",
+                "regexp",
+                [
+                  "identifier",
+                  "metadata_identity_sha256"
+                ],
+                [
+                  "literal",
+                  "'^[0-9a-f]{64}$'"
+                ]
+              ]
+            ],
+            [
+              "op",
+              "regexp",
+              [
+                "identifier",
+                "preimage_sha256"
+              ],
+              [
+                "literal",
+                "'^[0-9a-f]{64}$'"
+              ]
+            ]
+          ],
+          [
+            "op",
+            "regexp",
+            [
+              "identifier",
+              "proof_row_sha256"
+            ],
+            [
+              "literal",
+              "'^[0-9a-f]{64}$'"
+            ]
+          ]
+        ]
+      ]
+    },
+    "dcc_source_name_reservation": {
+      "table": {
+        "engine": "InnoDB",
+        "charset": "utf8mb4",
+        "collation": "utf8mb4_bin",
+        "rowFormat": "Dynamic"
+      },
+      "columns": {
+        "id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": true,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 1
+        },
+        "tenant_id": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 2
+        },
+        "source_original_file_name": {
+          "type": "varchar(256)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 3
+        },
+        "source_name_key": {
+          "type": "varbinary(1024)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": "stored",
+            "onUpdate": null
+          },
+          "expression": "CONVERT(source_original_file_name USING BINARY)",
+          "precision": null,
+          "ordinal": 4
+        },
+        "reservation_kind": {
+          "type": "varchar(16)",
+          "nullable": "NO",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 5
+        },
+        "verification_scope_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 6
+        },
+        "modern_claim_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 7
+        },
+        "modern_master_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 8
+        },
+        "generation": {
+          "type": "bigint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 9
+        },
+        "active": {
+          "type": "tinyint",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 10
+        },
+        "actor_id": {
+          "type": "bigint",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 11
+        },
+        "reason": {
+          "type": "varchar(2000)",
+          "nullable": "YES",
+          "charset": "utf8mb4",
+          "collation": "utf8mb4_bin",
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": null,
+          "ordinal": 12
+        },
+        "create_time": {
+          "type": "datetime(6)",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": "CURRENT_TIMESTAMP(6)",
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 13
+        },
+        "update_time": {
+          "type": "datetime(6)",
+          "nullable": "NO",
+          "charset": null,
+          "collation": null,
+          "default": "CURRENT_TIMESTAMP(6)",
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 14
+        },
+        "released_time": {
+          "type": "datetime(6)",
+          "nullable": "YES",
+          "charset": null,
+          "collation": null,
+          "default": null,
+          "extra": {
+            "autoIncrement": false,
+            "generated": null,
+            "onUpdate": null
+          },
+          "expression": "",
+          "precision": 6,
+          "ordinal": 15
+        }
+      },
+      "indexes": {
+        "PRIMARY": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        },
+        "uk_dcc_source_name_registry": {
+          "unique": true,
+          "type": "BTREE",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            },
+            {
+              "column": "source_name_key",
+              "prefix": null,
+              "direction": "A",
+              "expression": null
+            }
+          ]
+        }
+      },
+      "checks": [
+        [
+          "op",
+          "and",
+          [
+            "op",
+            ">",
+            [
+              "identifier",
+              "generation"
+            ],
+            [
+              "literal",
+              "0"
+            ]
+          ],
+          [
+            "in",
+            [
+              "identifier",
+              "active"
+            ],
+            [
+              [
+                "literal",
+                "0"
+              ],
+              [
+                "literal",
+                "1"
+              ]
+            ]
+          ]
+        ],
+        [
+          "op",
+          "or",
+          [
+            "op",
+            "or",
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  "and",
+                  [
+                    "op",
+                    "and",
+                    [
+                      "op",
+                      "=",
+                      [
+                        "identifier",
+                        "reservation_kind"
+                      ],
+                      [
+                        "literal",
+                        "'LEGACY_GROUP'"
+                      ]
+                    ],
+                    [
+                      "op",
+                      "=",
+                      [
+                        "identifier",
+                        "active"
+                      ],
+                      [
+                        "literal",
+                        "1"
+                      ]
+                    ]
+                  ],
+                  [
+                    "notNull",
+                    [
+                      "identifier",
+                      "verification_scope_id"
+                    ]
+                  ]
+                ],
+                [
+                  "isNull",
+                  [
+                    "identifier",
+                    "modern_claim_id"
+                  ]
+                ]
+              ],
+              [
+                "isNull",
+                [
+                  "identifier",
+                  "modern_master_id"
+                ]
+              ]
+            ],
+            [
+              "op",
+              "and",
+              [
+                "op",
+                "and",
+                [
+                  "op",
+                  "and",
+                  [
+                    "op",
+                    "and",
+                    [
+                      "op",
+                      "=",
+                      [
+                        "identifier",
+                        "reservation_kind"
+                      ],
+                      [
+                        "literal",
+                        "'MODERN'"
+                      ]
+                    ],
+                    [
+                      "op",
+                      "=",
+                      [
+                        "identifier",
+                        "active"
+                      ],
+                      [
+                        "literal",
+                        "1"
+                      ]
+                    ]
+                  ],
+                  [
+                    "isNull",
+                    [
+                      "identifier",
+                      "verification_scope_id"
+                    ]
+                  ]
+                ],
+                [
+                  "notNull",
+                  [
+                    "identifier",
+                    "modern_claim_id"
+                  ]
+                ]
+              ],
+              [
+                "notNull",
+                [
+                  "identifier",
+                  "modern_master_id"
+                ]
+              ]
+            ]
+          ],
+          [
+            "op",
+            "and",
+            [
+              "op",
+              "=",
+              [
+                "identifier",
+                "reservation_kind"
+              ],
+              [
+                "literal",
+                "'NONE'"
+              ]
+            ],
+            [
+              "op",
+              "=",
+              [
+                "identifier",
+                "active"
+              ],
+              [
+                "literal",
+                "0"
+              ]
+            ]
+          ]
+        ]
+      ]
+    }
+  }
+}

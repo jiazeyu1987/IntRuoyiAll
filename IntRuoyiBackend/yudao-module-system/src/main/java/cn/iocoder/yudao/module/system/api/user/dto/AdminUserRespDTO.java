@@ -17,6 +17,8 @@ public class AdminUserRespDTO {
      * 用户ID
      */
     private Long id;
+    /** Owning tenant, used when freezing regulated approval identities. */
+    private Long tenantId;
     /**
      * 用户账号
      */

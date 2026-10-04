@@ -17,6 +17,8 @@ public interface DccFileTypeTaxonomyAdminService {
 
     DccFileTypeTaxonomyPath resolveActivePath(Long id);
 
+    Long resolveActiveCategoryId(Long fileTypeTaxonomyId);
+
     List<Long> listActiveDescendantIds(Long id);
 
     List<DccFileTypeTaxonomyPath> listActiveDescendantPaths(Long id);

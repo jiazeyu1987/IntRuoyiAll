@@ -80,8 +80,13 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private BusinessFileAccessService businessFileAccessService;
     @Resource
     private DccControlledFileWorkflowService workflowService;
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
+    @Resource private DccControlledFileNameClaimService nameClaimService;
+    @Resource private DccControlledFileSourceOwnershipService sourceOwnershipService;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor=Exception.class)
     public DccControlledFileUploadRespVO uploadPreviewFile(Long userId, DccControlledFileUploadPreviewReqVO reqVO,
                                                            DccRequestAuditContext auditContext) throws Exception {
         MultipartFile file = null;
@@ -93,7 +98,10 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             purpose = validatePreviewPurposeName(reqVO.getPurpose(), file.getOriginalFilename());
             boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
             String ticketSessionId = reqVO.getSessionId();
-            validatePreviewCategory(userId, reqVO.getCategoryId(), !approvalPdf);
+            boolean trainingRecord=DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD.equals(purpose);
+            if(trainingRecord && !permissionApi.hasAnyRoles(userId,"doc_control")) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+            validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord));
+            if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
             if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_DRAWING_PDF.equals(purpose)
                     || DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
@@ -124,29 +132,37 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             byte[] content = IoUtil.readBytes(file.getInputStream());
             validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
             String requestId = auditContext.requireRequestId("upload preview");
-            DccUploadTicketCreated uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
+            DccUploadTicketCreated uploadTicket = "NEW_UPLOAD".equals(reqVO.getUploadContext()) && "SOURCE".equals(purpose)
+                    ? nameClaimService.preflightNewSourceName(userId,reqVO.getCategoryId(),reqVO.getDccProjectCodeId(),reqVO.getFileTypeTaxonomyId(),
+                        file.getOriginalFilename(),ticketSessionId,cn.hutool.crypto.digest.DigestUtil.sha256Hex(content)) : null;
+            if(uploadTicket==null)uploadTicket = uploadTicketService.reuseActiveTicketOrReject(
                     new DccUploadTicketPreflightCommand(userId, reqVO.getCategoryId(), ticketSessionId, purpose,
                             content));
             FileDO storedFile;
             if (uploadTicket == null) {
                 storedFile = storePreviewFile(content, file);
+                var cleaned=registerPreviewRollback(storedFile,content);
                 try {
                     uploadTicket = uploadTicketService.createTicket(new DccUploadTicketCreateCommand(
                             userId, reqVO.getCategoryId(), ticketSessionId,
                             purpose, storedFile.getId(),
                             storedFile.getName(), file.getContentType(), file.getSize(), content, requestId));
                 } catch (Exception ex) {
-                    fileService.deleteFile(storedFile.getId());
+                    try {fileService.deleteFile(storedFile.getId());cleaned.set(true);}
+                    catch(Exception cleanupFailure){ex.addSuppressed(cleanupFailure);}
                     throw ex;
                 }
                 if (uploadTicket.storageFileId() != null
                         && !Objects.equals(uploadTicket.storageFileId(), storedFile.getId())) {
                     fileService.deleteFile(storedFile.getId());
+                    cleaned.set(true);
                     storedFile = requireStoredFile(uploadTicket.storageFileId());
                 }
             } else {
                 storedFile = requireStoredFile(uploadTicket.storageFileId());
             }
+            if(!Objects.equals(file.getOriginalFilename(),storedFile.getName()) || !Objects.equals(file.getOriginalFilename(),uploadTicket.fileName()))
+                throw exception(CONTROLLED_FILE_UPLOAD_SLOT_CONFLICT);
             DccControlledFileUploadRespVO respVO = buildUploadResponse(userId, requestId, uploadTicket, storedFile);
             uploadCompleted = true;
             recordUploadBoundary(userId, purpose, "SUCCESS", null, null, auditContext);
@@ -157,6 +173,23 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             }
             throw ex;
         }
+    }
+
+    private java.util.concurrent.atomic.AtomicBoolean registerPreviewRollback(FileDO file,byte[] content) {
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                || !org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            throw new IllegalStateException("temporary preview allocation requires its upload transaction");
+        var cleanup=sourceOwnershipService.rollbackCleanup(new DccControlledFilePreparedSource(file.getId(),file.getId(),
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(content),true));
+        var cleaned=new java.util.concurrent.atomic.AtomicBoolean(false);
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
+            @Override public void afterCompletion(int status){
+                if(status==STATUS_COMMITTED || cleaned.get())return;
+                if(status!=STATUS_ROLLED_BACK)throw new IllegalStateException("upload completion unknown; allocated bytes require reconciliation");
+                cleanup.run();cleaned.set(true);
+            }
+        });
+        return cleaned;
     }
 
     @Override

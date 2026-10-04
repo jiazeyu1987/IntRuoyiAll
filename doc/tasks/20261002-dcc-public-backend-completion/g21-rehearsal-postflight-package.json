@@ -1,0 +1,33 @@
+{
+  "status": "prepared_exact_postflight_contract",
+  "readyForDriver": true,
+  "executionAuthorized": false,
+  "database": "dcc_intqms_g18_rehearsal",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "ownerReceipt": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-preparation-receipt.json",
+    "sha256": "06bf724320f1598d078423c4dbe137d4327ef24f6dd7d08ef56e8f3698d5e523"
+  },
+  "query": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema-queries.sql",
+    "sha256": "7f7984776a09c43ccee4b50c6fd453dc905712b804467694ad5ac87dc1f6ef9e"
+  },
+  "environmentQuery": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-environment-query.sql",
+    "sha256": "7899782be4aae738faa26a34e2b639a082c579a3debfda612f4d87a0f48c209e"
+  },
+  "validator": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema.py",
+    "sha256": "07862bba3fe364e2cd4c4a29397b7ff0afc4f5bf236fe8e17e6a4f20ac2ecb7c"
+  },
+  "contract": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema-contract.json",
+    "sha256": "8394d73c3f2bd1e402204df4f8d56c3d03489238173098ada3925abd2343011e"
+  },
+  "dependencies": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21_structure_prerequisites.py",
+      "sha256": "249d3c03e7a2af97051eaa2e98e3931942a31c9ad82a2158389fa87a5c88a99c"
+    }
+  ]
+}

@@ -117,6 +117,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
@@ -171,6 +172,12 @@ import static org.mockito.Mockito.when;
 
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
+    @org.junit.jupiter.api.BeforeEach void g25DeclaredSourceProjectionPort() {
+        org.mockito.Mockito.lenient().when(nameClaimService.requireSourceName(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.class)))
+            .thenAnswer(call -> call.<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO>getArgument(0).getSourceOriginalFileName());
+    }
+
+    @Mock private DccApplicationHistoryGuard applicationHistoryGuard;
 
     private static final String VIEWER_TOKEN = "viewer-token";
     private static final String VIEWER_TOKEN_ID = "VT-20260528-0001";
@@ -202,6 +209,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileSourceOwnershipMapper sourceOwnershipMapper;
     @Mock
     private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Mock private DccPublicUploadPlacementService publicUploadPlacementService;
     @Mock
     private DccUploadTicketService uploadTicketService;
     @Mock
@@ -224,6 +232,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileSignatureBindingService signatureBindingService;
     @Mock
     private DccControlledFileRelatedFileService relatedFileService;
+    @Mock private DccControlledFileNameClaimService nameClaimService;
     @Mock
     private DccControlledFileAttachmentService attachmentService;
     @Mock
@@ -269,6 +278,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileAccessAuditService lifecycleAuditService;
     @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper projectCodeMapper;
+    @Mock
+    private DccWorkingApplicationDraftInitializer workingApplicationDraftInitializer;
+    @Mock
     private PermissionApi permissionApi;
     @Mock
     private DeptApi deptApi;
@@ -281,16 +294,30 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Spy
     private DccDownloadPolicyService downloadPolicyService = new DccDownloadPolicyService();
 
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileApplicationEvidenceMapper applicationEvidenceMapper;
+
     @InjectMocks
     private DccControlledFileQueryServiceImpl queryService;
 
     @BeforeEach
     void setUpDirectoryAccessDefaults() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        TransactionSynchronizationManager.initSynchronization();
         lenient().when(controlledFileMasterMapper.selectByIdForUpdate(700L))
-                .thenReturn(DccControlledFileMasterDO.builder().id(700L).build());
+                .thenReturn(DccControlledFileMasterDO.builder().id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build());
         lenient().doAnswer(invocation -> controlledFileMapper.selectListByMasterId(invocation.getArgument(0)))
                 .when(controlledFileMapper).selectListByMasterIdForUpdate(anyLong());
         TenantContextHolder.setTenantId(31L);
+        lenient().when(projectCodeMapper.selectByIdForUpdate(anyLong())).thenAnswer(call -> {
+            var project=cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                    .id(call.getArgument(0)).status("ENABLE").build();
+            project.setTenantId(TenantContextHolder.getRequiredTenantId());return project;
+        });
+        lenient().when(checkoutMapper.selectActiveByMasterIdForRead(anyLong(), anyLong())).thenAnswer(i -> {
+            var lock=checkoutMapper.selectActiveByMasterId(i.getArgument(0),i.getArgument(1));
+            if (lock != null && lock.getCreateTime()==null) lock.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
+            return lock != null && "ACTIVE".equals(lock.getStatus()) ? lock : null;
+        });
         DccControlledFileAssignmentScopeService assignmentScopeService =
                 new DccControlledFileAssignmentScopeService();
         ReflectionTestUtils.setField(assignmentScopeService, "permissionApi", permissionApi);
@@ -374,6 +401,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
     @AfterEach
     void clearTenantContext() {
+        TransactionSynchronizationManager.clear();
         TenantContextHolder.clear();
     }
 
@@ -403,6 +431,41 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileRespVO response = ReflectionTestUtils.invokeMethod(queryService, "toBrowserRespVO", 99L, active, false);
         assertEquals(List.of(901L, 900L), response.getVersionHistory().stream().map(DccControlledFileVersionHistoryRespVO::getId).toList());
         assertTrue(response.getVersionHistory().stream().allMatch(row -> row.getSourceSha256() == null && !row.getCanPreview()));
+    }
+
+    @Test
+    void nameVisibleBrowserAndHistoryExposeActualCheckoutIdentityWithoutBodyOrReason() {
+        var active = lifecycleFile(900L, "A/1", "ACTIVE"); active.setRequesterId(77L);
+        var pending = lifecycleFile(901L, "A/2", "PENDING_MATRIX_REVIEW"); pending.setRequesterId(77L);
+        active.setCheckedOutBy(66L); active.setCheckedOutTime(LocalDateTime.of(2000, 1, 1, 0, 0));
+        active.setSourceSha256("private-source-hash"); active.setChangeDescription("private change");
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L, active)).thenReturn(false);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active, pending));
+        var checkout = DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L)
+                .baseIterationId(901L).actorId(88L).status("ACTIVE").reason("private checkout reason").build();
+        var time = LocalDateTime.of(2026, 10, 1, 12, 0); checkout.setCreateTime(time); checkout.setTenantId(31L);
+        lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L, 700L)).thenReturn(checkout);
+        var actor = new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO();
+        actor.setId(88L); actor.setNickname("actual actor");
+        lenient().when(adminUserApi.getUser(88L)).thenReturn(actor);
+        DccControlledFileRespVO response = ReflectionTestUtils.invokeMethod(queryService, "toBrowserRespVO", 99L, active, false);
+        assertTrue(Boolean.TRUE.equals(response.getCheckedOut()));
+        assertEquals(88L, response.getCheckedOutBy()); assertEquals(time, response.getCheckedOutTime());
+        assertEquals("actual actor", response.getCheckedOutByName());
+        assertNull(response.getCheckedOutReason()); assertNull(response.getSourceSha256());
+        assertNull(response.getChangeDescription()); assertFalse(Boolean.TRUE.equals(response.getCanPreview()));
+        assertTrue(response.getActionProjection().getAllowedActions().isEmpty());
+        assertEquals(2, response.getVersionHistory().size());
+        for (var history : response.getVersionHistory()) {
+            assertTrue(Boolean.TRUE.equals(history.getCheckedOut()));
+            assertEquals(88L, history.getCheckedOutBy()); assertEquals(time, history.getCheckedOutTime());
+            assertEquals("actual actor", history.getCheckedOutByName());
+            assertNull(history.getCheckedOutReason()); assertNull(history.getSourceSha256());
+            assertNull(history.getChangeDescription()); assertFalse(Boolean.TRUE.equals(history.getCanPreview()));
+            assertTrue(history.getActionProjection().getAllowedActions().isEmpty());
+        }
+        verify(relatedFileService, never()).listRelatedFiles(anyLong());
     }
 
     @Test
@@ -500,6 +563,16 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(901L, rows.get(0).getId());
         assertEquals(List.of("VIEW"), ReflectionTestUtils.getField(actions, "allowedActions"));
     }
+    @Test void sameNumberHistoryAttemptsExposeTheirOwnRealBpmIdentityOnlyWithDetailPermission() {
+        var parent=lifecycleFile(900L,"A/1","ACTIVE");var first=lifecycleFile(901L,"A/2","REJECTED");var second=lifecycleFile(902L,"A/2","PENDING_MATRIX_REVIEW");
+        first.setProcessInstanceId("actual-failed-a2");second.setProcessInstanceId("actual-next-a2");
+        List<DccControlledFileVersionHistoryRespVO> rows=ReflectionTestUtils.invokeMethod(queryService,"buildVersionHistory",99L,parent,List.of(first,second),false);
+        assertEquals("actual-next-a2",ReflectionTestUtils.getField(rows.get(0),"processInstanceId"));
+        assertEquals("actual-failed-a2",ReflectionTestUtils.getField(rows.get(1),"processInstanceId"));
+        second.setRequesterId(88L);when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        rows=ReflectionTestUtils.invokeMethod(queryService,"buildVersionHistory",99L,parent,List.of(second),false);
+        assertNull(ReflectionTestUtils.getField(rows.get(0),"processInstanceId"));
+    }
 
     @Test
     void ordinaryResponseVoTypes_doNotExposeUnderlyingFileCapabilities() throws Exception {
@@ -514,7 +587,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkoutCurrentActiveVersionCreatesLockWithoutCreatingIterationOrChangingFormalPointer() {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
@@ -523,6 +596,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
             DccControlledFileCheckoutDO checkout = invocation.getArgument(0);
             checkout.setId(1001L);
+            checkout.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L,700L)).thenReturn(checkout);
             return 1;
         });
         when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 99L, "更新操作说明"))
@@ -546,7 +621,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         DccControlledFileDO working = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active, working));
@@ -571,7 +646,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO latestWorking = lifecycleFile(902L, "A/3", DccControlledFileStatusEnum.WORKING.getStatus());
         latestWorking.setPredecessorControlledFileId(901L);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(902L)).thenReturn(latestWorking);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(controlledFileMapper.selectListByMasterIdForUpdate(700L))
@@ -579,7 +654,9 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(sourceOwnershipMapper.selectByControlledFileId(31L, 902L))
                 .thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("a3-sha").build());
         when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
-            invocation.<DccControlledFileCheckoutDO>getArgument(0).setId(1003L);
+            var inserted=invocation.<DccControlledFileCheckoutDO>getArgument(0);
+            inserted.setId(1003L); inserted.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L,700L)).thenReturn(inserted);
             return 1;
         });
         when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 902L, 99L, "继续修改 A/3"))
@@ -604,7 +681,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         working.setProcessInstanceId("process-901");
         working.setPredecessorControlledFileId(900L);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(901L)).thenReturn(working);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(rework, working));
@@ -636,7 +713,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO unrelated = lifecycleFile(903L, "B/1", DccControlledFileStatusEnum.WORKING.getStatus());
         unrelated.setPredecessorControlledFileId(800L);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(902L)).thenReturn(current);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(controlledFileMapper.selectListByMasterIdForUpdate(700L))
@@ -654,7 +731,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         active.setRequesterId(99L);
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(controlledFileMapper.selectListByMasterIdForUpdate(700L)).thenReturn(List.of(active));
@@ -666,7 +743,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
         when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
             DccControlledFileCheckoutDO checkout = invocation.getArgument(0);
-            checkout.setId(1002L);
+            checkout.setId(1002L); checkout.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L,700L)).thenReturn(checkout);
             return 1;
         });
         when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 1074L, "项目负责人升大版"))
@@ -692,13 +770,15 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(900L)).thenReturn(beforeSubmission);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenAnswer(invocation -> {
             when(controlledFileMapper.selectByIdAndTenantForUpdate(31L, 900L)).thenReturn(afterSubmission);
-            return DccControlledFileMasterDO.builder().id(700L).build();
+            return DccControlledFileMasterDO.builder().id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").latestControlledFileId(900L).build();
         });
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L))
                 .thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
         when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(invocation -> {
-            invocation.<DccControlledFileCheckoutDO>getArgument(0).setId(1001L);
+            var inserted=invocation.<DccControlledFileCheckoutDO>getArgument(0);
+            inserted.setId(1001L); inserted.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L,700L)).thenReturn(inserted);
             return 1;
         });
         when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L, 900L, 99L, "修改内容")).thenReturn(1);
@@ -758,7 +838,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkoutSameActorDifferentBaseIterationDoesNotReportRequestedVersionCheckedOut() {
         DccControlledFileDO activeA2 = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.ACTIVE.getStatus());
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(901L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(901L).latestControlledFileId(901L).build();
         DccControlledFileCheckoutDO activeCheckout = DccControlledFileCheckoutDO.builder()
                 .id(1001L)
                 .masterId(700L)
@@ -788,7 +868,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkoutQueryAccessibleFile_withoutProjectEditorOrOwner_isDeniedBeforeCreatingLock() {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(900L).build();
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").currentActiveControlledFileId(900L).latestControlledFileId(900L).build();
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(master);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
@@ -812,6 +892,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkinRealSourceCreatesWorkingA2AndLeavesA1FormalPointerUnchanged() {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         active.setDccProjectCodeId(40L);
+        controlledFileMasterMapper.selectByIdForUpdate(700L).setDccProjectCodeId(40L);
         active.setNeedTraining(Boolean.FALSE);
         DccControlledFileCheckoutDO checkout = DccControlledFileCheckoutDO.builder()
                 .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
@@ -844,7 +925,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
 
-        assertEquals("A/2", result.getVersionNo());
+        assertEquals("A/1-1", result.getVersionNo());
         assertEquals(DccControlledFileStatusEnum.WORKING.getStatus(), result.getStatus());
         ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).insert(inserted.capture());
@@ -898,9 +979,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkinDrawingSourceWithoutCurrentPdfRejectsBeforeCopyingOldPdf() {
         DccControlledFileDO active = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         active.setDccProjectCodeId(40L);
+        controlledFileMasterMapper.selectByIdForUpdate(700L).setDccProjectCodeId(40L);
+        active.setSourceOriginalFileName("updated.dwg");
         active.setSourceFileId(1000L);
         active.setOriginalFileId(1000L);
         active.setDrawingPdfFileId(1001L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
         DccControlledFileCheckoutDO checkout = DccControlledFileCheckoutDO.builder()
                 .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L)
                 .baseSourceSha256("old-dwg-sha").status("ACTIVE").build();
@@ -969,7 +1053,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
         DccControlledFileDO current = lifecycleFile(900L, "A/1", "PENDING_MATRIX_REVIEW");
         when(controlledFileMasterMapper.selectByIdForUpdate(700L))
-                .thenReturn(DccControlledFileMasterDO.builder().id(700L).build());
+                .thenReturn(DccControlledFileMasterDO.builder().id(700L).tenantId(31L).build());
         org.mockito.Mockito.doReturn(current).when(controlledFileMapper).selectByIdAndTenantForUpdate(31L, 900L);
         assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         verify(controlledFileMapper).selectByIdAndTenantForUpdate(31L, 900L);
@@ -980,6 +1064,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileCheckinReqVO prepareDrawingCheckin() {
         DccControlledFileDO base = lifecycleFile(900L, "A/1", "WORKING");
         base.setSourceFileId(100L);
+        base.setSourceOriginalFileName("current-drawing.dwg");
         base.setDrawingPdfFileId(700L);
         when(controlledFileMapper.selectById(900L)).thenReturn(base);
         when(fileMapper.selectById(100L)).thenReturn(FileDO.builder()
@@ -989,11 +1074,11 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .status("ACTIVE").baseSourceSha256("old-sha").build());
         when(uploadTicketService.resolveForBinding(new DccUploadTicketResolveCommand(
                 "UT-DRAWING", 99L, 10L, checkinSession("drawing-checkin"), "SOURCE")))
-                .thenReturn(new DccUploadTicketBoundFile("UT-DRAWING", 101L, "corrected.dwg", "application/acad", 10L));
+                .thenReturn(new DccUploadTicketBoundFile("UT-DRAWING", 101L, "current-drawing.dwg", "application/acad", 10L));
         when(sourceOwnershipService.prepareSubmissionSource(101L, false))
                 .thenReturn(new DccControlledFilePreparedSource(101L, 101L, "new-sha", false));
         when(fileMapper.selectById(101L)).thenReturn(FileDO.builder()
-                .id(101L).name("corrected.dwg").type("application/acad").build());
+                .id(101L).name("current-drawing.dwg").type("application/acad").build());
         lenient().when(sourceOwnershipService.inspectSource(700L))
                 .thenReturn(new DccControlledFilePreparedSource(700L, 700L, "old-pdf-sha", false));
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(base));
@@ -1019,7 +1104,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
 
-        assertEquals("A/2", result.getVersionNo());
+        assertEquals("A/1-1", result.getVersionNo());
         ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).insert(inserted.capture());
         assertEquals(201L, inserted.getValue().getDrawingPdfFileId());
@@ -1124,57 +1209,21 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void majorDrawingCheckinCreatesNextRevisionWithFormalBaselineAndFreshCompanion() throws Exception {
+    void majorDrawingIntentIsRejectedAtCheckinBeforeSource() {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
-        ReflectionTestUtils.setField(request, "versionChangeType", "MAJOR");
-        request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
-        stubDrawingCheckinPdf("%PDF-1.7 major drawing".getBytes(StandardCharsets.US_ASCII));
-        DccControlledFileDO base = controlledFileMapper.selectById(900L);
-        base.setVersionNo("A/2"); base.setIterationNo(2);
-        DccControlledFileDO formal = lifecycleFile(800L, "A/1", "ACTIVE");
-        when(controlledFileMapper.selectById(800L)).thenReturn(formal);
-        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(800L).build());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(formal, base));
-
-        DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
-        assertEquals("B/1", result.getVersionNo());
-        assertEquals("WORKING", result.getStatus());
-        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).insert(inserted.capture());
-        assertEquals(800L, inserted.getValue().getRevisionBaseActiveControlledFileId());
-        assertEquals(900L, inserted.getValue().getPredecessorControlledFileId());
-        assertEquals("REVISION", inserted.getValue().getChangeType());
-        assertEquals(201L, inserted.getValue().getDrawingPdfFileId());
-        verify(projectAccessService).assertProjectOwner(99L, 300L);
-        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        request.setVersionChangeType("MAJOR");
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
     }
 
     @Test
-    void majorCheckinByProjectOwnerUsesOwnerAsNewWorkingRequester() throws Exception {
+    void projectOwnerCannotBypassSeparateFormalRevisionIntent() {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
-        ReflectionTestUtils.setField(request, "versionChangeType", "MAJOR");
-        request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
-        stubDrawingCheckinPdf("%PDF-1.7 owner major drawing".getBytes(StandardCharsets.US_ASCII));
-        DccControlledFileDO base = controlledFileMapper.selectById(900L);
-        base.setRequesterId(88L);
-        base.setSubmitterId(88L);
-        base.setVersionNo("A/2");
-        base.setIterationNo(2);
-        DccControlledFileDO formal = lifecycleFile(800L, "A/1", "ACTIVE");
-        formal.setRequesterId(88L);
-        when(controlledFileMapper.selectById(800L)).thenReturn(formal);
-        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(DccControlledFileMasterDO.builder()
-                .id(700L).currentActiveControlledFileId(800L).build());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(formal, base));
-
-        DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
-
-        assertEquals("B/1", result.getVersionNo());
-        ArgumentCaptor<DccControlledFileDO> inserted = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).insert(inserted.capture());
-        assertEquals(99L, inserted.getValue().getRequesterId());
-        assertEquals(99L, inserted.getValue().getSubmitterId());
+        request.setVersionChangeType("MAJOR");
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
     }
 
     private static String checkinSession(String rawSession) {
@@ -1182,13 +1231,11 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void majorCheckinRequiresOwnerBeforeReadingOrCopyingNewContent() {
+    void majorCheckinIsInvalidBeforeReadingOrCopyingNewContent() {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
         ReflectionTestUtils.setField(request, "versionChangeType", "MAJOR");
-        org.mockito.Mockito.doThrow(new ServiceException(403, "owner required"))
-                .when(projectAccessService).assertProjectOwner(99L, 300L);
-        assertThrows(ServiceException.class, () -> queryService.checkinControlledFile(99L, 900L, request));
-        verify(projectAccessService).assertProjectOwner(99L, 300L);
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+        verify(projectAccessService, never()).assertProjectOwner(anyLong(), anyLong());
         verify(uploadTicketService, never()).resolveForBinding(any());
         verify(sourceOwnershipService, never()).prepareSubmissionSource(any(), anyBoolean());
     }
@@ -1199,7 +1246,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
         request.setUploadTicket(null);
         request.setRemark("updated remark");
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", "WORKING");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", "WORKING");
         existing.setPredecessorControlledFileId(900L);
         existing.setSourceFileId(101L);
         existing.setDrawingPdfFileId(201L);
@@ -1226,7 +1273,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void drawingCheckinReplayRequiresTheSameBoundCompanion(long boundPdfId) {
         DccControlledFileCheckinReqVO request = prepareDrawingCheckin();
         request.setDrawingPdfUploadTicket("UT-DRAWING-PDF");
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", "WORKING");
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", "WORKING");
         existing.setPredecessorControlledFileId(900L);
         existing.setSourceFileId(101L);
         existing.setDrawingPdfFileId(201L);
@@ -1255,7 +1302,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkinReplayRequiresSameBaseIterationBeforeReturningExistingResult() {
         DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         requestedBase.setRemark("原备注");
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", DccControlledFileStatusEnum.WORKING.getStatus());
         existing.setPredecessorControlledFileId(899L);
         existing.setChangeDescription("更新原因");
         existing.setRemark("新备注");
@@ -1286,7 +1333,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkinReplayReturnsExistingOnlyForSameActorBaseTicketAndNormalizedPayload() {
         DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         requestedBase.setRemark("原备注");
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", DccControlledFileStatusEnum.WORKING.getStatus());
         existing.setPredecessorControlledFileId(900L);
         existing.setChangeDescription("更新原因");
         existing.setRemark("新备注");
@@ -1312,7 +1359,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileRespVO result = queryService.checkinControlledFile(99L, 900L, request);
 
         assertEquals(901L, result.getId());
-        assertEquals("A/2", result.getVersionNo());
+        assertEquals("A/1-1", result.getVersionNo());
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
     }
 
@@ -1321,7 +1368,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         requestedBase.setRemark("原备注");
         requestedBase.setNeedTraining(Boolean.FALSE);
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", DccControlledFileStatusEnum.WORKING.getStatus());
         existing.setPredecessorControlledFileId(900L);
         existing.setChangeDescription("更新原因");
         existing.setRemark("新备注");
@@ -1377,7 +1424,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     void checkinReplayRejectsDifferentNormalizedPayloadWhenUploadTicketIsEmpty() {
         DccControlledFileDO requestedBase = lifecycleFile(900L, "A/1", DccControlledFileStatusEnum.ACTIVE.getStatus());
         requestedBase.setRemark("原备注");
-        DccControlledFileDO existing = lifecycleFile(901L, "A/2", DccControlledFileStatusEnum.WORKING.getStatus());
+        DccControlledFileDO existing = lifecycleFile(901L, "A/1-1", DccControlledFileStatusEnum.WORKING.getStatus());
         existing.setPredecessorControlledFileId(900L);
         existing.setChangeDescription("更新原因");
         existing.setRemark("原备注");
@@ -1412,7 +1459,9 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .id(1001L).masterId(700L).baseIterationId(900L).actorId(99L).status("ACTIVE").build();
         when(controlledFileMapper.selectById(900L)).thenReturn(active);
         when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(checkout);
-        when(checkoutMapper.markCancelled(31L, 1001L, 99L, "不再修改")).thenReturn(1);
+        when(checkoutMapper.markCancelled(31L, 1001L, 99L, "不再修改")).thenAnswer(i -> {
+            checkoutMapper.selectActiveByMasterId(31L,700L).setStatus("CANCELLED"); return 1;
+        });
         when(controlledFileMapper.cancelCheckoutByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active));
         when(directoryMapper.selectEnabledList()).thenReturn(List.of());
@@ -1424,6 +1473,631 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertFalse(Boolean.TRUE.equals(result.getCheckedOut()));
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
         verify(checkoutMapper).markCancelled(31L, 1001L, 99L, "不再修改");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"PARTIAL,A/2,A/1", "PARTIAL,B/1,A/9", "REPLACEMENT,B/1,A/3"})
+    void detailAndHistoryProjectActualRevisionFacts(String intent, String target, String source) {
+        var file = lifecycleFile(900L, target, "ACTIVE");
+        file.setRevisionChangeType(intent); file.setRevisionSourceControlledFileId(899L);
+        file.setRevisionSourceVersionNo(source); file.setSelectedIterationControlledFileId(898L);
+        file.setSelectedIterationVersionNo(source+"-1"); file.setChangeDescription("actual intention");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var response = queryService.getControlledFile(99L,900L);
+        assertEquals(intent,response.getRevisionChangeType()); assertEquals(source,response.getRevisionSourceVersionNo());
+        var history=response.getVersionHistory().get(0);
+        assertEquals(intent,history.getRevisionChangeType()); assertEquals(source,history.getRevisionSourceVersionNo());
+        assertEquals(source+"-1",history.getSelectedIterationVersionNo());
+    }
+    @Test void detailAndHistoryDisplayRealCheckoutActor() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE"); file.setCheckedOutBy(88L);
+        file.setCheckedOutReason("甲编辑正文"); file.setCheckedOutTime(LocalDateTime.of(2026,9,30,12,0));
+        var actor=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO(); actor.setId(88L); actor.setNickname("甲");
+        when(adminUserApi.getUser(88L)).thenReturn(actor);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var lock=DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L).baseIterationId(900L).actorId(88L).status("ACTIVE").reason(file.getCheckedOutReason()).build();
+        lock.setCreateTime(file.getCheckedOutTime()); lock.setTenantId(31L);
+        when(checkoutMapper.selectActiveByMasterIdForRead(31L,700L)).thenReturn(lock);
+        var response=queryService.getControlledFile(99L,900L);
+        assertEquals(88L,response.getCheckedOutBy()); assertEquals("甲",response.getCheckedOutByName());
+        assertEquals("甲",response.getVersionHistory().get(0).getCheckedOutByName());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CHECKOUT", "CHECKIN", "CANCEL"})
+    void lifecycleWritesCannotBypassAssignedScopeForRequesterOrDirectoryManager(String action) {
+        var file = lifecycleFile(900L, "A/1", "ACTIVE");
+        var checkout = DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L)
+                .baseIterationId(900L).actorId(99L).status("ACTIVE").baseSourceSha256("old-sha").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
+                .thenReturn(List.of(901L));
+        lenient().when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        lenient().when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        lenient().when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        lenient().when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn("CHECKOUT".equals(action) ? null : checkout);
+        lenient().when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L))
+                .thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        lenient().when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(i -> {
+            var lock = i.<DccControlledFileCheckoutDO>getArgument(0);
+            lock.setId(1002L); lock.setCreateTime(LocalDateTime.of(2026, 10, 1, 12, 0));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L, 700L)).thenReturn(lock);
+            return 1;
+        });
+        lenient().when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(eq(31L), eq(900L), eq(99L), anyString())).thenReturn(1);
+        lenient().when(sourceOwnershipService.prepareSubmissionSource(100L, false))
+                .thenReturn(new DccControlledFilePreparedSource(101L, 100L, "old-sha", true));
+        lenient().when(controlledFileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(i -> {
+            i.<DccControlledFileDO>getArgument(0).setId(902L); return 1;
+        });
+        lenient().when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, null, 902L, 101L, "old-sha")).thenReturn(1);
+        lenient().when(controlledFileMapper.checkinByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        lenient().when(checkoutMapper.markCancelled(31L, 1001L, 99L, "cancel outside scope")).thenAnswer(i -> {
+            checkout.setStatus("CANCELLED"); return 1;
+        });
+        lenient().when(controlledFileMapper.cancelCheckoutByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        if ("CHECKOUT".equals(action)) {
+            var request = new DccControlledFileCheckoutReqVO(); request.setReason("outside scope");
+            assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request), CONTROLLED_FILE_ACCESS_DENIED);
+        } else if ("CHECKIN".equals(action)) {
+            var request = new DccControlledFileCheckinReqVO(); request.setRemark("actual metadata edit");
+            request.setChangeDescription("outside scope");
+            assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_ACCESS_DENIED);
+        } else {
+            var request = new DccControlledFileCancelCheckoutReqVO(); request.setReason("cancel outside scope");
+            assertServiceException(() -> queryService.cancelCheckoutControlledFile(99L, 900L, request), CONTROLLED_FILE_ACCESS_DENIED);
+        }
+        org.mockito.Mockito.verify(nameClaimService,never()).claimExistingVersion(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(nameClaimService,never()).claimIdentity(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(checkoutMapper, never()).markCancelled(anyLong(), anyLong(), anyLong(), anyString());
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(), anyLong(), anyLong(), anyString());
+    }
+
+    @Test void revisionOptionsUseLatestSourcePolicyAndActualPerIterationPermissions() {
+        var baseline = prepareRevisionOptions("A/9");
+        var earlier = lifecycleFile(901L, "A/9-1", "WORKING"); earlier.setRevisionBaseActiveControlledFileId(900L);
+        var otherUser = lifecycleFile(902L, "A/9-10", "WORKING"); otherUser.setRevisionBaseActiveControlledFileId(900L);
+        otherUser.setRequesterId(88L);
+        var staleOrigin = lifecycleFile(903L, "A/9-2", "WORKING"); staleOrigin.setRevisionBaseActiveControlledFileId(899L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, earlier, otherUser, staleOrigin));
+        when(projectAccessService.hasProjectEditorOrOwner(99L, 300L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(99L, 300L)).thenReturn(true);
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals(900L, options.controlledBaselineId());
+        assertEquals("B/1", options.partialTarget().versionNo()); assertEquals("B/1", options.replacementTarget().versionNo());
+        assertEquals(List.of(902L, 901L), options.iterations().stream().map(DccControlledFileRevisionOptions.Iteration::id).toList());
+        assertFalse(options.iterations().get(0).canPartial()); assertTrue(options.iterations().get(0).canReplacement());
+        assertTrue(options.iterations().get(1).canPartial()); assertTrue(options.iterations().get(1).canReplacement());
+        assertFalse(options.iterations().get(0).canPreview());
+        verify(controlledFileMapper, never()).selectListByMasterIdForUpdate(anyLong());
+        verify(checkoutMapper, never()).selectActiveByMasterId(anyLong(), anyLong());
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsNeverFallBackFromLatestToExecutionOrAcrossTenant() {
+        var baseline = prepareRevisionOptions("A/1");
+        var master = controlledFileMasterMapper.selectById(700L);
+        master.setCurrentActiveControlledFileId(900L); master.setLatestControlledFileId(901L);
+        assertThrows(IllegalArgumentException.class, () -> queryService.getRevisionOptions(99L, 900L));
+        master.setLatestControlledFileId(null);
+        assertThrows(IllegalArgumentException.class, () -> queryService.getRevisionOptions(99L, 900L));
+        master.setLatestControlledFileId(900L); baseline.setTenantId(32L);
+        assertServiceException(() -> queryService.getRevisionOptions(99L, 900L), CONTROLLED_FILE_ACCESS_DENIED);
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsKeepCheckoutActorTimeAndBlockBothFormalActions() {
+        var baseline = prepareRevisionOptions("A/1");
+        var selected = lifecycleFile(901L, "A/1-1", "WORKING"); selected.setRevisionBaseActiveControlledFileId(900L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, selected));
+        when(projectAccessService.hasProjectEditorOrOwner(99L, 300L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(99L, 300L)).thenReturn(true);
+        var checkout = DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L).baseIterationId(901L)
+                .actorId(88L).status("ACTIVE").build(); checkout.setTenantId(31L);
+        var time = LocalDateTime.of(2026, 10, 1, 16, 0); checkout.setCreateTime(time);
+        when(checkoutMapper.selectActiveByMasterIdForRead(31L, 700L)).thenReturn(checkout);
+        var actor = new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO(); actor.setId(88L); actor.setNickname("甲");
+        when(adminUserApi.getUser(88L)).thenReturn(actor);
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals("CHECKED_OUT", options.lockedReason()); assertEquals(88L, options.checkedOutBy());
+        assertEquals(time, options.checkedOutTime()); assertEquals("甲", options.checkedOutByName());
+        assertFalse(options.iterations().get(0).canPartial()); assertFalse(options.iterations().get(0).canReplacement());
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsReturnExplicitZBoundaryWithoutInventingReplacement() {
+        var baseline = prepareRevisionOptions("Z/8");
+        var selected = lifecycleFile(901L, "Z/8-1", "WORKING"); selected.setRevisionBaseActiveControlledFileId(900L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, selected));
+        when(projectAccessService.hasProjectEditorOrOwner(99L, 300L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(99L, 300L)).thenReturn(true);
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals("Z/9", options.partialTarget().versionNo()); assertTrue(options.iterations().get(0).canPartial());
+        assertNull(options.replacementTarget().versionNo()); assertNotNull(options.replacementTarget().unavailableReason());
+        assertFalse(options.iterations().get(0).canReplacement());
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsKeepNameAndBodySeparateWithoutGrantingEditorOrOwner() {
+        var baseline = prepareRevisionOptions("A/1");
+        var selected = lifecycleFile(901L, "A/1-1", "WORKING"); selected.setRevisionBaseActiveControlledFileId(900L);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, selected));
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals(1, options.iterations().size());
+        assertFalse(options.iterations().get(0).canPartial()); assertFalse(options.iterations().get(0).canReplacement());
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsUseHardAssignmentScopeBeforeAnyProjectPrivilege() {
+        prepareRevisionOptions("A/1");
+        when(permissionApi.hasAnyPermissions(99L, "dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L), any(LocalDateTime.class)))
+                .thenReturn(List.of(901L));
+        assertServiceException(() -> queryService.getRevisionOptions(99L, 900L), CONTROLLED_FILE_ACCESS_DENIED);
+        org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsKeepOccupiedTargetAndInFlightFormalCandidateUnavailable() {
+        var baseline = prepareRevisionOptions("A/1");
+        var selected = lifecycleFile(901L, "A/1-1", "WORKING"); selected.setRevisionBaseActiveControlledFileId(900L);
+        var rejected = lifecycleFile(902L, "A/2", "REJECTED"); rejected.setRevisionChangeType("PARTIAL");
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(baseline, selected, rejected));
+        when(projectAccessService.hasProjectEditorOrOwner(99L, 300L)).thenReturn(true);
+        when(projectAccessService.hasProjectOwner(99L, 300L)).thenReturn(true);
+        var options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals("TARGET_ALREADY_ALLOCATED", options.partialTarget().unavailableReason());
+        assertFalse(options.iterations().get(0).canPartial()); assertTrue(options.iterations().get(0).canReplacement());
+        rejected.setStatus("WORKING");
+        options = queryService.getRevisionOptions(99L, 900L);
+        assertEquals("FORMAL_REVISION_IN_PROGRESS", options.lockedReason());
+        assertFalse(options.iterations().get(0).canPartial()); assertFalse(options.iterations().get(0).canReplacement());
+        verifyNoRevisionPreparationWrites();
+    }
+    @Test void revisionOptionsLongJsonUsesDecimalStringsWithoutStorageCapabilities() throws Exception {
+        var options = new DccControlledFileRevisionOptions(9007199254740993L, "A/9", 9007199254740995L, "SOP.pdf",
+                new DccControlledFileRevisionOptions.Target("B/1", null), new DccControlledFileRevisionOptions.Target("B/1", null),
+                null, null, null, null, List.of(new DccControlledFileRevisionOptions.Iteration(9007199254740997L, "A/9-1", true, false, false)));
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(options);
+        assertTrue(json.contains("\"controlledBaselineId\":\"9007199254740993\""));
+        assertTrue(json.contains("\"id\":\"9007199254740997\""));
+        assertFalse(json.contains("sourceFileId")); assertFalse(json.contains("sourceSha256"));
+        assertFalse(json.contains("url"));
+    }
+    private DccControlledFileDO prepareRevisionOptions(String version) {
+        var baseline = lifecycleFile(900L, version, "CONTROLLED_PENDING_EFFECTIVE");
+        baseline.setControlledTime(LocalDateTime.of(2026, 10, 1, 10, 0));
+        lenient().when(controlledFileMapper.selectById(900L)).thenReturn(baseline);
+        var master = controlledFileMasterMapper.selectByIdForUpdate(700L);
+        lenient().when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
+        lenient().doReturn(null).when(checkoutMapper).selectActiveByMasterIdForRead(31L, 700L);
+        return baseline;
+    }
+    private void verifyNoRevisionPreparationWrites() {
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        org.mockito.Mockito.verify(nameClaimService,never()).claimExistingVersion(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(nameClaimService,never()).claimIdentity(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());org.mockito.Mockito.verifyNoInteractions(sourceOwnershipService,relatedFileService);
+    }
+
+    @Test void authorizedViewReadsFrozenApplicationEvidenceWithoutEditorOrImpersonation() {
+        var file=lifecycleFile(900L,"A/2","ACTIVE");file.setChangeType("REVISION");file.setRequesterId(88L);file.setProcessInstanceId("real-bpm");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(applicationEvidenceMapper.selectBoundRounds(31L,300L,"REVISION",900L,"real-bpm")).thenReturn(List.of(3));
+        var snapshot=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO();
+        snapshot.setTenantId(31L);snapshot.setProjectCodeId(300L);snapshot.setApplicationType("REVISION");snapshot.setApplicationId(900L);snapshot.setApplicationRound(3);snapshot.setSubmitted(true);
+        snapshot.setDefaultSourceJson("{\"targetMarkets\":[\"CE\"],\"licenseHolder\":\"Y\",\"actualManufacturer\":\"N\",\"documentTransfer\":\"N\"}");
+        snapshot.setActualAttributesJson("{\"targetMarkets\":[\"FDA\"],\"licenseHolder\":\"N\",\"actualManufacturer\":\"Y\",\"documentTransfer\":\"N\"}");
+        when(applicationEvidenceMapper.selectSnapshot(31L,300L,"REVISION",900L,3)).thenReturn(snapshot);
+        var signed=DccControlledFileSignatureDO.builder().id(401L).controlledFileId(900L).revisionId(900L).versionNo("A/2")
+                .processInstanceId("real-bpm").fileNumberSnapshot("SOP-001").actionType("APPROVE").build();
+        var old=DccControlledFileSignatureDO.builder().id(402L).controlledFileId(900L).revisionId(900L).versionNo("A/2")
+                .processInstanceId("old-bpm").actionType("APPROVE").build();
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signed,old));
+        var result=queryService.getApplicationEvidence(99L,900L,"REVISION","real-bpm");
+        assertTrue(result.recorded());assertEquals(3,result.attributeRound());
+        assertEquals(List.of("FDA"),result.actualAttributes().targetMarkets());assertEquals(List.of("CE"),result.defaultSource().targetMarkets());
+        assertEquals(900L,result.controlledFileId());assertEquals(1,result.signatures().size());
+        assertEquals(401L,result.signatures().get(0).getId());assertEquals("real-bpm",result.signatures().get(0).getProcessInstanceId());
+        org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+    }
+    @Test void actualTaskReadEvidenceDoesNotRequireApplicantOrProjectEditor() {
+        var file=lifecycleFile(900L,"A/2","PENDING_MATRIX_REVIEW");file.setRequesterId(88L);file.setProcessInstanceId("task-bpm");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        var task=mock(Task.class);when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");when(task.getAssignee()).thenReturn("99");
+        when(bpmTaskService.getRunningTaskListByProcessInstanceId("task-bpm",null,null)).thenReturn(List.of(task));
+        when(applicationEvidenceMapper.selectBoundRounds(31L,300L,"REVISION",900L,"task-bpm")).thenReturn(List.of(4));
+        var snapshot=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO();
+        snapshot.setTenantId(31L);snapshot.setProjectCodeId(300L);snapshot.setApplicationId(900L);snapshot.setApplicationType("REVISION");snapshot.setApplicationRound(4);snapshot.setSubmitted(true);
+        snapshot.setDefaultSourceJson("{\"targetMarkets\":[\"CE\"],\"licenseHolder\":\"Y\",\"actualManufacturer\":\"N\",\"documentTransfer\":\"N\"}");
+        snapshot.setActualAttributesJson("{\"targetMarkets\":[\"FDA\"],\"licenseHolder\":\"N\",\"actualManufacturer\":\"Y\",\"documentTransfer\":\"N\"}");
+        when(applicationEvidenceMapper.selectSnapshot(31L,300L,"REVISION",900L,4)).thenReturn(snapshot);
+        var signed=DccControlledFileSignatureDO.builder().id(404L).controlledFileId(900L).revisionId(900L).versionNo("A/2")
+                .processInstanceId("task-bpm").fileNumberSnapshot("SOP-001").actionType("APPROVE").build();
+        when(signatureMapper.selectListByControlledFileId(900L)).thenReturn(List.of(signed));
+        var result=queryService.getApplicationEvidence(99L,900L,"REVISION","task-bpm");
+        assertTrue(result.recorded());assertEquals(4,result.attributeRound());
+        assertEquals(List.of("CE"),result.defaultSource().targetMarkets());assertEquals(List.of("FDA"),result.actualAttributes().targetMarkets());
+        assertEquals(1,result.signatures().size());assertEquals("task-bpm",result.signatures().get(0).getProcessInstanceId());
+        assertEquals(404L,result.signatures().get(0).getId());
+        org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+        verify(controlledFileMapper,never()).insert(any(DccControlledFileDO.class));
+    }
+    @Test void nameOnlyEvidenceAndWrongTenantAreDeniedBeforeMappingRead() {
+        var file=lifecycleFile(900L,"A/2","ACTIVE");file.setRequesterId(88L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(false);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        assertServiceException(() -> queryService.getApplicationEvidence(99L,900L,"REVISION","round"),CONTROLLED_FILE_ACCESS_DENIED);
+        file.setTenantId(32L);
+        assertServiceException(() -> queryService.getApplicationEvidence(99L,900L,"REVISION","round"),CONTROLLED_FILE_ACCESS_DENIED);
+        org.mockito.Mockito.verifyNoInteractions(applicationEvidenceMapper,projectAccessService);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"tenant","project","file","type","round"})
+    void frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String invalid) {
+        var file=lifecycleFile(900L,"A/2","ACTIVE");when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(applicationEvidenceMapper.selectBoundRounds(31L,300L,"REVISION",900L,"exact-bpm")).thenReturn(List.of(3));
+        var snapshot=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO();
+        snapshot.setTenantId(31L);snapshot.setProjectCodeId(300L);snapshot.setApplicationId(900L);snapshot.setApplicationType("REVISION");snapshot.setApplicationRound(3);snapshot.setSubmitted(true);
+        switch(invalid) {
+            case "tenant" -> snapshot.setTenantId(32L);
+            case "project" -> snapshot.setProjectCodeId(301L);
+            case "file" -> snapshot.setApplicationId(901L);
+            case "type" -> snapshot.setApplicationType("UPLOAD");
+            case "round" -> snapshot.setApplicationRound(4);
+        }
+        when(applicationEvidenceMapper.selectSnapshot(31L,300L,"REVISION",900L,3)).thenReturn(snapshot);
+        assertThrows(IllegalStateException.class,() -> queryService.getApplicationEvidence(99L,900L,"REVISION","exact-bpm"));
+        org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+    }
+    @Test void missingHistoricalApplicationEvidenceIsExplicitAndNeverUsesTodayDefaults() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(applicationEvidenceMapper.selectBoundRounds(31L,300L,"UPLOAD",900L,"historic-bpm")).thenReturn(List.of());
+        var result=queryService.getApplicationEvidence(99L,900L,"UPLOAD","historic-bpm");
+        assertFalse(result.recorded());assertEquals("NOT_RECORDED",result.unavailableReason());
+        assertNull(result.actualAttributes());assertNull(result.defaultSource());assertNull(result.attributeRound());
+        verify(applicationEvidenceMapper,never()).selectSnapshot(anyLong(),anyLong(),anyString(),anyLong(),org.mockito.ArgumentMatchers.anyInt());
+        org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+    }
+    @Test void defaultBrowserUsesAuthoritativeFutureControlledInsteadOfHigherWorkingOrExecution() {
+        var active = lifecycleFile(900L, "A/1", "ACTIVE");
+        var future = lifecycleFile(901L, "A/2", "CONTROLLED_PENDING_EFFECTIVE");
+        future.setControlledTime(LocalDateTime.of(2026,10,1,10,0));
+        var working = lifecycleFile(902L, "B/1-1", "WORKING");
+        var master = controlledFileMasterMapper.selectByIdForUpdate(700L); master.setLatestControlledFileId(901L);
+        lenient().when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
+        when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
+                .thenReturn(List.of(active, future, working));
+        var request = new DccControlledFilePageReqVO(); request.setDirectoryId(20L); request.setLatestVersionOnly(true);
+        var result = queryService.listControlledFileBrowserCandidates(99L, request);
+        assertEquals(List.of(future), result);
+        assertEquals(900L, master.getCurrentActiveControlledFileId());
+        verify(controlledFileMapper, never()).selectListByMasterIdForUpdate(anyLong());
+    }
+    @Test void defaultBrowserCannotInventLatestWhenPointerMissingOrFutureIdentityIsNotVisible() {
+        var active = lifecycleFile(900L, "A/1", "ACTIVE"); active.setControlledTime(LocalDateTime.of(2026,10,1,10,0));
+        var master = controlledFileMasterMapper.selectByIdForUpdate(700L);
+        lenient().when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
+        when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L)))).thenReturn(List.of(active));
+        var request = new DccControlledFilePageReqVO(); request.setDirectoryId(20L); request.setLatestVersionOnly(true);
+        master.setLatestControlledFileId(null);
+        assertTrue(queryService.listControlledFileBrowserCandidates(99L, request).isEmpty());
+        master.setLatestControlledFileId(901L);
+        assertTrue(queryService.listControlledFileBrowserCandidates(99L, request).isEmpty());
+    }
+    @Test void browserSummaryRequestDoesNotPrefilterOnlyActiveWhenShowingLatestControlled() {
+        var future = lifecycleFile(901L, "A/2", "CONTROLLED_PENDING_EFFECTIVE");
+        future.setControlledTime(LocalDateTime.of(2026,10,1,10,0));
+        var master = controlledFileMasterMapper.selectByIdForUpdate(700L); master.setLatestControlledFileId(901L);
+        lenient().when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L)))).thenReturn(List.of(future));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(future));
+        var request = new DccControlledFilePageReqVO(); request.setDirectoryId(20L); request.setLatestVersionOnly(true);
+        var result = queryService.getControlledFileBrowserPage(99L, request);
+        assertEquals(901L, result.getList().get(0).getId());
+        var passed = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
+        verify(controlledFileMapper).selectBrowserSummaryList(passed.capture(), eq(Set.of(20L)));
+        assertFalse(Boolean.TRUE.equals(passed.getValue().getLatestVersionOnly()));
+        assertTrue(request.getLatestVersionOnly());
+    }
+    @Test void latestBrowserPipelineSearchesActualSourceAfterAuthorizationAndAggregation() {
+        var file = lifecycleFile(900L, "A/1", "ACTIVE");
+        file.setControlledTime(LocalDateTime.of(2026,10,1,10,0));
+        var master = controlledFileMasterMapper.selectByIdForUpdate(700L);
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
+        file.setTitle("Template"); file.setFileName("Template"); file.setSourceOriginalFileName("SOP-Export.PDF");
+        when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class), eq(Set.of(20L))))
+                .thenReturn(List.of(file));
+        var request = new DccControlledFilePageReqVO(); request.setDirectoryId(20L);
+        request.setLatestVersionOnly(true); request.setKeyword("export.pdf");
+        var result = queryService.listControlledFileBrowserCandidates(99L, request);
+        assertEquals(List.of(file), result);
+        var passed = ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
+        verify(controlledFileMapper).selectWorkflowList(passed.capture(), eq(Set.of(20L)));
+        assertNull(passed.getValue().getKeyword());
+        assertEquals("export.pdf", request.getKeyword());
+    }
+    @Test void recordedOriginalFilenameIsSearchableEvenWhenTemplateTitleHasNoMatch() {
+        var file = lifecycleFile(900L, "A/1", "ACTIVE");
+        file.setFileName("Template title"); file.setTitle("Template title"); file.setSourceOriginalFileName("SOP-Export.PDF");
+        List<DccControlledFileDO> result = ReflectionTestUtils.invokeMethod(queryService, "filterByKeyword", List.of(file), "export.pdf");
+        assertEquals(List.of(file), result);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"source.DB,Template.pdf,true", "source.PDF,Template.db,false"})
+    void extensionFilterUsesRecordedSourceRatherThanTemplateOrPublishedFilename(String source, String template, boolean blocked) {
+        var file = lifecycleFile(900L, "A/1", "ACTIVE"); file.setFileName(template); file.setTitle(template);
+        file.setSourceOriginalFileName(source);
+        Boolean result = ReflectionTestUtils.invokeMethod(queryService, "isBlacklistedBrowserExtension", file, List.of("*.db"));
+        assertEquals(blocked, result);
+    }
+    @Test void rootRelationAdapterCannotBypassAssignedScopeForRequesterNameOrEdit() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L),any(LocalDateTime.class))).thenReturn(List.of(901L));
+        var access=new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicyImpl();
+        ReflectionTestUtils.setField(access,"query",queryService);
+        assertServiceException(() -> access.assertNameVisible(99L,900L),CONTROLLED_FILE_ACCESS_DENIED);
+        assertServiceException(() -> access.assertCanEditRelations(99L,900L),CONTROLLED_FILE_ACCESS_DENIED);
+        verify(projectAccessService,never()).assertProjectEditorOrOwner(anyLong(),anyLong());
+    }
+    @Test void rootRelationAdapterCanReadAssignedNameButDoesNotGrantBodyCapability() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");file.setRequesterId(88L);file.setPublishedFileId(501L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(true);
+        when(projectCodeAssignmentFileMapper.selectActiveControlledFileIdsByAssigneeUserId(eq(99L),any(LocalDateTime.class))).thenReturn(List.of(900L));
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(false);
+        var access=new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicyImpl();
+        ReflectionTestUtils.setField(access,"query",queryService);
+        access.assertNameVisible(99L,900L);
+        assertServiceException(() -> access.assertContentReadable(99L,900L),CONTROLLED_FILE_ACCESS_DENIED);
+        assertTrue(queryService.canViewFileName(99L,file));
+    }
+    @Test void logicalCheckoutIsVisibleFromFormalAndOtherHistoryVersions() {
+        var active=lifecycleFile(900L,"A/1","ACTIVE");
+        var selected=lifecycleFile(901L,"A/1-1","WORKING");
+        var timestamp=LocalDateTime.of(2026,10,1,10,12,30);
+        var lock=DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L).baseIterationId(901L)
+                .actorId(88L).reason("甲编辑小版").status("ACTIVE").build();
+        lock.setTenantId(31L); lock.setCreateTime(timestamp);
+        when(checkoutMapper.selectActiveByMasterId(31L,700L)).thenReturn(lock);
+        var actor=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO(); actor.setId(88L); actor.setNickname("甲");
+        when(adminUserApi.getUser(88L)).thenReturn(actor);
+        when(controlledFileMapper.selectById(900L)).thenReturn(active);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active,selected));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var response=queryService.getControlledFile(99L,900L);
+        assertTrue(response.getCheckedOut()); assertEquals(88L,response.getCheckedOutBy());
+        assertEquals("甲",response.getCheckedOutByName()); assertEquals(timestamp,response.getCheckedOutTime());
+        assertTrue(response.getVersionHistory().stream().allMatch(h -> Boolean.TRUE.equals(h.getCheckedOut())));
+        assertTrue(response.getVersionHistory().stream().allMatch(h -> timestamp.equals(h.getCheckedOutTime())));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"version", "missing", "obsolete", "sourceName", "missingOrigin"})
+    void checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String invalid) {
+        var baseline = lifecycleFile(900L, "A/1", "ACTIVE");
+        var working = lifecycleFile(901L, "A/1-1", "WORKING");
+        working.setChangeType("REVISION"); working.setRevisionBaseActiveControlledFileId(900L);
+        if ("version".equals(invalid)) working.setVersionNo("A/2-1");
+        if ("obsolete".equals(invalid)) baseline.setStatus("OBSOLETE");
+        if ("sourceName".equals(invalid)) baseline.setSourceOriginalFileName("different.docx");
+        if ("missingOrigin".equals(invalid)) working.setRevisionBaseActiveControlledFileId(null);
+        when(controlledFileMapper.selectById(901L)).thenReturn(working);
+        lenient().when(controlledFileMapper.selectById(900L)).thenReturn(baseline);
+        when(controlledFileMapper.selectListByMasterId(700L))
+                .thenReturn("missing".equals(invalid) ? List.of(working) : List.of(baseline, working));
+        when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn(DccControlledFileCheckoutDO.builder()
+                .id(1001L).masterId(700L).baseIterationId(901L).actorId(99L).status("ACTIVE").baseSourceSha256("old-sha").build());
+        lenient().when(sourceOwnershipService.prepareSubmissionSource(100L, false))
+                .thenReturn(new DccControlledFilePreparedSource(300L, 100L, "old-sha", true));
+        lenient().when(controlledFileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(i -> {
+            i.<DccControlledFileDO>getArgument(0).setId(902L); return 1;
+        });
+        lenient().when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, null, 902L, 300L, "old-sha")).thenReturn(1);
+        lenient().when(controlledFileMapper.checkinByIdAndTenantWhenOwner(31L, 901L, 99L)).thenReturn(1);
+        lenient().when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var request = new DccControlledFileCheckinReqVO(); request.setRemark("actual metadata edit");
+        request.setChangeDescription("actual origin must match");
+        assertServiceException(() -> queryService.checkinControlledFile(99L, 901L, request), CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        org.mockito.Mockito.verify(nameClaimService,never()).claimExistingVersion(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(nameClaimService,never()).claimIdentity(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(), anyLong(), anyLong(), anyString());
+        verify(controlledFileMapper, never()).checkinByIdAndTenantWhenOwner(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test void checkinCreatesSecondHyphenIterationWithoutFormalIntent() {
+        var request=prepareDrawingCheckin();
+        var base=controlledFileMapper.selectById(900L); base.setVersionNo("A/1-1");
+        request.setUploadTicket(null); request.setRemark("metadata changes");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        var response=queryService.checkinControlledFile(99L,900L,request);
+        assertEquals("A/1-2",response.getVersionNo()); assertNull(response.getRevisionChangeType());
+        verify(controlledFileMasterMapper,never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+    @Test void checkinWorkingCopyNeverInheritsControlledActivatedOrDistributedFacts() {
+        var request=prepareDrawingCheckin();var base=controlledFileMapper.selectById(900L);
+        var success=LocalDateTime.of(2026,10,1,10,0);
+        base.setControlledTime(success);base.setActivatedTime(success.plusDays(1));
+        base.setDistributedTime(success.plusHours(2));base.setDistributionPayloadHash("old-distribution");
+        request.setUploadTicket(null);request.setRemark("new working metadata");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        queryService.checkinControlledFile(99L,900L,request);
+        var inserted=ArgumentCaptor.forClass(DccControlledFileDO.class);verify(controlledFileMapper).insert(inserted.capture());
+        assertNull(inserted.getValue().getControlledTime());assertNull(inserted.getValue().getActivatedTime());
+        assertNull(inserted.getValue().getDistributedTime());assertNull(inserted.getValue().getDistributionPayloadHash());
+        assertEquals(success,base.getControlledTime());
+        verify(controlledFileMasterMapper,never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+    @Test void checkinOldExecutionCannotAllocateWorkingCopyAfterNewerControlledSourceExists() {
+        var request=prepareDrawingCheckin();var base=controlledFileMapper.selectById(900L);base.setStatus("ACTIVE");
+        var master=controlledFileMasterMapper.selectByIdForUpdate(700L);master.setLatestControlledFileId(899L);
+        master.setCurrentActiveControlledFileId(900L);
+        request.setUploadTicket(null);request.setRemark("old execution metadata");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+        verify(controlledFileMapper,never()).insert(any(DccControlledFileDO.class));
+    }
+    @Test void oldExecutionCheckoutDoesNotCreateStaleLockWhenLatestIsFutureControlled() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        var master=controlledFileMasterMapper.selectByIdForUpdate(700L);master.setLatestControlledFileId(901L);
+        when(sourceOwnershipMapper.selectByControlledFileId(31L,900L)).thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(i -> {i.<DccControlledFileCheckoutDO>getArgument(0).setId(1001L);return 1;});
+        when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(31L,900L,99L,"attempt old execution edit")).thenReturn(1);
+        var request=new DccControlledFileCheckoutReqVO();request.setReason("attempt old execution edit");
+        assertServiceException(() -> queryService.checkoutControlledFile(99L,900L,request),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
+        verify(checkoutMapper,never()).insert(any(DccControlledFileCheckoutDO.class));
+    }
+    @Test void checkinMustReuseCompleteClaimBeforePreparingReplacementSource() {
+        var request=prepareDrawingCheckin(); request.setUploadTicket(null); request.setRemark("metadata change");
+        when(controlledFileMasterMapper.selectByIdForUpdate(700L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(700L).tenantId(31L).dccProjectCodeId(300L).fileTypeTaxonomyLeafId(66L).normalizedFileNumber("SOP-001").build());
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        doThrow(new IllegalStateException("reservation failed")).when(nameClaimService)
+                .claimExistingVersion(31L,"current-drawing.dwg",300L,66L,"SOP-001",700L,900L);
+        assertEquals("reservation failed",assertThrows(IllegalStateException.class,() -> queryService.checkinControlledFile(99L,900L,request)).getMessage());
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+        verify(controlledFileMapper,never()).insert(any(DccControlledFileDO.class));
+        verify(controlledFileMapper,never()).checkinByIdAndTenantWhenOwner(anyLong(),anyLong(),anyLong());
+    }
+    @Test void checkinOfNewControlledRevisionRecordsItselfAsFormalBaseline() {
+        var request=prepareDrawingCheckin(); var base=controlledFileMapper.selectById(900L);
+        base.setStatus("ACTIVE"); base.setVersionNo("B/1"); base.setChangeType("REVISION");
+        base.setRevisionBaseActiveControlledFileId(800L);
+        request.setUploadTicket(null); request.setRemark("B/1正文备注更新");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        assertEquals("B/1-1",queryService.checkinControlledFile(99L,900L,request).getVersionNo());
+        var inserted=ArgumentCaptor.forClass(DccControlledFileDO.class); verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(900L,inserted.getValue().getRevisionBaseActiveControlledFileId());
+    }
+    @Test void futureControlledSourceCheckinDoesNotSwitchExecutionVersion() {
+        var request=prepareDrawingCheckin(); var base=controlledFileMapper.selectById(900L);
+        base.setStatus("CONTROLLED_PENDING_EFFECTIVE"); base.setVersionNo("B/1"); base.setChangeType("REVISION");
+        base.setRevisionBaseActiveControlledFileId(800L);
+        request.setUploadTicket(null); request.setRemark("待生效版继续编制");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenReturn(new DccControlledFilePreparedSource(102L,100L,"old-sha",true));
+        when(sourceOwnershipService.createVerifiedCopy(700L)).thenReturn(new DccControlledFilePreparedSource(701L,700L,"old-pdf-sha",true));
+        when(checkoutMapper.markCheckedIn(31L,1001L,99L,null,901L,102L,"old-sha")).thenReturn(1);
+        assertEquals("B/1-1",queryService.checkinControlledFile(99L,900L,request).getVersionNo());
+        var inserted=ArgumentCaptor.forClass(DccControlledFileDO.class); verify(controlledFileMapper).insert(inserted.capture());
+        assertEquals(900L,inserted.getValue().getRevisionBaseActiveControlledFileId());
+        verify(controlledFileMasterMapper,never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+
+    @Test void checkinExactOriginalNameRejectsCaseOrExtensionChange() {
+        var request=prepareDrawingCheckin();
+        controlledFileMapper.selectById(900L).setSourceOriginalFileName("CURRENT-DRAWING.dwg");
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+    }
+
+    @Test void frozenFormalCandidateCannotBeCheckedInAgain() {
+        var request=prepareDrawingCheckin(); controlledFileMapper.selectById(900L).setRevisionChangeType("PARTIAL");
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        var reason = new DccControlledFileCheckoutReqVO(); reason.setReason("attempt to change frozen body");
+        assertServiceException(() -> queryService.checkoutControlledFile(99L,900L,reason),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"CHECKOUT,project", "CHECKOUT,taxonomy", "CHECKOUT,number",
+            "CHECKIN,project", "CHECKIN,taxonomy", "CHECKIN,number"})
+    void checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String action, String changed) {
+        var file = lifecycleFile(900L, "A/1", "CHECKOUT".equals(action) ? "ACTIVE" : "WORKING");
+        switch (changed) {
+            case "project" -> file.setDccProjectCodeId(301L);
+            case "taxonomy" -> file.setFileTypeTaxonomyId(67L);
+            case "number" -> file.setFileNumber("OTHER-001");
+        }
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        lenient().when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        lenient().when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        lenient().when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var checkout = DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L)
+                .baseIterationId(900L).actorId(99L).status("ACTIVE").baseSourceSha256("old-sha").build();
+        lenient().when(checkoutMapper.selectActiveByMasterId(31L, 700L)).thenReturn("CHECKOUT".equals(action) ? null : checkout);
+        lenient().when(sourceOwnershipMapper.selectByControlledFileId(31L, 900L))
+                .thenReturn(DccControlledFileSourceOwnershipDO.builder().sourceSha256("old-sha").build());
+        lenient().when(checkoutMapper.insert(any(DccControlledFileCheckoutDO.class))).thenAnswer(i -> {
+            var lock = i.<DccControlledFileCheckoutDO>getArgument(0);
+            lock.setId(1002L); lock.setCreateTime(LocalDateTime.of(2026, 10, 1, 12, 0));
+            lenient().when(checkoutMapper.selectActiveByMasterIdForRead(31L, 700L)).thenReturn(lock);
+            return 1;
+        });
+        lenient().when(controlledFileMapper.checkoutByIdAndTenantWhenAvailable(eq(31L), eq(900L), eq(99L), anyString())).thenReturn(1);
+        lenient().when(sourceOwnershipService.prepareSubmissionSource(100L, false))
+                .thenReturn(new DccControlledFilePreparedSource(101L, 100L, "old-sha", true));
+        lenient().when(controlledFileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(i -> {
+            i.<DccControlledFileDO>getArgument(0).setId(902L); return 1;
+        });
+        lenient().when(checkoutMapper.markCheckedIn(31L, 1001L, 99L, null, 902L, 101L, "old-sha")).thenReturn(1);
+        lenient().when(controlledFileMapper.checkinByIdAndTenantWhenOwner(31L, 900L, 99L)).thenReturn(1);
+        if ("CHECKOUT".equals(action)) {
+            var request = new DccControlledFileCheckoutReqVO(); request.setReason("mismatched identity");
+            assertServiceException(() -> queryService.checkoutControlledFile(99L, 900L, request),
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
+        } else {
+            var request = new DccControlledFileCheckinReqVO(); request.setRemark("actual metadata change");
+            request.setChangeDescription("mismatched identity");
+            assertServiceException(() -> queryService.checkinControlledFile(99L, 900L, request), CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        }
+        org.mockito.Mockito.verify(nameClaimService,never()).claimExistingVersion(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
+        verify(nameClaimService,never()).claimIdentity(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());org.mockito.Mockito.verifyNoInteractions(projectAccessService);
+        verify(sourceOwnershipService, never()).prepareSubmissionSource(anyLong(), anyBoolean());
+        verify(checkoutMapper, never()).insert(any(DccControlledFileCheckoutDO.class));
+        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(), anyLong(), anyLong(), anyString());
+    }
+
+    @Test void checkinRequiresVerifiedSourceNameAndCurrentTenant() {
+        var request=prepareDrawingCheckin(); var base=controlledFileMapper.selectById(900L);
+        base.setSourceOriginalFileName(null);
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        base.setSourceOriginalFileName("current-drawing.dwg"); base.setTenantId(32L);
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS);
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+    }
+
+    @Test void checkinSourceFailureRetainsActiveLockAndDoesNotAllocate() {
+        var request=prepareDrawingCheckin(); request.setUploadTicket(null); request.setRemark("metadata changes");
+        when(sourceOwnershipService.prepareSubmissionSource(100L,false)).thenThrow(new IllegalStateException("source offline"));
+        assertEquals("source offline",assertThrows(IllegalStateException.class,() -> queryService.checkinControlledFile(99L,900L,request)).getMessage());
+        verify(controlledFileMapper,never()).insert(any(DccControlledFileDO.class));
+        verify(checkoutMapper,never()).markCheckedIn(anyLong(),anyLong(),anyLong(),any(),anyLong(),anyLong(),anyString());
+        verify(controlledFileMapper,never()).checkinByIdAndTenantWhenOwner(anyLong(),anyLong(),anyLong());
+    }
+
+    @Test void otherCheckoutActorCannotCheckinOrCancel() {
+        var request=prepareDrawingCheckin();
+        checkoutMapper.selectActiveByMasterId(31L,700L).setActorId(88L);
+        assertServiceException(() -> queryService.checkinControlledFile(99L,900L,request),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NOT_OWNER,88L);
+        var cancel=new DccControlledFileCancelCheckoutReqVO(); cancel.setReason("cancel");
+        assertServiceException(() -> queryService.cancelCheckoutControlledFile(99L,900L,cancel),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_NOT_OWNER,88L);
+        verify(sourceOwnershipService,never()).prepareSubmissionSource(anyLong(),anyBoolean());
+        verify(checkoutMapper,never()).markCancelled(anyLong(),anyLong(),anyLong(),anyString());
     }
 
     @Test
@@ -2013,6 +2687,121 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
             assertArrayEquals("pdf".getBytes(), binary.bytes());
             assertEquals("preview", binary.watermark().getPurpose());
         }
+    }
+    @Test void futureControlledPreviewUsesPublishedBodyWithCurrentContentPermission() {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE"); file.setRequesterId(88L);
+        file.setPublishedFileId(501L); file.setSourceFileId(502L); file.setOriginalFileId(503L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(fileMapper.selectById(501L)).thenReturn(FileDO.builder().id(501L).configId(1L)
+                .path("dcc/controlled/selected-future.pdf").name("selected-future.pdf").type("application/pdf").build());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(true);
+        when(watermarkService.build(99L,"preview","selected-future.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        var metadata=queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID));
+        assertEquals("selected-future.pdf",metadata.getFileName()); assertEquals("PDF",metadata.getPreviewKind());
+        assertNotNull(metadata.getViewerToken());
+        verify(fileMapper,never()).selectById(502L); verify(fileMapper,never()).selectById(503L);
+    }
+    @Test void futureControlledMissingBodyDisablesPreviewWithoutFallingBackToSource() {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE"); file.setPublishedFileId(501L);
+        file.setSourceFileId(502L); file.setOriginalFileId(503L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var result=queryService.getControlledFile(99L,900L);
+        assertFalse(Boolean.TRUE.equals(result.getCanPreview()));
+        assertEquals("正式预览文件不存在或已被删除",result.getPreviewUnavailableReason());
+        assertEquals("正式预览文件不存在或已被删除",result.getVersionHistory().get(0).getPreviewUnavailableReason());
+        verify(fileMapper,never()).selectById(502L); verify(fileMapper,never()).selectById(503L);
+    }
+    @Test void futureControlledPreviewDoesNotGrantExecutionPrintOrDownload() {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE"); file.setPublishedFileId(501L);
+        file.setRevisionChangeType("PARTIAL"); file.setRevisionSourceControlledFileId(899L); file.setRevisionSourceVersionNo("A/1");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        when(fileMapper.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("future.pdf").type("application/pdf").build());
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.PRINT)).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.DOWNLOAD)).thenReturn(true);
+        var result=queryService.getControlledFile(99L,900L);
+        assertTrue(Boolean.TRUE.equals(result.getCanPreview()));
+        assertFalse(Boolean.TRUE.equals(result.getCanDownload())); assertFalse(Boolean.TRUE.equals(result.getCanPrint()));
+        assertEquals("PARTIAL",result.getRevisionChangeType()); assertEquals("A/1",result.getRevisionSourceVersionNo());
+        assertTrue(Boolean.TRUE.equals(result.getVersionHistory().get(0).getCanPreview()));
+    }
+    @Test void futureControlledLegacyCategoryViewCannotReplaceContentPermission() throws Exception {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE"); file.setRequesterId(88L); file.setPublishedFileId(501L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(false);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.VIEW)).thenReturn(true);
+        assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
+        verify(fileService,never()).getFileContent(anyLong(),anyString());
+        verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
+    }
+    @Test void futureControlledDetailAllowsCurrentMatrixWithoutBorrowingExecutionPointer() {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE"); file.setRequesterId(88L); file.setPublishedFileId(501L);
+        var execution=lifecycleFile(899L,"A/1","ACTIVE"); execution.setRequesterId(88L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(execution,file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(true);
+        when(fileMapper.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("future.pdf").type("application/pdf").build());
+        var result=queryService.getControlledFile(99L,900L);
+        assertEquals("A/2",result.getVersionNo()); assertEquals("CONTROLLED_PENDING_EFFECTIVE",result.getStatus());
+        assertEquals("A/1",result.getCurrentActiveVersionNo()); assertTrue(Boolean.TRUE.equals(result.getCanPreview()));
+        assertEquals("CURRENT_VIEW_MATRIX",result.getAccessExplanation().getPublishedPreviewSource());
+        verify(controlledFileMasterMapper,never()).updateById(any(DccControlledFileMasterDO.class));
+    }
+    @Test void synchronizedLifecycleFactsProjectActualDatesAndDocControlDistributionEligibility() {
+        var file=lifecycleFile(900L,"A/2","CONTROLLED_PENDING_EFFECTIVE");file.setNeedTraining(false);
+        file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION);
+        var controlled=LocalDateTime.of(2026,10,1,8,0);file.setControlledTime(controlled);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
+        var response=queryService.getControlledFile(99L,900L);
+        assertEquals(controlled,response.getControlledTime());assertNull(response.getActivatedTime());
+        assertTrue(Boolean.TRUE.equals(response.getCanManualRelease()));
+        assertTrue(response.getActionProjection().getAllowedActions().contains("MANUAL_RELEASE"));
+        file.setDistributedTime(controlled.plusHours(1));file.setActivatedTime(controlled.plusDays(1));
+        var after=queryService.getControlledFile(99L,900L);
+        assertEquals(file.getDistributedTime(),after.getDistributedTime());assertEquals(file.getActivatedTime(),after.getActivatedTime());
+        assertTrue(Boolean.TRUE.equals(after.getDistributionCompleted()));
+        assertFalse(Boolean.TRUE.equals(after.getCanManualRelease()));
+    }
+    @Test void obsoleteHistoryReadsItsOwnRetainedBodyAndActualRevisionFacts() {
+        var file=lifecycleFile(900L,"B/1","OBSOLETE"); file.setPublishedFileId(501L);
+        file.setSourceFileId(502L); file.setRevisionChangeType("PARTIAL"); file.setRevisionSourceVersionNo("A/9");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        when(fileMapper.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("obsolete-history.pdf").type("application/pdf").build());
+        var result=queryService.getControlledFile(99L,900L);
+        assertTrue(Boolean.TRUE.equals(result.getCanPreview())); assertFalse(Boolean.TRUE.equals(result.getCanPrint()));
+        assertFalse(Boolean.TRUE.equals(result.getCanDownload()));
+        assertEquals("PARTIAL",result.getRevisionChangeType()); assertEquals("A/9",result.getRevisionSourceVersionNo());
+        assertTrue(Boolean.TRUE.equals(result.getVersionHistory().get(0).getCanPreview()));
+        verify(fileMapper,never()).selectById(502L);
+    }
+    @Test void obsoleteBodyRequiresObsoleteVisibilityEvenWithDirectoryContentPermission() {
+        var file=lifecycleFile(900L,"B/1","OBSOLETE"); file.setRequesterId(88L); file.setPublishedFileId(501L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
+        verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
+    }
+    @Test void obsoleteVisibilityDoesNotReplaceContentPermission() {
+        var file=lifecycleFile(900L,"B/1","OBSOLETE"); file.setRequesterId(88L); file.setPublishedFileId(501L);
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(false);
+        assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
+        verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
     }
 
     @Test
@@ -3618,7 +4407,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void pendingApplicantTrainingRecordProjectionShouldExposeUploadAction() {
+    void trainingRecordProjectionIsRestrictedToFormalDocControlRoleAndCategoryPermission() {
         DccControlledFileDO pendingFile = DccControlledFileDO.builder()
                 .id(1013L)
                 .categoryId(10L)
@@ -3639,10 +4428,13 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         var projection = detail.getActionProjection();
         assertPageProjectionMatches(99L, reqVO, detail);
         assertTrue(Boolean.TRUE.equals(projection.getActionLocked()));
-        assertEquals(List.of("VIEW", "WITHDRAW", "UPLOAD_TRAINING_RECORD"), projection.getAllowedActions());
+        assertEquals(List.of("VIEW", "WITHDRAW"), projection.getAllowedActions());
         assertTrue(Boolean.TRUE.equals(projection.getCanWithdraw()));
         assertEquals(1013L, projection.getPendingRequestId());
         assertEquals("2.0", projection.getPendingVersionNo());
+        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
+        when(permissionSupport.hasCategoryPermission(10L,99L,DccFileCategoryPermissionActionEnum.APPROVE)).thenReturn(true);
+        assertTrue(queryService.getControlledFile(99L,1013L).getActionProjection().getAllowedActions().contains("UPLOAD_TRAINING_RECORD"));
     }
 
     @Test
@@ -3857,7 +4649,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         browserReqVO.setPageSize(10);
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
         when(controlledFileMapper.selectWorkflowList(pageReqVO)).thenReturn(List.of(activeFile));
-        when(controlledFileMapper.selectBrowserSummaryList(browserReqVO)).thenReturn(List.of(activeFile));
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class))).thenReturn(List.of(activeFile));
         when(controlledFileMapper.selectListByMasterId(812L)).thenReturn(List.of(activeFile));
         when(permissionSupport.hasCategoryPermission(12L, 99L, DccFileCategoryPermissionActionEnum.OBSOLETE))
                 .thenReturn(true);
@@ -5750,7 +6542,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     }
 
     private DccControlledFileDO lifecycleFile(Long id, String versionNo, String status) {
-        DccWindchillVersionNumber version = DccWindchillVersionNumber.parse(versionNo);
+        DccControlledFileVersionPolicy.VersionNumber version = DccControlledFileVersionPolicy.defaultPolicy().parse(versionNo);
         return DccControlledFileDO.builder()
                 .id(id)
                 .tenantId(31L)
@@ -5760,12 +6552,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .sourceFileId(100L)
                 .originalFileId(100L)
                 .fileName("SOP-001.docx")
+                .sourceOriginalFileName("updated.docx")
                 .title("SOP-001")
                 .fileNumber("SOP-001")
                 .versionNo(versionNo)
-                .revisionCode(version.revisionCode())
+                .revisionCode(version.majorIdentity())
                 .iterationNo(version.iterationNo())
                 .dccProjectCodeId(300L)
+                .fileTypeTaxonomyId(66L)
                 .processType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode())
                 .changeType("NEW")
                 .requesterId(99L)

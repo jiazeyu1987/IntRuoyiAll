@@ -9,5 +9,6 @@ import lombok.Data;
 public class DccProjectProductApprovalActionReqVO {
 
     @NotBlank(message = "审批意见不能为空")
+    @jakarta.validation.constraints.Size(max=500,message="操作原因不能超过500字符")
     private String reason;
 }

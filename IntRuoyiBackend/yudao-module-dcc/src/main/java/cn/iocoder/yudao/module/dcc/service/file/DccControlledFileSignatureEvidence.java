@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class DccControlledFileSignatureEvidence {
 
     private Long revisionId;
+    private String processInstanceId;
+    private String fileNumberSnapshot;
     private String versionNo;
     private Long sourceFileId;
     private String sourceFileHash;

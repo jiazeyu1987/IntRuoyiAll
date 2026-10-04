@@ -16,7 +16,8 @@ class DccThreeWorkflowMatrixMultiInstanceMigrationTest {
 
     @Test
     void migrationMustPublishMultiInstanceMatrixReviewForAllThreeKeys() throws Exception {
-        String sql = Files.readString(findProjectDir().resolve(MIGRATION_FILE), StandardCharsets.UTF_8);
+        String sql = Files.readString(findProjectDir().resolve(MIGRATION_FILE), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
 
         assertTrue(sql.startsWith("-- release-migration:"));
         assertTrue(sql.contains("dependsOn=20260923_dcc_three_workflow_candidate_strategy_fix"));

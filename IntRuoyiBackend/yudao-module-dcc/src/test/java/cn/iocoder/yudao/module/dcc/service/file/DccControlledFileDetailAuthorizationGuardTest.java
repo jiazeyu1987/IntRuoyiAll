@@ -42,22 +42,28 @@ class DccControlledFileDetailAuthorizationGuardTest extends BaseMockitoUnitTest 
     @InjectMocks
     private DccControlledFileDetailAuthorizationGuard guard;
 
-    @Test
-    void activeFileWithoutAnyFileScopeIsDenied() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"ACTIVE", "CONTROLLED_PENDING_EFFECTIVE"})
+    void controlledFileWithoutAnyFileScopeIsDenied(String status) {
         TenantContextHolder.setTenantId(31L);
         DccControlledFileDO file = activeFile();
+        file.setStatus(status);
         when(assignmentScopeService.isWithinAssignedFileScope(99L, 910L)).thenReturn(true);
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L, file)).thenReturn(false);
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(eq(99L), any())).thenReturn(Set.of());
-        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 910L, 99L)).thenReturn(0L);
+        if ("ACTIVE".equals(status)) {
+            when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 910L, 99L)).thenReturn(0L);
+        }
 
         assertFalse(guard.isAllowed(99L, file));
     }
 
-    @Test
-    void activeFileWithViewMatrixScopeIsAllowed() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"ACTIVE", "CONTROLLED_PENDING_EFFECTIVE"})
+    void controlledFileWithViewMatrixScopeIsAllowed(String status) {
         TenantContextHolder.setTenantId(31L);
         DccControlledFileDO file = activeFile();
+        file.setStatus(status);
         when(assignmentScopeService.isWithinAssignedFileScope(99L, 910L)).thenReturn(true);
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L, file)).thenReturn(true);
 

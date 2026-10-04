@@ -561,6 +561,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     public void approveTask(Long userId, @Valid BpmTaskApproveReqVO reqVO) {
         // 1.1 校验任务存在
         Task task = validateTask(userId, reqVO.getId());
+        DccSignedTaskActionGuard.require(task,userId,"APPROVE");
         // 1.2 校验流程实例存在
         ProcessInstance instance = processInstanceService.getProcessInstance(task.getProcessInstanceId());
         if (instance == null) {
@@ -809,6 +810,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     public void rejectTask(Long userId, @Valid BpmTaskRejectReqVO reqVO) {
         // 1.1 校验任务存在
         Task task = validateTask(userId, reqVO.getId());
+        DccSignedTaskActionGuard.require(task,userId,"REJECT");
         // 1.2 校验流程实例存在
         ProcessInstance instance = processInstanceService.getProcessInstance(task.getProcessInstanceId());
         if (instance == null) {

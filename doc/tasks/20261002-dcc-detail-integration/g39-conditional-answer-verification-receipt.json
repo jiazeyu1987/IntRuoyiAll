@@ -1,0 +1,40 @@
+{
+  "status": "CONDITIONAL_AUTHORIZATION_EFFECTIVE_RED_GREEN_PASS_NO_RUNTIME_WRITE",
+  "MavenExitCode": 0,
+  "tests": 30,
+  "classes": 3,
+  "GateTests": 19,
+  "EntryTests": 7,
+  "CommandTests": 4,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "RED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-conditional-answer-red.log",
+    "bytes": 64581,
+    "sha256": "65dd1473417d2069295943c88bf2090358e16370b530482c889cb9e955bc92a0"
+  },
+  "REDMeaning": "actualuserphraseincorrectlyrejects exactapproved scope; unapprovedQAcasewronglyrejectsauthorizationbeforequality",
+  "toolErrorAttempt": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-conditional-answer-green.log",
+    "bytes": 38530,
+    "sha256": "1308e90db1bedb99f32fe6f78a674fd21122179c505548f0c38481b42277bc3c"
+  },
+  "toolErrorMeaning": "relativepatchwrongcwd no sourceedit, oldguardregressionfails preserved; notGREEN",
+  "GREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-conditional-answer-green-r2.log",
+    "bytes": 62651,
+    "sha256": "153c0cf06babdcd3bb2815f2c9c9f811112a863c8f33a3d9d89e4cfdd1760934"
+  },
+  "deliveryFingerprintSha256": "2879850b2d9d580f0d3ffdee5ab6ca6f9745b39a79a44c33c1b1fced9ac8b9b9",
+  "exactConditionalPhraseScopeAccepted": true,
+  "declinedTextStillRejected": true,
+  "actualConditionalPhraseWithPendingQualityRejectsBeforeStdinAndAuth": true,
+  "schemaPinRetained": true,
+  "OWNER4ProductionZeroDrift": true,
+  "actualTokenRead": false,
+  "actualDBWrites": false,
+  "servicesStarted": false,
+  "jarPackageRun": false,
+  "gitMutation": false
+}

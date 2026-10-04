@@ -19,17 +19,22 @@ const extract = name => {
 const setup = () => {
   const warnings = []; let writes = 0
   const c = {
-    checkinTarget: { value: { id: 1, remark: 'old' } }, checkinUpload: { value: undefined },
+    checkinTarget: { value: { id: 1, masterId: 20, checkedOutBy: 99, versionNo: 'A/1', remark: 'old' } }, checkinUpload: { value: undefined },
+    checkinUploadContext: {value:undefined},
     checkinUploadSessionId: { value: 'session-1' }, checkinSourceState: { value: 'idle' },
     checkinUploadLoading: { value: false }, checkinDrawingPdfLoading: { value: false },
     checkinCleanupLoading: { value: false },
     checkinDrawingPdfUpload: { value: undefined }, checkinSubmitting: { value: false },
     checkinForm: { versionChangeType: 'MINOR', remark: 'changed', changeDescription: 'replace content' },
     checkoutLoadingId: { value: undefined }, checkinDialogVisible: { value: true },
-    findBrowserRowForVersion: () => ({ categoryId: 10 }), clearCheckinDrawingPdf: () => {},
+    findBrowserRowForVersion: () => ({ categoryId: 10, masterId: 20 }), clearCheckinDrawingPdf: () => {},
+    isCheckedOutByCurrentUser: file => file.checkedOutBy === 99, checkinDialogGeneration: 0,
+    userStore: { getUser: { id: 99 } }, route: { fullPath: '/dcc/controlled-file/browser' }, browserMode: { value: 'storage' },
+    buildBrowserRouteStateKey: () => 'filter', getBrowserCacheContext: () => 'tenant-user',
+    list: { value: [] }, total: { value: 0 }, checkinRefreshPending: { value: undefined },
     isValidBrowserOptionId: id => !!id, validateDrawingPdfUpload: () => ({ valid: true }),
     isDrawingSourceFile: () => false, getList: async () => {}, mergeCheckinResult: () => {},
-    checkinControlledFile: async () => { writes++; return { id: 2, versionNo: 'A.2' } },
+    checkinControlledFile: async () => { writes++; return { id: 2, masterId: 20, versionNo: 'A/1-1', status: 'WORKING', checkedOut: false, checkedOutBy: null } },
     message: { error: x => warnings.push(x), warning: x => warnings.push(x), success: () => {} },
     resolveBrowserErrorMessage: e => e.message
   }
@@ -59,21 +64,22 @@ test('failed selected upload never turns into metadata-only checkin', async () =
   assert.ok(warnings.length > 0)
 })
 
-test('checkin sends the selected major or minor version type and has no standalone major action', async () => {
+test('checkin fixes MINOR and formal revision is a separate selected-working action', async () => {
   const { c } = setup(); let request
   c.checkinForm.versionChangeType = 'MAJOR'
-  c.checkinUpload.value = { uploadTicket: 'fresh-ticket', fileName: 'updated.docx' }
+  c.checkinUpload.value = { uploadTicket: 'fresh-ticket', sessionId: 'scoped-session', fileName: 'updated.docx' }
+  c.checkinUploadContext.value={fileId:'1',clientSessionId:'session-1',scopedSessionId:'scoped-session',ticket:'fresh-ticket'}
   c.checkinSourceState.value = 'ready'
-  c.checkinControlledFile = async (_id, data) => { request = data; return { id: 2, versionNo: 'B/1' } }
+  c.checkinControlledFile = async (_id, data) => { request = data; return { id: 2, masterId: 20, versionNo: 'A/1-1', status: 'WORKING', checkedOut: false } }
   await c.submit()
-  assert.equal(request.versionChangeType, 'MAJOR')
-  assert.match(source, /data-testid="dcc-controlled-browser-checkin-version-type"/)
+  assert.equal(request.versionChangeType, 'MINOR')
+  assert.match(source, /data-testid="dcc-controlled-browser-checkin-working-only"/)
   assert.doesNotMatch(source, /dcc-controlled-browser-major-revision/)
   assert.doesNotMatch(source, /handleCreateMajorRevision/)
 })
 
-test('major and rejected checkins cannot reuse old content without a fresh ticket', async () => {
-  for (const [versionChangeType, status] of [['MAJOR', 'ACTIVE'], ['MINOR', 'REJECTED'], ['MINOR', 'PENDING_APPLICANT_REWORK']]) {
+test('rejected checkins cannot reuse old content without a fresh ticket', async () => {
+  for (const [versionChangeType, status] of [['MINOR', 'REJECTED'], ['MINOR', 'PENDING_APPLICANT_REWORK']]) {
     const { c, writes, warnings } = setup()
     c.checkinForm.versionChangeType = versionChangeType
     c.checkinTarget.value.status = status

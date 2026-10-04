@@ -1,0 +1,32 @@
+[
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccProjectReferenceController.java",
+    "sha256": "7b88169560ba5ce4456b7063ead731bc1b83e2b619e8e6e718ac7c3aa2533dff",
+    "utf8LfSha256": "7b88169560ba5ce4456b7063ead731bc1b83e2b619e8e6e718ac7c3aa2533dff"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+    "sha256": "54af3d934cef1b3849282359e22c618ce468de9e9d0ea1e612b9023653b4f224",
+    "utf8LfSha256": "54af3d934cef1b3849282359e22c618ce468de9e9d0ea1e612b9023653b4f224"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java",
+    "sha256": "5efa8c81c1f9e2e38be9e22927ebe23e58af21b6112c1331170137e1cef0e0f6",
+    "utf8LfSha256": "879319f099dc87654990ce76c62c1d01beb74ec0a6e135ab96271bb7b9ca6d85"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationContracts.java",
+    "sha256": "65de262c039528dc9bf023bef45cb04da030f7df2bb2ec91c822d0cbff014822",
+    "utf8LfSha256": "65de262c039528dc9bf023bef45cb04da030f7df2bb2ec91c822d0cbff014822"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccReferenceUsagePageDatabaseTest.java",
+    "sha256": "2afb4b0d14d4af182b02c5fcc35de9c819ec89f4a9fa930c446fcfcdb78e4358",
+    "utf8LfSha256": "c2cf044d0d8ca8ccf523c101b34e676536a7ac39096a923a3d6c445cfd096647"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFormalCombinationTest.java",
+    "sha256": "ce5e821720d15cdb640927b83629b4726cbe082b29cad390baaaebb9fbb9626f",
+    "utf8LfSha256": "d3322e28b0f2990ddd3a7e6f942d79685b7b60c37cce8eb8e432b9acdf5f317e"
+  }
+]

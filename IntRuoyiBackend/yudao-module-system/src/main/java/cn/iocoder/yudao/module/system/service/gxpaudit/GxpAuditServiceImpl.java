@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOper
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,8 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     private GxpAuditLedgerSequenceMapper ledgerSequenceMapper;
     @Resource
     private GxpAuditPolicyOperationMapper policyOperationMapper;
+    @Resource
+    private AdminUserApi adminUserApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -47,6 +50,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
             throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
         }
         validatePolicyRequirements(command, policy);
+        LoginUser actor = resolveActor(tenantId);
 
         String idempotencyPayloadHash = sha256(canonicalPayload(command, policy));
         GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKey(tenantId, command.getIdempotencyKey());
@@ -58,7 +62,6 @@ public class GxpAuditServiceImpl implements GxpAuditService {
                     existing.getEventHash(), true);
         }
 
-        LoginUser actor = resolveActor();
         long ledgerSequence = allocateLedgerSequence(tenantId);
         GxpAuditEventDO previous = auditEventMapper.selectLatestByTenant(tenantId);
         LocalDateTime serverOccurredAt = LocalDateTime.now();
@@ -161,15 +164,36 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         return TenantContextHolder.getRequiredTenantId();
     }
 
-    private LoginUser resolveActor() {
+    private LoginUser resolveActor(Long tenantId) {
         LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser != null && loginUser.getId() != null) {
-            return loginUser;
+        if (loginUser != null) {
+            if (TenantContextHolder.isIgnore() || !Objects.equals(tenantId, TenantContextHolder.getTenantId())
+                    || !Objects.equals(tenantId, loginUser.getTenantId()) || loginUser.getId() == null
+                    || !Objects.equals(UserTypeEnum.ADMIN.getValue(), loginUser.getUserType()))
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "authenticated-actor");
+            if (loginUser.getId() == -1L) {
+                if (loginUser.getInfo() == null || !"SYSTEM_ACTOR".equals(loginUser.getInfo().get("username"))
+                        || !"SYSTEM_ACTOR".equals(loginUser.getInfo().get(LoginUser.INFO_KEY_NICKNAME)))
+                    throw exception(GXP_AUDIT_ACTOR_MISMATCH, "declared-system-actor");
+                return loginUser;
+            }
+            if (loginUser.getId() < 1L)
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "authenticated-actor");
+            var current = adminUserApi.getUser(loginUser.getId());
+            if (current == null || !Objects.equals(loginUser.getId(), current.getId())
+                    || !Objects.equals(tenantId, current.getTenantId()) || !Integer.valueOf(0).equals(current.getStatus())
+                    || StrUtil.isBlank(current.getUsername()) || StrUtil.isBlank(current.getNickname()))
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "current-account");
+            // Formal OAuth info contains nickname/deptId. The current server directory owns audit account identity.
+            return new LoginUser().setId(current.getId()).setTenantId(current.getTenantId())
+                    .setUserType(loginUser.getUserType()).setInfo(Map.of("username", current.getUsername(),
+                            LoginUser.INFO_KEY_NICKNAME, current.getNickname()));
         }
+        // Existing explicit system callers clear the security context while retaining the tenant.
         LoginUser systemActor = new LoginUser();
         systemActor.setId(-1L);
         systemActor.setUserType(UserTypeEnum.ADMIN.getValue());
-        systemActor.setTenantId(resolveTenantId());
+        systemActor.setTenantId(tenantId);
         systemActor.setInfo(Map.of(LoginUser.INFO_KEY_NICKNAME, "SYSTEM_ACTOR", "username", "SYSTEM_ACTOR"));
         return systemActor;
     }

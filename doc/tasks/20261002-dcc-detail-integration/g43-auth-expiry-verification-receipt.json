@@ -1,0 +1,74 @@
+{
+  "status": "AUTH_EXPIRY_NORMAL_MYSQL_ROUNDING_EFFECTIVE_RED_GREEN_REGRESSION_PASS_NOT_ACTUAL_LOGIN",
+  "red": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-expiry-red.log",
+    "bytes": 62815,
+    "sha256": "62340fc7a097a0b76cc3b0f455bfa76ee194ea564706ca93a405299d37d2b83f"
+  },
+  "REDMeaning": "actual adapter rejects valid same-token normal DATETIME0/cache precision representation (1 expected identity rejection error, no setup error)",
+  "regression": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-expiry-green-regression.log",
+    "bytes": 69735,
+    "sha256": "411524b9474064ed3e83af795d0dc8a3a4d88b4ee92680c876477598a905c997"
+  },
+  "regressionExecutions": 134,
+  "regressionClasses": 7,
+  "regressionFinishedAt": "2026-10-04T15:47:47+08:00",
+  "finalEntry": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-expiry-final-entry.log",
+    "bytes": 60913,
+    "sha256": "c3088ed6a0127596d98dd71b0982648132a3559b5a2d40cc0861327c1d151d3f"
+  },
+  "finalEntryExecutions": 12,
+  "finalEntryFinishedAt": "2026-10-04T15:48:51+08:00",
+  "countBoundary": "134/7 includes22 inherited registration cases. Final12/1 overlaps Entry11 and adds1 actualJsonUtils roundtrip. Do not sum these as distinct tests.",
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "driverProbe": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-driver-precision-probe.log",
+    "bytes": 640,
+    "sha256": "530c6cd54cfdc96ac931e950c9d5cd109cdbaa1baa7a41c1d8a34a5c62598cd2"
+  },
+  "driverJar": {
+    "path": "C:/Users/D01020/.m2/repository/com/mysql/mysql-connector-j/9.7.0/mysql-connector-j-9.7.0.jar",
+    "bytes": 2607237,
+    "sha256": "0353648eaa1c91e0f4020c959abf756bc866ffd583df22ae6b6f6e0cbd43eb44"
+  },
+  "schemaSource": {
+    "path": "IntRuoyiBackend/sql/mysql/ruoyi-vue-pro.sql",
+    "bytes": 1398812,
+    "sha256": "4188ffbb495aeba4b488fe8488abfc9a6c20584b0f2f388f9c5e0c06131ac8a5"
+  },
+  "actualRootDiagnosticInputs": [
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g43-auth-cache-time-diagnostic.json",
+      "bytes": 305,
+      "sha256": "6e0a1c7a9a134d2ce7bb0958e163b2f5616c7bf665614a208771a4ef7f251b7d"
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g43-auth-failure-root-review.json",
+      "bytes": 549,
+      "sha256": "1506292b1647cf93e326b8af5a0fef24331a74cc8e7ec14386b7f246d9e3034e"
+    }
+  ],
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-expiry-fingerprints.json",
+    "bytes": 1565,
+    "sha256": "6357fa2f2c0da4f2530dff94a36f81dba13c334392a42dd52c4b2d286be9ab28"
+  },
+  "schemaPrecision": "DATETIME0 default normal rounding; actualRoot sqlmode no TIME_TRUNCATE_FRACTIONAL",
+  "bothSidedExpiredRejected": true,
+  "revokedTenantScopesDisabledChecksRetained": true,
+  "contextRestored": true,
+  "cacheMissExactWholeAndHitActualJsonUtilsRoundtripPassed": true,
+  "narrowMicroRoundingBoundaryAlternateRefused": true,
+  "actualDatabaseConnectionsByThisAgent": 0,
+  "actualRedisConnections": 0,
+  "actualTokenReads": 0,
+  "actualBusinessWrites": 0,
+  "servicesStarted": 0,
+  "packageRuns": 0,
+  "GitMutation": false,
+  "ordinaryOAuthOrSerializerModified": false
+}

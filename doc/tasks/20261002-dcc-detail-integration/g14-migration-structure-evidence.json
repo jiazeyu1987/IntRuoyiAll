@@ -1,0 +1,3088 @@
+{
+  "status": "read_only_compared_no_execution",
+  "schemaSource": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g14-schema-complete.log",
+  "notCoveredByLog": [
+    "column default",
+    "column collation",
+    "table collation",
+    "routine definitions",
+    "BPM/policy/menu/template row values"
+  ],
+  "result": [
+    {
+      "id": "20260513_dcc_base_schema",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_file_directory",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_directory_access_rule",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_file_category",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_file_category_permission_rule",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_file_category_distribution_rule",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_file_category_training_rule",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_category_directory_binding",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_approval_position",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_position_assignment",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "role_id",
+              "type": "bigint",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "post_id",
+              "type": "bigint",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "department_id",
+              "type": "bigint",
+              "nullable": true,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_category_approval_route",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_category_approval_route_node",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_master",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file",
+                "column": "master_id",
+                "type": "bigint",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "source_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file",
+                "column": "source_file_id",
+                "type": "bigint",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "file_name",
+              "type": "varchar(256)",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file",
+                "column": "file_name",
+                "type": "varchar(256)",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "file_number",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file",
+                "column": "file_number",
+                "type": "varchar(64)",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "submitter_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file",
+                "column": "submitter_id",
+                "type": "bigint",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_print_record",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_route_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_external_file_review",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "deleted",
+              "type": "tinyint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_external_file_review",
+                "column": "deleted",
+                "type": "bit(1)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_signature",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "source_file_hash_status",
+              "type": "varchar(32)",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_signature",
+                "column": "source_file_hash_status",
+                "type": "varchar(32)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "controlled_copy_hash_status",
+              "type": "varchar(32)",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_signature",
+                "column": "controlled_copy_hash_status",
+                "type": "varchar(32)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "evidence_status",
+              "type": "varchar(32)",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_signature",
+                "column": "evidence_status",
+                "type": "varchar(32)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_electronic_signature_image",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_electronic_signature_authorization",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_approval_print_template",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "active",
+              "type": "tinyint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_approval_print_template",
+                "column": "active",
+                "type": "bit(1)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "deleted",
+              "type": "tinyint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_approval_print_template",
+                "column": "deleted",
+                "type": "bit(1)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_distribution",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_distribution_recipient",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_training",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_training_assignment",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_training_progress",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_training_view_session",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_message_job",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_nas_transfer_task",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "template_category_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "template_category_id",
+                "type": "bigint",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "effective_date",
+              "type": "date",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "effective_date",
+                "type": "date",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "last_failure_message",
+              "type": "varchar(2048)",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "last_failure_message",
+                "type": "varchar(512)",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "create_time",
+                "type": "datetime",
+                "nullable": "NO",
+                "extra": "DEFAULT_GENERATED",
+                "expression": ""
+              }
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "update_time",
+                "type": "datetime",
+                "nullable": "NO",
+                "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+                "expression": ""
+              }
+            },
+            {
+              "column": "deleted",
+              "type": "tinyint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task",
+                "column": "deleted",
+                "type": "bit(1)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_nas_transfer_task_item",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task_item",
+                "column": "create_time",
+                "type": "datetime",
+                "nullable": "NO",
+                "extra": "DEFAULT_GENERATED",
+                "expression": ""
+              }
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task_item",
+                "column": "update_time",
+                "type": "datetime",
+                "nullable": "NO",
+                "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+                "expression": ""
+              }
+            },
+            {
+              "column": "deleted",
+              "type": "tinyint",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file_nas_transfer_task_item",
+                "column": "deleted",
+                "type": "bit(1)",
+                "nullable": "NO",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_local_folder_upload_chunk",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_obsolete_audit",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_stamp",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_access_log",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "reason",
+              "type": "varchar(2000)",
+              "nullable": true,
+              "actual": {
+                "table": "dcc_controlled_file_access_log",
+                "column": "reason",
+                "type": "varchar(255)",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_controlled_file_access_event",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_watermark_trace",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_upload_policy",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_temporary_file",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_controlled_file_download_record",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "download_status",
+              "type": "varchar(32)",
+              "nullable": false,
+              "actual": {
+                "table": "dcc_controlled_file_download_record",
+                "column": "download_status",
+                "type": "varchar(32)",
+                "nullable": "YES",
+                "extra": "",
+                "expression": ""
+              }
+            }
+          ]
+        },
+        {
+          "table": "dcc_project_code",
+          "state": "exists",
+          "columns": [
+            {
+              "column": "associated_file_count",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_product_onboarding_request",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_project_code_alias_mapping",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_project_code_import_batch",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_project_code_import_row",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_directory_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_descriptor",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_ace",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_identity_mapping",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_restore_plan",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_restore_plan_item",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_nas_acl_restore_log",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260921_dcc_category_approval_route_action_type",
+      "root": false,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_category_approval_route",
+          "column": "action_type",
+          "type": "varchar(32)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_category_approval_route",
+            "column": "action_type",
+            "type": "varchar(32)",
+            "nullable": "NO",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260922_dcc_three_workflow_bpmn_seed",
+      "root": false,
+      "type": "seed",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260922_dcc_task_assignee_snapshot",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_a_lifecycle",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_workflow_lifecycle_event",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "event_key",
+              "type": "varchar(255)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "event_type",
+              "type": "varchar(32)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "previous_active_file_id",
+              "type": "bigint",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "version_no",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "approval_process_instance_id",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "occurred_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "delivery_status",
+              "type": "varchar(32)",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_workflow_obsolete_archive",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "obsolete_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "status",
+              "type": "varchar(32)",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_controlled_file_master",
+          "column": "latest_controlled_file_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "controlled_time",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "activated_time",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "distributed_time",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "column": "leader_user_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "column": "process_instance_id",
+          "type": "varchar(128)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "column": "assignment_signature_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "column": "assigned_time",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "distribution_payload_hash",
+          "type": "char(64)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_task_assignee_snapshot",
+          "column": "assignment_payload_hash",
+          "type": "char(64)",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20260923_dcc_three_workflow_candidate_strategy_fix",
+      "root": false,
+      "type": "seed",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+      "root": false,
+      "type": "seed",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_a_workflow_bpmn_v4",
+      "root": true,
+      "type": "seed",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_a_signature_workflow_round",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file_signature",
+          "column": "process_instance_id",
+          "type": "varchar(128)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_signature",
+          "column": "file_number_snapshot",
+          "type": "varchar(128)",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20260930_dcc_a_future_obsolete_policy",
+      "root": true,
+      "type": "seed",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260710_dcc_product_catalog_database",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_product_catalog",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_product_catalog",
+          "column": "tenant_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_product_catalog",
+            "column": "tenant_id",
+            "type": "bigint",
+            "nullable": "NO",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260903_dcc_explicit_data_relation",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_data_relation",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260920_dcc_project_product_create_approval",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_product_create_request",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_project_product_relation",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_project_product_identity_claim",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260719_dcc_file_type_taxonomy",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_file_type_taxonomy",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_file_category",
+          "column": "file_type_taxonomy_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_file_category",
+            "column": "file_type_taxonomy_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_type_taxonomy_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "file_type_taxonomy_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file_recognition_record",
+          "column": "file_type_taxonomy_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_recognition_record",
+            "column": "file_type_taxonomy_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260910_dcc_project_file_template",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_file_template_item",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_b_project_attributes_folders",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_application_attributes",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_code_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_type",
+              "type": "varchar(16)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_round",
+              "type": "int",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "default_source_json",
+              "type": "longtext",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "actual_attributes_json",
+              "type": "longtext",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "submitted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "creator",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "updater",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "deleted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_folder_template",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "name",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "description",
+              "type": "varchar(2048)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "active",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "structure_json",
+              "type": "longtext",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "edited_by_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "ever_used",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "creator",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "updater",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "deleted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_folder_template_history",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "template_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "operator_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "operation",
+              "type": "varchar(16)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "before_json",
+              "type": "longtext",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "after_json",
+              "type": "longtext",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "creator",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "updater",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "deleted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_project_folder",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_code_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "parent_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "name",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "sort_order",
+              "type": "int",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "active",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_template_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_node_key",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "creator",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "updater",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "deleted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_project_code",
+          "column": "project_leader_user_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_code",
+          "column": "default_attributes_json",
+          "type": "longtext",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "project_leader_user_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "default_attributes_json",
+          "type": "longtext",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "folder_template_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "folder_template_snapshot_json",
+          "type": "longtext",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20260917_dcc_controlled_file_name_claim",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p1",
+      "root": false,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file_master",
+          "column": "dcc_project_code_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_master",
+            "column": "dcc_project_code_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file_master",
+          "column": "file_type_taxonomy_leaf_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_master",
+            "column": "file_type_taxonomy_leaf_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file_master",
+          "column": "normalized_file_number",
+          "type": "varchar(64)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_master",
+            "column": "normalized_file_number",
+            "type": "varchar(64)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_code",
+          "type": "varchar(8)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "revision_code",
+            "type": "varchar(8)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "iteration_no",
+          "type": "int",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "iteration_no",
+            "type": "int",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p2",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_controlled_file_checkout",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_controlled_file",
+          "column": "checked_out_reason",
+          "type": "varchar(500)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "checked_out_reason",
+            "type": "varchar(500)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "predecessor_controlled_file_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "predecessor_controlled_file_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "source_sha256",
+          "type": "varchar(64)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "source_sha256",
+            "type": "varchar(64)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "previous_source_sha256",
+          "type": "varchar(64)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "previous_source_sha256",
+            "type": "varchar(64)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "change_description",
+          "type": "varchar(1000)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "change_description",
+            "type": "varchar(1000)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file_checkout",
+          "column": "cancel_reason",
+          "type": "varchar(500)",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_checkout",
+            "column": "cancel_reason",
+            "type": "varchar(500)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        },
+        {
+          "table": "dcc_controlled_file_checkout",
+          "column": "cancelled_time",
+          "type": "datetime",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file_checkout",
+            "column": "cancelled_time",
+            "type": "datetime",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p3",
+      "root": false,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_base_active_controlled_file_id",
+          "type": "bigint",
+          "state": "exists",
+          "actual": {
+            "table": "dcc_controlled_file",
+            "column": "revision_base_active_controlled_file_id",
+            "type": "bigint",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260930_dcc_c_revision_identity",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_change_type",
+          "type": "varchar(32)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_source_controlled_file_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_source_version_no",
+          "type": "varchar(64)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "selected_iteration_controlled_file_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "selected_iteration_version_no",
+          "type": "varchar(64)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "source_original_file_name",
+          "type": "varchar(256)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "source_original_file_name",
+          "type": "varchar(256)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "dcc_project_code_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "file_type_taxonomy_leaf_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "normalized_file_number",
+          "type": "varchar(128)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "obsolete_time",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "retain_until",
+          "type": "datetime",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "source_name_key",
+          "type": "varbinary(1024)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file_name_claim",
+          "column": "number_key",
+          "type": "varbinary(512)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "c_version_key",
+          "type": "varbinary(256)",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20260815_system_notify_message_business_key",
+      "root": false,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "system_notify_message",
+          "column": "business_key",
+          "type": "varchar(255)",
+          "state": "exists",
+          "actual": {
+            "table": "system_notify_message",
+            "column": "business_key",
+            "type": "varchar(255)",
+            "nullable": "YES",
+            "extra": "",
+            "expression": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "20260903_dcc_controlled_file_related_file",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_controlled_file_related_file",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260615_system_config_package_menu",
+      "root": false,
+      "type": "menu",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260717_bpm_form_center",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "bpm_form_template_version",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_form_action_policy",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_form_action_instance",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_form_action_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_form_task_permission",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_form_effect_execution",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260719_business_approval_policy",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "bpm_business_approval_policy",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "bpm_business_approval_request",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260719_dcc_upload_form_policy_seed",
+      "root": false,
+      "type": "data",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260720_dcc_publish_form_policy_seed",
+      "root": false,
+      "type": "data",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260906_dcc_new_file_lifecycle_p4",
+      "root": false,
+      "type": "data",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260907_dcc_publication_followup",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_publication_followup_batch",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_visibility_rule_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_visibility_user_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_notification_candidate",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_notification_candidate_reason",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_relation_snapshot",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_relation_direction_snapshot",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260907_dcc_publication_impact_assessment",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_publication_impact_task",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_impact_audit",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260907_dcc_publication_notification",
+      "root": false,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_publication_notification_delivery",
+          "state": "exists",
+          "columns": []
+        },
+        {
+          "table": "dcc_publication_notification_audit",
+          "state": "exists",
+          "columns": []
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_d_notification_template",
+      "root": true,
+      "type": "data",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20260930_dcc_d_relations",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_file_reference",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "folder_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "selected_controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "created_by",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "created_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_current_file_relation",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "related_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_current_file_relation_set",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "row_version",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_relation_change_command",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "actor_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "idempotency_key",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "payload_hash",
+              "type": "char(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "resulting_version",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "related_master_ids",
+              "type": "varchar(8192)",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_relation_arrangement",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_round",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "related_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "assignee_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "due_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "arranged_by",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_relation_controlled_event",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_round",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "event_key",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_relation_remediation_task",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "event_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "related_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "assignee_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "due_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "status",
+              "type": "varchar(16)",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        },
+        {
+          "table": "dcc_relation_notification_outbox",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "event_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "related_master_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "recipient_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "source_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "due_at",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "business_key",
+              "type": "varchar(192)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "status",
+              "type": "varchar(16)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "file_number_snapshot",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "version_no_snapshot",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "platform_message_id",
+              "type": "bigint",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "failure_code",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20261001_dcc_application_round_link",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_application_round_link",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_type",
+              "type": "varchar(16)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "application_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "bpm_round",
+              "type": "varchar(64)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "attribute_round",
+              "type": "int",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20261001_dcc_b_manual_project_folder_origin",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20261001_dcc_b_project_file_placement",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_file_placement",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_code_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "project_folder_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "controlled_file_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "storage_directory_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "creator",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "updater",
+              "type": "varchar(64)",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "create_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": true,
+              "actual": null
+            },
+            {
+              "column": "deleted",
+              "type": "bit",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": []
+    },
+    {
+      "id": "20261001_dcc_b_project_product_audit_intent",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "creation_reason",
+          "type": "varchar(500)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "write_attempt_no",
+          "type": "int",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "write_reason",
+          "type": "varchar(500)",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "write_operator_user_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20261001_dcc_b_reserved_draft_round",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_project_application_attributes",
+          "column": "source_application_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_project_application_attributes",
+          "column": "source_application_round",
+          "type": "int",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "id": "20261002_dcc_c_initial_candidate_identity",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20261003_dcc_approval_file_owner_snapshot",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_user_id",
+          "type": "BIGINT NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_username_snapshot",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_nickname_snapshot",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_signature_id",
+          "type": "BIGINT NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_approval_task_id",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_process_instance_id",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "file_owner_selected_time",
+          "type": "DATETIME NULL",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "id": "20261003_dcc_controlled_file_activation_job_registration",
+      "root": true,
+      "type": "config",
+      "created": [],
+      "additions": []
+    },
+    {
+      "id": "20261003_dcc_project_reviewer_configuration",
+      "root": true,
+      "type": "schema",
+      "created": [
+        {
+          "table": "dcc_project_reviewer_config",
+          "state": "missing",
+          "columns": [
+            {
+              "column": "tenant_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "reviewer_user_id",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "reviewer_username",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "reviewer_nickname",
+              "type": "varchar(128)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "version_no",
+              "type": "int",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "updated_by",
+              "type": "bigint",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "change_reason",
+              "type": "varchar(500)",
+              "nullable": false,
+              "actual": null
+            },
+            {
+              "column": "update_time",
+              "type": "datetime",
+              "nullable": false,
+              "actual": null
+            }
+          ]
+        }
+      ],
+      "additions": [
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "configured_reviewer_user_id",
+          "type": "BIGINT NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "configured_reviewer_username",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        },
+        {
+          "table": "dcc_project_product_create_request",
+          "column": "configured_reviewer_nickname",
+          "type": "VARCHAR(128) NULL",
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "id": "20261003_dcc_revision_failed_attempt_identity",
+      "root": true,
+      "type": "schema",
+      "created": [],
+      "additions": [
+        {
+          "table": "dcc_controlled_file",
+          "column": "revision_attempt_no",
+          "type": "int",
+          "state": "missing",
+          "actual": null
+        },
+        {
+          "table": "dcc_controlled_file",
+          "column": "rework_predecessor_controlled_file_id",
+          "type": "bigint",
+          "state": "missing",
+          "actual": null
+        }
+      ]
+    }
+  ],
+  "indexFacts": {
+    "dcc_category_approval_route.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_category_approval_route.uk_dcc_category_route_action_version": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "category_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "action_type",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "version_no",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_checkout.idx_dcc_checkout_actor": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 2,
+        "column": "actor_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 3,
+        "column": "status",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_checkout.idx_dcc_checkout_base_iteration": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 2,
+        "column": "base_iteration_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 3,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_checkout.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_checkout.uk_dcc_checkout_active_master": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "active_master_id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_checkout.uk_dcc_checkout_checkin_ticket": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "checkin_upload_ticket",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_master.idx_dcc_master_new_identity_lookup": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 2,
+        "column": "dcc_project_code_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 3,
+        "column": "file_type_taxonomy_leaf_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 4,
+        "column": "normalized_file_number",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_master.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_master.uk_dcc_controlled_file_master_chain": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "category_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "directory_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "file_name",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_master.uk_dcc_new_logical_file_identity": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "dcc_project_code_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "file_type_taxonomy_leaf_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 4,
+        "column": "normalized_file_number",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_name_claim.idx_dcc_file_name_claim_master": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 2,
+        "column": "master_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 3,
+        "column": "deleted",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_name_claim.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_name_claim.uk_dcc_file_name_claim_active": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "normalized_name",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "active_unique_flag",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_task_assignee_snapshot.idx_dcc_task_assignee_user": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 2,
+        "column": "assignee_user_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": false,
+        "position": 3,
+        "column": "stage_code",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_task_assignee_snapshot.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_task_assignee_snapshot.uk_dcc_task_assignee_obligation": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "controlled_file_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "stage_code",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 4,
+        "column": "department_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 5,
+        "column": "deleted",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_controlled_file_task_assignee_snapshot.uk_dcc_task_assignee_obligation_id": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "tenant_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "obligation_id",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 3,
+        "column": "deleted",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_product_catalog.idx_dcc_product_catalog_product": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "product",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_product_catalog.idx_dcc_product_catalog_product_code": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "product_code",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_product_catalog.idx_dcc_product_catalog_status": [
+      {
+        "unique": false,
+        "position": 1,
+        "column": "product_status",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_product_catalog.PRIMARY": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "id",
+        "prefix": "NULL"
+      }
+    ],
+    "dcc_product_catalog.uk_dcc_product_catalog_source_row": [
+      {
+        "unique": true,
+        "position": 1,
+        "column": "data_source",
+        "prefix": "NULL"
+      },
+      {
+        "unique": true,
+        "position": 2,
+        "column": "original_row_no",
+        "prefix": "NULL"
+      }
+    ]
+  },
+  "parserBoundary": "Column syntactic comparisons are review aids only; BIT without width is normalized to BIT(1). Legacy differences are not an instruction to reapply CREATE TABLE or overwrite history."
+}

@@ -26,6 +26,8 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -291,6 +293,46 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
 
         assertServiceException(() -> resolver.buildApproveUserSelectAssigneeMap(nodes),
                 CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+    }
+
+    @Test void selectedDepartmentAdditionRemovalRetainsSeparateObligationsForOneLeaderAndLaterActionCandidates() {
+        var original=selectedRoute("NEW");
+        when(deptApi.getDeptList(List.of(51L,52L))).thenReturn(List.of(dept(51L,"生产",99L),dept(52L,"质量",99L)));
+        var selected=resolver.withSelectedSignoffDepartments(original,List.of(52L,51L));
+        assertEquals(List.of(51L,52L),selected.nodes().get(0).candidateSourceIds());
+        assertEquals(List.of(99L,99L),selected.nodes().get(0).resolvedUserIds());
+        assertEquals(Boolean.TRUE,selected.nodes().get(0).requireAllApprovals());
+        assertSame(original.nodes().get(1),selected.nodes().get(1));assertSame(original.nodes().get(2),selected.nodes().get(2));
+        assertEquals(List.of(40L),original.nodes().get(0).candidateSourceIds());
+        verify(deptApi).validateDeptList(List.of(51L,52L));verify(adminUserApi).validateUserList(List.of(99L,99L));
+    }
+    @Test void selectedDepartmentsMustBeNonemptyPositiveAndUniqueBeforeAnyDirectoryLookup() {
+        for(var selected:List.of(List.<Long>of(),List.of(51L,51L),List.of(0L),List.of(-1L)))
+            assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("REVISION"),selected),CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        verifyNoInteractions(deptApi,adminUserApi);
+    }
+    @Test void aSelectedDepartmentMissingItsLeaderIsNotFilledFromTheDefaultDepartment() {
+        when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L,"质量",null)));
+        assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("NEW"),List.of(51L)),ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        verify(adminUserApi,never()).validateUserList(any());
+    }
+    @Test void duplicateDirectoryIdentitiesCannotCreateAmbiguousSelectedDepartmentLeaders() {
+        when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L,"质量",99L),dept(51L,"重复",100L)));
+        assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("NEW"),List.of(51L)),ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        verify(adminUserApi,never()).validateUserList(any());
+    }
+    @Test void obsoleteDepartmentSelectionStillContainsOnlyItsTwoConfiguredStages() {
+        var all=selectedRoute("OBSOLETE");var obsolete=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(all.route(),all.nodes().subList(0,2));
+        when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L,"质量",99L)));
+        var resolved=resolver.withSelectedSignoffDepartments(obsolete,List.of(51L));
+        assertEquals(List.of("MATRIX_REVIEW","MATRIX_APPROVAL"),resolved.nodes().stream().map(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode::stageCode).toList());
+        assertSame(obsolete.nodes().get(1),resolved.nodes().get(1));
+    }
+    private DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute selectedRoute(String action) {
+        return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(DccCategoryApprovalRouteDO.builder().id(20L).actionType(action).build(),List.of(
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(1,"MATRIX_REVIEW","会签",1,"DEPT",40L,List.of(40L),"ALL",100,true,List.of(90L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(2,"MATRIX_APPROVAL","批准",2,"USER",100L,List.of(100L),"ANY",null,false,List.of(100L)),
+                new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(3,"DOC_CONTROL_REVIEW","文控审核",3,"USER",101L,List.of(101L),"ANY",null,false,List.of(101L))));
     }
 
     private DccCategoryApprovalRouteNodeDO routeNode(Integer stageNo, String stageCode, String candidateSourceType,

@@ -76,6 +76,9 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationSer
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRevisionOptions;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileApplicationEvidence;
+import cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationAttributes;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceMigrationService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernanceBatchService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSourceGovernancePostflightService;
@@ -151,6 +154,8 @@ public class DccControlledFileController {
     @Resource
     private DccControlledFileWorkflowService workflowService;
     @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.DccPublicUploadPlacementService publicUploadPlacementService;
+    @Resource
     private DccElectronicSignatureManagementService signatureManagementService;
     @Resource
     private DccControlledFileFinalizationService finalizationService;
@@ -199,7 +204,7 @@ public class DccControlledFileController {
 
     @PostMapping("/upload-preview")
     @Operation(summary = "Upload one controlled file before submit")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') or (#reqVO.purpose == 'APPROVAL_PDF' and @ss.hasPermission('dcc:controlled-file:approve'))")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') or ((#reqVO.purpose == 'APPROVAL_PDF' or #reqVO.purpose == 'TRAINING_RECORD') and @ss.hasPermission('dcc:controlled-file:approve'))")
     public CommonResult<DccControlledFileUploadRespVO> uploadPreviewFile(@Valid DccControlledFileUploadPreviewReqVO reqVO,
                                                                          HttpServletRequest request)
             throws Exception {
@@ -296,7 +301,7 @@ public class DccControlledFileController {
     public CommonResult<DccControlledFileRouteReadinessRespVO> previewRoute(
             @Valid @RequestBody DccControlledFileRoutePreviewReqVO reqVO) {
         return success(workflowService.previewRoute(getLoginUserId(), reqVO.getCategoryId(),
-                reqVO.getSelectedSignoffUserIds(), reqVO.getActionType()));
+                reqVO.getSelectedSignoffUserIds(), reqVO.getSelectedSignoffDepartmentIds(), reqVO.getActionType()));
     }
 
     @GetMapping("/upload-name-options")
@@ -311,8 +316,11 @@ public class DccControlledFileController {
     @PostMapping("/submit")
     @Operation(summary = "Submit one new controlled file and start approval")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public CommonResult<Long> submitControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
-        return success(workflowService.submitControlledFile(getLoginUserId(), reqVO));
+        Long actorId = getLoginUserId();
+        return success(publicUploadPlacementService.create(actorId, reqVO,
+                () -> workflowService.submitControlledFile(actorId, reqVO)));
     }
 
     @GetMapping("/current-version")
@@ -339,8 +347,11 @@ public class DccControlledFileController {
     @PostMapping("/working")
     @Operation(summary = "Create a WORKING controlled file iteration without starting approval")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public CommonResult<Long> createWorkingControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
-        return success(workflowService.createWorkingControlledFile(getLoginUserId(), reqVO));
+        Long actorId = getLoginUserId();
+        return success(publicUploadPlacementService.create(actorId, reqVO,
+                () -> workflowService.createWorkingControlledFile(actorId, reqVO)));
     }
 
     @PostMapping("/{id:\\d+}/submit")
@@ -453,6 +464,65 @@ public class DccControlledFileController {
     @PreAuthorize("isAuthenticated()")
     public CommonResult<DccControlledFileRespVO> getControlledFile(@PathVariable("id") Long id) {
         return success(queryService.getControlledFile(getLoginUserId(), id));
+    }
+
+    @GetMapping("/{id:\\d+}/revision-options")
+    @Operation(summary = "Read formal revision preparation for the selected controlled baseline")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccControlledFileRevisionOptions> getRevisionOptions(@PathVariable("id") Long id) {
+        return success(queryService.getRevisionOptions(getLoginUserId(), id));
+    }
+
+    @GetMapping("/{id:\\d+}/application-evidence")
+    @Operation(summary = "Read immutable application attributes and signatures for one formal BPM round")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
+    public CommonResult<DccControlledFileApplicationEvidence> getApplicationEvidence(
+            @PathVariable("id") Long id, @RequestParam("applicationType") String applicationType,
+            @RequestParam("bpmRound") String bpmRound) {
+        return success(queryService.getApplicationEvidence(getLoginUserId(), id, applicationType, bpmRound));
+    }
+
+    @GetMapping("/{id:\\d+}/application-rounds")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
+    public CommonResult<List<cn.iocoder.yudao.module.dcc.service.file.DccApplicationRoundSummary>> listApplicationRounds(
+            @PathVariable("id") Long id) {
+        return success(queryService.listApplicationRounds(getLoginUserId(), id));
+    }
+
+    @GetMapping("/{id:\\d+}/relation-permissions")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.service.file.DccFileRelationPermissions> getRelationPermissions(
+            @PathVariable("id") Long id) {
+        return success(queryService.getRelationPermissions(getLoginUserId(), id));
+    }
+
+    @GetMapping("/{id:\\d+}/working-attributes")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccWorkingApplicationAttributes> readWorkingApplicationAttributes(@PathVariable("id") Long id) {
+        return success(workflowService.readWorkingApplicationAttributes(getLoginUserId(),id));
+    }
+    @GetMapping("/{id:\\d+}/replacement-attributes")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<DccWorkingApplicationAttributes> readReplacementApplicationAttributes(
+            @PathVariable("id") Long selectedIterationId,@org.springframework.web.bind.annotation.RequestParam("controlledBaselineId") Long controlledBaselineId) {
+        return success(workflowService.readReplacementApplicationAttributes(getLoginUserId(),selectedIterationId,controlledBaselineId));
+    }
+
+    @PostMapping("/{id:\\d+}/working-attributes/restore")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Boolean> restoreWorkingApplicationAttributes(@PathVariable("id") Long id) {
+        workflowService.restoreWorkingApplicationAttributes(getLoginUserId(),id);
+        return success(true);
+    }
+
+    @PostMapping("/{id:\\d+}/working-attributes")
+    @Operation(summary = "Save actual attributes of an authorized existing working application")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<Boolean> saveWorkingApplicationAttributes(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual) {
+        workflowService.saveWorkingApplicationAttributes(getLoginUserId(), id, actual);
+        return success(true);
     }
 
     @PostMapping("/{id:\\d+}/checkout")

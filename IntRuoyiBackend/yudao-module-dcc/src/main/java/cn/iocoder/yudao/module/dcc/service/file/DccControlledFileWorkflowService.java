@@ -27,11 +27,13 @@ public interface DccControlledFileWorkflowService {
     DccProjectProductRespVO previewProjectProduct(Long userId, Long projectCodeId);
 
     void validateApprovalPdfUpload(Long userId, Long fileId, String taskId, Long categoryId, String sessionId);
+    void validateTrainingRecordUpload(Long userId,Long fileId,Long categoryId,String sessionId);
 
     void validateSourceUploadContext(Long userId, DccControlledFileUploadPreviewReqVO request);
 
     DccControlledFileRouteReadinessRespVO previewRoute(Long userId, Long categoryId,
-                                                       List<Long> selectedSignoffUserIds, String actionType);
+                                                       List<Long> selectedSignoffUserIds,
+                                                       List<Long> selectedSignoffDepartmentIds, String actionType);
 
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber);
     DccControlledFileCurrentVersionRespVO getCurrentVersionByFileNumber(Long userId, String fileNumber,
@@ -41,6 +43,13 @@ public interface DccControlledFileWorkflowService {
     Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 
     Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
+    DccWorkingApplicationAttributes readWorkingApplicationAttributes(Long userId, Long fileId);
+    DccWorkingApplicationAttributes readReplacementApplicationAttributes(Long userId,Long selectedIterationId,Long controlledBaselineId);
+
+    void restoreWorkingApplicationAttributes(Long userId, Long fileId);
+
+    void saveWorkingApplicationAttributes(Long userId, Long fileId,
+            cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual);
 
     Long submitWorkingIteration(Long userId, Long iterationId, DccControlledFileSubmitIterationReqVO reqVO);
 
@@ -73,4 +82,6 @@ public interface DccControlledFileWorkflowService {
     void transferTask(Long userId, Long id, DccControlledFileTransferTaskReqVO reqVO);
 
     void createSignTask(Long userId, Long id, DccControlledFileCreateSignTaskReqVO reqVO);
+
+    void assignSignoff(Long userId, Long id, cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignoffAssignmentReqVO request);
 }

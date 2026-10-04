@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "migrationCount": 6,
+  "migrations": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "file": "sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260921_dcc_category_approval_route_action_type",
+      "file": "sql/mysql/20260921_dcc_category_approval_route_action_type.sql",
+      "sha256": "39599767147aaa1645d610c52c8f6113f30e39485452e082acec992ae80a714e",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_task_assignee_snapshot",
+      "file": "sql/mysql/20260922_dcc_task_assignee_snapshot.sql",
+      "sha256": "2143d36b3255d639f21bc00f7495bd97c674255151b7cdff2462669e02ce3641",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_three_workflow_bpmn_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_three_workflow_bpmn_seed",
+      "file": "sql/mysql/20260922_dcc_three_workflow_bpmn_seed.sql",
+      "sha256": "cd8cb4b2cadcda67086750df13071d6e6649310283e9a55d650b4bd51d15c63d",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260921_dcc_category_approval_route_action_type"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_a_lifecycle",
+      "file": "sql/mysql/20260930_dcc_a_lifecycle.sql",
+      "sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_task_assignee_snapshot"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261003_dcc_controlled_file_activation_job_registration",
+      "file": "sql/mysql/20261003_dcc_controlled_file_activation_job_registration.sql",
+      "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+      "type": "config",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle"
+      ],
+      "riskLevel": "medium"
+    }
+  ]
+}

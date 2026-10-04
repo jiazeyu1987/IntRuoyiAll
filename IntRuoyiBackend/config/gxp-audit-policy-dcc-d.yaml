@@ -1,0 +1,52 @@
+schemaVersion: gxp-audit-policy.v1
+# D-owned extension for management to register in the existing unified policy, before enabling these APIs.
+# Approval/reference and retention rules remain those of the existing approved DCC policy, not guessed here.
+operations:
+  - operationId: dcc.project-reference.create
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService#create
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [D-08, D-09, D-12]
+  - operationId: dcc.project-reference.cancel
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccProjectReferenceService#cancel
+    actionType: DELETE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_ABSENT
+    owner: dcc-d
+    testIds: [D-08, D-10, D-12]
+  - operationId: dcc.relation.replace
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceImpl#replaceCurrentRelations
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [D-01, D-04, D-12]
+  - operationId: dcc.relation.arrange
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService#saveArrangements
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [D-06, D-07]
+  - operationId: dcc.relation.controlled
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService#recordControlled
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [D-03, D-06, D-07]
+  - operationId: dcc.relation.notification.retry
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationNotificationRecoveryService#requestRetry
+    actionType: RETRY
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    owner: dcc-d
+    testIds: [D-06M, D-07A]

@@ -40,6 +40,13 @@ public class DccControlledFileDO extends BaseDO {
     private String fileName;
     private String title;
     private String fileNumber;
+    private Long fileOwnerUserId;
+    private String fileOwnerUsernameSnapshot;
+    private String fileOwnerNicknameSnapshot;
+    private Long fileOwnerSignatureId;
+    private String fileOwnerApprovalTaskId;
+    private String fileOwnerProcessInstanceId;
+    private LocalDateTime fileOwnerSelectedTime;
     private Long productMasterId;
     private String productCode;
     private String productName;
@@ -58,6 +65,16 @@ public class DccControlledFileDO extends BaseDO {
     private String processType;
     private String changeType;
     private String versionNo;
+    /** Actual formal submission intent; null on unclassified historical/working rows. */
+    private String revisionChangeType;
+    private Integer revisionAttemptNo;
+    private Long reworkPredecessorControlledFileId;
+    private Long revisionSourceControlledFileId;
+    private String revisionSourceVersionNo;
+    private Long selectedIterationControlledFileId;
+    private String selectedIterationVersionNo;
+    /** Exact original source filename, including case and extension. */
+    private String sourceOriginalFileName;
     private String revisionCode;
     private Integer iterationNo;
     private Long predecessorControlledFileId;
@@ -79,6 +96,10 @@ public class DccControlledFileDO extends BaseDO {
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
+    private LocalDateTime controlledTime;
+    private LocalDateTime activatedTime;
+    private LocalDateTime distributedTime;
+    private String distributionPayloadHash;
     private LocalDateTime rejectedTime;
     private LocalDateTime stampedTime;
     private Long obsoletedBy;

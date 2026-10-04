@@ -1,0 +1,27 @@
+{
+  "status": "BLOCKED_ACTUAL_QA_AND_EXACT26_PERMISSION_MISSING",
+  "actualDatabaseExecutor": false,
+  "candidatePolicyHash": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "coverageHash": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+  "requiredScopeCount": 26,
+  "maximumQualityVersionInsert": 1,
+  "separateAuthorizationFlags": [
+    "@dcc_gxp26_tenant1_write_authorized",
+    "@dcc_gxp26_quality_version_write_authorized"
+  ],
+  "requiredQualityInputs": [
+    "approved",
+    "approverName",
+    "qualityRoleBasis",
+    "qualityRoleId",
+    "approvedBy",
+    "approvedAt",
+    "timeZone",
+    "approvalReference",
+    "qualitySignatureEvidenceReference"
+  ],
+  "postflightMethod": "Validate actual rows through pure plan with real approved input; assert insertCount==0 and all baseline non-target/preexisting rows unchanged; old publish09 fullrowhash unchanged",
+  "mysqlFirstRepeatExecuted": false,
+  "mysqlMode": "Fresh session SERIALIZABLE, strict mode, UTF8 unicode_ci exact sourceUUID, +08:00; routine collisions fail no preDROP/force; owner-specific cleanup after actual evidence only",
+  "originalG22Preserved": true
+}

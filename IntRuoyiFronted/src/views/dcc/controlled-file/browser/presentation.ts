@@ -43,12 +43,12 @@ export const getBrowserCurrentVersionSourceText = (file?: BrowserVersionSummaryS
   const currentActiveVersionNo = String(file?.currentActiveVersionNo || '').trim()
   const versionNo = String(file?.versionNo || '').trim()
   if (file?.status === 'ACTIVE' && currentActiveVersionNo && currentActiveVersionNo === versionNo) {
-    return `当前有效版来源：master 当前生效版本 ${versionNo}`
+    return `当前受控版本来源：master 当前执行版本 ${versionNo}`
   }
   if (file?.status === 'ACTIVE' && !currentActiveVersionNo) {
-    return `当前有效版来源：当前列表 ACTIVE 版本 ${versionNo || '-'}`
+    return `当前受控版本来源：当前列表 ACTIVE 版本 ${versionNo || '-'}`
   }
-  return '当前有效版来源：非当前有效版'
+  return '当前受控版本来源：非当前受控版本'
 }
 
 export const getBrowserStatusLabel = (status: string | undefined) =>
@@ -68,7 +68,7 @@ export const getBrowserVersionSummary = (
   isSelectedVersionModifying: boolean
 ) => {
   const isCurrentActiveVersion = isLatestVersionSelected && version.status === 'ACTIVE'
-  const versionKindText = isCurrentActiveVersion ? '当前有效版' : isLatestVersionSelected ? '最新版' : '历史版'
+  const versionKindText = isCurrentActiveVersion ? '当前受控版本' : isLatestVersionSelected ? '最新版本' : '历史版'
   const versionKindTagType: DccControlledFileTagType = isLatestVersionSelected ? 'success' : 'info'
 
   return {

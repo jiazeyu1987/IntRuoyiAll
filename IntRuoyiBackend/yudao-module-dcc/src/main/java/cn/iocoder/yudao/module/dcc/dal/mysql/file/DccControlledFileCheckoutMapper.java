@@ -30,6 +30,15 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
     DccControlledFileCheckoutDO selectActiveByMasterId(@Param("tenantId") Long tenantId,
                                                        @Param("masterId") Long masterId);
 
+    /** Current logical edit lock for read projections; never takes lifecycle write locks. */
+    @Select("""
+            SELECT * FROM dcc_controlled_file_checkout
+            WHERE tenant_id = #{tenantId} AND master_id = #{masterId}
+              AND status = 'ACTIVE' AND deleted = 0
+            """)
+    DccControlledFileCheckoutDO selectActiveByMasterIdForRead(@Param("tenantId") Long tenantId,
+                                                            @Param("masterId") Long masterId);
+
     @Select("""
             SELECT *
             FROM dcc_controlled_file_checkout

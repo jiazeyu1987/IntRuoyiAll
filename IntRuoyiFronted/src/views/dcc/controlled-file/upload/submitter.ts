@@ -5,6 +5,8 @@ import type {
   ControlledFileUploadRespVO,
   UploadPreviewPurpose
 } from '@/api/dcc/controlledFile/workflow'
+import { validateAttributes } from '../project-attributes/state'
+import type { ProjectAttributes } from '../project-attributes/state'
 
 export interface UploadFormDraft {
   categoryId: number | null
@@ -13,17 +15,21 @@ export interface UploadFormDraft {
   fileNumber: string
   productMasterId: number | null
   productCode: string
-  dccProjectCodeId: number | null
+  dccProjectCodeId: number | string | null
+  projectFolderId?: string | null
+  projectFolderChangeReason?: string
   fileTypeTaxonomyId: number | null
   revisionTargetControlledFileId: number | null
   revisionSourceControlledFileId: number | null
-  relatedControlledFileIds: number[]
+  relatedControlledFileIds: string[]
   needTraining: boolean
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
   versionNo?: string
   effectiveDate: string
   remark?: string
+  projectAttributes?: ProjectAttributes
+  selectedSignoffDepartmentIds?: Array<number | string>
 }
 
 export interface UploadSelectionCandidate {
@@ -48,6 +54,58 @@ export interface UploadSubmitFailureFeedback {
 
 export interface UploadSubmitFieldErrors {
   versionNo?: string
+}
+
+export interface UploadConfirmationRow { label: string; value: string }
+export interface UploadConfirmationFacts {
+  projectName?: string
+  folderName?: string
+  fileTypeName?: string
+  relatedFiles: Array<{ fileName: string; versionNo: string; pendingEffect?: boolean }>
+  signoffDepartments?: Array<{ id: string; name: string }>
+  approvers: Array<{ id: string; name: string; deptName?: string }>
+  approvalRule: string
+}
+
+const confirmedText = (value: string | undefined, field: string): string => {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`提交确认缺少${field}`)
+  return value
+}
+
+export const buildUploadConfirmationSummary = (
+  draft: UploadFormDraft, preview: Pick<ControlledFileUploadRespVO, 'fileName'>, facts: UploadConfirmationFacts
+): UploadConfirmationRow[] => {
+  const rows: UploadConfirmationRow[] = []
+  if (draft.processType === 'CONTROLLED_FILE') {
+    rows.push({ label: '项目', value: confirmedText(facts.projectName, '项目') },
+      { label: '存储文件夹', value: confirmedText(facts.folderName, '项目文件夹') },
+      { label: '文件类型', value: confirmedText(facts.fileTypeName, '文件类型') })
+  } else {
+    rows.push({ label: '文件类别', value: confirmedText(facts.fileTypeName, '文件类别') })
+  }
+  rows.push({ label: '完整文件名称（含后缀）', value: confirmedText(preview.fileName, '源文件完整名称') },
+    { label: '文件编号', value: confirmedText(draft.fileNumber, '文件编号') },
+    { label: draft.processType === 'CONTROLLED_FILE' ? '初始版本号' : '版本号', value: confirmedText(draft.versionNo, '版本号') },
+    { label: '预设生效日期', value: confirmedText(draft.effectiveDate, '预设生效日期') })
+  if (draft.processType === 'CONTROLLED_FILE') {
+    const actual = validateAttributes(draft.projectAttributes as ProjectAttributes)
+    const choices: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
+    rows.push({ label: '目标市场', value: actual.targetMarkets.map(market =>
+      market === 'OTHER' ? `其他：${actual.otherMarket}` : market === 'NA' ? '不适用' : market).join('、') },
+    { label: '注册／生产身份', value: `注册人：${choices[actual.licenseHolder!]}；生产方：${choices[actual.actualManufacturer!]}` },
+    { label: '文件转移', value: `文件转移：${choices[actual.documentTransfer!]}${actual.documentTransfer === 'Y' ? `；转移至：${actual.transferTo}` : ''}` })
+    if (!Array.isArray(facts.relatedFiles)) throw new Error('提交确认缺少关联选择')
+    rows.push({ label: '关联文件', value: facts.relatedFiles.length ? facts.relatedFiles.map(file =>
+      `${confirmedText(file.fileName, '关联文件名称')} · ${confirmedText(file.versionNo, '关联受控版本')}${file.pendingEffect ? ' · 待生效' : ''}`).join('；') : '未关联' })
+    if (!Array.isArray(facts.signoffDepartments) || !facts.signoffDepartments.length) throw new Error('提交确认缺少会签部门')
+    rows.push({ label: '会签部门', value: facts.signoffDepartments.map(department => confirmedText(department.name, '会签部门名称')).join('、') })
+  }
+  if (!Array.isArray(facts.approvers) || !facts.approvers.length) throw new Error('提交确认缺少批准人')
+  rows.push({ label: '批准人', value: facts.approvers.map(account =>
+    `${confirmedText(account.name, '批准人名称')}${account.deptName ? `（${account.deptName}）` : ''} · 账号ID ${confirmedText(account.id, '批准人身份')}`).join('；') },
+    { label: '批准规则', value: confirmedText(facts.approvalRule, '批准规则') })
+  if (draft.processType === 'CONTROLLED_FILE') rows.push({ label: '培训', value: draft.needTraining ? '需要培训' : '不需要培训' })
+  return rows
 }
 
 interface UploadSubmitterServiceDeps {
@@ -342,6 +400,20 @@ export const clearSubmitFieldErrors = (fieldErrors: UploadSubmitFieldErrors) => 
   fieldErrors.versionNo = ''
 }
 
+const uploadIdentity = (value: number | string | null | undefined): string => {
+  if (value == null || (typeof value === 'number' && !Number.isSafeInteger(value))
+    || !/^[1-9][0-9]*$/.test(String(value)) || BigInt(String(value)) > 9223372036854775807n) {
+    throw new Error('请选择有效的项目文件夹或关联文件')
+  }
+  return String(value)
+}
+
+const placementReason = (value?: string): string => {
+  const reason = value?.trim()
+  if (!reason || reason.length > 500) throw new Error('请填写500字以内的文件夹登记说明')
+  return reason
+}
+
 export const buildSubmitPayload = (
   draft: UploadFormDraft,
   previewFile: ControlledFileUploadRespVO,
@@ -365,10 +437,15 @@ export const buildSubmitPayload = (
   productMasterId: null,
   productCode: trimText(draft.productCode) || undefined,
   dccProjectCodeId: draft.dccProjectCodeId ?? undefined,
+  projectFolderId: draft.processType === 'EXTERNAL_REVIEW' ? undefined : uploadIdentity(draft.projectFolderId),
+  projectFolderChangeReason: draft.processType === 'EXTERNAL_REVIEW' ? undefined : placementReason(draft.projectFolderChangeReason),
   fileTypeTaxonomyId: draft.fileTypeTaxonomyId ?? undefined,
   revisionTargetControlledFileId: draft.revisionTargetControlledFileId ?? undefined,
   revisionSourceControlledFileId: draft.revisionSourceControlledFileId ?? undefined,
-  relatedControlledFileIds: [...(draft.relatedControlledFileIds ?? [])],
+  relatedControlledFileIds: (draft.relatedControlledFileIds ?? []).map(uploadIdentity),
+  projectAttributes: draft.processType === 'EXTERNAL_REVIEW' ? undefined
+    : JSON.parse(JSON.stringify(validateAttributes(draft.projectAttributes as ProjectAttributes))),
+  selectedSignoffDepartmentIds: draft.selectedSignoffDepartmentIds === undefined ? undefined : [...draft.selectedSignoffDepartmentIds],
   needTraining: Boolean(draft.needTraining),
   processType: draft.processType,
   changeType: draft.changeType,

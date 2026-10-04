@@ -26,10 +26,9 @@ class DccNewFileInitialVersionTest {
     }
 
     @Test
-    void storedLegacyInitialCanBeResubmittedWithoutReopeningPublicUploadFormat() {
-        assertEquals("A/1", DccWindchillVersionNumber.parseStoredInitial("V1.0").display());
+    void storedLegacyInitialIsNotReclassifiedByGuessing() {
+        assertEquals(null, DccWindchillVersionNumber.parseStoredInitial("V1.0"));
         assertEquals("A/1", DccWindchillVersionNumber.parseStoredInitial("A/1").display());
-        assertEquals("A/2", DccWindchillVersionNumber.parseStoredInitial("V1.0").nextIteration().display());
         assertEquals(null, DccWindchillVersionNumber.parseStoredInitial("V1.1"));
     }
 
@@ -37,7 +36,7 @@ class DccNewFileInitialVersionTest {
     void versionNumberAdvancesOnlyOnExplicitServerOperation() {
         assertEquals("A/2", DccWindchillVersionNumber.parse("A/1").nextIteration().display());
         assertEquals("B/1", DccWindchillVersionNumber.parse("A/9").nextRevision().display());
-        assertEquals("AA/1", DccWindchillVersionNumber.parse("Z/2").nextRevision().display());
+        assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.parse("Z/2").nextRevision());
     }
 
     @Test

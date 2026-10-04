@@ -1,0 +1,12 @@
+[
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccProjectBrowserMapper.java",
+    "sha256": "1eb52b2e2b1c31555acfa1239d36e0496c20fc7ea583f0590c9a13311075165e",
+    "utf8LfSha256": "1eb52b2e2b1c31555acfa1239d36e0496c20fc7ea583f0590c9a13311075165e"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectBrowserScopeIntegrationTest.java",
+    "sha256": "6553d11e63f5eec7a2843de38e0530d6eecf3522b5b041b3dd3a1e11b1e6e15d",
+    "utf8LfSha256": "c1447409ac4483aadfe856cd2153e27573cd580f1916599207ca1e6fe8890401"
+  }
+]

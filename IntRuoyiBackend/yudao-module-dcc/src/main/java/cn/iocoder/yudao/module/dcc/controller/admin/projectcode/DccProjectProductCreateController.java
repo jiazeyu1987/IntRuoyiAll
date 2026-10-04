@@ -32,12 +32,32 @@ public class DccProjectProductCreateController {
 
     @Resource
     private DccProjectProductCreateService service;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService reviewerConfiguration;
+
+    @GetMapping("/reviewer-config")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService.View> getReviewerConfig() {
+        return success(reviewerConfiguration.get());
+    }
+    @org.springframework.web.bind.annotation.PutMapping("/reviewer-config")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:update') and @ss.hasRole('doc_control')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService.View> saveReviewerConfig(
+            @Valid @RequestBody cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService.Save request) {
+        return success(reviewerConfiguration.save(getLoginUserId(),request));
+    }
 
     @PostMapping("/create")
     @Operation(summary = "创建 DCC 项目代码与产品目录联合新建申请")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:create')")
     public CommonResult<Long> create(@Valid @RequestBody DccProjectProductCreateReqVO reqVO) {
         return success(service.createRequest(getLoginUserId(), reqVO));
+    }
+    @PostMapping("/{id:\\d+}/resubmit")
+    @Operation(summary = "原申请人修改驳回申请后重新提交")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:create')")
+    public CommonResult<Long> resubmit(@PathVariable("id") Long id,
+                                      @Valid @RequestBody DccProjectProductCreateReqVO reqVO) {
+        return success(service.resubmitRejectedRequest(getLoginUserId(), id, reqVO));
     }
 
     @GetMapping("/pending")
@@ -84,8 +104,9 @@ public class DccProjectProductCreateController {
     @PostMapping("/{id:\\d+}/retry-write")
     @Operation(summary = "重试写入 DCC 项目代码与产品目录")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
-    public CommonResult<DccProjectProductCreateRespVO> retryWrite(@PathVariable("id") Long id) {
-        return success(toResp(service.retryWrite(getLoginUserId(), id)));
+    public CommonResult<DccProjectProductCreateRespVO> retryWrite(@PathVariable("id") Long id,
+            @Valid @RequestBody DccProjectProductApprovalActionReqVO reqVO) {
+        return success(toResp(service.retryWrite(getLoginUserId(), id, reqVO.getReason())));
     }
 
     private DccProjectProductCreateRespVO toResp(Object item) {

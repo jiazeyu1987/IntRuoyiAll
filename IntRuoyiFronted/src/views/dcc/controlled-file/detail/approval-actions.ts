@@ -15,6 +15,8 @@ export type DccApprovalActionMode = 'approve' | 'reject'
 export interface DccApprovalActionForm {
   password: string
   reason: string
+  fileOwnerUserId?: string | number
+  fileOwnerRequired?: boolean
   sessionId?: string
   stampedPdfUploadTicket?: string
   confirmedDirectoryId?: number
@@ -24,6 +26,7 @@ export interface DccApprovalActionForm {
 export interface DccApprovalActionValidationErrors {
   password?: string
   reason?: string
+  fileOwnerUserId?: string
 }
 
 export interface DccApprovalActionSubmitResult {
@@ -124,6 +127,12 @@ export const validateDccApprovalActionForm = (
   if (!form.reason?.trim()) {
     errors.reason = mode === 'reject' ? '请输入驳回原因' : '请输入审批意见'
   }
+  if (mode === 'approve' && form.fileOwnerRequired) {
+    const value = form.fileOwnerUserId
+    if ((typeof value !== 'string' && typeof value !== 'number') || (typeof value === 'number' && !Number.isSafeInteger(value))
+      || !/^[1-9][0-9]*$/.test(String(value)) || BigInt(String(value)) > 9223372036854775807n)
+      errors.fileOwnerUserId = '请选择正式启用文件负责人，账号身份必须精确'
+  }
   return errors
 }
 
@@ -166,6 +175,7 @@ export const submitDccApprovalAction = async ({
       inlineError: errors.reason
     }
   }
+  if (errors.fileOwnerUserId) return { success: false, field: 'fileOwnerUserId', inlineError: errors.fileOwnerUserId }
 
   try {
     let response: DccSignatureActionRespVO
@@ -174,6 +184,7 @@ export const submitDccApprovalAction = async ({
         taskId,
         password: form.password,
         reason: form.reason.trim(),
+        ...(form.fileOwnerRequired ? { fileOwnerUserId: String(form.fileOwnerUserId) } : {}),
         sessionId: form.sessionId,
         stampedPdfUploadTicket: form.stampedPdfUploadTicket,
         confirmedDirectoryId: form.confirmedDirectoryId,

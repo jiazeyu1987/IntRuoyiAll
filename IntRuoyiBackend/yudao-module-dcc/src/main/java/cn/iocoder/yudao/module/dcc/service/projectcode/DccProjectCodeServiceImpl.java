@@ -165,6 +165,10 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     @Resource
     private PermissionApi permissionApi;
     @Resource
+    private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderMapper projectFolderMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectApplicationAttributesMapper projectAttributesMapper;
+    @Resource
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @Resource
     private MdmProductApi productApi;
@@ -191,6 +195,9 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     public void deleteProjectCode(Long id) {
         validateProjectCodeExists(id);
         validateProjectCodeDeletable(id);
+        if (!projectFolderMapper.listByProject(id).isEmpty() || projectAttributesMapper.selectCount(cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectApplicationAttributesDO::getProjectCodeId, id) > 0) {
+            throw exception(PROJECT_CODE_DELETE_REFERENCED);
+        }
         projectCodeMapper.deleteById(id);
     }
 
@@ -202,6 +209,22 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         }
         List<DccProjectCodeDO> sortedList = listProjectCodesInDisplayOrder(reqVO, scopedProjectCodeIds);
         return buildPageResult(sortedList, reqVO);
+    }
+
+    /** Public discovery uses formal project rules before all filters/sorting/pagination; legacy business scope is separate. */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<DccProjectCodeDO> getReadableProjectCodePage(Long userId, DccProjectCodePageReqVO reqVO) {
+        List<Long> readable = projectAccess.listReadableProjectIds(userId);
+        if (readable.isEmpty()) return new PageResult<>(List.of(), 0L);
+        return buildPageResult(listProjectCodesInDisplayOrder(reqVO, readable, true), reqVO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DccProjectCodeDO getReadableProjectCode(Long userId, Long id) {
+        projectAccess.assertProjectViewerOrAbove(userId, id);
+        return getProjectCode(id);
     }
 
     @Override
@@ -338,6 +361,11 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
 
     private List<DccProjectCodeDO> listProjectCodesInDisplayOrder(DccProjectCodePageReqVO reqVO,
                                                                    List<Long> scopedProjectCodeIds) {
+        return listProjectCodesInDisplayOrder(reqVO, scopedProjectCodeIds, false);
+    }
+
+    private List<DccProjectCodeDO> listProjectCodesInDisplayOrder(DccProjectCodePageReqVO reqVO,
+                                                                   List<Long> scopedProjectCodeIds, boolean publicReader) {
         DccProjectCodePageReqVO queryReqVO = new DccProjectCodePageReqVO();
         queryReqVO.setPageNo(1);
         queryReqVO.setPageSize(PageParam.PAGE_SIZE_NONE);
@@ -349,6 +377,9 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         queryReqVO.setPriority(reqVO.getPriority());
         queryReqVO.setStatus(reqVO.getStatus());
         List<DccProjectCodeDO> records = new ArrayList<>(projectCodeMapper.selectPage(queryReqVO).getList());
+        if (publicReader) records.removeIf(record -> !java.util.Objects.equals(record.getTenantId(),
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                || !DccProjectCodeStatusConstants.ENABLE.equals(record.getStatus()));
         if (scopedProjectCodeIds != null) {
             Set<Long> scope = new LinkedHashSet<>(scopedProjectCodeIds);
             records.removeIf(record -> !scope.contains(record.getId()));
@@ -1152,6 +1183,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     }
 
     private void updateProjectCodeFields(Long id, DccProjectCodeSaveReqVO reqVO, Long lastImportBatchId) {
+        DccProjectCodeDO existingProject = projectCodeMapper.selectById(id);
         projectCodeMapper.update(null, new LambdaUpdateWrapper<DccProjectCodeDO>()
                 .eq(DccProjectCodeDO::getId, id)
                 .set(DccProjectCodeDO::getDocControlNo, reqVO.getDocControlNo())
@@ -1159,7 +1191,7 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .set(DccProjectCodeDO::getProjectCode, reqVO.getProjectCode())
                 .set(DccProjectCodeDO::getCategory, reqVO.getCategory())
                 .set(DccProjectCodeDO::getCommissionedProduction, reqVO.getCommissionedProduction())
-                .set(DccProjectCodeDO::getProjectLeader, reqVO.getProjectLeader())
+                .set(existingProject.getProjectLeaderUserId() == null, DccProjectCodeDO::getProjectLeader, reqVO.getProjectLeader())
                 .set(DccProjectCodeDO::getProjectEngineer, reqVO.getProjectEngineer())
                 .set(DccProjectCodeDO::getStorageLocation, reqVO.getStorageLocation())
                 .set(DccProjectCodeDO::getPriority, reqVO.getPriority())

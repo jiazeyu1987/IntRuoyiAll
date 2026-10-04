@@ -64,6 +64,10 @@ import static org.mockito.Mockito.when;
         DccControlledFileCategoryPermissionSupport.class
 })
 class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
+    @Resource private javax.sql.DataSource testDataSource;
+    @Resource private org.springframework.transaction.PlatformTransactionManager matrixTransactions;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private DccCategoryApprovalRouteNodeMapper spyNodeMapper;
 
     @Resource
     private DccCategoryApprovalMatrixAdminServiceImpl matrixAdminService;
@@ -872,6 +876,57 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 .toList());
     }
 
+    private DccCategoryApprovalMatrixSaveReqVO isolationMatrix() {
+        var doc=createPosition("G34-DOC","文控");var qa=createPosition("G34-QA","审核岗位");var approval=createPosition("G34-APPROVAL","批准岗位");
+        positionAssignmentMapper.insert(createUserAssignment(doc.getId(),901L));positionAssignmentMapper.insert(createUserAssignment(qa.getId(),902L));positionAssignmentMapper.insert(createUserAssignment(approval.getId(),903L));
+        stubNonUploaderPositions();stubUserNames(901L,902L,903L);
+        return new DccCategoryApprovalMatrixSaveReqVO().setEffectiveTime(LocalDateTime.now().minusMinutes(1)).setRemark("legacy-only").setRules(List.of(dccPositionRule("SIGNOFF","审核岗位",qa.getId(),"审核岗位"),dccPositionRule("APPROVAL","批准岗位",approval.getId(),"批准岗位")));
+    }
+    private List<DccCategoryApprovalRouteDO> typedRoutes(Long categoryId) {
+        return List.of("NEW","REVISION","OBSOLETE").stream().map(action->{var route=DccCategoryApprovalRouteDO.builder().categoryId(categoryId).actionType(action).versionNo(77).active(true).effectiveTime(LocalDateTime.now().minusMinutes(2)).remark("untouched-"+action).build();routeMapper.insert(route);
+            routeNodeMapper.insert(createRouteNode(route.getId(),1,"MATRIX_REVIEW","typed-node",991L,List.of(991L),"ALL",true));return route;}).toList();
+    }
+    @Test void legacySaveAndImportMustNotDeactivateAnyOfTheThreeFormalActions() {
+        var category=createCategory("G34-SAVE","隔离动作类别");var typed=typedRoutes(category.getId());var request=isolationMatrix();
+        var original=typed.stream().map(r->cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(routeMapper.selectById(r.getId()))).toList();
+        var saved=matrixAdminService.saveApprovalMatrix(category.getId(),request);var imported=matrixAdminService.importApprovalMatrix(category.getId(),request);
+        assertEquals("LEGACY",saved.getActionType());assertEquals(1,saved.getVersionNo());assertEquals(2,imported.getVersionNo());assertFalse(routeMapper.selectById(saved.getId()).getActive());
+        assertEquals(original,typed.stream().map(r->cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(routeMapper.selectById(r.getId()))).toList());
+        for(var route:typed){assertEquals(route.getId(),routeMapper.selectLatestActiveByCategoryIdAndActionType(category.getId(),route.getActionType()).getId());assertEquals(1,routeNodeMapper.selectListByRouteId(route.getId()).size());}
+    }
+    @Test void legacyDeleteMustNotDeactivateFormalActionsOrChangeTheirNodeEvidence() {
+        var category=createCategory("G34-DELETE","删除隔离类别");var typed=typedRoutes(category.getId());var saved=matrixAdminService.importApprovalMatrix(category.getId(),isolationMatrix());
+        var original=typed.stream().map(r->cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(routeMapper.selectById(r.getId()))).toList();
+        matrixAdminService.deleteApprovalMatrix(category.getId());assertFalse(routeMapper.selectById(saved.getId()).getActive());
+        assertEquals(original,typed.stream().map(r->cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(routeMapper.selectById(r.getId()))).toList());
+        for(var route:typed)assertNotNull(routeMapper.selectLatestActiveByCategoryIdAndActionType(category.getId(),route.getActionType()));
+    }
+    @Test void legacyBulkPositionProjectionMustNeverInferAnyFormalActionOrFutureMatrix() {
+        var category=createCategory("G34-READ","权限投影隔离");typedRoutes(category.getId());
+        assertTrue(matrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(category.getId())).isEmpty());
+    }
+    @Test void lateLegacyNodeFailureRollsBackScopeReplacementAndLeavesThreeActionsUntouched() {
+        var category=createCategory("G34-ROLLBACK","同scope回滚");var typed=typedRoutes(category.getId());var req=isolationMatrix();var prior=matrixAdminService.importApprovalMatrix(category.getId(),req);
+        var before=routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId,category.getId()).stream().sorted(java.util.Comparator.comparing(DccCategoryApprovalRouteDO::getId)).map(cn.iocoder.yudao.framework.common.util.json.JsonUtils::toJsonString).toList();
+        org.mockito.Mockito.doThrow(new IllegalStateException("node persistence failure")).when(spyNodeMapper).insert(org.mockito.ArgumentMatchers.any(DccCategoryApprovalRouteNodeDO.class));
+        assertThrows(IllegalStateException.class,()->matrixAdminService.importApprovalMatrix(category.getId(),req));
+        assertEquals(before,routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId,category.getId()).stream().sorted(java.util.Comparator.comparing(DccCategoryApprovalRouteDO::getId)).map(cn.iocoder.yudao.framework.common.util.json.JsonUtils::toJsonString).toList());assertTrue(routeMapper.selectById(prior.getId()).getActive());
+        for(var route:typed)assertNotNull(routeMapper.selectLatestActiveByCategoryIdAndActionType(category.getId(),route.getActionType()));
+    }
+    @Test void concurrentLegacyImportSerializesWithinOneCategoryAndNeverTouchesTypedActions() throws Exception {
+        var category=createCategory("G34-CONCURRENT","同传统scope并发");var typed=typedRoutes(category.getId());var req=isolationMatrix();
+        var start=new java.util.concurrent.CountDownLatch(1);var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.Callable<Long> call=()->{cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);try{start.await();return matrixAdminService.importApprovalMatrix(category.getId(),req).getId();}finally{cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}};
+        try{var a=pool.submit(call);var b=pool.submit(call);start.countDown();assertNotNull(a.get(20,java.util.concurrent.TimeUnit.SECONDS));assertNotNull(b.get(20,java.util.concurrent.TimeUnit.SECONDS));}finally{pool.shutdownNow();}
+        var legacy=routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId,category.getId()).stream().filter(r->"LEGACY".equals(r.getActionType())).toList();
+        assertEquals(List.of(1,2),legacy.stream().map(DccCategoryApprovalRouteDO::getVersionNo).sorted().toList());assertEquals(1,legacy.stream().filter(r->r.getActive()).count());for(var route:typed)assertTrue(routeMapper.selectById(route.getId()).getActive());
+    }
+    @Test void futureLegacyProjectionDoesNotOverrideCurrentScopeOrTypedActionMetadata() {
+        var category=createCategory("G34-FUTURE","生效读取边界");var request=isolationMatrix();var current=matrixAdminService.importApprovalMatrix(category.getId(),request);typedRoutes(category.getId());
+        var future=DccCategoryApprovalRouteDO.builder().categoryId(category.getId()).actionType("LEGACY").versionNo(900).active(true).effectiveTime(LocalDateTime.now().plusYears(1)).build();routeMapper.insert(future);routeNodeMapper.insert(createRouteNode(future.getId(),2,"MATRIX_REVIEW","未来审核",777L,List.of(777L),"ALL",true));
+        assertEquals(current.getVersionNo(),matrixAdminService.getApprovalMatrix(category.getId()).getRouteVersionNo());var positions=matrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(category.getId())).get(category.getId());assertNotNull(positions);assertFalse(positions.signoffPositionIds().contains(777L));
+    }
+
     private DccFileCategoryDO createCategory(String code, String name) {
         DccFileCategoryDO category = DccFileCategoryDO.builder()
                 .id(randomLongId())
@@ -887,6 +942,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 .trainingRequired(Boolean.FALSE)
                 .build();
         categoryMapper.insert(category);
+        new org.springframework.jdbc.core.JdbcTemplate(testDataSource).update("UPDATE dcc_file_category SET tenant_id=? WHERE id=?",cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),category.getId());
         return category;
     }
 

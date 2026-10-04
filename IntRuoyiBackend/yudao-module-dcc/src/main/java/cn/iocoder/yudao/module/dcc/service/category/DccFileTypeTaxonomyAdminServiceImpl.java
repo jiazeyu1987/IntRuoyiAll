@@ -34,6 +34,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAX
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_PARENT_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyErrors.WRITE_INCOMPLETE;
 
 @Service
 @Validated
@@ -57,7 +58,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
         DccFileTypeTaxonomyDO taxonomy = BeanUtils.toBean(reqVO, DccFileTypeTaxonomyDO.class);
         normalizeForCreate(taxonomy);
         validateDuplicateSibling(taxonomy);
-        taxonomyMapper.insert(taxonomy);
+        if (taxonomyMapper.insert(taxonomy) != 1 || taxonomy.getId() == null) {
+            throw exception(WRITE_INCOMPLETE, "新增分类");
+        }
         return taxonomy.getId();
     }
 
@@ -69,16 +72,14 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
         if (!Objects.equals(existing.getParentId(), normalizedParentId)) {
             throw exception(FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN);
         }
-        if (Boolean.TRUE.equals(existing.getActive()) && Boolean.FALSE.equals(reqVO.getActive())
-                && projectFileTemplateItemMapper.selectCount(
-                DccProjectFileTemplateItemDO::getFileTypeTaxonomyId, existing.getId()) > 0) {
-            throw exception(FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
-        }
+        // 停用保留正式类型 ID、模板映射与历史；新申请解析会明确拒绝失效路径。
         DccFileTypeTaxonomyDO taxonomy = BeanUtils.toBean(reqVO, DccFileTypeTaxonomyDO.class);
         taxonomy.setParentId(existing.getParentId());
         taxonomy.setLevelNo(existing.getLevelNo());
         validateDuplicateSibling(taxonomy);
-        taxonomyMapper.updateById(taxonomy);
+        if (taxonomyMapper.updateById(taxonomy) != 1) {
+            throw exception(WRITE_INCOMPLETE, "修改分类");
+        }
     }
 
     @Override
@@ -94,7 +95,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
                 DccProjectFileTemplateItemDO::getFileTypeTaxonomyId, id) > 0) {
             throw exception(FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
         }
-        taxonomyMapper.deleteById(id);
+        if (taxonomyMapper.deleteById(id) != 1) {
+            throw exception(WRITE_INCOMPLETE, "删除分类");
+        }
     }
 
     @Override
@@ -107,6 +110,21 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
         DccFileTypeTaxonomyDO current = validateExists(id);
         Map<Long, DccFileTypeTaxonomyDO> byId = buildTaxonomyMap();
         return buildActivePath(current, byId);
+    }
+
+    /** 文件夹身份不参与类型或矩阵推断；只接受唯一启用分类映射。 */
+    @Override
+    public Long resolveActiveCategoryId(Long fileTypeTaxonomyId) {
+        DccFileTypeTaxonomyPath path = resolveActivePath(fileTypeTaxonomyId);
+        if (StrUtil.isBlank(path.level3())) throw exception(FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+        List<DccFileCategoryDO> categories = categoryMapper.selectList().stream()
+                .filter(category -> Boolean.TRUE.equals(category.getActive())
+                        && Objects.equals(category.getFileTypeTaxonomyId(), fileTypeTaxonomyId))
+                .toList();
+        if (categories.size() != 1) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        }
+        return categories.get(0).getId();
     }
 
     @Override
@@ -150,7 +168,7 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
             return null;
         }
         Map<Long, DccFileTypeTaxonomyDO> byId = buildTaxonomyMap();
-        return sortTaxonomies(List.copyOf(byId.values())).stream()
+        List<Long> matches = sortTaxonomies(List.copyOf(byId.values())).stream()
                 .filter(item -> Boolean.TRUE.equals(item.getActive()))
                 .map(item -> buildActivePath(item, byId))
                 .filter(path -> Objects.equals(normalizeName(path.level1()), expected.level1())
@@ -159,8 +177,9 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
                         && Objects.equals(normalizeName(path.level4()), expected.level4())
                         && Objects.equals(normalizeName(path.level5()), expected.level5()))
                 .map(DccFileTypeTaxonomyPath::id)
-                .findFirst()
-                .orElse(null);
+                .toList();
+        if (matches.size() > 1) throw exception(FILE_TYPE_TAXONOMY_DUPLICATE_SIBLING);
+        return matches.isEmpty() ? null : matches.get(0);
     }
 
     private DccFileTypeTaxonomyPath buildActivePath(DccFileTypeTaxonomyDO current,

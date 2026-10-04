@@ -50,55 +50,41 @@
             :title="projectCodeOptionsError"
           />
         </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="申请属性">
+          <ProjectApplicationAttributes
+            ref="projectAttributesPanel"
+            :key="projectAttributesPanelKey"
+            action="UPLOAD"
+            :readonly="submitLoading"
+            @change="captureProjectAttributes"
+            @restore-defaults="captureProjectAttributes"
+          />
+        </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="项目文件夹" prop="projectFolderId">
+          <div class="w-full">
+            <el-tree-select
+              v-model="formData.projectFolderId" :data="projectFolderTree" node-key="id"
+              :props="{ label: 'name', children: 'children', disabled: (node) => !node.active }"
+              check-strictly :loading="projectFoldersLoading" :disabled="!formData.dccProjectCodeId || submitLoading"
+              placeholder="请选择项目文件夹" class="!w-460px" />
+            <el-alert v-if="projectFoldersError" :title="projectFoldersError" type="error" :closable="false" />
+            <span v-else-if="formData.dccProjectCodeId && !projectFoldersLoading && !projectFolders.length">项目尚未生成独立目录</span>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="登记说明" prop="projectFolderChangeReason">
+          <el-input
+            v-model="formData.projectFolderChangeReason" maxlength="500" show-word-limit
+            placeholder="填写文件归入此项目文件夹的说明" :disabled="submitLoading" class="!w-560px" />
+        </el-form-item>
         <el-form-item v-if="!isExternalReview" label="关联文件">
           <div class="w-full">
-            <el-select
-              v-model="formData.relatedControlledFileIds"
-              data-testid="dcc-upload-related-files-select"
-              class="!w-560px"
-              multiple
-              filterable
-              remote
-              :remote-method="searchRelatedFiles"
-              collapse-tags
-              collapse-tags-tooltip
-              :disabled="!formData.dccProjectCodeId"
-              :loading="relatedFileOptionsLoading"
-              placeholder="可选择同一 DCC 项目下的多个文件"
-            >
-              <el-option
-                v-for="file in relatedFileOptions"
-                :key="file.id"
-                :label="formatRelatedFileOptionLabel(file)"
-                :value="file.id"
-              />
-            </el-select>
-            <el-pagination
-              v-if="formData.dccProjectCodeId && relatedFileTotal > 50"
-              :current-page="relatedFilePageNo"
-              :page-size="50"
-              :total="relatedFileTotal"
-              layout="prev, pager, next"
-              :disabled="relatedFileOptionsLoading"
-              @current-change="changeRelatedFilePage"
-            />
-            <div v-if="!formData.dccProjectCodeId" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-              选择 DCC 项目后可选择关联文件
-            </div>
-            <el-alert
-              v-else-if="relatedFileOptionsError"
-              class="mt-8px !w-560px"
-              type="warning"
-              :closable="false"
-              show-icon
-              :title="relatedFileOptionsError"
-            />
-            <div
-              v-else-if="!relatedFileOptionsLoading && relatedFileOptions.length === 0"
-              class="mt-6px text-12px text-[var(--el-text-color-secondary)]"
-            >
-              当前项目下暂无可关联文件
-            </div>
+            <el-button
+              :disabled="!formData.dccProjectCodeId || !formData.projectFolderId || !previewUpload || submitLoading"
+              @click="openUploadRelations">关联</el-button>
+            <span class="ml-8px">已选 {{ selectedUploadRelations.length }} 个文件</span>
+            <div class="mt-8px"><el-tag v-for="file in selectedUploadRelations" :key="file.masterId" class="mr-6px">
+              {{ file.fileName }} · {{ file.versionNo }}{{ file.pendingEffect ? ' · 待生效' : '' }}
+            </el-tag></div>
           </div>
         </el-form-item>
         <el-form-item v-if="!isExternalReview" label="阶段">
@@ -190,6 +176,33 @@
             </div>
           </div>
         </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="会签部门" required data-testid="dcc-upload-signoff-departments">
+          <div class="w-full">
+            <el-select
+              v-model="formData.selectedSignoffDepartmentIds" multiple filterable class="!w-560px"
+              :loading="signoffDepartmentsLoading" :disabled="!formData.categoryId || submitLoading || signoffDepartmentsLoading"
+              placeholder="选择本次会签部门，可增加或删除" @change="refreshRouteReadiness">
+              <el-option v-for="department in signoffDepartments" :key="department.id" :value="department.id" :label="department.name" />
+            </el-select>
+            <el-alert v-if="signoffDepartmentsError" :title="signoffDepartmentsError" type="error" :closable="false" class="mt-8px" />
+            <el-button v-if="signoffDepartmentsError" link @click="loadSignoffDepartments">重新读取部门</el-button>
+          </div>
+        </el-form-item>
+        <el-form-item
+          label="批准人" data-testid="dcc-upload-matrix-approvers">
+          <div class="w-full">
+            <span v-if="approvalUsersLoading">正在读取启用账号目录...</span>
+            <el-alert v-else-if="uploadApproverError" :title="uploadApproverError" type="error" :closable="false" />
+            <template v-else-if="uploadApprovers">
+              <div v-for="account in uploadApprovers.accounts" :key="account.id">
+                {{ account.name }}{{ account.deptName ? `（${account.deptName}）` : '' }} · 账号ID {{ account.id }}
+              </div>
+              <div class="mt-6px text-12px">{{ uploadApprovers.rule }}；人员由本次文件类型的审批矩阵带出。</div>
+            </template>
+            <span v-else>请选择文件类型并等待正式审批路线预检</span>
+            <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
+          </div>
+        </el-form-item>
         <el-form-item v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">
           <div class="w-full">
             <template v-if="uploadDirectoryTree.leafBinding">
@@ -265,7 +278,7 @@
             placeholder="例如 SOP-001"
           />
         </el-form-item>
-        <el-form-item v-if="formData.fileNumber" label="当前有效版本">
+        <el-form-item v-if="formData.fileNumber" label="受控版本">
           <div
             data-testid="dcc-upload-current-version-panel"
             class="w-full rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
@@ -321,7 +334,7 @@
               </div>
             </template>
             <template v-else>
-              未查询到同编号当前有效版本，将创建新的受控文件主档，并按新建规则校验。
+              未查询到同编号受控版本，将创建新的受控文件主档，并按新建规则校验。
             </template>
           </div>
         </el-form-item>
@@ -353,7 +366,7 @@
             :placeholder="isExternalReview ? '例如 V1.0' : '例如 A/1、B/1'"
           />
           <div v-if="!isExternalReview" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            新文件须使用修订版/1格式；后续大小版本统一通过文件检出、检入生成。
+            新文件须使用修订版/1格式；检入只生成工作小版本，正式局部变更或换版变更须单独提交审批。
           </div>
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
@@ -397,13 +410,15 @@
             <template #default>
               <ul class="upload-readiness-blockers">
                 <li v-for="blocker in routeReadiness.blockers" :key="`${blocker.reasonCode}-${blocker.stageNo || 0}-${blocker.userId || 0}`">
-                  {{ blocker.message }}
+                  <span>阶段：<template v-if="blocker.stageNo != null">#{{ blocker.stageNo }} · </template>{{ blocker.stageName || blocker.stageCode || '阶段未记录' }}</span>
+                  <span>；人员：{{ blocker.userName || '姓名未记录' }}（账号ID：{{ blocker.userId ?? '未记录' }}）</span>
+                  <span>；原因：{{ blocker.message }}</span>
                 </li>
               </ul>
             </template>
           </el-alert>
           <el-alert
-            v-else-if="routeReadiness?.ready"
+            v-else-if="routeReadiness?.ready && uploadApprovers && !uploadApproverError && !approvalUsersLoading"
             type="success"
             :closable="false"
             show-icon
@@ -612,10 +627,33 @@
         </section>
       </div>
     </el-form>
+    <DccFileSelector
+      v-if="uploadRelationSource" v-model="uploadRelationsVisible" :source="uploadRelationSource"
+      purpose="relations" :directories="uploadRelationDirectories" :selected="selectedUploadRelations"
+      :load-page="loadUploadRelationPage" :persist="persistUploadRelations" :open-preview="previewUploadRelation" />
   </ContentWrap>
 </template>
 
 <script lang="ts" setup>
+import { h } from 'vue'
+import { ElMessageBox } from 'element-plus'
+import ProjectApplicationAttributes from '../project-attributes/ProjectApplicationAttributes.vue'
+import DccFileSelector from '../relations/DccFileSelector.vue'
+import type { SelectorSource, DirectoryNode } from '../relations/DccFileSelector.vue'
+import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
+import { mapReferenceDirectoryNodes, referenceIdentity } from '../relations/project-reference-contract'
+import { loadDccSelectorPage } from '@/api/dcc/controlledFile/applicationRead'
+import { getProjectDiscoveryPage, type DccDiscoveredProject } from '@/api/dcc/controlledFile/projectDiscovery'
+import { getProjectFolders, type ProjectFolder } from '@/api/dcc/controlledFile/projectAttributes'
+import { getSimpleDeptList } from '@/api/system/dept'
+import { getSimpleUserList } from '@/api/system/user'
+import { signoffIdentity, normalizeSignoffDepartments, defaultSignoffDepartments,
+  signoffCategoryKey, signoffRequestKey, signoffDepartmentOptions, approvalUserOptions,
+  resolvedUploadApprovers, type UploadApprovalAccount } from './signoff-departments'
+import { buildProjectFolderTree } from '../basic-data/components/project-folder-tree'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import { buildControlledFileViewerPath } from '../view/presentation'
+import type { AttributeSnapshot } from '../project-attributes/state'
 import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
 import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
@@ -623,9 +661,6 @@ import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
   DCC_PROJECT_CODE_STATUS_ENABLE,
   getProjectCodeFileTemplate,
-  getProjectCodeControlledFilesPage,
-  getProjectCodePage,
-  type DccProjectCodeRespVO,
   type DccProjectFileTemplateItemRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
 import type { DccFileTypeTaxonomyVO } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
@@ -641,7 +676,6 @@ import {
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileRouteReadinessVO,
-  type ControlledFileVO,
   type ControlledFileUploadDirectoryNodeVO,
   type ControlledFileUploadDirectoryTreeVO,
   type ControlledFileUploadNameOptionVO,
@@ -657,6 +691,7 @@ import {
   buildSubmitFailureFeedback,
   clearSubmitFieldErrors,
   createUploadSubmitterService,
+  buildUploadConfirmationSummary,
   EDITABLE_SOURCE_MESSAGE,
   formatPreviewFileSize,
   resolveUploadErrorMessage,
@@ -667,7 +702,8 @@ import {
   validateControlledFileSelection,
   validateSingleUploadFileSelection,
   validateDccProjectProductCode,
-  type UploadFormDraft
+  type UploadFormDraft,
+  type UploadConfirmationRow
 } from './submitter'
 
 defineOptions({ name: 'DccControlledFileUpload' })
@@ -689,16 +725,28 @@ interface UploadNameSuggestionItem {
 }
 
 const formRef = ref()
+const projectAttributesPanel = ref<{
+  selectProject: (projectId: string | number) => Promise<boolean>
+  getSnapshot: () => AttributeSnapshot
+}>()
+const projectAttributesPanelKey = ref(0)
+const acceptedProjectCodeId = ref<number | string | null>(null)
+const projectAttributesLoading = ref(false)
+let projectAttributesSelectionSequence = 0
 const uploadRef = ref()
 const drawingPdfUploadRef = ref()
 const attachmentUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
-const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
-const relatedFileOptions = ref<ControlledFileVO[]>([])
-const relatedFilePageNo = ref(1)
-const relatedFileTotal = ref(0)
-const relatedFileKeyword = ref('')
-let relatedFileRequestSequence = 0
+const projectCodeOptions = ref<DccDiscoveredProject[]>([])
+const projectFolders = ref<ProjectFolder[]>([])
+const projectFoldersProjectId = ref<string>()
+const projectFoldersLoading = ref(false)
+const projectFoldersError = ref('')
+let projectFolderRequestSequence = 0
+const uploadRelationsVisible = ref(false)
+const uploadRelationSource = ref<SelectorSource>()
+const uploadRelationDirectories = ref<DirectoryNode[]>([])
+const selectedUploadRelations = ref<FileCandidate[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const selectedProjectTemplateStageId = ref<number>()
@@ -731,7 +779,7 @@ const uploadPreviewError = ref('')
 const submitLoading = ref(false)
 const projectProductLoading = ref(false)
 const projectProductError = ref('')
-const projectProductResolvedId = ref<number | null>(null)
+const projectProductResolvedId = ref<number | string | null>(null)
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadAttachmentLoading = ref(false)
@@ -743,11 +791,27 @@ const routeReadiness = ref<ControlledFileRouteReadinessVO>()
 const routeReadinessLoading = ref(false)
 const routeReadinessError = ref('')
 let routeReadinessRequestSeq = 0
+const signoffDepartments = ref<Array<{ id: string; name: string }>>([])
+const signoffDepartmentsLoading = ref(false)
+const signoffDepartmentsError = ref('')
+const routeReadinessSelectionKey = ref('')
+let signoffSelectionCategoryKey = ''
+let signoffDirectoryRequestSeq = 0
+const approvalUsers = ref<UploadApprovalAccount[]>([])
+const approvalUsersLoading = ref(false)
+const approvalUsersError = ref('')
+let approvalUsersRequestSeq = 0
+const uploadApprovalProjection = computed(() => {
+  if (approvalUsersError.value) return { error: approvalUsersError.value, result: undefined }
+  if (approvalUsersLoading.value || !routeReadiness.value) return { error: '', result: undefined }
+  try { return { result: resolvedUploadApprovers(routeReadiness.value, approvalUsers.value), error: '' } }
+  catch (cause) { return { result: undefined, error: cause instanceof Error ? cause.message : String(cause) } }
+})
+const uploadApprovers = computed(() => uploadApprovalProjection.value.result)
+const uploadApproverError = computed(() => uploadApprovalProjection.value.error)
 const projectCodeOptionsLoading = ref(false)
-const relatedFileOptionsLoading = ref(false)
 const projectFileTemplateLoading = ref(false)
 const projectCodeOptionsError = ref('')
-const relatedFileOptionsError = ref('')
 const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
 const uploadSessionId = createControlledFileUploadSessionId()
@@ -761,7 +825,7 @@ const submitFieldErrors = reactive({
 const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
 const DEFAULT_CONTROLLED_INITIAL_VERSION_NO = 'A/1'
 const VERSION_NO_FORMAT_MESSAGE = '版本号格式不正确，请使用 V1.0、V2.0 或 1.0 这类数字版本。'
-const CONTROLLED_INITIAL_VERSION_MESSAGE = '初始版本号格式不正确，请使用 A/1、A/1/1 等“修订版/迭代段”格式。'
+const CONTROLLED_INITIAL_VERSION_MESSAGE = '初始版本号格式不正确，请使用 A/1、B/1 等“修订版/1”格式。'
 const VERSION_NO_PATTERN = /^[Vv]?\d+(?:\.\d+)*$/
 const WINDCHILL_VERSION_PATTERN = /^[A-Z]+(?:\/[1-9]\d*)+$/i
 const resolveTodayDate = () => formatToDate(new Date())
@@ -787,7 +851,9 @@ const submitBlockedByRouteReadiness = computed(() =>
     selectedCategory.value &&
       (routeReadinessLoading.value ||
         routeReadinessError.value ||
-        routeReadiness.value?.ready === false)
+        routeReadiness.value?.ready === false ||
+        approvalUsersLoading.value || approvalUsersError.value || uploadApproverError.value ||
+        (!isExternalReview.value && (signoffDepartmentsLoading.value || signoffDepartmentsError.value)))
   )
 )
 
@@ -812,7 +878,7 @@ const syncAttachmentUploadLoading = () => {
 }
 
 const hasUnreadyAttachmentUploads = computed(() =>
-  attachmentFileList.value.some((file) => findAttachmentUploadAttempt(file.uid)?.status !== 'READY')
+  attachmentFileList.value.some((file) => file.uid === undefined || findAttachmentUploadAttempt(file.uid)?.status !== 'READY')
 )
 
 const attachmentUploadBlockMessage = computed(() => {
@@ -857,6 +923,8 @@ const formData = reactive<UploadFormDraft>({
   productMasterId: null,
   productCode: '',
   dccProjectCodeId: null,
+  projectFolderId: null,
+  projectFolderChangeReason: '',
   fileTypeTaxonomyId: null,
   revisionTargetControlledFileId: null,
   revisionSourceControlledFileId: null,
@@ -865,7 +933,7 @@ const formData = reactive<UploadFormDraft>({
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
   versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : DEFAULT_CONTROLLED_INITIAL_VERSION_NO,
-  effectiveDate: resolveTodayDate(),
+  effectiveDate: '',
   remark: ''
 })
 
@@ -956,10 +1024,6 @@ const selectedFileTypeTaxonomyPath = computed(() => {
   }
   return fileTypeTaxonomyPathMap.value.get(Number(formData.fileTypeTaxonomyId))
 })
-
-const selectedFileTypeTaxonomyPathLabel = computed(
-  () => selectedFileTypeTaxonomyPath.value?.names.join(' / ') || ''
-)
 
 const selectedFileTypeTaxonomyLeafName = computed(() => {
   const names = selectedFileTypeTaxonomyPath.value?.names || []
@@ -1056,8 +1120,8 @@ const canLoadUploadNameOptions = computed(
     isFileTypeTaxonomyDepthValid.value
 )
 
-const formatProjectCodeOptionLabel = (project: DccProjectCodeRespVO) =>
-  [project.projectName, project.projectCode, project.docControlNo].filter(Boolean).join(' · ')
+const formatProjectCodeOptionLabel = (project: DccDiscoveredProject) =>
+  [project.projectName, project.projectCode].filter(Boolean).join(' · ')
 
 const formRules = reactive<FormRules>({
   dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],
@@ -1178,12 +1242,6 @@ const clearCurrentVersionInfo = () => {
   currentVersionLookupError.value = ''
 }
 
-const ensureEffectiveDateDefault = () => {
-  if (!formData.effectiveDate) {
-    formData.effectiveDate = resolveTodayDate()
-  }
-}
-
 const resetUploadNameLinkage = (clearVersionNo: boolean) => {
   formData.changeType = 'NEW'
   formData.revisionTargetControlledFileId = null
@@ -1195,7 +1253,6 @@ const resetUploadNameLinkage = (clearVersionNo: boolean) => {
       formData.versionNo = DEFAULT_CONTROLLED_INITIAL_VERSION_NO
     }
   }
-  ensureEffectiveDateDefault()
 }
 
 const resetUploadNameContext = (clearFileName: boolean) => {
@@ -1355,13 +1412,13 @@ const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   projectCodeOptionsError.value = ''
   try {
-    const page = await getProjectCodePage({
+    const page = await getProjectDiscoveryPage({
       pageNo: 1,
       pageSize: 50,
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
-    projectCodeOptions.value = page.list || []
+    projectCodeOptions.value = page.list
   } catch (error) {
     projectCodeOptions.value = []
     const errorMessage = resolveUploadErrorMessage(error, 'DCC 项目候选加载失败，请确认项目代码权限或联系文控管理员。')
@@ -1397,7 +1454,7 @@ const resetProjectFileTemplateSelection = (clearTemplate: boolean = true) => {
   }
 }
 
-const loadProjectFileTemplate = async (projectCodeId: number) => {
+const loadProjectFileTemplate = async (projectCodeId: number | string) => {
   projectFileTemplateLoading.value = true
   projectFileTemplateError.value = ''
   try {
@@ -1458,7 +1515,7 @@ const buildUploadNameOptionsKey = () => {
   return `${formData.dccProjectCodeId}:${formData.fileTypeTaxonomyId}`
 }
 
-const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyId: number) => {
+const loadUploadNameOptions = async (dccProjectCodeId: number | string, fileTypeTaxonomyId: number) => {
   const requestKey = `${dccProjectCodeId}:${fileTypeTaxonomyId}`
   uploadNameOptionsLoading.value = true
   try {
@@ -1499,74 +1556,141 @@ const ensureUploadNameOptionsLoaded = async () => {
   await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
 }
 
+const captureProjectAttributes = (snapshot: AttributeSnapshot) => {
+  if (snapshot.applicationType !== 'UPLOAD' || snapshot.projectId !== String(formData.dccProjectCodeId)) {
+    return
+  }
+  formData.projectAttributes = JSON.parse(JSON.stringify(snapshot.actual))
+}
+
 const handleProjectCodeChange = async () => {
-  relatedFileRequestSequence += 1
-  relatedFileKeyword.value = ''
-  relatedFilePageNo.value = 1
-  relatedFileTotal.value = 0
+  const sequence = ++projectAttributesSelectionSequence
+  const requestedProjectId = formData.dccProjectCodeId
+  const previousProjectId = acceptedProjectCodeId.value
+  projectAttributesLoading.value = true
+  try {
+    if (requestedProjectId == null) {
+      if (previousProjectId != null) {
+        await message.confirm('清除项目会清除本次申请属性及关联选择，是否继续？', '确认清除项目')
+      }
+      if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
+      delete formData.projectAttributes
+      projectAttributesPanelKey.value += 1
+    } else {
+      if (!projectAttributesPanel.value) throw new Error('项目属性组件尚未就绪')
+      const accepted = await projectAttributesPanel.value.selectProject(requestedProjectId)
+      if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
+      if (!accepted) {
+        formData.dccProjectCodeId = previousProjectId
+        return
+      }
+    }
+    acceptedProjectCodeId.value = requestedProjectId
+  } catch (error) {
+    if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
+    formData.dccProjectCodeId = previousProjectId
+    if (error !== 'cancel' && error !== 'close') {
+      message.error(error instanceof Error ? error.message : String(error))
+    }
+    return
+  } finally {
+    if (sequence === projectAttributesSelectionSequence) projectAttributesLoading.value = false
+  }
+  projectFolderRequestSequence += 1
+  projectFoldersLoading.value = false
+  projectFoldersProjectId.value = undefined
+  projectFolders.value = []
+  projectFoldersError.value = ''
+  formData.projectFolderId = null
   formData.relatedControlledFileIds = []
-  relatedFileOptions.value = []
-  relatedFileOptionsError.value = ''
+  selectedUploadRelations.value = []
+  uploadRelationsVisible.value = false
+  uploadRelationSource.value = undefined
   resetProjectFileTemplateSelection()
   applyDccProjectCodeProductNumber()
   if (formData.dccProjectCodeId) {
     await Promise.all([
-      loadRelatedFileOptions(formData.dccProjectCodeId),
+      loadUploadProjectFolders(formData.dccProjectCodeId),
       loadProjectFileTemplate(formData.dccProjectCodeId)
     ])
   }
 }
 
-const formatRelatedFileOptionLabel = (file: ControlledFileVO) =>
-  [file.fileNumber, file.fileName || file.title, file.versionNo].filter(Boolean).join(' / ')
+const projectFolderTree = computed(() => projectFoldersProjectId.value
+  && projectFoldersProjectId.value === String(formData.dccProjectCodeId)
+  ? buildProjectFolderTree(projectFoldersProjectId.value, projectFolders.value) : [])
+const selectedProjectFolder = computed(() => projectFolders.value.find(folder =>
+  projectFoldersProjectId.value === String(formData.dccProjectCodeId)
+  && String(folder.projectCodeId) === String(formData.dccProjectCodeId)
+  && String(folder.id) === String(formData.projectFolderId) && folder.active))
 
-const loadRelatedFileOptions = async (projectCodeId: number, pageNo = 1) => {
-  const sequence = ++relatedFileRequestSequence
-  const keyword = relatedFileKeyword.value.trim()
-  const isCurrent = () => sequence === relatedFileRequestSequence &&
-    formData.dccProjectCodeId === projectCodeId && relatedFileKeyword.value.trim() === keyword
-  relatedFileOptionsLoading.value = true
-  relatedFileOptionsError.value = ''
+const loadUploadProjectFolders = async (projectId: number | string) => {
+  const sequence = ++projectFolderRequestSequence
+  projectFoldersLoading.value = true
+  projectFoldersError.value = ''
   try {
-    const page = await getProjectCodeControlledFilesPage(projectCodeId, {
-      pageNo,
-      pageSize: 50,
-      keyword,
-      status: 'ACTIVE'
-    })
-    if (!isCurrent()) {
-      return
-    }
-    const candidates = page.list.filter(
-      (file) => file.businessSourceType === 'DCC_CONTROLLED_FILE' && file.status === 'ACTIVE'
-    )
-    const selected = relatedFileOptions.value.filter(file => formData.relatedControlledFileIds.includes(file.id))
-    relatedFileOptions.value = Array.from(new Map([...selected, ...candidates].map(file => [file.id, file])).values())
-    relatedFilePageNo.value = pageNo
-    relatedFileTotal.value = page.total
+    const rows = await getProjectFolders(projectId)
+    if (sequence !== projectFolderRequestSequence || String(formData.dccProjectCodeId) !== String(projectId)) return
+    projectFoldersProjectId.value = String(projectId)
+    projectFolders.value = rows
   } catch (error) {
-    if (!isCurrent()) {
-      console.warn('关联文件请求已被新查询取代', error)
-      return
-    }
-    relatedFileOptions.value = relatedFileOptions.value.filter(file => formData.relatedControlledFileIds.includes(file.id))
-    relatedFileTotal.value = 0
-    relatedFileOptionsError.value = resolveUploadErrorMessage(error, '关联文件候选加载失败，请稍后重试')
-    message.error(relatedFileOptionsError.value)
+    if (sequence !== projectFolderRequestSequence || String(formData.dccProjectCodeId) !== String(projectId)) return
+    projectFolders.value = []
+    projectFoldersError.value = error instanceof Error ? error.message : String(error)
   } finally {
-    if (isCurrent()) {
-      relatedFileOptionsLoading.value = false
-    }
+    if (sequence === projectFolderRequestSequence) projectFoldersLoading.value = false
   }
 }
 
-const searchRelatedFiles = async (keyword: string) => {
-  relatedFileKeyword.value = keyword
-  if (formData.dccProjectCodeId) await loadRelatedFileOptions(formData.dccProjectCodeId, 1)
+const buildUploadRelationSource = (): SelectorSource => {
+  if (!selectedProjectCode.value || !selectedProjectFolder.value || !previewUpload.value
+    || projectFoldersLoading.value || projectFoldersError.value) throw new Error('请先选择项目文件夹并上传文件')
+  const tenantId = referenceIdentity(getVisitTenantId() || getTenantId())
+  const projectId = referenceIdentity(formData.dccProjectCodeId)
+  const folderId = referenceIdentity(formData.projectFolderId)
+  return {
+    contextKey: JSON.stringify([tenantId, projectId, folderId, previewUpload.value.sessionId,
+      previewUpload.value.fileName, formData.fileNumber, formData.versionNo]),
+    tenantId, projectId, folderId, projectName: selectedProjectCode.value.projectName,
+    folderName: selectedProjectFolder.value.name, fileName: previewUpload.value.fileName,
+    fileNumber: formData.fileNumber, versionNo: formData.versionNo || '', unsubmitted: true
+  }
 }
 
-const changeRelatedFilePage = async (page: number) => {
-  if (formData.dccProjectCodeId) await loadRelatedFileOptions(formData.dccProjectCodeId, page)
+const openUploadRelations = () => {
+  try {
+    uploadRelationSource.value = buildUploadRelationSource()
+    uploadRelationDirectories.value = mapReferenceDirectoryNodes(uploadRelationSource.value.tenantId,
+      uploadRelationSource.value.projectId, projectFolderTree.value)
+    uploadRelationsVisible.value = true
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  }
+}
+
+const loadUploadRelationPage = (query: SelectorQuery) => {
+  if (!uploadRelationSource.value) throw new Error('关联窗口尚未打开')
+  return loadDccSelectorPage(uploadRelationSource.value.tenantId, query)
+}
+
+const persistUploadRelations = async (rows: FileCandidate[]) => {
+  const current = buildUploadRelationSource()
+  if (current.contextKey !== uploadRelationSource.value?.contextKey) throw new Error('项目或上传文件已变化，请重新打开关联窗口')
+  if (rows.some(row => row.tenantId !== current.tenantId)) throw new Error('关联文件租户不一致')
+  const copy = rows.map(row => {
+    if (!row.controlled) throw new Error('只能关联受控版本')
+    return { ...row, controlledFileId: referenceIdentity(row.controlledFileId), masterId: referenceIdentity(row.masterId) }
+  })
+  if (new Set(copy.map(row => row.masterId)).size !== copy.length) throw new Error('关联文件不能重复')
+  selectedUploadRelations.value = copy
+  formData.relatedControlledFileIds = copy.map(row => row.controlledFileId)
+}
+
+const previewUploadRelation = async (row: FileCandidate) => {
+  if (!row.canPreview) throw new Error('没有该文件正文查看权限')
+  const preview = window.open(buildControlledFileViewerPath(row.controlledFileId, 'browser', route.fullPath), '_blank')
+  if (!preview) throw new Error('预览窗口未能打开，请允许此站点打开新窗口')
+  preview.opener = null
 }
 
 const handleFileTypeTaxonomyChange = async (preserveFileName: boolean = false) => {
@@ -1703,7 +1827,7 @@ const effectiveDatePreflightText = computed(() => {
     return '请选择生效日期。'
   }
   if (isEffectiveDateBeforeToday.value) {
-    return `生效日期 ${formData.effectiveDate} 早于今天，系统允许补录历史生效日期。`
+    return `生效日期 ${formData.effectiveDate} 早于今天；过去日期的处理规则尚未明确，请核对后再提交。`
   }
   return `生效日期 ${formData.effectiveDate} 已填写。`
 })
@@ -1715,6 +1839,8 @@ const approvalChainPreflightText = computed(() => {
   if (routeReadinessLoading.value) {
     return '正在校验全部审批人岗位、文控权限、电子签名授权和有效签名图片。'
   }
+  if (approvalUsersLoading.value) return '正在读取启用账号并核对矩阵批准人。'
+  if (approvalUsersError.value || uploadApproverError.value) return approvalUsersError.value || uploadApproverError.value
   if (routeReadinessError.value) {
     return routeReadinessError.value
   }
@@ -1728,7 +1854,8 @@ const approvalChainPreflightText = computed(() => {
 })
 
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
-  const hasApprovalChain = routeReadiness.value?.ready === true
+  const hasApprovalChain = routeReadiness.value?.ready === true && Boolean(uploadApprovers.value)
+    && !approvalUsersLoading.value && !approvalUsersError.value && !uploadApproverError.value
   const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
   const versionReady = Boolean(
     formData.fileNumber.trim() &&
@@ -1745,9 +1872,9 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     : versionBlockingReason
       ? versionBlockingReason
       : currentVersionInfo.value?.matched
-        ? `当前有效版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
+        ? `受控版本 ${currentVersionInfo.value.currentVersionNo || '-'}，本次提交版本 ${formData.versionNo || '-'}。`
         : versionReady
-          ? '未发现同编号当前有效版本，将按新建编号继续校验。'
+          ? '未发现同编号受控版本，将按新建编号继续校验。'
           : '请输入文件编号和版本号后检查是否重复。'
 
   return [
@@ -1769,7 +1896,7 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
       key: 'effective-date',
       label: '生效日期',
       status: formData.effectiveDate
-        ? (isEffectiveDateBeforeToday.value ? '允许补录' : '已填写')
+        ? (isEffectiveDateBeforeToday.value ? '需核对' : '已填写')
         : '待填写',
       description: effectiveDatePreflightText.value,
       ok: Boolean(formData.effectiveDate),
@@ -1818,22 +1945,74 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   ]
 })
 
+const loadApprovalUsers = async () => {
+  const token = ++approvalUsersRequestSeq
+  approvalUsersLoading.value = true
+  approvalUsersError.value = ''
+  approvalUsers.value = []
+  try {
+    const accounts = approvalUserOptions(await getSimpleUserList())
+    if (token === approvalUsersRequestSeq) approvalUsers.value = accounts
+  } catch (cause) {
+    if (token === approvalUsersRequestSeq)
+      approvalUsersError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally { if (token === approvalUsersRequestSeq) approvalUsersLoading.value = false }
+}
+
+const loadSignoffDepartments = async () => {
+  const token = ++signoffDirectoryRequestSeq
+  signoffDepartmentsLoading.value = true
+  signoffDepartmentsError.value = ''
+  signoffDepartments.value = []
+  try {
+    const rows = signoffDepartmentOptions(await getSimpleDeptList())
+    if (token === signoffDirectoryRequestSeq) signoffDepartments.value = rows
+  } catch (cause) {
+    if (token === signoffDirectoryRequestSeq)
+      signoffDepartmentsError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally { if (token === signoffDirectoryRequestSeq) signoffDepartmentsLoading.value = false }
+}
+
 const refreshRouteReadiness = async () => {
-  const categoryId = Number(formData.categoryId || 0)
   const requestSeq = ++routeReadinessRequestSeq
-  if (!categoryId) {
+  if (!formData.categoryId) {
     routeReadiness.value = undefined
+    routeReadinessSelectionKey.value = ''
+    signoffSelectionCategoryKey = ''
+    formData.selectedSignoffDepartmentIds = undefined
     routeReadinessError.value = ''
     routeReadinessLoading.value = false
     return false
   }
   routeReadinessLoading.value = true
   routeReadinessError.value = ''
+  routeReadiness.value = undefined
+  routeReadinessSelectionKey.value = ''
   try {
-    const readiness = await checkControlledFileRouteReadiness({ categoryId, actionType: 'NEW' })
+    const categoryId = signoffIdentity(formData.categoryId)
+    const categoryKey = signoffCategoryKey(categoryId, formData.processType)
+    if (categoryKey !== signoffSelectionCategoryKey) {
+      formData.selectedSignoffDepartmentIds = undefined
+      signoffSelectionCategoryKey = categoryKey
+    }
+    const selectedDepartments = isExternalReview.value ? undefined : normalizeSignoffDepartments(formData.selectedSignoffDepartmentIds, true)
+    const requestKey = signoffRequestKey(categoryId, selectedDepartments, formData.processType)
+    const readiness = await checkControlledFileRouteReadiness({ categoryId, actionType: 'NEW',
+      ...(selectedDepartments === undefined ? {} : { selectedSignoffDepartmentIds: selectedDepartments }) })
     if (requestSeq !== routeReadinessRequestSeq) {
       return false
     }
+    if (requestKey !== signoffRequestKey(formData.categoryId,
+      isExternalReview.value ? undefined : formData.selectedSignoffDepartmentIds, formData.processType))
+      throw new Error('会签部门或文件类别已变化，请重新校验')
+    if (!isExternalReview.value) {
+      const resolvedDepartments = defaultSignoffDepartments(readiness)
+      if (selectedDepartments === undefined) formData.selectedSignoffDepartmentIds = resolvedDepartments
+      else if (JSON.stringify([...selectedDepartments].sort()) !== JSON.stringify([...resolvedDepartments].sort()))
+        throw new Error('审批预检返回的会签部门与本次选择不一致')
+    }
+    routeReadinessSelectionKey.value = signoffRequestKey(formData.categoryId,
+      isExternalReview.value ? undefined : formData.selectedSignoffDepartmentIds, formData.processType)
     routeReadiness.value = readiness
     return readiness.ready
   } catch (error) {
@@ -1887,7 +2066,7 @@ const loadCurrentVersionByFileNumber = async (options: {
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
-      const errorMessage = resolveUploadErrorMessage(error, '当前有效版本信息查询失败，请查看错误提示后重试')
+      const errorMessage = resolveUploadErrorMessage(error, '受控版本信息查询失败，请查看错误提示后重试')
       currentVersionInfo.value = undefined
       const recoverableRetryConflict =
         options.suppressWorkingDraftRetryConflictMessage === true &&
@@ -2248,7 +2427,69 @@ const handleAttachmentRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
+const freezeUploadApplicationDraft = (): UploadFormDraft => {
+  const draft: UploadFormDraft = JSON.parse(JSON.stringify(formData))
+  if (!isExternalReview.value) {
+    if (projectFoldersLoading.value || projectFoldersError.value || !selectedProjectFolder.value
+      || String(selectedProjectFolder.value.projectCodeId) !== String(draft.dccProjectCodeId)) {
+      throw new Error(projectFoldersError.value || '请选择当前项目的有效文件夹')
+    }
+    if (!draft.projectFolderChangeReason?.trim() || draft.projectFolderChangeReason.trim().length > 500) {
+      throw new Error('请填写500字以内的文件夹登记说明')
+    }
+    if (projectAttributesLoading.value || !projectAttributesPanel.value) {
+      throw new Error('请等待当前项目属性读取完成')
+    }
+    const snapshot = projectAttributesPanel.value.getSnapshot()
+    if (snapshot.applicationType !== 'UPLOAD' || snapshot.projectId !== String(draft.dccProjectCodeId)) {
+      throw new Error('本次申请属性与所选项目不一致，请重新选择项目')
+    }
+    draft.projectAttributes = JSON.parse(JSON.stringify(snapshot.actual))
+    if (signoffDepartmentsLoading.value || signoffDepartmentsError.value)
+      throw new Error(signoffDepartmentsError.value || '请等待启用部门目录读取完成')
+    const selected = normalizeSignoffDepartments(draft.selectedSignoffDepartmentIds)!
+    if (selected.some(id => !signoffDepartments.value.some(department => department.id === id)))
+      throw new Error('本次会签部门不在启用部门目录中，请重新选择')
+    if (routeReadinessSelectionKey.value !== signoffRequestKey(draft.categoryId, selected, draft.processType))
+      throw new Error('本次会签部门尚未完成预检，请重新校验')
+    draft.selectedSignoffDepartmentIds = selected
+  }
+  if (approvalUsersLoading.value || approvalUsersError.value || !routeReadiness.value?.ready)
+    throw new Error(approvalUsersError.value || '请等待启用账号及审批路线校验完成')
+  resolvedUploadApprovers(routeReadiness.value, approvalUsers.value)
+  return draft
+}
+
+const captureUploadSubmissionContext = () => JSON.stringify({
+  form: formData, preview: previewUpload.value, drawingPdf: drawingPdfUpload.value,
+  attachments: resolveReadyAttachmentUploads(), relations: selectedUploadRelations.value,
+  attributes: isExternalReview.value ? undefined : projectAttributesPanel.value?.getSnapshot(),
+  project: selectedProjectCode.value, folder: selectedProjectFolder.value,
+  fileType: selectedFileTypeTaxonomyLeafName.value, category: selectedCategory.value,
+  users: approvalUsers.value, departments: signoffDepartments.value
+})
+
+const confirmUploadApplication = (rows: UploadConfirmationRow[]) => ElMessageBox.confirm(
+  h('div', { 'data-testid': 'dcc-upload-submit-confirmation', style: 'max-height:65vh;overflow:auto' }, [
+    ...rows.map(row => h('div', { style: 'margin-bottom:8px;overflow-wrap:anywhere' }, [
+      h('strong', `${row.label}：`), h('span', row.value)
+    ])),
+    h('p', '受控日期由系统记录，生效日期可晚于受控日期。'),
+    h('p', '再次确认后才提交审批；取消保留已填写内容。')
+  ]), '确认提交', {
+    confirmButtonText: '确认提交', cancelButtonText: '取消', type: 'warning',
+    modalClass: 'app-confirm-message-box-overlay', customClass: 'dcc-upload-submit-confirmation'
+  }
+)
+
 const submitForm = async () => {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value) {
+    message.warning('请等待当前项目属性读取或提交完成')
+    return
+  }
+  let clickedContext: string
+  try { clickedContext = captureUploadSubmissionContext() }
+  catch (cause) { message.error(cause instanceof Error ? cause.message : String(cause)); return }
   if (projectProductLoading.value || projectProductError.value || projectProductResolvedId.value !== formData.dccProjectCodeId) {
     message.warning(projectProductError.value || '请等待当前项目的产品编号解析完成')
     return
@@ -2333,18 +2574,50 @@ const submitForm = async () => {
     message.warning(blockerMessage || '审批路线尚未就绪，请处理配置后重试')
     return
   }
+  if (approvalUsersLoading.value || approvalUsersError.value || uploadApproverError.value || !uploadApprovers.value) {
+    message.warning(approvalUsersError.value || uploadApproverError.value || '请等待真实批准人读取完成')
+    return
+  }
   const attachmentSnapshot = resolveReadyAttachmentUploads()
   if (hasUnreadyAttachmentUploads.value || !attachmentSnapshot) {
     message.warning(attachmentUploadBlockMessage.value || '普通附件状态已变化，请等待全部附件上传完成后再提交')
     return
   }
+  if (submitLoading.value || uploadSubmitted.value) return
   submitLoading.value = true
   try {
+    if (captureUploadSubmissionContext() !== clickedContext) throw new Error('项目、文件或申请信息已变化，请核对后重新提交')
+    const draft = freezeUploadApplicationDraft()
+    const preview = JSON.parse(JSON.stringify(previewUpload.value))
+    const drawingPdf = drawingPdfUpload.value ? JSON.parse(JSON.stringify(drawingPdfUpload.value)) : undefined
+    const attachments = JSON.parse(JSON.stringify(attachmentSnapshot))
+    const approvers = resolvedUploadApprovers(routeReadiness.value, approvalUsers.value)
+    const summary = buildUploadConfirmationSummary(draft, preview, {
+      projectName: selectedProjectCode.value?.projectName,
+      folderName: selectedProjectFolder.value?.name,
+      fileTypeName: isExternalReview.value ? selectedCategory.value?.name : selectedFileTypeTaxonomyLeafName.value,
+      relatedFiles: JSON.parse(JSON.stringify(selectedUploadRelations.value)),
+      signoffDepartments: draft.selectedSignoffDepartmentIds?.map(id => signoffDepartments.value.find(department => department.id === String(id))!),
+      approvers: approvers.accounts, approvalRule: approvers.rule
+    })
+    const currentContext = () => JSON.stringify({ context: captureUploadSubmissionContext(),
+      route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value })
+    const confirmedContext = currentContext()
+    try {
+      await confirmUploadApplication(summary)
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+    if (projectAttributesLoading.value || approvalUsersLoading.value || routeReadinessLoading.value
+      || currentContext() !== confirmedContext) {
+      throw new Error('项目、文件或申请信息已变化，请核对后重新提交')
+    }
     await uploadSubmitterService.submit(
-      { ...formData },
-      previewUpload.value,
-      drawingPdfUpload.value,
-      attachmentSnapshot
+      draft,
+      preview,
+      drawingPdf,
+      attachments
     )
     uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
@@ -2393,11 +2666,16 @@ watch(
   () => route.fullPath,
   () => {
     formData.processType = resolveProcessTypeByRoute()
+    void refreshRouteReadiness()
+    void loadApprovalUsers()
+    if (!isExternalReview.value) void loadSignoffDepartments()
   }
 )
 
 onMounted(() => {
   loadBaseData()
+  void loadApprovalUsers()
+  if (!isExternalReview.value) void loadSignoffDepartments()
 })
 
 onBeforeRouteLeave(async () => {
@@ -2408,6 +2686,9 @@ onBeforeRouteLeave(async () => {
 })
 
 onBeforeUnmount(() => {
+  routeReadinessRequestSeq++
+  signoffDirectoryRequestSeq++
+  approvalUsersRequestSeq++
   if (currentVersionLookupTimer) {
     clearTimeout(currentVersionLookupTimer)
   }
@@ -2416,6 +2697,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+:global(.dcc-upload-submit-confirmation) {
+  width: min(720px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
 .upload-readiness-blockers {
   margin: 8px 0 0;
   padding-left: 20px;

@@ -24,6 +24,7 @@ public enum DccControlledFileStatusEnum implements ArrayValuable<String> {
     TRAINING_IN_PROGRESS("TRAINING_IN_PROGRESS", "Training in progress"),
     PENDING_MANUAL_DISTRIBUTION("PENDING_MANUAL_DISTRIBUTION", "Pending manual distribution"),
     ACTIVE("ACTIVE", "Active"),
+    CONTROLLED_PENDING_EFFECTIVE("CONTROLLED_PENDING_EFFECTIVE", "已受控，待生效"),
     REJECTED("REJECTED", "Rejected"),
     WITHDRAWN("WITHDRAWN", "Withdrawn"),
     OBSOLETE("OBSOLETE", "Obsolete"),

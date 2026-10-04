@@ -1,0 +1,51 @@
+{
+  "status": "prepared_offline_verified_not_mysql_rehearsed",
+  "unitTests": 31,
+  "unitTestsResult": "PASS",
+  "independentReviewFindingsClosed": [
+    "R01-full-copied-business-fields",
+    "R02-snapshot-raw-private-error-recording"
+  ],
+  "databaseWritesExecuted": false,
+  "mysqlRehearsalExecuted": false,
+  "actualUserApprovalProvenByFlag": false,
+  "rehearsalDatabase": "dcc_intqms_g18_rehearsal",
+  "originalDatabaseUpgradeModeExists": false,
+  "supportHashes": {
+    "g21_migration_scope.py": "5fe9fe0bdcadec348a0f4ba3e4b0aab56efdc9df1b2f2fb6792b5382b754430d",
+    "g21_execution_materials.py": "9467c3ed5f3f49d22b14b14cdd988bc78790d76fd6bfef4009bc2ba18ce2a0f8",
+    "g21_mysql_support.py": "6416a70ce24ea4fdec6abcbeb1f1a7746bd471533fff5c994b3c6ee08faf1331"
+  },
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-driver.py",
+      "bytes": 38624,
+      "sha256": "86e9e8b5504f926dfd1d7ad529afe006393289ec811378232ded997c097e99a9",
+      "normalizedUtf8LfSha256": "519dc78d70e16cc4acd8152b1498896528ea8f4636053b918167d0c8fd3eb8f9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-tests.py",
+      "bytes": 29813,
+      "sha256": "e29c15702fc5bf30f767aa517211b98c439cf9e0084a4cda01a1f91e411e1e79",
+      "normalizedUtf8LfSha256": "dbf98eb6b1019b56795c47411f6d7b649e2d7e0f4e485f1475ef47b0ce759bd1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-contract.json",
+      "bytes": 2517,
+      "sha256": "4cadaff9b561a2e0a1ef5ddc83345b9552ebc2c5b9d6042d9b6cde750bd3a171",
+      "normalizedUtf8LfSha256": "46a4b37d1c666ee421c5da703d040d327fac522c77db5f2d349c8d284546695d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-postflight-package.json",
+      "bytes": 1429,
+      "sha256": "6e165a1344778ef55bbd83699959f6f03592730727e879f2ec34d85d60f8d6fa",
+      "normalizedUtf8LfSha256": "055bac407a4e966e222b050e488463ed3607b7fdda4ff8216f98ae2395082d88"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-prepared-inputs.json",
+      "bytes": 45497,
+      "sha256": "9928792f07877c20100d2e785065b2cbbd73b54dc8b14284ad2f00f52face532",
+      "normalizedUtf8LfSha256": "767c994425a22433f4b25920d12f1aec033f0c730bd47f71fe59a9e12d98485a"
+    }
+  ]
+}

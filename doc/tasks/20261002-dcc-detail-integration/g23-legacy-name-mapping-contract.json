@@ -1,0 +1,164 @@
+{
+  "status": "PREPARED_READ_ONLY_METADATA_PROPOSAL",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "tenantId": "1",
+  "expectedActiveClaimCount": 25,
+  "protectedSchemaSha256": "cf6a94375b95720637d7b75a471e508420ffa9cc6b399c4438851237d4fc66fa",
+  "fields": {
+    "claim": [
+      "id",
+      "tenantId",
+      "masterId",
+      "normalizedName",
+      "nameHex",
+      "deleted",
+      "activeFlag"
+    ],
+    "master": [
+      "id",
+      "tenantId",
+      "fileName",
+      "projectId",
+      "leafId",
+      "normalizedNumber",
+      "fileNumber",
+      "currentActiveFileId",
+      "status",
+      "deleted"
+    ],
+    "version": [
+      "id",
+      "tenantId",
+      "masterId",
+      "sourceFileId",
+      "originalFileId",
+      "sourceSha256",
+      "projectId",
+      "leafId",
+      "fileNumber",
+      "versionNo",
+      "status",
+      "processInstanceId",
+      "predecessorId",
+      "deleted"
+    ],
+    "storage": [
+      "id",
+      "configId",
+      "name",
+      "nameHex",
+      "mime",
+      "size",
+      "deleted"
+    ],
+    "ownership": [
+      "id",
+      "tenantId",
+      "controlledFileId",
+      "sourceFileId",
+      "originSourceFileId",
+      "sourceSha256",
+      "ownershipType",
+      "deleted"
+    ],
+    "ticket": [
+      "id",
+      "tenantId",
+      "controlledFileId",
+      "storageFileId",
+      "originalName",
+      "nameHex",
+      "fileSha256",
+      "size",
+      "purpose",
+      "status",
+      "cleanupStatus",
+      "deleted"
+    ],
+    "reference": [
+      "id",
+      "tenantId",
+      "masterId",
+      "sourceFileId",
+      "sourceSha256",
+      "deleted"
+    ]
+  },
+  "requiredExistingColumns": {
+    "dcc_controlled_file_name_claim": {
+      "active_unique_flag": "bigint GENERATED ALWAYS AS ((case when (`deleted` = 0) then 1 else NULL end)) STORED",
+      "deleted": "tinyint NOT NULL DEFAULT '0'",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "master_id": "bigint NOT NULL",
+      "normalized_name": "varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL",
+      "tenant_id": "bigint NOT NULL"
+    },
+    "dcc_controlled_file_master": {
+      "current_active_controlled_file_id": "bigint DEFAULT NULL",
+      "dcc_project_code_id": "bigint DEFAULT NULL",
+      "deleted": "tinyint NOT NULL DEFAULT '0'",
+      "file_name": "varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL",
+      "file_number": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "file_type_taxonomy_leaf_id": "bigint DEFAULT NULL",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "normalized_file_number": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL",
+      "status": "varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "tenant_id": "bigint NOT NULL DEFAULT '0'"
+    },
+    "dcc_controlled_file": {
+      "dcc_project_code_id": "bigint DEFAULT NULL",
+      "deleted": "tinyint NOT NULL DEFAULT '0'",
+      "file_number": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL",
+      "file_type_taxonomy_id": "bigint DEFAULT NULL",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "master_id": "bigint DEFAULT NULL",
+      "original_file_id": "bigint NOT NULL",
+      "predecessor_controlled_file_id": "bigint DEFAULT NULL",
+      "process_instance_id": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL",
+      "source_file_id": "bigint DEFAULT NULL",
+      "source_sha256": "varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL",
+      "status": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "tenant_id": "bigint NOT NULL DEFAULT '0'",
+      "version_no": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL"
+    },
+    "infra_file": {
+      "config_id": "bigint DEFAULT NULL",
+      "deleted": "bit(1) NOT NULL DEFAULT b'0'",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "name": "varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL",
+      "size": "int NOT NULL",
+      "type": "varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL"
+    },
+    "dcc_controlled_file_source_ownership": {
+      "controlled_file_id": "bigint NOT NULL",
+      "deleted": "bit(1) NOT NULL DEFAULT b'0'",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "origin_source_file_id": "bigint NOT NULL",
+      "ownership_type": "varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "source_file_id": "bigint NOT NULL",
+      "source_sha256": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "tenant_id": "bigint NOT NULL"
+    },
+    "dcc_controlled_file_temporary_file": {
+      "bound_controlled_file_id": "bigint DEFAULT NULL",
+      "cleanup_status": "varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "deleted": "tinyint NOT NULL DEFAULT '0'",
+      "file_sha256": "varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "file_size": "bigint NOT NULL",
+      "id": "bigint NOT NULL AUTO_INCREMENT",
+      "original_file_name": "varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "purpose": "varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "status": "varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL",
+      "storage_file_id": "bigint NOT NULL",
+      "tenant_id": "bigint NOT NULL DEFAULT '0'"
+    }
+  },
+  "infraFileTenantFieldExists": false,
+  "infraFileBodyHashFieldExists": false,
+  "source_bytes_verified": false,
+  "write_authorized": false,
+  "schemaSemantics": "Query only pre-existing source columns; no reference to C newly-added names. Single SELECT snapshot, all scoped versions including deleted.",
+  "querySha256": "8cecc9b7313117287ed6f67c2824a65bd9d9bf242cd4ae67e66117f44e2a6474"
+}

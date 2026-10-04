@@ -22,6 +22,11 @@ public class DccControlledFilePageReqVO extends PageParam {
     private String keyword;
     private Boolean latestVersionOnly;
     private Long dccProjectCodeId;
+    /** CC-2 selector read scope on the existing browser-page endpoint. */
+    private String selectorScope;
+    /** Full version browser; deliberately independent from latest-controlled selection. */
+    private String browserScope;
+    private Long projectFolderId;
     private Long fileTypeTaxonomyId;
     private List<Long> fileTypeTaxonomyIds;
     private List<FileTypeTaxonomyPathFilter> fileTypeTaxonomyPaths;

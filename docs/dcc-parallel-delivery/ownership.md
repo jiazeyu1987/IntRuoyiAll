@@ -28,6 +28,26 @@
 
 ## 2. 防冲突规则
 
+2026-10-03 G12实际交付归属：Root临时完成引用明细FE五文件及两个独立新文件/测试，后台两个conditional scheduler/recovery及独立context测试，最新明确范围见主任务G12；正式工具无新Agent续派回执时，不将旧completed Agent记运行。detail_closure G11共用selector两源码及已交付测试保持保护。后续backend_closure正式接手批准负责人Java/VO/schema/签名合同，detail_closure正式接批准弹框和workflow/api，Root停止对应生产并写；原负责人功能当前仍未实施。最终Root负责Review、统一验证/运行/本地Git，未验证中间状态不合入int_qms。
+
+2026-10-03 G10：upload_closure 接 UI-02 文件列表直接关联和 UI-05 引用明细前端，独占 ProjectBrowserPanel/project-browser/DccProjectReferences、必要独立弹框及 relations.ts 新只读 wrapper/专属测试；复用 DetailRelationsPanel，不改该组件。detail_closure 接 UI-03，共用 DccFileSelector.vue、独立项目目录loader及选择器测试，必要所属 DetailRelationsPanel 接线，不写browser/upload/basic-data父页。backend_closure 本轮只读复核 Root G09 UI-06 核对步骤和迁移/运行准备，不改前端，若发现问题先报 Root；Java/Maven 后续变更仍需 Root 分派。Root保留需求/总 Review、统一验证、运行和Git；Root G09 ProductCatalog/helper/test 已交付并保持保护。Agent是否实际执行须以正式工具回执证明。
+
+2026-10-03 G07：backend_closure 独占生命周期多受控版本生效、默认最新受控 SQL 过滤及对应后端测试/Maven、暂停 job 注册准备；upload_closure 独占 ProjectBrowserPanel.vue、project-browser.ts、DccProjectReferences.vue、project-reference-contract.ts 及浏览/引用专属测试，接默认筛选、文件名颜色和固定引用正文入口。detail_closure 独占 applicationRead.ts 及其测试，提供 ProjectBrowserOptions，其他公共入口仅只读审查、发现缺口先交 Root 分派。Root 独占需求/合同/总 Review、迁移依赖包、统一前端类型和构建、运行及最终 Git。原四工作树保持交付来源只读。跨引用正文权限复用现有精确 selectedControlledFileId 的 relation-permissions 轻量合同，不新增平行权限接口或猜测 source project 权限。
+
+2026-10-03 G04：backend_closure 正式续跑，独占全部本批后端/Maven；detail_closure 正式启动，独占 detail/revision/relations详情父组件、workflow.ts/applicationRead.ts 和所属测试；upload_closure 正式启动，独占 upload/signoff-departments/submitter 和上传测试。Root 已将本批部门预检/控件及轮次/权限读接口成果移交，不再并写上述源码。上传 shared workflow.ts 类型调整由 detail_closure 接入，不能两个前端 Owner 同改公共接口。Root负责主文档、Review、跨模块验证和最终本地Git；原四树只读。
+
+2026-10-03 G03：backend_closure 已正式启动，唯一负责整合树后端源码、共享 Controller/VO/Query/Mapper/schema 及 Maven，包括完整项目浏览、失败原目标号返工和审核人员配置。Root 作废 readiness 修复已移交，其210次回归证据保留，Root 不并写这些生产文件。前端后续分派以主任务 G03 和正式子 Agent 回执为准；未启动的分派不能记为运行中。Root 保留合同、Review、统一前端类型/构建、运行环境及最终本地 Git 整合。
+
+本轮并行实际接手补记：backend_public_repair替代因工具协议错误退出的backend_public_integration；browser_project_integration在browser之外收口upload/index.vue、upload/submitter.ts和上传测试，Root停止这些源码写入，仅Review/合同/最终验证。detail仍唯一写workflow.ts/applicationRead.ts，共享字段由Agent直接消息协调。
+
+2026-10-02 用户明确改为主管理带三个子Agent并行修复；只在现存整合worktree，原ABCD手动worktree只读。backend_public_integration接后端Controller/VO/placement与实际创建检入候选接线；detail_workflow_integration唯一修改公共detail和workflow.ts/applicationRead.ts，负责申请/指派/下发；browser_project_integration唯一修改公共browser及独立项目组件；Root暂保upload/submitter及主管理文档。每个子Agent独立任务记录，跨字段先消息协调，不创建独立手动线程或定时。此前Owner定义用于原worker交付，本轮整合写权限按此限定分配。
+
+2026-10-02 H08草稿桥接接续：A负责新增单一内部DccWorkingApplicationDraftInitializer（MANDATORY事务），Workflow的prepareApplicationDraft改为委托此服务；C可在自身Query检入实际insert后调用该内部服务，但须等A交付签名/实现并由主管理冻结同步后再接线。该服务不得注入Query或Workflow，不新增HTTP、轮次表或属性表。真实未送审直接前驱调用B inheritReservedDraftToNewApplication；已提交返工仍用真实BPM来源fork；完全新申请才读取当前项目默认。所有权限、来源、锁顺序、重放与晚失败回滚须真实组合验明，不能假接口代替。本次不授权任何worker定时任务或跨Owner代改。
+
+2026-10-01 CC-2小范围接续例外：B可在自身worktree实现Root DccApplicationRoundService的reserveDraft/requireDraft/bindReservedDraft及所属测试、独立前向迁移/H2fixture；C可登记SubmitIterationReqVO/既有前端提交类型的effectiveDate。具体语义和验证见continuation-contract-2.md，主管理统一接收/同步。不得据此改A Workflow或公共上传/详情/浏览页；其他归属不变。
+
+2026-10-02 H04/H05真实公开NEW创建组合例外：A可小范围修改DccControlledFileMasterMapper.selectByNewLogicalIdentity及同逻辑身份锁定方法的deleted列谓词为已有deleted=0数值合同，保留tenant/project/type/number/锁/身份约束；当前H2 first error为旧b'0'语法，不以动态方言fallback/替身/换库绕开。只处理被真实创建路径命中的方法，交Root精确diff和公开创建/晚失败回滚结果，其他共享Mapper/模型/公共页归属不变。
+
 - 独立worktree不消除合并冲突。Owner表约束的是同一文件的修改责任，不是电脑目录。
 - 需要改别人的文件时，先交“文件、方法锚点、必要原因、最小差异、验收影响”。主管理选择由Owner接入或在明确阶段重新分配归属，并更新本表。
 - 不用新增第二套同义公共对象、双接口、fallback或兼容逻辑来规避文件归属。

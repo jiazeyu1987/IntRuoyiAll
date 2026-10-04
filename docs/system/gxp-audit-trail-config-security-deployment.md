@@ -15,11 +15,11 @@
 ## Configuration
 
 - `gxp.audit.enabled` 在包含 GxP 功能的正式 profile 中必须为强制 `true`，不得通过普通环境变量关闭；缺失或 false 时应用启动失败。
-- `gxp.audit.policy.location` 指向版本化、hash 固定且有批准引用的策略文件。
-- 策略权威路径固定为 `config/gxp-audit-policy.yaml`，必须通过版本化 schema 校验；启动时验证策略 hash、有效批准和实际启用 GxP 模块，不能仅凭 profile 名称决定是否需要审计。
+- `gxp.audit.policy.location` 指向版本化、hash 固定的策略文件；正式启用时提供实际批准引用。本机开发联调可使用明确标记的开发策略。
+- 策略权威路径固定为 `config/gxp-audit-policy.yaml`，必须通过版本化 schema 校验；启动时验证策略 hash 和实际启用 GxP 模块，正式环境还须验证有效批准。本机开发不要求质量批准，不能仅凭 profile 名称关闭审计。
 - `gxp.audit.incremental-seal.max-age`、`manifest.schedule`、`archive.schedule`、`review.schedule`、`trusted-time.max-age` 和偏差阈值只能使用已批准值；缺失时启动或治理门禁失败。
 - `retention.class.*` 保存期限来自批准矩阵，不提供默认年限。
-- 配置变更必须产生系统审计事件；策略生效需要质量电子签名。
+- 配置变更必须产生系统审计事件；正式策略生效需要质量电子签名。用户已明确本机开发阶段不要求质量批准：开发配置可以在授权后启用真实审计操作，不创建虚假的质量批准登记。开发入口必须限定本机数据源和开发运行环境，正式发布仍按实际批准规则执行。
 
 ## Secrets
 

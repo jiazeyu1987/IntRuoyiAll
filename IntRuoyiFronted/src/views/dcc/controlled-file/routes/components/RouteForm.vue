@@ -319,12 +319,15 @@ const currentRouteApprovalPolicy = computed(() =>
   isLegacyRoute.value ? FIXED_ROUTE_APPROVAL_POLICY : ACTION_ROUTE_APPROVAL_POLICY
 )
 const currentExpectedStageNos = computed(() =>
-  isLegacyRoute.value ? EXPECTED_FIXED_ROUTE_STAGE_NOS : EXPECTED_ACTION_ROUTE_STAGE_NOS
+  isLegacyRoute.value ? EXPECTED_FIXED_ROUTE_STAGE_NOS
+    : formData.value.actionType === 'OBSOLETE' ? [1, 2] : EXPECTED_ACTION_ROUTE_STAGE_NOS
 )
 const routePolicyDescription = computed(() =>
   isLegacyRoute.value
     ? '历史通用流程固定四阶段：文控审核、会签审核、会签批准、文控批准。'
-    : '三动作流程固定三阶段：会签全部通过 100%，批准与文控审核任意通过。'
+    : formData.value.actionType === 'OBSOLETE'
+      ? '作废：各部门指派并签名会签，批准通过即作废结束。'
+      : '上传/升版：会签→批准→培训（如需）→文控审核→受控→下发。'
 )
 const getFixedRouteApprovalPolicy = (stageNo?: number) =>
   stageNo == null ? undefined : currentRouteApprovalPolicy.value[stageNo]

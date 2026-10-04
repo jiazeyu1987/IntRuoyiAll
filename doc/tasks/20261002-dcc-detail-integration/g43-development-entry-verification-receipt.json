@@ -1,0 +1,96 @@
+{
+  "status": "G43_DEVELOPMENT_ENTRY_EFFECTIVE_RED_GREEN_REGRESSION_PASS_NO_ACTUAL_RUNTIME",
+  "MavenExitCode": 0,
+  "tests": 130,
+  "classes": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceCommandTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceEntryTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceGateTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceKernelTest",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceLoggingTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameRegistrationTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "overlap": "Kernel inherits 22 registration cases; do not present 130 executions as 130 distinct scenarios.",
+  "RED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-development-red.log",
+    "bytes": 63081,
+    "sha256": "54b4bc4194018989057d9a25775ee8d163e3f9138bd5768a9b8f41bf02e59f93"
+  },
+  "REDMeaning": "Actual Gate.read rejected developmentPolicy/no qualityApproval with UNKNOWN_OR_MISSING_FIELD. 1 test, 0 assertion failures, 1 expected rejection error; not a fixture error.",
+  "firstGreenAttempt": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-development-green.log",
+    "bytes": 64574,
+    "sha256": "c0c1081cbaeaa092d155d8ffa834149acb66022f45ef17f2969dec0de0810d4d"
+  },
+  "firstGreenMeaning": "34 executions, 33 PASS; new runtime-policy fixture corrupts wrong operation-map key and throws NPE only after actual26 matcher succeeded. Corrected to real production OPERATION constant. Not a product RED.",
+  "GREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-development-final-regression.log",
+    "bytes": 68452,
+    "sha256": "c67f97c295ce766c6b1dca78c419ded6152d2a8a4cc047fb74082fac03d1c2b1"
+  },
+  "finishedAt": "2026-10-04T14:46:26+08:00",
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-development-entry-fingerprints.json",
+    "bytes": 3815,
+    "sha256": "611d06410f55953ae4204089d27e10b730787a07e24e5a0e24a0e4c156f311d4"
+  },
+  "developmentApprovalInvented": false,
+  "qualityRegistryWrites": 0,
+  "actualTokenReads": 0,
+  "actualDBWrites": 0,
+  "actualDBConnections": 0,
+  "serviceStarts": 0,
+  "packageRuns": 0,
+  "gitMutation": false,
+  "original41ZeroDrift": true,
+  "OWNER4ZeroDrift": true,
+  "defaultRunnerAndActualTokenAuthUnchanged": true,
+  "testEvidenceBoundary": "Real Spring/H2 registration and Gxp transaction; environment/MySQL identity, OAuth directory and schema reads isolated. No actual runtime, browser or E2E claim."
+}

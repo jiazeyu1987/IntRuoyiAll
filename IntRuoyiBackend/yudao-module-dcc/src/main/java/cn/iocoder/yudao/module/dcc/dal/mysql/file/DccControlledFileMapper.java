@@ -140,7 +140,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             WHERE tenant_id = #{tenantId}
               AND submitter_id = #{submitterId}
               AND submit_idempotency_key = #{idempotencyKey}
-              AND deleted = b'0'
+              AND deleted = 0
             LIMIT 1
             FOR UPDATE
             """)
@@ -160,7 +160,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             WHERE tenant_id = #{tenantId}
               AND requester_id = #{requesterId}
               AND creation_idempotency_key = #{idempotencyKey}
-              AND deleted = b'0'
+              AND deleted = 0
             LIMIT 1 FOR UPDATE
             """)
     DccControlledFileDO selectByCreationIdempotencyForUpdate(@Param("tenantId") Long tenantId,

@@ -6,7 +6,7 @@
         <div class="dcc-workbench-updated">更新时间：{{ lastLoadedAt || '-' }}</div>
       </div>
       <div class="dcc-workbench-actions">
-        <el-button :loading="loading || impactLoading" @click="refreshWorkbench">
+        <el-button :loading="loading || impactLoading || pendingDistributionState.loading" @click="refreshWorkbench">
           <Icon icon="ep:refresh-right" class="mr-5px" />
           刷新
         </el-button>
@@ -39,15 +39,15 @@
 
     <div v-loading="loading" class="dcc-workbench-metric-grid">
       <button
-        v-for="metric in metricItems"
+        v-for="metric in visibleMetricItems"
         :key="metric.key"
         class="dcc-workbench-metric"
         :class="`dcc-workbench-metric--${metric.tone}`"
         type="button"
-        @click="openPath(metric.routePath)"
+        @click="openWorkbenchMetric(metric)"
       >
-        <span class="dcc-workbench-metric__label">{{ metric.label }}</span>
-        <span class="dcc-workbench-metric__count">{{ metric.count }}</span>
+        <span class="dcc-workbench-metric__label">{{ metric.key === 'pendingDistributionTotal' && pendingDistributionState.remindersOnly ? `${metric.label}（提醒）` : metric.label }}</span>
+        <span class="dcc-workbench-metric__count">{{ metric.key === 'pendingDistributionTotal' ? pendingDistributionState.total ?? '—' : metric.count }}</span>
       </button>
     </div>
   </ContentWrap>
@@ -96,28 +96,18 @@
       </el-table>
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canHandleWorkflowDistribution" id="dcc-workbench-pending-distribution" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">待文控下发</div>
-        <el-button link type="primary" @click="openPath('/dcc/controlled-file/browser')">全部</el-button>
       </div>
-      <el-table
-        v-loading="loading"
-        :data="pendingDistributionRows"
-        empty-text="暂无待下发文件"
-        size="small"
-      >
-        <el-table-column label="文件" min-width="220" prop="title" show-overflow-tooltip />
-        <el-table-column label="编号" min-width="150" prop="fileNumber" show-overflow-tooltip />
-        <el-table-column label="时间" width="170" prop="timeText" />
-        <el-table-column label="操作" align="center" width="90">
-          <template #default="{ row }">
-            <el-button link type="primary" :title="row.actionBlockReason" @click="openFileDetail(row.id)">
-              {{ row.primaryActionText }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <PendingWorkflowDistributionList
+        ref="pendingDistributionPanel"
+        :context-key="workflowDistributionContextKey"
+        :can-handle="canHandleWorkflowDistribution"
+        :load="loadPendingWorkflowDistribution"
+        @state="capturePendingDistributionState"
+        @open="openPendingWorkflowDistribution"
+      />
     </ContentWrap>
 
     <ContentWrap class="dcc-workbench-panel">
@@ -334,6 +324,11 @@
 </template>
 
 <script lang="ts" setup>
+import PendingWorkflowDistributionList from '../workflow/PendingWorkflowDistributionList.vue'
+import { isWorkflowId, type PendingWorkflowDistributionFile } from '../workflow/workflow-actions'
+import { getPendingWorkflowDistribution } from '@/api/dcc/controlledFile/workflowLifecycle'
+import { useUserStore } from '@/store/modules/user'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { ElMessageBox } from 'element-plus'
 import * as TaskApi from '@/api/bpm/task'
 import { getProcessInstance, type ProcessInstanceVO } from '@/api/bpm/processInstance'
@@ -404,6 +399,39 @@ interface DccWorkbenchTaskRow {
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+const readWorkflowDistributionContext = () => {
+  const tenantId = getVisitTenantId() || getTenantId()
+  const userId = userStore.getUser.id
+  return isWorkflowId(tenantId) && isWorkflowId(userId) ? JSON.stringify([String(tenantId), String(userId)]) : ''
+}
+const workflowDistributionContextKey = computed(readWorkflowDistributionContext)
+const canHandleWorkflowDistribution = computed(() => userStore.getIsSetUser
+  && userStore.getRoles.includes('doc_control')
+  && (userStore.getPermissions.has('dcc:controlled-file:distribute') || userStore.getPermissions.has('*:*:*'))
+  && Boolean(workflowDistributionContextKey.value))
+const pendingDistributionPanel = ref<{ refresh: () => Promise<void> }>()
+const pendingDistributionState = reactive<{ total: number | null; loading: boolean; error: string; remindersOnly: boolean }>({
+  total: null, loading: false, error: '', remindersOnly: false
+})
+const capturePendingDistributionState = (state: typeof pendingDistributionState) => Object.assign(pendingDistributionState, state)
+const loadPendingWorkflowDistribution = async (remindersOnly: boolean) => {
+  if (!canHandleWorkflowDistribution.value) throw new Error('当前账号无文控下发办理资格')
+  const context = readWorkflowDistributionContext()
+  if (!context || context !== workflowDistributionContextKey.value)
+    throw new Error('文控待处置上下文已变化，请重新进入工作台')
+  const result = await getPendingWorkflowDistribution(remindersOnly)
+  if (!canHandleWorkflowDistribution.value || context !== readWorkflowDistributionContext())
+    throw new Error('文控待处置上下文已变化，请重新进入工作台')
+  return result
+}
+const openPendingWorkflowDistribution = (file: PendingWorkflowDistributionFile) => {
+  if (!canHandleWorkflowDistribution.value || readWorkflowDistributionContext() !== workflowDistributionContextKey.value
+    || !isWorkflowId(file.id) || file.distributedTime)
+    throw new Error('当前账号或文件不具备文控下发办理条件')
+  router.push({ path: `/dcc/controlled-file/detail/${String(file.id)}`,
+    query: { mode: 'manage', from: 'workbench', returnTo: route.fullPath } })
+}
 const loading = ref(false)
 const loadErrorMessage = ref('')
 const lastLoadedAt = ref('')
@@ -414,7 +442,8 @@ const metricItems = ref<DccWorkbenchMetricItem[]>(buildDccWorkbenchMetricItems({
   finalizationFailedTotal: 0
 }))
 const approvalTodoRows = ref<DccWorkbenchTaskRow[]>([])
-const pendingDistributionRows = ref<DccWorkbenchFileRow[]>([])
+const visibleMetricItems = computed(() => metricItems.value.filter(metric =>
+  metric.key !== 'pendingDistributionTotal' || canHandleWorkflowDistribution.value))
 const trainingTodoRows = ref<DccWorkbenchTrainingRow[]>([])
 const finalizationFailedRows = ref<DccWorkbenchFileRow[]>([])
 const impactLoading = ref(false)
@@ -448,6 +477,15 @@ const DCC_APPROVAL_PROCESS_DEFINITION_KEYS = [
 
 const openPath = (path: string) => {
   router.push(path)
+}
+
+const openWorkbenchMetric = (metric: DccWorkbenchMetricItem) => {
+  if (metric.key === 'pendingDistributionTotal') {
+    if (canHandleWorkflowDistribution.value)
+      document.getElementById('dcc-workbench-pending-distribution')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
+  }
+  openPath(metric.routePath)
 }
 
 const openFileDetail = (id: number | string) => {
@@ -573,27 +611,24 @@ const loadWorkbench = async () => {
   loading.value = true
   loadErrorMessage.value = ''
   try {
-    const [approvalTodos, pendingDistribution, trainingTodos, finalizationFailed] = await Promise.all([
+    const [approvalTodos, trainingTodos, finalizationFailed] = await Promise.all([
       buildTaskRows(),
-      loadFilePageByStatus('PENDING_MANUAL_DISTRIBUTION'),
       loadTrainingTodos(),
       loadFilePageByStatus('FINALIZATION_FAILED')
     ])
 
     approvalTodoRows.value = approvalTodos.rows
-    pendingDistributionRows.value = pendingDistribution.rows
     trainingTodoRows.value = trainingTodos.rows
     finalizationFailedRows.value = finalizationFailed.rows
     metricItems.value = buildDccWorkbenchMetricItems({
       approvalTodoTotal: approvalTodos.total,
-      pendingDistributionTotal: pendingDistribution.total,
+      pendingDistributionTotal: 0,
       trainingTodoTotal: trainingTodos.total,
       finalizationFailedTotal: finalizationFailed.total
     })
     lastLoadedAt.value = formatDateTimeValue(new Date())
   } catch (error) {
     approvalTodoRows.value = []
-    pendingDistributionRows.value = []
     trainingTodoRows.value = []
     finalizationFailedRows.value = []
     metricItems.value = buildDccWorkbenchMetricItems({
@@ -734,10 +769,15 @@ const submitImpactRevision = async () => {
 }
 
 const refreshWorkbench = async () => {
-  await Promise.all([loadWorkbench(), loadImpactTasks()])
+  await Promise.all([loadWorkbench(), loadImpactTasks(), pendingDistributionPanel.value?.refresh()])
 }
 
-onMounted(refreshWorkbench)
+onMounted(() => { void Promise.all([loadWorkbench(), loadImpactTasks()]) })
+let activatedOnce = false
+onActivated(() => {
+  if (activatedOnce) void refreshWorkbench()
+  activatedOnce = true
+})
 </script>
 
 <style scoped>

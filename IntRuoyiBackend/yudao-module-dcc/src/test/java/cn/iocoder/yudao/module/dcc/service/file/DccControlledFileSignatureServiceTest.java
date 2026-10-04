@@ -53,6 +53,45 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
 
+    @Test
+    void missingOrInvalidUnifiedSignatureFactNeverCreatesADccSuccessProjection() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        var timestamp=LocalDateTime.now();
+        for (ElectronicSignatureResult invalid:java.util.Arrays.asList(null,
+                new ElectronicSignatureResult(null,"VALID",timestamp,"clock","version","content","hash","SHA-256","key"),
+                new ElectronicSignatureResult(1L,"INVALID",timestamp,"clock","version","content","hash","SHA-256","key"))) {
+            when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class))).thenReturn(invalid);
+            assertServiceException(()->signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,"task-1",
+                    "MATRIX_REVIEW","APPROVE","secret","同意"),CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
+        }
+        verify(signatureMapper,never()).insert(any(DccControlledFileSignatureDO.class));
+        verify(signatureImageService,never()).markReferenced(any());
+    }
+
+    @Test
+    void assignmentSignsItsOwnMeaningAndDoesNotCreateAnApprovalSignature() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L,LocalDateTime.now().withNano(0)));
+        var result=signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,"task-assign",
+                "MATRIX_REVIEW","ASSIGN","secret","指派本人");
+        assertEquals("MATRIX_REVIEW_ASSIGN",result.getMeaningCode());
+        var evidence=ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
+        verify(signatureEvidenceService).createEvidence(evidence.capture());
+        assertEquals("ASSIGNED",evidence.getValue().getTaskActionResult());
+        var record=ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        verify(signatureMapper).insert(record.capture());
+        assertEquals("ASSIGN",record.getValue().getActionType());
+    }
+
     @Mock
     private AdminUserService adminUserService;
     @Mock

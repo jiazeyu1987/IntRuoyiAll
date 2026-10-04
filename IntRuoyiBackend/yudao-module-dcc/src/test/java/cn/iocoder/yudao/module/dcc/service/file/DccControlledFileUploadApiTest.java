@@ -94,6 +94,18 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
     @Mock
     private DccControlledFileWorkflowService workflowService;
+    @Mock private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
+
+    @Test void trainingPreviewUsesCurrentFileAndRoundAuthorizationBeforeAnyStorageOrTicketWrite() {
+        var req=uploadReq("TRAINING_RECORD",new MockMultipartFile("files","training.pdf","application/pdf","%PDF-1.4".getBytes()));
+        req.setControlledFileId(901L);req.setSessionId("dcc-training:901:6:proc-1:session");
+        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
+        org.mockito.Mockito.doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"training context denied"))
+                .when(workflowService).validateTrainingRecordUpload(99L,901L,10L,req.getSessionId());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->uploadService.uploadPreviewFile(99L,req,auditContext("REQ-TRAINING-DENIED")));
+        verify(workflowService).validateTrainingRecordUpload(99L,901L,10L,req.getSessionId());
+        org.mockito.Mockito.verifyNoInteractions(fileService,uploadTicketService);
+    }
 
     @Test
     void approvalOnlyActorCanUseTemporaryStatusAndCleanupEndpoints() {
@@ -162,6 +174,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     private DccFileCategoryMapper categoryMapper;
     @Mock
     private BusinessFileAccessService businessFileAccessService;
+    @Mock private DccControlledFileNameClaimService nameClaimService;
+    @Mock private DccControlledFileSourceOwnershipService sourceOwnershipService;
 
     @InjectMocks
     private DccControlledFileUploadServiceImpl uploadService;
@@ -169,6 +183,9 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUpCategory() {
         TenantContextHolder.setTenantId(31L);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        lenient().when(sourceOwnershipService.rollbackCleanup(any())).thenReturn(()->{});
         lenient().when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L)
                 .active(true)
@@ -181,6 +198,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+        org.springframework.transaction.support.TransactionSynchronizationManager.clear();
     }
 
     @Test
@@ -752,9 +770,11 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void uploadPreviewFile_trainingRecord_allowsGenericPdfWithExplicitPurpose() throws Exception {
+        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("TRAINING_RECORD",
                 new MockMultipartFile("files", "training.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        reqVO.setControlledFileId(901L);reqVO.setSessionId("dcc-training:901:6:proc-1:session");
         mockSizePolicy("TRAINING_RECORD", 8L);
         when(fileService.createFileAndReturnId(eq("%PDF-1.4".getBytes()), eq("training.pdf"), eq("dcc/original"),
                 eq("application/pdf"))).thenReturn(103L);
@@ -762,7 +782,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         when(watermarkService.build(99L, "preview", "training.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
-                "UT-20260528-0003", "session-1", "TRAINING_RECORD", "AVAILABLE",
+                "UT-20260528-0003", reqVO.getSessionId(), "TRAINING_RECORD", "AVAILABLE",
                 LocalDateTime.of(2026, 5, 28, 12, 30), 103L, "training.pdf", "application/pdf", 8L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,

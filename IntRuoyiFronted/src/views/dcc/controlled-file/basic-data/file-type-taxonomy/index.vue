@@ -121,7 +121,7 @@
             label="操作"
             prop="actions"
             fixed="right"
-            :width="getTaxonomyColumnWidthString('actions', 210)"
+            :width="getTaxonomyColumnWidthString('actions', 290)"
             align="center"
           >
             <template #default="{ row }">
@@ -153,6 +153,11 @@
               >
                 删除
               </el-button>
+              <el-button v-if="row.id && row.levelNo >= 3" link type="primary"
+                v-hasPermi="['dcc:controlled-file:category:manage']"
+                @click="mappingDialogRef?.open(row.id, row.name)">
+                检查对应类别
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -160,6 +165,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <FileTypeCategoryMappingDialog ref="mappingDialogRef" />
   <Dialog v-model="formVisible" class="scheme-d-form-control" :title="formTitle" width="640px">
     <el-form
       ref="formRef"
@@ -217,6 +223,7 @@
 
 <script lang="ts" setup>
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import FileTypeCategoryMappingDialog from './FileTypeCategoryMappingDialog.vue'
 import type { FormRules } from 'element-plus'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -250,7 +257,7 @@ const taxonomyDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'active', label: '状态', width: 96 },
   { key: 'sort', label: '排序', width: 90 },
   { key: 'remark', label: '备注', minWidth: 180 },
-  { key: 'actions', label: '操作', width: 210, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 290, hideable: false, business: false }
 ]
 
 const {
@@ -280,6 +287,7 @@ const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const rootCreateMode = ref(false)
 const formRef = ref()
+const mappingDialogRef = ref<InstanceType<typeof FileTypeCategoryMappingDialog>>()
 const rows = ref<DccFileTypeTaxonomyVO[]>([])
 const query = reactive<{
   pageNo: number

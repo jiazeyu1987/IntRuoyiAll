@@ -1,0 +1,48 @@
+{
+  "branch": "codex/20261001-dcc-integration",
+  "scope": "G13 independent Review - two production/five test assets",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalFileOwnerSelectionService.java",
+      "bytes": 7657,
+      "sha256": "35d32858db6905bb65af07ef0e932d38238a8761a9628e00df2ea3aed26ca4df",
+      "normalizedUtf8LfSha256": "34da06c798d71cbda1930d8964fd169e746e4884650110748d751190c07677b3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+      "bytes": 43655,
+      "sha256": "094ecbd59352c3e73917613d7c11e1a44541483a95ad9f39ae118b9891505360",
+      "normalizedUtf8LfSha256": "af88d3e682887fe0fb4aaf3772bd0f12be1bb6ac3319f14f1adc4c48a5e03ed2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFileOwnerPublicApprovalTest.java",
+      "bytes": 26912,
+      "sha256": "e18caff20b4082a161d070cbb648df9107689f0ea7e768602720bdcd0ab88eea",
+      "normalizedUtf8LfSha256": "a41999b73aca4df07c6da8e2c546444b668ed74c90416f5194f9c6a5485c7919"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+      "bytes": 52287,
+      "sha256": "f97d24b01076ba6c789a3022eccde7fd1359c0ef2016d9233a230b599de62c2d",
+      "normalizedUtf8LfSha256": "cad7dbcd92e67fe0f88d30dc2ef45c9f40493f76eaf3cd099fb084e978a03d62"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApprovalFileOwnerTransactionTest.java",
+      "bytes": 5928,
+      "sha256": "f83b076581d451df516f678b5e2e469d0fcd339146621eadad7b5b716290ed92",
+      "normalizedUtf8LfSha256": "6bb45d545d0a2f982e0c0106d429171f7740e06b8319bd9240944282178cf5ff"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionServiceTest.java",
+      "bytes": 32197,
+      "sha256": "7365ea7eb4da171bdbb13a284fe163029bcf9ac018d947709b0f8535cfd66e0e",
+      "normalizedUtf8LfSha256": "f6142346d282efea45950454cae807a063526b55260653d650e02a9e7187014f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckinDraftInitializationDatabaseTest.java",
+      "bytes": 43215,
+      "sha256": "570e313e470a10a0a8e32b5fa36c30737eddf9d2534bc1408441169038709a01",
+      "normalizedUtf8LfSha256": "7c309a745baac426cf9f3c27ac5e092e87e6971f54a36aef2ffdfbcef93ab0b4"
+    }
+  ]
+}

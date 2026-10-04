@@ -25,6 +25,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_P
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PROJECT_CODE;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID;
+import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.WRITE_INCOMPLETE;
 
 @Service
 public class DccProjectProductCreateWriteService {
@@ -45,25 +46,44 @@ public class DccProjectProductCreateWriteService {
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccProductCatalogMapper productCatalogMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectLeaderService leaderService;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributesService attributesService;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateService folderTemplateService;
+    @Resource private DccProjectProductAuditService productAudit;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccessService;
 
     @Transactional(rollbackFor = Exception.class)
     public DccProjectProductCreateRequestDO writeApprovedRequest(Long requestId) {
         DccProjectProductCreateRequestDO request = requestMapper.selectByIdForUpdate(requestId);
-        if (request == null) {
+        if (request == null || !java.util.Objects.equals(request.getTenantId(), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS);
         }
         if (!DccProjectProductCreateStatusConstants.WRITING.equals(request.getStatus())) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
         }
         validateUnique(request.getProjectCode(), request.getProductCode(), request.getProductName(), request.getId());
+        leaderService.requireEnabledAccount(request.getProjectLeaderUserId());
+        attributesService.readValue(request.getDefaultAttributesJson());
+        folderTemplateService.parse(request.getFolderTemplateSnapshotJson());
         Integer maxRowNo = productCatalogMapper.selectMaxOriginalRowNo(DATA_SOURCE);
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .projectName(request.getProjectName())
                 .projectCode(request.getProjectCode())
                 .projectLeader(request.getProjectLeader())
+                .projectLeaderUserId(request.getProjectLeaderUserId())
+                .defaultAttributesJson(request.getDefaultAttributesJson())
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build();
-        projectCodeMapper.insert(projectCode);
+        projectCode.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        if (projectCodeMapper.insert(projectCode) != 1 || projectCode.getId() == null) {
+            throw exception(WRITE_INCOMPLETE, "项目代码");
+        }
+        projectAccessService.initializeApprovedProjectLeaderOwner(projectCode.getId(),
+                request.getProjectLeaderUserId(), request.getWriteReason());
+        String version=productAudit.attemptVersion(request.getWriteAttemptNo());
+        productAudit.validateReason(request.getWriteReason());
+        var before=productAudit.snapshot(requestId);
+        folderTemplateService.generate(projectCode.getId(), request.getFolderTemplateId(), request.getFolderTemplateSnapshotJson());
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
                 .dataSource(DATA_SOURCE)
                 .originalRowNo((maxRowNo == null ? 1 : maxRowNo) + 1)
@@ -74,14 +94,19 @@ public class DccProjectProductCreateWriteService {
                 .classification(request.getClassification())
                 .remark(request.getRemark())
                 .build();
-        productCatalogMapper.insert(productCatalog);
+        if (productCatalogMapper.insert(productCatalog) != 1 || productCatalog.getId() == null) {
+            throw exception(WRITE_INCOMPLETE, "产品目录");
+        }
         DccProjectProductRelationDO relation = DccProjectProductRelationDO.builder()
                 .requestId(request.getId())
                 .projectCodeId(projectCode.getId())
                 .productCatalogId(productCatalog.getId())
                 .relationStatus(RELATION_ACTIVE)
                 .build();
-        relationMapper.insert(relation);
+        relation.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        if (relationMapper.insert(relation) != 1 || relation.getId() == null) {
+            throw exception(WRITE_INCOMPLETE, "项目产品关系");
+        }
         request.setGeneratedProjectCodeId(projectCode.getId());
         request.setGeneratedProductCatalogId(productCatalog.getId());
         request.setRelationId(relation.getId());
@@ -89,7 +114,8 @@ public class DccProjectProductCreateWriteService {
         request.setCompletedTime(LocalDateTime.now());
         request.setWriteErrorCode(null);
         request.setWriteErrorMessage(null);
-        requestMapper.updateById(request);
+        if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "申请完成状态");
+        productAudit.append("dcc.project-product.complete",requestId,version,request.getWriteReason(),before);
         return request;
     }
 

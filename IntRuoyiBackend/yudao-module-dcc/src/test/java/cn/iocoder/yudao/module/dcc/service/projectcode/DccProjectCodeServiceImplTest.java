@@ -120,6 +120,8 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private PermissionApi permissionApi;
     @MockitoBean
+    private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
+    @MockitoBean
     private DccProjectCodeConfigurationStatusApi configurationStatusApi;
     @MockitoBean
     private MdmProductApi productApi;

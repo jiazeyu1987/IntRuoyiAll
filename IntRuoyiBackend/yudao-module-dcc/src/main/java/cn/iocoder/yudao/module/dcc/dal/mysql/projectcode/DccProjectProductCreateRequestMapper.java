@@ -20,6 +20,8 @@ public interface DccProjectProductCreateRequestMapper
 
     default List<DccProjectProductCreateRequestDO> selectPendingList() {
         return selectList(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .in(DccProjectProductCreateRequestDO::getStatus,
                         DccProjectProductCreateStatusConstants.PENDING_REVIEW,
                         DccProjectProductCreateStatusConstants.PENDING_APPROVAL,
@@ -31,6 +33,8 @@ public interface DccProjectProductCreateRequestMapper
 
     default DccProjectProductCreateRequestDO selectActiveByProjectCode(String projectCode) {
         return selectOne(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .eq(DccProjectProductCreateRequestDO::getProjectCode, projectCode)
                 .in(DccProjectProductCreateRequestDO::getStatus,
                         DccProjectProductCreateStatusConstants.ACTIVE_REQUEST_STATUSES));
@@ -38,6 +42,8 @@ public interface DccProjectProductCreateRequestMapper
 
     default DccProjectProductCreateRequestDO selectActiveByProductCode(String productCode) {
         return selectOne(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .eq(DccProjectProductCreateRequestDO::getProductCode, productCode)
                 .in(DccProjectProductCreateRequestDO::getStatus,
                         DccProjectProductCreateStatusConstants.ACTIVE_REQUEST_STATUSES));
@@ -45,6 +51,8 @@ public interface DccProjectProductCreateRequestMapper
 
     default DccProjectProductCreateRequestDO selectActiveByProductName(String productName) {
         return selectOne(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .eq(DccProjectProductCreateRequestDO::getProductName, productName)
                 .in(DccProjectProductCreateRequestDO::getStatus,
                         DccProjectProductCreateStatusConstants.ACTIVE_REQUEST_STATUSES));
@@ -52,6 +60,15 @@ public interface DccProjectProductCreateRequestMapper
 
     default List<DccProjectProductCreateRequestDO> selectActiveByAny(Collection<String> statuses) {
         return selectList(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .in(DccProjectProductCreateRequestDO::getStatus, statuses));
+    }
+    default List<DccProjectProductCreateRequestDO> selectByPreviousRequestIds(Collection<Long> requestIds) {
+        if (requestIds.isEmpty()) return List.of();
+        return selectList(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                .in(DccProjectProductCreateRequestDO::getPreviousRequestId, requestIds));
     }
 }

@@ -1,0 +1,98 @@
+{
+  "status": "G43_FORMAL_DIRECTORY_IDENTITY_EFFECTIVE_RED_GREEN_REGRESSION_PASS_NO_RUNTIME",
+  "RED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-directory-red.log",
+    "bytes": 62823,
+    "sha256": "30e4b78d7e1731fbc680fd26e74935b0ed169ae3cca5d255fa6d2d452beb6889"
+  },
+  "REDMeaning": "Formal nickname/deptId map no username rejected by actual oldadapter CURRENT_ACCOUNT_INVALID; 1 expectedbehavior rejection error notfixture failure.",
+  "GREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-directory-green-regression.log",
+    "bytes": 69705,
+    "sha256": "19bb9e8490544366f4f224c50d8557a0389ce63dc36f11b03404a51c17d99c72"
+  },
+  "MavenExitCode": 0,
+  "tests": 137,
+  "classes": 7,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceCommandTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceEntryTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceGateTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceKernelTest",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceLoggingTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameRegistrationTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "finishedAt": "2026-10-04T16:08:19+08:00",
+  "overlap": "Kernel24 inherits22 registration cases; total137 executions not137 distinct scenarios.",
+  "sourceManifest": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-directory-fingerprints.json",
+    "bytes": 2084,
+    "sha256": "462cb0766e13d374e6fff1f7114df221fcf8b6994575aad1239fe03c9ef842df"
+  },
+  "actualRootReadonlyDiagnostic": {
+    "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g43-current-account-diagnostic.json",
+    "bytes": 489,
+    "sha256": "460435c62eedb6c95d331c99ced8d33bbae0914c040bf1cd4ba9177571b98bf0"
+  },
+  "formalImmutableCachedMapPositive": true,
+  "principalAuthoritativeCurrentUsernameAsserted": true,
+  "originalMapNeverMutated": true,
+  "optionalUsernameWrongBlankNullRejected": true,
+  "missingWrongNicknameDisabledDirectoryIdTenantRejected": true,
+  "bothExpiryGuardsAndRevocationScopeChecksRetained": true,
+  "authenticationCurrentContextRestored": true,
+  "actualGxpKernelRegressionRetained": true,
+  "testEvidenceBoundary": "Formal map principal behavior tested with isolated OAuth/directory ports; existing actual Spring/H2/Gxp transaction remains covered. Kernel fixture still contains cached username; source consumer proves directory-composed username reaches realauditor. Not actual login/E2E.",
+  "actualDBConnectionsByThisAgent": 0,
+  "actualRedisConnections": 0,
+  "actualTokenReads": 0,
+  "serviceStarts": 0,
+  "packageRuns": 0,
+  "GitMutations": false
+}

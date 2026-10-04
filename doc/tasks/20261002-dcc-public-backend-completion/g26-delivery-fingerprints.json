@@ -1,0 +1,554 @@
+{
+  "status": "OFFLINE_PREPARATION_VERIFIED",
+  "actualNetworkGets": 0,
+  "actualNetworkPuts": 0,
+  "databaseActions": 0,
+  "mavenActions": 0,
+  "gitMutations": 0,
+  "sourceJarSha256": "a4cf78f59d18ac333c64029dd86cf18bf4188c6f0e75762ac3a90eb1a516ef16",
+  "recoveryOfflineTests": 77,
+  "bucketProbeOfflineTests": 34,
+  "exactInfraIds": [
+    "9198354931064",
+    "9198354931068",
+    "9198354931079",
+    "9198354931095"
+  ],
+  "uniqueObjectKeys": 3,
+  "maximumActualPuts": 3,
+  "bucketSha256": "eef43e6566706fff3d910f5ea7220e06c51ad4bbcd34aa71e8c863ca7cece381",
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery.java",
+      "bytes": 19086,
+      "sha256": "ad69ffb944ce5a42b81b9e4f803329bf906cdc6f77d01f132305b195d864a6f0"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-test.java",
+      "bytes": 17790,
+      "sha256": "8b09e9c7fb2ae787230cbb423560e54f850928616608afe44789851e112c5409"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-readonly-bucket-probe.java",
+      "bytes": 9167,
+      "sha256": "880cb5f5fa676fde91d72959154b1ec7bd50fb36dd332100e3215c500e5cd04c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-readonly-bucket-probe-test.java",
+      "bytes": 9298,
+      "sha256": "afc2e8cbb1015cdb5fb287e52d5770249e5fa43079d8fa900ab3f16653b5d37a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-bdd.md",
+      "bytes": 7220,
+      "sha256": "5e19588c7746d52140e484394c9e494a6b54a846b426b142f76bd5d6667d7e68"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-plan.md",
+      "bytes": 9947,
+      "sha256": "7f5ea111331c32f7406538f1266caad102d10d4a7ce76678f60d2e2413c654b5"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-execution-contract.md",
+      "bytes": 9188,
+      "sha256": "64d210b4407ef3da390a881e412b2dcfb50044270011cd310b9946a69fc50e3f"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$1.class",
+      "bytes": 1399,
+      "sha256": "2c29da63b11b2f1b2cab58be744350d9c5419d45c285653edbc70f2f21e39e38"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$2.class",
+      "bytes": 2085,
+      "sha256": "542b24204a60bccf662f0f4e775a8787a6a65e7c1e5dc5c4ae3d5eb4a2935aca"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Config.class",
+      "bytes": 2023,
+      "sha256": "5ab49f0f338c7ebe980414d917a7321f11907287a9628a61046f5048df4df3e8"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Factory.class",
+      "bytes": 593,
+      "sha256": "beba0807793dc796f748517eacd1ad08e6aa93e128150012f373987997b6f7fb"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$FileFact.class",
+      "bytes": 1892,
+      "sha256": "ffc2dc350c4675cbc6973d58f87bdbf5708e4c599fd245cb3fd7a4f5a5e76d87"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Input.class",
+      "bytes": 2022,
+      "sha256": "2f0fa893910df7c25d16c7086c01305b1d47cf26d67005ac7446e202bc73fb16"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$InvalidInput.class",
+      "bytes": 345,
+      "sha256": "5717d7cd26cb5e168598a77d2f1845bc12662da13cd8a2defae1a1356fbc2268"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$LocalProofFailure.class",
+      "bytes": 461,
+      "sha256": "e0c3dfb26e124817f8a0bc17cb1b3902f95d16799b0f0b4dcdd8544a0916e35b"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Opened.class",
+      "bytes": 1587,
+      "sha256": "efbda196b5c9b43b8b9fa95bc264c2637a28e6b9b1f04424701a5326b95927e6"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Result.class",
+      "bytes": 2321,
+      "sha256": "0f82aa9606177eb9989d4226813e65c6673c9c6c8623e74018b06933eaffd714"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Scope.class",
+      "bytes": 2003,
+      "sha256": "17588a82a73f57c8a8c6328ffed40017e2cfab1aa49af2694a1837905ec6d74a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery$Store.class",
+      "bytes": 639,
+      "sha256": "843cdd191fd5f86654913c647292d8489d3ea561a19f1697b405804adfaad06a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecovery.class",
+      "bytes": 30975,
+      "sha256": "0c33ec2ee3c7fde92853128167efee83a9f9f620902d5a81be51fe495f842a95"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$1.class",
+      "bytes": 711,
+      "sha256": "20a975957a42da4fd4a72da16099f370c5047515398a313cedf7552c951706b9"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$2$1.class",
+      "bytes": 2946,
+      "sha256": "1f58c751e58cdb8cc509eba872d52613e158531c2c874509476a4fff3124abc3"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$2.class",
+      "bytes": 780,
+      "sha256": "33827d1a647a6b68e70a343bd10354d7b643df98a031f04ec41dace37edcc969"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$3.class",
+      "bytes": 1256,
+      "sha256": "93fe5a2b48e5f465b06fc32ef66da4272dcd2a87d1e0e16a07301f34b3b0bef4"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$4.class",
+      "bytes": 557,
+      "sha256": "4c2f216465f7cd16031a0902fc3c1dbebf46a02fba8f1f8853eac71092087d27"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$5.class",
+      "bytes": 854,
+      "sha256": "66de410a06a66260c0cd7f4c36dbad9d7d6a89c8d2302f63bfd87afe1613e4af"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$6$1.class",
+      "bytes": 2946,
+      "sha256": "fee6fbebc212adb2917c8d2319f4ab94d78ccb4689648843368fa643f5e08146"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$6.class",
+      "bytes": 650,
+      "sha256": "edfba0b2a6139a3e39e7f0668b763c3d670a31890cf49be8fe6861cba48c7751"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$7$1.class",
+      "bytes": 2946,
+      "sha256": "30164773575e1fb6960738a7a16f4c5867ebf760b8d5d7bd63a22935a1cb68fb"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$7.class",
+      "bytes": 3164,
+      "sha256": "d8ec31604aa5ee69a3b41292ee22dd9cb05312d4997f5a70faf7ae6fe5f29c0d"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$8$1.class",
+      "bytes": 2079,
+      "sha256": "dfbedd2dad44966dd0e1ecc264b8c7ede9b991b155f59d0876c5011ef9f93191"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$8.class",
+      "bytes": 1501,
+      "sha256": "e9c68486e9c614fefcf4f1f09f878f6d1e7601825d0f412f12774a6dba029278"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$Run.class",
+      "bytes": 1486,
+      "sha256": "428af4058d85c6fa87c781d25b0eddbe4cfbb28f4909bd75176e16b30fe7e37d"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$Store$1.class",
+      "bytes": 936,
+      "sha256": "2e8e4833e557c1178df83202854ef0f08540fb90382a7a15e550d54a775ce3f5"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest$Store.class",
+      "bytes": 4038,
+      "sha256": "b02885af2690bc84e35111ac3f377cb78a8e387388fe85b07ec8fa610c1a33fb"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ExactObjectRecoveryTest.class",
+      "bytes": 23369,
+      "sha256": "49b2bf51c2d39fa8509352e3a4ccae1244e15b85e38372f0375e34cdf9b3d446"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe$1.class",
+      "bytes": 1309,
+      "sha256": "70d9a3b68d7341975d735333b896940f0f64a6fe9bf4ebc5f8e1291ae50f0796"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe$2.class",
+      "bytes": 1348,
+      "sha256": "9437c59ce52d838d34be918f683c89bc7258bf7c101e01e071d79f53221e9db6"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe$Factory.class",
+      "bytes": 485,
+      "sha256": "bbe94f566f82b2f863b13947ead23dce1db3159c2661df01faada8c8f6ccea59"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe$Probe.class",
+      "bytes": 735,
+      "sha256": "704eff0cdf80575e38cd5b238c9ad06bae27ebeed838814ef8943ac5e86f4e2c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe$Report.class",
+      "bytes": 702,
+      "sha256": "27dfaa8ea9a1f3ec7e123cf25c5315b94fc846aac4f25de527eb27d85bab4b6b"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbe.class",
+      "bytes": 16759,
+      "sha256": "96c07d684491173b1003a61f75624e315e804f8e53f2998f20d80e0dedacfcf6"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest$1.class",
+      "bytes": 563,
+      "sha256": "02f6c00017dbe3556f14285e4aae400fef6beb4e73fd7f889321edb355e7ff37"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest$2$1.class",
+      "bytes": 2508,
+      "sha256": "82d6a248be0c4ffb7b7033e3c213a880f81384d7f8686d81f5d5cb122c5e4b2e"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest$2.class",
+      "bytes": 2416,
+      "sha256": "c78b1644434d28a1c38726ce479ffa7014a797fc2720e09d6904e4254510f065"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest$Probe.class",
+      "bytes": 5324,
+      "sha256": "4459169e6ac07cc4162cc0c3b936546c5bfe9ec8bdb2dc4f184042f5a4804d94"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest$Run.class",
+      "bytes": 1490,
+      "sha256": "8b6ad11673d22b42e2e330d3677cedb806465405673f1ec4c880762b81a1cd16"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g26-exact-object-recovery-runtime\\classes\\G26ReadOnlyBucketProbeTest.class",
+      "bytes": 14767,
+      "sha256": "3d7768a9ec4ff5f860d30326768c2de94e38efbd4922366a054284a168276c45"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "annotations-2.44.0.jar",
+      "bytes": 13601,
+      "sha256": "b054150efc3070a8d497f84333312379ac53d3f01a55d460ba73ca04dc511ba4"
+    },
+    {
+      "name": "apache-client-2.44.0.jar",
+      "bytes": 77704,
+      "sha256": "2a58c4600cb57c667d38c279e96e98c69d3846cd55d45a06aec8e40dad68a491"
+    },
+    {
+      "name": "arns-2.44.0.jar",
+      "bytes": 16402,
+      "sha256": "d234db090f56f5a6f11898af1234a688211bbc4b3445da957e7793d8f991e135"
+    },
+    {
+      "name": "auth-2.44.0.jar",
+      "bytes": 241085,
+      "sha256": "6cb579f7f0df4aacc578f56e9341af27bd935c92709a0860d7a5dfd2320c673e"
+    },
+    {
+      "name": "aws-core-2.44.0.jar",
+      "bytes": 195459,
+      "sha256": "0bf893bade69450ce21b50c4fb806732c687b5effdebd6e8a51873df557b89b2"
+    },
+    {
+      "name": "aws-query-protocol-2.44.0.jar",
+      "bytes": 69859,
+      "sha256": "b273c7b8a3511b94100dce31f091aace4fe4fff73016148814d2a133325c3387"
+    },
+    {
+      "name": "aws-xml-protocol-2.44.0.jar",
+      "bytes": 103027,
+      "sha256": "ecd1dcb4ce9ab8145ce4cfa7732f6d889577640adb4d016b0b9cf83878323468"
+    },
+    {
+      "name": "checksums-2.44.0.jar",
+      "bytes": 72459,
+      "sha256": "248ee453fab2ef854741dac97822817d4f0365d0ce812dea2ce54232785d5f51"
+    },
+    {
+      "name": "checksums-spi-2.44.0.jar",
+      "bytes": 8041,
+      "sha256": "d8b6d299e0304dc49436a169c0b0b9616e680bdff5dbc5fcc6189fc9b3407ac5"
+    },
+    {
+      "name": "commons-codec-1.18.0.jar",
+      "bytes": 373045,
+      "sha256": "ba005f304cef92a3dede24a38ad5ac9b8afccf0d8f75839d6c1338634cf7f6e4"
+    },
+    {
+      "name": "commons-logging-1.2.jar",
+      "bytes": 61829,
+      "sha256": "daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636"
+    },
+    {
+      "name": "crt-core-2.44.0.jar",
+      "bytes": 18229,
+      "sha256": "f530621f946ce0e6515612d2d3f643168f692dc3537c07141357730562f14e3f"
+    },
+    {
+      "name": "endpoints-spi-2.44.0.jar",
+      "bytes": 13207,
+      "sha256": "d5f633e4c0abc834b929387af778488e86c7f2c968c74fdf5e300ce908c5fccd"
+    },
+    {
+      "name": "http-auth-2.44.0.jar",
+      "bytes": 17560,
+      "sha256": "c76da3031301e7a5c7ebfa803d3e9defd0b857361461a7bdcd304ab96593cbb9"
+    },
+    {
+      "name": "http-auth-aws-2.44.0.jar",
+      "bytes": 179722,
+      "sha256": "78209a48e94d71c73cf9f4e6083fac16bfdd1bff05dcee14f53926ca84048cce"
+    },
+    {
+      "name": "http-auth-aws-eventstream-2.44.0.jar",
+      "bytes": 8705,
+      "sha256": "bf6e012ae64a4589d053d8a63d09298e56a8ea94979a1acfa90818a16e102098"
+    },
+    {
+      "name": "http-auth-spi-2.44.0.jar",
+      "bytes": 48393,
+      "sha256": "c789240f7eb73d7df5f69f7f4b5727515fe9cafb19deb541219f5af38fdc3634"
+    },
+    {
+      "name": "http-client-spi-2.44.0.jar",
+      "bytes": 92483,
+      "sha256": "864d058a95b72fba76c4d5ae54eae58e76a180296b6857fb4fe82df6e753ca72"
+    },
+    {
+      "name": "httpclient-4.5.13.jar",
+      "bytes": 780321,
+      "sha256": "6fe9026a566c6a5001608cf3fc32196641f6c1e5e1986d1037ccdbd5f31ef743"
+    },
+    {
+      "name": "httpcore-4.4.16.jar",
+      "bytes": 327891,
+      "sha256": "6c9b3dd142a09dc468e23ad39aad6f75a0f2b85125104469f026e52a474e464f"
+    },
+    {
+      "name": "httpcore-nio-4.4.16.jar",
+      "bytes": 368896,
+      "sha256": "4018736ede2d321034e8517ea90baefb31831a8608afccc446d8a699fb1d00d4"
+    },
+    {
+      "name": "identity-spi-2.44.0.jar",
+      "bytes": 31174,
+      "sha256": "848a29a0cde5809b47c22f7eeb5923147a7db63d1dae37ec49473c5405abaafb"
+    },
+    {
+      "name": "jackson-annotations-2.21.jar",
+      "bytes": 82104,
+      "sha256": "53ca085f4a150f703f49e1aabd935bd03b43e1ea3d55d135438292af22cef56b"
+    },
+    {
+      "name": "jackson-core-2.21.2.jar",
+      "bytes": 595531,
+      "sha256": "12e8655b100267b44d0f14d01b1f5082a5105e616174dc4307be1a761e92407b"
+    },
+    {
+      "name": "jackson-databind-2.21.2.jar",
+      "bytes": 1701926,
+      "sha256": "8c982f01f148d805f0aaac2339011244757e0df7c6ff8951f2fa3f433b8ed849"
+    },
+    {
+      "name": "json-utils-2.44.0.jar",
+      "bytes": 33486,
+      "sha256": "cc0cb30f3b11e62856b6c636940f17789428880e3f03bb1b489908302726b867"
+    },
+    {
+      "name": "logback-classic-1.5.32.jar",
+      "bytes": 286451,
+      "sha256": "2d4cf592db78be2de4d6140434c2fec170dcb16a09e8c8b7b207dbf5e31b848a"
+    },
+    {
+      "name": "logback-core-1.5.32.jar",
+      "bytes": 644407,
+      "sha256": "6a904d5778d0e361a9692f9cbe68b1b0620ae0f3eda2ec2ed09102755bf036c4"
+    },
+    {
+      "name": "metrics-spi-2.44.0.jar",
+      "bytes": 27516,
+      "sha256": "4717776d6e78578c41cc309d06f413e83ad8301fe5d49778d3457e9ed8076345"
+    },
+    {
+      "name": "netty-nio-client-2.44.0.jar",
+      "bytes": 298487,
+      "sha256": "d0599747239843e49894a7a2bbe46971e899500d968cc1c42e63ad45713a5035"
+    },
+    {
+      "name": "profiles-2.44.0.jar",
+      "bytes": 53131,
+      "sha256": "b54286971706c46ff1c2ec4b4187aa3764e47e7efb974ae54ac62543f3c0ed33"
+    },
+    {
+      "name": "protocol-core-2.44.0.jar",
+      "bytes": 44624,
+      "sha256": "edd10b3cfb4b0868835ca0f904dd12a398c6f0c12cf1d49e069887fe04ca8062"
+    },
+    {
+      "name": "regions-2.44.0.jar",
+      "bytes": 964946,
+      "sha256": "015e13cd76152c950cdacb8db74e503720173b6464cfa5c47f57c46cdec319ed"
+    },
+    {
+      "name": "retries-2.44.0.jar",
+      "bytes": 69369,
+      "sha256": "32ae84bf13523579a37d51553cadf3a768b508c4d9c1754e3403c273104c02ea"
+    },
+    {
+      "name": "retries-spi-2.44.0.jar",
+      "bytes": 32180,
+      "sha256": "5c0e37209fd25dd84846f84daeeeb8cf45bde5974b8141efbf5019a265dc79c2"
+    },
+    {
+      "name": "s3-2.44.0.jar",
+      "bytes": 4138986,
+      "sha256": "2b8d06c47f1fa7fea996f2651d5078e6ea0be22b3751d7b652e24dc3399c67b2"
+    },
+    {
+      "name": "sdk-core-2.44.0.jar",
+      "bytes": 1039088,
+      "sha256": "3d5ece44bd7b62d8ddac4b667392b3b6d352ff763a14d09af6a103707bf2022e"
+    },
+    {
+      "name": "slf4j-api-2.0.17.jar",
+      "bytes": 69908,
+      "sha256": "7b751d952061954d5abfed7181c1f645d336091b679891591d63329c622eb832"
+    },
+    {
+      "name": "third-party-jackson-core-2.44.0.jar",
+      "bytes": 581370,
+      "sha256": "c876cd538a261c0f3f8b671bf9c199968b7bfc5f47bbd705649027fe9bb907c8"
+    },
+    {
+      "name": "utils-2.44.0.jar",
+      "bytes": 250901,
+      "sha256": "95a69f0383c46d955ba10c780a9d4a0003ddcf8590d9bd2b2306565cba084876"
+    },
+    {
+      "name": "utils-lite-2.44.0.jar",
+      "bytes": 8810,
+      "sha256": "15219096a6ddd1f411102f8498a8410ba09b930355ebe1a336d726c556509b23"
+    },
+    {
+      "name": "reactive-streams-1.0.4.jar",
+      "bytes": 11640,
+      "sha256": "f75ca597789b3dac58f61857b9ac2e1034a68fa672db35055a8fb4509e325f28"
+    }
+  ],
+  "rootActualExecutionPending": true,
+  "userObjectWriteApprovalPending": true,
+  "exactClassFileInventory": [
+    "G26ExactObjectRecovery$1.class",
+    "G26ExactObjectRecovery$2.class",
+    "G26ExactObjectRecovery$Config.class",
+    "G26ExactObjectRecovery$Factory.class",
+    "G26ExactObjectRecovery$FileFact.class",
+    "G26ExactObjectRecovery$Input.class",
+    "G26ExactObjectRecovery$InvalidInput.class",
+    "G26ExactObjectRecovery$LocalProofFailure.class",
+    "G26ExactObjectRecovery$Opened.class",
+    "G26ExactObjectRecovery$Result.class",
+    "G26ExactObjectRecovery$Scope.class",
+    "G26ExactObjectRecovery$Store.class",
+    "G26ExactObjectRecovery.class",
+    "G26ExactObjectRecoveryTest$1.class",
+    "G26ExactObjectRecoveryTest$2$1.class",
+    "G26ExactObjectRecoveryTest$2.class",
+    "G26ExactObjectRecoveryTest$3.class",
+    "G26ExactObjectRecoveryTest$4.class",
+    "G26ExactObjectRecoveryTest$5.class",
+    "G26ExactObjectRecoveryTest$6$1.class",
+    "G26ExactObjectRecoveryTest$6.class",
+    "G26ExactObjectRecoveryTest$7$1.class",
+    "G26ExactObjectRecoveryTest$7.class",
+    "G26ExactObjectRecoveryTest$8$1.class",
+    "G26ExactObjectRecoveryTest$8.class",
+    "G26ExactObjectRecoveryTest$Run.class",
+    "G26ExactObjectRecoveryTest$Store$1.class",
+    "G26ExactObjectRecoveryTest$Store.class",
+    "G26ExactObjectRecoveryTest.class",
+    "G26ReadOnlyBucketProbe$1.class",
+    "G26ReadOnlyBucketProbe$2.class",
+    "G26ReadOnlyBucketProbe$Factory.class",
+    "G26ReadOnlyBucketProbe$Probe.class",
+    "G26ReadOnlyBucketProbe$Report.class",
+    "G26ReadOnlyBucketProbe.class",
+    "G26ReadOnlyBucketProbeTest$1.class",
+    "G26ReadOnlyBucketProbeTest$2$1.class",
+    "G26ReadOnlyBucketProbeTest$2.class",
+    "G26ReadOnlyBucketProbeTest$Probe.class",
+    "G26ReadOnlyBucketProbeTest$Run.class",
+    "G26ReadOnlyBucketProbeTest.class"
+  ],
+  "classInventorySha256": "94e719cc0d244778893ae19d796242cc4c49ad898c58720d31253bbc5b87d60c",
+  "dependencyInventorySha256": "98cbabebe7842043d30fd8cccc09373d623b9807ca3d0abc1b456dde40cec78f",
+  "compiledAllFilesSealed": true,
+  "noOtherRuntimeFiles": true,
+  "outputFields": {
+    "recovery": [
+      "id",
+      "status",
+      "phase",
+      "actualSha256",
+      "actualLength",
+      "httpStatus",
+      "errorCode",
+      "putAttempted",
+      "putAccepted"
+    ],
+    "bucketProbe": [
+      "bucketSha256",
+      "status",
+      "versioningStatus",
+      "mfaDeleteStatus",
+      "versioningHttpStatus",
+      "versioningErrorCode",
+      "objectLockStatus",
+      "retentionMode",
+      "retentionDays",
+      "retentionYears",
+      "objectLockHttpStatus",
+      "objectLockErrorCode",
+      "lifecycleErrorCode"
+    ]
+  },
+  "outputSafety": "Only frozen ids, fixed statuses/phases/error codes, computed lowercase hashes, numeric lengths/statuses and booleans; bucket policy enum values strictly allowlisted; no reflected server/exception message, key, candidate path, URL or credentials."
+}

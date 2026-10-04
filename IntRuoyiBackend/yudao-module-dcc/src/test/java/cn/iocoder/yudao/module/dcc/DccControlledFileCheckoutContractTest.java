@@ -43,7 +43,8 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(service.contains("markCancelled"));
         assertTrue(service.contains("requireCheckoutAccessibleControlledFile(userId, id)"));
         assertTrue(service.contains("private DccControlledFileDO requireCheckoutAccessibleControlledFile"));
-        assertTrue(service.contains("canAccessQuery(userId, file, new DccControlledFilePageReqVO(), hasDirectoryManagementPermission)"));
+        assertTrue(service.contains("if (!canViewFileName(userId, file))"));
+        assertTrue(service.contains("!isWithinAssignedFileScope(userId, file)"));
         assertTrue(service.contains("file.setCheckedOutBy(userId);"));
         assertTrue(service.contains("file.setCheckedOutTime(LocalDateTime.now());"));
         assertTrue(service.contains("checkinByIdAndTenantWhenOwner"));
@@ -57,7 +58,9 @@ class DccControlledFileCheckoutContractTest {
         assertTrue(response.contains("private String checkedOutReason"));
         assertTrue(versionHistoryResponse.contains("private Long checkedOutBy"));
         assertTrue(versionHistoryResponse.contains("private String checkedOutByName"));
-        assertTrue(service.contains("fillCheckoutProjection(respVO, history)"));
+        assertTrue(service.contains("fillCheckoutProjection(respVO, logicalCheckout)"));
+        assertTrue(service.contains("selectActiveByMasterIdForRead"));
+        assertTrue(service.contains("response.setCheckedOutTime(lock.getCreateTime())"));
         assertTrue(dataObject.contains("private Long checkedOutBy"));
         assertTrue(dataObject.contains("private LocalDateTime checkedOutTime"));
         assertTrue(dataObject.contains("private String checkedOutReason"));
