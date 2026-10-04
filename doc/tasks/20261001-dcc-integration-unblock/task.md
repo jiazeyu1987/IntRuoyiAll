@@ -262,7 +262,7 @@ H09主管理公共上传接线：四Owner交付与H08反馈无新变化，不重
 
 ## Current Status
 
-in_progress — G45执行用户最新先融合顺序，审定DCC源码与记录合入int_qms，旧worktree验证归档后收拢，再顺序开发四项主流程差异。
+blocked — 四项源码已审查、验证并本地提交；运行数据库新增三项迁移与真实页面验收仍等待已发授权卡片答复。
 
 ## BDD
 
@@ -825,3 +825,5 @@ G51本轮分类progress：真实双库21保护表旧列逐行/结构摘要+schem
 - doc/tasks/20261001-dcc-integration-unblock/g51-readonly-preparation-root-review.json
 - doc/tasks/20261001-dcc-integration-unblock/g51-prepare-execution-material.py
 - doc/tasks/20261001-dcc-integration-unblock/g51-execution-material-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g52-pending-authorization-blocked-audit.json
