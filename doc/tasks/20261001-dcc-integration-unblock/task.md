@@ -813,3 +813,7 @@ G49最后SourceReview闭合R01及阶段历史，19BEpin/7原XML102+2finalXML43�
 - doc/tasks/20261001-dcc-integration-unblock/g50-four-direction-source-delivery.md
 - doc/tasks/20261001-dcc-integration-unblock/g50-final-package-source-proof.json
 - doc/tasks/20261001-dcc-integration-unblock/g50-verify-final-package.py
+
+G50最后执行边界：代码/Review/源码包/当前阶段定向验证/前端types-build完成并已本地提交；7e2601ab4记录提交。统一3新增SQL+真页面验收卡片已询问且未答，覆盖旧未答4列问题、不另逐列问。QMS8061/48061当前监听0，未起应用/未实际DDL/未push。不要因自动继续重问质量批准或把已通过源码说blocked；dependent实际库运行仅答复后执行，同一主任务继续。
+
+- doc/tasks/20261001-dcc-integration-unblock/g50-pending-runtime-execution.json
