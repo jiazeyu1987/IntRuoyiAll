@@ -817,3 +817,11 @@ G49最后SourceReview闭合R01及阶段历史，19BEpin/7原XML102+2finalXML43�
 G50最后执行边界：代码/Review/源码包/当前阶段定向验证/前端types-build完成并已本地提交；7e2601ab4记录提交。统一3新增SQL+真页面验收卡片已询问且未答，覆盖旧未答4列问题、不另逐列问。QMS8061/48061当前监听0，未起应用/未实际DDL/未push。不要因自动继续重问质量批准或把已通过源码说blocked；dependent实际库运行仅答复后执行，同一主任务继续。
 
 - doc/tasks/20261001-dcc-integration-unblock/g50-pending-runtime-execution.json
+
+G51本轮分类progress：真实双库21保护表旧列逐行/结构摘要+schema942表备份+21表数据gzip4件实际进程99665 exit0核sha解压，前后所有旧行不变；新三项结构/模板/ledger仍0。独立实际publisher/preflight read发现全日期/skip旧ledger更新与此scope不一致，本task only3 offline首次/重复12材料sealed，noDBexec。备份及offline程序结构验证通过，材料初连字符module import tool失败无效果，精准importlib后0；不是业务RED。3SQL授权卡片仍无答案，当前未DDL/未部署/E2E/未推送，source已完成。
+
+- doc/tasks/20261001-dcc-integration-unblock/g51-readonly-preparation.md
+- doc/tasks/20261001-dcc-integration-unblock/g51-readonly-preparation.py
+- doc/tasks/20261001-dcc-integration-unblock/g51-readonly-preparation-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g51-prepare-execution-material.py
+- doc/tasks/20261001-dcc-integration-unblock/g51-execution-material-root-review.json

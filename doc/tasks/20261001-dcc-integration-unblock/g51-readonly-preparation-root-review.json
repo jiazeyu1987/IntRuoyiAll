@@ -1,0 +1,9 @@
+{
+  "status": "TWO_DATABASE_READONLY_BASELINES_AND_BACKUPS_VERIFIED_NOT_MIGRATED",
+  "databases": 2,
+  "protectedTablesPerDatabase": 21,
+  "databaseWrites": false,
+  "authorizationInferred": false,
+  "protectedReceipt": "C:/IntRuoyiBackups/20261005-dcc-four-direction-readonly-preparation/combined-receipt.json",
+  "protectedReceiptSha256": "0336a08bbf212818f291d8cd04a3c8846f352132d078115cd4e7d7cd489926a1"
+}

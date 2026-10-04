@@ -1,0 +1,15 @@
+{
+  "status": "EXACT_THREE_FIRST_REPEAT_SQL_OFFLINE_PREPARED_VERIFIED_NOT_EXECUTED",
+  "protectedManifest": "C:/IntRuoyiBackups/20261005-dcc-four-direction-execution-material/material-manifest.json",
+  "sha256": "414175dc7241217b2e77f88b3ca0225fb2097f40f8b5a700e405e0e3a8c3b52d",
+  "preparedFiles": 12,
+  "executionWhitelist": [
+    "20261004_dcc_product_identity_source",
+    "20261005_dcc_project_folder_storage_mapping",
+    "20261005_dcc_project_product_application_notify"
+  ],
+  "automaticDependencyReplay": false,
+  "skipLedgerUpdate": false,
+  "databaseWrites": false,
+  "authorizationGranted": false
+}
