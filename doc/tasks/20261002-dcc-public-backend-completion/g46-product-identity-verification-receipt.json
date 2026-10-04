@@ -1,0 +1,189 @@
+{
+  "status": "LD01_BE_REAL_APPROVED_PRODUCT_IDENTITY_RED_GREEN_RELATED_PASS_NOT_RUNTIME",
+  "MavenExitCode": 0,
+  "finishedAt": "2026-10-04T22:29:37+08:00",
+  "executions": 467,
+  "classes": 6,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateServiceTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 240,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 168,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditServiceImplTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.G46ApprovedProductIdentityTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "overlap": "G46ApprovedProductIdentityTest inherits7 OWNER cases. Prior443/4 and33/3 overlap final467, never sum unique scenarios.",
+  "logs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-red.log",
+      "bytes": 68330,
+      "sha256": "3fee8cf71d5312da7b68c211829976bc38076dc9dea4d9c4a5acd126a4f4a1ec"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-effective-red.log",
+      "bytes": 63866,
+      "sha256": "3f7d2da70d62ddbf8f397ef08bd8e775404010ecec291fd5341d85a88ea0639d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-green.log",
+      "bytes": 69189,
+      "sha256": "7d93b4a61f7782616529014ebaae15dc50ec3b3dcc8c960b126eff82def5ddb8"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-green-r2.log",
+      "bytes": 62184,
+      "sha256": "decca426a9168c3535d48cf78b94cd88b0c3679b69d46c002d18c397fdd3b65a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-green-r3.log",
+      "bytes": 64336,
+      "sha256": "b46da1ccb2fbe7044c3b29a0c0bdb48a1b0c591043b5273507ab7f00cc5eed06"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-metadata-red.log",
+      "bytes": 63156,
+      "sha256": "a321b8dd7a3c371e80d78dcb244c66d0616f9ee905ce5228df6120b728f47898"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-related-green-r4.log",
+      "bytes": 104463,
+      "sha256": "02c2787c41078a7a3e8aacfc5d0dd7c359e3c375cc31e1f8c755d9aff6405709"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-focused-r5.log",
+      "bytes": 93916,
+      "sha256": "fb07850b7c0358166c2d79cafadc275cedf9af8396cbbaa4955e3692c35919c1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-focused-r6.log",
+      "bytes": 63815,
+      "sha256": "9140028155c0ea72dc6a16e3c1c3570d8253014484fcc24b8d73f86a8425a1af"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-final-regression.log",
+      "bytes": 66566,
+      "sha256": "5ad6cea32be4306d27439de6fe230ce985eeb59d57e73d5e82fe72147592a745"
+    }
+  ],
+  "logMeanings": {
+    "initialRed": "Toolcompileerror attemptedinheritedtenantbuildersetter; preservednotbusinessRED. Discarded preliminaryprojectonlytest restored existingfile.",
+    "effectiveRed": "Real approvedWriter/H2 project+catalog+relation→formalpreview stillUNBOUND:1assertionfailure0error.",
+    "metadataRed": "Actual metadata service uses project codeYCKPR ratherthanapprovedcatalogcode:1assertionfailure0error.",
+    "green1": "Realproof exposesCatalogphysicaltenant0 writerbug +oldWorkflow staleNEWclaimIdentityassert; preserved. Rootconfirmedrealcatalog613tenant0. Fixedonlynewwriterexplicittenant, nooldrow.",
+    "greenR2": "NewMockito insertargument ambiguity testcompile, notbusinessfailure. Typedargfixed.",
+    "greenR3": "443/4PASS mainpreview/DHFsave+Query+Ledger; preservedhistoricalgreen.",
+    "relatedR4": "Newmetadataoldfixturesmissingtenant+newFilefixturemissingmandatorymaster; guardnotrelaxed.",
+    "focusedR5": "Mock test lacksMybatislambda cache, newH2filemissingphysicalmandatorydirectory; exactUpdateWrappercolumnsandcompletefixturefix, guardunchanged.",
+    "focusedR6": "33/3PASS metadata/G46actualmapper/metadataauditdiff.",
+    "final": "467/6PASS afterexplicitrawcatalogfact equalityreviewclosure."
+  },
+  "actualJUnitXML": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileMetadataUpdateServiceTest.xml",
+      "bytes": 97075,
+      "sha256": "71173a8bc5e8337005048cecd197b188a7f2a7a44d6e29fc69feff1bc372f776"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "bytes": 139613,
+      "sha256": "13041d4fa5e0c8f188634ebf57cccb57367a4454e87b02c178c07184f44dba09"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 126457,
+      "sha256": "8d9ae00ba06f779aaca0d1c397e29c26ab144d057ab0d53604fefb3f96c99c73"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditServiceImplTest.xml",
+      "bytes": 93904,
+      "sha256": "deb018efae914527c3e3a85dc92e9be45a934eaad383fbdd1949e4b40208a0a3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest.xml",
+      "bytes": 100469,
+      "sha256": "9c4edc023a01fcdab756d437c158d2e8b307a944621d16644c50d6f001f341e4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.G46ApprovedProductIdentityTest.xml",
+      "bytes": 98665,
+      "sha256": "78c370f728546c173c84082bfe3b3c4c1bf6ffbeb115bcebcb7ba0fa22218974"
+    }
+  ],
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-identity-fingerprints.json",
+    "bytes": 5132,
+    "sha256": "d72221905b803f3a36b4fa2b02a2f8408669abdb49e25938691d41b37894cf62"
+  },
+  "migrationPolicyFullClosure": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-migration-fullclosure.json",
+    "bytes": 4206,
+    "sha256": "b983c5f6c9f0c3cad2333a7ee06cff7b8bf3097d4b146a6dcd4c6f1c6b9cd491"
+  },
+  "migrationOfflineContract": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g46-product-schema-contract.json",
+    "bytes": 634,
+    "sha256": "c8fe1c2bca6d8f7ff60a6c8fdf01918684b6a37c4d9e9fd650954105153baaf1"
+  },
+  "migrationSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261004_dcc_product_identity_source.sql",
+    "bytes": 1576,
+    "sha256": "049d60e2e8f4a7999ebc213cda77154fa78c315bff296f78be127462977a2760"
+  },
+  "realFirstRepeatMySQLExecution": false,
+  "actualRootCatalogTenantDiagnostic": {
+    "path": "doc/tasks/20261001-dcc-integration-unblock/g46-catalog-tenant-readonly.json",
+    "bytes": 502,
+    "sha256": "7824df92c9385932a0199e31dc79a323852a89fab577631f98cc8da121b5133c"
+  },
+  "proofBoundaries": "RealSpring/H2 approvedWriter+mapper/proof +realFilepersists/rollback; Workflowpublicsubmit ports/BPM isolated butactualDHF guard andgeneratedDO checked; HTTPMockMvc verifies stringLong only. NotactualUI/E2E or MySQLDDL.",
+  "actualDBConnectionsByAgent": 0,
+  "actualRedisConnections": 0,
+  "actualTokenReads": 0,
+  "serviceStarts": 0,
+  "packageRuns": 0,
+  "GitMutation": false,
+  "oldFileProjectCatalogRequestSignatureOrAuditRowsChanged": false,
+  "newCatalogTenantExplicitWriter": true,
+  "invalidDeclaredMdmNoCatalogFallback": true,
+  "modernIncompleteFails": true,
+  "schemaNewFields4OnlyNoBackfill": true
+}

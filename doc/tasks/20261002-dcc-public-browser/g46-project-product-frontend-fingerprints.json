@@ -1,0 +1,148 @@
+{
+  "status": "LD01_G46_FORMAL_PROJECT_PRODUCT_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "workspace": "C:/IntRuoyiAll-int_main",
+  "targetBranch": "int_qms",
+  "productionFiles": 3,
+  "testFiles": 4,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 116692,
+      "sha256": "ecaf39f9e4407e3b5fc18b1abb3bea1a4ac0d376ea8e4210b3dac2138dc1dde6"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/project-product-identity.ts",
+      "bytes": 3012,
+      "sha256": "5f0562d96a02899d7c6b993483e507c64f12feddd142fc4ea4e18c659a73ec69"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 85728,
+      "sha256": "f0932aa2ddaa3e5f00904bbd47bb86c8593919d23b9d556bfccce677bcae0792"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-project-product-identity.test.cjs",
+      "bytes": 10259,
+      "sha256": "16e49819f8ba3ba79623b242596d91c75f9ec9cd4b7b6b6314f7d65a808a81c4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 17424,
+      "sha256": "296500d437c6a0246d0591e7574efc0c0b5aa54917ca2320a6f379c5fc398c49"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-upload-product-autofill-static.spec.js",
+      "bytes": 2920,
+      "sha256": "1e9551ea9aabcdb72e236b344b464cb97618b7d877b361aa4eea058e90faa574"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-upload-project-code-hint-static.spec.js",
+      "bytes": 2121,
+      "sha256": "7f167a7ccf6e5f80d565f1a162c22b9a11bbd62b6123b144cd93a6fcf890443c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-bdd.md",
+      "bytes": 2958,
+      "sha256": "64f5e71046d0b2dc7eec2bf8bf4bfd2ee57dd09e2d0782301c0d6448db735874"
+    }
+  ],
+  "API": "Existing GET /dcc/controlled-files/project-product;MDM_MASTER/DCC_CATALOG/UNBOUND; exactstringLong identities",
+  "clientProductIDsSubmitted": false,
+  "formMasterNullServerDerivesPreserved": true,
+  "acceptedBlockerDisplayTextSha256": "8e618f940a7701c7f465bcd942e2da9cf2729b7f1ffe86be91a30927c0b8c21e",
+  "fileTemplateOrDirectoryFunctionalityChanged": false,
+  "previousSealsModified": false,
+  "verification": {
+    "effectiveRED": {
+      "tests": 6,
+      "failures": 6,
+      "exitCode": 1
+    },
+    "initialGREEN": {
+      "tests": 6,
+      "failures": 0,
+      "exitCode": 0
+    },
+    "relatedFixtureFailure": "Existinguploadapplication vm fixture lackedproductProductref, suppliedofficialprojectiondependency; productionguards notweakened.",
+    "finalRegression": {
+      "files": 7,
+      "tests": 46,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Includesinitial6andlater8 productcases; do notaddpriorruns."
+    },
+    "staticContracts": {
+      "files": 2,
+      "exitCodes": [
+        0,
+        0
+      ],
+      "notRealUI": true
+    },
+    "ownedLint": {
+      "productionFiles": 3,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": {
+    "red": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-red.log",
+      "bytes": 5649,
+      "sha256": "1280c5d73322ad6465aefedb2ca62c58987193d69a08934ad3e50af0169269e2"
+    },
+    "green": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-green.log",
+      "bytes": 665,
+      "sha256": "01a3bfd9cddeda079b398c5923b758e2eef6c95fe38baa39b38802bbb76ee5fc"
+    },
+    "regression": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-regression.log",
+      "bytes": 11944,
+      "sha256": "e3501eaf1b899c1796f9f19f1142507a3bd9becb785d44ddc7977d25813e86de"
+    },
+    "regression-r2": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-regression-r2.log",
+      "bytes": 3664,
+      "sha256": "20bb11948db0198be3428bdf1801fcd8a71cf7de1cf050261334ed763f9cd794"
+    },
+    "final": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-final.log",
+      "bytes": 3845,
+      "sha256": "da0069442228900d8b98f631db4d885d0b8751366fdf9c9da9e519c73cea9301"
+    },
+    "final-r2": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-final-r2.log",
+      "bytes": 4658,
+      "sha256": "19fe3f916b4eadad9a16e863307f202a80058044f2cbe902b98acc64bf75ac3c"
+    },
+    "lint": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lint-r2": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-frontend-lint-r2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "static-autofill": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-static-autofill.log",
+      "bytes": 57,
+      "sha256": "7201de7a63276b3566e3bd09712b3575ed0b775c49a5a16bcfc651c05d8fff2e"
+    },
+    "static-hint": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g46-project-product-static-hint.log",
+      "bytes": 52,
+      "sha256": "f5c3d74b12f7332d3f5092aff727c1a3a012bbe6eebbb93fd1a8100fd42188b6"
+    }
+  },
+  "actualHTTPActions": 0,
+  "browserRuns": 0,
+  "DBActions": 0,
+  "serviceActions": 0,
+  "MavenRuns": 0,
+  "GitMutations": 0,
+  "fullTypeOrBuildRuns": 0,
+  "RootRemaining": "Review,currentBEcontract/schema execution,fulltypes/build,actualUI andfinalGit"
+}

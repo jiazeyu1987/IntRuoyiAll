@@ -1,0 +1,16 @@
+{
+  "status": "LD01_LD02_FROZEN_FRONTEND_ROOT_TYPES_BUILD_PASS_NOT_UI",
+  "types": {
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sessionId": 86851,
+    "exitCode": 0
+  },
+  "build": {
+    "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1",
+    "sessionId": 21166,
+    "exitCode": 0,
+    "indexSha256": "722d83abf96b6cd64edd872840b87853cf57f11d33f408f73edbe814d5b9f9d5"
+  },
+  "schemaMigration": "NOT_EXECUTED_PENDING_CARD",
+  "actualUi": "NOT_RUN"
+}

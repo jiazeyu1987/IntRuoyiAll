@@ -1,0 +1,148 @@
+{
+  "status": "LD02_TEMPLATE_GATES_REMOVED_EFFECTIVE_RED_GREEN_REGRESSION_PASS_NOT_RUNTIME",
+  "MavenExitCode": 0,
+  "finishedAt": "2026-10-04T23:05:29+08:00",
+  "executions": 240,
+  "classes": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminServiceImplTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest",
+      "tests": 35,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccPublicUploadPlacementHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSourceUploadContextTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFileTemplateServiceImplTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "effectiveTemplateRED": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-red.log",
+    "bytes": 63907,
+    "sha256": "5fe9968c4325dd9182dae0600c4e6010d0d9f552bbc00d59553cac70e405f204"
+  },
+  "templateREDMeaning": "Two validnormal preview/working positivecases executeoldtemplate port andbothrejectwithselectioninvalid;0assertfail/2actualbehaviorerrors, nofixtureerror.",
+  "firstGREEN": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-green.log",
+    "bytes": 61094,
+    "sha256": "316219c9a172451f09a15a7eee0e1ed390af2406134df792fad43c8f675d14f2"
+  },
+  "firstGREENExecutions": 178,
+  "initialRelatedAttempt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-final-regression.log",
+    "bytes": 102914,
+    "sha256": "143eee479966b7f4cce0a25eb94a9d94d00d3faf6ff892507329ad14531960fc"
+  },
+  "initialRelatedMeaning": "226executions,224passed2MockitoUnnecessaryStubbing onlynewSourceContext fixtureintentionalunusedtemplate rejectionstub/reset; actualbusinesscalls passed. Correctedlocallenientonlyintentport andremovedunneededreset, no guardrelax.",
+  "uniqueMappingEffectiveRED": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-active-category-red.log",
+    "bytes": 61913,
+    "sha256": "66358a68ae477071f80b92370374d7840f095476b7802d68cab6f627df8bd791"
+  },
+  "mappingREDMeaning": "ActualTaxonomyAdminservice wiredcategorylist2active→previewincorrectlypasses;1assertionfailure0errors.",
+  "finalGREEN": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-final-r2.log",
+    "bytes": 102244,
+    "sha256": "25980d07a3aece303bd6a838edbdc2352b8bd20ca4f4b4dc0c164df13be6078e"
+  },
+  "archivedActualJUnitXML": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccUploadEndpointHttpContractTest.xml",
+      "bytes": 131168,
+      "sha256": "673fd15fbcddf66ad278b7924b61adadcc4fcfb265314cb71ecb39d06510737b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccFileTypeTaxonomyAdminServiceImplTest.xml",
+      "bytes": 98153,
+      "sha256": "3dd83646f1b135c6bff707fc2a19d7dfe2d3213651fa217e6e18e067eaa55aa6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccControlledFileUploadApiTest.xml",
+      "bytes": 100104,
+      "sha256": "be02dcbc2957a0ddfa49322c29c3e2cff3506a000db743975b0c8e6665a0e09d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 127156,
+      "sha256": "302f1ca3c7390d1369e1e54c789031afd9cc0e3b067b058f9cb78bca41010552"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccPublicUploadPlacementHttpContractTest.xml",
+      "bytes": 95107,
+      "sha256": "36364696ab7b6c7d3c48dadcc35b76881b1bb5b7cdb7d02bd09ec3b1cffa87bf"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccSourceUploadContextTest.xml",
+      "bytes": 95230,
+      "sha256": "e2da5e2926a3f2d6b559ce6f5766ea52eee6ea3359d517ed287ecfe59777cee4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-DccProjectFileTemplateServiceImplTest.xml",
+      "bytes": 95292,
+      "sha256": "36e0182ac8a94fc8e9b65481ba5ba237e3e02d3a40df6be6302a86c4ca78d7ab"
+    }
+  ],
+  "overlap": "Prior178 and226 overlapfinal240; do not sum as unique cases.",
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g47-upload-template-fingerprints.json",
+    "bytes": 2343,
+    "sha256": "4d18bfe65bad2fceb0a9184015d24123d74e347c3e6dd10473b97fe8756ccd7a"
+  },
+  "formalNonTemplateSourceNameClaimPassed": true,
+  "workingCreationPassedWithoutTemplate": true,
+  "categoryUniquenessRetained": true,
+  "activeLeafPathPermissionTicketRejectionsRetained": true,
+  "oldExternalCheckinUnchanged": true,
+  "templateAuxiliaryServiceRegressionRetained": true,
+  "previousLD01Remaining15RawShaZeroDrift": true,
+  "sourceEvidenceBoundary": "ActualWorkflow methods with explicitisolated ports; taxonomyunique mapping actualservice andexistingrealH2 taxonomy13; HTTPMockMvc contracts. No realUI/MySQL/sourcebody acceptancerun.",
+  "actualDBConnectionsByThisAgent": 0,
+  "actualTokenReads": 0,
+  "actualRedisConnections": 0,
+  "servicesStarted": 0,
+  "packageRuns": 0,
+  "GitMutation": false,
+  "schemaChanges": 0
+}

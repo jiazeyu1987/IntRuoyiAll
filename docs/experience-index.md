@@ -1,5 +1,7 @@
 # 项目经验索引
 
+- Keywords: DCC HTML业务依据、批准产品正式来源、目录ID与MDM身份、取消项目文件模板硬限制、保留唯一类型类别、单主干分层验证 -> `docs/dcc-business-integration-experience.md`。
+
 - Keywords: DCC审批旧readiness续签、新弹框ABA、原签名成功晚响应、route换文件仍旧detail、相同HTTP条件切所选file/Master -> `docs/frontend-development.md#前端确认提交上下文来源门禁`。
 - Keywords: DCC旧迁移hash精确历史来源、缺ledger但结构已满足、严格19白名单与25外部事实、旧种子不能重放、原列逐行hash、MySQL DDL隐式提交 -> `docs/database-rules.md#新生命周期数据迁移历史保护门禁`。
 - Keywords: DCC历史原名、元数据不是正文、NoSuchKey、3对象4引用、If-None-Match条件恢复、PUT结果不确定、PREPARED跨scope污染、真实bucket锁策略、质量尚未批准 -> `docs/database-rules.md#历史原名核验与缺失对象恢复门禁`。

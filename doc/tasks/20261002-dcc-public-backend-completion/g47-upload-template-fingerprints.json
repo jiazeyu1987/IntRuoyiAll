@@ -1,0 +1,43 @@
+{
+  "status": "LD02_NORMAL_UPLOAD_WITHOUT_TEMPLATE_LIST_FROZEN_FOR_ROOT_REVIEW",
+  "workspace": "MAIN_int_qms",
+  "productionFiles": 1,
+  "testFiles": 2,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 214186,
+      "sha256": "d7fa6f48ea509c01d4156381d7d74dfec1b36fcb441bcf70543fd27a0cd5509f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 293935,
+      "sha256": "5d4a9a67d19a87d55b7164c6e720454481c544d355791e7f26e85b90dae107db"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSourceUploadContextTest.java",
+      "bytes": 10929,
+      "sha256": "42a58c7b2e983a6cda2c4c856804e8fbf5ebe6c48d660e606019f699627a57f5"
+    }
+  ],
+  "supersedesLD01FilesOnly": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java"
+  ],
+  "previousLD01Remaining15AssetsUnchanged": true,
+  "unchangedTemplateService": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectFileTemplateServiceImpl.java",
+    "bytes": 15381,
+    "sha256": "42ea356321f2e0f26cabd06aa544a2982f23b01be598eabf7679d1520116edc8"
+  },
+  "unchangedTemplateController": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/projectcode/DccProjectFileTemplateController.java",
+    "bytes": 2734,
+    "sha256": "37bd154ef50858db22f88646b6c9c0869e6147214c8b9e4016ca4f4187cec07b"
+  },
+  "schemaEdits": false,
+  "DTOEdits": false,
+  "frontendEditsByThisAgent": false,
+  "NASDirectoryEdits": false,
+  "guardContract": "NEWpreview formalactivepath >=depth3 +actualleaf +unique activecategory exactrequested +projecteditor/categorypermission. NativecontrolledNEW submit/working sameformaltype/category/product/ticket/nameclaim/date/placement guards withoutmandatoryprojecttemplate selection; CHECKIN/EXTERNAL unchanged."
+}

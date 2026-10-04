@@ -1,0 +1,145 @@
+{
+  "status": "passed",
+  "migrationCount": 9,
+  "migrations": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "file": "sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "e5dfa8a13d4e80f27783c288dfb6ea1250c2cc91104d7b9475b168dbc2990aea",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260710_dcc_product_catalog_database",
+      "file": "sql/mysql/20260710_dcc_product_catalog_database.sql",
+      "sha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260903_dcc_explicit_data_relation",
+      "file": "sql/mysql/20260903_dcc_explicit_data_relation.sql",
+      "sha256": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260710_dcc_product_catalog_database"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260920_dcc_project_product_create_approval",
+      "file": "sql/mysql/20260920_dcc_project_product_create_approval.sql",
+      "sha256": "ff131eca63d25cea4cceae2fe60a24b14bdc2a6fa666f222c609bf821225eb2a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260903_dcc_explicit_data_relation"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260921_dcc_category_approval_route_action_type",
+      "file": "sql/mysql/20260921_dcc_category_approval_route_action_type.sql",
+      "sha256": "63a3e80538f8d93dace828a02af940c614c316ee9e99b8cfab56cdc283789b47",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_task_assignee_snapshot",
+      "file": "sql/mysql/20260922_dcc_task_assignee_snapshot.sql",
+      "sha256": "1da5ec389e17998258678732ceed13bf36fd6099e2481fd964921936e108ced1",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_three_workflow_bpmn_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_three_workflow_bpmn_seed",
+      "file": "sql/mysql/20260922_dcc_three_workflow_bpmn_seed.sql",
+      "sha256": "a3bd8893a05045c55ab35ed968c6cf1930c02c15f562846637499d49bfe183ce",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260921_dcc_category_approval_route_action_type"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_a_lifecycle",
+      "file": "sql/mysql/20260930_dcc_a_lifecycle.sql",
+      "sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_task_assignee_snapshot"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261004_dcc_product_identity_source",
+      "file": "sql/mysql/20261004_dcc_product_identity_source.sql",
+      "sha256": "049d60e2e8f4a7999ebc213cda77154fa78c315bff296f78be127462977a2760",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle",
+        "20260920_dcc_project_product_create_approval",
+        "20260710_dcc_product_catalog_database"
+      ],
+      "riskLevel": "medium"
+    }
+  ],
+  "executionWhitelist": [
+    "20261004_dcc_product_identity_source"
+  ],
+  "dependenciesAreReadonlyFactsNotReplay": true
+}

@@ -13,3 +13,6 @@ Status: in_progress。主目录实际int_qms；整合codex/20261001-dcc-integrat
 远端int_qms查询因已配置本机proxy不可达失败，实际错误保留；本轮目标明确仅本地归并，不拉远端、不推送、不发布，不声称远端最新。Git旧规则无originpush不阻本地目标。
 
 首归档范围误含历史output/runtime大包与活动旧日志，逐文件校验失败、归档工具真实exit1终止，没有删除源文件或操作Git；精确已终止进程PID44448的后续停止检查不匹配，未停其他进程。保留首失败包/状态，不作可恢复证明。版本r2将ignored范围收敛为当前任务证据和本地配置；所有dirty资产仍保存，历史runtime包属于主树未触碰其他任务，worktree可复现依赖单独处理。
+
+当前完成事实：实现127821f9d＋证据33d5fdc8d normalmerge ce88a18，收拢记录01c1f254b；仅main int_qms一个registeredworktree，旧五currenttask档案每filehash核＋旧两whole目录移动保留；后者独有15commit不按新需求blindmerge，所有refs和Gitbundle保留，7端口activefalse官方mutex/backup原子核。完整820candidate/500source normalizedequal，三非任务当前字节保护。
+第一方向代码已工程完成：BE467/6、FE46/7＋ownedlint/fulltypes通过，sourceprovenance/sourceLong/明确tenant/copyfrozen/idempotency失败处理保留，无新14业务要求；actualDB4列和真实页面闭环等待具体新增迁移许可。完整四方向不称completed，顺序下一2先有限设计。

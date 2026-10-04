@@ -1,0 +1,23 @@
+{
+  "columns": {
+    "product_source": "VARCHAR(32)",
+    "product_catalog_id": "BIGINT",
+    "product_relation_id": "BIGINT",
+    "product_create_request_id": "BIGINT"
+  },
+  "firstOfflineAdditions": [
+    "product_source",
+    "product_catalog_id",
+    "product_relation_id",
+    "product_create_request_id"
+  ],
+  "repeatOfflineAdditions": [],
+  "status": "PASS_OFFLINE_CONTRACT_NOT_MYSQL_EXECUTION",
+  "sqlSha256": "049d60e2e8f4a7999ebc213cda77154fa78c315bff296f78be127462977a2760",
+  "rejectedMutations": [
+    "requiredColumn",
+    "missingGuard",
+    "oldRowBackfill"
+  ],
+  "actualDatabaseActions": 0
+}

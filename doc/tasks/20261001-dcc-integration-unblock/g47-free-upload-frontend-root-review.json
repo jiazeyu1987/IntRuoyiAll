@@ -1,0 +1,12 @@
+{
+  "status": "LD02_FRONTEND_ROOT_PIN_AND_55_TEST_LOG_PASS_NOT_UI",
+  "manifestSha256": "5885677ce12e67e58c987f11f2daba838cd608e1daad3f86acdd1b67ba63c1e0",
+  "checkedAssets": 16,
+  "tests": 55,
+  "failures": 0,
+  "typedProductHelperUnchanged": true,
+  "formalTypesIndependentOfOptionalProjectTemplate": true,
+  "actualFullFileNameRetained": true,
+  "fullTypesAndBuild": "PASS_EXIT_0_BOTH",
+  "actualUiVerification": "PENDING"
+}

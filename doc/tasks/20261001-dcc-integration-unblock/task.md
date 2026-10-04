@@ -736,3 +736,30 @@ G46第一项已派原legacyagent到唯一主树int_qms正式开发产品identity
 - doc/tasks/20261001-dcc-integration-unblock/g45-single-trunk-proof.json
 - doc/tasks/20261001-dcc-integration-unblock/g45-runtime-registry-retirement.json
 - doc/tasks/20261001-dcc-integration-unblock/g45-old-worktree-readonly-review.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g46-catalog-tenant-readonly.json
+- doc/tasks/20261001-dcc-integration-unblock/g46-product-frontend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g46-product-frontend-types-execution.json
+- doc/tasks/20261001-dcc-integration-unblock/g46-product-storage-upgrade-plan.md
+
+LD01工程已Root与独立Review收口，source12prod/3tests/2schema当前frozen，trueDB4columns授权仍pending，不因等待阻断能独立推进LD02。第二项先source设计，当前Rootpackagelive期间agent不改生产/编译target；terminal后正式BDD RED/GREEN，只取消多余项目预设文件名硬名单，项目/类型/权限/product事实/ticket/name占用不松。其他3/4按顺序未开始实现。
+
+- doc/tasks/20261001-dcc-integration-unblock/g46-product-backend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g46-product-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g46-first-product-main-package-execution.json
+
+G47接续：上一goal turn实际完成单主干归并/LD01产品工程与包，并启动LD02有效RED/GREEN，不是no-progress。当前Main actualint_qms/01c1/唯一worktree再核，LD02backend最终240/7 source及归档XMLRoot核all0，正式唯一category资格回归保留、template whitelist接口管理不改；LD02FE54/8消息PASS有限renderer最后收口未freeze不能说全UI完成。第3目录唯一选择方案只读预备同时进行，未实施。新4字段卡片仍无答，actualsource及已存在clone两端4cols/targetledger均0，不将未答视授权、不重复问旧19/质量批准。
+
+- doc/tasks/20261001-dcc-integration-unblock/g47-free-upload-backend-root-review.json
+
+G47最终：LD02 FE冻结55/8，16项资产/helper/log指纹Root核一致，独立Review无新增主line P1/P2；完整类型实际86851终止0、Vite env.local构建实际21166终止0。保留原CJS/Browserslist提示，无重装依赖或宽松类型新配置。工程完成不等于实际库/真实UI：4cols授权未答；LD03正式映射和LD04待办继续按序开发。经验沉淀已更新 docs/dcc-business-integration-experience.md 与既有索引，有限复盘、不生成新业务限制。具体收据 g47-root-types-build-execution.json/g47-root-verification.md。
+
+- doc/tasks/20261001-dcc-integration-unblock/g47-root-verification.md
+- doc/tasks/20261001-dcc-integration-unblock/g47-root-types-build-execution.json
+- doc/tasks/20261001-dcc-integration-unblock/g47-free-upload-frontend-root-review.json
+
+G47工程提交64ba36ae92e4d2f08c3808b9130c085b55a2bea8：按4正式冻结manifest去重最新覆盖32准确文件，source/必要测试/2BDD单独提交；staged集合精确一致、diff check和8061/48061守卫PASS。AGENTS与2infra原改动哈希保留/未暂存，raw log/env/产物不入提交。未push，未DB/真实UI。本地实现提交不等于全业务完成。
+
+
+- doc/tasks/20261001-dcc-integration-unblock/g47-implementation-stage-paths.json
+- doc/tasks/20261001-dcc-integration-unblock/g47-implementation-commit-proof.json
