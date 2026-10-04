@@ -1,0 +1,194 @@
+{
+  "automation_id": "dcc",
+  "patrol_id": "H01",
+  "recorded_at_utc": "2026-10-01T17:35:52.025817+00:00",
+  "trigger_at_utc": "2026-10-01T16:55:49.498Z",
+  "previous_patrol_id": null,
+  "thread_message_api_available": false,
+  "instructions_sent_to_threads": false,
+  "pending_resume_thread_ids": [
+    "01a0f2a6-eb43-7e11-8e4e-cf951a911cbf",
+    "01a0f2a7-c122-76d0-8cfb-fd4bb2b1b1e5"
+  ],
+  "workers": [
+    {
+      "module": "A",
+      "thread_id": "01a0f2a6-eb43-7e11-8e4e-cf951a911cbf",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-a",
+      "task_status_text": "blocked — 2026-10-02 00:31 +08冻结后剩余正式同步/接收/政策与Review门禁连续3轮未变，已实际update_goal(blocked)。A-REV-04修复/782项及最终compile、12文件冻结指纹完整保留；B/C新草稿/返工/首次候选/日期接口当前A未同步，无Owner内必需独立实现可继续。模块未完成，收到Root正式同步后沿原任务恢复。",
+      "client_running_state": "unavailable: no official thread status API",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+          "sha256": "405fb91e3865a73d2db7373a002605fec2306cbeba8cb57ac5127a3c909621d3",
+          "mtime_utc": "2026-10-01T07:11:30.080838+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+          "sha256": "e0c41315c098a04c746950086849a9f67ab26640155df4a2dc620b64e34f9334",
+          "mtime_utc": "2026-10-01T15:37:49.820127+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+          "sha256": "a3d9dccb44055861fd272e4b254cd5f516fafcd24d16c9aa8890a9efe56970c9",
+          "mtime_utc": "2026-10-01T14:56:22.605096+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundService.java",
+          "sha256": "810d15e65ad076c1513e53343c1021d0858f602d683812667e95087fbf40db89",
+          "mtime_utc": "2026-10-01T17:26:17.357576+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-a-workflow/task.md",
+          "sha256": "9d6e2031675767d81d883af9092013890a7a79b2db523101bcbc27a984834733",
+          "mtime_utc": "2026-10-01T16:33:31.273892+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-a-workflow/verification-report.md",
+          "sha256": "f6c0d166fd012d66c4c79414d447ffcb9aa36cec95dd8edce4cbc4b922bc5e24",
+          "mtime_utc": "2026-10-01T16:33:31.275842+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-a-workflow/manager-feedback.md",
+          "sha256": "33506762e158450a5cf66c0ae9875f014d6e56593ca9eb8db37ab70a3a82f8f4",
+          "mtime_utc": "2026-10-01T17:29:29.874140+00:00"
+        }
+      ]
+    },
+    {
+      "module": "B",
+      "thread_id": "01a0f2a7-4005-77c3-80ab-be583a1a9a47",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-b",
+      "task_status_text": "blocked — 103源码/39增量已主管理正式接收、Root411执行去重357通过且七候选已登记，旧接收/D目录依赖阻塞已解除。当前A真实草稿/返工调用、Root公共页/VIEW和最终Review连续3回合未完成，无新B返修或可独立推进依据；按Owner边界阻塞，冻结103/19/3及全目标保留，待正式接线/反馈恢复，不标completed。",
+      "client_running_state": "unavailable: no official thread status API",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "sha256": "be539ca2c21bd311d08ce50c00d0a47bcb1624db670628a38101aca7c6f89386",
+          "mtime_utc": "2026-10-01T16:01:21.020930+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.java",
+          "sha256": "7d331e99de953e5b9d987ee84fd502e1d6d80970d90a1d504c976f7c96cea5eb",
+          "mtime_utc": "2026-10-01T13:02:19.788594+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService.java",
+          "sha256": "a73050012e9cf8bc3e674b0b6cbbbf8eef7ce5455667c3a405fa74fffc0c9f75",
+          "mtime_utc": "2026-10-01T10:18:39.918564+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-b-project/task.md",
+          "sha256": "94e48cf41a3219cb835d73b8f99b0b0ea091177bb48d53f3c1a78fc369d762fb",
+          "mtime_utc": "2026-10-01T17:33:24.330564+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-b-project/verification-report.md",
+          "sha256": "6d1de57d28fb446a8d71556d3eb5d4e8946479d3138610ab4130c538a79059bb",
+          "mtime_utc": "2026-10-01T17:33:24.353884+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-b-project/manager-feedback.md",
+          "sha256": "de880b8f40951c643b826b2f8010767e4f514d84df1f527295a31a5662c33e80",
+          "mtime_utc": "2026-10-01T16:42:31.750078+00:00"
+        }
+      ]
+    },
+    {
+      "module": "C",
+      "thread_id": "01a0f2a7-888d-7382-a8bc-8e379c1969f0",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-c",
+      "task_status_text": "in_progress — 按manager-feedback恢复，旧正式依赖/未收到Review阻塞解除。前一持续轮BE26类447/compile保留（本轮BE未改未重跑），本轮FE36/strict实际通过；新增C-51组件actual actor/name/time展示及actor写守卫，保持C-50实际源名搜索/过滤，INT-M-03共享SQL未接；保持C-49组件日期快照，INT-M-02后端日期字段/保存/hash仍OPEN；保持C-48实际源保护，保持C-47真实冲突actor，保持C-45/46准备Query/组件合同，保持C-44真实培训输入，保持C-43实际写身份闭环，保持C-41/42锁事实/所选来源ID，保持C-39/40写硬范围，已修actual上下文缺失、实际属性/部门幂等、latest基线/锁、四成功字段回归、20年保留组合、selector服务器授权count/page、日期/下发投影。INT-C-02源项目/NAS分页完成，项目folder绑定、B现代assignment范围查询及Root公共HTTP/页面与A事务接线继续按具体合同，不标整个模块完成。",
+      "client_running_state": "unavailable: no official thread status API",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+          "sha256": "396d4b3a8f78bb2c9e3812a720c0f52c06c7ad37a1a64b9f3c408bc950d9965d",
+          "mtime_utc": "2026-10-01T16:10:19.312477+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+          "sha256": "8e9696ccf94a31ddaefab8516f7348902ce06253cbe5e09a13d7a435c7cbedda",
+          "mtime_utc": "2026-10-01T17:31:35.900890+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorQuery.java",
+          "sha256": "fc1604111840cca93ce31e2ac48141fa3732b97852f8253f550da25c3b1dc14e",
+          "mtime_utc": "2026-10-01T16:34:05.353429+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-c-version/task.md",
+          "sha256": "a11a8b2b76b315046f9027e29bf4f8758867dfae3f3848758a926d6846d9520e",
+          "mtime_utc": "2026-10-01T16:44:45.557611+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-c-version/verification-report.md",
+          "sha256": "17fc06c03cb0cdf1abec758cb4e03ea2fc126809e8ec4302786e1a4e4ab151d0",
+          "mtime_utc": "2026-10-01T11:29:42.185670+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-c-version/manager-feedback.md",
+          "sha256": "5948a4711522c9b396af1d66b923b85172ca15d633cebf33ac74ec9f45227806",
+          "mtime_utc": "2026-10-01T17:29:29.883914+00:00"
+        }
+      ]
+    },
+    {
+      "module": "D",
+      "thread_id": "01a0f2a7-c122-76d0-8cfb-fd4bb2b1b1e5",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-d",
+      "task_status_text": "blocked — CC-2恢复已完成27类239后端/53前端、D类型/17迁移及compile证据，A签名/同事务唯一消费/20年保留均GREEN；随后按方向Review优先Bdelete/C候选组合，连续3轮同一正式入口尚未同步到D，Root公共UI和整体Review仍未关闭。B已向Root交付，不误称全局未实现；本地B项目目录delete/C项目folder候选依赖未到，受Owner约束当前无法独立推进，已按strict3轮目标规则阻塞。七目标及全部源码/记录保留，不reset/重建、不标完成；同步正式依赖/接线及Review后接续。无Git/业务库/服务/E2E授权。",
+      "client_running_state": "unavailable: no official thread status API",
+      "files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+          "sha256": "3d99f6ec2e67b784e50a24524397d4690c5ebd84f2c94f3e6647446eb5edfce8",
+          "mtime_utc": "2026-10-01T07:52:47.884772+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationControlledEventConsumer.java",
+          "sha256": "29167f9eed41c727bf88a503af0d30b3de110e0b9460f55d91043cb9904d986d",
+          "mtime_utc": "2026-10-01T02:22:10.922524+00:00"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRemediationService.java",
+          "sha256": "3fe9665a9cd6fe136636071a7779744cb34f7d3921d3a21065686410ec72e485",
+          "mtime_utc": "2026-10-01T09:45:08.138309+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-d-relations/task.md",
+          "sha256": "2397bc82307de526a0d8bc2b2d41d33c17dbdfc7527f5f247d9235a748e72a4c",
+          "mtime_utc": "2026-10-01T16:11:38.634588+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-d-relations/verification-report.md",
+          "sha256": "616e356790760c3cd4c2f7bb02d0442ebff0652ec1af98a940278e263ac80369",
+          "mtime_utc": "2026-10-01T16:11:38.638588+00:00"
+        },
+        {
+          "path": "doc/tasks/20260930-dcc-d-relations/manager-feedback.md",
+          "sha256": "2ab1096a317ba08432089cbd830615c7f64dce09ccc84df17e493b5ea674dffa",
+          "mtime_utc": "2026-10-01T17:29:29.879999+00:00"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "classes": 13,
+    "executions": 244,
+    "inherited_duplicate_executions": 27,
+    "distinct_scenarios": 217,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "actions": [
+    "Received frozen A audit delivery with source/target hash protection",
+    "Preserved newer D real signed-control scenarios in shared test merge",
+    "Registered four candidate file-state operations; coverage 32 operations/11 annotations",
+    "Synced 40 reviewed B/policy dependencies to A and 10 A/policy dependencies to D",
+    "Updated A/D continuation and C test-compile repair instructions; C active source untouched"
+  ],
+  "whole_business_complete": false,
+  "services_or_real_database_or_git_or_e2e": false
+}

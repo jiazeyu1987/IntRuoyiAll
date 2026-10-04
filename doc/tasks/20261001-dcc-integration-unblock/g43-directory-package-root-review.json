@@ -1,0 +1,42 @@
+{
+  "status": "G43_DIRECTORY_REPAIR_PACKAGED_SOURCE_COMPILED_EMBEDDED_PASS_NOT_RUNTIME",
+  "packageExitCode": 0,
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "sha256": "a574f1e945b8bf78ed13dad69baafc20ee886ddc11551aa861164dc9932feabb",
+    "bytes": 507323953
+  },
+  "compiledClasses": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Descriptor.class",
+      "sha256": "1ab8b5adddba99bfb1f38e3e146ab7985f539042cc1a1007dd4b09c2d9a5eda2"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Input.class",
+      "sha256": "8ef4c4b53420f26dd019dbdd093c8f46c08bab090ad166f1684f0c85c9f2a879"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.class",
+      "sha256": "aabb2fd466fc3583b3c47bde060b79f3b67fae92c030b3d756ec8d0fe0a4117e"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceCommand.class",
+      "sha256": "506522134689c5487645f168932f8c13c3ba1458b5b669f3ea09b53a62befce8"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceExecutor.class",
+      "sha256": "e60b45d308d3295ab96a2e392175950956539891302cb035d6cefa59bf554714"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.class",
+      "sha256": "443a6656ead71488f5a3c8e7652dc207c59c8c4b8f30c5ff2c9cd3a59c43b5cf"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceRunner.class",
+      "sha256": "cb37c1d7f780c0c97db4b626c2d70a5601b509d8c9d4bf33d24dd9dd3c148665"
+    }
+  ],
+  "directoryFingerprintSha256": "462cb0766e13d374e6fff1f7114df221fcf8b6994575aad1239fe03c9ef842df",
+  "actualLegacyActivationComplete": false,
+  "businessAcceptanceComplete": false
+}

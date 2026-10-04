@@ -1,0 +1,30 @@
+{
+  "status": "G44_ACTUAL_APPROVED_PROJECT_PRODUCT_UPLOAD_IDENTITY_GAP_CONFIRMED",
+  "rows": [
+    {
+      "status": "COMPLETED",
+      "catalogId": "613",
+      "projectId": "270",
+      "requestId": "6",
+      "relationId": "6"
+    },
+    {
+      "id": "270",
+      "projectMasterId": null
+    },
+    {
+      "id": "6",
+      "status": "ACTIVE",
+      "catalogId": "613",
+      "projectId": "270",
+      "requestId": "6"
+    }
+  ],
+  "fileRows": 0,
+  "workflowFailureAnchor": "DccControlledFileWorkflowServiceImpl.prepareSubmitContext:2276",
+  "failureReason": "PRODUCT_BOUND_CATEGORY_REQUIRES_ENABLED_MDM_PRODUCT_ID_BUT_APPROVED_JOINT_CREATION_DID_NOT_LINK_IT",
+  "actualUiSubmitEvidence": "g44-real-ui-r4/096.json/097.json/098.json",
+  "sourceRequestTicketOrCredentialPrinted": false,
+  "databaseWritesByDiagnostic": false,
+  "automaticResubmitAllowed": false
+}

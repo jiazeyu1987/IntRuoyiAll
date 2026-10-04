@@ -1,0 +1,19 @@
+{
+  "status": "THIRD_SAME_BLOCKER_AUDIT_GOAL_BLOCKED_REQUIRED",
+  "consecutiveNoProgressMainFlowAudits": 3,
+  "auditChain": ["g36-continuation-audit.json", "g37-continuation-audit.json", "g38-blocked-audit.md"],
+  "previousG35TurnWasProgress": true,
+  "goalBlockedThresholdMet": true,
+  "actualInitialProjectPermissionAnswer": null,
+  "actualQualityApproved": false,
+  "meaningfulIndependentMainFlowWorkAvailable": false,
+  "liveVerificationHandleAvailable": false,
+  "source17Unchanged": true,
+  "protectedNontask6Unchanged": true,
+  "stagedFiles": 0,
+  "actualServiceDatabaseObjectOrGitActions": false,
+  "realUiAcceptanceComplete": false,
+  "localIntQmsMergeComplete": false,
+  "goalCompleted": false,
+  "resumeTrigger": "Actual business permission choice or relevant runtime authorization/evidence supplied by the user; preserve the full original goal."
+}

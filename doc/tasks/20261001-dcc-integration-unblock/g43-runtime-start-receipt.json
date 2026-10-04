@@ -1,0 +1,18 @@
+{
+  "status": "OWNED_SLOT6_RUNTIME_STARTING",
+  "launcherPid": 55612,
+  "profile": "dcc-local-development",
+  "slot": 6,
+  "frontendPort": 8067,
+  "backendPort": 48067,
+  "jarSha256": "fda108fddb591158f47d2f1352d732ce56fa1f262714fa4bec37c311cee3d617",
+  "runtimeDirectory": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g44-local-backend",
+  "credentialValuesPersisted": false,
+  "businessAcceptanceComplete": false,
+  "autoJobsEnabled": false,
+  "secretEnvironmentNamesOnly": [
+    "mysqlPassword",
+    "existingHmacSecret",
+    "existingHmacVersion"
+  ]
+}

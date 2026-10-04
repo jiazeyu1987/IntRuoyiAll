@@ -1,0 +1,78 @@
+{
+  "status": "ROOT_VERIFIED_ACTUAL_READONLY_CLONE_AND_SOURCE_CAPTURE_BACKUP_PASS_NOT_DDL",
+  "databases": [
+    {
+      "database": "dcc_intqms_g18_rehearsal",
+      "status": "G29_FRESH_READONLY_INPUT_COLLECTION_COMPLETE_NOT_DDL_EXECUTION",
+      "readReceipts": 36,
+      "baselineCounts": {
+        "dcc_controlled_file": 41615,
+        "dcc_controlled_file_master": 36685,
+        "dcc_controlled_file_name_claim": 27,
+        "dcc_controlled_file_source_ownership": 43,
+        "dcc_controlled_file_signature": 339,
+        "system_electronic_signature": 0,
+        "infra_release_migration": 529
+      },
+      "backupArtifacts": [
+        {
+          "kind": "schema",
+          "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-clone-fresh-inputs\\schema.sql.gz",
+          "sha256": "f1386f30547c7c8ab91e17ae7854ebb57214cf66cb3e1154b800dc6e734dd8b5",
+          "bytes": 4610,
+          "dumpExit": 0
+        },
+        {
+          "kind": "protected-original-rows",
+          "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-clone-fresh-inputs\\protected-original-rows.sql.gz",
+          "sha256": "f2b2e689c05ce4a467642a89adcb92f33637e4807b76b91616333149f920e0fb",
+          "bytes": 3424158,
+          "dumpExit": 0
+        }
+      ],
+      "receiptPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-clone-fresh-inputs\\g29-collection-receipt.json",
+      "receiptSha256": "3743f2cbf6fd98d5959f57f8ced9b723bc7f00b8d7d0430c24a89e913e9b5ba5",
+      "requestAuthorized": false
+    },
+    {
+      "database": "ruoyi-vue-pro",
+      "status": "G29_FRESH_READONLY_INPUT_COLLECTION_COMPLETE_NOT_DDL_EXECUTION",
+      "readReceipts": 36,
+      "baselineCounts": {
+        "dcc_controlled_file": 41615,
+        "dcc_controlled_file_master": 36685,
+        "dcc_controlled_file_name_claim": 27,
+        "dcc_controlled_file_source_ownership": 43,
+        "dcc_controlled_file_signature": 339,
+        "system_electronic_signature": 159,
+        "infra_release_migration": 529
+      },
+      "backupArtifacts": [
+        {
+          "kind": "schema",
+          "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-source-fresh-inputs\\schema.sql.gz",
+          "sha256": "b09b2365ef853b24e73416bea810144d5eb7d939b927ea7b1ad1cd29d2f69615",
+          "bytes": 4613,
+          "dumpExit": 0
+        },
+        {
+          "kind": "protected-original-rows",
+          "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-source-fresh-inputs\\protected-original-rows.sql.gz",
+          "sha256": "70114210dffa09760c70b494db046513315a9eaba003bbf369ab2b04c014dd34",
+          "bytes": 3491194,
+          "dumpExit": 0
+        }
+      ],
+      "receiptPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-r2-source-fresh-inputs\\g29-collection-receipt.json",
+      "receiptSha256": "429b3e66a6c2915ad690bc5413a741f18e0d21f2f313e9aa0b1d8ec6cdb929a8",
+      "requestAuthorized": false
+    }
+  ],
+  "databaseWrites": false,
+  "objectWrites": false,
+  "newDdlAuthorized": false,
+  "newMigrationExecuted": false,
+  "sourceBundle39Complete": false,
+  "qualityApproved": false,
+  "note": "Freshness expires technically; before later DDL recreate fresh writer/baseline evidence as required. No approval inferred."
+}

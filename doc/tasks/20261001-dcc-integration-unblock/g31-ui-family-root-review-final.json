@@ -1,0 +1,31 @@
+{
+  "status": "FINAL_ROOT_REVIEW_OF_NINE_MODE_UI_SCRIPT_PREPARATION_NOT_E2E",
+  "supersedes": "g31-ui-family-root-review.json (before final explicit terminal evidence refinement)",
+  "families": [
+    {
+      "manifest": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g29-ui-delivery-fingerprints.json",
+      "sha256": "23dd042b0aba75c3a68911fcb42fed28557bef691673b1f105cd379f02a403db",
+      "assets": 3,
+      "offlineCases": 29
+    },
+    {
+      "manifest": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g30-ui-delivery-fingerprints.json",
+      "sha256": "ab8cbf6caeceea408a247100fe6f811bda2a24560002083a36031815c6be9b7e",
+      "assets": 3,
+      "offlineCases": 26
+    },
+    {
+      "manifest": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g31-ui-delivery-fingerprints.json",
+      "sha256": "ff323ccd33790fc69db80447f63f24689edd00edffc69d3c12b3c1e81eb5ed91",
+      "assets": 3,
+      "offlineCases": 25
+    }
+  ],
+  "assetsVerified": 9,
+  "actualBrowserInvocations": 0,
+  "actualUiPass": false,
+  "qualityApproved": false,
+  "objectRecoveryExecuted": false,
+  "newMigrationExecuted": false,
+  "goalCompleted": false
+}

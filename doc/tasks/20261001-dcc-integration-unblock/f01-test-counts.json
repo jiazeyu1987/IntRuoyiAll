@@ -1,0 +1,3623 @@
+{
+  "source": "actual final Maven log and XML",
+  "suites": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "2846e7733c45bf0832815112a43bb31988a4ed2952692223e48dbd6378c60e40"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "86ce40d3205f81bbd66e8d518c1b8a2196ae70b92de4ee84590f236aa0e4fa10"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "bd32a4970ffd3d5a7df60262dda2b901c3e9bb7b5e6f9e038b8f4f296117ed5b"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d9d32da285ef50cb06ed28451647e796ab5f2346fa6dccee7aedccc24b3e8e41"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 239,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "500e00f4da684e8a99a8e56ed42baccfc05a90c18b0158b76195e7cae9682cb4"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b0182cb395bfb77a980cb765a2fa447161ae3db6143d1d8d9067790d7ded4a16"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 164,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d4471e11f79015c21f892b3ce98dd4231836b5534232cf79c3ee9194d49caad3"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceApiPersistenceTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "da1812ffd9e0c9ae57ca9ec15dcfbc0d0e2f5693c79ce709e1de4a53298e5feb"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "0e7a866be04f344ea081a7ef311151dc40c78ac0b736df2807be47ac17cf4f8c"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3e25f70acbd5dc3ac3fd77dc0625476a811912a7f58352508a92502a9978cf3d"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "418d3ab9ad472ac6362dcdb8f9ffb35f95f8dd3d71c2fb9b8f730fa8698cfaee"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "6a6d6c642985894eddb7b0797102be490f5d808f478c3ca171f7848c06051ed5"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3f38dd95f554e0cec1a1f4ebaca26febc85353b2c70c4342f614b0cef71dfe93"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "00293e11f5cd60d874225443036c45cfc985638f29f2dca19d49d3da436db8c9"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d7bfdfee0cd1f421b757272b641f7ab286d4e9289bb4b0651687c9c0eff47f50"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "a14c065f9cb3f4cb19501c0c98598e79468136faf794b8f01a2b287ec2b0db67"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "5b354d420aaa9362466978f6ce65b790e096f65b5a051b079e228bbdfdde9e88"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b4dd33a8d2d0d8b25f73efb781967492b64ed56b89c453fcf0eeb985caaabfb3"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "f4e581e0f944e9c046c53d5bcaed33b984c863cfc124482d93bf1145a3d70119"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "465864645340d4bf3a8e13f60d3d5cf0ab58f1194c8cb9316de34aec79a84dc1"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "9a78ae7a69c18e6c371345dec68600b943124e868a531555e01e87a6d80573c9"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "eab5c8c07a63d9a57ee95362d92dbbc32d469a4ab26d61e111cad0576cbf2a19"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "f3c4f79b456455781110091d42c8826fe7563017356d891cf7c120efeddfdc75"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "e6a44851725b4a7e0711e9b2984bf2375c1ff6c5b5ed35b8bca588cd397e1699"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b76bd9acb69fb5476c7664e38c4a78ced798c6911e876f0051f901404f2dd52d"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryWriteGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "1ede59cc4059128a077e3d2507dc34ecbc3e5d1d2dfffad3ad4283dcf1f863a7"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "63ea76c8fae2e0de034a1b4668b66b77d46ccd5e2305b4b7a75b41aa87d327a2"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "532f3002c284733aca1a07b8b4f960c0c02c44af448762a83d441346fbe983ba"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3a3ac6e2e945cb348e76f120ee9ecb57b842ef6c56f02fbf6dc1d0c78fd0ffff"
+    }
+  ],
+  "executions": 772,
+  "suite_count": 29,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "count_boundary": "executions only; copied A/C scenarios may overlap, no claim all are independent",
+  "cases": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "2846e7733c45bf0832815112a43bb31988a4ed2952692223e48dbd6378c60e40",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "getProjectAccessRules_mapsFormalAccessEndpointRequiresQueryPermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "createProjectCode_mapsCreateEndpointRequiresPermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "getProjectCodePage_mapsAssociatedFileCountToResponse"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "deleteProjectCode_mapsDeleteEndpointRequiresPermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "updateProjectCode_mapsUpdateEndpointRequiresPermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "getAssociatedFileAiCategoryCandidates_mapsEndpointRequiresUpdatePermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "classifyAssociatedFileByName_mapsEndpointRequiresUpdatePermissionAndDelegates"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectCodeControllerTest",
+          "name": "replaceProjectAccessRules_mapsFormalAccessEndpointRequiresUpdatePermissionAndDelegates"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "86ce40d3205f81bbd66e8d518c1b8a2196ae70b92de4ee84590f236aa0e4fa10",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+          "name": "recordDirectLinkDeniedLog_usesControlledFileTenantWhenRequestHasNoUserTenant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+          "name": "lifecycleSuccessRequiresBusinessTransactionAndCorrectResult"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+          "name": "recordDirectLinkDeniedLog_createsTraceableAnonymousAuditRecordWithoutWatermarkEvent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+          "name": "independentFailureSurvivesOuterRollbackButSuccessDoesNot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditServiceTest",
+          "name": "recordBoundaryLog_createsUploadFailureAuditWithoutControlledFileCapability"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "bd32a4970ffd3d5a7df60262dda2b901c3e9bb7b5e6f9e038b8f4f296117ed5b",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest",
+          "name": "frozenEvidenceReadsExplicitTypeAndOpaqueRoundWithoutBorrowingApplicant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest",
+          "name": "revisionOptionsUsesCurrentActorAndExactSelectedBaselineWithSafeLongResponse"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccApplicationReadHttpContractTest",
+          "name": "evidenceCannotCallQueryWhenTheFormalRoundIsOmitted"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d9d32da285ef50cb06ed28451647e796ab5f2346fa6dccee7aedccc24b3e8e41",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "preciseCheckinReplayDoesNotCopyOrInitializeAgain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "actualSubmittedRejectedSourceForkThenSecondCheckinKeepOriginalSnapshot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "realProjectLockMustPrecedeMasterAndFileAcrossTwoConnections"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "controlledBaselineDifferentRequesterStartsNewApplicationWithActualOwner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "olderSelectedIterationUsesSelectedBodyWhileLatestRemainsWorking"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lifecycleSuccessCommitsWithActualTargetAndFailedReplayDoesNotAddSuccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "failedAttemptLogDatabaseFailureRemainsVisibleWithOriginalBusinessFailure"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "checkinHoldingProjectSerializesActualBSavedDraftOnAnotherConnection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "successLogDatabaseFailureRollsBackCheckinAndKeepsAccurateSourceFailure"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "actualInitializerProxyRequiresOuterTransaction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "twoCheckinsThenOrdinarySaveKeepDirectSourceAndManualActual"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "realTwoCheckinsSaveAndV4SubmissionPreserveFacts(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "realTwoCheckinsSaveAndV4SubmissionPreserveFacts(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "realTwoCheckinsSaveAndV4SubmissionPreserveFacts(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccCheckinDraftInitializationDatabaseTest",
+          "name": "realTwoCheckinsSaveAndV4SubmissionPreserveFacts(String)[4]"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 239,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "500e00f4da684e8a99a8e56ed42baccfc05a90c18b0158b76195e7cae9682cb4",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "metadataOnlyDrawingCopyFailureCleansPreparedSourceAndKeepsCheckout"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "detailAndHistoryDisplayRealCheckoutActor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "metadataOnlyDrawingReplayVerifiesIsolatedCompanionContent(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "metadataOnlyDrawingReplayVerifiesIsolatedCompanionContent(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_reusesViewMatrixAccessByCategoryWithinOneRequest"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "recordedOriginalFilenameIsSearchableEvenWhenTemplateTitleHasNoMatch"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutCurrentActiveVersionCreatesLockWithoutCreatingIterationOrChangingFormalPointer"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "logicalCheckoutIsVisibleFromFormalAndOtherHistoryVersions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinReplayRequiresSameBaseIterationBeforeReturningExistingResult"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_activeAndSupersededUseProtectedPublishedBinary"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_activeProjectCodeAssignmentDoesNotBypassViewAuthorization"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutActiveVersion_projectOwnerDifferentFromRequesterCanCreateMajorRevisionLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadFinalizationFailedBeforeDistributionDoesNotProjectDistributionFact"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_workingDrawingWithoutCurrentPdfRejectsBeforeSourcePreview"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "withdrawnApplicantProjectionShouldAllowOnlyWithdrawnFlowActions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledMissingBodyDisablesPreviewWithoutFallingBackToSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getUploadDirectoryTree_categoryWithoutBindingFailsFast"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_slicesBeforeBuildingResponseRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_withoutIncludeDescendantDirectories_onlyReturnsCurrentDirectoryRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinDrawingReplacesAndBindsCompanionPdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "pendingNonApplicantProjectionShouldLockWithdraw"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "otherCheckoutActorCannotCheckinOrCancel"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_assignmentExecutorCanAccessDistributedFileOutsideCorrectionAssignments"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "cancelCheckoutByOwnerRecordsReasonReleasesLockAndDoesNotCreateIteration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingCopyNeverInheritsControlledActivatedOrDistributedFacts"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsKeepCheckoutActorTimeAndBlockBothFormalActions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_includesVersionHistoryRouteSnapshotsAndDownstreamSummaries"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinMustReuseCompleteClaimBeforePreparingReplacementSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinOfNewControlledRevisionRecordsItselfAsFormalBaseline"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadWithoutTrainingDoesNotProjectTrainingEvidence"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "versionHistoryOrdersWindchillIterationsAboveFormalA1"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "synchronizedLifecycleFactsProjectActualDatesAndDocControlDistributionEligibility"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_returnsOpenableControlledPdfDirectly"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_emptyProjectCodeAssignmentStillUsesViewMatrixWithoutDirectoryFallback"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinMustUseLockedCurrentStatusBeforePreparingNewContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_explicitFullFileScopeCanOpenFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getUploadDirectoryTree_categoryWithoutBindingDoesNotGuessUnclassifiedDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenEvidenceRejectsForeignSnapshotFactsInsteadOfReturningAnotherApplication(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_categoryAndDirectoryAllowedReturnsPdfDirectly"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "historyNameOnlyVersionCannotLeakHashesAndHasExplicitDeniedActions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "pendingVersionProjectionPreservesAuthorizedReadWhileLockingMutations"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinDrawingRejectsWhenCadPdfAndMetadataAreUnchanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsUseLatestSourcePolicyAndActualPerIterationPermissions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsLongJsonUsesDecimalStringsWithoutStorageCapabilities"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_latestVersionOnly_returnsLatestRowPerMasterForBrowserView"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutSameActorDifferentBaseIterationDoesNotReportRequestedVersionCheckedOut"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_requesterOutsideAssignmentHardScopeIsDenied"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_withoutLatestVersionOnly_keepsRequesterRecordRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_withLatestVersionOnlyFiltersKeywordAfterLatestAggregation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinExactOriginalNameRejectsCaseOrExtensionChange"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "detailAndHistoryProjectActualRevisionFacts(String, String, String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "detailAndHistoryProjectActualRevisionFacts(String, String, String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "detailAndHistoryProjectActualRevisionFacts(String, String, String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "nameVisibleBrowserAndHistoryExposeActualCheckoutIdentityWithoutBodyOrReason"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "pendingApplicantProjectionShouldBeConsistentBetweenDetailAndPage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "majorDrawingIntentIsRejectedAtCheckinBeforeSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinChangedDrawingWithoutCompanionPdfDoesNotCreateNewVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_supersededRevisionDenied"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_filtersBrowserExtensionBlacklistForProjectCodeAssociations"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_reusesDirectoryManagementPermissionDuringCandidateFiltering"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "projectOwnerCannotBypassSeparateFormalRevisionIntent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_missingPublishedArtifactStillAuthorizesBeforeProjection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenAccessEventIdIsNotBackfilled"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutWorkingVersion_byNonRequesterWithCategoryUploadPermission_isDenied"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_recordsRequestAuditContextOnEventAndAccessLog"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "finalizationFailedNonAssigneeCannotPreviewWithoutNormalAccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_pendingFileDeniesFutureStageParticipant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "drawingCheckinReplayRequiresTheSameBoundCompanion(long)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "drawingCheckinReplayRequiresTheSameBoundCompanion(long)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_workingRequesterCanPreviewSourceButCannotDownload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadWithMissingTrainingFileDoesNotAllowManualRelease"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledPreviewUsesPublishedBodyWithCurrentContentPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "toSnapshotRespVO_deptRoutePrefersSingleTaskSnapshotDepartmentOverLegacyCandidateId"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_includeDescendantDirectories_forOrdinaryUserFiltersRequestedSubtreeByViewMatrix"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_returnsLightweightRowsWithoutDetailSummaries"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledSourceCheckinDoesNotSwitchExecutionVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadRejectedAfterCompletedDistributionKeepsDistributionFact"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_finalizationFailedOfficeFileUsesSourceArtifact"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_pendingFileAllowsSnapshotParticipantEvenWhenCurrentViewMatrixChanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_projectOwnerDifferentFromRequesterCanCreateMajorRevisionFromActiveVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_pendingFileAllowsCurrentBpmAssigneeEvenWhenRouteSnapshotMissingAndAssignmentScopeExcludesFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_prefixRecordRequiresExplicitCategoryDownloadPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_includeDescendantDirectoriesTrue_returnsCurrentAndChildDirectoryRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinOldExecutionCannotAllocateWorkingCopyAfterNewerControlledSourceExists"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "currentDrawingPreviewUsesCompanionPdf(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "currentDrawingPreviewUsesCompanionPdf(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "currentDrawingPreviewUsesCompanionPdf(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "currentDrawingPreviewUsesCompanionPdf(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "currentDrawingPreviewUsesCompanionPdf(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_readyToPublishWithApprovePermissionProjectsPublishAction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "historyContentVersionCarriesItsOwnActionProjection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_activeElectronicDistributionRecipientCanAccessWithoutViewMatrix"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "ordinaryResponseVoTypes_doNotExposeUnderlyingFileCapabilities"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "explainControlledFileAccess_returnsDeniedReasonWhenUserOutsideCurrentViewMatrix"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenDownloadRecordIdIsNotBackfilled"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_includeDescendantDirectories_preservesProcessTypeFilter"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "toSnapshotRespVO_nonDeptRouteDoesNotInferDepartmentsFromTaskSnapshots"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenAllowedAccessLogInsertReturnsZero"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_allowsViewMatrixParticipantWithoutLegacyViewOrDirectoryQuery"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_businessGateDenialStopsBeforeAccessEventRecordAndBytes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "obsoleteVisibilityDoesNotReplaceContentPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "majorCheckinIsInvalidBeforeReadingOrCopyingNewContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinReplayRejectsDifferentNeedTrainingValue"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "majorCheckinCannotUseMetadataOnlyContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_passesRequestAuditContextToPreviewAccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_sourceReadRuntimeExceptionMarksRecordFailedAndDoesNotReturnBytes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_assignmentExecutorCannotOpenUnassignedFileDespiteDirectoryManagement"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "toSnapshotRespVO_deptRouteUsesDistinctTaskSnapshotDepartmentsWhenPersistedCandidateIdsAreEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_readyToPublishOrdinaryReaderIsDeniedBeforeContentRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "directoryContentGrantAllowsEachVersionPreviewWithoutGrantingDownload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinDrawingRejectsInvalidPdfBeforeCreatingVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "lifecycleWritesCannotBypassAssignedScopeForRequesterOrDirectoryManager(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "lifecycleWritesCannotBypassAssignedScopeForRequesterOrDirectoryManager(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "lifecycleWritesCannotBypassAssignedScopeForRequesterOrDirectoryManager(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadWithTrainingRecordAllowsManualReleaseBeforeAudienceAcknowledgement"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadWithTrainingRecordProjectsEvidenceAndCompletedDistribution"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutActiveVersion_whenMasterHasUnfinishedIteration_isRejectedBeforeCreatingLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "browserSummaryRequestDoesNotPrefilterOnlyActiveWhenShowingLatestControlled"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "parentRequesterCannotDiscoverAnUnrelatedPrivateVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledDetailAllowsCurrentMatrixWithoutBorrowingExecutionPointer"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "rootRelationAdapterCannotBypassAssignedScopeForRequesterNameOrEdit"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "nameOnlyDirectoryUserCanFindFileButCannotReadItsDetailOrContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "ordinaryViewerOnlyReceivesCurrentActiveVersionAndCannotOpenWorkingDirectly"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_includeDescendantDirectories_returnsFilesFromParentSubtree"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_readyToPublishWithoutApprovePermissionDoesNotProjectPublishAction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_activeFileAllowedForViewMatrixParticipantWithoutLegacyPreviewDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "nameOnlyBrowserProjectionIncludesPermittedVersionNamesWithoutContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "toSnapshotRespVO_deptRouteUsesSingleTaskSnapshotDepartmentWhenCandidateIdsAreEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinDrawingSourceWithoutCurrentPdfRejectsBeforeCopyingOldPdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_rejectsMissingDownloadRequestIdBeforeSourceRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_pendingRevisionFutureStageParticipantDenied"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenReadyAuditUpdateReturnsZero"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinSourceFailureRetainsActiveLockAndDoesNotAllocate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadWithoutTrainingSkipsTrainingAcknowledgementGate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "finalizationFailedCurrentDocControlAssigneeCanPreviewForRecovery"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsReturnExplicitZBoundaryWithoutInventingReplacement"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "toSnapshotRespVO_deptRouteKeepsSingleCandidateWhenTaskSnapshotsAreAbsent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinChangedDrawingPdfCreatesVersionWhenCadIsUnchanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenAccessEventInsertReturnsZero"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinReplayReturnsExistingOnlyForSameActorBaseTicketAndNormalizedPayload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutLatestWorkingVersion_allowsItsEarlierWorkingPredecessor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_pendingRevisionRequesterReadsOriginalBinary"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsNeverFallBackFromLatestToExecutionOrAcrossTenant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_officeFileReturnsOnlyOfficeLink"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_activeOfficeFileWithMissingPublishedArtifactReturnsUnavailableReason"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_filtersConfiguredExtensionBlacklistForEveryUser"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_pendingRevisionSnapshotParticipantReadsOriginalBinaryWithoutCategoryReviewApprovePermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_missingPublishedFileRecordDisablesPreviewProjection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getUploadDirectoryTree_returnsBindingPathAndSubtree"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_failsClosedWhenDownloadRecordInsertReturnsZero"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinWorkingRevisionRequiresActualMatchingFormalOriginBeforeReservation(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadFinalizationFailedAfterCompletedDistributionKeepsDistributionFact"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "pendingProjectionShouldFailFastWhenPendingProcessInstanceMissing"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_pendingManualDistribution_exposesManualReleaseFlag"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_nativeUploadTrainingRecordProjectsEvidenceBeforeDistribution"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_officeFileWithoutOnlyOfficeConfig_returnsUnavailableReason"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_excludesObsoleteRowsForOrdinaryUser"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_videoFileReturnsVideoKind"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "missingHistoricalApplicationEvidenceIsExplicitAndNeverUsesTodayDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_assignmentExecutorWithoutAssignmentDoesNotFallBackToDirectoryScope"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_returnsProductName"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "activeProjectionShouldBeConsistentBetweenDetailPageAndBrowserPage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutQueryAccessibleFile_withoutProjectEditorOrOwner_isDeniedBeforeCreatingLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "frozenFormalCandidateCannotBeCheckedInAgain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "authorizedViewReadsFrozenApplicationEvidenceWithoutEditorOrImpersonation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_activeFileDeniedWhenDirectoryCanDownloadFalseEvenWithCategoryDownload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutLatestWorkingVersion_stillRejectsUnrelatedWorkingCandidate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_deniedWhenUserIsOutsideViewMatrixEvenWithLegacyViewPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getPreviewMetadata_activeElectronicDistributionRecipientCanAccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "rootRelationAdapterCanReadAssignedNameButDoesNotGrantBodyCapability"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "trainingRecordProjectionIsRestrictedToFormalDocControlRoleAndCategoryPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "obsoleteHistoryReadsItsOwnRetainedBodyAndActualRevisionFacts"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_concurrentDuplicateDownloadRecordInsertReturnsRequestIdReused"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_readyToPublishDocControlReadsStampedBinary"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "metadataOnlyDrawingCheckinCopiesCompanionToKeepPreviewOwnershipUnambiguous"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_directoryManagerCanPreviewAndDownloadPublishedRowsWithoutProductOrCategoryRule"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_missingPublishedFileRecordDisablesPreviewProjection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "rejectedOrReturnedCheckinRequiresAFreshSourceTicket(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "rejectedOrReturnedCheckinRequiresAFreshSourceTicket(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_rejectsReusedDownloadRequestIdBeforeSourceRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "oldExecutionCheckoutDoesNotCreateStaleLockWhenLatestIsFutureControlled"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_activeElectronicDistributionRecipientCanDownloadWithoutCategoryOrDirectoryGrant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_readyToPublishDocControlCanPreviewStampedArtifactButCannotDownload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsKeepOccupiedTargetAndInFlightFormalCandidateUnavailable"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_activeProjectCodeAssignmentRestrictsDocControlRoleUser"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinReplayRejectsDifferentActorEvenWhenUploadTicketIsEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_workingDrawingRequesterReadsCurrentDrawingPdfBinary"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinCreatesSecondHyphenIterationWithoutFormalIntent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinReplayRejectsDifferentNormalizedPayloadWhenUploadTicketIsEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "identifyControlledFileScope_recognizesKnownDccArtifactsWithoutPathPrefix"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinRequiresVerifiedSourceNameAndCurrentTenant"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutWorkingVersion_allowsPendingApplicantReworkPredecessor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_workingRequesterReadsSourceBinary"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsUseHardAssignmentScopeBeforeAnyProjectPrivilege"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "terminalProjectionShouldNotExposeOrdinaryActions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_recoveredPaperOrCrossTenantRelationDoesNotAuthorize"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "actualTaskReadEvidenceDoesNotRequireApplicantOrProjectEditor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "defaultBrowserCannotInventLatestWhenPointerMissingOrFutureIdentityIsNotVisible"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "latestBrowserPipelineSearchesActualSourceAfterAuthorizationAndAggregation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_explainsCurrentViewMatrixAccessAndSeparateDownloadDecision"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "pendingProjectionShouldFailFastWhenStableIdentityMissing"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "activeProjectionShouldExposeObsoleteOnlyWhenAllowed"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_pendingCheckinRevisionReadsSourceBinaryWhenOriginalDiffers"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledPreviewDoesNotGrantExecutionPrintOrDownload"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "nameOnlyEvidenceAndWrongTenantAreDeniedBeforeMappingRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_signatureSummaryMarksPublishedCopyBindingMissingAsInvalid"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_createsEventAndRecordBeforePdfReadAndReturnsOpenablePdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readPreviewFile_activeFileDeniedWhenUserIsOutsideViewMatrixEvenWithLegacyViewPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutAndCheckinRequireLockedFormalMasterIdentityBeforeProjectAuthorization(String, String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_pageSizeNoneReturnsAllVisibleRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_sourceReadServiceExceptionMarksRecordFailedAndDoesNotReturnBytes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "readDownloadFile_withoutWarningConfirmationDeniedBeforeContentRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinRealSourceCreatesWorkingA2AndLeavesA1FormalPointerUnchanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "revisionOptionsKeepNameAndBodySeparateWithoutGrantingEditorOrOwner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "futureControlledLegacyCategoryViewCannotReplaceContentPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_workingRequesterDoesNotReceiveMisleadingMajorRevisionAction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFilePage_resolvesLegacyFileTypeTaxonomyIdFromStoredNames"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkoutRechecksCurrentStatusAfterWaitingForSubmissionLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "obsoleteBodyRequiresObsoleteVisibilityEvenWithDirectoryContentPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_activeCurrentVersionWithPendingNewVersionMarksModifying"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "checkinByCheckoutActor_withoutCategoryUploadPermission_isDeniedBeforeNewIteration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFileBrowserPage_activeProjectCodeAssignmentRestrictsDirectoryManagerWhenNotDocControl"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "defaultBrowserUsesAuthoritativeFutureControlledInsteadOfHigherWorkingOrExecution"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "extensionFilterUsesRecordedSourceRatherThanTemplateOrPublishedFilename(String, String, boolean)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "extensionFilterUsesRecordedSourceRatherThanTemplateOrPublishedFilename(String, String, boolean)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+          "name": "getControlledFile_allowsDetailAndPreviewFromViewMatrixButKeepsDownloadDeniedByDownloadRule"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b0182cb395bfb77a980cb765a2fa447161ae3db6143d1d8d9067790d7ded4a16",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "globalPageReturnsOneLatestPerMasterAndTrueAuthorizedTotal"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "selectorBlacklistUsesActualSourceExtensionBeforeAuthorizedTotalAndPage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "keywordCountAndPageUseSameServerFilters"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "browserSelectorReadsFormalPlacementWithSqlTotalAndNameOnlyBodyIsolation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "actualBrowserSqlIncludesFutureLatestAndIgnoresWorkingBeforePagination"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "projectionCarriesActualProjectSourceDirectoryAndIndependentPreviewPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "realFrozenSnapshotReadUsesFileViewAndPersistedRoundWithoutProjectDefaultsOrEditor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "tenantAndPageBoundariesRemainServerControlled"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "actualBrowserDefaultSourceSearchAndExplicitWorkingFilterRemainDistinct"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "projectFolderEqualToNasDirectoryMustNotBeInferredAsMapping"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "selectorResponseKeepsLargeBusinessIdsAsStringsWithoutStorageCapabilities"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "missingLatestIsNeverReplacedWithExecutionOrWorkingVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest",
+          "name": "hardAssignedFileScopeFiltersNamesBeforeSqlTotalAndPagination"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 164,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d4471e11f79015c21f892b3ce98dd4231836b5534232cf79c3ee9194d49caad3",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_missingRequiredMetadata_throws"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "formalRevisionSubmitsTheCandidateReturnedByCFromLatestControlledBaseline"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "projectProductPreviewRejectsAnInvalidBoundProduct"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getCurrentVersionByFileNumber_uniqueActiveVersion_returnsTraceableVersionInfo"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_positionHasNoResolvedUsers_throwsApproverMissing"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "aRetiredNativeDocumentControlApprovalNodeCannotReplaceTheNewReviewNode"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_categoryMissing_throwsNotExists"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "projectProductPreviewUsesTheBoundProductInsteadOfProjectCode"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalPersistsManualStampedPdfAfterTrainingRecordGate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "zeroWrittenDepartmentObligationCannotStartTheApprovalProcess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "rejectTask_applicantReworkIsNotAllowed"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_postInsertFailureMustNotReplayItsOwnRow(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_postInsertFailureMustNotReplayItsOwnRow(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_postInsertFailureMustNotReplayItsOwnRow(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_pendingMatrixReview_allowsWithdraw"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_genericApproveTaskKey_snapshotAssigneeDoesNotNeedCategoryReviewApproveRule"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createSignTask_appendsResolvedUsersAndDelegatesToBpm_removedByOrdinaryFilePolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_createsA1WithoutRouteSnapshotOrBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "ordinaryUploadCannotCreateARevisionWorkingVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalPersistsConfirmedDirectoryOnFileAndMaster"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "relatedWriteAllowsNameOnlyTargetsWithSeparateProjectEditPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "previewRoute_uploaderDerivedPosition_usesSubmitterContextResolver"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitFreezesActualAttributesAgainstThePersistedBpmRound"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_matrixReviewRequiresReviewPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "taskRecipientWithoutRequiredQualificationMustNotChangeTask(String, String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitUsesTheActualTicketSourceNameAndRecordsInitialIntent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_pendingDocControlApproval_allowsWithdraw"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "relatedWriteRequiresProjectEditPermissionBeforeBinding"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approvalPdfUploadAuthorizesOnlyTheExactCurrentFinalTask"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "foreignTenantAndWrongObjectTrainingProcessesNeverBindAPortableCategoryTicket"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_bindingDirectoryAlreadyLeaf_allowsSubmitWithBindingDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_externalReviewProcessType_requiresExternalReviewEndpoint"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_requesterWithoutDocControlCannotCompleteTraining"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_selectedSignoffUserInvalid_rejectsBeforeUserValidationInsertSnapshotAndBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFilePage_returnsSameListWhenEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_directoryOutsideBindingSubtree_throwsInvalidDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_newUploadProcessTriggersTrainingReceiveTaskAndMovesToDocControlReview"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFile_notExists_throws"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "deleteWithdrawnControlledFile_activeVersion_throwsAndDoesNotDeleteCurrentVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "finalApprovalRejectsATicketSessionOwnedByAnotherVersionBeforeSigning"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_rawSourceIsCopiedAndClaimedWithoutChangingOriginalHistory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_existingSingleV1_replacesOldVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_newFileRequiresTaxonomyLeaf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "newUploadRejectsTicketSessionFromAnotherUploadContext"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_rejectsInvalidDrawingPdfFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_routeMissing_throwsNotConfigured"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getTaskActionReadiness_finalApprovalAggregatesAllMissingRequirements"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_matrixApprovalRequiresApprovePermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_sameIdempotencyKeyDifferentPayload_rejectsConflict"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_actorOutsideResolvedStageUsers_rejectsAction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "anUncontrolledInitialCheckinSmallVersionCannotBeSubmittedAsAFormalApprovalCandidate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_notOwner_throws"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRequiresTrainingRecordWhenNeedTraining_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_deletedNasMaster_restoresMasterBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRejectsTrainingRecordPayloadEvenWhenPersisted_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_sameIdempotencyPayload_returnsExistingFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_rootInsertRaceReturnsCommittedWinnerWithoutBindingAgain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "rejectTask_success_updatesRejectedStatusAfterSignature"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "deleteWithdrawnControlledFile_retainsArtifactsRegardlessOfReferenceCount"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitWorkingIteration_repeatedCheckinsCloseReturnedAncestorAndUnifiedCandidateBeforeNewSubmission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_fileNumberConflict_throws"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "directUploadRejectsRevisionChangeTypeBeforeAnySideEffect"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "zeroSavedWithdrawalStatusCannotBeReportedAsSuccessfulCancellation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFilePage_success"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_rejectsRawFileIdsWithoutUploadTicket"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalPersistsSelectedDistributionDepartments_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitFreezesSelectedDepartmentsRatherThanOnlyConfiguredDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_formCenterRevisionStopsAtReadyToPublish"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_partialSameLayer_keepsCurrentStagePending"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalPersistsStampedPdfAndSingleFileElectronicDepartments_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_dhfCategoryRequiresProjectCodeProductNumber"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "resubmitWithdrawnControlledFile_alreadyResubmitted_throwsAndDoesNotCreateSecondBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_bindingDirectoryWithChildren_requiresLeafDirectorySelection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "transferTask_updatesStageResolvedUsersAndDelegatesToBpm_removedByOrdinaryFilePolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_projectTemplateMismatchFailsBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_snapshotContainsUserButRuntimeTaskAssignedToAnotherUserFailsWithMismatch"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_trainingReceiveFailureIsPropagatedToRollbackTheUpdate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_pendingDocControlReview_allowsWithdraw"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_genericApproveTaskKey_finalStageDoesNotPersistFinalizingStatus"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "ordinaryFinalApprovalKeepsSeparateMasterWhenDefaultDirectoryContainsSameName"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitWorkingIteration_persistsNeedTrainingAndPassesItToBpmVariables"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_rejectsDrawingSourceWithoutPdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_allowsNonLeafDirectorySelection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_categoryWithoutExactTaxonomyBindingFailsBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_usesUploadActionRouteAndStartsAtMatrixReview"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_ignoresClientProductAndKeepsUnboundProjectProductEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "previewRoute_positionHasNoResolvedUsers_throwsApproverMissing"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRequiresConfirmedDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createWorkingControlledFile_sameKeyAndPayloadReturnsExistingWorkingIteration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_selectedSignoffUsers_rejectsDeprecatedManualSelection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_categoryWithoutDirectoryBindingFailsBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "relatedWriteRejectsAnInvisibleTargetBeforeBindingAnyRelation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_businessFailureMustNotReplayAnotherRecord"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_formCenterApprovalRegistersPlatformCandidateBeforeFinalization"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalPersistsMixedDistributionScopes_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "returnTask_toApplicantReworkKeepsOriginalProcessInstance_removedByOrdinaryFilePolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_success"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRequiresDistributionDepartments_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "missingOrForeignNativeTrainingProcessCannotBeReplacedByTheStoredFileRound"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_docControlMovesTrainingGateToDocControlApproval"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_routeBecomesNotReadyRejectsBeforeFormalRecordTicketBindAndBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_docControlWhoIsNotRequesterCanCompleteOfflineTraining"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_sameFileNameInDifferentDirectoryCreatesSeparateMaster"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_finalApprovalMultipleMissingUsesAggregateErrorAndHasNoSideEffects"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_applicantReworkContinuesOriginalProcessInstanceToFirstApprovalStage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "ordinaryFinalApprovalReadinessRejectsMissingDefaultDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_rejectsUnsupportedSourceExtension"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_dhfCategoryRequiresBoundProductMaster"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "trainingPreviewRequiresTheSameCurrentFileCategoryAndRoundAsTheBindingCommand"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "previewRoute_authorizedRepresentative_usesDccAssignmentInsteadOfRuntimeResolver"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "deleteWithdrawnControlledFile_withdrawnOwner_deletesBusinessRevisionAndRetainsArtifacts"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitWorkingIteration_rejectsClientSelectedSignoffUsersForThreeWorkflow"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_finalizing_throws"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "projectProductPreviewDoesNotMasqueradeProjectCodeAsProductCode"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "createSignTask_targetWithoutPostDoesNotSignCreateTaskOrUpdateSnapshot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_taxonomyMustReachThirdLevel"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "resubmitWithdrawnControlledFile_createsNewBpmInstanceAndKeepsOldWithdrawnRecord"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFilePage_browserUnauthorizedDirectory_returnsEmpty"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_bindsDepartmentObligationSnapshotFromBpmTaskLocalVariable"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_matrixApprovalAnyOneAdvancesToDocControlApproval"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "nativeDocumentControlReviewTaskCanUploadItsFrozenControlledPdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "zeroSavedTrainingFactCannotAdvanceItsReceiveTask"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approvalPdfUpload_acceptsTheFrozenUploadProcessDefinitionKey"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_projectCodeWithMdmBindingPersistsMdmProduct"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_bpmSkipsConfiguredNextStage_rejectsTransition"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_rejectsClientSelectedSignoffUsersForUploadWorkflow"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "zeroWrittenFrozenRouteCannotStartTheApprovalProcess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_threeWorkflowApprovalMovesToTrainingWaitWhenNoUserTaskIsRunning"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRequiresStampedPdf"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "previewRoute_withoutCategoryUploadPermission_success"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_explicitSourceTicketBindsSourceSeparately"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_allowsEmptyProductBinding"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "nativeWithdrawalRejectsAControlledVersionReadAfterAcquiringTheMasterLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getCurrentVersionByFileNumber_legacyMasterWithoutCompositeIdentityResolvesByUniqueActiveIteration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "transferTask_targetWithoutPostDoesNotSignTransferOrUpdateSnapshot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_genericApproveTaskKey_usesCurrentFileStatusAndAdvancesToNextStage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "withdrawControlledFile_pendingMatrixApproval_allowsWithdraw"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "workingSubmitMustReadCurrentLockedStatusInsteadOfEarlierSnapshot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFile_success"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getControlledFilePage_browserAuthorizedDirectories_filtersByPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_docControlApprovalRejectsInvalidDistributionMedium_newOrdinaryPolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_invalidProcessType_throwsBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_persistsDepartmentObligationSnapshotsWithoutUserDedup"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_positionDirectUserInvalid_throwsBeforeInsertSnapshotAndBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "trainingTicketFromAnEarlierRoundCannotAdvanceTheCurrentNativeTrainingNode"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_matrixApprovalPartialSameLayer_keepsCurrentStagePending"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "returnTask_updatesStatusToTargetStageAndDelegatesToBpm_removedByOrdinaryFilePolicy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approvalPdfUploadRejectsEarlierApprovalStages"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_bindingMissingDoesNotUseUnclassifiedDirectory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFileWithoutApproval_externalReviewProcessType_persistsKnownType"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_withCategoryUploadPermission_success"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_bpmFinishesBeforeLastConfiguredStage_rejectsTransition"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_userCandidateInvalid_throwsBeforeInsertSnapshotAndBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "getCurrentVersionByFileNumber_rejectsMasterActiveFileIdentityMismatch"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "uploadTrainingRecord_postFinalizationTrainingStatus_throwsAndDoesNotReuseTrainingInProgress"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "submitControlledFile_missingProjectOrTaxonomy_failsBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "ordinaryFinalApprovalReadinessUsesDefaultDirectoryWithoutTrainingOrDistribution"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "approveTask_matrixApprovalNeedTraining_continuesToDocControlWithoutTrainingWait"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+          "name": "deleteWithdrawnControlledFile_alreadyResubmitted_throwsAndKeepsOldRecord"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceApiPersistenceTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "da1812ffd9e0c9ae57ca9ec15dcfbc0d0e2f5693c79ce709e1de4a53298e5feb",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceApiPersistenceTest",
+          "name": "actualApiBatchCreatesAndExactCancelPreservesOtherVersionAndUsage"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceApiPersistenceTest",
+          "name": "actualApiFailureRollsBackBatchAndCannotSubstituteClientActorForNonLeaderAdmin"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "0e7a866be04f344ea081a7ef311151dc40c78ac0b736df2807be47ac17cf4f8c",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalLeaderChangeBlocksOldOwnerAndLastExactCancellationRestoresDistinctProjectCount"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "authoritativeSelectedLockReadRequiresAnExistingCallerTransaction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "genuineBLeaderFolderAndDAtomicBatchSaveProduceRealAuditAndKeepPinnedVersion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "otherProjectLeaderMemberAndNonLeaderAdminCannotCreateOrCancelEvenWithMenuPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "obsoletePinnedSourceIsTraceableAndFinalCancellationPreservesBothFileRelationKinds"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "formalAuditFailureRollsBackEntireHttpBatchAndWrongTenantHasZeroWrites"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "committedObsoletionCannotBeHiddenByTheReferenceTransactionsEarlierMybatisRead"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "oldNasDirectoryAndForeignProjectFolderNeverSubstituteTheBFolderIdentity"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+          "name": "exactReferenceReplayReturnsCurrentObsoleteProjectionDespiteEarlierCachedActiveRead"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3e25f70acbd5dc3ac3fd77dc0625476a811912a7f58352508a92502a9978cf3d",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "obsoleteSourceRemainsTraceableAndCannotBecomeCurrentExecutableContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "successAuditHasReasonAndStableServerBeforeAfterIdentity"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "failureOnLaterFileRollsBackTheWholeReferenceConfirmation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "wrongTenantAndNameDenialFailBeforeInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "concurrentLastReferencesCancelWithExactIdentitiesAndReturnZeroWithoutLosingHistory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "cancelledConfirmationAndInvalidFolderDoNotMutate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "concurrentSameMasterCreatesOnlyOneEntryPerFolderAndCountsProjects"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "selectedLockedRowCannotChangeTenantVersionOrMasterIdentity"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "sourceUsageReflectsDistinctProjectsAndFinalCancellationWithoutGrantingAnyContent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "auditFailureRollsBackCreateAndCancelWithRealDatabaseRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "staleCancellationCannotDeleteARecreatedReference"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "countsDistinctProjectsAndLastCancellationRestoresSourceColorWithoutDeletingOtherRelations"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "oneConfirmationPersistsSeveralReferencesInOneTransactionAndDuplicateMasterRejects"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "duplicateFolderIsIdempotentAndPreservesSelectedVersionAfterLatestChanges"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest",
+          "name": "leaderGuardRejectsMemberOtherLeaderAndNonLeaderAdminOnBothCommands"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "418d3ab9ad472ac6362dcdb8f9ffb35f95f8dd3d71c2fb9b8f730fa8698cfaee",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "withdrawnFormalRemediationAuthorityRollsBackAControlAndSchedulesNothing(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "withdrawnFormalRemediationAuthorityRollsBackAControlAndSchedulesNothing(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "withdrawnFormalRemediationAuthorityRollsBackAControlAndSchedulesNothing(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "withdrawnFormalRemediationAuthorityRollsBackAControlAndSchedulesNothing(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "unregisteredEventKeyCannotConsumeAFileFactOrCreateAnyRemediation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "activationDoesNotRepeatControlledNotificationOrResetDeadline"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "lateHistoricalEventCannotRegressCurrentRelationsUsingACachedLatestPointer"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "missingDAuditRollsBackAControlStatePointersAndDRequiredFacts"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "latestLockProjectionRequiresAnExistingCallerTransaction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "onePersistedControlEventSchedulesExactlyOneNotificationDelivery"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "realSignedArrangementAndFlowableTaskFeedTheSameControlAndNotificationFacts(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "realSignedArrangementAndFlowableTaskFeedTheSameControlAndNotificationFacts(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "realSignedArrangementAndFlowableTaskFeedTheSameControlAndNotificationFacts(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "failedRealIdentityRetentionRollsBackActivationWithoutRepeatingCommittedControlRemediation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest",
+          "name": "realAControlEventCreatesDTasksInItsTransactionAndNotifiesAfterCommitOnly"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "6a6d6c642985894eddb7b0797102be490f5d808f478c3ca171f7848c06051ed5",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+          "name": "realQueryNameDiscoverabilityDoesNotGrantPreviewOrEditAndDoesNotCallEnrichedDetails"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+          "name": "wrongTenantActualFileRejectsBeforeNameAndContentPolicyResolution"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+          "name": "previewRequiresBothAssignedFileScopeAndExactAuthorizedDirectory"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+      "tests": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3f38dd95f554e0cec1a1f4ebaca26febc85353b2c70c4342f614b0cef71dfe93",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "publicCheckoutAndFormalRevisionRaceShareTheSameMasterLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "realLifecycleRequiresFormalMasterIdentityAndOwnerCanStillCancel(String, String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "publicCheckinSuccessCommitsTheClaimAndClearsOnlyItsLogicalLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "unresolvedHistoricalSourceIdentityBlocksNewClaims"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "publicCheckinChildFailureRollsBackVersionAndPreservesCheckoutLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "actualDatePersistsAndOwnRevisionHashRejectsChangedDateOrMissingZone"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "formalFactsPersistAndReplayWithoutNewSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "checkinOriginFailurePreservesRealCheckoutAndDoesNotReserveOrCopy(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "checkinOriginFailurePreservesRealCheckoutAndDoesNotReserveOrCopy(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "checkinOriginFailurePreservesRealCheckoutAndDoesNotReserveOrCopy(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "checkinOriginFailurePreservesRealCheckoutAndDoesNotReserveOrCopy(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "checkinOriginFailurePreservesRealCheckoutAndDoesNotReserveOrCopy(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "wrongTenantCannotReserveOrReleaseIdentity"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "outerSubmissionFailureRollsBackAllocatedRowAndCleansFrozenBody"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "replayCannotShortenRetentionAndMissingDeadlineIsRejected"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "expiredRetentionCannotReleaseStillActiveOrWorkingChain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "childFailureActuallyRollsBackRootInsert"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "concurrentCheckoutUsesNativeMasterLockAndSingleActiveConstraint"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "expiredUnusedIdentityReleasesBothKeysWithoutDeletingHistory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "selectedOriginMismatchRejectsBeforeClaimAndCandidateInTheRealDatabase(Long)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "selectedOriginMismatchRejectsBeforeClaimAndCandidateInTheRealDatabase(Long)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "missingTrainingFactCannotCreateFormalCandidateOrReservation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "concurrentWorkingAllocationLocksAndProducesUniqueHyphenNumbers"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "initialCandidatePersistsSelectedBodyAndDateWhileBothOriginalNamesRemainUnchanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "concurrentFormalAllocationCreatesOneCandidate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "retentionRejectsNewChainAndAllowsSameChain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "actualScopeServiceStopsFormalAndCheckoutBeforeWritingInMemoryDatabase"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "revisionPreparationMatchesRealAllocationAndShowsFrozenCandidateWithoutWriting"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "stillAssignedExecutionPointerCannotBeReleasedEvenWithTerminalRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "exactBinaryIdentityAndNumberGuardUseIndependentKeys"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "confirmedTwentyYearServiceUsesRealClaimAndRollsBackWithCaller"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "initialCandidateOuterLateFailureRollsBackClaimCandidateAndCleansOnlyCopy"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "firstRealCheckinThenInitialSubmissionFreezesNewSelectedIterationWithoutBaseline"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "concurrentSameChainReuseAndExpiryReleaseKeepInUseIdentityReserved"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "concurrentSameNameHasOneOwner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "formalConflictReadsLogicalActorAndDoesNotChangeOtherWorkingLock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest",
+          "name": "initialCandidateConcurrentAllocationHasOneWinnerAndKeepsInitialRoleUnique"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "00293e11f5cd60d874225443036c45cfc985638f29f2dca19d49d3da436db8c9",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+          "name": "changedDeadlineIsRejectedByTheSignedPayloadBeforeAnySecondArrangementWrite"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+          "name": "changedRemediationAssigneeCannotReplayAnAlreadySignedAssignment"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+          "name": "arrangementFailureStopsTaskTransferAndPropagatesTheActualDomainFailure"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+          "name": "equivalentArrangementOrderReplaysOneSignatureAndOneSaveBeforeTaskTransfer"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "d7bfdfee0cd1f421b757272b641f7ab286d4e9289bb4b0651687c9c0eff47f50",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02PublicFileCreationCapturesRealDefaultsAndActualBeforeAnyBpmExists"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02AuthorizedOrdinarySaveUsesOnlyTheExistingReservedSnapshotAndKeepsItsSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h08MissingDirectPredecessorSnapshotDoesNotWalkBackOrRecreateTodaysDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02UnsubmittedSourceMustKeepItsSavedSourceWhenAnotherRealFileIsAllocated"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "actualValuesAndServerDefaultSourceRemainSeparateAfterProjectDefaultsChange"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02TwoCrossFileReworksForkSubmittedSourceAndActualRatherThanTodaysDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "wrongTenantCannotCreateAnAttributeRoundForAnotherTenantsFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "outerBpmFailureRollsBackMappingAndBothAttributeSnapshots"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h08TwoDirectPredecessorsKeepNmpaAndCeAfterDefaultsBecomeFda"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "noUserChangeUsesRealProjectDefaultsAndNeverCreatesGuessedNoValues"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h08InitializerReplayNeverOverwritesAUsersLaterActualWithTheOldRequest"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02PublicFileCreationLateTicketFailureRollsBackTheRealFileMasterClaimRoundAndAttributes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02OrdinarySaveLateOuterFailureRestoresTheSavedActualAndSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest",
+          "name": "h02SubmissionBindsTheRealReservedRoundAndPreservesSavedSourceAfterDefaultChanges"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "a14c065f9cb3f4cb19501c0c98598e79468136faf794b8f01a2b287ec2b0db67",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "bpmCreationFailureRollsBackFormalAllocationIdentitySnapshotsAndSourceOwnership"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "h02RealFlowableBpmAndBothModuleFactsCommitOrRollBackTogether"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "h08RevisionCandidateFreezesSelectedDraftSourceAfterProjectDefaultsChange"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "replayReturnsTheSameCandidateAndChangedActualAttributesConflictBeforeAnotherBpm"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "h02InitialCheckedInBodyCreatesOnlyTheFormalInitialCandidateWithThisApplicationDate"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowRevisionIntegrationTest",
+          "name": "publicSubmissionAllocatesOnlyTheFormalRevisionFromLatestFutureControlAndFreezesItsOwnAttributes"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "5b354d420aaa9362466978f6ce65b790e096f65b5a051b079e228bbdfdde9e88",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "preciseCheckinReplayDoesNotCopyOrInitializeAgain"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "actualSubmittedRejectedSourceForkThenSecondCheckinKeepOriginalSnapshot"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "realProjectLockMustPrecedeMasterAndFileAcrossTwoConnections"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "controlledBaselineDifferentRequesterStartsNewApplicationWithActualOwner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "realEarlierTwoCheckinsSaveAndV4SubmissionPreserveSelectedFacts(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "realEarlierTwoCheckinsSaveAndV4SubmissionPreserveSelectedFacts(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "realEarlierTwoCheckinsSaveAndV4SubmissionPreserveSelectedFacts(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "realEarlierTwoCheckinsSaveAndV4SubmissionPreserveSelectedFacts(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "lateFailureRollsBackRealFileBodyCheckoutRoundsAttributesAndCandidate(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "permissionFailuresHaveNoNewBusinessWrites(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "selectedEarlierCandidateAndItsActualBpmSnapshotAndIsolatedBodyRollBackOnLateFailure(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "selectedEarlierCandidateAndItsActualBpmSnapshotAndIsolatedBodyRollBackOnLateFailure(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "selectedEarlierCandidateAndItsActualBpmSnapshotAndIsolatedBodyRollBackOnLateFailure(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "checkinHoldingProjectSerializesActualBSavedDraftOnAnotherConnection"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "actualInitializerProxyRequiresOuterTransaction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "twoCheckinsThenOrdinarySaveKeepDirectSourceAndManualActual"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "olderSelectedIterationMustBeAcceptedAsTheActualInitialApprovalBody"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "missingSavedSourceRejectsAndPreservesCheckout(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[7]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[8]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest",
+          "name": "earlierSelectionStillRejectsEveryOriginalIdentityLockAndContentBoundary(String)[9]"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b4dd33a8d2d0d8b25f73efb781967492b64ed56b89c453fcf0eeb985caaabfb3",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "mandatoryProxyRejectsNoTransactionWithoutAnyRoundOrAttributeWrites"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "twoConcurrentInitializationsMaterializeOneRecordAndDoNotOverwriteTheWinner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "continuousDirectPredecessorsKeepSourceActualAndTheExactProvenance"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "explicitActualChangeOnTheNewFilePreservesTheInheritedSourceAndTheOldFile"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "newApplicationFromTheOfficialControlledBaselineUsesCurrentDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "outerLateFailureRollsBackTheInsertedFileAndItsOfficialRoundAndAttributes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "actualMapperLockCallsAreProjectThenMasterThenBothFilesInAscendingOrder"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "absentSourceIsOnlyAllowedForAGenuineInitialNewApplication(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "absentSourceIsOnlyAllowedForAGenuineInitialNewApplication(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "rejectedSubmittedSourceUsesItsActualBpmRoundAndKeepsOriginalSource"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[7]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[8]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[9]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[10]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[11]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[12]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[13]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[14]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "wrongFactsAndMissingSavedSourceWriteNoTargetRoundOrAttributes(String)[15]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "waitingForBProjectLockDoesNotAcquireMasterAndCreateALockInversion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationDraftInitializerTest",
+          "name": "replaysBeforeAndAfterBindingReadBackWithoutCoveringTheLaterManualEdit"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "f4e581e0f944e9c046c53d5bcaed33b984c863cfc124482d93bf1145a3d70119",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest",
+          "name": "saveCallsFormalDraftServiceWithActualValuesAndCurrentActor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest",
+          "name": "emptyBodyCannotReportASavedApplication"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "465864645340d4bf3a8e13f60d3d5cf0ab58f1194c8cb9316de34aec79a84dc1",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_requiresActiveOwnerAndPersistsFormalRules"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "assertProjectOwner_roleAndPositionSubjectsAreResolved"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "disabledOrUnknownAccountStatusCannotUseProjectOwnerOrEditor(Integer)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "disabledOrUnknownAccountStatusCannotUseProjectOwnerOrEditor(Integer)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "assertProjectOwner_editRuleDoesNotGrantOwnerAccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_rejectsRulesWithoutActiveOwner"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "assertProjectEditorOrOwner_acceptsEditAndOwnerButRejectsView"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_validSubjectIsVerifiedBeforePersisting(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "assertProjectOwner_noAuthoritativeRuleDeniesCorrectionAssignee"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "getProjectAccessRules_returnsFormalRulesForProject"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_rejectsBlankChangeReasonBeforeDeletingRules"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "assertProjectOwner_userOwnerRuleAllowsAccess"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImplTest",
+          "name": "replaceProjectAccessRules_invalidSubjectCannotReplaceExistingOwner(String)[4]"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "9a78ae7a69c18e6c371345dec68600b943124e868a531555e01e87a6d80573c9",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "unifiedAuditFailureRollsBackTemplateAndChangeHistory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "clearingDescriptionPersistsNullAndAuditMatchesSavedRow"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "cycleMissingParentDuplicateSiblingAndEmptyStructureReject"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "zeroChangeHistoryInsertCannotSaveTemplateOrAppendSuccessAudit"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "zeroTemplateDeleteCannotReportDeletionOrRecordDeletedHistory"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "usedTemplateCannotDeleteButCanDisableWithoutTouchingFolders"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "permissionOnlySaveHasAuditableChangesNoApproval"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccFolderTemplateServiceTest",
+          "name": "generatedFoldersAreIndependentAndSnapshotIsFrozenAtRequest"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "eab5c8c07a63d9a57ee95362d92dbbc32d469a4ab26d61e111cad0576cbf2a19",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+          "name": "configurationAndInitializationEndpointsKeepExplicitPermissions"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+          "name": "auditFailureRollsBackConfiguration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+          "name": "configurePersistsFormalAccountAndDefaultsButKeepsSavedApplication"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesControllerTest",
+          "name": "missingReasonInvalidAccountAndUnknownProjectReject"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "f3c4f79b456455781110091d42c8826fe7563017356d891cf7c120efeddfdc75",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageShouldOnlyReturnProjectCodesWithValidDccProductsWhenRequested"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageForAssignedUserShouldOnlyReturnOwnActiveAssignedProjectCodes"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageForImportExportUserShouldNotGainFullProjectCodeScope"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageShouldSupportKeywordCategoryPriorityAndStatusFilters"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageForAssignmentExecutorWithoutAssignmentsShouldReturnEmptyScope"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "routeConfigurationFilterShouldRequestOnlyRouteStatus"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "detailForAssignmentExecutorOutsideAssignedScopeShouldBeRejected"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageShouldIncludeAssociatedFileCountAndSortByCount"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageForExplicitFullScopeUserShouldKeepFullProjectCodeScope"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageShouldFilterRouteMainBatchRecordAndQaConfigurationIndependently"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "qaConfigurationFilterShouldRequestOnlyQaStatus"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectCodeServiceImplTest",
+          "name": "pageAndExportShouldOrderByNumericDocControlNoAscendingBeforeNonNumeric"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "e6a44851725b4a7e0711e9b2984bf2375c1ff6c5b5ed35b8bca588cd397e1699",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "configurationHttpPersistsAndThreeApplicationInitializationReadsCurrentDefaults"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "taxonomyMaintenanceHttpChecksUniqueMappingWithManagementPermission"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "zeroConfigurationUpdateCannotReturnSavedOrAppendSuccessfulChangeAudit"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "originalApplicantHttpResubmitsRejectedProjectProductAndReadsImmutablePredecessor"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "projectFolderHttpReadsGeneratedIndependentDirectoryIds"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "templateHttpCreateEditAndClearDescriptionReadBackWithRealAuditRows"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "deniedRealMethodPermissionAndIllegalFieldsHaveZeroDatabaseWrites"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "taxonomyWriteHttpPropagatesZeroRowFailureAndPreservesExistingType"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "applicationEntryPermissionsCanReadDefaultsWithoutProjectConfigurationMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "missingFormalAuditPolicyRollsBackActualHttpConfiguration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectConfigurationHttpPersistenceTest",
+          "name": "initialCreateAndRetryHttpRequireTheirOwnReasonsAndPersistLedgerFact"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "b76bd9acb69fb5476c7664e38c4a78ced798c6911e876f0051f901404f2dd52d",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignedScopeIsIntersectedWithFormalRulesAndExplicitFullOnlyRemovesAssignmentRestriction"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryPageFindsAllowedEmptyProjectWithoutLeakingUnscopedProject"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryMenuIsRequiredSeparatelyFromProjectRule"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryServerPaginationFiltersAndFileCountSortingKeepAuthorizedTotalAndEmptyProjects"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryDetailRejectsProjectWithoutFormalRuleEvenWithQueryMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryFormalLevelsFindEmptyProjectsAndIndependentChildDirectories(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryFormalLevelsFindEmptyProjectsAndIndependentChildDirectories(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryFormalLevelsFindEmptyProjectsAndIndependentChildDirectories(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignmentHardScopeCannotBeBypassedThroughProjectOrFolderId(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignmentHardScopeCannotBeBypassedThroughProjectOrFolderId(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignmentHardScopeCannotBeBypassedThroughProjectOrFolderId(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignmentHardScopeCannotBeBypassedThroughProjectOrFolderId(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryAssignmentHardScopeCannotBeBypassedThroughProjectOrFolderId(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryRepeatedReadsDoNotWriteBusinessOrGrantConfiguration"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[7]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[8]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[9]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryScopeCannotLeakUnauthorizedProjectsOrDetailsAndIdChangedDirectory(String)[10]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryControlledFileQueryMenuReadsProjectAndEmptyDirectoriesWithoutConfigMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryProductConfigurationFiltersAreStillAppliedBeforeAuthorizedPagination"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryDisabledOrMissingAccountCannotDiscoverEvenWithValidScope(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryDisabledOrMissingAccountCannotDiscoverEvenWithValidScope(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryReadTest",
+          "name": "discoveryFormalLeaderLongIdentityIsIndependentOfDisplayNameAndBinaryAccess"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryWriteGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "1ede59cc4059128a077e3d2507dc34ecbc3e5d1d2dfffad3ad4283dcf1f863a7",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryWriteGuardTest",
+          "name": "discoveryWriteViewCannotDeleteEvenEmptyProjectWithDeleteMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryWriteGuardTest",
+          "name": "discoveryWriteConfigurationViewCannotReplaceDefaultsOrLeaderWithUpdateMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectDiscoveryWriteGuardTest",
+          "name": "discoveryWriteMetadataViewCannotEditProjectWithUpdateMenu"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "63ea76c8fae2e0de034a1b4668b66b77d46ccd5e2305b4b7a75b41aa87d327a2",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "cancellationAndDeleteShareOrderAndPreserveSourceWithoutDeadlock"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "referenceCreationHoldingSharedLockMakesConcurrentDeleteWaitAndThenReject"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "auditAppendFailureRestoresActualFolderAndCreatesNoDeletionEvent"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "deleteHoldingSharedLockMakesConcurrentReferenceWaitAndRejectAfterCommit"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "childrenPlacementsWrongIdentityMissingConfirmationAndMissingPolicyRejectWithoutDeletion"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "deleteHttpRequiresExactConfirmationAndPreservesLogicalHistoricalRow"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderDeletionCombinationTest",
+          "name": "cancelledReferenceAllowsLogicalDeletionAndRetainsFolderIdentityOriginalFileAndAuditHistory"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "532f3002c284733aca1a07b8b4f960c0c02c44af448762a83d441346fbe983ba",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRepeatedHttpAndServiceReadsLeaveEveryBusinessRowAndLedgerUnchanged"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryUsesTheExistingFormalSubjectMatchingRules(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryUsesTheExistingFormalSubjectMatchingRules(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryUsesTheExistingFormalSubjectMatchingRules(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryUsesTheExistingFormalSubjectMatchingRules(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryMaintainsExactLongProjectFolderAndParentIdsAndIncludesEmptyRoots"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryControlledFileQueryMenuDoesNotRequireConfigurationMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRequiresARealQueryMenuEvenWithProjectViewRule"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryCannotCreateEditDeletePlaceOrSaveAttributesEvenWithUpdateMenu"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[5]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[6]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[7]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[8]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[9]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[10]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[11]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[12]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[13]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryRejectsForeignScopeInactiveIdentityAndAdminWithoutRule(String)[14]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryReaderGetsRealEmptyFoldersWithoutAnyControlledFiles(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryReaderGetsRealEmptyFoldersWithoutAnyControlledFiles(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectFolderViewReadTest",
+          "name": "viewDirectoryReaderGetsRealEmptyFoldersWithoutAnyControlledFiles(String)[3]"
+        }
+      ]
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3a3ac6e2e945cb348e76f120ee9ecb57b842ef6c56f02fbf6dc1d0c78fd0ffff",
+      "cases": [
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewFormalBatchPinnedVersionCountExactCancelAndHistoryPreservation"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewReaderScopeNeverSubstitutesTheEnabledUniqueTargetLeader(String)[1]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewReaderScopeNeverSubstitutesTheEnabledUniqueTargetLeader(String)[2]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewReaderScopeNeverSubstitutesTheEnabledUniqueTargetLeader(String)[3]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewReaderScopeNeverSubstitutesTheEnabledUniqueTargetLeader(String)[4]"
+        },
+        {
+          "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest",
+          "name": "referenceViewReaderScopeNeverSubstitutesTheEnabledUniqueTargetLeader(String)[5]"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "status": "THIRD_RESUMED_SAME_QUALITY_BLOCKER_AUDIT",
+  "auditChain": ["g40-continuation-audit.json", "g41-continuation-audit.json", "g42-quality-blocked-audit.md"],
+  "consecutiveResumedNoProgressAudits": 3,
+  "blockedThresholdMet": true,
+  "previousG39TurnWasProgress": true,
+  "actualQualityApproved": false,
+  "actualQualityTimeOrSignatureSupplied": false,
+  "conditionalOperationPermissionAlreadyReceived": true,
+  "migrationAndRecoveryAlreadyCompleted": true,
+  "qualityRegistryRows": 0,
+  "activeCandidateAuditOperations": 0,
+  "verifiedLegacyScopes": 0,
+  "meaningfulIndependentMainFlowWorkAvailable": false,
+  "liveVerificationHandleAvailable": false,
+  "newSourceTestsBuildsServiceDataOrGitActions": false,
+  "realUiAcceptanceComplete": false,
+  "localIntQmsMergeComplete": false,
+  "goalComplete": false,
+  "resumeTrigger": "Actual signed quality approval facts for the exact26 candidate policy; retain the complete original objective and already granted permissions."
+}

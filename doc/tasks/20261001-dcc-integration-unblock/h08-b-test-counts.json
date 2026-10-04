@@ -1,0 +1,76 @@
+{
+  "executions": 123,
+  "inherited_duplicates": 27,
+  "distinct_cases": 96,
+  "suites": [
+    {
+      "class": "DccProjectUnsubmittedInheritanceTest",
+      "tests": 66,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "3e9135374e2cfa14778ae8701a767739c2d3834f153a3bc5dad2bbbc1be0f973"
+    },
+    {
+      "class": "DccProjectReservedDraftCombinationTest",
+      "tests": 36,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "87434e127ca49cc3ae3f6b0d991647184aaae41b3a13e8c8372184c05642bb44"
+    },
+    {
+      "class": "DccApplicationDraftRoundTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "8fe2aeece1b732b7ae593166c1b322605a5332f5150f7c22e85d08b653c63894"
+    },
+    {
+      "class": "DccProjectAttributesServiceTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "686114a3958fc5e3ccbc6af6d5736181e438a78097b29a2962588b837c546b43"
+    },
+    {
+      "class": "DccApplicationRoundMappingTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "91fea6022f06c69150a53cf917c4bfe7203c45a8b167e5013a5c1adecc1e7e23"
+    }
+  ],
+  "duplicate_names": [
+    "applicationFailureRollsBackRoundAndSnapshotAndUnknownRoundIsNeverGuessed",
+    "confirmedDefaultRestoreRollsBackWithParentTransactionAndFrozenDraftRejectsFurtherSave",
+    "formalBpmDraftSavesManualActualAndRestoresItWithoutChangingSourceOrOtherActions(String)[1]",
+    "formalBpmDraftSavesManualActualAndRestoresItWithoutChangingSourceOrOtherActions(String)[2]",
+    "formalBpmDraftSavesManualActualAndRestoresItWithoutChangingSourceOrOtherActions(String)[3]",
+    "formalBpmRestoreOnlyUsesConfirmedCurrentDefaultsAndCannotOverwriteFrozenApplication(String)[1]",
+    "formalBpmRestoreOnlyUsesConfirmedCurrentDefaultsAndCannotOverwriteFrozenApplication(String)[2]",
+    "formalBpmRestoreOnlyUsesConfirmedCurrentDefaultsAndCannotOverwriteFrozenApplication(String)[3]",
+    "formalDraftDoesNotCreateMissingSourceOrBorrowAnotherProjectUserOrTenant",
+    "formalThreeActionSubmissionFreezesIndependentSourceAndActualWithoutWritingOriginalFile(String)[1]",
+    "formalThreeActionSubmissionFreezesIndependentSourceAndActualWithoutWritingOriginalFile(String)[2]",
+    "formalThreeActionSubmissionFreezesIndependentSourceAndActualWithoutWritingOriginalFile(String)[3]",
+    "manualProjectFoldersPersistWithoutInventingTemplateSourceAndEditKeepsStableVersionPlacement",
+    "missingPlacementAuditPolicyCannotLeaveLocationFactOrTouchFileHistory",
+    "physicalDirectoryAndProjectFolderCoincidenceNeverCreatesImplicitPlacement",
+    "placementHttpKeepsDistinctStringDirectoryIdsAndDeniesMenuOnlyAccess",
+    "placementRejectsWrongProjectTenantInactiveStorageAndRollsBackWithFileApplication",
+    "projectFolderEditRejectsForeignParentCyclesDuplicateNamesAndUnprivilegedActorWithoutWrites",
+    "projectFolderHttpUsesRealPermissionScopeAndReturnsPersistedManualSource",
+    "projectFolderMissingAuditPolicyRollsBackCreateAndEdit",
+    "projectFolderZeroRowWritesAndWrongTenantCannotLeaveSavedOrAuditedFacts",
+    "reworkUsesMappedNextRoundAndPreservesOriginalSourceAfterProjectDefaultsChange",
+    "savedApplicationHttpReadsMappedRoundAndBothSnapshotsAsFormalStringIds",
+    "savedFormalBpmDraftKeepsInitialSourceEvenIfProjectChangesBeforeSubmit",
+    "snapshotHttpAppliesRealMethodPermissionAndProjectScopeBeforeReturningSavedValues(String)[1]",
+    "snapshotHttpAppliesRealMethodPermissionAndProjectScopeBeforeReturningSavedValues(String)[2]",
+    "snapshotHttpAppliesRealMethodPermissionAndProjectScopeBeforeReturningSavedValues(String)[3]"
+  ]
+}

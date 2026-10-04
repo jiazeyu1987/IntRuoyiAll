@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "explicitNodeHeapMB": 8192,
+  "sourceOrGateRelaxed": false,
+  "tsconfig": "tsconfig.relaxed.json"
+}

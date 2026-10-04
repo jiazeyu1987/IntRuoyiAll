@@ -1,0 +1,72 @@
+{
+  "status": "ROOT_REVIEWED_MAIN_FLOW_ROUTE_ISOLATION_NOT_RUNTIME_ACCEPTANCE",
+  "manifestSha256": "06cb3caa852542337fa132b308be410d64994d4c1eaf173184163616be67b98e",
+  "verificationSha256": "06be802c03ba85e33ab017d48f1539dc5f9a5b5f2b00cef2a447e4a19f775eb3",
+  "independentReviewSha256": "829db6d8d13b28bfdc38a174d904a6415e9989331b736a2add7828a84e7c0616",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl.java",
+      "bytes": 63715,
+      "sha256": "11a6b75ba7b26781b84bd383797bb6d17faf44ca865bc8e8d92b774c2ac66da2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileCategoryMapper.java",
+      "bytes": 770,
+      "sha256": "673044f6c0e529f85167e0a4fea35ac5117740ea6ca2af054a38af7cdf6eb86f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImplTest.java",
+      "bytes": 67596,
+      "sha256": "0638b8c6ceae8c7a3df13109f18758f247126810cf32b49458901c7a94c18d61"
+    }
+  ],
+  "tests": 68,
+  "testClasses": 3,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xmlReceipts": [
+    {
+      "class": "category.DccCategoryApprovalMatrixAdminServiceImplTest",
+      "sha256": "f480e3e5120a289d114fe3a29e57d12d67e67479d81d0b8bee3b5bb984056346",
+      "counts": [
+        23,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "class": "file.DccControlledFileApprovalRouteAssigneeResolverTest",
+      "sha256": "f6c26d5c880ca0a67079ad35baf95d4df4019d66c546ded7c892ca1813e52f97",
+      "counts": [
+        16,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "class": "route.DccApprovalRouteAdminServiceImplTest",
+      "sha256": "a84f9db4beaa7c5c7e97304dc48e7bcd891a38bf825b616b8405398ba2b73233",
+      "counts": [
+        29,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "old41Unchanged": true,
+  "G33Source10Unchanged": true,
+  "protectedNontask6Unchanged": true,
+  "actualDatabaseWrite": false,
+  "actualBrowserAcceptance": false,
+  "actualLocalMerge": false,
+  "sourceNewerThanPackagedJar": true,
+  "detailScripts": "DEFERRED_FOR_DETAIL_PHASE_NOT_VALIDATED",
+  "priorFailureRawLogsLost": [
+    "firstcompile getTenantId missing onBaseDO",
+    "65 categoryfixture tenant0 vs requiredcontext1"
+  ]
+}

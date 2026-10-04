@@ -1,0 +1,15 @@
+{
+  "status": "USER_BUSINESS_DECISION_RECEIVED_OWNER_CANDIDATE_IMPLEMENTED_UNDER_REVIEW",
+  "question": "新项目批准创建时，初始项目权限采用哪种方式？",
+  "confirmedSourceGap": "Approved project has no formal access rule and the first rule configuration UI requires project readability.",
+  "recommendedContract": "Within approved project creation transaction, create one formal USER/OWNER rule for the selected enabled same-tenant project leader. Grant no implicit creator, applicant, reviewer or admin access.",
+  "alternativeContract": "Add explicit project access configuration to the creation application and persist the approved selected rules.",
+  "actualUserAnswer": "采用负责人 OWNER 方案（建议）",
+  "sourceMessageReference": "send_user_message_question_reply:call_mc2WuQaway0pBN7yucRpSVS9:item0",
+  "initialGrantImplemented": true,
+  "actualProductionProjectCreated": false,
+  "independentReviewPending": true,
+  "actualDatabaseWrites": false,
+  "actualQualityApprovalSupplied": false,
+  "dependentWork": "Implement the confirmed selected-leader USER/OWNER contract, complete independent Review and runtime verification. The code candidate passed 154 targeted tests; no actual project data was created."
+}

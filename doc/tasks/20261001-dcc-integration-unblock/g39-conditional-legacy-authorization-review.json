@@ -1,0 +1,11 @@
+{
+  "status": "ACTUAL_CONDITIONAL_USER_ANSWER_BOUND_TO_VERIFIED_MANIFEST_NOT_EXECUTED",
+  "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g39-legacy-registration-authorization.json",
+  "sha256": "e52f5ac8f543297ee79910e2fee92aad08500cf7c3e0d77057712c098b8de0ce",
+  "claims": 25,
+  "versions": 39,
+  "nameGroups": 13,
+  "actualQualityApproved": false,
+  "legacyActivationExecuted": false,
+  "qualityAndFreshRuntimePrerequisitesStillRequired": true
+}

@@ -1,0 +1,43 @@
+{
+  "status": "G43_ACTUAL_OLD_SEVEN_TABLES_UNCHANGED_SINCE_G39_READONLY_PASS",
+  "tables": [
+    {
+      "table": "dcc_controlled_file",
+      "rows": 41615,
+      "aggregateSha256": "70bfca48a900e3984a13f98830c164cfb882f1d21d2fac95bf0e6b5c7115a56e"
+    },
+    {
+      "table": "dcc_controlled_file_master",
+      "rows": 36685,
+      "aggregateSha256": "236684c228fe8f62b149feb1fc369398e93421a76b4a0206c004b0722d57a6ef"
+    },
+    {
+      "table": "dcc_controlled_file_name_claim",
+      "rows": 27,
+      "aggregateSha256": "7ab183b639bab0420065ad80fa7adba89711051e2745388f03a3a92e8f185809"
+    },
+    {
+      "table": "dcc_controlled_file_source_ownership",
+      "rows": 43,
+      "aggregateSha256": "97917f556d267ac7d5142af315158e5f3377df723418cfcee71bb62823528a27"
+    },
+    {
+      "table": "dcc_controlled_file_signature",
+      "rows": 339,
+      "aggregateSha256": "502b016139429c127fd8313c8f18d4f4935abf1baf5a580076ac1ff695993853"
+    },
+    {
+      "table": "system_electronic_signature",
+      "rows": 159,
+      "aggregateSha256": "2bcce99bc15072ef6218500f17e3bf4fb7a3d7b3ed6dcce652057fa99c310451"
+    },
+    {
+      "table": "infra_release_migration",
+      "rows": 530,
+      "aggregateSha256": "d2726469550a48db9e2ebd788e66abed4e95948ad530d231f0bc3d09bfaa3773"
+    }
+  ],
+  "snapshot": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g43-pre-activation-history\\original-before.json",
+  "snapshotSha256": "e10a8c03a0b7eafeb152ec9a12dc9ebbf442e7010980ed85d11c34f4480c1d04",
+  "databaseWrites": false
+}

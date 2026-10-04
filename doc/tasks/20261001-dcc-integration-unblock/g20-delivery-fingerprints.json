@@ -1,0 +1,107 @@
+{
+  "scope": "G19/G20 root-reviewed increment",
+  "branch": "codex/20261001-dcc-integration",
+  "runtimeValidated": false,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectAttributeConfigurationDialog.vue",
+      "sha256": "61a5dfad2f3383e8ec316868065d1a21ab3692b9dad99121c630566e4b5d9352",
+      "normalizedUtf8LfSha256": "d0148e96b17ec49410531d832d0e3983384dd1a965019978e4dab41819db8972"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-attribute-configuration.ts",
+      "sha256": "b921d8ed3cf9e402f2c0a49d1a2d01ac27f672a831bdbf6fc58261a438285ace",
+      "normalizedUtf8LfSha256": "b921d8ed3cf9e402f2c0a49d1a2d01ac27f672a831bdbf6fc58261a438285ace"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectAttributes.ts",
+      "sha256": "152b12eb208be83d139655bab682700e5171b435df12d622a3e487bbeafe12b6",
+      "normalizedUtf8LfSha256": "82c04f34cf88fb224885ab5b0ae7e6e753ce892ac1ab8e69897a8e74559ed1ae"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectReviewerConfiguration.vue",
+      "sha256": "05d182b4e994267b0295a437ccf9ca902e7820cd0cb857bd282a0745e3c580a1",
+      "normalizedUtf8LfSha256": "05d182b4e994267b0295a437ccf9ca902e7820cd0cb857bd282a0745e3c580a1"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419",
+      "normalizedUtf8LfSha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "sha256": "2db25b96f68551cbc57f10844ef98e2a840ac237b477b6074d2e976f4ece3640",
+      "normalizedUtf8LfSha256": "0161c872a4ed638e80453970f7d025cf6fe7354022caafbdb5d94cd477ea2607"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/working-browser-navigation.ts",
+      "sha256": "50bdbe3ffac8302e0de50b74556dd2fd05f8ab014b506ebbb8197b84db9e0a45",
+      "normalizedUtf8LfSha256": "50bdbe3ffac8302e0de50b74556dd2fd05f8ab014b506ebbb8197b84db9e0a45"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts",
+      "sha256": "910cff8f228c38433cacbf803dbdfb15daccb5a8649c3aa279bd4f870ae2d627",
+      "normalizedUtf8LfSha256": "910cff8f228c38433cacbf803dbdfb15daccb5a8649c3aa279bd4f870ae2d627"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/handlingSummary.ts",
+      "sha256": "2fc26875159cb6fb92352bba35247b8c733726b26bf226fc71db897a27a49a00",
+      "normalizedUtf8LfSha256": "2fc26875159cb6fb92352bba35247b8c733726b26bf226fc71db897a27a49a00"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/publicationFollowupPresentation.ts",
+      "sha256": "2dbb0791970f98423a29cbb268543f6b7da0f3317528f4f76273da9f0a994e00",
+      "normalizedUtf8LfSha256": "c3bdb030f2316cd2cad3595d3ab427eae795d07902de45d787b1d3b56f6a8f66"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "sha256": "75025597af3e89c95481205380fd2ba10195742600c5f9eea0f5dd855a10b1c3",
+      "normalizedUtf8LfSha256": "75025597af3e89c95481205380fd2ba10195742600c5f9eea0f5dd855a10b1c3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/log/DccControlledFileLogQueryServiceImpl.java",
+      "sha256": "b96b0e6d08a0a4da306693136d87f4e11b849f762eccebb89142162b7c57fec8",
+      "normalizedUtf8LfSha256": "b96b0e6d08a0a4da306693136d87f4e11b849f762eccebb89142162b7c57fec8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFilePrintServiceImpl.java",
+      "sha256": "be58e486bb0faad03958bee9c5b2a9e2b8c60935e1a594caa10d979bdc5440b0",
+      "normalizedUtf8LfSha256": "49eef6af2875dbac4602bf698c7e680c10c1500a30c194ce4dfb7d96839ba66f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/service/job/JobStartupSyncRunner.java",
+      "sha256": "fb436975969609470b71cedd9671f912a1a2f1ec2873a589d54b5c06977ad823",
+      "normalizedUtf8LfSha256": "37b972891f1183fa65b4790baae3787c26be5aaf38e644c917f721dbf14585b7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/service/job/JobStartupSyncRunnerTest.java",
+      "sha256": "9e15b2b18c23f456fa71ebd05c0c4e7754dd62b8ca8acd9eb2e226c4690f05cd",
+      "normalizedUtf8LfSha256": "7ac999112d0d6cff465e69d62253bec2a9b271a19d6510fc9368fe411409bf59"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-working-browser-navigation.test.cjs",
+      "sha256": "40986446fdaa8eedfb227c07debb1435fd51d928213571eb37951522ab4a210b",
+      "normalizedUtf8LfSha256": "40986446fdaa8eedfb227c07debb1435fd51d928213571eb37951522ab4a210b"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-configuration-guards.test.cjs",
+      "sha256": "491e45eff2c9121e881582a1fa15dcf4cfa584f96b278b83cbdc16fc48fb9b9c",
+      "normalizedUtf8LfSha256": "491e45eff2c9121e881582a1fa15dcf4cfa584f96b278b83cbdc16fc48fb9b9c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-reviewer-role-context.test.cjs",
+      "sha256": "b25a5021bab08470e87f06fdffaba74a8416847564eb60de1cd04898d24d9a18",
+      "normalizedUtf8LfSha256": "b25a5021bab08470e87f06fdffaba74a8416847564eb60de1cd04898d24d9a18"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-reviewer.test.cjs",
+      "sha256": "56ba7be197f8b2f0acb13a0cf16d7f8ed50c2e447f4a125bed83a963b0b94527",
+      "normalizedUtf8LfSha256": "56ba7be197f8b2f0acb13a0cf16d7f8ed50c2e447f4a125bed83a963b0b94527"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-controlled-file-terminology.test.mjs",
+      "sha256": "786b1734cd8e0b3de7f647edfa972c453c6b69563e9b339395d24768c287415d",
+      "normalizedUtf8LfSha256": "786b1734cd8e0b3de7f647edfa972c453c6b69563e9b339395d24768c287415d"
+    }
+  ]
+}

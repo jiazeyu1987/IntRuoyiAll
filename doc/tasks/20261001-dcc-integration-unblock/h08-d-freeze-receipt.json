@@ -1,0 +1,60 @@
+{
+  "schema": "dcc-d-review-fingerprints-v1",
+  "worktree": "C:/IntRuoyi/20260930-dcc-d",
+  "branch": "codex/20260930-dcc-d",
+  "recordedAtUtc": "2026-10-01T23:45:10.0178494Z",
+  "files": [
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "sha256": "629260e80a4fc1f296ef91a37c0fb03fac4e734cdd9d1b4da56d7b250d23b18c",
+      "bytes": 2963,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts",
+      "sha256": "71104a74b70b0be9026faea2dbe9b4bfe9dd6c3c2bee74ae5a20f5f0343b7aa9",
+      "bytes": 5430,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-selector-browser-contract.test.mjs",
+      "sha256": "d1fc10b7cee43649f50106707c808b0d399ca9090cb958516aca6b5fac4966d2",
+      "bytes": 8217,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "sha256": "ef88cd7c0945536dc777fc94d43c41917c246a66797a5e486eb77b7923cd7fd2",
+      "bytes": 27763,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSelectorBrowserMappingIntegrationTest.java",
+      "sha256": "4b69a7178ad1806498bef29bc60fb31a5b0df700b3b536a94afe3a9b38c32ac1",
+      "bytes": 9348,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/h02-real-selector-responses.json",
+      "sha256": "e225e343d2ef09c529ff18e406cd025d4cbcf1c32497c52147ebb110f5a1d46e",
+      "bytes": 14779,
+      "role": "dcc_d_delivery_or_evidence"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "3a6be5708376dbd83e269f35ab127d3435ae8142d3507a444976d724c279afb5",
+      "bytes": 6403,
+      "role": "synchronized_read_only_dependency"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "sha256": "9f0953eadba0babaea2914488d277aeafd2f3dcb0a999f06d834de477b615288",
+      "bytes": 250269,
+      "role": "synchronized_read_only_dependency"
+    }
+  ],
+  "deletedPaths": [
+    "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-browser-contract.ts"
+  ],
+  "reason": "H04 Root formal loadDccSelectorPage replaces D duplicate selector DTO mapping; Root dependencies read only"
+}

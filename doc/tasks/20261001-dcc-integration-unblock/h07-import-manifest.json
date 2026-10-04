@@ -1,0 +1,40 @@
+{
+  "source": "C:\\IntRuoyi\\20260930-dcc-a",
+  "target": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "full_gate_open_failure": "DccWorkflowAttributesIntegrationTest.h02UnsubmittedSourceMustKeepItsSavedSourceWhenAnotherRealFileIsAllocated",
+  "overall_review": "changes_requested",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "before_sha256": "405fb91e3865a73d2db7373a002605fec2306cbeba8cb57ac5127a3c909621d3",
+      "sha256": "a450e1002ecbe01aa2cf12af2918a5fa051afea6e01df5f481de8a1b63d0b8fa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.java",
+      "before_sha256": "f756edc008a82b7e8ea3872be99371ce4ccdb0dc4c6f99647e1f0b978bf6fb68",
+      "sha256": "9989490e05b15a14a3282aad2887123e36720c552d2869265bd4ab1b5e610095"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMasterMapper.java",
+      "before_sha256": "70b3c60c9461103b68d1d1f2d3bdb7a033d4932bda7c98d576c6644fb9783495",
+      "sha256": "451ac1ed9934d479ecd2d9c3b7566cac2b1d4026e8a62172586eae4d019dd3b1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowAttributesIntegrationTest.java",
+      "before_sha256": "2cb1e598cf83470e7c1de62d4c92ca982c55beb2d67f39f286f5faf8791e2f38",
+      "sha256": "ab2237129152443297194d9e5419f5679a41a80b2a2e4e18172853a530da63f5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowRevisionIntegrationTest.java",
+      "before_sha256": "ed2f99f28b9715b05b0331ed0b08ca636fe1797ae11befe2b1cb562538aa3142",
+      "sha256": "ff04ff20b0e32bc886acdb81ffb96057f1770840da1c4aa6c752a85815e94e3b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "before_sha256": "f094baaaa766959993cd075afd2b57de611d80cb8730563ab3eaac3c0eb6d1a2",
+      "sha256": "7e0e9c15c35bb780a71df9a06e7231a25ae89ca2fe064964522e2b5d9cf37f05"
+    }
+  ],
+  "worker_source_written": false
+}

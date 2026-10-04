@@ -1,0 +1,28 @@
+{
+  "status": "ROOT_REVIEWED_R2_COLLECTOR_DRIVER_DUMP_FORMAT_FIX_NOT_RECOLLECTED",
+  "manifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-delivery-fingerprints.json",
+  "manifestSha256": "40b9bfb8497fe93bfb8dcdd8fdb72b44cc5192b438dc24b9191636938386319a",
+  "assetsVerified": 14,
+  "tests": [
+    {
+      "script": "g29-dump-parser-test.py",
+      "cases": 7,
+      "exitCode": 0
+    },
+    {
+      "script": "g29-collector-r2-test.py",
+      "cases": 13,
+      "exitCode": 0
+    },
+    {
+      "script": "g29-driver-r2-test.py",
+      "cases": 16,
+      "exitCode": 0
+    }
+  ],
+  "actualOldDumpReadValidated": true,
+  "originalFailedCaptureModified": false,
+  "actualDatabaseWrites": false,
+  "actualRecollection": false,
+  "newDdlAuthorized": false
+}

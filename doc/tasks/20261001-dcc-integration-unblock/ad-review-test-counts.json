@@ -1,0 +1,21 @@
+{
+  "selected_classes": 90,
+  "modules": [
+    {
+      "module": "yudao-module-dcc",
+      "classes": 84,
+      "tests": 985,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "yudao-module-bpm",
+      "classes": 6,
+      "tests": 37,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

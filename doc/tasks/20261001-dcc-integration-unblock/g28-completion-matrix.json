@@ -1,0 +1,692 @@
+{
+  "status": "COMPLETION_UNPROVEN_NO_SCOPE_REDUCTION",
+  "requirementsSha256": "d6a62a4c4b9c1d191042fca4cfc0a66fee622622a1bdcecad48646bb3cd4f823",
+  "acceptanceCount": 27,
+  "sourceAnchorFailures": [],
+  "requirements": [
+    {
+      "id": "AC-01",
+      "scenario": "在后台配置项目及产品审核人，创建项目、填写模板及三组属性并审核批准；提交后再修改审核配置。",
+      "expected": "提交时带出并保存当时审核账号；后续改配置不改变旧申请审核身份。项目产品可用，文件夹按模板生成，三组默认值准确回显；缺配置或账号不可用时明确拒绝提交。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectReviewerConfiguration.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "05d182b4e994267b0295a437ccf9ca902e7820cd0cb857bd282a0745e3c580a1"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerConfigurationService.java",
+          "anchor": "requireConfigured",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e1c74d6b2640b6a5b257b79ff9c4886fbb0e47e6248abafc091e7713b64a1c0d"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "648857b1375995498f88bee42d9704399fcbadf0f11c1486f8b393ea4074a653"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-02",
+      "scenario": "上传时选择项目并修改带出的属性，提交。",
+      "expected": "申请保存修改值；项目默认值、其他文件不变；会签与批准看到相同申请值。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "ac6d4acceced7cbfd070302a89a6cf7cf6cc9d5242e64b6125963a0dc60c7169"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "dfd0181413b9cf30827e48b1ea516d90993b648a6700e055bfb036d2727695b3"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-03",
+      "scenario": "文件原属性与项目默认不同，分别发起升版、作废。",
+      "expected": "两种新申请都先带出项目默认值，允许修改；作废申请不覆盖旧版历史属性。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "dfd0181413b9cf30827e48b1ea516d90993b648a6700e055bfb036d2727695b3"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-04",
+      "scenario": "修改项目默认值，再查看草稿、在途流程和历史版本。",
+      "expected": "已保存值不被覆盖；新申请带出新的项目默认值。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ProjectApplicationAttributes.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "babc18719fece4ca6b9e9bdb0c3b9188ddbed8b1ae78b8e3a85b2e5bfe015028"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "dfd0181413b9cf30827e48b1ea516d90993b648a6700e055bfb036d2727695b3"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-05",
+      "scenario": "选择“其他”、N/A及文件转移是/否。",
+      "expected": "按确认的D01互斥与条件必填规则校验；不能提交矛盾组合或空转移目标。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ProjectAttributesFields.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "437f284cc3b045abf00affcb8645fe501434b648bbed47ecb8ab53b6dafa69fe"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-06",
+      "scenario": "填写上传信息、关联和培训选择，点击确认。",
+      "expected": "出现二次确认；取消保留输入；再次确认后才创建审批。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "ac6d4acceced7cbfd070302a89a6cf7cf6cc9d5242e64b6125963a0dc60c7169"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "b40a017c5ca5a96131f9743d5a344fd3c50c298e0622f82013edd7a2b8faf7c9"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-07",
+      "scenario": "部门负责人指定自己及其他人为会签人。",
+      "expected": "被指定人收到正式会签任务，指派和会签签名分别留痕。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "90ba908bc0191c28662a6e8967be7f10d6e61cfbdd874af59775d26f19f7f124"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-08",
+      "scenario": "会签、批准及文控审核分别驳回；文控审核尝试未签名提交。",
+      "expected": "均不提前受控，按规则修正重提；文控审核驳回回到申请节点，签名必需，新轮次重新会签。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+          "anchor": "requireFailedProcess",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "074ab0e637417e5a3241e7207b5d5692ac00b57d996cfc39d3049ab215c00263"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-09",
+      "scenario": "上传、升版分别提交需要培训和不需要培训的申请。",
+      "expected": "顺序为会签→批准→可选培训→文控审核→受控→下发；跳过培训也不能跳过文控审核，受控日期与预设生效日期分别保留。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "90ba908bc0191c28662a6e8967be7f10d6e61cfbdd874af59775d26f19f7f124"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-10",
+      "scenario": "多人尝试检出同一文件，由检出人检入。",
+      "expected": "只有一人持有编辑锁，其他人看到检出人；检入生成横杠小版本并释放锁。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+          "anchor": "checkin",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e47d0a9d2bd30251417788345e9083442b22d86ba2e29d2b5913705487c4d337"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "2db25b96f68551cbc57f10844ef98e2a840ac237b477b6074d2e976f4ece3640"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-11",
+      "scenario": "选择小版本局部变更、A/9局部变更、换版变更。",
+      "expected": "分别得到A/2、B/1及下一字母/1；以实际选定正文审批；未受控前旧版仍保持受控。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionPolicy.java",
+          "anchor": "formalTarget",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "d58aff2cfc75d659afb838f7fcc00262009dad87bbba0889eca820255d234e97"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+          "anchor": "createRevision",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "074ab0e637417e5a3241e7207b5d5692ac00b57d996cfc39d3049ab215c00263"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-12",
+      "scenario": "新版提前受控及受控失败各一次，观察关联、旧版和新版生效日。",
+      "expected": "提前受控后关联切换并显示待生效，旧版继续执行；新版生效时旧版自动作废。受控失败时旧版、关联保持不变，不发整改通知。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "f71610d0eec883427745f404f100bc77cb39b5a52ed2215545236f7447abccb1"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+          "anchor": "recordAutomaticObsolete",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "06b4eabe99eda906ecbd066b9e47714673f0b2f22d83df09e3f8dd2a304cb3ba"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-13",
+      "scenario": "会签中选择部分关联文件的责任人和期限。",
+      "expected": "只在主文件受控后通知所选人员；未选择的不产生本次整改任务；审批中断不通知。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRemediationService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "3fe9665a9cd6fe136636071a7779744cb34f7d3921d3a21065686410ec72e485"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-14",
+      "scenario": "跨项目关联文件，目标产生新受控版后打开关联。",
+      "expected": "当前关联显示最新受控版；原审批记录仍展示当时审阅版本。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "d31ce1251326ae2121ca51afaef55fd918de6f7f1494e91ee2ad53dca341a184"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "52aefca10c657654ec3d87a6fd9131d602cf982ec4ff55afbe0ec9cb4d707759"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-15",
+      "scenario": "从目录和搜索分别浏览同一文件及其历史版。",
+      "expected": "正文、版本、状态与属性一致；历史已作废标识明确；无内容权限不能看正文。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "eca0a143d55e6b117372f29049c648b7027633390e5d711294b6ebbe8932921f"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-16",
+      "scenario": "各目标项目负责人分别引用同一文件到自己的项目及文件夹，并由非负责人尝试引用。",
+      "expected": "仅目标项目负责人可成功；非负责人前后端均不可操作；引用入口橙色且有文字标识，按项目去重计数。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e96d7f77377015ea66c13bfea761dda8100311cf5e728947261cfd620a6ee5a0"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "54af3d934cef1b3849282359e22c618ce468de9e9d0ea1e612b9023653b4f224"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-17",
+      "scenario": "当前项目负责人取消单个、项目最后一个及全局最后一个引用，并由非负责人尝试取消。",
+      "expected": "只有当前项目负责人能取消；只移除相应入口，计数正确；最后一个引用解除后源文件颜色恢复。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e96d7f77377015ea66c13bfea761dda8100311cf5e728947261cfd620a6ee5a0"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "54af3d934cef1b3849282359e22c618ce468de9e9d0ea1e612b9023653b4f224"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-18",
+      "scenario": "有权限和无权限用户分别编辑文件夹模板；删除非空文件夹、停用已使用文件类型。",
+      "expected": "模板编辑仅校验权限，有权限保存后完成、不创建审批任务，无权限禁止；目录与类型按确认规则保护文件及历史记录。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/FolderTemplateLibraryEditor.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "62c8baf60c90aa5880d6451427146eb530c5d6694c0cde49173fb96eb93c093a"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/folder/DccProjectFolderMaintenanceService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "7d331e99de953e5b9d987ee84fd502e1d6d80970d90a1d504c976f7c96cea5eb"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-19",
+      "scenario": "文控从按生效日期排序的列表办理已受控文件下发，并记录接收及纸件处置。",
+      "expected": "下发业务没有失败或驳回分支，不改变预设生效日期；提前下发标识生效前不得执行，签收与下发分别记录。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "d155f32b72dff6390acdaa0f84cb3037645e5f943eb842541c57089e8e32c244"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "90ba908bc0191c28662a6e8967be7f10d6e61cfbdd874af59775d26f19f7f124"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-20",
+      "scenario": "进入受控文件，通过选择器选中文件，在操作面板发起作废并通过会签、批准。",
+      "expected": "批准通过即作废且流程结束，不创建培训、文控审核、受控或下发节点；三组属性独立保存，关联与引用标示作废。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "3993960868137eba39de153e65810f4df7abe0e7c3cdbe4cf3f663a2e1a90b9c"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-21",
+      "scenario": "另一项目上传SOP.pdf、sop.pdf、SOP.PDF和SOP.docx；已有文件为SOP.pdf。",
+      "expected": "仅完整名称SOP.pdf为同名且新建被阻止；其他三者按大小写或后缀差异视为不同文件。改变目录或编号不能绕过完全同名判定。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+          "anchor": "preflightNewSourceName",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "8c6f7a93180ed7b2a69f558a7a055906fa6b22e2d7a1d74b0ca901081fb1269b"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileNameClaimMapper.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "5b54e09186abdbc3903652ff5be130e70de7c0d962e17180b1a81f2d04d2e9d4"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-22",
+      "scenario": "查看由局部变更形成的A/2、由局部变更进位形成的B/1、由换版变更形成的B/1，并切换历史版本。",
+      "expected": "无论版本号是什么，详情均展示本次实际操作的“局部变更”或“换版变更”、来源版本和说明；切换历史版显示对应历史事实。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e9506bb8095683582fed4fb2d72f921a1b6bcd150c77bff43585d37de30b51d8"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "074ab0e637417e5a3241e7207b5d5692ac00b57d996cfc39d3049ab215c00263"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-23",
+      "scenario": "查看列表、文件选择器、详情、版本历史和审批展示。",
+      "expected": "关于文件版本的业务术语统一使用“受控版本”，且与审批中、小版本、已作废版本明确区分。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "e9506bb8095683582fed4fb2d72f921a1b6bcd150c77bff43585d37de30b51d8"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "910cff8f228c38433cacbf803dbdfb15daccb5a8649c3aa279bd4f870ae2d627"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-24",
+      "scenario": "文件作废后，在其保留期限内用原编号、原完整名称发起另一条文件链上传。",
+      "expected": "编号和名称都仍被占用，不能因作废绕过；同一逻辑文件自己的后续版本不受历史占用阻断。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+          "anchor": "retainObsoleteIdentity",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "8c6f7a93180ed7b2a69f558a7a055906fa6b22e2d7a1d74b0ca901081fb1269b"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "06b4eabe99eda906ecbd066b9e47714673f0b2f22d83df09e3f8dd2a304cb3ba"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-25",
+      "scenario": "编制时预设晚于受控日期的生效日期，完成文控审核和受控，随后到达生效日。",
+      "expected": "两日期分别保存；受控后待生效，旧版继续执行；到预设日期新版生效并自动作废旧版，切换和历史记录一致。日期已过时不能静默改期或追溯生效。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "f71610d0eec883427745f404f100bc77cb39b5a52ed2215545236f7447abccb1"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDatePolicy.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "c63d299d3ac815ce55241cae660f1b7ec9b137b98274abf08f38693ea14cd6ca"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-26",
+      "scenario": "存在不同生效日期、已到期、临期及已处置文件，文控打开待处置列表。",
+      "expected": "按生效日期升序排列并优先提醒到期事项；已处置不重复作为未办理提醒；提前天数按明确配置，不凭空补值。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "d155f32b72dff6390acdaa0f84cb3037645e5f943eb842541c57089e8e32c244"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccControlledFileActivationJob.java",
+          "anchor": "",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "f7792436ec6c575737ee032e0b586b35b4b02fb347b4bb41c4ad11ccd21cd6aa"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    },
+    {
+      "id": "AC-27",
+      "scenario": "A/1申请升到A/2被驳回，修改正文后连续重新提交，并逐次打开失败申请与新申请。",
+      "expected": "正式目标仍为A/2；各次申请拥有独立文件身份、正文来源、BPM、默认来源、实际属性及签名历史。失败历史不删除、不改号、不被新申请覆盖；新版生效之前A/1仍为当前执行受控版本。",
+      "sourceAnchors": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionReworkPolicy.java",
+          "anchor": "requireAttempt",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "73f07a2d46350e1a04e5b7fe4e27423687dcc7fae6dec791b910edfaa5161e4c"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+          "anchor": "createRevision",
+          "exists": true,
+          "anchorFound": true,
+          "sha256": "074ab0e637417e5a3241e7207b5d5692ac00b57d996cfc39d3049ab215c00263"
+        }
+      ],
+      "sourceTraceStatus": "SOURCE_LOCATED_NOT_BUSINESS_VERIFIED",
+      "realFrontendResult": "NOT_EXECUTED",
+      "completion": "NOT_PROVEN",
+      "nextGate": "Approved runtime prerequisites, exact task-owned data and actual Playwright page action/result proof"
+    }
+  ],
+  "knownRuntimePrerequisites": [
+    "Three unique missing original objects not approved for restoration; source proof35/39.",
+    "One new sidecar migration and exact verified history registration not executed.",
+    "26 audit operation configurations and genuine quality signature not approved/executed.",
+    "Natural minute activation and Shanghai7-day workbench reminders not runtime verified."
+  ],
+  "otherCompletionGates": {
+    "finalUnitAndCombination": "Core579/17 andlatest324/5 overlap PASS",
+    "frontEndTypesAndBuild": "Prior verified unchanged16 frontend assets; G20types/build PASS",
+    "mainPackage": "G27 RootverifiedJar81b56aa3 PASS",
+    "realUiE2E": "NOT_EXECUTED",
+    "localIntQmsIntegration": "NOT_EXECUTED",
+    "postMergeVerification": "NOT_EXECUTED"
+  },
+  "authorization": "Code/helper/read-only review allowed; denied or missing runtime approvals remain enforced.",
+  "explicitDeferredScope": "20-year expiry disposal/release permissions and public reuse of retained Master identity are not approved for automatic action."
+}

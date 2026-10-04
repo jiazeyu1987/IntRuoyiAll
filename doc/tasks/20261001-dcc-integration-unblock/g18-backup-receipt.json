@@ -1,0 +1,36 @@
+{
+  "status": "read_only_backup_verified_not_restored",
+  "database": "ruoyi-vue-pro",
+  "tableCount": 210,
+  "artifacts": [
+    {
+      "kind": "schema",
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\dcc-schema.sql.gz",
+      "bytes": 172127,
+      "uncompressedBytes": 1921508,
+      "sha256": "cf6a94375b95720637d7b75a471e508420ffa9cc6b399c4438851237d4fc66fa",
+      "gzipIntegrity": "PASS",
+      "dumpExitCode": 0
+    },
+    {
+      "kind": "data",
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\dcc-data.sql.gz",
+      "bytes": 26304379,
+      "uncompressedBytes": 310582007,
+      "sha256": "28d71e24b205c18f6ba13552a2eafb20d6dbe67be4f39373c694352c65217908",
+      "gzipIntegrity": "PASS",
+      "dumpExitCode": 0
+    },
+    {
+      "kind": "affected",
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\dcc-affected.sql.gz",
+      "bytes": 2852433,
+      "uncompressedBytes": 47276368,
+      "sha256": "04dec6bd67bcef3743bb4b259a27840a24d597f2837ecbafddca9c720e3b706c",
+      "gzipIntegrity": "PASS",
+      "dumpExitCode": 0
+    }
+  ],
+  "credentialsExported": false,
+  "databaseWrites": false
+}

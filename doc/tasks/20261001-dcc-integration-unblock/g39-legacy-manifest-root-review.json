@@ -1,0 +1,17 @@
+{
+  "status": "ACTUAL_READONLY_CANONICAL_MANIFEST_AND_STRICT_FACTORY_PASS_NOT_ACTIVATED",
+  "claims": 25,
+  "versions": 39,
+  "nameGroups": 13,
+  "manifestPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g39-legacy-manifest-inputs\\activation-manifest.json",
+  "manifestSha256": "63cf4bc82bb5420bbae8cf657ac455f1bef32e495425568d64a59aad9225ea8d",
+  "preimagesSha256": "a3811e8d0d27ccc42f777412f7f184a28b1e1943a642e7bbb990c8dedde46adc",
+  "sourceFactsSha256": "8c17e87327b31160e86be9d4c9424670c9a5e8097c1d909c8382f021819a416b",
+  "actualReadOnlyConnection": true,
+  "strictJavaFactoryExit": 0,
+  "actualDatabaseWrites": false,
+  "actualQualityApproved": false,
+  "legacyActivationExecuted": false,
+  "credentialsPersisted": false,
+  "runtimeApplicationCanonicalProfileProven": false
+}

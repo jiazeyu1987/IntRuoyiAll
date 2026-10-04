@@ -1,0 +1,86 @@
+{
+  "automation_id": "dcc",
+  "patrol_id": "F01",
+  "previous_patrol_id": "H10",
+  "trigger": "user_reports_ABCD_completed",
+  "recorded_at_utc": "2026-10-02T13:00:53.527907+00:00",
+  "workers": [
+    {
+      "module": "A",
+      "thread_id": "01a0f2a6-eb43-7e11-8e4e-cf951a911cbf",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-a",
+      "task_status_text": "in_progress — 较早合法WORKING小版送审A-SEL-01已真实RED→GREEN，唯一生产修改删除latest-only最大版守卫。实际C两次检入/A提交/B快照/H2/V4Flowable，三意图/正文实际选择/历史保护/重放/原9边界/晚回滚验证；5类254项及compile通过。新最小增量供C/Root Review；不重修X-01，不改失败版本复用算法或整体completed。",
+      "client_running_state": "unknown: no official instantaneous thread status API",
+      "development_delivery": "received_for_public_integration",
+      "files": [
+        {
+          "path": "doc/tasks/20260930-dcc-a-workflow/task.md",
+          "sha256": "fc261d1e599d8f4ab6f9ba7d8159cb7b994c25a943243cdae28977a1db72d307"
+        }
+      ]
+    },
+    {
+      "module": "B",
+      "thread_id": "01a0f2a7-4005-77c3-80ab-be583a1a9a47",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-b",
+      "task_status_text": "blocked — B-PROJECT-DISCOVERY本批实现/验证可交Review：有效RED→GREEN32、受影响86与wrapper7/类型/lint/compile通过，14增量/完整117冻结；先ready_for_closeout并cleanup preview exit0，原107/9和历史证据保留、未apply。此为整体B主管理Review及禁止Git最终收尾门禁，非本批代码/依赖阻塞，不阻止后续确定修复；不能自行标全业务accepted/completed。",
+      "client_running_state": "unknown: no official instantaneous thread status API",
+      "development_delivery": "received_for_public_integration",
+      "files": [
+        {
+          "path": "doc/tasks/20260930-dcc-b-project/task.md",
+          "sha256": "ef4f90a4ffffe60ecc16e4ed03c7ccebd83cc547e9e88ad975be22277775c424"
+        }
+      ]
+    },
+    {
+      "module": "C",
+      "thread_id": "01a0f2a7-888d-7382-a8bc-8e379c1969f0",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-c",
+      "task_status_text": "blocked — 本批生命周期SUCCESS原子事务修复已开发验证：RED5/2FAIL→同测GREEN，最终定向75/0/0/0、server compile exit0。只有Query/AccessAudit与对应测试四文件变化；成功日志随业务回滚，FAILED独立保存/双异常可见，其他访问审计不变。旧检入初始化431和依赖成果保留；不再以审计假SUCCESS或缺A同步阻塞确定工作。待Root Review、A较早小版新冻结组合及X03政策，Git/实库/服务/E2E仍禁止，整体验收未关闭。",
+      "client_running_state": "unknown: no official instantaneous thread status API",
+      "development_delivery": "received_for_public_integration",
+      "files": [
+        {
+          "path": "doc/tasks/20260930-dcc-c-version/task.md",
+          "sha256": "de75c2945d5d88bc9311f52038c8e35cb69910e3565b4efc2f7d42748584cd5e"
+        }
+      ]
+    },
+    {
+      "module": "D",
+      "thread_id": "01a0f2a7-c122-76d0-8cfb-fd4bb2b1b1e5",
+      "worktree": "C:\\IntRuoyi\\20260930-dcc-d",
+      "task_status_text": "in_progress — 本批项目引用/取消独立组件及正式接口组合已交Root Review：有限B冻结VIEW目录9依赖来源/目标SHA已核对接收，后端110、前端31 PASS，D局部/父示例/项目既定类型及主应用编译PASS；新正式映射5有效RED→GREEN，真实响应后6PASS。可编译父组件、稳定props/callback、负责人/计数/固定版合同和精确指纹已交，原上传73仅独立历史证据不重复累计。公共页面及完整业务/整体Review仍Root验明，原任务不重建/reset；无定时/子Agent/Git/实库/服务/E2E授权。",
+      "client_running_state": "unknown: no official instantaneous thread status API",
+      "development_delivery": "received_for_public_integration",
+      "files": [
+        {
+          "path": "doc/tasks/20260930-dcc-d-relations/task.md",
+          "sha256": "d5c439ce6dcbfca4467bf0bd240ca29bef5d70001228909ed47d42e15dd82aa0"
+        }
+      ]
+    }
+  ],
+  "instant_thread_messages_sent": false,
+  "worker_timed_automations": [],
+  "worker_feedback_files_written": false,
+  "whole_business_complete": false,
+  "new_tests_run": true,
+  "runtime_or_real_database_or_git_or_e2e": false,
+  "test_results": {
+    "backend": 772,
+    "frontend": 83,
+    "types_lint_build_compile_coverage": "PASS"
+  },
+  "open_items": [
+    "Root public logical folder selection and same-transaction placement binding",
+    "Root global relation selector and precise Long IDs",
+    "Root full revision/obsolete actual attribute forms and earlier iteration UI eligibility",
+    "Root signoff assignment and post-control distribution wiring",
+    "Root public project references/usage/source mapping",
+    "Failed formal version reuse and BPM termination policy",
+    "Product reviewer and reminder configuration",
+    "Real runtime/page acceptance and final closeout"
+  ]
+}

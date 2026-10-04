@@ -1,0 +1,8 @@
+{
+  "status": "REVIEWED_PRE_G33_JAR_PRESERVED_NOT_NEW_PACKAGE",
+  "source": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+  "preservedPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g33-main-package-artifacts\\g27-yudao-server-exec.jar",
+  "sha256": "81b56aa3e1c518ae8f989498a8624826a1ad946d8e2640e652e4cb3a32f30bc5",
+  "bytes": 507297396,
+  "actualServiceStarted": false
+}

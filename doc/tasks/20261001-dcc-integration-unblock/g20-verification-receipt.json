@@ -1,0 +1,50 @@
+{
+  "status": "offline_verified_runtime_not_run",
+  "sourceManifest": "g20-delivery-fingerprints.json",
+  "preservedNonTaskAssets": 6,
+  "frontendTests": 150,
+  "backendTests": 560,
+  "infraTests": 7,
+  "typesExitCode": 0,
+  "buildExitCode": 0,
+  "lintExitCode": 0,
+  "mainPackageExitCode": 0,
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "bytes": 507250868,
+    "sha256": "a4cf78f59d18ac333c64029dd86cf18bf4188c6f0e75762ac3a90eb1a516ef16"
+  },
+  "evidence": {
+    "frontendRegression": {
+      "path": "g20-navigation-final-regression.log",
+      "sha256": "8b01d764362f98f2a3a67d4e016ff1d00552a8a5f4f8a8ddb0a193391144edf7"
+    },
+    "frontendTypes": {
+      "path": "g20-navigation-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frontendBuild": {
+      "path": "g20-navigation-build.log",
+      "sha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1"
+    },
+    "frontendLint": {
+      "path": "g20-navigation-lint.log",
+      "sha256": "674ad1103c1e7e4ac391147d093f4df4271e058efe56c63c0c01fd0c910e9205"
+    },
+    "backendRegression": {
+      "path": "g19-final-backend-regression.log",
+      "sha256": "77dbda2e086d0104a18891ebd9e95a750757765c88c4ebd3291a674661e75ac0"
+    },
+    "infraRegression": {
+      "path": "g19-final-infra-job-test.log",
+      "sha256": "a3cf2b2db47bc74084c042ae1bbbdc827136cc8e5166c67713419f0322bc4889"
+    },
+    "mainPackage": {
+      "path": "g19-navigation-main-package.log",
+      "sha256": "2b3b20f88db98245a47e7cd92ac7035db9248f25b9dd3548ccded4313e32ef26"
+    }
+  },
+  "databaseWritesExecuted": false,
+  "e2eRun": false,
+  "mergedIntoIntQms": false
+}

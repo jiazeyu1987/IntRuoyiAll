@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked — 任务包交付、计划Review、结构验证及cleanup preview/apply通过；仅仓库提交门禁因未获本轮提交推送授权未完成。正式开发共同基线仍待用户选择；未启动生产代码修复。
+blocked — 启动方式纠正、task-owned外部进程停止、脚本禁用、登记与Review状态修正及cleanup已完成。桌面原生创建线程/发消息工具不可用，等待用户在桌面启动；不使用CLI或子Agent替代，不宣称正确开发线程已开工。
 
 ## 设计约束检查
 
@@ -37,3 +37,6 @@ blocked — 任务包交付、计划Review、结构验证及cleanup preview/appl
 - doc/tasks/20260930-dcc-parallel-management/task.md
 - doc/tasks/20260930-dcc-parallel-management/execution-log.md
 - doc/tasks/20260930-dcc-parallel-management/verification-report.md
+- doc/tasks/20260930-dcc-parallel-management/independent_threads.py
+- doc/tasks/20260930-dcc-parallel-management/independent-thread-registry.json
+- doc/tasks/20260930-dcc-parallel-management/thread-contract-results.json

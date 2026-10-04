@@ -1,0 +1,14 @@
+{
+  "status": "UNCONFIRMED",
+  "activeClaimCount": 25,
+  "proposedMetadataMappings": 6,
+  "unconfirmedMappings": 19,
+  "crossClaimNameCollisions": 19,
+  "multiNameLogicalFiles": 3,
+  "sourceBytesVerified": false,
+  "databaseWritesExecuted": false,
+  "factsSha256": "8c17e87327b31160e86be9d4c9424670c9a5e8097c1d909c8382f021819a416b",
+  "protectedResultSha256": "649367fb0d367689b9be1fbb372280b7e58a827c1f36b44c717cef73bd08d643",
+  "protectedReviewPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g23-legacy-names-review.md",
+  "protectedReviewSha256": "6b146699d8a105aa0a5058dab5c0a68bea84668d9cbeb737d921a2587af54cef"
+}

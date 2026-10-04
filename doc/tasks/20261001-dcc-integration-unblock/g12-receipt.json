@@ -1,0 +1,151 @@
+{
+  "state": "offline_reviewed_not_e2e",
+  "frontendCombinedTests": 154,
+  "frontendTypesBuildSession": 14511,
+  "frontendExit": 0,
+  "backendRegressionTests": 37,
+  "backendClasses": 5,
+  "backendRegressionSession": 51311,
+  "backendExit": 0,
+  "mainCompileSession": 14204,
+  "mainCompileExit": 0,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "264355131f0f5f1a59f201ee0aa937bb88d121218171cd896811ab32579669ec",
+      "utf8LfSha256": "35d139d1ca96a50b4b87094de26d84b46c910f4302a43818e1f38e3ac8846608"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue",
+      "sha256": "d3db2a5389a3ef3bbacf04051b1496a876b4c6298a0e2562d4be15f68222dc72",
+      "utf8LfSha256": "d3db2a5389a3ef3bbacf04051b1496a876b4c6298a0e2562d4be15f68222dc72"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/application-round-context.ts",
+      "sha256": "4836a76f0bfcf6aeab7f7bb4a749434e5b8215d32d5efcd42bba8fe5f9440344",
+      "utf8LfSha256": "4836a76f0bfcf6aeab7f7bb4a749434e5b8215d32d5efcd42bba8fe5f9440344"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "de1a57c65248b8bfd95430589baa5b6e01c9162d79b5c61e04c447206ae85f73",
+      "utf8LfSha256": "2a653ad94a72e98377117471f24150f161dd34af0c05e18134d208e2cbd099df"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "sha256": "eca0a143d55e6b117372f29049c648b7027633390e5d711294b6ebbe8932921f",
+      "utf8LfSha256": "8db17ae97216341437f1053a0d22c8e0204da8afe691bef4b36076cc69c4b1e0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/project-browser.ts",
+      "sha256": "491b1902c9835ae3a20b16baa766475de201c9c217ead0d5aae7292c18c6b7eb",
+      "utf8LfSha256": "491b1902c9835ae3a20b16baa766475de201c9c217ead0d5aae7292c18c6b7eb"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+      "sha256": "e96d7f77377015ea66c13bfea761dda8100311cf5e728947261cfd620a6ee5a0",
+      "utf8LfSha256": "e96d7f77377015ea66c13bfea761dda8100311cf5e728947261cfd620a6ee5a0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/project-reference-contract.ts",
+      "sha256": "e1728649f4504954f6d74823a42ffa1adb2e8550f9ff23eb3fedc834395677fd",
+      "utf8LfSha256": "e1728649f4504954f6d74823a42ffa1adb2e8550f9ff23eb3fedc834395677fd"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "sha256": "315d9185e45f67e88a2a0e3400465ea057bff752ebdd67cb7b4ba83a575a39b2",
+      "utf8LfSha256": "7108a30aac3f795ca3bb4e20d49a561e8707e5cc6de0aad7c998edb1c507f25a"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-product-confirmation.ts",
+      "sha256": "ba91f917498b88fb893fb4df717f4e807fcc0b993fb268442a3d255a282dc881",
+      "utf8LfSha256": "ba91f917498b88fb893fb4df717f4e807fcc0b993fb268442a3d255a282dc881"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-product-confirmation.test.cjs",
+      "sha256": "2295b7df2dd59bc704f72527edd10adc7613c3bea3d032c8cb0aa2d23fd80b1f",
+      "utf8LfSha256": "2295b7df2dd59bc704f72527edd10adc7613c3bea3d032c8cb0aa2d23fd80b1f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectFileRelationsDialog.vue",
+      "sha256": "9dac8a534747683c58cb63669b63df24b681cf45fe10f121d884e7a8081578de",
+      "utf8LfSha256": "9dac8a534747683c58cb63669b63df24b681cf45fe10f121d884e7a8081578de"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "sha256": "d31ce1251326ae2121ca51afaef55fd918de6f7f1494e91ee2ad53dca341a184",
+      "utf8LfSha256": "7be9ec1d575df927551045b9f60c54768e4fb05207fe4b03cc0ab68a577797c1"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileRelations.vue",
+      "sha256": "fff1293521486220ba9165820452a8cf1915eef47db626065a67479c73c940d3",
+      "utf8LfSha256": "fff1293521486220ba9165820452a8cf1915eef47db626065a67479c73c940d3"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-public-browser-vue.test.mjs",
+      "sha256": "579ae5b15cf7a464708ec6cd2f1ddbeb1c4cb24f3ac6a64f797678b6dc1053cb",
+      "utf8LfSha256": "ae2e287f85d3076b46737781b491433f60932dcf08ff6ebcca3580cd0c7aeb9d"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "sha256": "9ea99b3f863fdae42ad95c086cd09a276bea5a3918b90c80cf7fc673a05fe234",
+      "utf8LfSha256": "9ea99b3f863fdae42ad95c086cd09a276bea5a3918b90c80cf7fc673a05fe234"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileSelector.vue",
+      "sha256": "dae3edbe675d7713bce80f35088a7b98844eec905a32e6f0f094e12f8646da73",
+      "utf8LfSha256": "dae3edbe675d7713bce80f35088a7b98844eec905a32e6f0f094e12f8646da73"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-project-directory.ts",
+      "sha256": "1943f892d6c169af5d19ab312a0d147911d9d4de21a9bcf12db305f31f33e3bf",
+      "utf8LfSha256": "1943f892d6c169af5d19ab312a0d147911d9d4de21a9bcf12db305f31f33e3bf"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-selector-project-directory.test.cjs",
+      "sha256": "f3a80a9c4ec030296ed87ac4d72e772d1c6527825da677be330f244b7b076852",
+      "utf8LfSha256": "f3a80a9c4ec030296ed87ac4d72e772d1c6527825da677be330f244b7b076852"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-components.test.mjs",
+      "sha256": "681542a4260260c0c006cc5bb438b0667faba0ecb31b41f28814990516ac55e4",
+      "utf8LfSha256": "681542a4260260c0c006cc5bb438b0667faba0ecb31b41f28814990516ac55e4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "sha256": "5b405616c8d0e719efdd34faa598269c5f2bda5722a8ffd2c62687bfdccd10fd",
+      "utf8LfSha256": "5b405616c8d0e719efdd34faa598269c5f2bda5722a8ffd2c62687bfdccd10fd"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/reference-usage.ts",
+      "sha256": "61ad0f41f49b1ad7b955dcf5c4089f8744d7db70e2daa8b4f40badc9ea717133",
+      "utf8LfSha256": "61ad0f41f49b1ad7b955dcf5c4089f8744d7db70e2daa8b4f40badc9ea717133"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccReferenceUsageDialog.vue",
+      "sha256": "08e4f496fe4c84a063bcb306eb4715545a025ca6bbd93752c5b8a60cf0151cb6",
+      "utf8LfSha256": "08e4f496fe4c84a063bcb306eb4715545a025ca6bbd93752c5b8a60cf0151cb6"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-reference-usage.test.cjs",
+      "sha256": "02732756bc846e276aefcc0a488b5cf5e83fe51d01011833254588602c610091",
+      "utf8LfSha256": "02732756bc846e276aefcc0a488b5cf5e83fe51d01011833254588602c610091"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/job/DccControlledFileBatchRecognitionStartupRecovery.java",
+      "sha256": "6d7d0755e4abcd5d57f217bfe6a87cdbd7424b4ae2bbc8f04eec00b32868b032",
+      "utf8LfSha256": "c140ae5ab9a904132f883874744a756847a3e73ee22a454882b6117588bd2237"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/job/DccUploadTemporaryFileCleanupScheduler.java",
+      "sha256": "fee13dba48780506c8ea4f0a532c464bfc123f3986d8d013dc03342887d5eb3b",
+      "utf8LfSha256": "7170ac8c6a747a4806d222c152ce7d1b8a0baf548e2f7f2c79e1db3482350a86"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/job/DccWorktreeBackgroundConditionTest.java",
+      "sha256": "a258cd0d24af05d1953b8586fe31fabd3509cd00e9ec8243c88d0358c82aed88",
+      "utf8LfSha256": "a258cd0d24af05d1953b8586fe31fabd3509cd00e9ec8243c88d0358c82aed88"
+    }
+  ],
+  "gitMerged": false,
+  "goalComplete": false
+}

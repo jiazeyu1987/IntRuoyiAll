@@ -1,0 +1,876 @@
+{
+  "status": "prepared_not_executed",
+  "databaseConnected": false,
+  "runtimeSchemaVerified": false,
+  "rootMigrationCount": 19,
+  "rootMigrationIds": [
+    "20260910_dcc_access_log_reason_capacity",
+    "20260930_dcc_a_future_obsolete_policy",
+    "20260930_dcc_a_lifecycle",
+    "20260930_dcc_a_signature_workflow_round",
+    "20260930_dcc_a_workflow_bpmn_v4",
+    "20260930_dcc_b_project_attributes_folders",
+    "20260930_dcc_c_revision_identity",
+    "20260930_dcc_d_notification_template",
+    "20260930_dcc_d_relations",
+    "20261001_dcc_application_round_link",
+    "20261001_dcc_b_manual_project_folder_origin",
+    "20261001_dcc_b_project_file_placement",
+    "20261001_dcc_b_project_product_audit_intent",
+    "20261001_dcc_b_reserved_draft_round",
+    "20261002_dcc_c_initial_candidate_identity",
+    "20261003_dcc_approval_file_owner_snapshot",
+    "20261003_dcc_controlled_file_activation_job_registration",
+    "20261003_dcc_project_reviewer_configuration",
+    "20261003_dcc_revision_failed_attempt_identity"
+  ],
+  "closureCount": 45,
+  "policyGate": "passed",
+  "executionOrder": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "file": "sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260910_dcc_access_log_reason_capacity",
+      "file": "sql/mysql/20260910_dcc_access_log_reason_capacity.sql",
+      "sha256": "1bc185f1deb8a3f1fc8b0d30d401db8e5cf7e8fabe3210466495bcf488931f1b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260921_dcc_category_approval_route_action_type",
+      "file": "sql/mysql/20260921_dcc_category_approval_route_action_type.sql",
+      "sha256": "39599767147aaa1645d610c52c8f6113f30e39485452e082acec992ae80a714e",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_three_workflow_bpmn_seed",
+      "file": "sql/mysql/20260922_dcc_three_workflow_bpmn_seed.sql",
+      "sha256": "cd8cb4b2cadcda67086750df13071d6e6649310283e9a55d650b4bd51d15c63d",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260921_dcc_category_approval_route_action_type"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260922_dcc_task_assignee_snapshot",
+      "file": "sql/mysql/20260922_dcc_task_assignee_snapshot.sql",
+      "sha256": "2143d36b3255d639f21bc00f7495bd97c674255151b7cdff2462669e02ce3641",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_three_workflow_bpmn_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_a_lifecycle",
+      "file": "sql/mysql/20260930_dcc_a_lifecycle.sql",
+      "sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_task_assignee_snapshot"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260923_dcc_three_workflow_candidate_strategy_fix",
+      "file": "sql/mysql/20260923_dcc_three_workflow_candidate_strategy_fix.sql",
+      "sha256": "7127acdd73c61b1389124d2cca65480d60e5ff6e8756e11a363890e089d9c307",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260922_dcc_three_workflow_bpmn_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+      "file": "sql/mysql/20260926_dcc_three_workflow_matrix_multi_instance_fix.sql",
+      "sha256": "e345c35ba89e8386aa3315257cef8bd4fce6fbfd0cc1b25e6c78a9cea9eea0e4",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260923_dcc_three_workflow_candidate_strategy_fix"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_a_workflow_bpmn_v4",
+      "file": "sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql",
+      "sha256": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle",
+        "20260926_dcc_three_workflow_matrix_multi_instance_fix"
+      ],
+      "riskLevel": "high"
+    },
+    {
+      "migrationId": "20260930_dcc_a_signature_workflow_round",
+      "file": "sql/mysql/20260930_dcc_a_signature_workflow_round.sql",
+      "sha256": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_a_future_obsolete_policy",
+      "file": "sql/mysql/20260930_dcc_a_future_obsolete_policy.sql",
+      "sha256": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a",
+      "type": "seed",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_workflow_bpmn_v4",
+        "20260930_dcc_a_signature_workflow_round"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260710_dcc_product_catalog_database",
+      "file": "sql/mysql/20260710_dcc_product_catalog_database.sql",
+      "sha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260903_dcc_explicit_data_relation",
+      "file": "sql/mysql/20260903_dcc_explicit_data_relation.sql",
+      "sha256": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260710_dcc_product_catalog_database"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260920_dcc_project_product_create_approval",
+      "file": "sql/mysql/20260920_dcc_project_product_create_approval.sql",
+      "sha256": "2d60785f65c898218f2d925f6aed89a4d0b670e3aa266224c56f0cf040e6c8a7",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260903_dcc_explicit_data_relation"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260719_dcc_file_type_taxonomy",
+      "file": "sql/mysql/20260719_dcc_file_type_taxonomy.sql",
+      "sha256": "28ee75f74c4d02607e4db5ac110a0a11d24ac485a5c0ff60a6c0fa693f5a0c5e",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260910_dcc_project_file_template",
+      "file": "sql/mysql/20260910_dcc_project_file_template.sql",
+      "sha256": "4e36e6ba67cb98121fb0272c4ee837e57b0ffde9c71d6fb73ce6a09d4e5de8c9",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260719_dcc_file_type_taxonomy"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_b_project_attributes_folders",
+      "file": "sql/mysql/20260930_dcc_b_project_attributes_folders.sql",
+      "sha256": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260920_dcc_project_product_create_approval",
+        "20260910_dcc_project_file_template"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260917_dcc_controlled_file_name_claim",
+      "file": "sql/mysql/20260917_dcc_controlled_file_name_claim.sql",
+      "sha256": "34a2950ca9ecaaf10a1d71e1e86a3b06115e80c06faaa0a118f9f2e5d50162fe",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p1",
+      "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p1.sql",
+      "sha256": "631bae6a1dbd521e5afd1df5838309c1403f9f641f22418e356253d30e8bba0b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p2",
+      "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p2.sql",
+      "sha256": "3121fb0a6d6f12ad01408fb981f1de5af49f85deae9f3834e28e557a8a79907b",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260906_dcc_new_file_lifecycle_p1"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p3",
+      "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p3.sql",
+      "sha256": "5d4905c888a5163a593a138dc2bef1b3c88c0d889a74999293fdfab25f10818a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260906_dcc_new_file_lifecycle_p2"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_c_revision_identity",
+      "file": "sql/mysql/20260930_dcc_c_revision_identity.sql",
+      "sha256": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260917_dcc_controlled_file_name_claim",
+        "20260906_dcc_new_file_lifecycle_p3"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260815_system_notify_message_business_key",
+      "file": "sql/mysql/20260815_system_notify_message_business_key.sql",
+      "sha256": "227eb5c335b0726d0a9b91a93341c6cba360f26f208788dd7948ce22765274a9",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260903_dcc_controlled_file_related_file",
+      "file": "sql/mysql/20260903_dcc_controlled_file_related_file.sql",
+      "sha256": "ada7c709bfc0ffea5270e3b0a46f6a971bd4cf636ca3e79987cbc5cbce34e511",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260513_dcc_base_schema"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260615_system_config_package_menu",
+      "file": "sql/mysql/20260615_system_config_package_menu.sql",
+      "sha256": "93150ecb2cd1f8bd110b5cae2a7c6853201a4afc64df582bc9b65402d0ed600e",
+      "type": "menu",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [],
+      "riskLevel": "low"
+    },
+    {
+      "migrationId": "20260717_bpm_form_center",
+      "file": "sql/mysql/20260717_bpm_form_center.sql",
+      "sha256": "efbb62110581dda5fff647914b16f8deff11d8921016633eeab559a2c3824a7e",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260615_system_config_package_menu"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260719_business_approval_policy",
+      "file": "sql/mysql/20260719_business_approval_policy.sql",
+      "sha256": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260717_bpm_form_center"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260719_dcc_upload_form_policy_seed",
+      "file": "sql/mysql/20260719_dcc_upload_form_policy_seed.sql",
+      "sha256": "059042e6847aba56722c1176efcb3547cd59ee7e0e647a2de58287cce88fbbbd",
+      "type": "data",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260719_business_approval_policy"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260720_dcc_publish_form_policy_seed",
+      "file": "sql/mysql/20260720_dcc_publish_form_policy_seed.sql",
+      "sha256": "ae7bcded6478a90044a7a8dbb3394e5bcbd1d020a79539bfcdcafedac629b6dc",
+      "type": "data",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260719_business_approval_policy",
+        "20260719_dcc_upload_form_policy_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p4",
+      "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p4.sql",
+      "sha256": "8a4d7db74973febd329771ca89fcacd582c90f63df777b3490b3a457d0b3eec8",
+      "type": "data",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260906_dcc_new_file_lifecycle_p3",
+        "20260720_dcc_publish_form_policy_seed"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260907_dcc_publication_followup",
+      "file": "sql/mysql/20260907_dcc_publication_followup.sql",
+      "sha256": "b0d0c1af3f8cf0302f21ed7f1fefb43db7d37e4d335cab71ce225533be963e1c",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260903_dcc_controlled_file_related_file",
+        "20260906_dcc_new_file_lifecycle_p4"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260907_dcc_publication_impact_assessment",
+      "file": "sql/mysql/20260907_dcc_publication_impact_assessment.sql",
+      "sha256": "cae0a56e0bf9dd332662e566310d223d22a6fbccabf5f5324efb90045f3ae192",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260907_dcc_publication_followup"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260907_dcc_publication_notification",
+      "file": "sql/mysql/20260907_dcc_publication_notification.sql",
+      "sha256": "7042398a7ec61810fa4dfa7f1bc182680f6e02f8b710f09a817ee999654b56c0",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260815_system_notify_message_business_key",
+        "20260907_dcc_publication_impact_assessment"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_d_notification_template",
+      "file": "sql/mysql/20260930_dcc_d_notification_template.sql",
+      "sha256": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d",
+      "type": "data",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260907_dcc_publication_notification"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20260930_dcc_d_relations",
+      "file": "sql/mysql/20260930_dcc_d_relations.sql",
+      "sha256": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260903_dcc_controlled_file_related_file",
+        "20260906_dcc_new_file_lifecycle_p4"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_application_round_link",
+      "file": "sql/mysql/20261001_dcc_application_round_link.sql",
+      "sha256": "9b2376eb347a6381270ddc3ee2f45700464946eb138189c31bfc56c1b1f28cf7",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_b_manual_project_folder_origin",
+      "file": "sql/mysql/20261001_dcc_b_manual_project_folder_origin.sql",
+      "sha256": "68d1f21b98a4e318919691404094032ad24ac8b71453200470e602f1ee207eae",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_b_project_file_placement",
+      "file": "sql/mysql/20261001_dcc_b_project_file_placement.sql",
+      "sha256": "35a1d649406879cd1a5332b136ebdc4de2f40fc4e5a615b9e5156b788a7b8d52",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_b_project_product_audit_intent",
+      "file": "sql/mysql/20261001_dcc_b_project_product_audit_intent.sql",
+      "sha256": "885c7806f07a51e2010e25b966c2d83accf16a384c07c4965b7e10d1968078fd",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261001_dcc_b_reserved_draft_round",
+      "file": "sql/mysql/20261001_dcc_b_reserved_draft_round.sql",
+      "sha256": "48a5584639c1f4584247b040fee4825d8d70d291f520e28168b621bfd597e0f0",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20261001_dcc_application_round_link"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261002_dcc_c_initial_candidate_identity",
+      "file": "sql/mysql/20261002_dcc_c_initial_candidate_identity.sql",
+      "sha256": "adb0dd8f1b536aeaf9f030ddb9c11797ac5ed4bdb4097031ca4541882d4e4e91",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_c_revision_identity"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261003_dcc_approval_file_owner_snapshot",
+      "file": "sql/mysql/20261003_dcc_approval_file_owner_snapshot.sql",
+      "sha256": "68551ed616c76e9d160d18d7bffede41b495eef1c200859582962f4163c9cf1a",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle",
+        "20260930_dcc_a_signature_workflow_round"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261003_dcc_controlled_file_activation_job_registration",
+      "file": "sql/mysql/20261003_dcc_controlled_file_activation_job_registration.sql",
+      "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+      "type": "config",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_a_lifecycle"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261003_dcc_project_reviewer_configuration",
+      "file": "sql/mysql/20261003_dcc_project_reviewer_configuration.sql",
+      "sha256": "1fe36f1472cdbd5a9ca0e58497439cb7b64afbe3d6df0869938672b9726abdc4",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "riskLevel": "medium"
+    },
+    {
+      "migrationId": "20261003_dcc_revision_failed_attempt_identity",
+      "file": "sql/mysql/20261003_dcc_revision_failed_attempt_identity.sql",
+      "sha256": "d849e3105a5db4ae59b8b6e08b28e7a5b83749b9f9a3e99e113516c36c90421d",
+      "type": "schema",
+      "allowedEnvironments": [
+        "test",
+        "backup",
+        "prod"
+      ],
+      "dependsOn": [
+        "20261002_dcc_c_initial_candidate_identity"
+      ],
+      "riskLevel": "medium"
+    }
+  ],
+  "reviewedSql": [
+    {
+      "migrationId": "20260910_dcc_access_log_reason_capacity",
+      "sha256": "1bc185f1deb8a3f1fc8b0d30d401db8e5cf7e8fabe3210466495bcf488931f1b",
+      "statementsRequiringReview": [
+        "ALTER TABLE `dcc_controlled_file_access_log`"
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_a_future_obsolete_policy",
+      "sha256": "eb30d8a49d6f8a05137c61e95a04ea29e569ce9e41710046c90a5ea060887c2a",
+      "statementsRequiringReview": [
+        "INSERT INTO bpm_business_approval_policy("
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_a_lifecycle",
+      "sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_controlled_file_master ADD COLUMN latest_controlled_file_id BIGINT NULL;",
+        "ALTER TABLE dcc_controlled_file ADD COLUMN controlled_time DATETIME NULL;",
+        "ALTER TABLE dcc_controlled_file ADD COLUMN activated_time DATETIME NULL;",
+        "ALTER TABLE dcc_controlled_file ADD COLUMN distributed_time DATETIME NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot ADD COLUMN leader_user_id BIGINT NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot ADD COLUMN process_instance_id VARCHAR(128) NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot ADD COLUMN assignment_signature_id BIGINT NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot ADD COLUMN assigned_time DATETIME NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot DROP INDEX uk_dcc_task_assignee_obligation, ADD UNIQUE KEY uk_dcc_task_assignee_obligation(tenant_id,controlled_file_id,process_instance_id,stage_code,department_id,deleted);",
+        "ALTER TABLE dcc_controlled_file ADD COLUMN distribution_payload_hash CHAR(64) NULL;",
+        "ALTER TABLE dcc_controlled_file_task_assignee_snapshot ADD COLUMN assignment_payload_hash CHAR(64) NULL;",
+        "ALTER TABLE dcc_controlled_file_obsolete_audit MODIFY COLUMN operator_id BIGINT NULL;",
+        "CREATE TABLE IF NOT EXISTS dcc_workflow_lifecycle_event (",
+        "CREATE TABLE IF NOT EXISTS dcc_workflow_obsolete_archive ("
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_a_signature_workflow_round",
+      "sha256": "bab32625c48bd7decc966c9d96bc30f7c965f6a04af2f2e991dbd494244b7e1d",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_controlled_file_signature ADD COLUMN process_instance_id VARCHAR(128) NULL;",
+        "ALTER TABLE dcc_controlled_file_signature ADD COLUMN file_number_snapshot VARCHAR(128) NULL;"
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_a_workflow_bpmn_v4",
+      "sha256": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52",
+      "statementsRequiringReview": [
+        "DELETE FROM tmp_dcc_a_v4_models;",
+        "INSERT INTO tmp_dcc_a_v4_models VALUES",
+        "DELETE FROM tmp_dcc_three_workflow_processes;",
+        "INSERT INTO tmp_dcc_three_workflow_processes VALUES",
+        "INSERT INTO act_re_deployment (",
+        "INSERT INTO act_ge_bytearray(ID_,REV_,NAME_,DEPLOYMENT_ID_,BYTES_,GENERATED_)",
+        "INSERT INTO act_re_model (",
+        "INSERT INTO act_re_procdef (",
+        "INSERT INTO bpm_process_definition_info ("
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_b_project_attributes_folders",
+      "sha256": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c",
+      "statementsRequiringReview": [
+        "CREATE TABLE IF NOT EXISTS dcc_project_application_attributes (",
+        "CREATE TABLE IF NOT EXISTS dcc_folder_template (",
+        "CREATE TABLE IF NOT EXISTS dcc_folder_template_history (",
+        "CREATE TABLE IF NOT EXISTS dcc_project_folder ("
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_c_revision_identity",
+      "sha256": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901",
+      "statementsRequiringReview": []
+    },
+    {
+      "migrationId": "20260930_dcc_d_notification_template",
+      "sha256": "c25894dd3c966ee05a12a03be443851dbb4a169399d52c82f65a3b3e9210c50d",
+      "statementsRequiringReview": [
+        "INSERT INTO system_notify_template"
+      ]
+    },
+    {
+      "migrationId": "20260930_dcc_d_relations",
+      "sha256": "74d931b00798e597cceb79b3d6cc5120329cc8129baee5bf20ac8dda850d3320",
+      "statementsRequiringReview": [
+        "CREATE TABLE IF NOT EXISTS dcc_project_file_reference (",
+        "CREATE TABLE IF NOT EXISTS dcc_current_file_relation (",
+        "CREATE TABLE IF NOT EXISTS dcc_current_file_relation_set (",
+        "CREATE TABLE IF NOT EXISTS dcc_relation_change_command (",
+        "CREATE TABLE IF NOT EXISTS dcc_relation_arrangement (",
+        "CREATE TABLE IF NOT EXISTS dcc_relation_controlled_event (",
+        "CREATE TABLE IF NOT EXISTS dcc_relation_remediation_task (",
+        "CREATE TABLE IF NOT EXISTS dcc_relation_notification_outbox ("
+      ]
+    },
+    {
+      "migrationId": "20261001_dcc_application_round_link",
+      "sha256": "9b2376eb347a6381270ddc3ee2f45700464946eb138189c31bfc56c1b1f28cf7",
+      "statementsRequiringReview": [
+        "CREATE TABLE IF NOT EXISTS dcc_application_round_link ("
+      ]
+    },
+    {
+      "migrationId": "20261001_dcc_b_manual_project_folder_origin",
+      "sha256": "68d1f21b98a4e318919691404094032ad24ac8b71453200470e602f1ee207eae",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_project_folder"
+      ]
+    },
+    {
+      "migrationId": "20261001_dcc_b_project_file_placement",
+      "sha256": "35a1d649406879cd1a5332b136ebdc4de2f40fc4e5a615b9e5156b788a7b8d52",
+      "statementsRequiringReview": [
+        "CREATE TABLE IF NOT EXISTS dcc_project_file_placement ("
+      ]
+    },
+    {
+      "migrationId": "20261001_dcc_b_project_product_audit_intent",
+      "sha256": "885c7806f07a51e2010e25b966c2d83accf16a384c07c4965b7e10d1968078fd",
+      "statementsRequiringReview": []
+    },
+    {
+      "migrationId": "20261001_dcc_b_reserved_draft_round",
+      "sha256": "48a5584639c1f4584247b040fee4825d8d70d291f520e28168b621bfd597e0f0",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_application_round_link MODIFY COLUMN bpm_round VARCHAR(64) COLLATE utf8mb4_bin NULL;"
+      ]
+    },
+    {
+      "migrationId": "20261002_dcc_c_initial_candidate_identity",
+      "sha256": "adb0dd8f1b536aeaf9f030ddb9c11797ac5ed4bdb4097031ca4541882d4e4e91",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_controlled_file MODIFY COLUMN c_version_key VARBINARY(288)"
+      ]
+    },
+    {
+      "migrationId": "20261003_dcc_approval_file_owner_snapshot",
+      "sha256": "68551ed616c76e9d160d18d7bffede41b495eef1c200859582962f4163c9cf1a",
+      "statementsRequiringReview": []
+    },
+    {
+      "migrationId": "20261003_dcc_controlled_file_activation_job_registration",
+      "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+      "statementsRequiringReview": [
+        "INSERT INTO infra_job(name,status,handler_name,handler_param,cron_expression,retry_count,retry_interval,monitor_timeout,creator,updater)"
+      ]
+    },
+    {
+      "migrationId": "20261003_dcc_project_reviewer_configuration",
+      "sha256": "1fe36f1472cdbd5a9ca0e58497439cb7b64afbe3d6df0869938672b9726abdc4",
+      "statementsRequiringReview": [
+        "CREATE TABLE IF NOT EXISTS dcc_project_reviewer_config (",
+        "updated_by BIGINT NOT NULL,",
+        "update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+      ]
+    },
+    {
+      "migrationId": "20261003_dcc_revision_failed_attempt_identity",
+      "sha256": "d849e3105a5db4ae59b8b6e08b28e7a5b83749b9f9a3e99e113516c36c90421d",
+      "statementsRequiringReview": [
+        "ALTER TABLE dcc_controlled_file ADD COLUMN revision_attempt_no INT NULL;",
+        "ALTER TABLE dcc_controlled_file ADD COLUMN rework_predecessor_controlled_file_id BIGINT NULL;",
+        "ALTER TABLE dcc_controlled_file MODIFY COLUMN c_version_key VARBINARY(320)",
+        "ALTER TABLE dcc_controlled_file ADD UNIQUE KEY uk_dcc_c_rework_predecessor(tenant_id,master_id,rework_predecessor_controlled_file_id);"
+      ]
+    }
+  ]
+}

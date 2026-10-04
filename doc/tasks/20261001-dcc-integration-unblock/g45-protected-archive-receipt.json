@@ -1,0 +1,49 @@
+{
+  "status": "SIX_WORKSPACES_HASH_VERIFIED_PROTECTED_ARCHIVE",
+  "receipts": [
+    {
+      "workspace": "C:\\IntRuoyiAll-int_main",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\IntRuoyiAll-int_main\\receipt.json",
+      "receiptSha256": "1330fb40400611ca0a5d9e55049e035223ee835353f25dd6f339f68afd692094",
+      "files": 1931,
+      "archiveBytes": 2077908839
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20261001-dcc-integration",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20261001-dcc-integration\\receipt.json",
+      "receiptSha256": "134834fdb71bebfc13633c17f89b3865ebd62a2ac78dd2603d633bac1eb4a51f",
+      "files": 1378,
+      "archiveBytes": 44601007
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-a",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-a\\receipt.json",
+      "receiptSha256": "d0437c30faff2f9251d2d309d955e50b3e40957c2dab91661398534140eba243",
+      "files": 552,
+      "archiveBytes": 1926289
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-b",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-b\\receipt.json",
+      "receiptSha256": "acd9a9d872a9d0ebdfe6f6862b8b364bec7fd7c4a82fc4a69839b069aca2b224",
+      "files": 519,
+      "archiveBytes": 1917955
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-c",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-c\\receipt.json",
+      "receiptSha256": "e2c84cac87e8dddb91a71ef27bf9f0fe281b81c84d08b0352a57adfb78b8c9bb",
+      "files": 474,
+      "archiveBytes": 1438075
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-d",
+      "receipt": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-d\\receipt.json",
+      "receiptSha256": "3951912bac966b3a7b4b2891d7f80bfc23c168c9728b9eacd92489ec6e98d0b1",
+      "files": 581,
+      "archiveBytes": 1795078
+    }
+  ],
+  "originalFilesDeleted": false,
+  "gitHistoryBundlePending": true
+}

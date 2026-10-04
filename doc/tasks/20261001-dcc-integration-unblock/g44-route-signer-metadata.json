@@ -1,0 +1,121 @@
+{
+  "status": "G44_ACTUAL_ROUTE_SIGNER_METADATA_READONLY",
+  "rows": [
+    {
+      "code": "DCC_FVM_DHF_002",
+      "name": "技术调研报告",
+      "categoryId": "908710",
+      "taxonomyId": "13"
+    },
+    {
+      "enabled": true,
+      "leaderId": "910326",
+      "nickname": "DCC E2E Owner A",
+      "username": "dccE2EOwnerA09286704",
+      "department": "DCC-E2E生产部-0922v1",
+      "departmentId": "910333"
+    },
+    {
+      "enabled": true,
+      "leaderId": "910327",
+      "nickname": "DCC E2E Owner B",
+      "username": "dccE2EOwnerB09284620",
+      "department": "DCC-E2E质量部-0923v1",
+      "departmentId": "910334"
+    },
+    {
+      "size": 5729,
+      "active": 0,
+      "fileId": "9198354931023",
+      "status": "SUPERSEDED",
+      "userId": "1",
+      "imageId": "1",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 5,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 9181,
+      "active": 0,
+      "fileId": "9198354931063",
+      "status": "SUPERSEDED",
+      "userId": "1",
+      "imageId": "4",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 0,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 5958,
+      "active": 0,
+      "fileId": "9198354931065",
+      "status": "SUPERSEDED",
+      "userId": "1",
+      "imageId": "5",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 107,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 4884,
+      "active": 0,
+      "fileId": "9198354931238",
+      "status": "SUPERSEDED",
+      "userId": "1",
+      "imageId": "6",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 16,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 9143,
+      "active": 0,
+      "fileId": "9198354931254",
+      "status": "UPLOADED",
+      "userId": "1",
+      "imageId": "7",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 0,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 9143,
+      "active": 0,
+      "fileId": "9198354931255",
+      "status": "SUPERSEDED",
+      "userId": "1",
+      "imageId": "8",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 18,
+      "contentType": "image/png",
+      "hashPresent": true
+    },
+    {
+      "size": 8638,
+      "active": 1,
+      "fileId": "9198354931264",
+      "status": "ACTIVE",
+      "userId": "1",
+      "imageId": "9",
+      "nickname": "瑛泰管理员",
+      "username": "admin",
+      "referenced": 18,
+      "contentType": "image/png",
+      "hashPresent": true
+    }
+  ],
+  "objectsVerified": false,
+  "writes": false,
+  "credentialsIncluded": false
+}

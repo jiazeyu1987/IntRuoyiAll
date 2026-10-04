@@ -1,0 +1,10 @@
+{
+  "status": "UNAPPROVED_26_OPERATION_REVIEW_ARTIFACT",
+  "operationCount": 26,
+  "sourceImpactSha256": "95b112d8add1cd116fbd3209727853a108fe3069c46e465fc8febb5a81578c76",
+  "policyHash": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "coverageHash": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+  "artifactSha256": "591a28e99a5d64deab30898aa977642aff46be7f9ce6165ea3c13a0ff30e5954",
+  "qualityApproved": false,
+  "configurationExecuted": false
+}

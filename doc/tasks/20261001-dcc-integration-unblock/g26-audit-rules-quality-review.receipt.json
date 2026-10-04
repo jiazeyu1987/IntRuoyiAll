@@ -1,0 +1,8 @@
+{
+  "status": "UNAPPROVED_REVIEW_ARTIFACT",
+  "operationCount": 25,
+  "sourceImpactSha256": "476b27400eacd1d8711cea10800f2d27645794446dc70eaac9749e073715f774",
+  "artifactSha256": "619299c39fe3d2739ef9f5684f3ee78de996e66c7fe69cbde1f5b67b113b2de0",
+  "qualityApproved": false,
+  "configurationExecuted": false
+}

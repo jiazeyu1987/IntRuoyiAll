@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="DCC 项目、文档、审批、版本、关联和引用的完整前端操作需求，包含项目属性默认值与申请快照。">
-  <title>DCC 文档管理 · 最终需求核对版 v1.3</title>
+  <title>DCC 文档管理 · 最终需求核对版 v1.6</title>
   <style>
     :root{--ink:#172b3a;--muted:#5c6f7b;--teal:#076d70;--teal-light:#e9f5f3;--paper:#fff;--line:#dce5e9;--bg:#f2f5f7;--amber:#925400;--amber-light:#fff5e4;--nav:#142f40}
     *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:26px}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;font-size:15px;line-height:1.85}a{color:var(--teal);text-decoration:none}a:hover{text-decoration:underline}a:focus-visible{outline:3px solid #dfaa50;outline-offset:4px}.skip{position:fixed;left:10px;top:-80px;z-index:20;background:white;padding:10px}.skip:focus{top:10px}.layout{display:grid;grid-template-columns:244px minmax(0,1fr);max-width:1580px;margin:auto}.sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;padding:32px 22px;background:var(--nav);color:white}.brand{font-size:28px;font-weight:800;letter-spacing:2px;line-height:1.2}.sidebar .caption{font-size:12px;color:#aac4d1;margin:10px 0 28px}.nav-label{font-size:11px;letter-spacing:1.8px;color:#8cb9c6;margin:23px 9px 8px}.sidebar a{display:flex;gap:10px;color:#e0eaf0;padding:7px 9px;border-radius:5px;font-size:13px;line-height:1.6}.sidebar a:hover{background:#24495d;text-decoration:none}.sidebar a span{color:#8bbcc8;font-variant-numeric:tabular-nums}.sidebar .nav-foot{font-size:11px;color:#a7bfcb;border-top:1px solid #315365;padding:18px 9px 0;margin-top:24px}.main{padding:42px 48px 58px;min-width:0}.hero{border-top:5px solid var(--teal);background:var(--paper);padding:34px 36px 30px;border-radius:0 0 10px 10px;box-shadow:0 8px 24px #183c4910}.eyebrow{font-size:12px;color:var(--teal);font-weight:700;letter-spacing:2px}h1{font-size:34px;line-height:1.35;margin:13px 0 14px;letter-spacing:.3px}.subtitle{color:var(--muted);max-width:820px;margin:0}.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:21px}.pill{border:1px solid var(--line);padding:3px 10px;border-radius:20px;font-size:12px;color:var(--muted);background:#fafcfd}.section{margin-top:25px;padding:29px 32px;background:var(--paper);border:1px solid var(--line);border-radius:10px;min-width:0}.section-head{display:flex;gap:14px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:19px}.number{display:grid;place-items:center;background:var(--teal-light);color:var(--teal);border-radius:7px;min-width:42px;height:42px;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}h2{font-size:23px;line-height:1.45;margin:2px 0 4px}h3{font-size:17px;margin:24px 0 10px;color:#183e52}h4{font-size:15px;margin:17px 0 6px}.section-head p{font-size:12px;color:var(--muted);margin:0}p{margin:10px 0}strong{font-weight:700}ul,ol{padding-left:22px;margin:10px 0}li{padding-left:3px;margin:5px 0}.flow{background:#f4f8fa;border-left:3px solid #87aeba;padding:15px 18px;margin:11px 0 16px;line-height:2.05}.flow b{color:#0b5d65}.flow .arrow{color:#79939f;margin:0 5px}.callout{padding:14px 18px;border-radius:6px;background:var(--teal-light);border:1px solid #c6e4df;margin:16px 0}.callout p:first-child{margin-top:0}.callout p:last-child{margin-bottom:0}.proposal{background:var(--amber-light);border:1px solid #edd7b2;border-left:3px solid #c88b2d;padding:12px 16px;border-radius:4px;margin:15px 0;font-size:13px}.proposal a{color:var(--amber);font-weight:700}.label{display:inline-block;font-size:11px;font-weight:700;line-height:1.7;padding:2px 8px;border-radius:4px;margin-right:7px;vertical-align:middle}.confirmed{background:#ddefe9;color:#126751}.suggested{background:#fff0d1;color:#885100}.existing{background:#e8eef9;color:#395b8c}.gap{background:#f8eaea;color:#995454}.small{font-size:12px;color:var(--muted)}.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:19px 0}.summary-card{border:1px solid var(--line);border-radius:7px;padding:15px}.summary-card b{display:block;font-size:15px;margin-bottom:5px}.summary-card p{font-size:13px;margin:0;color:var(--muted)}.main-flow{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:18px 0}.main-flow .stage{padding:10px 13px;background:#e8f4f2;color:#075f63;border:1px solid #b9dcd5;border-radius:6px;font-weight:700}.main-flow .stage.optional{border-style:dashed;background:white}.main-flow .stage.end{background:var(--teal);border-color:var(--teal);color:white}.main-flow .connector{color:#738d99;font-size:18px}.table-wrap{overflow-x:auto;margin:12px 0 17px}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75}caption{text-align:left;color:var(--muted);font-size:12px;padding-bottom:7px}th{text-align:left;background:#edf3f5;color:#244657;font-weight:700}td,th{padding:11px 13px;border:1px solid var(--line);vertical-align:top}td p:first-child{margin-top:0}td p:last-child{margin-bottom:0}tbody tr:nth-child(even){background:#fbfcfd}.nowrap{white-space:nowrap}.version{font-family:Consolas,"Microsoft YaHei",monospace;white-space:nowrap;font-weight:600;color:#175d6c}code{font-family:Consolas,"Microsoft YaHei",monospace;font-size:12px;background:#f0f4f6;padding:2px 4px;border-radius:3px;overflow-wrap:anywhere}.source{overflow-wrap:anywhere;font-family:Consolas,"Microsoft YaHei",monospace;font-size:12px}.field-sample{border:1px solid var(--line);padding:15px 18px;border-radius:7px;margin:13px 0}.field-row+.field-row{border-top:1px dashed var(--line);margin-top:12px;padding-top:12px}.field-name{font-weight:700;display:block;margin-bottom:4px}.choices{display:flex;flex-wrap:wrap;gap:7px 17px;color:#375362;font-size:13px}.required{color:#a4423b}.footer{text-align:center;color:var(--muted);font-size:12px;padding-top:26px}.acceptance td:first-child{width:76px;font-weight:700;color:var(--teal)}.note-title{font-size:13px;font-weight:700;color:var(--teal)}
@@ -50,7 +50,7 @@
       <div class="eyebrow">DOCUMENT CONTROL CENTER / REQUIREMENTS</div>
       <h1>DCC 文档管理<br>最终需求核对版</h1>
       <p class="subtitle">围绕“项目 → 存储文件夹 → 文件”，完整描述创建、上传、浏览、关联、审批、受控、下发、升版与引用的前端操作。纳入目标市场、产品注册与生产信息、文件转移三组项目默认属性。</p>
-      <div class="meta"><span class="pill">最终核对稿 v1.3</span><span class="pill">2026年9月30日</span><span class="pill">保留原始 12 项流程顺序</span><span class="pill">含原代码基础对照</span></div>
+      <div class="meta"><span class="pill">最终核对稿 v1.6</span><span class="pill">确认补充：2026年10月4日</span><span class="pill">保留原始 12 项流程顺序</span><span class="pill">含原代码基础对照</span></div>
     </header>
 
     <section class="section" id="overview">
@@ -58,7 +58,7 @@
       <p><span class="label confirmed">已确认</span>上传、升版的主流程统一为：</p>
       <div class="main-flow" aria-label="上传升版六阶段流程"><span class="stage">会签</span><span class="connector">→</span><span class="stage">批准</span><span class="connector">→</span><span class="stage optional">培训（如需）</span><span class="connector">→</span><span class="stage">文控审核</span><span class="connector">→</span><span class="stage">受控</span><span class="connector">→</span><span class="stage end">下发</span></div>
       <p class="small">部门负责人指派属于会签阶段。受控日期与生效日期分别记录，生效日期可以晚于受控日期；文控按生效日期先后处置下发。下发不设置失败或驳回业务分支。</p>
-      <div class="callout"><p><span class="label confirmed">作废流程</span><strong>会签 → 批准。</strong>批准通过即完成文件作废并结束流程，后面不再增加培训、文控审核、受控或下发节点。作废文件保留期内继续占用原编号和完整文件名称。</p><p>既有确认继续保留：统一“受控版本”术语；产品创建审核人待讨论；模板编辑仅校验权限；跨项目禁止同名新上传；所有升版版本展示实际变更类型；引用与取消仅限当前项目负责人；作废从文件选择器中所选文件的操作面板发起。</p></div>
+      <div class="callout"><p><span class="label confirmed">作废流程</span><strong>会签 → 批准。</strong>批准通过即完成文件作废并结束流程，后面不再增加培训、文控审核、受控或下发节点。作废文件保留期内继续占用原编号和完整文件名称。</p><p>既有确认继续保留：统一“受控版本”术语；产品创建审核人由后台配置，提交时带出；模板编辑仅校验权限；跨项目禁止同名新上传；所有升版版本展示实际变更类型；引用与取消仅限当前项目负责人；作废从文件选择器中所选文件的操作面板发起。</p></div>
       <div class="summary-grid">
         <div class="summary-card"><b>新版生效，旧版自动作废</b><p>检入、送审和提前受控不使旧版失效。新版生效时，旧版自动作废，无需另发申请；生效日前旧版继续用于执行。</p></div>
         <div class="summary-card"><b>关联跟随最新受控版</b><p>关联当前展示始终解析到最新受控版本。未受控的小版本不替换目标，历史审批证据保持原样。</p></div>
@@ -69,7 +69,7 @@
         <tr><td>文件关联</td><td>文件与文件之间的业务联系，不改变归属、不自动增加文件夹入口。</td><td>A关联B；B新版受控后，A的当前关联展示更新。</td></tr>
         <tr><td>项目引用</td><td>一个项目文件夹使用其他位置的已有文件，不复制正文。</td><td>引用、显示引用项目数、取消引用。</td></tr>
       </tbody></table></div>
-      <p><span class="label suggested">口径追踪</span>D01–D10集中列于<a href="#decisions">第15项</a>。本版按2026年9月30日最新确认更新流程、日期及同名规则，并已确定新版生效时旧版自动作废。保留期长度和提醒提前量等未定细节仍单独标明。</p>
+      <p><span class="label confirmed">确认补充</span>D01–D10集中列于<a href="#decisions">第15项</a>。已确定新版生效时旧版自动作废；2026年10月1日补充确认：培训由文控上传线下培训文件即可完成，作废文件保存20年。不新增逐人线上确认或第二培训审批节点；期满处置权限等未定细节仍单独标明；业务时区Asia/Shanghai、提前7天工作台提醒和每分钟生效检查已确认。</p>
       <p class="small">范围：DCC项目与产品、受控文件及其管理配置。文档不是界面原型，也不表示生产代码、数据库或已部署流程已按此实现；现有基础与差异见第14项。</p>
     </section>
 
@@ -128,13 +128,14 @@
       </div>
       <p class="small">以上是字段展示说明，不是可提交的表单。MADSAP按原需求拼写保留，界面正式命名前核对；不在本需求中自行改名。</p>
       <h3>a. 审核、批准</h3>
-      <div class="flow">审核人（待讨论）收到申请 → 打开申请 → 查看项目、产品、模板及三组属性 → 审核通过 → 批准人进入待办 → 查看申请与审核意见 → 批准通过 → 系统创建项目和产品。</div>
-      <p><span class="label suggested">待讨论</span><strong>产品创建流程由谁负责审核，暂不指定。</strong>不把当前代码的admin限制或先前建议的角色配置当作最终业务决定。审核节点保留，具体负责人待讨论后填写。</p>
+      <div class="flow">后台配置的审核人收到申请 → 打开申请 → 查看项目、产品、模板及三组属性 → 审核通过 → 批准人进入待办 → 查看申请与审核意见 → 批准通过 → 系统创建项目和产品。</div>
+      <p><span class="label confirmed">已确认</span><strong>项目及产品创建的审核人由后台配置，提交时按配置带出。</strong>配置使用正式启用账号；缺配置明确提示且不提交，不能默认指定admin。每次申请保留提交时的审核人员身份和实际审核证据。</p>
+      <p><span class="label confirmed">2026年10月4日确认</span>批准创建项目时，在创建项目、产品及存储目录的同一事务中，为申请中选定的正式启用项目负责人建立一条 USER/OWNER 项目权限。负责人据此进入项目目录及办理授权范围内的文件操作；申请人、审核人、批准人和管理员不自动获得该项目权限，其他人员以后通过正式权限配置加入。初始化失败不得出现部分创建成功，已完成申请再次办理不得覆写现有权限。</p>
       <p>任一环节驳回 → 申请人收到通知 → 打开原申请查看原因 → 修改后重新提交。创建失败时显示失败原因，不显示创建成功或留下可正常使用的残缺项目。</p>
       <h3>b. 维护项目默认属性</h3>
       <div class="flow">进入项目详情 → 点击编辑项目属性 → 修改三组默认值 → 保存 → 后续新发起的上传、升版、作废申请带出新的默认值。</div>
       <p>既有文件版本、已提交申请及已保存草稿的实际值保持不变。项目属性编辑权限需与项目管理权限一致，并保留修改前后记录。</p>
-      <div class="proposal"><a href="#decision-02">D02</a> 建议项目负责人使用系统账号选择。产品创建审核人明确待讨论；批准人配置与本人兼任限制也未在本稿中确定。当前负责人文本输入和固定admin审核批准仅作为现状记录。</div>
+      <div class="proposal"><a href="#decision-02">D02</a> 建议项目负责人使用系统账号选择。产品创建审核人已确认由后台配置并在提交时带出；批准人配置与本人兼任限制也未在本稿中确定。当前负责人文本输入和固定admin审核批准仅作为现状记录。</div>
     </section>
 
     <section class="section" id="flow-04">
@@ -216,11 +217,11 @@
       <p>所有部门的会签任务全部通过后才进入批准。通过和不通过都需要有效电子签名；签名绑定办理人、本次申请、所审版本、操作结果和时间。</p>
       <h3>d. 批准</h3>
       <div class="flow">矩阵配置的批准人收到待办 → 打开批准弹框 → 查看文件正文、基础信息、三组属性及全部会签意见 → 确认文件负责人 → 填写批准意见 → 选择通过或不通过 → <b>电子签名确认</b>。</div>
-      <div class="proposal"><a href="#decision-02">D02</a> 建议在批准弹框确认文件负责人，默认申请人且可以调整，不另增“选择文件负责人”审批节点。负责人承担后续维护、培训组织和文控交接职责。</div>
+      <div class="callout"><p><span class="label confirmed">已确认</span>上传、升版由批准人在批准弹框中选择文件负责人，与本次批准及电子签名一并保存，不新增审批节点。所选负责人使用正式启用账号，历史保留本次人选；不默认指定申请人。独立作废流程不增加负责人选择。</p></div>
       <h3>e. 培训，如需要</h3>
-      <div class="flow">批准通过 → 判断本次申请的培训CheckBox → 未勾选则跳过培训并进入文控审核 → 已勾选则进入培训任务 → 文件负责人组织培训 → 记录参与人及完成证据 → 完成培训确认 → 进入文控审核。</div>
+      <div class="flow">批准通过 → 判断本次申请的培训CheckBox → 未勾选则跳过培训并进入文控审核 → 已勾选则进入培训节点 → 文控上传该文件本次申请的线下培训文件 → 确认上传 → 进入文控审核。</div>
       <p>培训使用本次已批准、内容冻结的正文，标识“待受控”。不能为了培训预览提前盖受控章或提前作废旧版；未勾选时不创建培训待办和培训通知。</p>
-      <div class="proposal"><a href="#decision-06">D06</a> 建议明确培训名单，名单内人员全部完成后才通过。使用在线学习确认或正式培训记录的具体方式、核验人及完成标准需确定，不能以空名单或单纯上传任意附件自动完成培训。</div>
+      <div class="callout"><a href="#decision-06">D06</a> <strong>已确认：</strong>文控上传线下培训文件即可完成本次培训节点，不要求系统逐人学习确认、全员完成核验或另一个培训批准节点。上传文件须绑定当前文件、版本及真实申请轮次，上传或绑定失败不能报告完成。</div>
       <h3>f. 文控审核</h3>
       <div class="flow">批准及必要培训完成 → 文控收到<b>审核</b>任务 → 打开审核弹框 → 查看本次冻结正文、名称、编号、版本、生效日期、三组属性、关联、会签指派和签名、批准记录及培训证据 → 核对生效日期是否合理 → 选择通过或驳回 → <b>电子签名确认</b>。</div>
       <p>文控审核通过才进入受控。若正文或信息有误、必需证据不足、生效日期不合理，文控填写原因并签名驳回到申请人修正。文控审核和受控之后的下发是两个不同节点，不能合并。</p>
@@ -237,7 +238,7 @@
         <li>日期检查在编制提交和文控审核时进行；建议生效日期不得早于实际受控日期。如果审批拖延导致日期已过，提示调整申请并重新审核，不能静默改为今天或追溯生效。</li>
         <li>提前提醒多少天、是否每日提醒及具体提醒渠道尚未指定，本稿不编造固定天数。明确为可配置项并供业务核对。</li>
       </ul>
-      <div class="table-wrap"><table><caption>日期示例，仅说明顺序，不预设提醒提前天数</caption><thead><tr><th>日期</th><th>操作与展示</th><th>文控处置</th></tr></thead><tbody>
+      <div class="table-wrap"><table><caption>日期示例；业务提醒提前7天，时间按Asia/Shanghai计算</caption><thead><tr><th>日期</th><th>操作与展示</th><th>文控处置</th></tr></thead><tbody>
         <tr><td>10月1日</td><td>编制时预设10月10日生效，提交审批。</td><td>待办显示预设生效日期，按此日期排序。</td></tr>
         <tr><td>10月5日</td><td>文控审核通过并完成受控，受控日期记录为10月5日；生效日期仍为10月10日，显示“已受控、待生效”。</td><td>按配置的临期提醒办理下发；提前下发的文件标明10月10日前不得执行。</td></tr>
         <tr><td>10月10日</td><td>该受控版本按预设日期生效，同时旧版自动作废；10月5日至生效前仍按旧版执行。</td><td>仍未处置的事项显示到期提醒；登记旧纸件回收及相关处置，保留旧版历史。</td></tr>
@@ -256,7 +257,7 @@
       <div class="callout"><p><a href="#decision-05">D05</a> <span class="label confirmed">已确认</span><strong>作废流程在批准节点结束。</strong>批准通过即完成作废，不增加培训、文控审核、受控或下发。作废后的消息、纸件回收如需执行属于独立后续处置记录，不成为本申请继续流转的节点，也不推迟作废结果。</p></div>
       <h3>l. 保留期内占用编号和名称</h3>
       <div class="flow">批准完成作废，或旧版按规则自动作废 → 保留正文、版本和签核记录 → 记录作废日期与保留期限 → 保留期内继续占用原编号及完整名称 → 新建上传校验占用 → 保留期到期后按确认的归档和释放规则处置。</div>
-      <p><span class="label confirmed">已确认</span>独立作废文件和自动作废的旧版均保留历史；保留期限内，不允许另一条新文件链冒用被占用编号或相同完整名称。原文件链的新受控版本仍可沿用自身编号与名称，不被自己的历史版本阻断。保留期长度及期满处置权限待明确，期满不等于自动删除或自动释放仍由当前受控版本占用的名称与编号。</p>
+      <p><span class="label confirmed">已确认</span>独立作废文件和自动作废的旧版均保存20年；保留期限内，不允许另一条新文件链冒用被占用编号或相同完整名称。原文件链的新受控版本仍可沿用自身编号与名称，不被自己的历史版本阻断。本轮实施口径从实际作废日期起算；期满处置权限仍待明确，期满不等于自动删除证据或释放仍由当前受控版本占用的名称与编号。</p>
     </section>
 
     <section class="section" id="flow-10">
@@ -279,6 +280,7 @@
         <tr><td>新版后继续修改</td><td class="version">A/2 → A/2-1 → A/2-2</td><td>以新正式版为基础累积小版本。</td></tr>
         <tr><td>升版审批不通过</td><td>保留送审版本及记录</td><td>原受控版保持受控，关联不切换。</td></tr>
       </tbody></table></div>
+      <p><span class="label confirmed">已确认</span><strong>升版被驳回后重提沿用原目标受控版本号。</strong>例如A/1升A/2被驳回，修改后仍申请A/2；每次失败申请、审批流程、正文来源、属性快照和签名历史独立保留，不自动跳到A/3，不删除或覆盖旧申请。</p>
       <p>初始版本输入的是正式版本号；小版本编号由系统生成。升版时先展示目标号，完成文控审核并受控后成为最新受控版本；尚未到生效日期时标识“待生效”，旧版继续用于执行。新版生效时旧版自动作废，原名称和编号仍由本逻辑文件链占用。</p>
       <h3>e. 在文件详情区分变更来源</h3>
       <div class="flow">通过文件列表或选择器选择文件 → 进入文件详情 → 查看<b>变更类型</b>、来源受控版本、选用小版本、变更说明和审批记录 → 明确当前查看的版本由局部变更还是换版变更形成。</div>
@@ -358,7 +360,7 @@
       <div class="table-wrap"><table><thead><tr><th>业务范围</th><th>当前可复用基础</th><th>本需求需要调整／补充</th><th>依据</th></tr></thead><tbody>
         <tr><td>上传</td><td>项目、模板分类、文件上传、生效日期、编号、初始版本、培训开关。</td><td>按项目文件夹组织步骤，部门增删、三组属性、统一关联窗口和二次确认；保留编制时预设生效日期，单独记录受控日期；完整名称按大小写精确判重并纳入作废保留期占用。</td><td><a href="#source-01">S01</a></td></tr>
         <tr><td>浏览</td><td>正文预览、基础信息、历史版本和项目文档入口。</td><td>统一项目目录及搜索入口，增加属性、关联最新版本、引用统计和明确历史状态。</td><td><a href="#source-02">S02</a></td></tr>
-        <tr><td>项目和产品</td><td>“新建项目代码及产品”弹框、申请、审核与批准。</td><td>三组默认属性、模板选择、负责人账号；当前审核批准限定admin，但产品创建审核人待讨论，不沿用为最终需求。</td><td><a href="#source-03">S03</a></td></tr>
+        <tr><td>项目和产品</td><td>“新建项目代码及产品”弹框、申请、审核与批准。</td><td>三组默认属性、模板选择、负责人账号；当前审核批准限定admin，但产品创建审核人由后台配置，提交时带出，不沿用为最终需求。</td><td><a href="#source-03">S03</a></td></tr>
         <tr><td>文件夹模板</td><td>逐项目文件模板编辑、目录管理。</td><td>当前模板主要是分类＋预设文件名；需补可复用文件夹模板库和创建项目时选用。模板编辑仅校验权限，不新增审批。</td><td><a href="#source-04">S04</a></td></tr>
         <tr><td>文件类型／矩阵</td><td>文件分类维护、矩阵和路线编辑。</td><td>统一文件类型映射、申请部门调整；上传升版固定会签、批准、可选培训、文控审核、受控、下发。作废会签后批准结束，各动作不互借路线。</td><td><a href="#source-05">S05</a></td></tr>
         <tr><td>关联</td><td>同项目候选、正式关联保存和关系继承。</td><td>跨项目候选、统一选择器；当前绑定具体版本且校验同项目，需支持当前关系解析最新受控版并保留历史快照。</td><td><a href="#source-06">S06</a></td></tr>
@@ -392,23 +394,23 @@
       <div class="section-head"><span class="number">15</span><div><h2>口径确认与待讨论项</h2><p>保留D01–D10追踪编号，本轮已确认内容单独注明，不再当作待定建议</p></div></div>
       <div class="table-wrap"><table><thead><tr><th>编号</th><th>当前口径与确认状态</th><th>实施前仍需要明确的范围</th></tr></thead><tbody>
         <tr id="decision-01"><td>D01<br>属性控件</td><td>市场多选，N/A互斥；注册人/生产方分别单选；“其他”和“转移至”条件必填。</td><td>MADSAP正式名称；转移目标是文本、项目、组织还是外部单位；属性记录是否需要另外触发实际转移。</td></tr>
-        <tr id="decision-02"><td>D02<br>人员职责</td><td><strong>产品创建审核人：待讨论。</strong>建议负责人选账号，文件批准时确认文件负责人，不新增独立节点；引用和取消引用仅由当前项目负责人办理已确认。</td><td>产品创建审核人、批准人及本人兼任限制；文件负责人确认方式和多人批准策略。</td></tr>
+        <tr id="decision-02"><td>D02<br>人员职责</td><td><strong>项目及产品创建审核人：已确认由后台配置，提交时按配置带出；批准创建时仅为选定项目负责人初始化正式 USER/OWNER 权限。</strong>上传、升版由批准人在批准弹框中选择文件负责人，不新增审批节点；引用和取消引用仅由当前项目负责人办理已确认。</td><td>批准人及本人兼任限制、文件负责人具体候选权限和多人批准策略。审核人来源、负责人初始权限及负责人选择位置不再列为待讨论。</td></tr>
         <tr id="decision-03"><td>D03<br>驳回修正</td><td>会签、批准或文控审核驳回后返回申请人；取消本轮未完任务，重新提交后完整重走。文控审核须签名。</td><td>会签“返回上一个节点”的精确落点；培训证据重用边界。文控审核驳回回到申请节点沿用原需求。</td></tr>
-        <tr id="decision-04"><td>D04<br>受控与生效日期</td><td><strong>已确认：</strong>编制时预设生效日期，可晚于受控日期；按生效日期从早到晚提醒文控。新版生效时自动作废旧版，提前受控期间旧版继续执行；关联在新版受控后展示新版并标识待生效。</td><td>日期过期如何修正、提醒提前量和渠道仍待明确。旧版自动作废时点已确定，不再列为待核对。</td></tr>
-        <tr id="decision-05"><td>D05<br>作废与保留期</td><td><strong>已确认：</strong>从所选受控文件操作面板发起；会签 → 批准，批准通过作废并结束。保留期限内原编号、完整文件名称继续占用，不能供另一条新文件链使用。</td><td>保留期限长度、起算规则、期满归档及释放审批权限；期满不自动删除证据。同一文件链升版沿用自身编号名称不被阻断。</td></tr>
-        <tr id="decision-06"><td>D06<br>培训与下发记录</td><td>建议明确名单并核验全部培训完成。文控确认下发后完成下发，不设置失败业务分支；接收、签收、纸件回收单独记录。</td><td>培训执行方式与核验人；接收、签收、回收记录的办理职责；下发是否需要独立电子签名。</td></tr>
+        <tr id="decision-04"><td>D04<br>受控与生效日期</td><td><strong>已确认：</strong>编制时预设生效日期，可晚于受控日期；业务时区Asia/Shanghai，提前7天在工作台按生效日期从早到晚提醒文控，每分钟检查生效。新版生效时自动作废旧版，提前受控期间旧版继续执行；关联在新版受控后展示新版并标识待生效。</td><td>日期过期如何修正仍需明确。提醒时区、提前量、渠道及检查频率、旧版自动作废时点已确定，不再列为待核对。</td></tr>
+        <tr id="decision-05"><td>D05<br>作废与保留期</td><td><strong>已确认：</strong>从所选受控文件操作面板发起；会签 → 批准，批准通过作废并结束；作废文件保存20年。保留期内原编号、完整文件名称继续占用，不能供另一条新文件链使用。</td><td>本轮实施从实际作废日期起算；期满归档及释放审批权限仍待明确，期满不自动删除证据。同一文件链升版沿用自身编号名称不被阻断。</td></tr>
+        <tr id="decision-06"><td>D06<br>培训与下发记录</td><td><strong>已确认：</strong>勾选培训时，由文控上传线下培训文件即可完成培训节点并进入文控审核；不增加逐人线上确认或第二培训批准节点。文控确认下发后完成下发，不设置失败业务分支。</td><td>接收、签收、纸件回收记录的办理职责及下发是否需要独立电子签名仍待明确；培训方式和完成标准不再列为待讨论。</td></tr>
         <tr id="decision-07"><td>D07<br>部门增删</td><td>区分必选和可调整部门，申请修改仅影响本次；保存调整原因。</td><td>是否允许删除任何矩阵部门；必选部门维护权限；不得在未确认前削弱原“可增删”需求。</td></tr>
         <tr id="decision-08"><td>D08<br>关联整改</td><td>按实际受控后N天计时；同一文件一个责任人、一个期限；受控后才通知。</td><td>期限单位、冲突协调角色、超期处理；同时多条变更涉及同一关联文件时的协调办法。</td></tr>
-        <tr id="decision-09"><td>D09<br>版本与名称</td><td><strong>已确认：</strong>所有升版版本详情展示实际局部／换版类型。完整文件名含后缀、区分大小写全部一致才同名；后缀不同为不同文件；保留期内作废名称仍占用。</td><td>Z之后字母规则、小版本历史选取范围、失败目标版本号是否复用。名称大小写和后缀规则已确定，不再列为待讨论。</td></tr>
+        <tr id="decision-09"><td>D09<br>版本与名称</td><td><strong>已确认：</strong>所有升版版本详情展示实际局部／换版类型；可以选择合法的较早小版本正文送审。驳回重提沿用原目标号，例如仍申请A/2，并保留每次失败申请、BPM、正文、属性及签名历史。完整文件名含后缀、区分大小写全部一致才同名；后缀不同为不同文件；保留期内作废名称仍占用。</td><td>Z之后字母规则及合法小版本的具体权限边界仍需明确。较早合法正文可选、失败目标号复用、名称大小写和后缀规则已确定，不再列为待讨论。</td></tr>
         <tr id="decision-10"><td>D10<br>目录与引用</td><td><strong>已确认：</strong>编辑文件夹模板仅校验权限、不走审批；引用与取消仅由当前项目负责人办理。建议模板不自动改已有项目，引用按项目去重并跟随最新受控版。</td><td>已有目录调整规则、源文件橙色范围及“引用也跟随最新”是否采用。模板编辑权限规则和引用操作者限制不再作为待定项。</td></tr>
       </tbody></table></div>
-      <p class="small">本轮交付完整最终核对稿，保留必要的待讨论标识。产品创建审核人、保留期长度、提醒提前量等细节仍待讨论；新版生效时旧版自动作废已确认。已确认主流程、日期分离、完整名称判重及保留期占用不因未定细节而变回待定规则。</p>
+      <p class="small">本轮交付完整最终核对稿，保留必要的待讨论标识。期满处置权限等细节仍待讨论；时区Asia/Shanghai、提前7天工作台提醒和每分钟生效检查已确认；项目及产品审核人由后台配置、失败升版重提沿用原目标号并保留历史、新版生效时旧版自动作废、文控上传线下文件完成培训及作废保存20年已确认。已确认内容不因未定细节而变回待定规则。</p>
     </section>
 
     <section class="section" id="acceptance">
       <div class="section-head"><span class="number">16</span><div><h2>验收清单</h2><p>以下为后续实现的验收要求，不是本轮已经通过的测试结果</p></div></div>
       <div class="table-wrap"><table class="acceptance"><thead><tr><th>编号</th><th>前端操作场景</th><th>应看到的业务结果</th></tr></thead><tbody>
-        <tr><td>AC-01</td><td>产品创建审核人讨论确定后，按确认的人员创建项目、填写模板及三组属性并审核批准。</td><td>项目产品可用，文件夹按所选模板生成，三组默认值准确回显；本稿不把admin指定为最终审核人。</td></tr>
+        <tr><td>AC-01</td><td>在后台配置项目及产品审核人，创建项目、填写模板及三组属性并审核批准；提交后再修改审核配置。</td><td>提交时带出并保存当时审核账号；后续改配置不改变旧申请审核身份。项目产品可用，文件夹按模板生成，三组默认值准确回显；批准创建同事务为选定负责人建立一条正式 USER/OWNER 权限，负责人能进入新项目及目录，其他人员不被自动授权，初始化失败整体回滚。缺配置或账号不可用时明确拒绝提交。</td></tr>
         <tr><td>AC-02</td><td>上传时选择项目并修改带出的属性，提交。</td><td>申请保存修改值；项目默认值、其他文件不变；会签与批准看到相同申请值。</td></tr>
         <tr><td>AC-03</td><td>文件原属性与项目默认不同，分别发起升版、作废。</td><td>两种新申请都先带出项目默认值，允许修改；作废申请不覆盖旧版历史属性。</td></tr>
         <tr><td>AC-04</td><td>修改项目默认值，再查看草稿、在途流程和历史版本。</td><td>已保存值不被覆盖；新申请带出新的项目默认值。</td></tr>
@@ -434,10 +436,11 @@
         <tr><td>AC-24</td><td>文件作废后，在其保留期限内用原编号、原完整名称发起另一条文件链上传。</td><td>编号和名称都仍被占用，不能因作废绕过；同一逻辑文件自己的后续版本不受历史占用阻断。</td></tr>
         <tr><td>AC-25</td><td>编制时预设晚于受控日期的生效日期，完成文控审核和受控，随后到达生效日。</td><td>两日期分别保存；受控后待生效，旧版继续执行；到预设日期新版生效并自动作废旧版，切换和历史记录一致。日期已过时不能静默改期或追溯生效。</td></tr>
         <tr><td>AC-26</td><td>存在不同生效日期、已到期、临期及已处置文件，文控打开待处置列表。</td><td>按生效日期升序排列并优先提醒到期事项；已处置不重复作为未办理提醒；提前天数按明确配置，不凭空补值。</td></tr>
+        <tr><td>AC-27</td><td>A/1申请升到A/2被驳回，修改正文后连续重新提交，并逐次打开失败申请与新申请。</td><td>正式目标仍为A/2；各次申请拥有独立文件身份、正文来源、BPM、默认来源、实际属性及签名历史。失败历史不删除、不改号、不被新申请覆盖；新版生效之前A/1仍为当前执行受控版本。</td></tr>
       </tbody></table></div>
       <p class="small">实现时需分别覆盖上传、升版、作废三种属性继承路径，以及关联和引用两种独立关系。真实业务E2E仅在用户明确要求的当轮执行，并按仓库规则通过真实前端页面办理。</p>
     </section>
-    <footer class="footer">DCC 文档管理 · 最终需求核对版 v1.3 · 2026-09-30<br>以本轮用户最新确认优先；待核对口径单独标识。单文件离线阅读，浏览器打印可另存为PDF。</footer>
+    <footer class="footer">DCC 文档管理 · 最终需求核对版 v1.6 · 确认补充：2026-10-04<br>新增已确认负责人初始权限；其余最新确认及待核对口径保持。单文件离线阅读，浏览器打印可另存为PDF。</footer>
   </main>
 </div>
 </body>

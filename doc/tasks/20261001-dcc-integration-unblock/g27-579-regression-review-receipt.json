@@ -1,0 +1,15 @@
+{
+  "status": "ROOT_REVIEWED_ACTUAL_TARGETED_REGRESSION_PASS_PENDING_SELECTOR_FIX",
+  "tests": 579,
+  "classes": 17,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "logPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g26-final-regression.log",
+  "logSha256": "05f3b9aaa5cacb64fe685d1899437094151b62ea18a2cddd7ce32a09f190594a",
+  "actualDatabaseExecution": false,
+  "objectRecoveryExecuted": false,
+  "qualityApprovalExists": false,
+  "knownNextCodeFix": "Unified selector must read exact verified legacy name after permission and search using same candidate/count/page predicate",
+  "scope": "Integration H2/Spring/real Gxp kernel tests; source storage and identity ports replaced only in isolated tests"
+}

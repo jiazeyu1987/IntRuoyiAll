@@ -1,0 +1,12 @@
+{
+  "source": "User answer to request_user_input_async call_zm27mvXIHYGNt4mLsFB7FWPj",
+  "answer": "尚未批准",
+  "qualityApprovalExists": false,
+  "qualityApprovalAccountPreviouslyProvided": "admin",
+  "qualityApprovalTimeInvented": false,
+  "qualitySignatureInvented": false,
+  "audit25ConfigurationExecuted": false,
+  "newQualityApprovalRegistrationExecuted": false,
+  "priorConditionalWriteAuthorizationStillRecorded": true,
+  "nextGate": "An actual quality approval and signature for the exact policy and coverage must precede registration and enabling the 25 operations."
+}

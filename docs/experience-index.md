@@ -1,8 +1,12 @@
 # 项目经验索引
 
+- Keywords: DCC审批旧readiness续签、新弹框ABA、原签名成功晚响应、route换文件仍旧detail、相同HTTP条件切所选file/Master -> `docs/frontend-development.md#前端确认提交上下文来源门禁`。
+- Keywords: DCC旧迁移hash精确历史来源、缺ledger但结构已满足、严格19白名单与25外部事实、旧种子不能重放、原列逐行hash、MySQL DDL隐式提交 -> `docs/database-rules.md#新生命周期数据迁移历史保护门禁`。
+- Keywords: DCC历史原名、元数据不是正文、NoSuchKey、3对象4引用、If-None-Match条件恢复、PUT结果不确定、PREPARED跨scope污染、真实bucket锁策略、质量尚未批准 -> `docs/database-rules.md#历史原名核验与缺失对象恢复门禁`。
 - 分支是否最新 / 目录名与分支不一致 / 融合最新主线：`docs/powershell-memory.md#合并前确认分支和远端版本`。
 
 - Keywords: DCC 90步静态检查, 新项目授权入口, 产品建档续办, 模板分类与上传不一致, 检入丢关联, 审批预览旧原件, 影响评估小版本跟踪 -> `docs/bugs/20260912-dcc-90-step-static-audit.md`；检查顺序 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`
+- Keywords: DCC历史原名登记、sidecar保留期限审计、GxP原子回滚、受保护facts单buffer、scope精确集合、NoSuchKey阻断激活 -> `docs/database-rules.md#历史原名核验与缺失对象恢复门禁`
 - Keywords: DCC 路线配置未执行, 重复审批环节丢人, 路线未来生效, CAD配套PDF, 仅元数据检入, 重放文本碰撞, 培训并发计时, 发布连续重试, Master逻辑身份漂移, 大版本正式基线 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`；追加静态证据 -> `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`
 - Keywords: DCC 大版本通知门禁, 可配置大版本身份, majorIdentitySegmentCount, A/1 A/2 小版本, A/1 B/1 大版本, A/1/1 A/1/2 小版本, 关联新版通知只走大版本, DccControlledFileVersionPolicy -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁` and `docs/backend-development.md#发布后续账本与业务可见快照门禁`
 

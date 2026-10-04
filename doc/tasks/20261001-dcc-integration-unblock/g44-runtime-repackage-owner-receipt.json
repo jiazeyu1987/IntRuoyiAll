@@ -1,0 +1,9 @@
+{
+  "status": "OWNED_SLOT6_BACKEND_STOPPED_FOR_ACCEPTED_AUDIT_PACKAGE",
+  "pid": 12928,
+  "port": 48067,
+  "acceptedIndependentReviewSha256": "e1060dbf52d206a1a4e41fbf63ac769eb4a1645292423fbba6702d849298ba00",
+  "originalRunningJarSha256": "a574f1e945b8bf78ed13dad69baafc20ee886ddc11551aa861164dc9932feabb",
+  "oldJarPreserved": true,
+  "noOtherServiceStopped": true
+}

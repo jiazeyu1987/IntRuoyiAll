@@ -1,0 +1,53 @@
+{
+  "status": "CURRENT_READONLY_RUNTIME_GATES_CAPTURED_NOT_BUSINESS_ACCEPTANCE",
+  "querySha256": "ad548f7ea139d323b3eadf3e1d8cd58270c2091f9458b5aaaf169baf778cdb06",
+  "exitCode": 0,
+  "facts": [
+    {
+      "kind": "identity",
+      "database": "ruoyi-vue-pro",
+      "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+      "mysqlVersion": "8.0.40",
+      "capturedAtUtc": "2026-10-04T00:38:21Z"
+    },
+    {
+      "kind": "sidecarTables",
+      "count": 0
+    },
+    {
+      "kind": "sidecarLedger",
+      "count": 0
+    },
+    {
+      "kind": "newQualityPolicyVersion",
+      "count": 0
+    },
+    {
+      "kind": "newActiveAuditOperations",
+      "count": 0
+    },
+    {
+      "kind": "legacyClaimsMissingOriginalName",
+      "count": 25
+    }
+  ],
+  "liveJavaCount": 0,
+  "listeners": [],
+  "git": [
+    {
+      "workspace": "C:\\IntRuoyiAll-int_main",
+      "branch": "int_qms",
+      "head": "a801dc8b91579241e221d129ab34343997673f40",
+      "stagedCount": 0
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20261001-dcc-integration",
+      "branch": "codex/20261001-dcc-integration",
+      "head": "a801dc8b91579241e221d129ab34343997673f40",
+      "stagedCount": 0
+    }
+  ],
+  "actualWrites": false,
+  "actualServiceActions": false,
+  "actualBrowserActions": false
+}

@@ -1,0 +1,17 @@
+{
+  "source": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "target": "C:\\IntRuoyi\\20260930-dcc-b",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccLatestControlledFileResolverImpl.java",
+      "before_sha256": "db2c3e608859b9beac0cf09d8274ae7b5b992246d3061532059d8582b3c319b0",
+      "sha256": "5056ee58fec2a49d40f953203e423b5555c5a735946ce341fb610097f6cb8cec"
+    },
+    {
+      "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+      "before_sha256": "960422b369f9b664879c981fd0c74cbb1f5f908746ed33047e54866a8a5a4527",
+      "sha256": "b8265cef009c7fa64d65fa991d61d5b67bcbbc9a132b58d7fce7170bd5218d7d"
+    }
+  ],
+  "other_worker_or_owner_source_written": false
+}

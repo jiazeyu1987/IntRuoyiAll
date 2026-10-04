@@ -1,0 +1,9 @@
+{
+  "status": "OFFLINE_MAIN_PACKAGE_COMPLETED_NOT_RUNTIME_ACCEPTANCE",
+  "exitCode": 0,
+  "command": "mvn -o -pl yudao-server -am package '-DskipTests'",
+  "branch": "codex/20261001-dcc-integration",
+  "log": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g35-main-package.log",
+  "actualDatabaseWrites": false,
+  "actualServiceStarted": false
+}

@@ -1,0 +1,14 @@
+{
+  "status": "READONLY_PREREQUISITE_FACTS_CAPTURED_NOT_MIGRATION_PASS",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "innodbPageSize": 16384,
+  "innodbDefaultRowFormat": "dynamic",
+  "newTablesPresent": 0,
+  "targetLedgerRows": 0,
+  "databaseWrites": false,
+  "newStandaloneMigrationAuthorized": false,
+  "factsPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g27-legacy-schema-readiness.jsonl",
+  "factsSha256": "252b699b7ae740fbaac68ae4609bd26bca3b9ac8a7a9ab68a676361b78de8d6d"
+}

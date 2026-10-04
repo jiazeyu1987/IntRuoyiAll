@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "sha256": "ca0992e56e7387123212bc6f394904681dacf2972185dee4bf54e5a9e1f64236",
+  "acceptanceRows": 27,
+  "htmlIds": 40,
+  "localAnchors": 44,
+  "ownerLocation": "MATRIX_APPROVAL_DIALOG",
+  "runtimeVerified": false
+}

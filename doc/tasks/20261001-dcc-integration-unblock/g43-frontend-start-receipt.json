@@ -1,0 +1,9 @@
+{
+  "status": "OWNED_SLOT6_FRONTEND_STARTING",
+  "pid": 42328,
+  "port": 8067,
+  "backendPort": 48067,
+  "mode": "branch-qms",
+  "usesInstalledViteDirectly": true,
+  "configurationMatchesBranchLauncher": true
+}

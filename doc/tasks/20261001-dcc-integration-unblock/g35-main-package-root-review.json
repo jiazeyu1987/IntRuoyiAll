@@ -1,0 +1,45 @@
+{
+  "status": "ROOT_REVIEWED_CURRENT_MAIN_FLOW_JAR_NOT_RUNTIME_ACCEPTANCE",
+  "packageExitCode": 0,
+  "packageLogSha256": "b35f3ffab8e852d37cc42ba73e1ebf0cdb27ec525aa68450fba7d58462b5c337",
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "bytes": 507323296,
+    "sha256": "668e7dae96c17a4e788aa8218dfd62031f60aa17b2100f9805c7ce051bf9af7a"
+  },
+  "nestedDcc": {
+    "name": "BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar",
+    "sha256": "ce7ac9681bec0ed35fafdbb23ea763211df8c6bcf253f6c13c22a97a6000d82f",
+    "compression": "STORED"
+  },
+  "matrixCompiledClasses": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl$FixedStageDefinition.class",
+      "sha256": "29f7b54011bff270af6fc52a57ff457f194e512ff76e13eb9ddc300f3c05a8b2"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl$MatrixSaveContext.class",
+      "sha256": "ac432618fd8d0f0ac6b6e72cefec1294801baa8fc72df4729d95ef9e284489d0"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl$NormalizedRuleInput.class",
+      "sha256": "319536437087e5c5e6e3a3543357d424436db9ce18f5e4df124704fb15fd69bd"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl.class",
+      "sha256": "e0af2e79914ddda29b0be750571fabe67404bfc1ccddfc8969cb2a620f1bce1d"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileCategoryMapper.class",
+      "sha256": "46533f2786cf47453ea1c6f2ab8ee3f3786c25abe35f126541028697417f7ff3"
+    }
+  ],
+  "G33CompiledClassesVerified": 7,
+  "old41SourceUnchanged": true,
+  "G33Source10Unchanged": true,
+  "protectedNontask6Unchanged": true,
+  "actualServiceStarted": false,
+  "actualDatabaseWrite": false,
+  "actualBrowserAcceptance": false,
+  "actualLocalMerge": false
+}

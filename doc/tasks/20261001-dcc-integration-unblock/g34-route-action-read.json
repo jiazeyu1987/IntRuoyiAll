@@ -1,0 +1,41 @@
+{
+  "status": "ACTUAL_READONLY_ROUTE_ACTION_SHAPE",
+  "database": "ruoyi-vue-pro",
+  "facts": [
+    {
+      "kind": "routeActionColumn",
+      "type": "varchar(32)",
+      "default": "LEGACY",
+      "nullable": "NO"
+    },
+    {
+      "kind": "routeActionCounts",
+      "total": 251,
+      "active": 67,
+      "nullCount": 0,
+      "actionType": "LEGACY"
+    },
+    {
+      "kind": "routeActionCounts",
+      "total": 5,
+      "active": 1,
+      "nullCount": 0,
+      "actionType": "NEW"
+    },
+    {
+      "kind": "routeActionCounts",
+      "total": 4,
+      "active": 1,
+      "nullCount": 0,
+      "actionType": "OBSOLETE"
+    },
+    {
+      "kind": "routeActionCounts",
+      "total": 4,
+      "active": 1,
+      "nullCount": 0,
+      "actionType": "REVISION"
+    }
+  ],
+  "actualDatabaseWrites": false
+}

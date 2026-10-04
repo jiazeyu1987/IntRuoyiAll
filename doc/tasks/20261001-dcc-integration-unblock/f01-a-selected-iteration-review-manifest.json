@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "dcc-a-selected-iteration-review.v1",
+  "createdAt": "2026-10-02T19:58:21.575123+08:00",
+  "branch": "codex/20260930-dcc-a",
+  "baseHead": "a801dc8b91579241e221d129ab34343997673f40",
+  "reviewStatus": "A-SEL-01 implementation GREEN, ready for C receive and manager review; not whole DCC completed",
+  "scope": "Only A production Workflow latest-only block/import removal plus new A real integration test. Query is received C H08 verification dependency, not A change for C.",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "rawSha256": "20a3746738e967abd05c728191f5fe12b83a627e3271465a559e086a61820c1c",
+      "utf8LfSha256": "20a3746738e967abd05c728191f5fe12b83a627e3271465a559e086a61820c1c",
+      "bytes": 204637
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSelectedIterationDatabaseTest.java",
+      "rawSha256": "688eabf79e734b520760e3a1e9603b89b5539f8389e1ba404bc5dec1ebaad8ca",
+      "utf8LfSha256": "688eabf79e734b520760e3a1e9603b89b5539f8389e1ba404bc5dec1ebaad8ca",
+      "bytes": 43151
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/selected-iteration-handoff.md",
+      "rawSha256": "ab1445a0202fc79dcd05872d376e168357fef148d6392af2f7c9335205a02c1b",
+      "utf8LfSha256": "ab1445a0202fc79dcd05872d376e168357fef148d6392af2f7c9335205a02c1b",
+      "bytes": 8015
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/selected-iteration-dependency-receive.json",
+      "rawSha256": "3f098cd6df8eb9b5637a7f994d4f229d95b84270772d3e37609137a8ad875701",
+      "utf8LfSha256": "014e4c754f551b85627a658a9741407522d8cc970d83fb2819190a4c5b774cc8",
+      "bytes": 4394
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/selected-iteration-test-counts.json",
+      "rawSha256": "461649638c43f837ab03a1464455bcd8433a86bbf715641743fbf8bf25f3baea",
+      "utf8LfSha256": "d7da19349dc410891aef441029ed0c3d312780f293186c94dc32a3b42652464f",
+      "bytes": 911
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/selected-iteration-workflow-increment.diff",
+      "rawSha256": "4cf63498540c6c606b4889fc1f77d21c5daf462dbea769520f61954d23a392b1",
+      "utf8LfSha256": "9c536e5441fe3e8a55149e37ebc879de6cf3d4f79a25797cf7ce04c310d96203",
+      "bytes": 1807
+    }
+  ],
+  "verificationDependencies": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "rawSha256": "f649bf9eef646ae02f590dc96d52500d7e963c59fa6c8dcf7d0ac84ff28913e9",
+      "utf8LfSha256": "f649bf9eef646ae02f590dc96d52500d7e963c59fa6c8dcf7d0ac84ff28913e9",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+      "rawSha256": "ceceb5eb97400b85156919738a744a9f78de7250b2e5bc5af80ee31c48ae441a",
+      "utf8LfSha256": "08856b3d28a84c025bec31e60f9ff01b00bed81a02356bf8c416c6d5a653adbb",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationDraftInitializer.java",
+      "rawSha256": "32a61faba7b60409da6321f224b3e512f0c912fa908d0d32e885439a8c28822d",
+      "utf8LfSha256": "32a61faba7b60409da6321f224b3e512f0c912fa908d0d32e885439a8c28822d",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundService.java",
+      "rawSha256": "810d15e65ad076c1513e53343c1021d0858f602d683812667e95087fbf40db89",
+      "utf8LfSha256": "4969b10bd7874338f8b22c7b9bcd3be66bfa07cd2af88274d025e618ac6c4223",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSourceOwnershipService.java",
+      "rawSha256": "e6074cae01e1c5e691b0346e1a7eca0a9cc86c033611e491c8863a414d793c46",
+      "utf8LfSha256": "33ec6c7e7356a7ee54a57523d553566b10aed69cc27f0dfa573a4f0b406c16f8",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionSourceRollback.java",
+      "rawSha256": "5c157152311be4e4b6e49d52b5a34a611496ddb160d945e1b850f92131a00fe3",
+      "utf8LfSha256": "5c157152311be4e4b6e49d52b5a34a611496ddb160d945e1b850f92131a00fe3",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileVersionPolicy.java",
+      "rawSha256": "d58aff2cfc75d659afb838f7fcc00262009dad87bbba0889eca820255d234e97",
+      "utf8LfSha256": "ca678454262327105d929c7097630c9040b7d7e9d92854803f060f5f581b086b",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+      "rawSha256": "03e8a3623f29c15def82efe8dcd50f3cf73970eb8056b8526eeed5cb3f1a0831",
+      "utf8LfSha256": "03e8a3623f29c15def82efe8dcd50f3cf73970eb8056b8526eeed5cb3f1a0831",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+      "rawSha256": "3f1c2e618e7449d152cbffba5769c6d8d8c3615f08e1c198711c876c2ec2604e",
+      "utf8LfSha256": "835d64bad7a0a862f065a98c160c48b3e9a6e8ccafc052b1608837e05ccceb36",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "rawSha256": "c9271e10b00d10904026e848a2cc0531bba1c3f71fa02cefc1d3df1e60628e11",
+      "utf8LfSha256": "43a334f17048fcc51b153cbd87ee0353bc3ced90b1da8f8a61d2bc502eebff47",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMasterMapper.java",
+      "rawSha256": "451ac1ed9934d479ecd2d9c3b7566cac2b1d4026e8a62172586eae4d019dd3b1",
+      "utf8LfSha256": "8fbfaf76ad9a34808192d013072ce938c03d112fa215db84ea4fe6434b0f3daa",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/audit/DccControlledFileAccessAuditService.java",
+      "rawSha256": "471073a0e9915c1fbf769c78db7af45e17e5fa5b59825c0fdee9e5a8f2c802d8",
+      "utf8LfSha256": "67a416203cd845b48ccccee7637401a23e2bc810c3fb92eb616fd77687f24c1f",
+      "scope": "verification dependency only; do not overwrite receiving C/Root newer Owner code"
+    }
+  ],
+  "sourceBaseline": {
+    "h08Manifest": "h08-review-freeze-manifest.json (unchanged)",
+    "workflowBeforeUtf8LfSha256": "e80ad4ea5a2cd82c5776f43a67af0d175eb602f85739e05206f34b97d7b4f001",
+    "minimalDiff": "selected-iteration-workflow-increment.diff",
+    "otherOriginalH08Assets": "unchanged"
+  },
+  "effectiveRed": {
+    "originalDiagnosticConvertedPositive": {
+      "log": "selected-iteration-original-positive-red.log",
+      "exitCode": 1,
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "cause": "CONTROLLED_FILE_ITERATION_NOT_LATEST 1080000345"
+    },
+    "allIntents": {
+      "log": "selected-iteration-three-intents-red2.log",
+      "exitCode": 1,
+      "tests": 4,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "branches": [
+        "INITIAL",
+        "PARTIAL_A1",
+        "PARTIAL_A9",
+        "REPLACEMENT"
+      ]
+    }
+  },
+  "directedRegression": {
+    "command": "mvn.cmd -o -pl yudao-module-dcc -am \"-Dtest=DccWorkflowSelectedIterationDatabaseTest,DccControlledFileWorkflowServiceImplTest,DccWorkflowAttributesIntegrationTest,DccWorkflowRevisionIntegrationTest,DccWorkingApplicationDraftInitializerTest\" \"-Dsurefire.failIfNoSpecifiedTests=false\" test",
+    "finishedAt": "2026-10-02T19:41:16+08:00",
+    "exitCode": 0,
+    "classes": 5,
+    "tests": 254,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "newActualCombinationTests": 38,
+    "countManifest": "selected-iteration-test-counts.json"
+  },
+  "mainApplicationCompile": {
+    "command": "mvn.cmd -o -pl yudao-server -am \"-DskipTests\" compile",
+    "finishedAt": "2026-10-02T19:43:08+08:00",
+    "exitCode": 0
+  },
+  "notRun": [
+    "Original unchanged 994 full selector",
+    "Real E2E",
+    "Business DB migration/write",
+    "Services",
+    "Git commit/push",
+    "External notifications"
+  ],
+  "remaining": [
+    "C receive minimal A diff and verify against its current Query/audit Owner updates",
+    "Manager review",
+    "Failed formal target version reuse policy unconfirmed"
+  ],
+  "receiveRule": "Apply only A Workflow minimal diff and derived A test to current C base; never copy A H08 Query over C newer audit fixes. Validate current source/target hash and Owner differences first."
+}

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "dcc-a-review-freeze.v1",
+  "reviewItem": "manager A-REV-04 / CC2-A-LEDGER",
+  "createdAt": "2026-10-02T00:12:58.898066+08:00",
+  "branch": "codex/20260930-dcc-a",
+  "baseHead": "a801dc8b91579241e221d129ab34343997673f40",
+  "normalization": "UTF-8 decoded strictly; CRLF -> LF only; raw hash also supplied",
+  "scope": "9 Java production/test files plus candidate policy, exact selector and test-count manifest; no commit/reset or copies to another worktree",
+  "reviewStatus": "changes_requested; Root direction review only, not accepted or runtime verified",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+      "role": "production",
+      "rawSha256": "a3d9dccb44055861fd272e4b254cd5f516fafcd24d16c9aa8890a9efe56970c9",
+      "utf8LfSha256": "a3d9dccb44055861fd272e4b254cd5f516fafcd24d16c9aa8890a9efe56970c9",
+      "bytes": 9860
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "role": "production",
+      "rawSha256": "e0c41315c098a04c746950086849a9f67ab26640155df4a2dc620b64e34f9334",
+      "utf8LfSha256": "e0c41315c098a04c746950086849a9f67ab26640155df4a2dc620b64e34f9334",
+      "bytes": 13433
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "role": "production",
+      "rawSha256": "47cf4689be50cea2fc421794ca7b066f14ccf6f8854431f0fb22ec1a2fe6af86",
+      "utf8LfSha256": "a8d0f9d426e023c1ccfd0f988884a0ad6d5c9fae7d2ea7544a1f8c32cbc63d13",
+      "bytes": 25317
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowControlledRemediationIntegrationTest.java",
+      "role": "test",
+      "rawSha256": "cbf200a70be39a97ca7ff27b8f49035523a53262d78850e0f2c705c6130470ed",
+      "utf8LfSha256": "cbf200a70be39a97ca7ff27b8f49035523a53262d78850e0f2c705c6130470ed",
+      "bytes": 25118
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "role": "test",
+      "rawSha256": "e7aa8a90d609c37fd813f098cb028fbf087636afad6d85e6dcc88b3b6e470c1c",
+      "utf8LfSha256": "e7aa8a90d609c37fd813f098cb028fbf087636afad6d85e6dcc88b3b6e470c1c",
+      "bytes": 19354
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "role": "test",
+      "rawSha256": "04b38b65d506b6f19099f30d78a56a017c031a8bb24649a6ee61d90b4a6c953a",
+      "utf8LfSha256": "04b38b65d506b6f19099f30d78a56a017c031a8bb24649a6ee61d90b4a6c953a",
+      "bytes": 20439
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "role": "test",
+      "rawSha256": "bf9a748ba02a0b5d4f2885a4dcdfeb65fb786a79ebacf043883d538ecef589a4",
+      "utf8LfSha256": "bf9a748ba02a0b5d4f2885a4dcdfeb65fb786a79ebacf043883d538ecef589a4",
+      "bytes": 16747
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "role": "test",
+      "rawSha256": "9e548ec529565e237a6fda3b46ca66fda6ec9f5cd2841ced14fb040b47a17c16",
+      "utf8LfSha256": "9ab204a5167efd06d5f36e0a5e7903bcf84973f41e47539b8667f3769143e1ee",
+      "bytes": 98635
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "role": "test",
+      "rawSha256": "21407978a8f43c13a0865a7e99fa2a6b2450de476bc4f0050f7b9af75b86afa1",
+      "utf8LfSha256": "2aeecade7afca98818589e45d23480bc9100fa41365d760b381ab8be6b6ebba3",
+      "bytes": 41581
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/audit-policy-candidate.yaml",
+      "role": "delivery",
+      "rawSha256": "6a92d30818fa181bd32b770502962733fdacf394c2f297dcb940091b1b901369",
+      "utf8LfSha256": "6a92d30818fa181bd32b770502962733fdacf394c2f297dcb940091b1b901369",
+      "bytes": 2283
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/verify-directed.ps1",
+      "role": "delivery",
+      "rawSha256": "486af05b87c289fbf88b065ba5fb4c50be289ab78ed2be64851ba495e013f6e0",
+      "utf8LfSha256": "486af05b87c289fbf88b065ba5fb4c50be289ab78ed2be64851ba495e013f6e0",
+      "bytes": 3112
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-a-workflow/continuation-test-counts.json",
+      "role": "delivery",
+      "rawSha256": "6d6c47d984febd20ee8b871149531b45f0f06162b2b303757cdb1a6aa989fe8f",
+      "utf8LfSha256": "a45172fe778bd3355824c5ff4f0446c2519dc6837ec1d33261afb11fff81101e",
+      "bytes": 13401
+    }
+  ],
+  "validation": {
+    "directedRegression": {
+      "command": "./doc/tasks/20260930-dcc-a-workflow/verify-directed.ps1",
+      "exitCode": 0,
+      "finishedAt": "2026-10-01T23:39:29+08:00",
+      "modules": {
+        "yudao-module-dcc": {
+          "classes": 57,
+          "tests": 745,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "yudao-module-bpm": {
+          "classes": 6,
+          "tests": 37,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "totalTests": 782
+    },
+    "mainApplicationCompile": {
+      "cwd": "IntRuoyiBackend",
+      "command": "mvn.cmd -o -pl yudao-server -am \"-DskipTests\" compile",
+      "exitCode": 0,
+      "finishedAt": "2026-10-01T23:47:56+08:00"
+    },
+    "officialPolicyCoverage": {
+      "exitCode": 1,
+      "status": "Root registration of four candidate operations pending"
+    },
+    "candidateCombinedCoverage": {
+      "exitCode": 0,
+      "operations": 25,
+      "annotations": 11
+    }
+  },
+  "receivingRule": "Root must verify source fingerprint and target ownership before receive/sync; mismatch requires review, never reset live Owner work. This file is not a Git commit or approval."
+}

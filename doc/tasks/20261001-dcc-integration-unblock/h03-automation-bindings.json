@@ -1,0 +1,17 @@
+{
+  "dcc-a": {
+    "target_thread_id": "01a0f2a6-eb43-7e11-8e4e-cf951a911cbf",
+    "status": "ACTIVE",
+    "rrule": "FREQ=MINUTELY;INTERVAL=30"
+  },
+  "dcc-d": {
+    "target_thread_id": "01a0f2a7-c122-76d0-8cfb-fd4bb2b1b1e5",
+    "status": "ACTIVE",
+    "rrule": "FREQ=MINUTELY;INTERVAL=30"
+  },
+  "dcc": {
+    "target_thread_id": "01a0eb90-0723-72b3-a6ca-7a22dab040ab",
+    "status": "ACTIVE",
+    "rrule": "FREQ=MINUTELY;INTERVAL=30"
+  }
+}

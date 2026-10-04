@@ -1,0 +1,11 @@
+{
+  "status": "G44_BOUNDED_ROUTE_BLOCKER_DISPLAY_ROOT_SOURCE_REVIEW_PASS",
+  "manifestSha256": "a7a5e4b3b5accaa107e09df1212e5619fb1970cac0f197bd966594e10a4f4a48",
+  "sourceOnlyThreeSpanDeltaVerified": true,
+  "guardAndApiUnchanged": true,
+  "actualRendererTests": 4,
+  "relatedTests": 27,
+  "overlapNotSummed": true,
+  "lintExit": 0,
+  "actualHmrFailureWhoPreviewStillPending": true
+}

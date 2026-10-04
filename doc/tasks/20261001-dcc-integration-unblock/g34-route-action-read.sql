@@ -1,0 +1,2 @@
+SELECT JSON_OBJECT('kind','routeActionColumn','type',COLUMN_TYPE,'nullable',IS_NULLABLE,'default',COLUMN_DEFAULT) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='dcc_category_approval_route' AND COLUMN_NAME='action_type';
+SELECT JSON_OBJECT('kind','routeActionCounts','actionType',action_type,'total',COUNT(*),'active',SUM(active=b'1'),'nullCount',SUM(action_type IS NULL)) FROM dcc_category_approval_route WHERE deleted=b'0' GROUP BY action_type ORDER BY action_type;

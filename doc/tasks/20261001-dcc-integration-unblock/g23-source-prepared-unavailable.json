@@ -1,0 +1,9 @@
+{
+  "status": "PREPARED_BLOCKED_MISSING_REAL_REHEARSAL_RECEIPT",
+  "writeConnectionAllowed": false,
+  "databaseWritesExecuted": false,
+  "missing": [
+    "actual clone ISOLATED_REHEARSAL_PASS plus complete hashed protected artifacts"
+  ],
+  "actualUserApprovalProvenByFlag": false
+}

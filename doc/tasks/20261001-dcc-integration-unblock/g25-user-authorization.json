@@ -1,0 +1,25 @@
+{
+  "source": "User reply to request_user_input_async call_9diM6eQr9k2WuCBmHSX0BKR7",
+  "localDatabaseAuthorization": {
+    "answer": "授权按此方案执行（建议）",
+    "isolatedFirstRepeatRehearsal": true,
+    "upgradeOriginalTestDatabaseAfterSuccessfulRehearsal": true,
+    "registerExact25AuditOperationsWhenActualApprovalFactsReady": true,
+    "registerMaximum1NewApprovalVersionWhenActualApprovalFactsReady": true,
+    "remoteOrProductionDeployment": false
+  },
+  "historicalNamesDecision": {
+    "answer": "采用，保留历史并继续占用旧名称（建议）",
+    "preserveHistoricalFilesVersionsNamesAndSignatures": true,
+    "verifiedHistoricalOriginalNamesRemainOccupied": true,
+    "rejectFutureNewExactDuplicateNames": true,
+    "autoRenameMergeOrDeleteHistoricalRecords": false
+  },
+  "qualityApprovalFacts": {
+    "userProvidedAccount": "admin",
+    "approvalTimeProvided": false,
+    "approvalRecordOrSignatureReferenceProvided": false,
+    "qualitySignatureAlreadyPerformedProven": false,
+    "noAdditionalFactsInvented": true
+  }
+}

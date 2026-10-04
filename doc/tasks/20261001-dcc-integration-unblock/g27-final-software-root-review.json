@@ -1,0 +1,29 @@
+{
+  "status": "ROOT_REVIEWED_SOFTWARE_CORE_AND_SELECTOR_PENDING_RUNTIME_APPROVALS",
+  "sourceManifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g27-legacy-final-delivery-fingerprints.json",
+  "sourceManifestSha256": "740678d518f7d635cdd3aecda437861fdaa7f1e631ce38eb43219533505bbec6",
+  "assetsVerified": 41,
+  "previousBroad": {
+    "tests": 579,
+    "classes": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "receipt": "g26-legacy-core-verification-receipt.json"
+  },
+  "currentIncrement": {
+    "tests": 324,
+    "classes": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mavenExitCode": 0,
+    "logSha256": "20f12ce062069bbfc9f35e8fcfaef324bebc9698967114a2c8d770a596bad6f8",
+    "note": "overlaps previous broad tests; do not add totals"
+  },
+  "qaApproved": false,
+  "newDatabaseWrites": false,
+  "objectWrites": false,
+  "actualUIE2E": false,
+  "localIntQmsMerge": false
+}

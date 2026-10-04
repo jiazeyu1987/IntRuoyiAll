@@ -1,0 +1,13 @@
+{
+  "status": "G43_R4_CURRENT_ACCOUNT_FORMAL_USERINFO_MISMATCH_BEFORE_REGISTRATION",
+  "actualFrontendLogin": true,
+  "maintenancePid": 14936,
+  "originalSevenTablesUnchanged": true,
+  "legacyActivationComplete": false,
+  "actualQualityApproved": false,
+  "qualityApprovalRequiredForDevelopment": false,
+  "executionReceipt": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g43-legacy-activation-run-r4\\receipt.json",
+  "executionReceiptSha256": "12fd14fd1d174859e67b6b5c8db785c0b70ca1e4f1154f098d59aa77ac0eed8d",
+  "diagnostic": "g43-current-account-diagnostic.json",
+  "nextCorrection": "Compose principal username from verified current server user directory, matching formal OAuth nickname/deptId token information; no global OAuth change"
+}

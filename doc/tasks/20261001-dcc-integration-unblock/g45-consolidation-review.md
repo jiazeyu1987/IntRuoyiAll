@@ -1,0 +1,15 @@
+# G45 按HTML业务需求收拢DCC开发主干
+
+Status: in_progress。主目录实际int_qms；整合codex/20261001-dcc-integration；A/B/C/D均同a801dc8基线但未提交源码不同。用户最新明确HTML是业务需求，根据业务来合并worktree，不把worktree代码或旧技术限制当新的业务需求。
+
+合入取舍：保留HTML已确认六阶段上传/升版、两阶段作废、20年期限、default/actual历史、项目负责人OWNER、选定正文/失败同号/版本真实类型、关联最新与引用独立、权限及真实签名审计等经过Review成果。整合树包含worker源码全部路径，后续Root修复版本是候选权威，原worker不是整块覆盖。与HTML不符的LD01产品身份断链、LD02项目模板预设名硬限制、LD03双目录、LD04项目待办通知仍为已知待修差异，不以保存开发基线宣称业务验收；合入后顺序修复，优先主流程。
+
+编号规则：HTML只有产品编码／名称／分类，不把旧MDM特定DCC14位编号当新业务必填；实现应使用正式产品身份与真实申请字段闭环，不猜/截断/填充编码，不将目录ID冒充主数据ID。批准人员等仍未定业务不擅猜，当前后台审核人已确认按配置。
+
+当前500源码及明确任务记录候选已生成精确清单（main345/integration823，后续readonlyReview新增文件会重扫）；候选不是自动已Review完整证明。实际184定向Maven/同源serverpackage、blocker4renderer/27related/lint/fulltypes已核，不伪E2E全目标。6非任务资产排除，临时logs/screenshots/trace/jar/class/deferredG34草稿只保护归档，不入DCC基线。跨模块BPM/System/infra必要改动逐项保留，不以模块目录排除遗漏。
+
+归档：先保存各树dirty和必要ignored原始字节、逐文件hash校验、Git完整历史bundle及全部原任务记录；再精确源码/文档提交及正常本地merge，核来源祖先与归并后的字节／规范化内容，清理只有已经吸收归档的当前五DCC工作树。其他历史worktree先核归属，未经证实不删除。主树用户AGENTS与两个infraFileController不写不stage。
+
+远端int_qms查询因已配置本机proxy不可达失败，实际错误保留；本轮目标明确仅本地归并，不拉远端、不推送、不发布，不声称远端最新。Git旧规则无originpush不阻本地目标。
+
+首归档范围误含历史output/runtime大包与活动旧日志，逐文件校验失败、归档工具真实exit1终止，没有删除源文件或操作Git；精确已终止进程PID44448的后续停止检查不匹配，未停其他进程。保留首失败包/状态，不作可恢复证明。版本r2将ignored范围收敛为当前任务证据和本地配置；所有dirty资产仍保存，历史runtime包属于主树未触碰其他任务，worktree可复现依赖单独处理。

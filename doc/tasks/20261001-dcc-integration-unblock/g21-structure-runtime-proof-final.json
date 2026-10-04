@@ -1,0 +1,111 @@
+{
+  "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+  "executionAuthorized": false,
+  "prerequisiteCount": 17,
+  "errors": [],
+  "prerequisites": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260921_dcc_category_approval_route_action_type",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260922_dcc_task_assignee_snapshot",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260710_dcc_product_catalog_database",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260903_dcc_explicit_data_relation",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260920_dcc_project_product_create_approval",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260719_dcc_file_type_taxonomy",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260910_dcc_project_file_template",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260917_dcc_controlled_file_name_claim",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p2",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p3",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260815_system_notify_message_business_key",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260903_dcc_controlled_file_related_file",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260615_system_config_package_menu",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260717_bpm_form_center",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260907_dcc_publication_followup",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    },
+    {
+      "migrationId": "20260907_dcc_publication_impact_assessment",
+      "status": "SATISFIED_READ_ONLY_FACTS_NOT_APPLIED",
+      "migrationMustNotExecute": true,
+      "errors": []
+    }
+  ],
+  "meaning": "Actual collected prerequisite facts only. Never inserts/updates ledger or declares an unrecorded migration APPLIED."
+}

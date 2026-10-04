@@ -16,6 +16,20 @@
 - 新 DCC 生命周期只为新建逻辑文件提供身份、版本、检出和审计字段；迁移不得回填、重命名或更新历史 Master/Version 行来“对齐”新字段。
 - MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
 - 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
+- 已有库依赖证明：账本缺少某旧迁移不等于对应结构未创建；旧SQL与原账本SHA不同时，先查精确历史来源和当前所需schema/config事实。明确已满足的外部依赖可以记录为“当前目标事实满足”，不得伪造APPLIED、替换原SHA或重放历史初始化/种子。执行前分别冻结实际待执行白名单和完整依赖闭包，核对正式执行器是否会自动追加依赖或改写skip账本。
+- 历史零改写证明：同表COUNT不变不能证明正文、版本或签名未改；冻结原列与主键，对原有各行的精确字节摘要逐项比较，新增生成列另验最终表达式/索引。允许的新增配置行必须同时核对身份和载荷，不能仅按新增数量PASS。MySQL DDL隐式提交，恢复范围必须包括实际修改原表及本任务新增ledger键，不能通过事务ROLLBACK或全账本覆盖伪装恢复。
+- Evidence: `doc/tasks/20261001-dcc-integration-unblock/g20-review.md`、`g21-review.md`、`g25-runtime-review.md`；19项隔离首次/重复及源库执行已通过，历史原列逐行摘要未变。该运行结论不扩展到其它新迁移、审计批准、历史名称登记或业务E2E。
+
+- Historical registration remains a separate software gate: a verified sidecar writer must use a real authenticated tenant context and the unified GxP append in the same transaction. A literal operation annotation must resolve in the coverage parser; a proposed source locator is not coverage evidence. An incomplete source-byte set remains blocked even when metadata and local candidate files match.
+
+### 历史原名核验与缺失对象恢复门禁
+
+- Trigger: 历史原名NULL阻断新文件、同名多Master需保留、或元数据存在而GetObject返回缺失。
+- Preflight check: 分别核对源版本/ownership/ticket/存储metadata与实际源bytes；当前SHA、大小、完整UTF8原名、配置与object key必须准确关联。元数据匹配或原SDK fake-stream测试不等于实际对象已读取。真实SDK所需依赖也须由同源Jar封存，缺依赖准确报错。
+- Recovery boundary: 找到本地候选必须实际SHA/长度全相符；按唯一object key而不是infra行数冻结写入上限，共用key必须连正文SHA/大小一致才能去重。只在全量实际NoSuchKey前置及用户具体授权后做条件创建，If-None-Match必须真实发送且服务器对应版本具有原子检查，禁止无条件覆盖、自动重试或自动删除恢复对象。
+- Verification: 独立核对旧原行摘要、scope完整主键集合、版本/metadata/current config定位与实际bytes；缺任一原件不能删掉失败项换取verified。恢复后原独立全量读取再次全部MATCH，才可激活完整证据；对象恢复不等于前端业务E2E。PUT超时/5xx或进程输出失败保留不确定状态和实际退出证据，不能声明零写或直接重跑。
+- Forbidden action: 禁止猜名称、按标题补历史原名、改写旧版本/签名、把admin或DB写授权当质量电子签名、用应用retention声明冒充bucket Object Lock实际配置。多个scope中只有VERIFIED scope的本行evidence可参与名字/owner判定，不能借同claim另一scope的成功污染PREPARED证据。
+- Evidence: `doc/tasks/20261001-dcc-integration-unblock/g25-runtime-review.md`、`g26-object-recovery-root-review.md`。实际恢复/占用登记状态以最终运行报告为准。
 
 ### MySQL 被索引字符列扩容顺序门禁
 

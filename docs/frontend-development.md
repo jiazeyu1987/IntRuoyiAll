@@ -173,6 +173,8 @@
 - Verification: 先让聚焦静态合同 RED，证明旧写接口仍使用筛选态上下文；GREEN 后运行目标确认提交合同、相邻工作台合同、`pnpm ts:check` 和 `git diff --check`。
 - Forbidden action: 禁止用默认角色、默认成功、后端宽松校验、吞掉参数异常、隐藏 toast 或只改错误文案来掩盖上下文来源错误。
 - Evidence: 任务 `doc/tasks/20260808-team-leader-allocation-null-confirm/`，生产组长确认分配从筛选态 `queryParams.leaderType` 改为当前页签 `activeLeaderTab`，手工分配行不再预填潜在无效活跃订单。
+- DCC办理与导航：签名前冻结实际file/task/BPM/操作者、弹框generation及表单值，每次await后复核；关闭再重开同task也必须使旧调用失效。成功写入后刷新失败应明确“已提交，请核对原记录”，不能重置新弹框或诱导重签。文件详情导航须同时匹配当前route和本次成功详情读取；列表的请求上下文除HTTP筛选外，还要包含所选file/Master、fullPath和模式，避免同参数晚响应按新路由选错版本。
+- Evidence extension: `doc/tasks/20261001-dcc-integration-unblock/g20-review.md`；公开handler有效RED→GREEN与同源离线验证已完成，真实页面状态仍以最终Playwright报告为准。
 
 ## 复合输入控件交互保留门禁
 

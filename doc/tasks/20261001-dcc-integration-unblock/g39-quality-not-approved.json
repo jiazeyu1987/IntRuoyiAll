@@ -1,0 +1,15 @@
+{
+  "source": "Actual user reply to request_user_input_async call_5PMihxBvOuXXgaPY6U03ikMY item0",
+  "answer": "尚未批准",
+  "actualQualityApproved": false,
+  "actualApprovalAccountPreviouslyProposed": "admin",
+  "actualApprovalTime": null,
+  "actualApprovalRecordOrSignatureEvidence": null,
+  "conditional26ConfigurationAuthorizationRecorded": true,
+  "conditionalLegacyRegistrationAuthorizationRecorded": true,
+  "auditOperationConfigurationExecuted": false,
+  "qualityApprovalRegistrationExecuted": false,
+  "legacyNameRegistrationExecuted": false,
+  "approvedMigrationAndOriginalRecoveryCompleted": true,
+  "nextGate": "Actual quality approval of the exact26 candidate policy and coverage, with actual signer, time, signed record and authority evidence. Existing execution permission need not be asked again."
+}

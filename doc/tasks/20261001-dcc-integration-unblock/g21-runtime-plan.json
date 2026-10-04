@@ -1,0 +1,55 @@
+{
+  "status": "prepared_not_started",
+  "worktree": "C:/IntRuoyi/20261001-dcc-integration",
+  "branch": "codex/20261001-dcc-integration",
+  "profile": "int_qms",
+  "slot": 6,
+  "frontendPort": 8067,
+  "backendPort": 48067,
+  "sourceDatabase": "ruoyi-vue-pro",
+  "sourceMysqlPort": 23306,
+  "sourceRedisPort": 26379,
+  "backendOverrides": [
+    "--flowable.database-schema-update=false",
+    "--spring.quartz.job-store-type=memory",
+    "--spring.quartz.scheduler-name=dcc-integration-slot6",
+    "--spring.quartz.properties.org.quartz.scheduler.instanceName=dcc-integration-slot6",
+    "--spring.quartz.properties.org.quartz.jobStore.class=org.quartz.simpl.RAMJobStore",
+    "--spring.quartz.properties.org.quartz.jobStore.isClustered=false",
+    "--yudao.local-job-control.startup-sync-enabled=false",
+    "--yudao.local-job-control.quartz-auto-run-handler-whitelist[0]=dccControlledFileActivationJob",
+    "--yudao.local-job-control.dcc-batch-recognition-enabled=false",
+    "--yudao.local-job-control.dcc-nas-transfer-enabled=false",
+    "--yudao.local-job-control.dcc-nas-permission-restore-enabled=false",
+    "--yudao.local-job-control.dcc-nas-control-audit-enabled=false",
+    "--yudao.local-job-control.dcc-upload-temporary-cleanup-enabled=false",
+    "--yudao.local-job-control.showroom-release-auto-publish-enabled=false",
+    "--yudao.local-job-control.showroom-product-cover-batch-resume-enabled=false",
+    "--yudao.local-job-control.showroom-product-batch-narration-audio-auto-check-enabled=false",
+    "--yudao.local-job-control.showroom-product-batch-narration-script-auto-check-enabled=false",
+    "--dcc.workflow.zone-id=Asia/Shanghai",
+    "--dcc.workflow.reminder-lead-days=7"
+  ],
+  "activationJob": {
+    "handler": "dccControlledFileActivationJob",
+    "cron": "0 * * * * ?",
+    "registerVia": "official frontend job controls after runtime readiness",
+    "sqlRegistrationExcluded": true,
+    "enabledNow": false,
+    "requiresActualDueScopeReadBeforeEnabling": true
+  },
+  "sourceCredentials": "Use existing local runtime/container configuration. Never export or log values.",
+  "startPreconditions": [
+    "User database upgrade approval is recorded and the isolated first/repeat rehearsal has passed",
+    "The approved original database schema/configuration upgrade and same-target postflight have passed",
+    "Missing twenty-five audit operations have their own reviewed configuration and explicit authorization",
+    "Current Jar and frontend match the final verified source fingerprints",
+    "Actual 8067/48067 process/registry ownership is verified; 48081 and unrelated tasks are untouched",
+    "Actual Spring effective Quartz RAM store, disabled startup sync and worker conditions are confirmed in startup log"
+  ],
+  "runtimeLimitations": [
+    "These are planned overrides, not proof that runtime isolation or business E2E has passed",
+    "Permission-cache startup refresh clears ordinary permission caches; it is not business-data migration",
+    "Official activation job registration is separate from future restarts; startup sync stays off during isolated acceptance"
+  ]
+}

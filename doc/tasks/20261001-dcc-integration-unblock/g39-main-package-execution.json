@@ -1,0 +1,8 @@
+{
+  "status": "OFFLINE_G39_MAIN_PACKAGE_COMPLETED_NOT_RUNTIME_ACCEPTANCE",
+  "exitCode": 0,
+  "log": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g39-main-package.log",
+  "command": "mvn -o -pl yudao-server -am package '-DskipTests'",
+  "actualServiceStarted": false,
+  "actualDatabaseWrites": false
+}

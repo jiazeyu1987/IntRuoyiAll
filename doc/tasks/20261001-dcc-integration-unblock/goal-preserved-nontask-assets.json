@@ -1,0 +1,56 @@
+{
+  "state": {
+    "C:/IntRuoyiAll-int_main": {
+      "branch": "int_qms",
+      "head": "a801dc8b91579241e221d129ab34343997673f40"
+    },
+    "C:/IntRuoyi/20261001-dcc-integration": {
+      "branch": "codex/20261001-dcc-integration",
+      "head": "a801dc8b91579241e221d129ab34343997673f40"
+    }
+  },
+  "preservedAssets": [
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "AGENTS.md",
+      "sha256": "3ae2c3981839b6a746c5166747b34a4d64d62d907da883d166a189fcd595e7da",
+      "preserve": true,
+      "includeInDccCommit": false
+    },
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+      "sha256": "7b003bfc1e13ec22bea261b77df7f6b1d17fa6d59dd2df393048896880ed7426",
+      "preserve": true,
+      "includeInDccCommit": false
+    },
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java",
+      "sha256": "22a723ccfd96d720d070cef401f2fd586dcdc9049d8eb0f164452dc0bff23908",
+      "preserve": true,
+      "includeInDccCommit": false
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "AGENTS.md",
+      "sha256": "3ae2c3981839b6a746c5166747b34a4d64d62d907da883d166a189fcd595e7da",
+      "preserve": true,
+      "includeInDccCommit": false
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+      "sha256": "7d96b08f953cd93b7eaa672ef31b024ffd5ec9e47468c573f35f262847d43ebb",
+      "preserve": true,
+      "includeInDccCommit": false
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java",
+      "sha256": "b2ae978ae51390eb5608e992a72ce8b7729abddaead916a52c5a0ac5001b44f8",
+      "preserve": true,
+      "includeInDccCommit": false
+    }
+  ]
+}

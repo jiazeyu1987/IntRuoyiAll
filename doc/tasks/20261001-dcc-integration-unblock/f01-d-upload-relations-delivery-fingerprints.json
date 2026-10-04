@@ -1,0 +1,108 @@
+{
+  "schema": "dcc-d-upload-review-v1",
+  "worktree": "C:/IntRuoyi/20260930-dcc-d",
+  "branch": "codex/20260930-dcc-d",
+  "recordedAtUtc": "2026-10-02T09:11:20.3823884Z",
+  "files": [
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-selector-browser-contract.test.mjs",
+      "sha256": "746fc467cc898a0fd0d5d959c1eec417b4d1a639818e68da61bdd28ed5695301",
+      "bytes": 9793,
+      "role": "dcc_d_test_or_document_delivery"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "sha256": "c4823964d916a39b0d52a18bad1759e9af005e6c6ff3b904f1fed8859c9883b0",
+      "bytes": 41306,
+      "role": "dcc_d_test_or_document_delivery"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileSelector.vue",
+      "sha256": "663375cc5d6be7485564f0329956ae40744795901bb2a30dd392af5f76efb176",
+      "bytes": 7581,
+      "role": "unchanged_d_component_or_wrapper"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccFileRelations.vue",
+      "sha256": "f91aeb340c73b11c5724d265c4ed93071ea36edcada0f927caf6f42de277b68e",
+      "bytes": 4548,
+      "role": "unchanged_d_component_or_wrapper"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/selector-state.ts",
+      "sha256": "71104a74b70b0be9026faea2dbe9b4bfe9dd6c3c2bee74ae5a20f5f0343b7aa9",
+      "bytes": 5430,
+      "role": "unchanged_d_component_or_wrapper"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/relations.ts",
+      "sha256": "629260e80a4fc1f296ef91a37c0fb03fac4e734cdd9d1b4da56d7b250d23b18c",
+      "bytes": 2963,
+      "role": "unchanged_d_component_or_wrapper"
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/upload-relations-integration.md",
+      "sha256": "325726e3ff821cf547680fac90e203b789c31f095b97fd26702850460d83d959",
+      "bytes": 8796,
+      "role": "dcc_d_test_or_document_delivery"
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/upload-selector-usage.vue",
+      "sha256": "9aeff89fb836b65bb6d7a05a1c032ea2fa45a520303359d06a8fd499c2cc3050",
+      "bytes": 3000,
+      "role": "dcc_d_test_or_document_delivery"
+    },
+    {
+      "path": "doc/tasks/20260930-dcc-d-relations/tsconfig.upload-example.json",
+      "sha256": "804393786aa06e597110c6d4065703589a39f0c962ae44490869d3deb1ee5801",
+      "bytes": 478,
+      "role": "dcc_d_test_or_document_delivery"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "3a6be5708376dbd83e269f35ab127d3435ae8142d3507a444976d724c279afb5",
+      "bytes": 6403,
+      "role": "owner_read_only_dependency"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/state.ts",
+      "sha256": "8eb32f6055b92d291d4011e95918f7aef63fbbf9d96e2b72a121e8d93b014fce",
+      "bytes": 6752,
+      "role": "owner_read_only_dependency"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "sha256": "3e237fd8051208473937c01cb887810f20e4651a9eab09208f78fc1c4c4ff539",
+      "bytes": 82013,
+      "role": "owner_read_only_dependency"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "sha256": "0f67bc832109b5f3785e97f9377840f1f9c1888a610f8cc53bdf9aa2435b094f",
+      "bytes": 13692,
+      "role": "owner_read_only_dependency"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "sha256": "10aa5dbf6017d31056d6295a8a86bb222a32cb1ec45eabd58302abf5d5e8fca3",
+      "bytes": 95211,
+      "role": "owner_read_only_dependency"
+    }
+  ],
+  "productionChange": "none; existing D upload behavior verified, Root/B/A/C unchanged",
+  "validation": {
+    "vueRuntime": 25,
+    "rootSelectorContractAndPayload": 11,
+    "otherFrontEndRegression": 37,
+    "total": 73,
+    "dccComponentTypes": "PASS",
+    "usageExampleProjectTypes": "PASS",
+    "realE2E": "NOT RUN",
+    "businessDatabase": "NOT RUN"
+  },
+  "rootPending": [
+    "Public upload association modal/global/latest integration",
+    "Two relatedControlledFileIds array type declarations number[] to string[]",
+    "Actual application HTTP/transaction persistence and rollback validation"
+  ]
+}

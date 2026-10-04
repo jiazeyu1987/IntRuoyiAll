@@ -1,0 +1,51 @@
+{
+  "status": "AUTHORIZED_INDEPENDENT_PREPARATION_COMPLETED_FULL_GOAL_NOT_COMPLETE",
+  "previousTurnClassification": "progress",
+  "oneMigrationTools": {
+    "rootReceipt": "g28-single-migration-root-review.json",
+    "schemaTests": 11,
+    "driverTests": 16,
+    "independentAdversarial": 5,
+    "extraReviewProbes": 2,
+    "actualTransportInvoked": false
+  },
+  "audit26Tools": {
+    "rootReceipt": "g28-config26-root-review-receipt.json",
+    "offlineGroups": 8,
+    "actualDatabaseExecutor": false
+  },
+  "fullAcceptanceMatrix": "g28-completion-matrix.json",
+  "fullAcceptanceItems": 27,
+  "realUiPass": 0,
+  "gitCandidateInventory": "g28-git-candidate-inventory.json",
+  "stagedPaths": 0,
+  "protectedUnrelatedAssets": 6,
+  "runtimePortGuards": {
+    "main": "PASS8061/48061",
+    "integration": "PASS8067/48067"
+  },
+  "authorizations": {
+    "objectRecoveryApproved": false,
+    "qualityApproved": false,
+    "newOneMigrationApproved": false,
+    "exact26ConfigurationWriteApproved": false
+  },
+  "goalAchieved": false,
+  "actualNewDatabaseWrites": false,
+  "actualObjectWrites": false,
+  "localIntQmsMerge": false,
+  "rootG28ArtifactHashes": [
+    {
+      "file": "g28-single-migration-root-review.json",
+      "sha256": "ef408c5ed7f0e9773fe9444e857f8237d732c854e5dc2c6fa3c6f9e6b2a39115"
+    },
+    {
+      "file": "g28-config26-root-review-receipt.json",
+      "sha256": "f622350a733bd7086db883276b268a6eb32c0fae4253846b3fd4916c5536e522"
+    },
+    {
+      "file": "g28-completion-matrix.json",
+      "sha256": "7529c66f897ade2bcb1e423919a1f9310083105df66e0fdaaa2f9221de9ba977"
+    }
+  ]
+}

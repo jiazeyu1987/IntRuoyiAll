@@ -18,8 +18,14 @@ docs/dcc-parallel-delivery/README.md为正式入口，共11份文件。四线程
 
 ## 证据边界
 
-本轮完成分工和计划Review，四开发模块代码均not_submitted；没有声称模块已修复。用户本轮授权并行管理，使用一个具体A模块只读审查子任务，其他范围由主管理核对和编写；不把这当四个独立Codex开发线程已启动。
+任务包已完成分工和计划Review，四开发模块代码均not_submitted。早期一个A只读子任务审查不等于四个独立桌面线程；用户后来明确不用子Agent。主管理尝试CLI app-server创建四个普通会话并派发设计，但用户指出桌面显示被外部应用打开，已停止并纠正，不能算桌面开发线程已正确启动。
+
+- PASS：四个普通会话真实创建并保存消息，无子Agent关系；当前登记为external_execution_stopped。
+- PASS：本任务external manager/server通过名称、命令行和父子PID归属核验后停止，RemainingTaskManagers=0；其他应用及业务服务未动。
+- PASS：independent_threads.py命令入口已禁用，README及Review报告已明确启动错误，不再把外部CLI当桌面原生入口。
+- BLOCKED：当前能力没有创建桌面线程/发送消息接口，原生桌面控制不可用；需用户在桌面打开或新建线程并发送任务书指令。
+- NOT RUN：四模块生产开发；未取得完整独立会话G1最终输出，不宣称接口方案Review已通过。
 
 ## 收尾
 
-ready_for_closeout之后执行preview/apply，均退出码0，三份记录保留、delete为空、warnings none。用户未授权提交推送，仓库提交门禁不能标completed，最终任务记录blocked；文档交付不因此停止。正式修复待共同基线确定，不把未回复当批准。
+初始任务包及外部会话纠正后cleanup preview/apply均通过，退出码0。保留禁用脚本、会话登记和结果记录，临时协议schema及pycache文件已删除，会话历史不删。最终blocked准确记录桌面线程创建工具缺失；用户未授权提交推送，仓库提交门禁不能标completed。
