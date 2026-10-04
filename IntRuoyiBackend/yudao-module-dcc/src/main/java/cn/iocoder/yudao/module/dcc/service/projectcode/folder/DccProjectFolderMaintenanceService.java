@@ -20,6 +20,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 public class DccProjectFolderMaintenanceService {
     public record Save(Long id, Long parentId, String name, Integer sortOrder, String changeReason) {}
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
     @Resource private DccProjectCodeMapper projects;
     @Resource private DccProjectFolderMapper folders;
     @Resource private DccProjectAccessService access;
@@ -42,6 +43,7 @@ public class DccProjectFolderMaintenanceService {
         if(ids.size()!=1)throw fail(FOLDER_INVALID);
         var before=folders.selectById(folderId);
         if(before==null || !Boolean.TRUE.equals(before.getActive()))throw fail(FOLDER_INVALID);
+        storageMappingGuard.requireFolderUnmapped(folderId);
         if(!jdbc.queryForList("SELECT id FROM dcc_project_folder WHERE tenant_id=? AND project_code_id=? AND parent_id=? AND deleted=0 FOR UPDATE",
                 Long.class,tenant,projectId,folderId).isEmpty()
                 || !jdbc.queryForList("SELECT id FROM dcc_project_file_placement WHERE tenant_id=? AND project_code_id=? AND project_folder_id=? FOR UPDATE",

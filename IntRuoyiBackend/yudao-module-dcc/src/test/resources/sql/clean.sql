@@ -106,3 +106,5 @@ DELETE FROM dcc_project_reviewer_config;
 DELETE FROM dcc_legacy_source_name_evidence;
 DELETE FROM dcc_source_name_reservation;
 DELETE FROM dcc_legacy_source_name_scope;
+
+DELETE FROM dcc_project_folder_storage_mapping;

@@ -93,8 +93,11 @@ public class DccControlledFileSubmitReqVO {
     @NotBlank(message = "fileNumber is required")
     private String fileNumber;
 
-    @NotNull(message = "directoryId is required")
     private Long directoryId;
+    @JsonIgnore
+    @Schema(hidden=true)
+    private boolean directoryIdProvided;
+    public void setDirectoryId(Long directoryId) { this.directoryId=directoryId;this.directoryIdProvided=true; }
 
     @NotBlank(message = "versionNo is required")
     private String versionNo;

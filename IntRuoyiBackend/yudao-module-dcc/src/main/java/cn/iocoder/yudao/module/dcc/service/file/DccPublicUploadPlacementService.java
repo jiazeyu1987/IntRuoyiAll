@@ -21,6 +21,7 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 /** Public upload orchestration; A owns file creation and B owns exact project placement. */
 @Service
 public class DccPublicUploadPlacementService {
+    @Resource private DccProjectFolderStorageService storage;
     @Resource private DccProjectCodeMapper projects;
     @Resource private DccProjectFolderMapper folders;
     @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper files;
@@ -69,9 +70,18 @@ public class DccPublicUploadPlacementService {
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public Long create(Long actorId, DccControlledFileSubmitReqVO request, Supplier<Long> createFile) {
+        return create(actorId,request,context->createFile.get());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Long create(Long actorId, DccControlledFileSubmitReqVO request,
+                       java.util.function.Function<DccDerivedUploadStorage,Long> createFile) {
         if (request == null || createFile == null || actorId == null || actorId <= 0) throw fail(FOLDER_INVALID);
         // External review keeps its own existing endpoint and does not fabricate a controlled-file placement.
-        if ("EXTERNAL_REVIEW".equals(request.getProcessType())) return createFile.get();
+        if ("EXTERNAL_REVIEW".equals(request.getProcessType())) return createFile.apply(null);
+        if (request.getDirectoryId()!=null || request.isDirectoryIdProvided()
+                || !"NEW".equals(request.getChangeType())
+                || !(request.getProcessType()==null || request.getProcessType().isBlank() || "CONTROLLED_FILE".equals(request.getProcessType()))) throw fail(FOLDER_INVALID);
         Long tenant = TenantContextHolder.getRequiredTenantId();
         Long projectId = request.getDccProjectCodeId();
         Long folderId = request.getProjectFolderId();
@@ -88,12 +98,14 @@ public class DccPublicUploadPlacementService {
                 .eq(DccProjectFolderDO::getId, folderId).eq(DccProjectFolderDO::getTenantId, tenant)
                 .eq(DccProjectFolderDO::getProjectCodeId, projectId).last("FOR UPDATE"));
         if (folder == null || !Boolean.TRUE.equals(folder.getActive())) throw fail(FOLDER_INVALID);
-        Long fileId = createFile.get();
+        var context=storage.resolve(actorId,project,folder,request.getCategoryId(),request.getFileTypeTaxonomyId());
+        Long fileId = createFile.apply(context);
         var file = fileId == null ? null : files.selectById(fileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenant)
-                || !Objects.equals(file.getDccProjectCodeId(), projectId) || file.getDirectoryId() == null)
+                || !Objects.equals(file.getDccProjectCodeId(), projectId) || !Objects.equals(file.getDirectoryId(),context.storageDirectoryId)
+                || !Objects.equals(file.getCategoryId(),context.categoryId))
             throw fail(FOLDER_INVALID);
-        placements.bind(actorId, projectId, folderId, fileId, file.getDirectoryId(), reason);
+        placements.bindDerived(actorId, projectId, folderId, fileId, file.getDirectoryId(), reason,context);
         return fileId;
     }
 }

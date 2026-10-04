@@ -3065,3 +3065,11 @@ CREATE ALIAS IF NOT EXISTS HEX FOR "cn.iocoder.yudao.module.dcc.service.file.Dcc
 CREATE TABLE IF NOT EXISTS infra_file_config(id BIGINT PRIMARY KEY,storage INT,config VARCHAR(8192),deleted TINYINT DEFAULT 0);
 CREATE ALIAS IF NOT EXISTS JSON_EXTRACT FOR "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.jsonExtract";
 CREATE ALIAS IF NOT EXISTS JSON_UNQUOTE FOR "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.jsonUnquote";
+
+CREATE TABLE IF NOT EXISTS dcc_project_folder_storage_mapping (
+ id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL, project_code_id BIGINT NOT NULL,
+ project_folder_id BIGINT NOT NULL, category_id BIGINT NOT NULL, base_directory_id BIGINT NOT NULL,
+ storage_directory_id BIGINT NOT NULL, creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,
+ update_time TIMESTAMP,deleted BIT NOT NULL DEFAULT 0,
+ UNIQUE(tenant_id,project_folder_id,category_id),UNIQUE(tenant_id,storage_directory_id)
+);

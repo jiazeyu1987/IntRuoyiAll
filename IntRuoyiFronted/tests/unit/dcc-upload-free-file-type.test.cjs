@@ -55,7 +55,7 @@ test('formal enabled-type paths preserve Longs and allow leaf selection without 
 })
 test('actual type selection resolves the exact formal category and never takes the first unrelated category',async()=>{
  for(const response of ['7','8']){
-  const calls=[],state={isExternalReview:ref(false),fileTypeCategoryRequestSequence:0,formData:{fileTypeTaxonomyId:'9007199254740993',categoryId:null},fileTypeCategoryError:ref(''),isFileTypeTaxonomyDepthValid:ref(true),availableCategories:ref([{id:7,fileTypeTaxonomyId:'9007199254740993',active:true}]),resolveFileTypeActiveCategory:async id=>{calls.push(id);return response},uploadFileTypeIdentity:String,applyDccProjectCodeProductNumber:()=>{},loadUploadDirectoryTree:async id=>calls.push('directory:'+id),resolveUploadErrorMessage:e=>e.message}
+  const calls=[],state={isExternalReview:ref(false),isNormalNewUpload:ref(true),fileTypeCategoryRequestSequence:0,formData:{fileTypeTaxonomyId:'9007199254740993',categoryId:null},fileTypeCategoryError:ref(''),isFileTypeTaxonomyDepthValid:ref(true),availableCategories:ref([{id:7,fileTypeTaxonomyId:'9007199254740993',active:true}]),resolveFileTypeActiveCategory:async id=>{calls.push(id);return response},uploadFileTypeIdentity:String,applyDccProjectCodeProductNumber:()=>{},loadUploadDirectoryTree:async id=>calls.push('directory:'+id),resolveUploadErrorMessage:e=>e.message}
   const {handler}=execute(block('const syncAutoCategoryFromSelectedFileTypeTaxonomy =','const hasTemporaryUploadState ='),state,'syncAutoCategoryFromSelectedFileTypeTaxonomy')
   await handler();assert.equal(calls[0],'9007199254740993')
   if(response==='7'){assert.equal(state.formData.categoryId,7);assert.equal(state.fileTypeCategoryError.value,'')}

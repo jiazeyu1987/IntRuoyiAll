@@ -67,6 +67,8 @@ import static org.mockito.Mockito.when;
 
 @Import({DccDirectoryAdminServiceImpl.class, DccDirectoryNasTransferGuardService.class})
 class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
+    @MockitoBean private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
+
 
     @Test
     void nameOnlyDirectoryGrantIsNotPromotedToContentWhenSavedOrRead() {
@@ -150,6 +152,7 @@ class DccDirectoryAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(2, roots.size());
         DccFileDirectoryDO dbRoot = directoryMapper.selectById(rootId);
         DccFileDirectoryDO expectedRoot = BeanUtils.toBean(rootReqVO, DccFileDirectoryDO.class);
+        expectedRoot.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         expectedRoot.setAccessRuleManuallyBound(Boolean.FALSE);
         assertPojoEquals(expectedRoot, dbRoot,
                 "id", "createTime", "updateTime", "creator", "updater", "deleted");

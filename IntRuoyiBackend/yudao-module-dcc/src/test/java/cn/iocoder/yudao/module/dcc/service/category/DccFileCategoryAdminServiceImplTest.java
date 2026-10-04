@@ -56,6 +56,8 @@ import static org.mockito.Mockito.when;
 
 @Import(DccFileCategoryAdminServiceImpl.class)
 class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
+    @MockitoBean private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
+
 
     @Resource
     private DccFileCategoryAdminServiceImpl categoryAdminService;

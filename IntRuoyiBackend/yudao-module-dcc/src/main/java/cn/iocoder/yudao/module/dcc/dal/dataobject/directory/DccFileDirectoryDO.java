@@ -24,6 +24,7 @@ public class DccFileDirectoryDO extends BaseDO {
 
     @TableId
     private Long id;
+    private Long tenantId;
     private Long parentId;
     private String code;
     private String name;

@@ -168,7 +168,7 @@
             <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
           </div>
         </el-form-item>
-        <el-form-item v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">
+        <el-form-item v-if="!isNormalNewUpload && uploadDirectoryTree" label="提交目录" prop="directoryId">
           <div class="w-full">
             <template v-if="uploadDirectoryTree.leafBinding">
               <div class="rounded-6px border border-[#dbe3ef] bg-[#fafcff] px-12px py-9px text-13px text-[#172033]">
@@ -340,7 +340,7 @@
 
       <section class="upload-section upload-section--preflight" data-testid="dcc-upload-preflight-panel">
         <div class="upload-section__title">提交前校验</div>
-        <div class="upload-preflight-legend">文件编号/版本 · 文件类别 · 审批人链路 · 受控浏览目录 · 浏览权限范围</div>
+        <div class="upload-preflight-legend">文件编号/版本 · 文件类别 · 审批人链路 · 项目文件夹 · 浏览权限范围</div>
         <div data-testid="dcc-upload-route-readiness" class="mb-12px">
           <el-alert
             v-if="routeReadinessError"
@@ -925,6 +925,7 @@ const selectedCategory = computed(() =>
 const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
 )
+const isNormalNewUpload = computed(() => formData.processType === 'CONTROLLED_FILE' && formData.changeType === 'NEW')
 const categorySelectEmptyText = computed(() => {
   return '当前没有可选文件类别'
 })
@@ -973,7 +974,7 @@ const categoryPreflightMessage = computed(() => {
     return '当前文件分类叶子节点绑定了多个正式 DCC 类别，请联系文控管理员保留唯一启用类别后再提交。'
   }
   const boundCategory = selectedFileTypeTaxonomyBoundCategories.value[0]
-  if (!boundCategory.directoryId) {
+  if (!isNormalNewUpload.value && !boundCategory.directoryId) {
     return '该类别未配置正式默认目录，请联系文控管理员配置后再提交。'
   }
   return ''
@@ -1050,7 +1051,10 @@ const formRules = reactive<FormRules>({
       trigger: 'change'
     }
   ],
-  directoryId: [{ required: true, message: '请选择最终提交目录', trigger: 'change' }],
+  directoryId: [{ validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+    if (!isNormalNewUpload.value && !value) { callback(new Error('请选择最终提交目录')); return }
+    callback()
+  }, trigger: 'change' }],
   fileName: [
     {
       validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
@@ -1192,7 +1196,7 @@ const syncAutoCategoryFromSelectedFileTypeTaxonomy = async () => {
     if (availableCategories.value.length !== 1 || matches.length !== 1) throw new Error('文件类型没有唯一可用的正式分类')
     formData.categoryId = matches[0].id
     void applyDccProjectCodeProductNumber()
-    await loadUploadDirectoryTree(formData.categoryId)
+    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(formData.categoryId)
   } catch (error) {
     if (sequence === fileTypeCategoryRequestSequence && String(formData.fileTypeTaxonomyId) === String(typeId)) {
       formData.categoryId = null
@@ -1658,6 +1662,9 @@ const selectedUploadDirectoryPath = computed(() => {
 })
 const controlledBrowserPermissionScopeText = computed(() => {
   const categoryName = selectedCategory.value?.name || '未选择文件类别'
+  if (isNormalNewUpload.value) {
+    return `浏览权限范围：分类 ${categoryName}；项目 ${selectedProjectCode.value?.projectName || '未选择'}；项目文件夹 ${selectedProjectFolder.value?.name || '未选择'}。存储位置由系统在提交时按正式配置确定，正文访问继续校验实际 VIEW 权限。`
+  }
   const directoryPath = selectedUploadDirectoryPath.value || '未选择受控浏览目录'
   const projectCode = selectedProjectCode.value?.projectCode || formData.productCode || '未选择项目代码'
   return `浏览权限范围：分类 ${categoryName}；目录 ${directoryPath}；项目代码 ${projectCode}；发布后按正式 VIEW 权限矩阵控制可见人员。`
@@ -1745,7 +1752,10 @@ const approvalChainPreflightText = computed(() => {
 const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const hasApprovalChain = routeReadiness.value?.ready === true && Boolean(uploadApprovers.value)
     && !approvalUsersLoading.value && !approvalUsersError.value && !uploadApproverError.value
-  const hasDirectoryLanding = Boolean(selectedUploadDirectoryPath.value)
+  const hasDirectoryLanding = isNormalNewUpload.value
+    ? Boolean(selectedProjectFolder.value && !projectFoldersLoading.value && !projectFoldersError.value
+      && String(selectedProjectFolder.value.projectCodeId) === String(formData.dccProjectCodeId))
+    : Boolean(selectedUploadDirectoryPath.value)
   const versionReady = Boolean(
     formData.fileNumber.trim() &&
       isVersionNoFormatValid.value
@@ -1815,9 +1825,11 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     },
     {
       key: 'controlled-browser-directory',
-      label: '受控浏览目录',
-      status: hasDirectoryLanding ? '可落位' : '待落位',
-      description: hasDirectoryLanding
+      label: isNormalNewUpload.value ? '项目存储文件夹' : '受控浏览目录',
+      status: isNormalNewUpload.value ? (hasDirectoryLanding ? '已选择' : '待选择') : (hasDirectoryLanding ? '可落位' : '待落位'),
+      description: isNormalNewUpload.value
+        ? `项目文件夹：${selectedProjectFolder.value?.name || '未选择'}。实际存储位置由系统提交时按正式配置确定。`
+        : hasDirectoryLanding
         ? `最终受控浏览目录：${selectedUploadDirectoryPath.value}`
         : '请选择最终提交目录，确保发布后可以落位到受控浏览目录。',
       ok: hasDirectoryLanding,
@@ -1826,7 +1838,7 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     {
       key: 'controlled-browser-permission-scope',
       label: '浏览权限范围',
-      status: selectedCategory.value && hasDirectoryLanding ? '按矩阵生效' : '待确认',
+      status: selectedCategory.value && hasDirectoryLanding ? '按正式权限校验' : '待确认',
       description: controlledBrowserPermissionScopeText.value,
       ok: Boolean(selectedCategory.value && hasDirectoryLanding),
       warning: !selectedCategory.value || !hasDirectoryLanding
@@ -1983,7 +1995,7 @@ const handleCategoryChange = async () => {
   resetAttachmentUploads()
   if (formData.categoryId) {
     applyDccProjectCodeProductNumber()
-    await loadUploadDirectoryTree(formData.categoryId)
+    if (!isNormalNewUpload.value) await loadUploadDirectoryTree(formData.categoryId)
   }
 }
 
@@ -2354,13 +2366,13 @@ const submitForm = async () => {
     message.warning(versionDuplicatePreflightMessage.value)
     return
   }
-  if (!uploadDirectoryTree.value) {
+  if (!isNormalNewUpload.value && !uploadDirectoryTree.value) {
     message.warning(isExternalReview.value ? '请先选择文件类别并完成目录加载' : categoryPreflightMessage.value || '请先选择文件分类并完成目录加载')
     return
   }
-  if (!formData.directoryId) {
+  if (!isNormalNewUpload.value && !formData.directoryId) {
     message.warning(
-      uploadDirectoryTree.value.leafBinding
+      uploadDirectoryTree.value?.leafBinding
         ? '当前绑定目录尚未就绪，请刷新后重试'
         : '请选择绑定目录下的最后一层子目录'
     )

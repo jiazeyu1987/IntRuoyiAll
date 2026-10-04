@@ -13,6 +13,10 @@ import java.util.Objects;
  */
 @Mapper
 public interface DccFileDirectoryMapper extends BaseMapperX<DccFileDirectoryDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM dcc_file_directory WHERE tenant_id=#{tenant} AND id=#{id} AND deleted=0 FOR UPDATE")
+    DccFileDirectoryDO selectTenantForUpdate(@org.apache.ibatis.annotations.Param("tenant") Long tenant,@org.apache.ibatis.annotations.Param("id") Long id);
+    @org.apache.ibatis.annotations.Select("SELECT COUNT(*) FROM dcc_file_directory WHERE tenant_id=#{tenant} AND parent_id=#{id} AND active=1 AND deleted=0")
+    long countActiveChildren(@org.apache.ibatis.annotations.Param("tenant") Long tenant,@org.apache.ibatis.annotations.Param("id") Long id);
 
     default List<DccFileDirectoryDO> selectEnabledList() {
         LambdaQueryWrapperX<DccFileDirectoryDO> query = new LambdaQueryWrapperX<>();

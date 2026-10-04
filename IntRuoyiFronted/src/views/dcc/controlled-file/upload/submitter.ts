@@ -421,7 +421,8 @@ export const buildSubmitPayload = (
   attachmentUploads: ControlledFileUploadRespVO[] = []
 ): ControlledFileSubmitReqVO => ({
   categoryId: draft.categoryId as number,
-  directoryId: draft.directoryId as number,
+  ...(draft.processType === 'CONTROLLED_FILE' && draft.changeType === 'NEW'
+    ? {} : { directoryId: draft.directoryId as number }),
   sessionId: previewFile.sessionId,
   idempotencyKey: previewFile.sessionId,
   originalUploadTicket: previewFile.uploadTicket,

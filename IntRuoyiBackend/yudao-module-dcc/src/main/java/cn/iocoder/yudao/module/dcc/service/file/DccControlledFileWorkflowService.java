@@ -40,6 +40,9 @@ public interface DccControlledFileWorkflowService {
                                                                           Long dccProjectCodeId,
                                                                           Long fileTypeTaxonomyId);
 
+    Long submitNewWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO reqVO,DccDerivedUploadStorage storage);
+    Long createWorkingWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO reqVO,DccDerivedUploadStorage storage);
+
     Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);
 
     Long createWorkingControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO);

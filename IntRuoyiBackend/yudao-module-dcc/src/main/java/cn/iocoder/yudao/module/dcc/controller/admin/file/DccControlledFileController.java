@@ -320,7 +320,7 @@ public class DccControlledFileController {
     public CommonResult<Long> submitControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
         Long actorId = getLoginUserId();
         return success(publicUploadPlacementService.create(actorId, reqVO,
-                () -> workflowService.submitControlledFile(actorId, reqVO)));
+                storage -> workflowService.submitNewWithDerivedStorage(actorId,reqVO,storage)));
     }
 
     @GetMapping("/current-version")
@@ -351,7 +351,7 @@ public class DccControlledFileController {
     public CommonResult<Long> createWorkingControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
         Long actorId = getLoginUserId();
         return success(publicUploadPlacementService.create(actorId, reqVO,
-                () -> workflowService.createWorkingControlledFile(actorId, reqVO)));
+                storage -> workflowService.createWorkingWithDerivedStorage(actorId,reqVO,storage)));
     }
 
     @PostMapping("/{id:\\d+}/submit")

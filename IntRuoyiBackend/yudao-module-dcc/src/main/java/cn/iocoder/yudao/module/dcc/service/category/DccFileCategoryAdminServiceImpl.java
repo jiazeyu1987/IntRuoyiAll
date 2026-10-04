@@ -55,6 +55,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     private static final String INTAUTH_CODE_PREFIX = "INTAUTH-";
     private static final String LOCAL_SOURCE = "LOCAL";
 
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
     @Resource
     private DccFileCategoryMapper categoryMapper;
     @Resource
@@ -182,6 +183,7 @@ public class DccFileCategoryAdminServiceImpl implements DccFileCategoryAdminServ
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccCategoryDirectoryBindingDO bindDirectory(Long categoryId, DccCategoryDirectoryBindingSaveReqVO reqVO) {
+        storageMappingGuard.requireCategoryUnmapped(categoryId);
         validateCategoryExists(categoryId);
         if (directoryMapper.selectById(reqVO.getDirectoryId()) == null) {
             throw exception(FILE_DIRECTORY_NOT_EXISTS);

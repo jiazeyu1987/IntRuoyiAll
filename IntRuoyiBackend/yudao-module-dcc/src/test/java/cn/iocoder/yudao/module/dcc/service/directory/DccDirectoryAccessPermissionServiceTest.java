@@ -29,6 +29,9 @@ import static org.mockito.Mockito.when;
 
 class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
 
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper storageMappings;
+    @org.junit.jupiter.api.BeforeEach void tenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);}
+    @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
     @Mock
     private DccDirectoryAccessRuleMapper accessRuleMapper;
     @Mock

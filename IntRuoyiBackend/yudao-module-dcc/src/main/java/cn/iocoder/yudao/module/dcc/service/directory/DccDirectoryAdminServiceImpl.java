@@ -94,6 +94,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     private static final String MESSAGE_BUSINESS_TYPE_TRAINING = "TRAINING";
     private static final String MESSAGE_BUSINESS_TYPE_OBSOLETE = "OBSOLETE";
 
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard storageMappingGuard;
     @Resource
     private DccFileDirectoryMapper directoryMapper;
     @Resource
@@ -150,8 +151,10 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createDirectory(DccDirectorySaveReqVO reqVO) {
+        storageMappingGuard.requireParentNotMappedLeaf(reqVO.getParentId());
         validateParentHierarchy(null, reqVO.getParentId());
         DccFileDirectoryDO directory = BeanUtils.toBean(reqVO, DccFileDirectoryDO.class);
+        directory.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         directory.setAccessRuleManuallyBound(Boolean.FALSE);
         directoryMapper.insert(directory);
         return directory.getId();
@@ -160,6 +163,8 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateDirectory(DccDirectorySaveReqVO reqVO) {
+        storageMappingGuard.requireDirectoriesUnmapped(java.util.List.of(reqVO.getId()));
+        storageMappingGuard.requireParentNotMappedLeaf(reqVO.getParentId());
         validateParentHierarchy(reqVO.getId(), reqVO.getParentId());
         directoryMapper.updateById(BeanUtils.toBean(reqVO, DccFileDirectoryDO.class));
     }
@@ -270,6 +275,7 @@ public class DccDirectoryAdminServiceImpl implements DccDirectoryAdminService {
         validateDeleteConfirmText(confirmText);
         nasTransferGuardService.assertNoActiveTransfer(id);
         Set<Long> directoryIds = collectDirectorySubtreeIds(id);
+        storageMappingGuard.requireDirectoriesUnmapped(directoryIds);
         List<DccControlledFileDO> controlledFiles = controlledFileMapper.selectList(
                 new LambdaQueryWrapperX<DccControlledFileDO>().in(DccControlledFileDO::getDirectoryId, directoryIds));
         Set<Long> controlledFileIds = controlledFiles.stream()

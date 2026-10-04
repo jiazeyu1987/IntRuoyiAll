@@ -58,7 +58,7 @@ export interface DccControlledFileActionProjectionVO {
 
 export interface ControlledFileSubmitReqVO {
   categoryId: number
-  directoryId: number
+  directoryId?: number | string | null
   sessionId: string
   idempotencyKey: string
   originalUploadTicket: string
@@ -1530,6 +1530,12 @@ const assertControlledFileSubmitRequest = (
     assertRequiredString(payload, 'drawingPdfUploadTicket', context)
   }
   assertRequiredString(payload, 'changeType', context)
+  const normalControlledProcess = payload.processType == null || payload.processType === 'CONTROLLED_FILE'
+    || (typeof payload.processType === 'string' && !payload.processType.trim())
+  if (normalControlledProcess && payload.changeType === 'NEW'
+    && Object.prototype.hasOwnProperty.call(payload, 'directoryId')) {
+    throw new DccControlledFileContractError(`${context} normal NEW storage directory is resolved by the server`)
+  }
   if (payload.processType !== 'EXTERNAL_REVIEW') {
     assertControlledFileRequestIdentity(payload, 'dccProjectCodeId', context)
     assertControlledFileRequestIdentity(payload, 'projectFolderId', context)

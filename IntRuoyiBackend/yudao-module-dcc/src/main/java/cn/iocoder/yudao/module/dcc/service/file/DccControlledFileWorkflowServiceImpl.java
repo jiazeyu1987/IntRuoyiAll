@@ -462,8 +462,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         requireOrdinaryNewUpload(reqVO);
         rejectManualSignoffUsersForThreeWorkflow(DccControlledFileProcessDefinitionKeys.UPLOAD,
                 reqVO.getSelectedSignoffUserIds());
-        return submitControlledFileIdempotently(userId, reqVO,
-                DccControlledFileProcessDefinitionKeys.UPLOAD);
+        return publicUploadPlacementService.create(userId,reqVO,
+                storage->submitNewWithDerivedStorage(userId,reqVO,storage));
     }
 
     @Override
@@ -474,7 +474,31 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(EXTERNAL_FILE_REVIEW_ENDPOINT_REQUIRED);
         }
         requireOrdinaryNewUpload(reqVO);
-        return createWorkingControlledFileIdempotently(userId, reqVO, "WORKING_CREATE");
+        return publicUploadPlacementService.create(userId,reqVO,
+                storage->createWorkingWithDerivedStorage(userId,reqVO,storage));
+    }
+
+    @Override
+    @Transactional(rollbackFor=Exception.class)
+    public Long submitNewWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO request,DccDerivedUploadStorage storage) {
+        requireDerivedStorage(userId,request,storage);
+        requireOrdinaryNewUpload(request);
+        return submitControlledFileIdempotently(userId,request,DccControlledFileProcessDefinitionKeys.UPLOAD,storage);
+    }
+    @Override
+    @Transactional(rollbackFor=Exception.class)
+    public Long createWorkingWithDerivedStorage(Long userId,DccControlledFileSubmitReqVO request,DccDerivedUploadStorage storage) {
+        requireDerivedStorage(userId,request,storage);
+        requireOrdinaryNewUpload(request);
+        return createWorkingControlledFileIdempotently(userId,request,"WORKING_CREATE",storage);
+    }
+    private void requireDerivedStorage(Long actor,DccControlledFileSubmitReqVO request,DccDerivedUploadStorage storage) {
+        if(storage==null || request==null
+          || !Objects.equals(storage.tenantId,TenantContextHolder.getRequiredTenantId())
+          || !Objects.equals(actor,storage.actorId) || !Objects.equals(request.getDccProjectCodeId(),storage.projectId)
+          || !Objects.equals(request.getProjectFolderId(),storage.folderId) || !Objects.equals(request.getCategoryId(),storage.categoryId))
+            throw cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.fail(
+                    cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.FOLDER_INVALID);
     }
 
     private void requireOrdinaryNewUpload(DccControlledFileSubmitReqVO request) {
@@ -593,6 +617,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private Long createWorkingControlledFileIdempotently(Long userId, DccControlledFileSubmitReqVO reqVO,
                                                           String ownershipType) {
+        return createWorkingControlledFileIdempotently(userId,reqVO,ownershipType,null);
+    }
+    private Long createWorkingControlledFileIdempotently(Long userId,DccControlledFileSubmitReqVO reqVO,String ownershipType,DccDerivedUploadStorage storage) {
         String idempotencyKey = StrUtil.trim(reqVO.getIdempotencyKey());
         if (StrUtil.isBlank(idempotencyKey)) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
@@ -609,7 +636,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             reqVO.setCreationPayloadHash(payloadHash);
             try {
-                PreparedSubmitContext context = prepareSubmitContext(userId, reqVO, true, true, null, true);
+                PreparedSubmitContext context = prepareSubmitContext(userId, reqVO, true, true, null, true,storage);
                 workflowDatePolicy.requireReviewDate(reqVO.getEffectiveDate());
                 DccControlledFileDO file = insertControlledFile(context, userId,
                         DccControlledFileStatusEnum.WORKING.getStatus(), null, false, ownershipType);
@@ -1028,6 +1055,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private Long submitControlledFileIdempotently(Long userId, DccControlledFileSubmitReqVO reqVO,
                                                    String processDefinitionKey) {
+        return submitControlledFileIdempotently(userId,reqVO,processDefinitionKey,null);
+    }
+    private Long submitControlledFileIdempotently(Long userId,DccControlledFileSubmitReqVO reqVO,String processDefinitionKey,DccDerivedUploadStorage storage) {
         String idempotencyKey = reqVO == null ? null : StrUtil.trim(reqVO.getIdempotencyKey());
         if (StrUtil.isBlank(idempotencyKey)) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
@@ -1043,7 +1073,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             reqVO.setSubmitPayloadHash(payloadHash);
             try {
-                return submitControlledFile(userId, reqVO, null, processDefinitionKey, true);
+                return submitControlledFile(userId, reqVO, null, processDefinitionKey, true,storage);
             } catch (ControlledFileInsertConflict ex) {
                 DccControlledFileDO winner = controlledFileMapper.selectBySubmitIdempotencyForUpdate(
                         tenantId, userId, idempotencyKey);
@@ -1069,9 +1099,12 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private Long submitControlledFile(Long userId, DccControlledFileSubmitReqVO reqVO, Long ignoredControlledFileId,
                                       String processDefinitionKey, boolean requireUploadTickets) {
+        return submitControlledFile(userId,reqVO,ignoredControlledFileId,processDefinitionKey,requireUploadTickets,null);
+    }
+    private Long submitControlledFile(Long userId,DccControlledFileSubmitReqVO reqVO,Long ignoredControlledFileId,String processDefinitionKey,boolean requireUploadTickets,DccDerivedUploadStorage storage) {
         rejectManualSignoffUsersForThreeWorkflow(processDefinitionKey, reqVO.getSelectedSignoffUserIds());
         PreparedSubmitContext context = prepareSubmitContext(userId, reqVO, true, true, ignoredControlledFileId,
-                requireUploadTickets);
+                requireUploadTickets,storage);
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute = routeReadinessService
                 .evaluateDepartments(context.category().getId(), userId, reqVO.getSelectedSignoffDepartmentIds(),
                         DccControlledFileProcessDefinitionKeys.toActionType(processDefinitionKey))
@@ -2037,11 +2070,14 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     }
 
     private void validateSubmitRequest(DccControlledFileSubmitReqVO reqVO, boolean requireUploadTickets) {
+        validateSubmitRequest(reqVO,requireUploadTickets,true);
+    }
+    private void validateSubmitRequest(DccControlledFileSubmitReqVO reqVO,boolean requireUploadTickets,boolean requireDirectory) {
         if (reqVO == null
                 || reqVO.getCategoryId() == null
                 || StrUtil.isBlank(reqVO.getFileName())
                 || StrUtil.isBlank(reqVO.getFileNumber())
-                || reqVO.getDirectoryId() == null
+                || (requireDirectory && reqVO.getDirectoryId() == null)
                 || reqVO.getEffectiveDate() == null) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
@@ -2251,7 +2287,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                                                        boolean requireLeafDirectory,
                                                        boolean requireScreenshotMetadata, Long ignoredControlledFileId,
                                                        boolean requireUploadTickets) {
-        validateSubmitRequest(reqVO, requireUploadTickets);
+        return prepareSubmitContext(userId,reqVO,requireLeafDirectory,requireScreenshotMetadata,ignoredControlledFileId,requireUploadTickets,null);
+    }
+    private PreparedSubmitContext prepareSubmitContext(Long userId,DccControlledFileSubmitReqVO reqVO,boolean requireLeafDirectory,boolean requireScreenshotMetadata,Long ignoredControlledFileId,boolean requireUploadTickets,DccDerivedUploadStorage storage) {
+        if(storage!=null)requireDerivedStorage(userId,reqVO,storage);
+        validateSubmitRequest(reqVO, requireUploadTickets,storage==null);
         String processType = normalizeProcessType(reqVO.getProcessType());
         boolean controlledUploadSubmit = requireUploadTickets
                 && DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(processType);
@@ -2289,12 +2329,12 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (requireScreenshotMetadata) {
             validateScreenshotProductCode(dccProduct);
         }
-        DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(category.getId());
-        Long selectedDirectoryId = validateSelectedDirectory(resolveUploadBindingDirectoryId(binding),
-                reqVO.getDirectoryId(), requireLeafDirectory);
+        DccCategoryDirectoryBindingDO binding = storage==null ? categoryDirectoryBindingMapper.selectActiveByCategoryId(category.getId()) : null;
+        Long selectedDirectoryId = validateSelectedDirectory(storage==null?resolveUploadBindingDirectoryId(binding):storage.baseDirectoryId,
+                storage==null?reqVO.getDirectoryId():storage.storageDirectoryId, requireLeafDirectory);
         DccControlledFileChangeTypeEnum changeType = validateChangeType(reqVO.getChangeType());
         validateNewFileTaxonomyLeaf(changeType, controlledUploadSubmit, fileTypeTaxonomy);
-        DccControlledFileMasterDO master = loadOrCreateMaster(reqVO, changeType, controlledUploadSubmit);
+        DccControlledFileMasterDO master = loadOrCreateMaster(reqVO, changeType, controlledUploadSubmit,selectedDirectoryId);
         lockNativeContentMaster(master);
         DccControlledFileDO currentActiveFile = validateChangeTypeAgainstCurrentVersion(changeType, master);
         if (changeType != DccControlledFileChangeTypeEnum.NEW
@@ -2548,7 +2588,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
     private DccControlledFileMasterDO loadOrCreateMaster(DccControlledFileSubmitReqVO reqVO,
                                                          DccControlledFileChangeTypeEnum changeType,
-                                                         boolean useNewLogicalIdentity) {
+                                                         boolean useNewLogicalIdentity,Long selectedDirectoryId) {
         String normalizedFileNumber = normalizeFileNumber(reqVO.getFileNumber());
         reqVO.setFileNumber(normalizedFileNumber);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
@@ -2572,7 +2612,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                     .fileTypeTaxonomyLeafId(taxonomyLeafId)
                     .normalizedFileNumber(normalizedFileNumber)
                     .categoryId(reqVO.getCategoryId())
-                    .directoryId(reqVO.getDirectoryId())
+                    .directoryId(selectedDirectoryId)
                     .fileName(reqVO.getFileName())
                     .fileNumber(normalizedFileNumber)
                     .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())
@@ -2605,7 +2645,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             }
             DccControlledFileMasterDO master = DccControlledFileMasterDO.builder()
                     .categoryId(reqVO.getCategoryId())
-                    .directoryId(reqVO.getDirectoryId())
+                    .directoryId(selectedDirectoryId)
                     .fileName(reqVO.getFileName())
                     .fileNumber(normalizedFileNumber)
                     .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode())

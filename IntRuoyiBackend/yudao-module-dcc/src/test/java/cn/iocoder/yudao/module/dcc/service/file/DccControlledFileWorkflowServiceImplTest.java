@@ -670,6 +670,14 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
 
     @BeforeEach
     void setDefaultUploadTicketBindings() {
+        // Trusted storage is an explicit isolated orchestration port; caller-directory refusal is real H2 in G48.
+        lenient().when(publicUploadPlacementService.create(any(),any(),
+                org.mockito.ArgumentMatchers.<java.util.function.Function<DccDerivedUploadStorage,Long>>any())).thenAnswer(call->{
+            DccControlledFileSubmitReqVO r=call.getArgument(1);
+            var storage=new DccDerivedUploadStorage(TenantContextHolder.getRequiredTenantId(),call.getArgument(0),
+                    r.getDccProjectCodeId(),r.getProjectFolderId(),r.getCategoryId(),1L,20L,r.getDirectoryId(),false);
+            return call.<java.util.function.Function<DccDerivedUploadStorage,Long>>getArgument(2).apply(storage);
+        });
         lenient().when(fileTypeTaxonomyAdminService.resolveActiveCategoryId(8803L)).thenReturn(10L);
         lenient().when(approvedProductIdentityMapper.selectApprovedProduct(anyLong(), anyLong())).thenReturn(List.of());
         var ownerService=new DccApprovalFileOwnerSelectionService();
@@ -2349,6 +2357,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setDirectoryId(900L);
         mockCommonSubmitDependencies();
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        doThrow(exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS)).when(publicUploadPlacementService)
+                .create(any(),any(),org.mockito.ArgumentMatchers.<java.util.function.Function<DccDerivedUploadStorage,Long>>any());
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
                 FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
@@ -2371,6 +2381,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).active(Boolean.TRUE).source("LOCAL").fileTypeTaxonomyId(8803L).build());
         when(categoryDirectoryBindingMapper.selectActiveByCategoryId(10L)).thenReturn(null);
+        doThrow(exception(FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS)).when(publicUploadPlacementService)
+                .create(any(),any(),org.mockito.ArgumentMatchers.<java.util.function.Function<DccDerivedUploadStorage,Long>>any());
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
                 FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS);
         verify(directoryMapper, never()).selectEnabledList();

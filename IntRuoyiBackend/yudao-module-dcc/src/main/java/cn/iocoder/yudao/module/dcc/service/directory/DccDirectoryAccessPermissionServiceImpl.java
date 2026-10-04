@@ -24,6 +24,7 @@ public class DccDirectoryAccessPermissionServiceImpl implements DccDirectoryAcce
     private static final String DIRECTORY_MANAGE_PERMISSION = "dcc:controlled-file:directory:manage";
     private static final String ACCESS_RULE_MANAGE_PERMISSION = "dcc:controlled-file:access-rule:manage";
 
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper storageMappings;
     @Resource
     private DccDirectoryAccessRuleMapper accessRuleMapper;
     @Resource
@@ -57,11 +58,19 @@ public class DccDirectoryAccessPermissionServiceImpl implements DccDirectoryAcce
                 .anyMatch(rule -> matchesSubjectType(rule.getSubjectType(), DccAccessSubjectTypeEnum.DEPT))
                 ? collectUserDeptAndAncestorIds(user.getDeptId())
                 : Collections.emptySet();
-        return rules.stream()
+        Set<Long> authorized=rules.stream()
                 .filter(rule -> matchesSubject(rule, userId, user, userRoleIds, userDeptAndAncestorIds))
                 .filter(rule -> allows(rule, accessType))
                 .map(DccDirectoryAccessRuleDO::getDirectoryId)
                 .collect(Collectors.toSet());
+        if(!authorized.isEmpty()) {
+            Long tenant=cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+            if(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.isIgnore()) throw new IllegalStateException("Mapped storage permissions require exact tenant");
+            Set<Long> expanded=new LinkedHashSet<>(authorized);
+            storageMappings.validDerivedLeaves(tenant,authorized).forEach(mapping->expanded.add(mapping.getStorageDirectoryId()));
+            return expanded;
+        }
+        return authorized;
     }
 
     private boolean matchesSubject(DccDirectoryAccessRuleDO rule, Long userId, AdminUserRespDTO user,

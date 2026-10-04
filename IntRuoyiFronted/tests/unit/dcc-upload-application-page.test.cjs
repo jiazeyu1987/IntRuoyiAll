@@ -34,7 +34,7 @@ const setup = overrides => {
       projectFolderId: '500', projectFolderChangeReason: '归入正式项目目录', selectedSignoffDepartmentIds: ['7'] },
     signoffDepartments: ref([{ id: '7', name: '质量' }]), signoffDepartmentsLoading: ref(false), signoffDepartmentsError: ref(''),
     routeReadinessSelectionKey: ref(signoffModel.exports.signoffRequestKey(2, ['7'], 'CONTROLLED_FILE')),
-    isExternalReview: ref(false), projectAttributesPanel: ref({ getSnapshot: () => snapshot(5), selectProject: async () => true }),
+    isExternalReview: ref(false), isNormalNewUpload: ref(true), projectAttributesPanel: ref({ getSnapshot: () => snapshot(5), selectProject: async () => true }),
     projectAttributesPanelKey: ref(0), acceptedProjectCodeId: ref(5), projectAttributesLoading: ref(false), projectAttributesSelectionSequence: 0,
     projectFoldersLoading: ref(false), projectFoldersError: ref(''), projectFolders: ref([]), projectFoldersProjectId: ref('5'),
     selectedProjectFolder: ref({ id: '500', name: '逻辑文件夹', projectCodeId: '5', active: true }), projectFolderRequestSequence: 0,
@@ -120,6 +120,25 @@ test('formal product provenance changes during confirmation reject the exact pen
   assert.equal(calls.confirmed, 1)
   assert.equal(calls.submitted.length, 0)
   assert.match(calls.errors.join(' '), /变化/)
+})
+test('normal NEW confirms and submits with only its real project folder and no NAS tree', async () => {
+  const { state, calls } = setup({ uploadDirectoryTree: ref(undefined) })
+  state.formData.directoryId = null
+  await submit(state)
+  assert.equal(calls.confirmed, 1)
+  assert.equal(calls.submitted.length, 1)
+  assert.equal(calls.submitted[0][0].projectFolderId, '500')
+  assert.equal(calls.submitted[0][0].directoryId, null)
+  // The real submitter payload independently omits this draft-only field for NEW.
+})
+test('external review still blocks when its required real NAS directory is absent', async () => {
+  const { state, calls } = setup({ isExternalReview: ref(true), isNormalNewUpload: ref(false), uploadDirectoryTree: ref(undefined) })
+  state.formData.processType = 'EXTERNAL_REVIEW'
+  state.formData.directoryId = null
+  await submit(state)
+  assert.equal(calls.confirmed, 0)
+  assert.equal(calls.submitted.length, 0)
+  assert.match(calls.errors.join(' '), /目录/)
 })
 test('project or file change during confirmation rejects the obsolete request visibly', async () => {
   const { state, calls } = setup(); state.message.confirm = async () => { state.previewUpload.value.uploadTicket = 'another-file' }

@@ -25,9 +25,19 @@ public class DccProjectFilePlacementService {
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService audit;
     @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService ledger;
 
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public DccProjectFilePlacementDO bindDerived(Long userId,Long projectId,Long folderId,Long fileId,Long directoryId,String reason,
+            cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
+        return bind(userId,projectId,folderId,fileId,directoryId,reason,storage);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public DccProjectFilePlacementDO bind(Long userId, Long projectId, Long projectFolderId,
                                           Long controlledFileId, Long storageDirectoryId, String reason) {
+        return bind(userId,projectId,projectFolderId,controlledFileId,storageDirectoryId,reason,null);
+    }
+    private DccProjectFilePlacementDO bind(Long userId,Long projectId,Long projectFolderId,Long controlledFileId,Long storageDirectoryId,String reason,
+            cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
         audit.validateReason(reason);
         access.assertProjectEditorOrOwner(userId, projectId);
         var project = projects.selectByIdForUpdate(projectId);
@@ -53,6 +63,14 @@ public class DccProjectFilePlacementService {
         saved.setTenantId(tenant); saved.setProjectCodeId(projectId); saved.setProjectFolderId(projectFolderId);
         saved.setControlledFileId(controlledFileId); saved.setStorageDirectoryId(storageDirectoryId);
         if (placements.insert(saved) != 1) throw fail(FOLDER_INVALID);
+        var state=new LinkedHashMap<String,Object>();state.put("placement",placements.findFile(controlledFileId));
+        if(storage!=null) {
+            if(!Objects.equals(storage.tenantId,tenant) || !Objects.equals(storage.actorId,userId)
+              || !Objects.equals(storage.projectId,projectId) || !Objects.equals(storage.folderId,projectFolderId)
+              || !Objects.equals(storage.storageDirectoryId,storageDirectoryId) || !Objects.equals(storage.categoryId,file.getCategoryId())) throw fail(FOLDER_INVALID);
+            state.put("mappingId",storage.mappingId);state.put("baseDirectoryId",storage.baseDirectoryId);
+            state.put("storageDirectoryId",storage.storageDirectoryId);state.put("mappingCreated",storage.created);
+        }
         ledger.append(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.builder()
                 .operationId("dcc.project-file-placement.bind").subjectId("DCC_PROJECT_FILE_PLACEMENT:"+saved.getId())
                 .subjectVersion("1").reason(reason.trim())
@@ -60,7 +78,7 @@ public class DccProjectFilePlacementService {
                         .state("ABSENT").canonicalJson("{}").build())
                 .afterState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder()
                         .state("PRESENT").objectVersion("1")
-                        .canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(placements.findFile(controlledFileId))).build())
+                        .canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(storage==null?placements.findFile(controlledFileId):state)).build())
                 .idempotencyKey("DCC:PROJECT_FILE_PLACEMENT:"+saved.getId())
                 .source("DccProjectFilePlacementService.bind").build());
         return saved;
