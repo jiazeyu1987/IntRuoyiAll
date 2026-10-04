@@ -60,6 +60,7 @@ class MesProductionReleaseManagerStageInitializerTest {
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
                 applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
                 candidateResolver, businessReadinessService);
+        ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(initializer, "notificationService",
                 org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
         // URL binding occurs only in active-order cases; old four-report cases intentionally do not use it.
@@ -69,6 +70,17 @@ class MesProductionReleaseManagerStageInitializerTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test void pendingVoidStopsManagerStageBeforeAnyApplicationOrTaskWrite() {
+        var guard = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class);
+        ReflectionTestUtils.setField(initializer, "lifecycleGuard", guard);
+        org.mockito.Mockito.doThrow(new IllegalStateException("pending formal VOID")).when(guard).requireReleaseAllowed(901L);
+        assertThrows(IllegalStateException.class, () -> initializer.initializeManagerReleaseStage(
+                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
+                        .setBatchExecutionId(901L).setReportSnapshotHash("hash")
+                        .setReportEvidences(evidences()).setExpectedApplicationVersion(4)));
+        org.mockito.Mockito.verifyNoInteractions(applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper);
     }
 
     @Test

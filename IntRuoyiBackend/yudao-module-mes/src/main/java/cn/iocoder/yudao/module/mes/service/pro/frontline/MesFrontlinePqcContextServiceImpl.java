@@ -1670,6 +1670,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (task == null || task.getId() == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "pqcTaskId");
         }
+        // The authenticated server caller owns the operator fact; clients cannot select it.
+        command.setDeviceAccountId(loginUserId);
         command.setWorkOrderId(task.getWorkOrderId());
         command.setRouteId(task.getRouteId());
         command.setInspectionType(task.getInspectionType());

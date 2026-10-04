@@ -23,8 +23,11 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import(MesProEdhrBatchVoidEffectServiceImpl.class)
+@Import({MesProEdhrBatchVoidEffectServiceImpl.class, MesEdhrBatchLifecycleGuard.class})
 class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
+
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+    @MockitoBean private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
     private static final Long ACTOR_ID = 101L;
     private static final String HASH_64 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -98,6 +101,40 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
         captor.getAllValues().forEach(command ->
                 org.junit.jupiter.api.Assertions.assertTrue(command.getMetadataJson()
                         .contains("\"activeOrderId\":8101")));
+    }
+
+    @Test void pendingNcrRejectsPrecheckRequestAndDirectVoidWithoutSignatures() {
+        var batch = insertClosedBatchExecution();
+        when(reviewMapper.selectPendingByBatchExecutionId(batch.getId())).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO().setId(991L));
+        var request = new EdhrRecordChangeRequestReqVO().setBatchExecutionId(batch.getId())
+                .setReasonCategory("ORDER_CANCELLED").setReasonText("pending NCR").setPassword("pass");
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> batchVoidEffectService.precheckPlatformVoidBatchExecution(request));
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> batchVoidEffectService.requestPlatformVoidBatchExecution(request, "process-1"));
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> batchVoidEffectService.executeDirectPlatformVoidBatchExecution(request, ACTOR_ID));
+        org.mockito.Mockito.verifyNoInteractions(signatureService, workTaskService, operationAuditService);
+        org.junit.jupiter.api.Assertions.assertEquals(30, batchExecutionMapper.selectById(batch.getId()).getStatus());
+    }
+
+    @Test void ncrCreatedAfterRequestRejectsBpmEffectAndKeepsReviewableBatch() {
+        var batch = insertClosedBatchExecution();
+        var archive = insertSealedBatchArchive(batch.getId());
+        try (var login = mockLoginUser()) {
+            batchVoidEffectService.requestPlatformVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
+                    .setBatchExecutionId(batch.getId()).setReasonCategory("ORDER_CANCELLED")
+                    .setReasonText("before NCR").setPassword("pass"), "void-process-2");
+        }
+        when(reviewMapper.selectPendingByBatchExecutionId(batch.getId())).thenReturn(
+                new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO().setId(992L));
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> batchVoidEffectService.handleVoidBatchExecutionApprovalCallback("void-process-2", "event-2",
+                        "APPROVED", null, ACTOR_ID));
+        org.junit.jupiter.api.Assertions.assertEquals(30, batchExecutionMapper.selectById(batch.getId()).getStatus());
+        org.junit.jupiter.api.Assertions.assertTrue(batchArchiveMapper.selectById(archive.getId()).getArchiveValidFlag());
+        org.mockito.Mockito.verifyNoInteractions(workTaskService);
     }
 
     private static MockedStatic<SecurityFrameworkUtils> mockLoginUser() {

@@ -114,6 +114,10 @@ class MesProEdhrNcrManagerDispositionTest {
     @Mock
     private MesActiveOrderReworkCycleService reworkCycleService;
     @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper pqcInspectionTaskMapper;
+    @Mock
     private PermissionApi permissionApi;
 
     @InjectMocks
@@ -206,22 +210,56 @@ class MesProEdhrNcrManagerDispositionTest {
 
         when(reviewMapper.selectByIdForUpdate(review.getId())).thenReturn(review);
         when(reviewMapper.selectById(review.getId())).thenReturn(review);
-        when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenReturn(1);
+        when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(invocation -> {
+            var written = invocation.getArgument(0, MesProEdhrNonconformanceReviewDO.class);
+            review.setDisposition(written.getDisposition()).setReviewStatus(written.getReviewStatus())
+                    .setActiveOrderId(written.getActiveOrderId()).setReviewMaterialUrl(written.getReviewMaterialUrl())
+                    .setReviewMaterialFileId(written.getReviewMaterialFileId()).setReviewMaterialsJson(written.getReviewMaterialsJson())
+                    .setReviewOpinion(written.getReviewOpinion()).setQaSignature(written.getQaSignature())
+                    .setQaUserId(written.getQaUserId()).setClosedAt(written.getClosedAt())
+                    .setUnfrozenAt(written.getUnfrozenAt()).setVoidedAt(written.getVoidedAt())
+                    .setTraceSnapshotJson(written.getTraceSnapshotJson());
+            return 1;
+        });
         if (DISPOSITION_REWORK.equals(disposition)) {
             when(reviewMapper.selectFreezeLifecycleByWorkOrderId(workOrderId)).thenReturn(List.of());
-            when(activeOrderMapper.selectByIdForUpdate(activeOrderId)).thenReturn(new MesProcessPoolActiveOrderDO()
-                    .setId(activeOrderId).setWorkOrderId(workOrderId));
+        }
+        var sourceOrder = new MesProcessPoolActiveOrderDO().setId(activeOrderId).setWorkOrderId(workOrderId);
+        when(activeOrderMapper.selectByIdForUpdate(activeOrderId)).thenReturn(sourceOrder);
+        when(workTaskMapper.selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(managerTask);
+        when(workTaskMapper.selectByIdForUpdate(managerTaskId)).thenReturn(managerTask);
+        when(releaseApplicationMapper.selectByIdForUpdate(applicationId)).thenReturn(application);
+        if (DISPOSITION_REWORK.equals(disposition)) {
+            long cycleId = 8001L;
+            when(reworkCycleService.start(eq(activeOrderId), eq(workOrderId), eq(review.getId()), any())).thenReturn(cycleId);
+            when(activeOrderMapper.selectByIdForUpdate(cycleId)).thenReturn(new MesProcessPoolActiveOrderDO()
+                    .setId(cycleId).setWorkOrderId(workOrderId).setReworkSourceActiveOrderId(activeOrderId)
+                    .setReworkReviewId(review.getId()));
+            when(processSnapshotMapper.selectListByActiveOrderIdForUpdate(cycleId)).thenReturn(List.of(
+                    new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO()
+                            .setId(8101L).setActiveOrderId(cycleId).setWorkOrderId(workOrderId)));
+            when(pqcInspectionTaskMapper.selectListByActiveOrderIdForUpdate(cycleId)).thenReturn(List.of(
+                    new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO()
+                            .setId(8201L).setActiveOrderId(cycleId).setWorkOrderId(workOrderId)));
         }
         when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(activeOrderId)))
                 .thenReturn(List.of(application, laterApplication));
         when(releaseApplicationMapper.closeFromNonconformance(eq(applicationId), eq(3), eq(decision),
-                eq(900L), any(), eq("QA disposition"), any())).thenReturn(1);
+                eq(900L), any(), eq("QA disposition"), any())).thenAnswer(invocation -> {
+            application.setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED).setVersion(4)
+                    .setPqcDecision(decision).setPqcDecidedBy(900L).setPqcDecidedAt(invocation.getArgument(4))
+                    .setPqcRejectReason("QA disposition").setDossierSummaryJson(invocation.getArgument(6));
+            return 1;
+        });
         when(workTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(pqcTask);
         MesProWorkOrderDO workOrder = new MesProWorkOrderDO();
         workOrder.setId(workOrderId);
         workOrder.setTemporaryFrozen(true);
         when(workOrderMapper.selectByIdForUpdate(workOrderId)).thenReturn(workOrder);
-        when(workOrderMapper.updateTemporaryFrozenByIds(anyList(), anyBoolean())).thenReturn(1);
+        when(workOrderMapper.updateTemporaryFrozenByIds(anyList(), anyBoolean())).thenAnswer(invocation -> {
+            workOrder.setTemporaryFrozen(invocation.getArgument(1));
+            return 1;
+        });
         when(signatureService.recordQaDispositionSignature(eq(900L), eq(review.getId()), eq("qa-password"),
                 eq("QA disposition"), any())).thenAnswer(call -> {
                     String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
@@ -254,7 +292,17 @@ class MesProEdhrNcrManagerDispositionTest {
         file.setUrl("/admin-api/infra/file/1/get/ncr.pdf");
         when(fileMapper.selectById(70001L)).thenReturn(file);
         when(releaseTransactionMapper.selectByIdForUpdate(transactionId)).thenReturn(transaction);
-        when(releaseTransactionMapper.updateById(any(MesProEdhrReleaseTransactionDO.class))).thenReturn(1);
+        when(releaseTransactionMapper.updateById(any(MesProEdhrReleaseTransactionDO.class))).thenAnswer(invocation -> {
+            var written = invocation.getArgument(0, MesProEdhrReleaseTransactionDO.class);
+            transaction.setReleaseStatus(written.getReleaseStatus()).setRejectedBy(written.getRejectedBy())
+                    .setRejectedAt(written.getRejectedAt()).setRejectReason(written.getRejectReason())
+                    .setVersion(written.getVersion());
+            return 1;
+        });
+        org.mockito.Mockito.doAnswer(invocation -> {
+            managerTask.setStatus(MesProEdhrWorkTaskStatus.CANCELED).setReason(decision);
+            return null;
+        }).when(workTaskService).cancelReleaseApprovalTask(transactionId, decision);
 
         MesProEdhrNonconformanceReviewDisposeReqVO req = new MesProEdhrNonconformanceReviewDisposeReqVO();
         req.setId(review.getId());
@@ -285,7 +333,7 @@ class MesProEdhrNcrManagerDispositionTest {
         }
         verify(workTaskService).cancelReleaseApprovalTask(eq(transactionId), eq(decision));
         verify(workTaskMapper, never()).updateById(any(MesProEdhrWorkTaskDO.class));
-        verify(releaseTransactionMapper).selectByIdForUpdate(transactionId);
+        verify(releaseTransactionMapper, org.mockito.Mockito.times(4)).selectByIdForUpdate(transactionId);
         verify(workTaskMapper, never()).completePqcDecisionTask(any(), any(), any());
 
         ArgumentCaptor<MesProEdhrReleaseTransactionDO> transactionUpdate =
@@ -305,6 +353,18 @@ class MesProEdhrNcrManagerDispositionTest {
         verify(reviewMapper).updateById(reviewUpdate.capture());
         assertEquals("电子签名#9000", reviewUpdate.getValue().getQaSignature());
         assertEquals(disposition, reviewUpdate.getValue().getDisposition());
+        assertEquals(MesProEdhrNonconformanceReviewService.STATUS_CLOSED, review.getReviewStatus());
+        assertEquals(MesReleaseFlowStatus.PQC_RELEASE_REJECTED, application.getApplicationStatus());
+        assertEquals(MesProEdhrWorkTaskStatus.CANCELED, managerTask.getStatus());
+        var unifiedCommand = ArgumentCaptor.forClass(
+                cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(unifiedAudit).append(unifiedCommand.capture());
+        var affectedAfter = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                unifiedCommand.getValue().getAfterState().getCanonicalJson()).get("affectedState");
+        assertEquals(MesProEdhrWorkTaskStatus.CANCELED,
+                affectedAfter.get("managerReleaseTask").get("status").asText());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_REJECTED,
+                affectedAfter.get("managerReleaseTransaction").get("releaseStatus").asText());
 
         ArgumentCaptor<MesProEdhrOperationAuditCommand> audit =
                 ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
@@ -341,8 +401,14 @@ class MesProEdhrNcrManagerDispositionTest {
         MesProEdhrWorkTaskServiceImpl realWorkTaskService = new MesProEdhrWorkTaskServiceImpl();
         ReflectionTestUtils.setField(realWorkTaskService, "workTaskMapper", workTaskMapper);
         ReflectionTestUtils.setField(realWorkTaskService, "permissionApi", permissionApi);
+        var auxiliaryAudit = org.mockito.Mockito.mock(MesWorkTaskAuxiliaryAudit.class);
+        ReflectionTestUtils.setField(realWorkTaskService, "auxiliaryAudit", auxiliaryAudit);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.getArgument(3, Runnable.class).run();
+            return null;
+        }).when(auxiliaryAudit).entitlements(eq(managerTask), any(), any(), any());
 
-        TenantContextHolder.setTenantId(122L);
+
         TenantContextHolder.setTenantId(122L);
         try (MockedStatic<SecurityFrameworkUtils> login = mockStatic(SecurityFrameworkUtils.class)) {
             login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(900L);

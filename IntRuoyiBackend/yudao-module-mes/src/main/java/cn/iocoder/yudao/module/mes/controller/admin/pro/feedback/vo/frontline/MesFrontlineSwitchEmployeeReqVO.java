@@ -8,6 +8,9 @@ import lombok.Data;
 @Data
 public class MesFrontlineSwitchEmployeeReqVO {
 
+    @jakarta.validation.constraints.NotBlank
+    private String identityDomain;
+
     @Schema(description = "活跃订单编号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "活跃订单编号不能为空")
     private Long activeOrderId;

@@ -196,6 +196,7 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   actualEmployeeId: number
   signatureId?: number
   signatureEmployeeId: number
+  signatureIdentityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   signaturePassword: string
   frontlineSessionSnapshotId: string
   frontlineSessionSnapshotHash: string
@@ -424,6 +425,7 @@ export interface FrontlinePqcTemplateVO {
 }
 
 export interface FrontlineSwitchActualEmployeeReqVO {
+  identityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   activeOrderId: number
   routeId: number
   routeProcessId: number
@@ -476,6 +478,7 @@ export interface FrontlinePqcInspectionSubmitRespVO {
 }
 
 export interface FrontlineSwitchActualEmployeeRespVO {
+  identityDomain: 'SYSTEM_USER' | 'MES_EMPLOYEE_PROFILE'
   loginUserId: number
   actualEmployeeId: number
   routeId: number

@@ -97,7 +97,8 @@ export const createFrontlineDeviceEmployeeState = (): FrontlineDeviceEmployeeSta
 
 export const buildFrontlineEmployeeSwitchPayload = (
   process: FrontlineDeviceRouteProcessVO | undefined,
-  actualEmployeeId: number | undefined
+  actualEmployeeId: number | undefined,
+  identityDomain: FrontlineSwitchActualEmployeeReqVO['identityDomain']
 ): FrontlineSwitchActualEmployeeReqVO => {
   if (!process) {
     throw new Error('当前工序不能为空')
@@ -113,7 +114,8 @@ export const buildFrontlineEmployeeSwitchPayload = (
     routeId: process.routeId,
     routeProcessId: process.routeProcessId,
     processId: process.processId,
-    actualEmployeeId
+    actualEmployeeId,
+    identityDomain
   }
 }
 
@@ -546,13 +548,14 @@ export const selectFrontlinePqcProcess = async (
 
 export const switchFrontlineActualEmployee = async (
   state: FrontlineDeviceEmployeeState,
-  actualEmployeeId: number
+  actualEmployeeId: number,
+  identityDomain: FrontlineSwitchActualEmployeeReqVO['identityDomain']
 ): Promise<FrontlineSwitchActualEmployeeRespVO> => {
   const selectedProcess = state.selectedProcess
   if (!selectedProcess || !('routeProcessId' in selectedProcess)) {
     throw new Error('当前生产工序不能为空')
   }
-  const payload = buildFrontlineEmployeeSwitchPayload(selectedProcess, actualEmployeeId)
+  const payload = buildFrontlineEmployeeSwitchPayload(selectedProcess, actualEmployeeId, identityDomain)
   const requestToken = ++state.employeeSwitchRequestToken
   const cachedSwitch = readFrontlineEmployeeSwitchCache(state, payload)
   if (cachedSwitch) {
@@ -643,7 +646,7 @@ const createFrontlineProcessRuntimeCacheKey = (
 ) => `${process.activeOrderId}:${createFrontlineBaseProcessKey(process)}`
 
 const createFrontlineEmployeeSwitchCacheKey = (payload: FrontlineSwitchActualEmployeeReqVO) =>
-  `${payload.activeOrderId}:${payload.routeId}:${payload.routeProcessId}:${payload.processId}:${payload.actualEmployeeId}`
+  `${payload.activeOrderId}:${payload.routeId}:${payload.routeProcessId}:${payload.processId}:${payload.actualEmployeeId}:${payload.identityDomain}`
 
 const readFrontlineRuntimeConfigCache = (
   state: FrontlineDeviceEmployeeState,
@@ -670,6 +673,7 @@ const cacheFrontlineRuntimeConfig = (
       routeId: process.routeId,
       routeProcessId: process.routeProcessId,
       processId: process.processId,
+      identityDomain: snapshot.identityDomain,
       actualEmployeeId: snapshot.actualEmployeeId
     }, snapshot)
   })
@@ -705,7 +709,8 @@ const applyFrontlineEmployeeSwitchResult = (
   state: FrontlineDeviceEmployeeState,
   result: FrontlineSwitchActualEmployeeRespVO
 ) => {
-  state.selectedEmployee = state.employeeOptions.find((employee) => employee.userId === result.actualEmployeeId)
+  state.selectedEmployee = state.employeeOptions.find((employee) => employee.userId === result.actualEmployeeId
+    && (employee.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE') === result.identityDomain)
   state.template = result.template
   return result
 }

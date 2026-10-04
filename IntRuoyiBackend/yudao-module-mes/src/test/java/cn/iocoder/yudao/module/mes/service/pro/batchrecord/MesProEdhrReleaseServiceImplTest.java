@@ -108,6 +108,8 @@ import static org.mockito.Mockito.when;
         cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
+
     @Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper terminalEventMapper;
 

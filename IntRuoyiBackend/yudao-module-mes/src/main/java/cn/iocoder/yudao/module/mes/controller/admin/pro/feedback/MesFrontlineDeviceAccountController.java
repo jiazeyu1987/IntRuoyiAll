@@ -142,7 +142,7 @@ public class MesFrontlineDeviceAccountController {
             @Valid @RequestBody MesFrontlineSwitchEmployeeReqVO reqVO) {
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(getLoginUserId(), reqVO.getActiveOrderId(), reqVO.getRouteId(),
-                        reqVO.getRouteProcessId(), reqVO.getProcessId(), reqVO.getActualEmployeeId()));
+                        reqVO.getRouteProcessId(), reqVO.getProcessId(), reqVO.getActualEmployeeId(), reqVO.getIdentityDomain()));
         return success(toSwitchEmployeeRespVO(result));
     }
 
@@ -554,6 +554,7 @@ public class MesFrontlineDeviceAccountController {
         respVO.setRouteId(result.routeId());
         respVO.setRouteProcessId(result.routeProcessId());
         respVO.setProcessId(result.processId());
+        respVO.setIdentityDomain(result.identityDomain());
         respVO.setExtraVerificationRequired(result.extraVerificationRequired());
         respVO.setTemplate(toTemplateRespVO(result.template()));
         return respVO;

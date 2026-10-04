@@ -133,7 +133,12 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
 
     private ElectronicSignatureEvidenceDTO toEvidence(ElectronicSignatureRecordDO record) {
         String actorDisplayName = null;
-        if (adminUserApi != null && record.getActorId() != null) {
+        var content = JSON.parseObject(record.getCanonicalContentJson());
+        var identity = content == null ? null : content.getJSONObject("signatureIdentity");
+        if (identity != null) {
+            actorDisplayName = identity.getString("displayName");
+        }
+        if (identity == null && adminUserApi != null && record.getActorId() != null) {
             var actor = adminUserApi.getUser(record.getActorId());
             if (actor != null) {
                 actorDisplayName = StrUtil.isNotBlank(actor.getNickname())
@@ -155,7 +160,7 @@ public class ElectronicSignatureQueryServiceImpl implements ElectronicSignatureQ
         return String.join("|", String.valueOf(record.getTenantId()), String.valueOf(record.getActorId()),
                 record.getModuleCode(), record.getActionCode(), record.getSubjectType(), record.getSubjectId(),
                 record.getSubjectVersion(), record.getMeaningCode(), record.getMeaningLabel(), record.getReason(),
-                originalSignedAt(record), record.getTimeEvidenceId(), AUTHENTICATION_METHOD, contentHash,
+                originalSignedAt(record), record.getTimeEvidenceId(), record.getAuthenticationMethod(), contentHash,
                 StrUtil.nullToEmpty(record.getBeforeContentHash()), StrUtil.nullToEmpty(record.getAfterContentHash()),
                 StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getBeforeContentJson())),
                 StrUtil.nullToEmpty(ElectronicSignatureJsonCanonicalizer.canonicalize(record.getAfterContentJson())),

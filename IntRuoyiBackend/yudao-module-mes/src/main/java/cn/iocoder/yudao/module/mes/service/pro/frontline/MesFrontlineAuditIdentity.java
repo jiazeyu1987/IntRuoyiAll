@@ -28,22 +28,26 @@ public class MesFrontlineAuditIdentity {
         this.adminUserApi = adminUserApi;
     }
 
-    public String production(MesFrontlineSubmitIdentityTrace identity) {
+    public String production(MesFrontlineSubmitIdentityTrace identity, String identityDomain) {
         if (identity == null || identity.actualEmployeeId() == null
                 || !Objects.equals(identity.actualEmployeeId(), identity.signatureEmployeeId())) {
             throw invalid();
         }
         Long actorId = identity.actualEmployeeId();
-        List<MesProcessPoolTeamEmployeeProfileDO> profiles = profileMapper.selectList(
-                new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
-                        .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, true)
-                        .and(q -> q.eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, actorId)
-                                .or(p -> p.eq(MesProcessPoolTeamEmployeeProfileDO::getId, actorId)
-                                        .isNull(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId))));
+        var query = new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled, true);
+        if ("SYSTEM_USER".equals(identityDomain)) {
+            query.eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId, actorId);
+        } else if ("MES_EMPLOYEE_PROFILE".equals(identityDomain)) {
+            query.eq(MesProcessPoolTeamEmployeeProfileDO::getId, actorId)
+                    .isNull(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId);
+        } else throw invalid();
+        List<MesProcessPoolTeamEmployeeProfileDO> profiles = profileMapper.selectList(query);
         if (profiles == null || profiles.size() != 1) throw invalid();
         MesProcessPoolTeamEmployeeProfileDO profile = profiles.get(0);
         if (profile == null || !Boolean.TRUE.equals(profile.getEnabled())) throw invalid();
         if (profile.getSystemUserId() != null) {
+            if (!"SYSTEM_USER".equals(identityDomain)) throw invalid();
             if (!Objects.equals(actorId, profile.getSystemUserId())) throw invalid();
             var user = adminUserApi.getUser(actorId);
             if (user == null || !Objects.equals(actorId, user.getId())
@@ -51,7 +55,7 @@ public class MesFrontlineAuditIdentity {
             return encode(actorId, "SYSTEM_USER", user.getNickname(), user.getUsername());
         }
         // An unlinked profile and a system account must never share an ambiguous effective identity.
-        if (!Objects.equals(actorId, profile.getId()) || adminUserApi.getUser(actorId) != null) throw invalid();
+        if (!"MES_EMPLOYEE_PROFILE".equals(identityDomain) || !Objects.equals(actorId, profile.getId())) throw invalid();
         return encode(actorId, "MES_EMPLOYEE_PROFILE", profile.getEmployeeName(), profile.getEmployeeCode());
     }
 

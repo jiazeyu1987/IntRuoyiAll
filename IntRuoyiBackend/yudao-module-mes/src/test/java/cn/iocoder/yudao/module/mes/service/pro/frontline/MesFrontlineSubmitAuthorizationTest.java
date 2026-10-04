@@ -204,12 +204,12 @@ class MesFrontlineSubmitAuthorizationTest {
                                                              Long deviceId, Long routeId, Long routeProcessId,
                                                              Long processId, String templateNo) {
         return new MesFrontlineSubmitIdentityCommand(9001L, actualEmployeeId, signatureEmployeeId,
-                deviceId, 301L, routeId, routeProcessId, processId, templateNo, "snapshot-001", "hash-001");
+                deviceId, 301L, routeId, routeProcessId, processId, templateNo, "snapshot-001", "hash-001", "SYSTEM_USER");
     }
 
     private static MesFrontlineEmployeeSwitchResult employee(Long actualEmployeeId, String templateNo) {
         return new MesFrontlineEmployeeSwitchResult(9001L, actualEmployeeId, 101L, 1001L, 201L, false,
-                new MesFrontlineTemplateDescriptor(templateNo, "BATCH_RECORD", 1001L, 201L, actualEmployeeId));
+                new MesFrontlineTemplateDescriptor(templateNo, "BATCH_RECORD", 1001L, 201L, actualEmployeeId), "SYSTEM_USER");
     }
 
     private static MesFrontlineTeamDeviceOption device(Long deviceId) {

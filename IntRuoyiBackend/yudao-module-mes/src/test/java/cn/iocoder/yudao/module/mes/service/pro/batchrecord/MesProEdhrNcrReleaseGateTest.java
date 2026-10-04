@@ -45,8 +45,15 @@ class MesProEdhrNcrReleaseGateTest {
     private final MesProductionReleaseManagerApprovalService managerApprovalService =
             mock(MesProductionReleaseManagerApprovalService.class);
 
+    private final cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper changes = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper.class);
+
     @BeforeEach
     void setUp() {
+        var lifecycle = new MesEdhrBatchLifecycleGuard();
+        ReflectionTestUtils.setField(lifecycle, "reviewMapper", reviewMapper);
+        ReflectionTestUtils.setField(lifecycle, "changeMapper", changes);
+        ReflectionTestUtils.setField(lifecycle, "batchMapper", batches);
+        ReflectionTestUtils.setField(release, "lifecycleGuard", lifecycle);
         ReflectionTestUtils.setField(release, "gxpAuditService", mock(GxpAuditService.class));
         ReflectionTestUtils.setField(release, "releaseTransactionMapper", transactions);
         ReflectionTestUtils.setField(release, "batchExecutionMapper", batches);
@@ -65,6 +72,21 @@ class MesProEdhrNcrReleaseGateTest {
         when(batches.selectById(22L)).thenReturn(new MesProEdhrBatchExecutionDO().setId(22L).setWorkOrderId(44L));
         when(origins.selectListByBatchExecutionId(22L)).thenReturn(List.of(
                 new MesProEdhrBatchExecutionOriginDO().setActiveOrderId(33L)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void pendingVoidRejectsApproveAndFinalizerBeforeSignatureOrAuthority(boolean direct) {
+        when(changes.selectCount(any())).thenReturn(1L);
+        try (var login = mockStatic(SecurityFrameworkUtils.class)) {
+            login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(66L);
+            var error = assertThrows(ServiceException.class, () -> {
+                if (direct) release.finalizeRelease(command()); else release.approve(request());
+            });
+            assertTrue(error.getMessage().contains("作废申请"));
+        }
+        verifyNoInteractions(signatures, users, authority);
+        verify(transactions, never()).updateById(any(MesProEdhrReleaseTransactionDO.class));
     }
 
     @ParameterizedTest

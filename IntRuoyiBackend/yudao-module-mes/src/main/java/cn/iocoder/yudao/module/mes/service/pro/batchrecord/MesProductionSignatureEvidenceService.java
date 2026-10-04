@@ -81,6 +81,10 @@ public class MesProductionSignatureEvidenceService {
         var context = new MesProductionSubmitSignatureContext(activeOrderId, event.getRouteProcessId(),
                 event.getProcessId(), event.getEventIdempotencyKey());
         Snapshot evidence = resolve(event.getActualEmployeeId(), event.getSignatureId(), context, false);
+        var signedIdentity = JSON.parseObject(evidence.canonicalContentJson()).getJSONObject("signatureIdentity");
+        if (signedIdentity != null) require(Objects.equals(signedIdentity.getString("domain"), payload.getString("signatureIdentityDomain"))
+                && Objects.equals(signedIdentity.getLong("operatorId"), event.getDeviceAccountId())
+                && Objects.equals(signedIdentity.getLong("tenantId"), event.getTenantId()));
         require(!LocalDateTime.parse(evidence.signedAt()).isAfter(event.getServerSubmitTime()));
         // Production events are append-only. A signature must identify exactly this event, never a
         // nearest-time or same-process event. This also fixes the formal submission-key association.
@@ -100,16 +104,9 @@ public class MesProductionSignatureEvidenceService {
     private Snapshot resolve(Long actorId, Long signatureId, MesProductionSubmitSignatureContext context,
                              boolean requireSignedContext) {
         ElectronicSignatureEvidenceDTO unified = signatureQueryService.getById(signatureId);
-        MesProBatchRecordExecutionSignatureDO projection = projectionMapper.selectById(signatureId);
-        boolean unifiedActor = unified != null && Objects.equals(unified.actorId(), actorId)
-                && ACTION.equals(unified.actionCode()) && "MES".equals(unified.moduleCode());
-        boolean profileActor = projection != null && Objects.equals(projection.getActorId(), actorId)
-                && ACTION.equals(projection.getActionType())
-                && "生产人员档案电子签名密码已验证".equals(projection.getAuthorizationBasis());
-        // Both namespaces are part of the formal contract. Ambiguous numeric IDs are rejected.
-        require(unifiedActor != profileActor);
-        return unifiedActor ? unifiedSnapshot(unified, actorId, signatureId, context, requireSignedContext)
-                : profileSnapshot(projection, actorId, signatureId, context);
+        require(unified != null && Objects.equals(unified.actorId(), actorId)
+                && ACTION.equals(unified.actionCode()) && "MES".equals(unified.moduleCode()));
+        return unifiedSnapshot(unified, actorId, signatureId, context, requireSignedContext);
     }
 
     private Snapshot unifiedSnapshot(ElectronicSignatureEvidenceDTO evidence, Long actorId, Long signatureId,
@@ -118,7 +115,8 @@ public class MesProductionSignatureEvidenceService {
                 && MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE.equals(evidence.subjectType())
                 && evidence.signedAt() != null && "VALID".equals(evidence.verificationStatus())
                 && "SHA-256".equals(evidence.algorithm())
-                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
+                && Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD",
+                    "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD").contains(evidence.authenticationMethod())
                 && !StrUtil.hasBlank(evidence.subjectId(), evidence.subjectVersion(), evidence.canonicalContentJson(),
                 evidence.contentHash(), evidence.evidenceHash(), evidence.keyVersion(), evidence.policyVersion()));
         String[] subject = new String(Base64.getUrlDecoder().decode(evidence.subjectId()), StandardCharsets.UTF_8)
@@ -128,9 +126,15 @@ public class MesProductionSignatureEvidenceService {
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
                 actorId, "MES", ACTION, evidence.subjectType(), evidence.subjectId(), evidence.subjectVersion(),
                 evidence.reason()));
+        var signedContent = JSON.parseObject(evidence.canonicalContentJson());
+        var identity = signedContent.getJSONObject("signatureIdentity");
+        signedContent.remove("signatureIdentity");
+        if (identity != null) require(Objects.equals(identity.getLong("signerId"), actorId)
+                && Objects.equals(identity.getLong("tenantId"), TenantContextHolder.getRequiredTenantId())
+                && positive(identity.getLong("operatorId"))
+                && Set.of("SYSTEM_USER", "MES_EMPLOYEE_PROFILE").contains(identity.getString("domain")));
         require(Objects.equals(DigestUtil.sha256Hex(evidence.subjectId()), evidence.subjectVersion())
-                && JsonUtils.parseTree(expected.canonicalContentJson())
-                .equals(JsonUtils.parseTree(evidence.canonicalContentJson())));
+                && JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(signedContent.toJSONString())));
         // Original subject contents are never rewritten. The mandatory audited event association
         // below is the primary business binding for every event, even when the subject is unscoped.
         boolean unscoped = subject[9].isEmpty() && subject[10].isEmpty() && subject[11].isEmpty();
@@ -149,48 +153,13 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(evidence.evidenceHash(), verification.calculatedEvidenceHash())
                 && Objects.equals(evidence.algorithm(), verification.algorithm())
                 && Objects.equals(evidence.keyVersion(), verification.keyVersion()));
+        require(identity == null ? "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
+                : Objects.equals(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
+                    ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD"));
         var audit = requireUnifiedSignatureAudit(evidence);
-        return new Snapshot("UNIFIED_SYSTEM_USER", signatureId, actorId, evidence.signedAt().toString(),
+        return new Snapshot(identity != null && "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
+                ? "UNIFIED_EMPLOYEE_PROFILE" : "UNIFIED_SYSTEM_USER", signatureId, actorId, evidence.signedAt().toString(),
                 evidence.contentHash(), evidence.evidenceHash(), evidence.canonicalContentJson(), audit.getTransactionId());
-    }
-
-    private Snapshot profileSnapshot(MesProBatchRecordExecutionSignatureDO projection, Long actorId,
-                                     Long signatureId, MesProductionSubmitSignatureContext context) {
-        require(projection != null && Objects.equals(projection.getId(), signatureId)
-                && Objects.equals(projection.getExecutionId(), 0L) && Objects.equals(projection.getActorId(), actorId)
-                && projection.getSignedAt() != null && Boolean.TRUE.equals(projection.getPasswordVerified())
-                && "PASSWORD".equals(projection.getSignatureMode())
-                && "PASSWORD".equals(projection.getAuthenticationMethod())
-                && MesProductionSubmitSignatureContext.SOURCE_TYPE.equals(projection.getReviewSourceType())
-                && Objects.equals(context.activeOrderId(), projection.getReviewSourceId())
-                && Objects.equals(context.projectionSourceName(), projection.getReviewSourceName())
-                && "一线生产报工提交".equals(projection.getSignaturePurpose())
-                && !StrUtil.hasBlank(projection.getActorName(), projection.getActorUsernameSnapshot(),
-                projection.getActorNicknameSnapshot()));
-        var audits = auditMapper.selectList(new LambdaQueryWrapperX<GxpAuditEventDO>()
-                .eq(GxpAuditEventDO::getTenantId, TenantContextHolder.getRequiredTenantId())
-                .eq(GxpAuditEventDO::getOperationId, PROJECTION_OPERATION)
-                .eq(GxpAuditEventDO::getSubjectId, "MES_SIGNATURE_PROJECTION:" + signatureId));
-        require(audits != null && audits.size() == 1);
-        var audit = audits.get(0);
-        requireAuditIntegrity(audit);
-        require(PROJECTION_OPERATION.equals(audit.getOperationId())
-                && Objects.equals(audit.getSubjectId(), "MES_SIGNATURE_PROJECTION:" + signatureId)
-                && Objects.equals(audit.getRequestId(), "MES-SIG:" + signatureId)
-                && "ABSENT".equals(audit.getBeforeState()) && "PRESENT".equals(audit.getAfterState())
-                && "SERVICE_METHOD".equals(audit.getSourceType())
-                && Objects.equals(audit.getSourceLocator(), MesProBatchRecordExecutionSignatureService.class.getName()
-                + "#recordProductionSubmitSignature")
-                && Objects.equals(DigestUtil.sha256Hex(audit.getAfterStateJson()), audit.getAfterObjectVersion())
-                && Objects.equals(audit.getAfterObjectVersion(), audit.getSubjectVersion())
-                && JsonUtils.parseTree(audit.getAfterStateJson())
-                .equals(JsonUtils.parseTree(JsonUtils.toJsonString(projection))));
-        JSONObject performed = JSON.parseObject(audit.getPerformedByJson());
-        require(performed != null && "MES_EMPLOYEE_PROFILE".equals(performed.getString("identityDomain"))
-                && Objects.equals(performed.getLong("id"), actorId)
-                && Objects.equals(performed.getLong("tenantId"), TenantContextHolder.getRequiredTenantId()));
-        return new Snapshot("MES_EMPLOYEE_PROFILE", signatureId, actorId, projection.getSignedAt().toString(),
-                audit.getAfterObjectVersion(), audit.getEventHash(), audit.getAfterStateJson(), audit.getTransactionId());
     }
 
     private GxpAuditEventDO requireUnifiedSignatureAudit(ElectronicSignatureEvidenceDTO evidence) {

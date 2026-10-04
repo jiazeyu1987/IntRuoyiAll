@@ -101,6 +101,37 @@ class MesProcessPoolPqcEventTest extends BaseDbUnitTest {
     }
 
     @Test
+    void taskSourceStoresOperatorWithoutInventingProductionDeviceContext() {
+        var req = validPqcReq();
+        req.setDeviceAccountId(7101L);
+        req.setDeviceId(null);
+        req.setWorkstationId(null);
+        req.setFeedbackSourceType("MES_PQC_INSPECTION_TASK");
+        req.setRecordbookSourceType("MES_PQC_INSPECTION_TASK");
+        var eventId = processPoolEventService.createPqcInspectionEvent(req);
+        var event = processPoolEventMapper.selectById(eventId);
+        assertEquals(7101L, event.getDeviceAccountId());
+        assertNull(event.getDeviceId());
+        assertNull(event.getWorkstationId());
+        assertEquals(eventId, processPoolEventService.findExistingPqcInspectionEventId(req).orElseThrow());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"deviceId", "workstationId", "operator"})
+    void rejectsIncompletePhysicalDeviceContextAndInvalidOperator(String missing) {
+        var req = validPqcReq();
+        switch (missing) {
+            case "deviceId" -> req.setDeviceId(null);
+            case "workstationId" -> req.setWorkstationId(null);
+            case "operator" -> { req.setDeviceAccountId(0L); req.setDeviceId(null); req.setWorkstationId(null); }
+            default -> throw new AssertionError(missing);
+        }
+        assertThrows(ServiceException.class, () -> processPoolEventService.createPqcInspectionEvent(req));
+        assertEquals(0L, processPoolEventMapper.selectCount());
+        assertEquals(0L, pqcRecordMapper.selectCount());
+    }
+
+    @Test
     void shouldStorePqcInspectionFromTaskSourceWithoutProductionSubmitEvent() {
         MesProcessPoolCreatePqcInspectionReqDTO req = validPqcReq();
         req.setProductionSubmitEventId(null);

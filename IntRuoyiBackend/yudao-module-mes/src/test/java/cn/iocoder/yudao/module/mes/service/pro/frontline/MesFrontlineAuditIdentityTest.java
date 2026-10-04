@@ -27,10 +27,10 @@ class MesFrontlineAuditIdentityTest {
     void independentEmployeeUsesProfileDomainAndOnlyWhitelistedPublicFields() {
         var profile = profile().setSystemUserId(null).setSignaturePasswordHash("secret-hash");
         when(profiles.selectList(any(Wrapper.class))).thenReturn(List.of(profile));
-        Map<?, ?> actual = JsonUtils.parseObject(identity.production(trace(9102L)), Map.class);
+        Map<?, ?> actual = JsonUtils.parseObject(identity.production(trace(9102L), "MES_EMPLOYEE_PROFILE"), Map.class);
         assertEquals(Map.of("actorId", "9102", "actorType", "MES_EMPLOYEE_PROFILE",
                 "displayName", "正式员工", "username", "EMP-9102"), actual);
-        assertFalse(identity.production(trace(9102L)).contains("secret"));
+        assertFalse(identity.production(trace(9102L), "MES_EMPLOYEE_PROFILE").contains("secret"));
     }
 
     @ParameterizedTest
@@ -48,7 +48,7 @@ class MesFrontlineAuditIdentityTest {
                 : "duplicate".equals(invalid) ? List.of(profile, profile) : List.of(profile));
         when(users.getUser(9102L)).thenReturn("missing-user".equals(invalid) ? null : user);
         assertThrows(ServiceException.class, () -> identity.production(trace(
-                "signature-mismatch".equals(invalid) ? 9001L : 9102L)));
+                "signature-mismatch".equals(invalid) ? 9001L : 9102L), "SYSTEM_USER"));
     }
 
     private MesProcessPoolTeamEmployeeProfileDO profile() {

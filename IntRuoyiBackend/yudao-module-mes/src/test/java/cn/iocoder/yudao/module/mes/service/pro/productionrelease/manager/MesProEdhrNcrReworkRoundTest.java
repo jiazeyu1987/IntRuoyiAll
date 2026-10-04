@@ -64,6 +64,7 @@ class MesProEdhrNcrReworkRoundTest {
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
                 applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
                 candidateResolver, businessReadinessService);
+        ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(initializer, "notificationService",
                 org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
         org.mockito.Mockito.lenient().when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);

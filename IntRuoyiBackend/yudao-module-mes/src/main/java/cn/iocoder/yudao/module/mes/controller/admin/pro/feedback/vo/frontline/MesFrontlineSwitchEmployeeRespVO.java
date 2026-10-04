@@ -7,6 +7,8 @@ import lombok.Data;
 @Data
 public class MesFrontlineSwitchEmployeeRespVO {
 
+    private String identityDomain;
+
     @Schema(description = "登录账号用户编号")
     private Long loginUserId;
     @Schema(description = "实际填写员工编号")

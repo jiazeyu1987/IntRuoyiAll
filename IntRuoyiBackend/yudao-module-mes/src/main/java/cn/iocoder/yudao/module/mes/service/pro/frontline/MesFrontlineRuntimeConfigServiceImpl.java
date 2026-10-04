@@ -145,7 +145,7 @@ public class MesFrontlineRuntimeConfigServiceImpl implements MesFrontlineRuntime
                     loginUserId, actualEmployeeId, process.routeId(), process.routeProcessId(), process.processId(),
                     process.checkFlag()));
             return new MesFrontlineEmployeeSwitchResult(loginUserId, actualEmployeeId,
-                    process.routeId(), process.routeProcessId(), process.processId(), false, template);
+                    process.routeId(), process.routeProcessId(), process.processId(), false, template, employee.systemUserId() == null ? "MES_EMPLOYEE_PROFILE" : "SYSTEM_USER");
         }).toList();
     }
 

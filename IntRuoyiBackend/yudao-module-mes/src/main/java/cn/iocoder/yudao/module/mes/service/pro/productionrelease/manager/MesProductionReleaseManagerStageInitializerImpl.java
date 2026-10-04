@@ -40,6 +40,7 @@ import java.util.Objects;
 @Service
 public class MesProductionReleaseManagerStageInitializerImpl
         implements MesProductionReleaseManagerStageInitializer {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     private final MesProEdhrBatchExecutionMapper batchExecutionMapper;
@@ -69,6 +70,7 @@ public class MesProductionReleaseManagerStageInitializerImpl
     public MesProductionReleaseManagerStageInitializationResult initializeManagerReleaseStage(
             MesProductionReleaseManagerStageInitializationCommand command) {
         requireCommand(command);
+        lifecycleGuard.requireReleaseAllowed(command.getBatchExecutionId());
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationMapper.selectById(command.getApplicationId());
         String expectedApplicationStatus = isActiveOrderFormalFacts(command)
                 ? MesReleaseFlowStatus.MANAGER_RELEASE_PENDING

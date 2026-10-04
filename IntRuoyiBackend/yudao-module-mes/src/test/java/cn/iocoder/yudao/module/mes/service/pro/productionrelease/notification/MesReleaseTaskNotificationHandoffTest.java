@@ -122,6 +122,7 @@ class MesReleaseTaskNotificationHandoffTest {
 
         var initializer = new MesProductionReleaseManagerStageInitializerImpl(applications, batches, releases, tasks,
                 candidates, readiness);
+        ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(initializer, "notificationService", scheduler());
         initializer.initializeManagerReleaseStage(
                 new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(224L)

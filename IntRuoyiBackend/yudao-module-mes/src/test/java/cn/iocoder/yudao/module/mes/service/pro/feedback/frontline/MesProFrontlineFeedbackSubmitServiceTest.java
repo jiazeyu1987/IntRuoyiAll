@@ -102,13 +102,13 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9102L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
                 .setActualEmployeeId(9102L)
-                .setSignatureEmployeeId(9102L);
+                .setSignatureIdentityDomain("SYSTEM_USER").setSignatureEmployeeId(9102L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
@@ -123,7 +123,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         var signingContext = ArgumentCaptor.forClass(MesProductionSubmitSignatureContext.class);
-        verify(signatureService).recordProductionSubmitSignature(eq(9102L), eq("sign-123"),
+        verify(signatureService).recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
                 eq("一线生产报工提交"), signingContext.capture());
         assertEquals(new MesProductionSubmitSignatureContext(81L, 71L, 31L,
                 "P0-SUBMIT-F2-20260730-001"), signingContext.getValue());
@@ -153,7 +153,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
@@ -202,7 +202,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
         when(autoCodeRecordService.generateAutoCode(any())).thenReturn("FB-F2-GEN");
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
@@ -283,7 +283,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -316,7 +316,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
@@ -341,7 +341,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -368,7 +368,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -407,7 +407,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -478,6 +478,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     void shouldReturnExistingSubmitResultBeforeWritingDuplicateFeedback() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any()))
                 .thenReturn(Optional.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult()
+                        .setSignatureIdentityDomain("SYSTEM_USER")
                         .setFeedbackId(501L)
                         .setRecordbookEntryId(701L)
                         .setRecordbookEventId(702L)
@@ -509,6 +510,21 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void shouldRejectExistingSubmitFromDifferentIdentityDomainBeforeWriting() {
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any()))
+                .thenReturn(Optional.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult()
+                        .setSignatureIdentityDomain("MES_EMPLOYEE_PROFILE").setProcessPoolEventId(801L)));
+        stubValidLossReason();
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(ServiceException.class,
+                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+        verifyNoInteractions(feedbackService, signatureService, autoCodeRecordService);
+        verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
+    }
+
+    @Test
     void shouldRejectDisabledOrCrossRouteProcessLossReasonBeforeWritingAnyRecord() {
         when(lossReasonValidator.requireSnapshotLossReasons(
                 any(),
@@ -534,7 +550,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     @Test
     void shouldRejectSignatureEmployeeMismatchBeforeWritingAnyRecord() {
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
-                .setSignatureEmployeeId(3999L);
+                .setSignatureIdentityDomain("SYSTEM_USER").setSignatureEmployeeId(3999L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
@@ -596,7 +612,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 

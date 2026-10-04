@@ -211,42 +211,52 @@ class MesProductionSignatureEvidenceServiceTest {
         assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
     }
 
-    @Test void employeeProfileProjectionMustHaveItsOwnAuthenticatedCreateAudit() {
-        var projection = profileProjection();
-        when(signatures.getById(1101L)).thenReturn(null);
-        when(projections.selectById(1101L)).thenReturn(projection);
-        var audit = profileAudit(projection);
-        when(audits.selectList(any())).thenReturn(List.of(audit));
-        String snapshot = service.snapshotForSubmission(2101L, 1101L, CONTEXT);
-        assertEquals("MES_EMPLOYEE_PROFILE", JsonUtils.parseObject(snapshot, Map.class).get("authority"));
-        audit.setAfterStateJson("{}");
-        assertThrows(ServiceException.class, () -> service.snapshotForSubmission(2101L, 1101L, CONTEXT));
+    @Test void unifiedProfileEvidenceKeepsIdentityDomainThroughSnapshotAndEventVerification() {
+        stubUnifiedProfile();
+        var snapshot = JsonUtils.parseObject(service.snapshotForSubmission(2101L, 1101L, CONTEXT), Map.class);
+        assertEquals("UNIFIED_EMPLOYEE_PROFILE", snapshot.get("authority"));
+        when(audits.selectList(any())).thenReturn(List.of(signatureAudit), List.of(productionAudit));
+        assertTrue(service.isValidForEvent(event));
+        verifyNoInteractions(projections);
     }
-
-    @Test void employeeProfileEventRequiresTheSameExactProductionTransactionContract() {
-        var projection = profileProjection();
-        when(signatures.getById(1101L)).thenReturn(null);
-        when(projections.selectById(1101L)).thenReturn(projection);
+    @Test void sameNumericSignerWithWrongEventDomainIsRejected() {
+        stubUnifiedProfile();
+        var payload = com.alibaba.fastjson.JSON.parseObject(event.getRawPayload());
+        payload.put("signatureIdentityDomain", "SYSTEM_USER"); event.setRawPayload(payload.toJSONString());
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+    private void stubUnifiedProfile() {
+        var evidence = stubUnified(CONTEXT, 2101L);
+        var content = com.alibaba.fastjson.JSON.parseObject(evidence.canonicalContentJson());
+        content.put("signatureIdentity", Map.of("domain", "MES_EMPLOYEE_PROFILE", "signerId", 2101L,
+                "operatorId", 9001L, "tenantId", 1L, "displayName", "临时员工"));
+        var profile = new ElectronicSignatureEvidenceDTO(evidence.id(), evidence.moduleCode(), evidence.actionCode(),
+                evidence.subjectType(), evidence.subjectId(), evidence.subjectVersion(), evidence.actorId(),
+                evidence.meaningCode(), evidence.meaningLabel(), evidence.reason(), evidence.signedAt(), evidence.timeEvidenceId(),
+                "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD", evidence.contentHash(), evidence.evidenceHash(), evidence.algorithm(),
+                evidence.keyVersion(), evidence.policyVersion(), evidence.verificationStatus(), evidence.processInstanceId(),
+                evidence.taskId(), evidence.nodeCode(), evidence.nodeOrder(), content.toJSONString(), evidence.beforeContentJson(),
+                evidence.afterContentJson(), evidence.fieldDiffJson(), "临时员工", evidence.timeZone());
+        when(signatures.getById(1101L)).thenReturn(profile);
+        signatureAudit = signatureAudit(profile);
         productionAudit.setPerformedByJson(JsonUtils.toJsonString(Map.of("actorId", 2101L, "actorType", "MES_EMPLOYEE_PROFILE")));
         seal(productionAudit);
-        when(audits.selectList(any())).thenReturn(List.of(profileAudit(projection)), List.of(productionAudit));
-        assertTrue(service.isValidForEvent(event));
-        assertNull(event.getSignatureSnapshot());
+        event.setDeviceAccountId(9001L); event.setTenantId(1L);
+        var payload = com.alibaba.fastjson.JSON.parseObject(event.getRawPayload());
+        payload.put("signatureIdentityDomain", "MES_EMPLOYEE_PROFILE"); event.setRawPayload(payload.toJSONString());
+        when(audits.selectList(any())).thenReturn(List.of(signatureAudit), List.of(productionAudit));
     }
 
-    @Test void employeeProfileContextDigestTamperingIsRejected() {
-        var projection = profileProjection();
+    @Test void legacyProfileProjectionCannotMasqueradeAsUnifiedSignature() {
         when(signatures.getById(1101L)).thenReturn(null);
-        when(projections.selectById(1101L)).thenReturn(projection);
-        var audit = profileAudit(projection);
-        projection.setReviewSourceName("PRODUCTION_SUBMISSION_SHA256:tampered");
-        when(audits.selectList(any())).thenReturn(List.of(audit));
         assertThrows(ServiceException.class, () -> service.snapshotForSubmission(2101L, 1101L, CONTEXT));
+        verifyNoInteractions(projections);
     }
 
-    @Test void collidingFormalAuthorityNamespacesAreRejected() {
-        when(projections.selectById(1101L)).thenReturn(profileProjection());
-        assertThrows(ServiceException.class, () -> service.snapshotForSubmission(2101L, 1101L, CONTEXT));
+    @Test void numericCollisionInLegacyTableDoesNotChangeUnifiedAuthority() {
+        String snapshot = service.snapshotForSubmission(2101L, 1101L, CONTEXT);
+        assertEquals("UNIFIED_SYSTEM_USER", JsonUtils.parseObject(snapshot, Map.class).get("authority"));
+        verifyNoInteractions(projections);
     }
 
     private MesProBatchRecordExecutionSignatureDO profileProjection() {

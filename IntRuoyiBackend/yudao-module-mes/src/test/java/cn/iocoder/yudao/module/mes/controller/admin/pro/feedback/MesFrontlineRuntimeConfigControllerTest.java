@@ -70,9 +70,9 @@ class MesFrontlineRuntimeConfigControllerTest {
                         "{\"routeProcessId\":1001}", "config-sha"),
                 List.of(
                         new MesFrontlineEmployeeSwitchResult(9001L, 8801L, 101L, 1001L, 201L, false,
-                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L)),
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 8801L), "SYSTEM_USER"),
                         new MesFrontlineEmployeeSwitchResult(9001L, 10002L, 101L, 1001L, 201L, false,
-                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L)))
+                                new MesFrontlineTemplateDescriptor("FRONTLINE-PROD", "PRODUCTION", 1001L, 201L, 10002L), "SYSTEM_USER"))
                 , "snapshot-001", "hash-001"
         );
         when(runtimeConfigService.getRuntimeConfig(9001L, 8101L, 101L, 1001L, 201L)).thenReturn(runtimeConfig);

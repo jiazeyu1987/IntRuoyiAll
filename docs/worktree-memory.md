@@ -418,6 +418,8 @@
 - Trigger: 用户更换 Maven 安装位置，或同一桌面会话中需要使用新 Maven 运行编译/测试。
 - Preflight check: 同时读取用户级 MAVEN_HOME/Path、当前进程 $env:MAVEN_HOME，并直接执行新路径下的 mvn.cmd -version；用户级变量更新不会刷新已启动的 Codex/PowerShell 进程。
 - Verification: 对本次命令显式设置进程级 MAVEN_HOME 与 Path，记录 mvn.cmd -version 的 Maven/Java 版本；新终端或新任务再复核当前进程变量。
+- JDK evidence: 分开记录 pom.xml 的 source/target 或 release 编译目标、mvn -v 的实际 JDK 版本/路径和 Surefire 执行结果；编译目标 Java 17 不能证明测试运行于 JDK 17。要求 JDK 17 验证时，先检查已有工具链并仅在任务进程内设置 JAVA_HOME/Path，再复核 mvn -v；不得把 JDK 21 结果标为 JDK 17。
+- Test compile precondition: Maven 的 -Dtest 只筛选执行测试，仍会编译模块全部测试源码。既有测试引用目标 JDK 不支持的 API 时，应记录具体文件/行、基线证据和编译阻塞；经任务范围授权作等价测试修正后重跑，不以跳过编译、切换 JDK 或降低断言冒充通过。
 - Forbidden action: 禁止因当前进程仍显示旧路径就修改无关项目配置，禁止把绝对路径 Maven 已通过误写成系统环境已刷新，禁止下载/安装第二份 Maven 作为旁路。
 
 ### 全量回归工件分类与工具阻断门禁

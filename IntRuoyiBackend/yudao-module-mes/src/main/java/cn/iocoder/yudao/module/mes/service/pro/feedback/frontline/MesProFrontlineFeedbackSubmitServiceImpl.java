@@ -154,6 +154,9 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         Optional<cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult> existing =
                 processPoolSubmitEventService.findExistingSubmitEvent(splitPayload.getProcessPoolEventPayload());
         if (existing.isPresent()) {
+            if (!Objects.equals(reqVO.getSignatureIdentityDomain(), existing.get().getSignatureIdentityDomain())) {
+                throw exception(PRO_FRONTLINE_FEEDBACK_SUBMIT_CONTEXT_REQUIRED, "signatureIdentityDomain replay mismatch");
+            }
             return toSubmitResp(existing.get());
         }
 
@@ -163,8 +166,8 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         MesFrontlineParameterAuditResult parameterAuditResult = resolveParameterAudit(reqVO, materialSubmission);
         attachParameterAudit(reqVO, parameterAuditResult);
         applyServerResolvedFeedbackIdentity(reqVO);
-        String performedBy = auditIdentity.production(identityTrace);
-        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(),
+        String performedBy = auditIdentity.production(identityTrace, reqVO.getSignatureIdentityDomain());
+        Long signatureId = signatureService.recordProductionSubmitSignature(reqVO.getSignatureEmployeeId(), reqVO.getSignatureIdentityDomain(),
                 reqVO.getSignaturePassword(), "一线生产报工提交",
                 new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext(
                         reqVO.getProcessPoolContext().getActiveOrderId(),
@@ -757,7 +760,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
                 context.getProcessId(),
                 context.getTemplateType(),
                 reqVO.getFrontlineSessionSnapshotId(),
-                reqVO.getFrontlineSessionSnapshotHash());
+                reqVO.getFrontlineSessionSnapshotHash(), reqVO.getSignatureIdentityDomain());
     }
 
 }

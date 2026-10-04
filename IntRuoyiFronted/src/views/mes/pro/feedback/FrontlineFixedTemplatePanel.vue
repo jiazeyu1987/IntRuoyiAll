@@ -2903,9 +2903,10 @@ const pickerOptions = computed<FrontlinePickerOption[]>(() => {
   }
   if (activePicker.value === 'employee') {
     return deviceState.employeeOptions.map((employee) => ({
-      key: String(employee.userId),
+      key: `${employee.systemUserId ? "SYSTEM_USER" : "MES_EMPLOYEE_PROFILE"}:${employee.userId}`,
       label: formatEmployeeLabel(employee),
-      active: employee.userId === deviceState.selectedEmployee?.userId,
+      active: employee.userId === deviceState.selectedEmployee?.userId &&
+        Boolean(employee.systemUserId) === Boolean(deviceState.selectedEmployee?.systemUserId),
       onClick: () => handleSelectEmployee(employee)
     }))
   }
@@ -4746,7 +4747,7 @@ const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   try {
     result = isPqcMode.value
       ? await switchFrontlinePqcActualEmployee(deviceState, activePqcTaskOption.value, employee.userId)
-      : await switchFrontlineActualEmployee(deviceState, employee.userId)
+      : await switchFrontlineActualEmployee(deviceState, employee.userId, employee.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE')
   } catch (error) {
     showFrontlineError(error)
     return
@@ -5451,6 +5452,7 @@ const buildFrontlineFormalSubmitPayload = (
     },
     actualEmployeeId: context.actualEmployeeId!,
     signatureEmployeeId: formalContext.signatureEmployeeId!,
+    signatureIdentityDomain: deviceState.selectedEmployee?.systemUserId ? 'SYSTEM_USER' : 'MES_EMPLOYEE_PROFILE',
     signaturePassword,
     frontlineSessionSnapshotId: runtimeConfig.frontlineSessionSnapshotId,
     frontlineSessionSnapshotHash: runtimeConfig.frontlineSessionSnapshotHash,

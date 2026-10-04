@@ -79,6 +79,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
 
         Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, equipmentParameters,
                 lossReasonSnapshot);
+        processPoolRawPayload.put("signatureIdentityDomain", reqVO.getSignatureIdentityDomain());
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
                 .setProcessPoolSubmissionIdempotencyKey(reqVO.getProcessPoolSubmissionIdempotencyKey())
                 .setActiveOrderId(context.getActiveOrderId())

@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.*;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializer;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.report.MesProductionReleaseManagerStageInitializationResult;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.role.MesProductionReleaseRoleCandidates;
@@ -55,6 +56,8 @@ import static org.mockito.Mockito.*;
 @org.springframework.test.context.TestPropertySource(properties =
         "spring.datasource.url=jdbc:h2:mem:release_parent_affected_state;MODE=MYSQL;DATABASE_TO_UPPER=false;NON_KEYWORDS=value,day")
 class MesReleaseParentAffectedStateTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
+
     private static final LocalDateTime PRIOR_PRECHECK_AT = LocalDateTime.of(2026, 9, 28, 8, 10);
     private static final List<String> MANAGER_AUDIT_FIELDS = List.of("lastPrecheckAt",
             "dhrStatus", "inspectionStatus", "deviationStatus", "reworkStatus", "scrapStatus", "inventoryStatus",
@@ -77,6 +80,7 @@ class MesReleaseParentAffectedStateTest extends BaseDbUnitTest {
     @MockitoBean private MesReleaseFlowAuditRecorder specializedAudit;
     @MockitoBean private MesProBatchRecordExecutionSignatureService signatures;
     @MockitoBean private MesProEdhrNonconformanceReviewService nonconformance;
+    @MockitoBean private MesReleaseTaskNotificationService notificationService;
     @MockitoBean private GxpAuditService audit;
     private JdbcTemplate jdbc;
 

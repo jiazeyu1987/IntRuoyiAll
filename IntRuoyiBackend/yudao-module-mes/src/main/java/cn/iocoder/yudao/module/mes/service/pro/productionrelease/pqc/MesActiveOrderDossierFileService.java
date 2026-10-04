@@ -66,6 +66,7 @@ public class MesActiveOrderDossierFileService {
 
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
     @Resource
     private MesActiveOrderDossierReadScopeService dossierReadScopeService;
 
@@ -137,8 +138,12 @@ public class MesActiveOrderDossierFileService {
             throw ServiceExceptionUtil.invalidParamException("上传文件缺少文件类型，不能写入资料文件。");
         }
         gxpAuditService.acquireLedgerLock();
-        ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
+        var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), false);
+        ResolvedContext context = new ResolvedContext(authorized.activeOrder(), authorized.application());
         assertMutable(context.activeOrder());
+        if (context.application() != null && context.application().getBatchExecutionId() != null) {
+            lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
+        }
         String operatorName = resolveOperatorName(actorUserId);
         String directory = FILE_DIRECTORY_PREFIX + context.activeOrder().getId() + "/" + category.key()
                 + "/" + java.util.UUID.randomUUID();
@@ -192,8 +197,12 @@ public class MesActiveOrderDossierFileService {
             throw ServiceExceptionUtil.invalidParamException("缺少资料文件编号，不能删除。");
         }
         gxpAuditService.acquireLedgerLock();
-        ResolvedContext context = resolveContext(actorUserId, command.activeOrderId(), command.applicationId());
+        var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), true);
+        ResolvedContext context = new ResolvedContext(authorized.activeOrder(), authorized.application());
         assertMutable(context.activeOrder());
+        if (context.application() != null && context.application().getBatchExecutionId() != null) {
+            lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
+        }
         MesProcessPoolActiveOrderDossierFileDO row = dossierFileMapper.selectById(command.attachmentId());
         if (row == null) {
             throw dossierFileBlocked("要删除的资料文件不存在：" + command.attachmentId());
@@ -251,6 +260,11 @@ public class MesActiveOrderDossierFileService {
     }
 
     private void assertMutable(MesProcessPoolActiveOrderDO activeOrder) {
+        Long pendingReviews = nonconformanceReviewMapper.selectPendingCountByWorkOrderId(activeOrder.getWorkOrderId());
+        if (pendingReviews == null || pendingReviews > 0 || Set.of("FROZEN", "VOIDED", "CLOSED").contains(
+                activeOrder.getBusinessStatus() == null ? "" : activeOrder.getBusinessStatus())) {
+            throw dossierFileBlocked("活跃订单已冻结、关闭或作废，资料文件仅可查看。");
+        }
         if ("RELEASED".equals(activeOrder.getBusinessStatus())) {
             throw dossierFileBlocked("活跃订单已上市放行，资料文件仅可查看，不能上传或删除。");
         }

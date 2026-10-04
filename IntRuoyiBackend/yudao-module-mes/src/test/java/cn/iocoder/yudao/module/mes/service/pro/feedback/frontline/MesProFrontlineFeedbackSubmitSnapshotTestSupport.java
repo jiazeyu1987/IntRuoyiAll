@@ -25,7 +25,7 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
         var users = Mockito.mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
         // Fixture follows each real authorization result instead of accepting client display text.
         var resolver = Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineAuditIdentity.class);
-        Mockito.lenient().when(resolver.production(any())).thenAnswer(invocation -> {
+        Mockito.lenient().when(resolver.production(any(), any())).thenAnswer(invocation -> {
             MesFrontlineSubmitIdentityTrace identity = invocation.getArgument(0);
             Long id = identity.actualEmployeeId();
             Mockito.when(profiles.selectList(Mockito.<com.baomidou.mybatisplus.core.conditions.Wrapper<cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO>>any())).thenReturn(List.of(
@@ -34,7 +34,7 @@ final class MesProFrontlineFeedbackSubmitSnapshotTestSupport {
             Mockito.when(users.getUser(id)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
                     .setId(id).setStatus(0).setUsername("employee." + id).setNickname("正式员工" + id));
             return new cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineAuditIdentity(profiles, users)
-                    .production(identity);
+                    .production(identity, "SYSTEM_USER");
         });
         org.springframework.test.util.ReflectionTestUtils.setField(service, "auditIdentity", resolver);
     }

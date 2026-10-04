@@ -41,10 +41,10 @@ class MesFrontlineSubmitIdentityTraceTest {
     void shouldReturnCompleteIdentityTraceForSubmit() {
         MesFrontlineSubmitIdentityCommand command = new MesFrontlineSubmitIdentityCommand(
                 9001L, 10001L, 10001L, 501L, 301L, 101L, 1001L, 201L,
-                "TPL-201-E1001", "snapshot-001", "hash-001");
+                "TPL-201-E1001", "snapshot-001", "hash-001", "SYSTEM_USER");
         MesFrontlineEmployeeSwitchResult employee = new MesFrontlineEmployeeSwitchResult(
                 9001L, 10001L, 101L, 1001L, 201L, false,
-                new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD", 1001L, 201L, 10001L));
+                new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD", 1001L, 201L, 10001L), "SYSTEM_USER");
         MesFrontlineSessionSnapshotContent content = new MesFrontlineSessionSnapshotContent(
                 1L, 9001L, 101L, 1001L, 201L, 301L, List.of(employee),
                 List.of(new MesFrontlineTeamDeviceOption(501L, "D-501", "Device 501", "ENABLED", List.of())),

@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class MesProcessPoolSubmitEventResult {
 
+    private String signatureIdentityDomain;
     private Long feedbackId;
     private Long recordbookEntryId;
     private Long recordbookEventId;

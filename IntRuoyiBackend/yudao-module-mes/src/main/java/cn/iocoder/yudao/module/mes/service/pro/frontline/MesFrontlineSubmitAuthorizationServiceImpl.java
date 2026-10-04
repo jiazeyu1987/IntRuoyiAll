@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocat
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -105,7 +106,7 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
             throw exception(PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID, "process context");
         }
         MesFrontlineEmployeeSwitchResult employeeSnapshot = requireEmployeeSnapshot(
-                content.employeeSwitchSnapshots(), command.actualEmployeeId());
+                content.employeeSwitchSnapshots(), command.actualEmployeeId(), command.signatureIdentityDomain());
         MesFrontlineTemplateDescriptor template = employeeSnapshot.template();
         if (!Objects.equals(command.templateNo(), template.templateNo())) {
             throw exception(PRO_FRONTLINE_TEMPLATE_MISMATCH, command.templateNo());
@@ -121,12 +122,13 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     }
 
     private static MesFrontlineEmployeeSwitchResult requireEmployeeSnapshot(
-            List<MesFrontlineEmployeeSwitchResult> employeeSnapshots, Long actualEmployeeId) {
+            List<MesFrontlineEmployeeSwitchResult> employeeSnapshots, Long actualEmployeeId, String identityDomain) {
         if (employeeSnapshots == null) {
             throw exception(PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID, "employee snapshots");
         }
         return employeeSnapshots.stream()
-                .filter(item -> item != null && Objects.equals(item.actualEmployeeId(), actualEmployeeId))
+                .filter(item -> item != null && Objects.equals(item.actualEmployeeId(), actualEmployeeId)
+                        && Objects.equals(item.identityDomain(), identityDomain))
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_FRONTLINE_SESSION_SNAPSHOT_INVALID,
                         "actualEmployeeId=" + actualEmployeeId));
@@ -135,6 +137,9 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     private static void requireCommand(MesFrontlineSubmitIdentityCommand command) {
         if (command == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "submitIdentityCommand");
+        }
+        if (!Set.of("SYSTEM_USER", "MES_EMPLOYEE_PROFILE").contains(command.signatureIdentityDomain() == null ? "" : command.signatureIdentityDomain())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "signatureIdentityDomain");
         }
         requireValue(command.loginUserId(), "loginUserId");
         requireValue(command.actualEmployeeId(), "actualEmployeeId");

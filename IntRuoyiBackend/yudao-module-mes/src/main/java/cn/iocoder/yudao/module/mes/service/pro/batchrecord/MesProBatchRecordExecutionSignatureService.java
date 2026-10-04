@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
@@ -41,6 +42,7 @@ import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -311,11 +313,21 @@ public class MesProBatchRecordExecutionSignatureService {
         if (actorId == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        AdminUserDO user = adminUserService.getUser(actorId);
-        if (user == null) {
-            gxpAuditService.acquireLedgerLock();
+        return recordProductionSubmitSignature(actorId, AuthorizedSignatureIdentity.SYSTEM_USER, password, comment, context);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long recordProductionSubmitSignature(Long actorId, String identityDomain, String password, String comment,
+                                                MesProductionSubmitSignatureContext context) {
+        if (context == null || actorId == null) throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        if (AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identityDomain)) {
             return recordProductionSubmitSignatureForEmployeeProfile(actorId, password, comment, context);
         }
+        if (!AuthorizedSignatureIdentity.SYSTEM_USER.equals(identityDomain)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null) throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         if (!authorizationService.isElectronicSignatureEnabled(actorId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
@@ -811,7 +823,7 @@ public class MesProBatchRecordExecutionSignatureService {
                 processInstanceId, bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey,
                 signatureRowIndex, signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName,
                 approvalResult, fieldAuditRevision, fieldAuditHeadHash, cellValuesHash, signatureChallengeHash);
-        return electronicSignatureService.sign(new ElectronicSignatureCommand(
+        ElectronicSignatureCommand command = new ElectronicSignatureCommand(
                 MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
                 actionType,
                 MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE,
@@ -826,7 +838,12 @@ public class MesProBatchRecordExecutionSignatureService {
                         ? "MES|" + actorId + "|" + actionType + "|" + DigestUtil.sha256Hex(subjectId)
                         : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),
-                businessTimeZone(signatureTimeEvidence)));
+                businessTimeZone(signatureTimeEvidence));
+        if (!ACTION_PRODUCTION_SUBMIT.equals(actionType) && !ACTION_PQC_SUBMIT.equals(actionType)) {
+            return electronicSignatureService.sign(command);
+        }
+        return electronicSignatureService.signAuthorized(command, new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.SYSTEM_USER, actorId,
+                        adminUserService.getUser(actorId).getNickname()), null);
     }
 
     private String businessOccurredAt(SignatureTimeEvidence signatureTimeEvidence) {
@@ -860,44 +877,31 @@ public class MesProBatchRecordExecutionSignatureService {
         if (StrUtil.hasBlank(employeeCode, employeeName, actorName)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        LocalDateTime signedAt = nowAtDatabasePrecision();
-        SignatureTimeEvidence signatureTimeEvidence =
-                buildSignatureTimeEvidence(0L, ACTION_PRODUCTION_SUBMIT, actorId, signedAt, null);
-        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
-                .executionId(0L)
-                .actorId(actorId)
-                .actionType(ACTION_PRODUCTION_SUBMIT)
-                .reviewSourceType(MesProductionSubmitSignatureContext.SOURCE_TYPE)
-                .reviewSourceId(context.activeOrderId())
-                .reviewSourceName(context.projectionSourceName())
-                .signatureMode(SIGNATURE_MODE_PASSWORD)
-                .passwordVerified(Boolean.TRUE)
-                .comment(StrUtil.blankToDefault(StrUtil.trim(comment), null))
-                .signedAt(signedAt)
-                .selectedSignedAt(signatureTimeEvidence.selectedSignedAt())
-                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
-                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
-                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
-                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
-                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
-                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
-                .actorName(actorName)
-                .actorUsernameSnapshot(employeeCode)
-                .actorNicknameSnapshot(employeeName)
-                .signaturePurpose(resolveSignaturePurpose(ACTION_PRODUCTION_SUBMIT))
-                .authorizationBasis(AUTHORIZATION_BASIS_EMPLOYEE_PROFILE)
-                .authenticationMethod(SIGNATURE_MODE_PASSWORD)
-                .clientIpSnapshot(resolveClientIpSnapshot())
-                .userAgentSnapshot(resolveUserAgentSnapshot())
-                .snapshotStatus(SNAPSHOT_STATUS_CAPTURED_PARTIAL_ORG)
-                .build();
-        int inserted = signatureMapper.insert(signature);
-        if (inserted <= 0 || signature.getId() == null) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        if (!Objects.equals(profile.getTenantId(), TenantContextHolder.getRequiredTenantId())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
         }
-        appendProjectionAudit("mes.employee-production-signature.create", "recordProductionSubmitSignature", null,
-                requirePersistedProjection(signature.getId()), true);
-        return signature.getId();
+        String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, ACTION_PRODUCTION_SUBMIT,
+                null, null, null, null, null, null, null, MesProductionSubmitSignatureContext.SOURCE_TYPE,
+                context.activeOrderId(), context.sourceName(), null, null, null, null, null);
+        ElectronicSignatureCommand command = new ElectronicSignatureCommand(
+                MesBatchRecordSignatureSubjectAdapter.MODULE_CODE, ACTION_PRODUCTION_SUBMIT,
+                MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE, subjectId,
+                MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId), password, comment,
+                "MES|MES_EMPLOYEE_PROFILE|" + actorId + "|PRODUCTION_SUBMIT|" + DigestUtil.sha256Hex(subjectId),
+                null, null);
+        return electronicSignatureService.signAuthorized(command,
+                new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.EMPLOYEE_PROFILE, actorId, actorName),
+                () -> {
+                    MesProcessPoolTeamEmployeeProfileDO current = employeeProfileMapper.selectById(actorId);
+                    if (current == null || !Boolean.TRUE.equals(current.getEnabled()) || current.getSystemUserId() != null
+                            || !Objects.equals(current.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                            || StrUtil.isBlank(current.getSignaturePasswordHash())) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+                    }
+                    if (!passwordEncoder.matches(password, current.getSignaturePasswordHash())) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PASSWORD_INVALID);
+                    }
+                }).signatureId();
     }
 
     private String resolveEmployeeProfileDisplayName(MesProcessPoolTeamEmployeeProfileDO profile) {

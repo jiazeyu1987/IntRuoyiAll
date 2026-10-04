@@ -107,6 +107,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 @Service
 public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
+
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
@@ -552,6 +554,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrReleaseRespVO approve(MesProEdhrReleaseApproveReqVO reqVO) {
+        gxpAuditService.acquireLedgerLock();
         String password = requireReleaseSignaturePassword(reqVO.getPassword());
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
         if (actorUserId == null) {
@@ -559,6 +562,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
+        lifecycleGuard.requireReleaseAllowed(batch.getId());
         nonconformanceReviewService.ensureBatchNotFrozen(batch.getId(), "上市放行");
         String idempotencyKey = requireIdempotencyKey(reqVO.getIdempotencyKey());
         String signoffEvidenceHash = StrUtil.blankToDefault(
@@ -658,6 +662,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 }
                 return toResp(replay.getBatchExecution(), replay.getReleaseTransaction());
             }
+            lifecycleGuard.requireReleaseAllowed(command.getBatchExecutionId());
             MesProEdhrFourMaterialGateResult currentGate = command.isMaterialGateRequired()
                     ? fourMaterialGateService.requireMaterialsReady(command.getBatchExecutionId()) : null;
             MesReleaseFinalizationEvidence evidence = command.isMaterialGateRequired()
@@ -760,6 +765,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 || !Objects.equals(transaction.getBatchExecutionId(), command.getBatchExecutionId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
+        lifecycleGuard.requireReleaseAllowed(batchExecutionId);
         // Both deviation creation and final market release lock the batch first, then the release transaction.
         deviationService.ensureNoOpenDeviationForMarketRelease(tenantId, batchExecutionId);
         if (managerApprovalService.isManagedReleaseTransaction(command.getReleaseTransactionId())) {

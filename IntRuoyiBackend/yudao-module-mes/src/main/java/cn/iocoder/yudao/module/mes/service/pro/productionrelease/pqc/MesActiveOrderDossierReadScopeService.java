@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED;
 
@@ -57,6 +58,40 @@ public class MesActiveOrderDossierReadScopeService {
         MesProcessPoolActiveOrderDO active = requireActive(activeOrderId, tenant);
         MesProcessPoolActiveOrderReleaseApplicationDO app = applicationMapper.selectLatestByActiveOrderId(activeOrderId);
         requireApplication(app, active, tenant);
+        requireFormalBatch(actor, tenant, app, active);
+        return new Context(active, app);
+    }
+
+    /** Upload authorization is independent of caller-supplied application IDs. */
+    public Context requireMutation(Long actor, Long activeId, Long requestedApplicationId, boolean deleting) {
+        Long tenant = requireActor(actor);
+        var active = requireActive(activeId, tenant);
+        var app = applicationMapper.selectLatestByActiveOrderId(activeId);
+        if (app != null && positive(app.getBatchExecutionId())) {
+            var applications = applicationMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, app.getBatchExecutionId())
+                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getTenantId, tenant));
+            require(applications != null && applications.size() == 1
+                    && Objects.equals(applications.get(0).getId(), app.getId()), "正式批次放行申请归属不唯一，不能写入资料。");
+        }
+        if (app != null) requireApplication(app, active, tenant);
+        require(requestedApplicationId == null || app != null && Objects.equals(requestedApplicationId, app.getId()),
+                "上传申请与正式活跃订单关联不一致。");
+        if (Objects.equals(active.getLeaderUserId(), actor)
+                && permissionApi.hasAnyPermissions(actor, "mes:pro-process-pool-team-leader:maintain")) {
+            return new Context(active, app);
+        }
+        requireApplication(app, active, tenant);
+        // Choose the current formal responsibility before invoking an authorization path.
+        if (permissionApi.hasAnyPermissions(actor, "mes:pro-production-release:pqc-approve")
+                && isFrozenPqcCandidate(actor, app) && isPqcDossierWritable(app)) {
+            var batch = batchExecutionMapper.selectById(app.getBatchExecutionId());
+            require(batch != null && Objects.equals(batch.getTenantId(), tenant), "PQC申请正式批次租户不一致。");
+            requireBatchIdentity(batch, app, active);
+            return new Context(active, app);
+        }
+        require(!deleting && permissionApi.hasAnyPermissions(actor, "mes:pro-edhr-batch-execution:upload"),
+                "当前用户无该资料的写入权限。");
         requireFormalBatch(actor, tenant, app, active);
         return new Context(active, app);
     }
@@ -144,6 +179,17 @@ public class MesActiveOrderDossierReadScopeService {
                 && Objects.equals(origin.getActiveOrderId(), active.getId())
                 && Objects.equals(origin.getWorkOrderId(), active.getWorkOrderId())),
                 "正式批次来源与资料活跃订单、工单或租户不一致。");
+    }
+
+    private boolean isPqcDossierWritable(MesProcessPoolActiveOrderReleaseApplicationDO app) {
+        var task = workTaskMapper.selectById(app.getPqcReleaseWorkTaskId());
+        if (task == null || task.getStatus() == null) return false;
+        if ("PQC_RELEASE_PENDING".equals(app.getApplicationStatus())) {
+            return Set.of("TODO", "DOING", "OVERDUE").contains(task.getStatus());
+        }
+        return "DONE".equals(task.getStatus()) && "APPROVE".equals(task.getReason())
+                && Set.of("REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING").contains(
+                        app.getApplicationStatus() == null ? "" : app.getApplicationStatus());
     }
 
     private boolean isFrozenPqcCandidate(Long actor, MesProcessPoolActiveOrderReleaseApplicationDO app) {

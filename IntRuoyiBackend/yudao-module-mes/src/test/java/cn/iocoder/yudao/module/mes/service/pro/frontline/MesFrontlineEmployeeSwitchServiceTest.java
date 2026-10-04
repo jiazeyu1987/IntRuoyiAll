@@ -127,7 +127,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
-                        ROUTE_PROCESS_ID, PROCESS_ID, 10001L));
+                        ROUTE_PROCESS_ID, PROCESS_ID, 10001L, "SYSTEM_USER"));
 
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(10001L, result.actualEmployeeId());
@@ -150,7 +150,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
 
         MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
-                        ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
+                        ROUTE_PROCESS_ID, PROCESS_ID, 8801L, "MES_EMPLOYEE_PROFILE"));
 
         assertEquals(LOGIN_USER_ID, result.loginUserId());
         assertEquals(8801L, result.actualEmployeeId());
@@ -165,7 +165,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
 
         assertThrows(ServiceException.class, () -> employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ACTIVE_ORDER_ID, ROUTE_ID,
-                        ROUTE_PROCESS_ID, PROCESS_ID, 20001L)));
+                        ROUTE_PROCESS_ID, PROCESS_ID, 20001L, "SYSTEM_USER")));
     }
 
     private void givenBoundProcess() {
@@ -212,7 +212,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
                                 new MesFrontlineTemplateDescriptor(
                                         systemUserId == null ? "TPL-201-TMP" : "TPL-201-E1001",
                                         "BATCH_RECORD", ROUTE_PROCESS_ID, PROCESS_ID,
-                                        systemUserId == null ? employeeProfileId : systemUserId))),
+                                        systemUserId == null ? employeeProfileId : systemUserId), systemUserId == null ? "MES_EMPLOYEE_PROFILE" : "SYSTEM_USER")),
                         "snapshot-001", "hash-001"));
     }
 

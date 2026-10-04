@@ -5,5 +5,5 @@ public record MesFrontlineEmployeeSwitchCommand(Long loginUserId,
                                                 Long routeId,
                                                 Long routeProcessId,
                                                 Long processId,
-                                                Long actualEmployeeId) {
+                                                Long actualEmployeeId, String identityDomain) {
 }

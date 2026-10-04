@@ -345,6 +345,17 @@ public class MesActiveOrderSignatureEvidenceService {
                 var event = eventMapper.selectById(eventId);
                 if (event != null && Objects.equals(event.getSignatureId(), evidence.id())) {
                     if (!Objects.equals(event.getSignatureUserId(), evidence.actorId())) throw exception(EVIDENCE_INVALID);
+                    var signatureIdentity = content.getJSONObject("signatureIdentity");
+                    if (signatureIdentity != null) {
+                        var payload = JSON.parseObject(event.getRawPayload());
+                        String domain = binding.actions().contains("PQC_SUBMIT") ? "SYSTEM_USER"
+                                : payload == null ? null : payload.getString("signatureIdentityDomain");
+                        if (!Objects.equals(domain, signatureIdentity.getString("domain"))
+                                || !Objects.equals(event.getSignatureUserId(), signatureIdentity.getLong("signerId"))
+                                || !Objects.equals(event.getDeviceAccountId(), signatureIdentity.getLong("operatorId"))) {
+                            throw exception(EVIDENCE_INVALID);
+                        }
+                    }
                     if (binding.actions().contains("PRODUCTION_SUBMIT")
                             && MesProductionSubmitSignatureContext.SOURCE_TYPE.equals(subject[9])) {
                         if (!Objects.equals(subject[11], content.getString("reviewSourceName"))) {

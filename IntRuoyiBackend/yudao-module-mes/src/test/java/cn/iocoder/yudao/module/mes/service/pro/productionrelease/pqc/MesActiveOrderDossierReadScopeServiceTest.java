@@ -79,6 +79,86 @@ class MesActiveOrderDossierReadScopeServiceTest {
         TenantContextHolder.clear();
     }
 
+    @Test void originalLeaderAndFrozenPqcCandidateRetainTheirAuthorizedUploadPaths() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(anyLong(), any(String[].class))).thenReturn(true);
+        f.login(LEADER, TENANT);
+        assertEquals(APPLICATION, ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(LEADER, ACTIVE, null, false).application().getId());
+        f.login(PQC_ACTOR, TENANT); f.task.setStatus("TODO"); f.app.setApplicationStatus("PQC_RELEASE_PENDING");
+        assertEquals(APPLICATION, ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(PQC_ACTOR, ACTIVE, APPLICATION, false).application().getId());
+    }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void approvedDonePqcCandidateCanUploadWithOrWithoutBatchUploadPermission(boolean batchUpload) {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(eq(PQC_ACTOR), any(String[].class))).thenAnswer(inv ->
+                Arrays.stream((String[]) inv.getRawArguments()[1]).anyMatch(permission ->
+                        permission.equals("mes:pro-production-release:pqc-approve") || batchUpload &&
+                        permission.equals("mes:pro-edhr-batch-execution:upload")));
+        f.login(PQC_ACTOR, TENANT);
+        f.task.setStatus("DONE").setReason("APPROVE");
+        f.app.setApplicationStatus("MANAGER_RELEASE_PENDING");
+        assertEquals(APPLICATION, ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(PQC_ACTOR, ACTIVE, APPLICATION, false).application().getId());
+    }
+
+    @Test void endedPqcResponsibilityDoesNotMaskIndependentBatchUploadPermission() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(eq(ACTOR), any(String[].class))).thenReturn(true);
+        f.task.setCandidateUserSnapshot(String.valueOf(ACTOR)).setStatus("DONE").setReason("REJECT");
+        f.app.setApplicationStatus("PQC_RELEASE_REJECTED");
+        ((MesActiveOrderDossierReadScopeService) f.target).requireMutation(ACTOR, ACTIVE, null, false);
+        verify(f.visibility).requireVisibleBatch(f.batch, ACTOR);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"REJECT,PQC_RELEASE_REJECTED", "APPROVE,RELEASED", "REJECT,MANAGER_RELEASE_PENDING"})
+    void donePqcTaskOnlyAuthorizesApprovedWritableStages(String reason, String state) {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(eq(PQC_ACTOR), any(String[].class))).thenAnswer(inv ->
+                Arrays.asList((String[]) inv.getRawArguments()[1]).contains("mes:pro-production-release:pqc-approve"));
+        f.login(PQC_ACTOR, TENANT); f.task.setStatus("DONE").setReason(reason); f.app.setApplicationStatus(state);
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(PQC_ACTOR, ACTIVE, APPLICATION, false));
+    }
+
+    @Test void batchUploadPermissionAloneDoesNotAuthorizeDelete() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(eq(ACTOR), any(String[].class))).thenReturn(true);
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(ACTOR, ACTIVE, APPLICATION, true));
+    }
+
+    @Test void crossTenantUploadContextIsRejectedBeforeBatchAuthorization() {
+        f.app.setTenantId(2L);
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(ACTOR, ACTIVE, APPLICATION, false));
+        verifyNoInteractions(f.visibility);
+    }
+
+    @Test void batchUploaderResolvesFormalApplicationWithoutBeingOriginalLeader() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        when(f.permissions.hasAnyPermissions(eq(ACTOR), any(String[].class))).thenReturn(true);
+        var result = ((MesActiveOrderDossierReadScopeService) f.target).requireMutation(ACTOR, ACTIVE, null, false);
+        assertEquals(APPLICATION, result.application().getId());
+        verify(f.visibility).requireVisibleBatch(f.batch, ACTOR);
+    }
+    @Test void suppliedApplicationNeverGrantsUploadPermission() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(ACTOR, ACTIVE, APPLICATION, false));
+    }
+    @Test void forgedApplicationAndAmbiguousFormalAssociationAreRejected() {
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app));
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(ACTOR, ACTIVE, APPLICATION + 1, false));
+        when(f.apps.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(f.app, f.app));
+        assertThrows(ServiceException.class, () -> ((MesActiveOrderDossierReadScopeService) f.target)
+                .requireMutation(ACTOR, ACTIVE, null, false));
+    }
+
     @ParameterizedTest
     @CsvSource({"BATCH,MANAGER_RELEASE_PENDING", "BATCH,RELEASED", "ACTIVE,MANAGER_RELEASE_PENDING", "ACTIVE,RELEASED"})
     void managerReadsExactFormalScopeAfterTaskDoneOrRelease(String scope, String state) {

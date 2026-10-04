@@ -130,6 +130,16 @@ class MesProcessPoolEventServiceTest extends BaseDbUnitTest {
         assertEquals(req.getSignatureUserId(), event.getSignatureUserId());
     }
 
+    @Test
+    void shouldReturnPersistedIdentityDomainForSubmitReplay() {
+        MesProcessPoolCreateEventReqDTO req = validEventReq()
+                .setRawPayload("{\"signatureIdentityDomain\":\"MES_EMPLOYEE_PROFILE\"}");
+        Long eventId = processPoolEventService.createEvent(req);
+        MesProcessPoolSubmitEventResult replay = processPoolEventService.findExistingSubmitEvent(req).orElseThrow();
+        assertEquals(eventId, replay.getProcessPoolEventId());
+        assertEquals("MES_EMPLOYEE_PROFILE", replay.getSignatureIdentityDomain());
+    }
+
     private static MesProcessPoolCreateEventReqDTO validEventReq() {
         Long actualEmployeeId = randomLongId();
         return MesProcessPoolCreateEventReqDTO.builder()

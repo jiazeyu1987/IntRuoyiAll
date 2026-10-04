@@ -7,6 +7,8 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureActionDefinition;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -56,13 +58,39 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     @Transactional(rollbackFor = Exception.class)
     @GxpWriteOperation(operationId = "signature.record.create")
     public ElectronicSignatureResult sign(ElectronicSignatureCommand command) {
+        return signInternal(command, null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @GxpWriteOperation(operationId = "signature.record.create")
+    public ElectronicSignatureResult signAuthorized(ElectronicSignatureCommand command,
+                                                     AuthorizedSignatureIdentity identity,
+                                                     Runnable authenticateProfile) {
+        if (identity == null) throw exception(ESIGN_COMMAND_INVALID, "签名身份不能为空");
+        return signInternal(command, identity, authenticateProfile);
+    }
+
+    private ElectronicSignatureResult signInternal(ElectronicSignatureCommand command,
+                                                     AuthorizedSignatureIdentity identity,
+                                                     Runnable authenticateProfile) {
         gxpAuditService.acquireLedgerLock();
         validateCommand(command);
         Long actorId = SecurityFrameworkUtils.getLoginUserId();
         if (actorId == null) {
             throw exception(ESIGN_LOGIN_REQUIRED);
         }
-        String commandHash = hash(commandHashPayload(command, actorId));
+        Long operatorId = actorId;
+        if (identity != null) actorId = identity.signerId();
+        String authenticationMethod = identity == null ? AUTHENTICATION_METHOD
+                : AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())
+                    ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD";
+        String identityJson = identity == null ? null : JsonUtils.toJsonString(Map.of(
+                "domain", identity.domain(), "signerId", actorId, "displayName", identity.displayName(),
+                "operatorId", operatorId, "tenantId", TenantContextHolder.getRequiredTenantId()));
+        identityJson = identityJson == null ? null : ElectronicSignatureJsonCanonicalizer.canonicalize(identityJson);
+        String commandHash = hash(commandHashPayload(command, actorId)
+                + (identityJson == null ? "" : "|" + identityJson));
         ElectronicSignatureRecordDO existingRecord = selectExisting(command.idempotencyKey());
         if (existingRecord != null) {
             if (!Objects.equals(existingRecord.getCommandHash(), commandHash)) {
@@ -71,11 +99,23 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
             return toResult(existingRecord);
         }
 
-        adminUserApi.reauthenticateForSignature(actorId, command.credential());
+        if (identity != null && AuthorizedSignatureIdentity.EMPLOYEE_PROFILE.equals(identity.domain())) {
+            if (authenticateProfile == null) throw exception(ESIGN_COMMAND_INVALID, "员工档案凭据验证器不能为空");
+            authenticateProfile.run();
+        } else {
+            if (authenticateProfile != null) throw exception(ESIGN_COMMAND_INVALID, "系统用户不接受档案凭据验证器");
+            adminUserApi.reauthenticateForSignature(actorId, command.credential());
+        }
         SignatureActionDefinition actionDefinition = findAction(command);
         SignatureSubjectSnapshot snapshot = loadSnapshot(command, actorId, actionDefinition);
-        LocalDateTime signedAt = LocalDateTime.now();
-        String canonicalContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.canonicalContentJson());
+        LocalDateTime signedAt = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        String canonicalContentJson = snapshot.canonicalContentJson();
+        if (identityJson != null) {
+            Map<String, Object> content = JsonUtils.parseObject(canonicalContentJson, Map.class);
+            content.put("signatureIdentity", JsonUtils.parseObject(identityJson, Map.class));
+            canonicalContentJson = JsonUtils.toJsonString(content);
+        }
+        canonicalContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(canonicalContentJson);
         String beforeContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.beforeContentJson());
         String afterContentJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.afterContentJson());
         String fieldDiffJson = ElectronicSignatureJsonCanonicalizer.canonicalize(snapshot.fieldDiffJson());
@@ -85,7 +125,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         String timeEvidenceId = "SERVER_CLOCK:" + signedAt;
         String evidenceHash = hash(evidencePayload(command, actorId, actionDefinition, snapshot, signedAt,
                 timeEvidenceId, contentHash, beforeContentHash, afterContentHash, beforeContentJson, afterContentJson,
-                fieldDiffJson));
+                fieldDiffJson, authenticationMethod));
 
         ElectronicSignatureRecordDO record = ElectronicSignatureRecordDO.builder()
                 .moduleCode(command.moduleCode())
@@ -99,7 +139,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 .reason(command.reason())
                 .signedAt(signedAt)
                 .timeEvidenceId(timeEvidenceId)
-                .authenticationMethod(AUTHENTICATION_METHOD)
+                .authenticationMethod(authenticationMethod)
                 .contentHash(contentHash)
                 .beforeContentHash(beforeContentHash)
                 .afterContentHash(afterContentHash)
@@ -192,11 +232,11 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                                    SignatureActionDefinition actionDefinition, SignatureSubjectSnapshot snapshot,
                                    LocalDateTime signedAt, String timeEvidenceId, String contentHash,
                                    String beforeContentHash, String afterContentHash, String beforeContentJson,
-                                   String afterContentJson, String fieldDiffJson) {
+                                   String afterContentJson, String fieldDiffJson, String authenticationMethod) {
         return String.join("|", String.valueOf(TenantContextHolder.getRequiredTenantId()), String.valueOf(actorId),
                 command.moduleCode(), command.actionCode(), snapshot.subjectType(), snapshot.subjectId(),
                 snapshot.subjectVersion(), actionDefinition.meaningCode(), actionDefinition.meaningLabel(),
-                command.reason(), signedAt.toString(), timeEvidenceId, AUTHENTICATION_METHOD, contentHash,
+                command.reason(), signedAt.toString(), timeEvidenceId, authenticationMethod, contentHash,
                 StrUtil.nullToEmpty(beforeContentHash), StrUtil.nullToEmpty(afterContentHash),
                 StrUtil.nullToEmpty(beforeContentJson), StrUtil.nullToEmpty(afterContentJson),
                 StrUtil.nullToEmpty(fieldDiffJson), HASH_ALGORITHM, KEY_VERSION,

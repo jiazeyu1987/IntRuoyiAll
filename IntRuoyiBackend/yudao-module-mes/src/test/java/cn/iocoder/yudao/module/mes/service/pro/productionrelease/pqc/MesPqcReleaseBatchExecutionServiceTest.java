@@ -93,6 +93,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
+        ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
@@ -115,6 +116,20 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @AfterEach
     void tearDown() {
         TenantContextHolder.clear();
+    }
+
+    @Test void pendingVoidRejectsPqcApproveBeforeSignatureAndTransitions() {
+        var guard = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class);
+        ReflectionTestUtils.setField(service, "lifecycleGuard", guard);
+        org.mockito.Mockito.doThrow(new IllegalStateException("pending formal VOID"))
+                .when(guard).requireReleaseAllowed(BATCH_EXECUTION_ID);
+        assertThrows(IllegalStateException.class, () -> service.approve(PQC_USER_ID,
+                new MesPqcProductionReleaseApproveCommand().setApplicationId(APPLICATION_ID)
+                        .setPqcReleaseWorkTaskId(PQC_WORK_TASK_ID).setExpectedVersion(VERSION)
+                        .setIdempotencyKey("pending-void").setSignaturePassword("signature-password")
+                        .setUdiControlDocumentNo("UDI-TEST-20260924-001/V1")));
+        org.mockito.Mockito.verifyNoInteractions(signatureService, managerStageInitializer, reportStageInitializer);
+        org.mockito.Mockito.verify(workTaskMapper, org.mockito.Mockito.never()).completePqcDecisionTask(any(), any(), any());
     }
 
     @Test
@@ -232,6 +247,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 batchExecutionPort, reportStageInitializer, managerStageInitializer, auditRecorder, signatureService,
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
+        ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);

@@ -10,5 +10,5 @@ public record MesFrontlineSubmitIdentityCommand(Long loginUserId,
                                                 Long processId,
                                                 String templateNo,
                                                 String frontlineSessionSnapshotId,
-                                                String frontlineSessionSnapshotHash) {
+                                                String frontlineSessionSnapshotHash, String signatureIdentityDomain) {
 }

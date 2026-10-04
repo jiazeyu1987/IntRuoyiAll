@@ -4441,7 +4441,7 @@ const uploadDossierFile = async (categoryKey: string, options: UploadRequestOpti
     await uploadActiveOrderDossierFile(
       {
         activeOrderId,
-        applicationId: props.pqcReleaseApplicationId,
+        applicationId: dossierFiles.value?.applicationId,
         categoryKey,
         file: options.file
       },
@@ -4555,7 +4555,7 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
   try {
     await deleteActiveOrderDossierFile({
       activeOrderId,
-      applicationId: props.pqcReleaseApplicationId,
+      applicationId: dossierFiles.value?.applicationId,
       categoryKey,
       attachmentId: file.attachmentId
     })

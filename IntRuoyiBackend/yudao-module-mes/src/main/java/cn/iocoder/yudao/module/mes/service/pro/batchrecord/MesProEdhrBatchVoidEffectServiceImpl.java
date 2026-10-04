@@ -48,6 +48,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 @Service
 public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoidEffectService {
 
+    @Resource private MesEdhrBatchLifecycleGuard lifecycleGuard;
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+
     private static final int BATCH_STATUS_VOIDED = 60;
     private static final String CHANGE_TYPE_VOID = "VOID";
     private static final String CHANGE_STATUS_SUBMITTED = "SUBMITTED";
@@ -86,6 +89,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     public EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO) {
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
+        lifecycleGuard.requireIndependentVoidAllowed(batch);
         requireReleaseActionUnlocked(batch.getId());
         if (Integer.valueOf(BATCH_STATUS_VOIDED).equals(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
@@ -98,8 +102,10 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO requestPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO,
                                                                     String bpmProcessInstanceId) {
+        gxpAuditService.acquireLedgerLock();
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
+        lifecycleGuard.requireIndependentVoidAllowed(batch);
         requireReleaseActionUnlocked(batch.getId());
         if (Integer.valueOf(BATCH_STATUS_VOIDED).equals(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
@@ -124,8 +130,10 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     @Transactional(rollbackFor = Exception.class)
     public EdhrRecordChangeRespVO executeDirectPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO,
                                                                          Long actorUserId) {
+        gxpAuditService.acquireLedgerLock();
         validateReason(reqVO.getReasonCategory(), reqVO.getReasonText());
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
+        lifecycleGuard.requireIndependentVoidAllowed(batch);
         requireReleaseActionUnlocked(batch.getId());
         if (Integer.valueOf(BATCH_STATUS_VOIDED).equals(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
@@ -147,6 +155,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                                                                            String approvalResult,
                                                                            String rejectReason,
                                                                            Long actorUserId) {
+        gxpAuditService.acquireLedgerLock();
         MesProEdhrRecordChangeEventDO event = requireBatchVoidEventByProcessInstanceId(approvalInstanceId);
         if (!CHANGE_STATUS_SUBMITTED.equals(event.getChangeStatus())) {
             return toResp(event);
@@ -273,12 +282,13 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
         if (Integer.valueOf(BATCH_STATUS_VOIDED).equals(batch.getStatus())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
+        MesProEdhrBatchExecutionArchiveDO archive = latestBatchArchive(batch.getId());
+        lifecycleGuard.requireVoidEffectState(batch, event, archive);
         LocalDateTime now = now();
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
                 .setId(batch.getId())
                 .setStatus(BATCH_STATUS_VOIDED));
         batchExecutionMapper.clearActiveContextKey(batch.getId());
-        MesProEdhrBatchExecutionArchiveDO archive = latestBatchArchive(batch.getId());
         if (archive != null) {
             batchArchiveMapper.updateById(new MesProEdhrBatchExecutionArchiveDO()
                     .setId(archive.getId())

@@ -360,6 +360,26 @@ class MesActiveOrderDossierFileServiceTest {
         verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
     }
 
+    @Test
+    void actualDeleteUsesDeleteAuthorizationAndChecksLifecycleOnce() throws Exception {
+        var f = fixture();
+        var guard = mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class);
+        ReflectionTestUtils.setField(f.service, "lifecycleGuard", guard);
+        when(f.activeOrderMapper.selectById(10L)).thenReturn(new MesProcessPoolActiveOrderDO()
+                .setId(10L).setWorkOrderId(20L).setLeaderUserId(7L));
+        when(f.applicationMapper.selectById(55L)).thenReturn(new MesProcessPoolActiveOrderReleaseApplicationDO()
+                .setId(55L).setActiveOrderId(10L).setBatchExecutionId(40L));
+        when(f.dossierFileMapper.selectById(8001L)).thenReturn(dossierFile(8001L, 10L, 55L,
+                "OTHER_FILE", 7001L, "report.pdf"));
+        when(f.fileService.getFile(7001L)).thenReturn(new FileDO().setId(7001L));
+        when(f.dossierFileMapper.deleteById(8001L)).thenReturn(1);
+        when(f.adminUserApi.getUser(7L)).thenReturn(user(7L, "组长"));
+        f.service.delete(7L, new MesActiveOrderDossierFileService.DeleteCommand(10L, 55L, "OTHER_FILE", 8001L));
+        verify(f.readScope).requireMutation(7L, 10L, 55L, true);
+        verify(guard).requireDossierMutable(40L);
+        verify(f.fileService).deleteFile(7001L);
+    }
+
     private static MesProcessPoolActiveOrderDossierFileDO dossierFile(Long id, Long activeOrderId,
                                                                         Long applicationId, String categoryKey,
                                                                         Long fileId, String fileName) {
@@ -394,6 +414,17 @@ class MesActiveOrderDossierFileServiceTest {
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "dossierReadScopeService", readScope);
+        ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+        when(readScope.requireMutation(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean())).thenAnswer(call -> {
+            Long actor = call.getArgument(0), activeId = call.getArgument(1), appId = call.getArgument(2);
+            var active = activeOrderMapper.selectById(activeId);
+            var app = appId == null ? applicationMapper.selectLatestByActiveOrderId(activeId) : applicationMapper.selectById(appId);
+            if (active == null || appId == null && !java.util.Objects.equals(active.getLeaderUserId(), actor)
+                    || appId != null && (app == null || !java.util.Objects.equals(app.getActiveOrderId(), activeId))) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_DOSSIER_FILE_BLOCKED, "活跃订单不存在或无授权");
+            }
+            return new MesActiveOrderDossierReadScopeService.Context(active, app);
+        });
         return new Fixture(applicationMapper, activeOrderMapper, dossierFileMapper,
                 nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService, gxpAuditService, readScope, service);
     }

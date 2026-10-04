@@ -53,6 +53,8 @@ import java.util.Set;
 @Service
 public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionReleaseService {
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
+
     private static final String TASK_TYPE_PQC_RELEASE = "PQC_PRODUCTION_RELEASE";
     private static final String BUSINESS_SCOPE_RELEASE_APPLICATION = "RELEASE_APPLICATION";
     private static final String VIEW_STATUS_PENDING = "PENDING";
@@ -162,6 +164,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 application, command.getPqcReleaseWorkTaskId(), command.getExpectedVersion(), actorUserId);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
         ensureNoClosedNonconformanceOutcome(application);
+        lifecycleGuard.requireReleaseAllowed(requireExistingBatchExecutionId(application));
         signatureService.validatePqcSubmitSignature(actorUserId, command.getSignaturePassword());
 
         Long batchExecutionId = requireExistingBatchExecutionId(application);
