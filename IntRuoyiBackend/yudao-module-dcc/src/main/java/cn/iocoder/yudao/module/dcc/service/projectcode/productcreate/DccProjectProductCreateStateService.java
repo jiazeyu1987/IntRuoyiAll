@@ -24,6 +24,7 @@ public class DccProjectProductCreateStateService {
     @Resource
     private DccProjectProductIdentityClaimMapper identityClaimMapper;
     @Resource private DccProjectProductAuditService productAudit;
+    @Resource private DccProjectProductNotificationService notifications;
 
     @Transactional(rollbackFor = Exception.class)
     public DccProjectProductCreateRequestDO markApprovalDecision(Long operatorUserId, Long requestId,
@@ -47,6 +48,7 @@ public class DccProjectProductCreateStateService {
         }
         if (requestMapper.updateById(request) != 1) throw exception(WRITE_INCOMPLETE, "批准决定");
         productAudit.append("dcc.project-product.approve",requestId,"1",reason,before);
+        if (!approve) notifications.rejected(request, true);
         return request;
     }
 

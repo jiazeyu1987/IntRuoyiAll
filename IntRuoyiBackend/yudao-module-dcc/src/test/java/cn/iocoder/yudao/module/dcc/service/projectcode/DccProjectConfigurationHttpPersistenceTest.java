@@ -59,6 +59,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Sql(scripts = "/sql/dcc_b_gxp_audit_tables.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/sql/dcc_b_gxp_audit_clean.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class DccProjectConfigurationHttpPersistenceTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductActorSupport projectActors;
     @Resource javax.sql.DataSource reviewerDataSource;
     @org.junit.jupiter.api.BeforeEach void configuredReviewerFixture() {
         new org.springframework.jdbc.core.JdbcTemplate(reviewerDataSource).update("INSERT INTO dcc_project_reviewer_config(tenant_id,reviewer_user_id,reviewer_username,reviewer_nickname,version_no,updated_by,change_reason) VALUES(1,1,'admin','显式配置测试审核人',1,1,'测试正式配置')");
@@ -100,7 +104,7 @@ class DccProjectConfigurationHttpPersistenceTest extends BaseDbUnitTest {
 
     @BeforeEach void setupHttp() {
         when(users.getUser(1L)).thenReturn(new AdminUserRespDTO().setId(1L).setTenantId(1L).setStatus(0).setUsername("admin").setNickname("显式配置测试审核人"));
-        var user = new AdminUserRespDTO(); user.setId(7L); user.setStatus(0); user.setNickname("正式负责人"); user.setUsername("dcc-b-test");
+        var user = new AdminUserRespDTO(); user.setId(7L); user.setTenantId(1L); user.setStatus(0); user.setNickname("正式负责人"); user.setUsername("dcc-b-test");
         when(users.getUser(7L)).thenReturn(user);
         when(permissions.hasAnyPermissions(7L, "dcc:project-code:query")).thenReturn(true);
         when(permissions.hasAnyPermissions(7L, "dcc:project-code:query", "dcc:controlled-file:query")).thenReturn(true);

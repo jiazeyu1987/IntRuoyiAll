@@ -13,6 +13,8 @@ public interface DccProjectProductCreateService {
 
     List<DccProjectProductCreateRequestDO> getPendingRequests();
 
+    DccProjectProductCreateRequestDO getRequest(Long actorUserId, Long requestId);
+
     DccProjectProductCreateRequestDO review(Long operatorUserId, Long requestId, String reason, boolean approve);
 
     DccProjectProductCreateRequestDO approve(Long operatorUserId, Long requestId, String reason, boolean approve);

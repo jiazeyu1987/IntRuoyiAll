@@ -24,6 +24,10 @@ import static org.mockito.Mockito.*;
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class, DccProjectProductCreateWriteService.class,
         DccProjectAttributesService.class, DccProjectLeaderService.class, DccFolderTemplateService.class, DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class})
 class DccProjectProductAttributesCreateTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductActorSupport projectActors;
     @Resource javax.sql.DataSource reviewerDataSource;
     @org.junit.jupiter.api.BeforeEach void configuredReviewerFixture() {
         new org.springframework.jdbc.core.JdbcTemplate(reviewerDataSource).update("INSERT INTO dcc_project_reviewer_config(tenant_id,reviewer_user_id,reviewer_username,reviewer_nickname,version_no,updated_by,change_reason) VALUES(1,1,'admin','显式配置测试审核人',1,1,'测试正式配置')");

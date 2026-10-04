@@ -82,6 +82,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private final DccControlledFileMapper controlledFileMapper;
     private final DccFileCategoryMapper fileCategoryMapper;
     private final DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
+    private final DccProjectProductTaskDelegate projectApplications;
 
     private static List<String> buildDccProcessDefinitionKeys() {
         List<String> keys = new ArrayList<>(DccControlledFileProcessDefinitionKeys.APPROVAL_CENTER_KEYS);
@@ -94,13 +95,15 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                                   DccControlledFileWorkflowService workflowService,
                                   DccControlledFileMapper controlledFileMapper,
                                   DccFileCategoryMapper fileCategoryMapper,
-                                  DccControlledFileRouteSnapshotMapper routeSnapshotMapper) {
+                                  DccControlledFileRouteSnapshotMapper routeSnapshotMapper,
+                                  DccProjectProductTaskDelegate projectApplications) {
         this.bpmTaskService = bpmTaskService;
         this.processInstanceService = processInstanceService;
         this.workflowService = workflowService;
         this.controlledFileMapper = controlledFileMapper;
         this.fileCategoryMapper = fileCategoryMapper;
         this.routeSnapshotMapper = routeSnapshotMapper;
+        this.projectApplications = Objects.requireNonNull(projectApplications);
     }
 
     @Override
@@ -135,16 +138,28 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     @Override
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        return switch (context.getViewType()) {
-            case TODO -> pageTodo(context);
-            case DONE -> pageDone(context);
+        ApprovalTaskQueryContext fullContext = ApprovalTaskQueryContext.of(context.getLoginUserId(), context.getViewType(),
+                context.getModuleCode(), context.getKeyword(), 1, Integer.MAX_VALUE, context.isGlobalView());
+        PageResult<ApprovalTaskSummary> files = switch (context.getViewType()) {
+            case TODO -> pageTodo(fullContext);
+            case DONE -> pageDone(fullContext);
             default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: DCC does not support "
                     + context.getViewType());
         };
+        List<ApprovalTaskSummary> combined = new ArrayList<>(files.getList());
+        combined.addAll(projectApplications.list(context));
+        combined.sort(java.util.Comparator.comparing((ApprovalTaskSummary row) -> row.getTaskCreatedAt() == null
+                        ? row.getInitiatedAt() : row.getTaskCreatedAt(), java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder()))
+                .thenComparing(ApprovalTaskSummary::getId));
+        VisibleWindow window = visibleWindow(context);
+        int from = (int) Math.min(window.fromIndex(), combined.size());
+        int to = (int) Math.min(window.toIndex(), combined.size());
+        return new PageResult<>(combined.subList(from, to), (long) combined.size());
     }
 
     @Override
     public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
+        if (DccProjectProductTaskDelegate.supports(context.getSourceTaskType())) return projectApplications.timeline(context);
         requireSourceTaskType(context.getSourceTaskType());
         String processInstanceId = requireText(context.getProcessInstanceId(),
                 "APPROVAL_PROCESS_INSTANCE_REQUIRED: DCC timeline requires process instance id");

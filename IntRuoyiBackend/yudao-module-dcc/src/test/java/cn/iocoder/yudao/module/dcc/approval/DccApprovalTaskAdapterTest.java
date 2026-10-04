@@ -75,6 +75,8 @@ class DccApprovalTaskAdapterTest {
     private DccFileCategoryMapper fileCategoryMapper;
     @Mock
     private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
+    @Mock
+    private DccProjectProductTaskDelegate projectApplications;
     @InjectMocks
     private DccApprovalTaskAdapter adapter;
 
@@ -962,5 +964,32 @@ class DccApprovalTaskAdapterTest {
                     DccApprovalTaskAdapter.class, "resolveTodoAvailableActions", key, "MATRIX_APPROVAL", "PENDING_MATRIX_APPROVAL");
             assertEquals(Set.of("PROCESS_IN_MODULE"), actions);
         }
+    }
+
+    @Test
+    void fileAndNativeTasksShareOneSortedPageWindowAndAccurateTotal() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-mixed");
+        when(task.getName()).thenReturn("文控审核");
+        when(task.getTaskDefinitionKey()).thenReturn("DOC_CONTROL_REVIEW");
+        when(task.getProcessInstanceId()).thenReturn("pi-mixed");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(bpmTaskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+        ProcessInstance process = mock(ProcessInstance.class);
+        when(process.getBusinessKey()).thenReturn("6011");when(process.getStartUserId()).thenReturn("501");
+        when(processInstanceService.getProcessInstanceMap(Set.of("pi-mixed"))).thenReturn(Map.of("pi-mixed", process));
+        var file = new DccControlledFileDO();file.setId(6011L);file.setTitle("真实文件");file.setFileNumber("DOC-11");
+        file.setVersionNo("A/1");file.setStatus("PENDING_DOC_CONTROL_REVIEW");file.setCategoryId(7001L);
+        when(controlledFileMapper.selectByIdIncludingDeleted(6011L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7001L)).thenReturn(DccFileCategoryDO.builder().id(7001L).name("实际类别").build());
+        var nativeRow = ApprovalTaskSummary.builder().id("DCC:PROJECT_NATIVE:9007199254740993:REVIEW")
+                .businessKey("9007199254740993").taskCreatedAt(java.time.LocalDateTime.of(2026,10,5,1,0)).build();
+        when(projectApplications.list(any())).thenReturn(List.of(nativeRow));
+        var first = adapter.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 1, 1));
+        var second = adapter.page(ApprovalTaskQueryContext.of(100L, ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 2, 1));
+        assertEquals(2,first.getTotal());assertEquals(2,second.getTotal());
+        assertEquals("9007199254740993",first.getList().get(0).getBusinessKey());
+        assertEquals("6011",second.getList().get(0).getBusinessKey());
     }
 }

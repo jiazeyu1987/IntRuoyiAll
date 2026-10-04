@@ -27,27 +27,29 @@ export interface DccProjectProductCreateReqVO {
   resubmissionReason?: string
 }
 
-export interface DccProjectProductCreateRespVO extends Omit<DccProjectProductCreateReqVO, 'defaultAttributes'> {
-  id: DccProjectRequestId
+export interface DccProjectProductCreateRespVO extends Omit<DccProjectProductCreateReqVO, 'defaultAttributes' | 'projectLeaderUserId' | 'folderTemplateId'> {
+  id: string
+  projectLeaderUserId?: string | null
+  folderTemplateId?: string | null
   defaultAttributesJson?: string
   folderTemplateSnapshotJson?: string
   status: string
-  applicantUserId?: DccProjectRequestId
-  configuredReviewerUserId?: DccProjectRequestId
+  applicantUserId?: string | null
+  configuredReviewerUserId?: string | null
   configuredReviewerUsername?: string
   configuredReviewerNickname?: string
-  reviewerUserId?: number
-  approverUserId?: number
+  reviewerUserId?: string | null
+  approverUserId?: string | null
   reviewReason?: string
   approvalReason?: string
   rejectReason?: string
   writeErrorCode?: string
   writeErrorMessage?: string
-  generatedProjectCodeId?: number
-  generatedProductCatalogId?: number
-  relationId?: number
-  previousRequestId?: number
-  resubmittedRequestId?: number
+  generatedProjectCodeId?: string | null
+  generatedProductCatalogId?: string | null
+  relationId?: string | null
+  previousRequestId?: string | null
+  resubmittedRequestId?: string | null
   submittedTime?: string
   reviewedTime?: string
   approvedTime?: string
@@ -55,7 +57,7 @@ export interface DccProjectProductCreateRespVO extends Omit<DccProjectProductCre
   failedTime?: string
   writeAttemptNo?: number
   writeReason?: string
-  writeOperatorUserId?: number
+  writeOperatorUserId?: string | null
 }
 
 export interface DccProjectProductApprovalActionReqVO {
@@ -63,6 +65,27 @@ export interface DccProjectProductApprovalActionReqVO {
 }
 
 const requestUrl = '/dcc/project-product-requests'
+
+export const dccProjectProductRequestIdentity = (value: unknown): string => {
+  if ((typeof value !== 'string' && typeof value !== 'number')
+    || (typeof value === 'number' && !Number.isSafeInteger(value))
+    || !/^[1-9][0-9]*$/.test(String(value)) || BigInt(value) > 9223372036854775807n) {
+    throw new Error('项目及产品申请身份无效')
+  }
+  return String(value)
+}
+
+export const getDccProjectProductRequest = async (
+  id: DccProjectRequestId
+): Promise<DccProjectProductCreateRespVO> => {
+  const requestId = dccProjectProductRequestIdentity(id)
+  const result = await request.get({ url: `${requestUrl}/${requestId}`, ignoreErrorMessage: true })
+  if (!result || typeof result !== 'object' || Array.isArray(result)
+    || typeof result.id !== 'string' || dccProjectProductRequestIdentity(result.id) !== requestId) {
+    throw new Error('项目及产品申请详情身份与请求不一致')
+  }
+  return result
+}
 
 export const getDccProjectReviewerConfiguration = async (): Promise<DccProjectReviewerConfiguration> =>
   parseReviewerConfiguration(await request.get({ url: `${requestUrl}/reviewer-config`, ignoreErrorMessage: true }))

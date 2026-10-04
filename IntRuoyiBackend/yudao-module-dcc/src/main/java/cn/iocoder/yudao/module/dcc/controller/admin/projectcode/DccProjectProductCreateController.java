@@ -69,6 +69,13 @@ public class DccProjectProductCreateController {
                 .toList());
     }
 
+    @GetMapping("/{id:\\d+}")
+    @Operation(summary = "按准确原申请身份读取项目及产品申请详情")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    public CommonResult<DccProjectProductCreateRespVO> get(@PathVariable("id") Long id) {
+        return success(toResp(service.getRequest(getLoginUserId(), id)));
+    }
+
     @PostMapping("/{id:\\d+}/review/approve")
     @Operation(summary = "审核通过 DCC 项目代码与产品目录联合新建申请")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")

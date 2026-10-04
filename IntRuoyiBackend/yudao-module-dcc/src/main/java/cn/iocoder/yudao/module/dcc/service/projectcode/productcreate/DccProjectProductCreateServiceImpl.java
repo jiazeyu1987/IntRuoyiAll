@@ -62,15 +62,19 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService auditService;
     @Resource private DccProjectProductAuditService productAudit;
     @Resource private DccProjectReviewerConfigurationService reviewerConfiguration;
+    @Resource private DccProjectProductActorSupport projectActors;
+    @Resource private DccProjectProductNotificationService notifications;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createRequest(Long applicantUserId, DccProjectProductCreateReqVO reqVO) {
         if(reqVO==null) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        projectActors.requireReadableAccount(applicantUserId);
         productAudit.validateReason(reqVO.getCreationReason());
         var before=productAudit.beforeCreate(reqVO.getFolderTemplateId());
         Long id=createPendingRequest(applicantUserId,reqVO,reqVO.getCreationReason().trim(),null);
         productAudit.append("dcc.project-product.create",id,"1",reqVO.getCreationReason(),before);
+        notifications.reviewTodo(requestMapper.selectById(id), reqVO.getCreationReason().trim());
         return id;
     }
 
@@ -132,11 +136,22 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         return rows;
     }
 
+    @Override
+    public DccProjectProductCreateRequestDO getRequest(Long actorUserId, Long requestId) {
+        var request = requestId == null || requestId <= 0 ? null : requestMapper.selectById(requestId);
+        projectActors.assertReadable(actorUserId, request);
+        var successors = requestMapper.selectByPreviousRequestIds(List.of(request.getId()));
+        if (successors.size() > 1) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        request.setResubmittedRequestId(successors.isEmpty() ? null : successors.get(0).getId());
+        return request;
+    }
+
     /** 原驳回记录保持历史；锁定前驱后生成一个重新进入审核的新申请。 */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long resubmitRejectedRequest(Long applicantUserId, Long rejectedRequestId,
                                        DccProjectProductCreateReqVO reqVO) {
+        projectActors.requireReadableAccount(applicantUserId);
         DccProjectProductCreateRequestDO previous = requireRequestForUpdate(rejectedRequestId);
         if (applicantUserId == null || applicantUserId <= 0
                 || !java.util.Objects.equals(previous.getApplicantUserId(), applicantUserId)
@@ -166,6 +181,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
                         .canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload)).build())
                 .idempotencyKey("DCC:PROJECT_PRODUCT:RESUBMIT:" + id)
                 .source("DccProjectProductCreateServiceImpl.resubmitRejectedRequest").build());
+        notifications.reviewTodo(requestMapper.selectById(id), reqVO.getResubmissionReason().trim());
         return id;
     }
 
@@ -198,6 +214,8 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
                     "审核决定");
         }
         productAudit.append("dcc.project-product.review",requestId,"1",normalizedReason,before);
+        if (approve) notifications.approvalTodo(request);
+        else notifications.rejected(request, false);
         return request;
     }
 

@@ -15,19 +15,27 @@ const APIs={
 }
 function state(){const e={};vm.runInNewContext(compile(fs.readFileSync(path.join(root,'src/views/dcc/controlled-file/project-attributes/state.ts'),'utf8')),{exports:e,Error});return e}
 function reviewerModel(){const e={};vm.runInNewContext(compile(fs.readFileSync(path.join(root,'src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts'),'utf8')),{exports:e,Error});return e}
+function confirmationModel(){const e={};vm.runInNewContext(compile(fs.readFileSync(path.join(root,'src/views/dcc/controlled-file/basic-data/components/project-product-confirmation.ts'),'utf8')),{exports:e,Error,require:id=>{
+ if(id==='vue')return vue
+ if(id==='element-plus')return {ElMessageBox:{confirm:async()=>{}}}
+ if(id==='./project-reviewer')return reviewerModel()
+ if(id==='../../project-attributes/state')return state()
+ throw Error('Unconfigured confirmation dependency: '+id)
+}});return e}
 const filename=path.join(root,'src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue')
 const script=compileScript(parse(fs.readFileSync(filename,'utf8'),{filename}).descriptor,{id:'rev01-product'})
 const exportsObject={}
 vm.runInNewContext(compile(script.content),{
  exports:exportsObject,Error,console,
- ...vue,onMounted:()=>{},useMessage:()=>({success:text=>messages.push(['success',text]),warning:text=>messages.push(['warning',text])}),
- useRouter:()=>({push:()=>{}}),window:{prompt:()=>prompts.shift()},
+ ...vue,onMounted:()=>{},onBeforeUnmount:()=>{},useMessage:()=>({success:text=>messages.push(['success',text]),warning:text=>messages.push(['warning',text])}),
+ useRouter:()=>({push:()=>{}}),useRoute:()=>vue.reactive({path:'/mdm/product-catalog',query:{}}),window:{prompt:()=>prompts.shift()},
  require:id=>{
   if(id==='vue')return vue
   if(id===apiPath)return APIs
   if(id.endsWith('.vue'))return {}
   if(id==='../../project-attributes/state')return state()
   if(id==='./project-reviewer')return reviewerModel()
+  if(id==='./project-product-confirmation')return confirmationModel()
   if(id==='./project-product-resubmit')return {canResubmitProjectProductRequest:()=>false,restoreRejectedProjectProductForm:()=>{throw Error('not used')}}
   if(id==='@/store/modules/user')return {useUserStore:()=>({getUser:{id:9}})}
   if(id==='@vueuse/core')return {useClipboard:()=>({})}
@@ -46,6 +54,8 @@ const scope=vue.effectScope(),bindings=scope.run(()=>exportsObject.default.setup
 async function run(){
  await bindings.openProjectProductDialog('records');assert.equal(bindings.projectProductMode.value,'records');assert.equal(supportReads,0,'审核记录入口不依赖创建所需模板/人员列表');assert.equal(bindings.projectProductError.value,'')
  bindings.projectProductMode.value='create'
+ bindings.projectLeaderUsers.value=[{id:7,nickname:'正式负责人',username:'leader'}]
+ bindings.folderTemplates.value=[{id:1,name:'正式模板',active:true,structureJson:'{"nodes":[]}'}]
  bindings.projectProductFormRef.value={validate:async()=>true,resetFields:()=>{}}
  Object.assign(bindings.projectProductForm,{projectName:'P',projectCode:'P',projectLeaderUserId:7,folderTemplateId:1,productCode:'PR',productName:'Product',classification:'一类',
   defaultAttributes:{targetMarkets:['CE'],licenseHolder:'Y',actualManufacturer:'N',documentTransfer:'N'},remark:'备注不能作为原因',resubmissionReason:'重提原因不能作为新建原因',creationReason:''})

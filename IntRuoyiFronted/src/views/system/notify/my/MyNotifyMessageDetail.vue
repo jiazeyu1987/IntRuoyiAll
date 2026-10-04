@@ -72,6 +72,9 @@
           <el-button v-if="dccPublicationNavigation" type="primary" @click="navigateToDccPublication">
             查看发布文件
           </el-button>
+          <el-button v-if="dccProjectProductNavigation" type="primary" @click="navigateToDccProjectProduct">
+            查看项目及产品申请
+          </el-button>
         </div>
       </section>
     </div>
@@ -90,6 +93,7 @@ import {
   type BpmApprovalNotifyTarget,
   type EdhrWorkTaskNotifyTarget,
   type DccPublicationNotifyTarget,
+  type DccProjectProductNotifyTarget,
   type ShowroomProductNotifyTarget
 } from '@/utils/notifyMessageNavigation'
 
@@ -142,6 +146,11 @@ const dccPublicationNavigation = computed(
 )
 
 const hiddenTemplateParamKeys = NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS
+const dccProjectProductNavigation = computed(
+  () => notifyMessageTargets.value.find(
+    (target): target is DccProjectProductNotifyTarget => target.type === 'dccProjectProduct'
+  ) ?? null
+)
 
 const templateParamLabels: Record<string, string> = {
   processInstanceName: '流程名称',
@@ -235,6 +244,17 @@ const navigateToEdhrWorkTask = async () => {
 
 const navigateToDccPublication = async () => {
   const navigation = dccPublicationNavigation.value
+  if (!navigation) return
+  await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => {
+      resetDialogState()
+      await nextTick()
+    }
+  })
+}
+
+const navigateToDccProjectProduct = async () => {
+  const navigation = dccProjectProductNavigation.value
   if (!navigation) return
   await navigateToNotifyMessageTarget(router, navigation, {
     beforeNavigate: async () => {

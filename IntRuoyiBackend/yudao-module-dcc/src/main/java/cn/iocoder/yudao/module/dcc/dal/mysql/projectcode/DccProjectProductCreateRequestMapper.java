@@ -18,6 +18,14 @@ public interface DccProjectProductCreateRequestMapper
     @Select("SELECT * FROM dcc_project_product_create_request WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     DccProjectProductCreateRequestDO selectByIdForUpdate(@Param("id") Long id);
 
+    default List<DccProjectProductCreateRequestDO> selectNativeTaskRows() {
+        return selectList(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
+                .eq(DccProjectProductCreateRequestDO::getTenantId,
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                .in(DccProjectProductCreateRequestDO::getStatus, "PENDING_REVIEW", "PENDING_APPROVAL",
+                        "REJECTED", "WRITING", "WRITE_FAILED", "COMPLETED"));
+    }
+
     default List<DccProjectProductCreateRequestDO> selectPendingList() {
         return selectList(new LambdaQueryWrapperX<DccProjectProductCreateRequestDO>()
                 .eq(DccProjectProductCreateRequestDO::getTenantId,

@@ -449,6 +449,8 @@
     <el-table
       v-loading="projectProductRequestsLoading"
       :data="projectProductRequests"
+      row-key="id"
+      :expand-row-keys="projectProductExpandedRequestIds"
       max-height="260"
       border
       size="small"
@@ -698,6 +700,8 @@ import {
   approveDccProjectProductRequest,
   createDccProjectProductRequest,
   resubmitDccProjectProductRequest,
+  dccProjectProductRequestIdentity,
+  getDccProjectProductRequest,
   getDccProjectProductRequests,
   getDccProjectReviewerConfiguration,
   retryDccProjectProductRequestWrite,
@@ -719,6 +723,7 @@ defineOptions({ name: 'ProductCatalogTabPanel' })
 const message = useMessage()
 const userStore = useUserStore()
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
@@ -747,6 +752,10 @@ const projectProductLoading = ref(false)
 const projectProductRequestsLoading = ref(false)
 const projectProductFormRef = ref()
 const projectProductRequests = ref<DccProjectProductCreateRespVO[]>([])
+const projectProductExactRequestId = ref<string>()
+const projectProductExpandedRequestIds = ref<string[]>([])
+let projectProductRequestReadSequence = 0
+let projectProductDialogSequence = 0
 const projectLeaderUsers = ref<UserVO[]>([])
 const folderTemplates = ref<FolderTemplate[]>([])
 const folderLibraryRef = ref<InstanceType<typeof FolderTemplateLibraryEditor>>()
@@ -1113,15 +1122,31 @@ const resetProjectProductForm = () => {
 }
 
 const loadProjectProductRequests = async () => {
+  const sequence = ++projectProductRequestReadSequence
+  const requestId = projectProductExactRequestId.value
   projectProductRequestsLoading.value = true
+  projectProductError.value = ''
   try {
-    projectProductRequests.value = await getDccProjectProductRequests()
+    const rows = requestId ? [await getDccProjectProductRequest(requestId)] : await getDccProjectProductRequests()
+    if (sequence !== projectProductRequestReadSequence || requestId !== projectProductExactRequestId.value) return
+    projectProductRequests.value = rows
+    projectProductExpandedRequestIds.value = requestId ? [requestId] : []
+  } catch (cause) {
+    if (sequence !== projectProductRequestReadSequence || requestId !== projectProductExactRequestId.value) return
+    projectProductRequests.value = []
+    projectProductExpandedRequestIds.value = []
+    projectProductError.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    projectProductRequestsLoading.value = false
+    if (sequence === projectProductRequestReadSequence) projectProductRequestsLoading.value = false
   }
 }
 
-const openProjectProductDialog = async (mode: 'create' | 'records' = 'create') => {
+const openProjectProductDialog = async (mode: 'create' | 'records' = 'create', requestId?: string) => {
+  const sequence = ++projectProductDialogSequence
+  projectProductRequestReadSequence++
+  projectProductExactRequestId.value = requestId
+  projectProductExpandedRequestIds.value = []
+  projectProductRequests.value = []
   resetProjectProductForm()
   projectProductMode.value = mode
   projectProductDialogVisible.value = true
@@ -1136,8 +1161,51 @@ const openProjectProductDialog = async (mode: 'create' | 'records' = 'create') =
     projectLeaderUsers.value = results[0]
     folderTemplates.value = results[1]
     reviewerConfiguration.value = results[3]
-  } catch (cause) { projectProductError.value = cause instanceof Error ? cause.message : String(cause) }
-  finally { projectProductLoading.value = false }
+  } catch (cause) {
+    if (sequence === projectProductDialogSequence) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally { if (sequence === projectProductDialogSequence) projectProductLoading.value = false }
+}
+
+const closeProjectProductRequestEntry = () => {
+  projectProductDialogSequence++
+  projectProductRequestReadSequence++
+  projectProductExactRequestId.value = undefined
+  projectProductRequests.value = []
+  projectProductExpandedRequestIds.value = []
+  projectProductLoading.value = false
+  projectProductRequestsLoading.value = false
+}
+
+const consumeProjectProductRequestRoute = async () => {
+  if (route.path !== '/mdm/product-catalog') {
+    if (projectProductExactRequestId.value) {
+      projectProductDialogVisible.value = false
+      closeProjectProductRequestEntry()
+    }
+    return
+  }
+  const query = route.query
+  if (query.requestId == null && query.requestOpen == null) {
+    if (projectProductExactRequestId.value) {
+      projectProductDialogVisible.value = false
+      closeProjectProductRequestEntry()
+    }
+    return
+  }
+  try {
+    if (typeof query.requestId !== 'string' || query.requestOpen !== 'records'
+      || (query.from !== 'approval-center' && query.from !== 'notification')
+      || Object.keys(query).some(key => !['requestId', 'requestOpen', 'from'].includes(key))) {
+      throw new Error('项目及产品申请入口参数无效')
+    }
+    const requestId = dccProjectProductRequestIdentity(query.requestId)
+    await openProjectProductDialog('records', requestId)
+  } catch (cause) {
+    closeProjectProductRequestEntry()
+    projectProductMode.value = 'records'
+    projectProductDialogVisible.value = true
+    projectProductError.value = cause instanceof Error ? cause.message : String(cause)
+  }
 }
 
 const editRejectedProjectProduct = async (row: DccProjectProductCreateRespVO) => {
@@ -1662,6 +1730,13 @@ const formatProductStatus = (status?: string | null) => {
   }
   return labels[normalized] || normalized
 }
+
+watch(() => [route.path, route.query.requestId, route.query.requestOpen, route.query.from],
+  consumeProjectProductRequestRoute, { immediate: true })
+watch(projectProductDialogVisible, visible => {
+  if (!visible) closeProjectProductRequestEntry()
+}, { flush: 'sync' })
+onBeforeUnmount(closeProjectProductRequestEntry)
 
 onMounted(async () => {
   await getList()

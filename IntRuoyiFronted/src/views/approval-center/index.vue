@@ -492,7 +492,9 @@ const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   BPM_TASK_DONE: '流程已办任务',
   BPM_PROCESS_INSTANCE: '流程实例',
   BPM_PROCESS_INSTANCE_COPY: '流程抄送实例',
-  DCC_CONTROLLED_FILE_TASK: '文控受控文件任务'
+  DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
+  DCC_PROJECT_PRODUCT_REVIEW: '项目产品审核',
+  DCC_PROJECT_PRODUCT_APPROVAL: '项目产品批准'
 }
 
 const APPROVAL_BUSINESS_TITLE_LABELS: Record<string, string> = {
@@ -1311,24 +1313,32 @@ const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) 
     : EMPTY_APPROVAL_DISPLAY
 }
 
-const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
-  {
-    label: '文件编号',
-    value: resolveBusinessIdentifierValueLabel(row)
-  },
-  {
-    label: '版本',
-    value: findDccContextTagValue(row, [/版本|version/i, /^v\d+(?:\.\d+)?$/i])
-  },
-  {
-    label: '文件类型',
-    value: findDccContextTagValue(row, [/文件类型|文件分类|类型|分类/])
-  },
-  {
-    label: '当前审批节点',
-    value: resolveNodeNameLabel(row)
+const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => {
+  if (row.sourceTaskType === 'DCC_PROJECT_PRODUCT_REVIEW' || row.sourceTaskType === 'DCC_PROJECT_PRODUCT_APPROVAL') {
+    return [
+      { label: '项目代码', value: normalizeApprovalDisplayText(row.businessCode) || EMPTY_APPROVAL_DISPLAY },
+      { label: '当前审批节点', value: resolveNodeNameLabel(row) }
+    ]
   }
-]
+  return [
+    {
+      label: '文件编号',
+      value: resolveBusinessIdentifierValueLabel(row)
+    },
+    {
+      label: '版本',
+      value: findDccContextTagValue(row, [/版本|version/i, /^v\d+(?:\.\d+)?$/i])
+    },
+    {
+      label: '文件类型',
+      value: findDccContextTagValue(row, [/文件类型|文件分类|类型|分类/])
+    },
+    {
+      label: '当前审批节点',
+      value: resolveNodeNameLabel(row)
+    }
+  ]
+}
 
 const resolveVisibleDccKeyFields = (row: ApprovalTaskSummaryVO) =>
   row.moduleCode === 'DCC'

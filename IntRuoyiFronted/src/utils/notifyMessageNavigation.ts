@@ -53,11 +53,19 @@ export type DccPublicationNotifyTarget = {
   targetId: string
 }
 
+export type DccProjectProductNotifyTarget = {
+  type: 'dccProjectProduct'
+  label: '查看项目及产品申请'
+  targetId: string
+  query: { requestId: string; requestOpen: 'records'; from: 'notification' }
+}
+
 export type NotifyMessageTarget =
   | ShowroomProductNotifyTarget
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
   | DccPublicationNotifyTarget
+  | DccProjectProductNotifyTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -179,12 +187,45 @@ const resolveDccPublicationTarget = (
   return { type: 'dccPublication', label: '查看发布文件', targetId: match[1] }
 }
 
+const resolveDccProjectProductTarget = (
+  templateParams: Record<string, unknown>
+): DccProjectProductNotifyTarget | null => {
+  if (templateParams.notifyTargetType !== 'DCC_PROJECT_PRODUCT_REQUEST'
+    || typeof templateParams.notifyTargetId !== 'string'
+    || !/^[1-9][0-9]*$/.test(templateParams.notifyTargetId)
+    || BigInt(templateParams.notifyTargetId) > 9223372036854775807n
+    || typeof templateParams.actionUrl !== 'string') return null
+  let url: URL
+  try { url = new URL(templateParams.actionUrl, window.location.origin) }
+  catch { return null }
+  const allowedKeys = new Set(['requestId', 'requestOpen', 'from'])
+  if (url.origin !== window.location.origin || url.pathname !== '/mdm/product-catalog'
+    || url.hash || url.username || url.password
+    || Array.from(url.searchParams.keys()).some(key => !allowedKeys.has(key))
+    || Array.from(allowedKeys).some(key => url.searchParams.getAll(key).length !== 1)
+    || url.searchParams.get('requestId') !== templateParams.notifyTargetId
+    || url.searchParams.get('requestOpen') !== 'records'
+    || url.searchParams.get('from') !== 'notification') return null
+  return {
+    type: 'dccProjectProduct', label: '查看项目及产品申请', targetId: templateParams.notifyTargetId,
+    query: { requestId: templateParams.notifyTargetId, requestOpen: 'records', from: 'notification' }
+  }
+}
+
 export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): NotifyMessageTarget[] => {
   const templateParams = normalizeTemplateParams(message?.templateParams)
   if (!templateParams) {
     return []
   }
-  return [resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
+  if (templateParams.notifyTargetType === 'DCC_PROJECT_PRODUCT_REQUEST') {
+    const target = resolveDccProjectProductTarget(templateParams)
+    return target ? [target] : []
+  }
+  const targets: Array<NotifyMessageTarget | null> = [
+    resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams),
+    resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)
+  ]
+  return targets.filter(
     (target): target is NotifyMessageTarget => Boolean(target)
   )
 }
@@ -244,6 +285,10 @@ export const navigateToNotifyMessageTarget = async (
       params: { id: target.targetId },
       query: { viewer: '1', from: 'notification' }
     })
+    return
+  }
+  if (target.type === 'dccProjectProduct') {
+    await router.push({ path: '/mdm/product-catalog', query: target.query })
     return
   }
   await router.push({

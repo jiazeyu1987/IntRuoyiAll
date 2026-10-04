@@ -1,0 +1,11 @@
+# LD04/G49 r2 — 原通知候选数组类型修正
+
+Status: ready_for_closeout_for_Root_review。范围只有notifyMessageNavigation.ts候选数组类型，TYPE_FIX_MADE_NOT_UI；Root Vite31355已实际退出0、完整类型94613实际退出2且保留原日志。不是新增页面或业务动作，也不修改upload、其他前端生产或测试。
+
+Given新增DccProjectProductNotifyTarget已进入NotifyMessageTarget union，而原四类候选数组由TS推断为不包含此目标的较窄union；When原filter声明target is NotifyMessageTarget，Then谓词目标不是参数类型子集，Root实际全类型报唯一TS2677于notifyMessageNavigation.ts:225。
+
+RED是Root执行的真实完整类型失败（session94613 exit2），不是本Agent重跑全类型。GREEN修复在原四候选数组上显式声明Array<NotifyMessageTarget|null>，沿原同一filter去null；不cast any、不关闭检查/改tsconfig、不添加候选、不修改专用目标或导航。
+
+本Agent随后只跑原8文件22执行定向回归及此一文件ESLint --max-warnings 0；完整类型和构建由Root重跑，有限Node PASS不能冒完整类型PASS。旧G49 manifest 6af4e1bcff5424b8437f4d5d8fb2bce2460048a6a1c89803639f5ec3c20ef738保留不覆盖，新r2单列本类型修正及不变资产精确pin。
+
+结果：原8文件22执行全部PASS/0fail/0skip/exit0，均为重叠回归，不另新增计数；该一源ESLint --max-warnings 0 exit0且日志为空。source/test已重新冻结，Root全类型/构建尚待新同源结果，不能将旧Vite PASS冒新r2验证。原G49七资产中仅该notify源变化，其他4生产/2测试及旧BDD保原rawSHA；新r2指纹单列精确比对。
