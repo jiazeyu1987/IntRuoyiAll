@@ -1,0 +1,47 @@
+{
+  "status": "PREPARED_NOT_COLLECTED_NOT_ACTIVATED",
+  "schemaVersion": 1,
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "tenantId": "1",
+  "factsRequired": {
+    "rows": 283,
+    "claims": 25,
+    "masters": 25,
+    "versions": 39,
+    "storage": 39,
+    "ownership": 39,
+    "tickets": 76,
+    "references": 39,
+    "runtime": 1,
+    "mustBeFreshActualReadonlyCapture": true
+  },
+  "bytesRequired": {
+    "objectsRead": 39,
+    "matches": 39,
+    "readerExitCode": 0,
+    "resultsRawShaMustMatchReceipt": true,
+    "factsRawShaMustMatchReceipt": true,
+    "currentReal35of39": "BLOCKED_INCOMPLETE_SOURCES_NO_ACTIVATION_MANIFEST"
+  },
+  "preimagesRequired": {
+    "collectorClass": "cn.iocoder.yudao.module.dcc.service.file.G32ManifestSupport",
+    "mode": "collect-preimages-readonly",
+    "canonicalProtocol": "DccLegacyNameVerifiedScope.rowHash/BootJackson.v1",
+    "connection": "existing local127.0.0.1:23306 source, readOnly REPEATABLE_READ, exact UUID",
+    "rawJdbcTypes": "JdbcTemplate actual SELECT-star values, never G29 SQL snapshot SHA substitution",
+    "nullInclusionExpected": "ALWAYS on actual Boot/Yudao configured JsonUtils",
+    "rowCounts": {
+      "claim": 25,
+      "master": 25,
+      "version": 39,
+      "storage": 39
+    },
+    "nonsecretLocator": "config28/storage20/local endpoint9000/bucket/region us-east-1/pathStyle true"
+  },
+  "credentials": "only in-memory stdin to explicit readonly helper; never output/file/argv",
+  "authorizedArtifactSha": "Root separately reviews sealed raw manifest SHA; builder is not authorization",
+  "authenticatedExecutionEntry": "DESIGN_ONLY_NO_RUNNER_OR_REST_IMPLEMENTED",
+  "actualPreimageCollectionInvoked": false,
+  "actualLegacyRegistrationInvoked": false
+}

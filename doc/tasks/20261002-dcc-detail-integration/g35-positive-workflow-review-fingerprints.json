@@ -1,0 +1,85 @@
+{
+  "status": "FINITE_POSITIVE_MAINLINE_STATIC_CALLER_REVIEW_NO_NEW_BLOCKING_CODE_GAP_IDENTIFIED",
+  "actualRuntimeAcceptance": false,
+  "MavenRuns": 0,
+  "databaseConnections": 0,
+  "browserInvocations": 0,
+  "sourceEdits": 0,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+      "sha256": "c0ef1dcf1e184e1cb4ee37939abc7030ebc2d04d8834f30838e0719ad3549319",
+      "bytes": 70290
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccWorkflowLifecycleController.java",
+      "sha256": "05d00e38a7b12f6c1995d622842266c34b8578cb3c4cdee0ec4684c10d710f40",
+      "bytes": 4186
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "sha256": "90ba908bc0191c28662a6e8967be7f10d6e61cfbdd874af59775d26f19f7f124",
+      "bytes": 213810
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+      "sha256": "074ab0e637417e5a3241e7207b5d5692ac00b57d996cfc39d3049ab215c00263",
+      "bytes": 28170
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java",
+      "sha256": "76563929db48508d58dd3524b584d79700a90bf4868744918a336228e4b46846",
+      "bytes": 16819
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "sha256": "cc3a993ed08a646f4a558291118daa2c5462f5f0ac600e48f49357a64c9ab036",
+      "bytes": 76725
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "sha256": "f71610d0eec883427745f404f100bc77cb39b5a52ed2215545236f7447abccb1",
+      "bytes": 16600
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowDistributionService.java",
+      "sha256": "193c7daf57d95b2cf4f9d3a73d9f100ea3081059cd114d14a14cb07a7499a8f5",
+      "bytes": 8840
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "sha256": "e648d32a79e1ded1ba1dee76153ceb8e289fa51bd13427d2d360fec558ce4c67",
+      "bytes": 25784
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteFormEffectExecutor.java",
+      "sha256": "80c41b0bd9ff3321943fc91ae31c6739bfb8e7936168cfe404749c02f8db2211",
+      "bytes": 7460
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFormEffectExecutor.java",
+      "sha256": "cb4f019a75bab43bdc7293833b8c8451e11e0c570b330575bb6456e1125b29f2",
+      "bytes": 7895
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileProcessDefinitionKeys.java",
+      "sha256": "31fbb8a9a60cabdfe3e606f85614520dc6f7275c152702998d816da5026375c8",
+      "bytes": 1741
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccControlledFileStatusListener.java",
+      "sha256": "b27bac76f77107d4f6653571fe01a34bca05ab5171f68788c1b315ac758bdcb1",
+      "bytes": 1234
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccControlledFileActivationJob.java",
+      "sha256": "f7792436ec6c575737ee032e0b586b35b4b02fb347b4bb41c4ad11ccd21cd6aa",
+      "bytes": 1031
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql",
+      "sha256": "5ddc77a61d77e56c0af863e1a88f09f3f3da9af2703512f6d66fa2acae904a52",
+      "bytes": 15852
+    }
+  ]
+}

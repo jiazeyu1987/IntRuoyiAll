@@ -42,7 +42,13 @@ public interface DccProjectCodeAssignmentMapper extends BaseMapperX<DccProjectCo
     }
 
     default List<Long> selectActiveProjectCodeIdsByAssigneeUserId(Long assigneeUserId, LocalDateTime now) {
+        return selectActiveProjectCodeIdsByAssigneeUserId(null, assigneeUserId, now);
+    }
+
+    /** 只读公共项目/目录入口使用显式tenant；既有业务方法保留原调用。 */
+    default List<Long> selectActiveProjectCodeIdsByAssigneeUserId(Long tenantId, Long assigneeUserId, LocalDateTime now) {
         return selectList(new LambdaQueryWrapperX<DccProjectCodeAssignmentDO>()
+                .eqIfPresent(DccProjectCodeAssignmentDO::getTenantId, tenantId)
                 .eq(DccProjectCodeAssignmentDO::getAssigneeUserId, assigneeUserId)
                 .eq(DccProjectCodeAssignmentDO::getStatus, STATUS_ACTIVE)
                 .and(wrapper -> wrapper.isNull(DccProjectCodeAssignmentDO::getExpireTime)

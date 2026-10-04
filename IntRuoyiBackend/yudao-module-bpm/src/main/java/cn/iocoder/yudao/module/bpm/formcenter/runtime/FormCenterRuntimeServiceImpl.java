@@ -1070,6 +1070,21 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         variables.put("productCode", businessContext.get("productCode"));
         variables.put("categoryCode", businessContext.get("categoryCode"));
         variables.put("reason", businessContext.get("reason"));
+        if ("dcc-controlled-file-obsolete".equals(policy.getBpmProcessKey())) {
+            Map<String,Object> data = JsonUtils.parseObject(instance.getFormDataJson(),
+                    new TypeReference<Map<String,Object>>() {});
+            Object raw = data == null ? null : data.get("dccSignoffDepartmentIds");
+            List<Long> leaders = startUserSelectAssignees == null ? null : startUserSelectAssignees.get("MATRIX_REVIEW");
+            if (!(raw instanceof List<?> ids) || ids.isEmpty() || leaders == null || ids.size() != leaders.size())
+                throw new IllegalArgumentException("DCC 作废缺少冻结会签部门义务");
+            List<String> departments = ids.stream().map(String::valueOf).toList();
+            if (new java.util.HashSet<>(departments).size() != departments.size()
+                    || departments.stream().anyMatch(id -> !id.matches("[1-9][0-9]*")))
+                throw new IllegalArgumentException("DCC 作废会签部门身份重复或无效");
+            variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS,
+                    Map.of("MATRIX_REVIEW",departments.stream()
+                            .map(id -> "form-"+instance.getId()+":MATRIX_REVIEW:"+id).toList()));
+        }
         if (startUserSelectAssignees != null && !startUserSelectAssignees.isEmpty()) {
             variables.put(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,
                     startUserSelectAssignees);

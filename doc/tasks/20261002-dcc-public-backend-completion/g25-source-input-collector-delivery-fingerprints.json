@@ -1,0 +1,41 @@
+{
+  "status": "prepared_collector_offline_verified_not_executed",
+  "offlineTests": 16,
+  "databaseAccessedByAgent": false,
+  "backupExecutedByAgent": false,
+  "sourceUpgradeInvokedByAgent": false,
+  "sourceSqlWritesPerformed": false,
+  "frozenSourceAndCloneToolsUnchanged": true,
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g25-source-input-collector.py",
+      "bytes": 18769,
+      "sha256": "ff6997cb96a4a67156b08ebbcf51e0fff7a1e7237a8d63152f0559a8287e6fb2",
+      "normalizedUtf8LfSha256": "da2f6b797c5b1afbcf74882e1bb4c174890642d014c32d309378eb9c8540ed4d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g25-source-input-collector-tests.py",
+      "bytes": 13634,
+      "sha256": "6f750047fcb6a3b47866063ccabf04ec53168f0a8a98ffc128f35aec9035a3c0",
+      "normalizedUtf8LfSha256": "13f487cd8ac9d96e91e49fd62497a061ac19ac32451c7fb344e1601fec68615b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g25-source-input-collector-contract.json",
+      "bytes": 1513,
+      "sha256": "8e85df24975fb659cf3c13353b38fb7f4f81cb346183bfd40332934f276e777a",
+      "normalizedUtf8LfSha256": "25855c31f781b0dc6dbf1a610851518141d4e213d3aa7a434517b5982905b145"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g25-source-input-collector-prepared-plan.json",
+      "bytes": 125715,
+      "sha256": "9c1805ecc8a3011ddebf6a4aeabde76dae5a87d52d7768da94ae75f1d69c6a74",
+      "normalizedUtf8LfSha256": "30fb41160f8e0883c3cf5d3177b3d20ca39d9e6f4e9ccf95ab5fedccd4a44bb0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g25-source-input-collector-writer-attestation-template.json",
+      "bytes": 657,
+      "sha256": "02a9b1c654393461d028c889d8c57062a1d6863e2fb9efd6ce27835789381aea",
+      "normalizedUtf8LfSha256": "499e16eaea29b5c94ebadf5c939b34313f52348abaa3267cd011ab05acb2701a"
+    }
+  ]
+}

@@ -113,8 +113,28 @@ public class DccControlledFileAccessAuditService {
         return accessLog;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    /** SUCCESS is committed atomically with the lifecycle business transaction. */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public DccControlledFileAccessLogDO recordLifecycleLog(DccLifecycleLogCreateCommand command) {
+        requireLifecycleResult(command, "SUCCESS");
+        return insertLifecycleLog(command);
+    }
+
+    /** Failed attempts retain their source identity independently of the rolled-back business action. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public DccControlledFileAccessLogDO recordLifecycleFailureLog(DccLifecycleLogCreateCommand command) {
+        requireLifecycleResult(command, "FAILED");
+        requireNotBlank(command.failureCode(), "failureCode");
+        return insertLifecycleLog(command);
+    }
+
+    private void requireLifecycleResult(DccLifecycleLogCreateCommand command, String expected) {
+        if (command == null || !expected.equals(command.result())) {
+            throw new IllegalArgumentException("lifecycle audit result must be " + expected);
+        }
+    }
+
+    private DccControlledFileAccessLogDO insertLifecycleLog(DccLifecycleLogCreateCommand command) {
         if (command == null) {
             throw new IllegalArgumentException("lifecycle audit command is required");
         }
@@ -133,7 +153,9 @@ public class DccControlledFileAccessAuditService {
                 .failureCode(StrUtil.trimToNull(command.failureCode()))
                 .reason(StrUtil.trimToNull(command.reason()))
                 .build();
-        accessLogMapper.insert(accessLog);
+        if (accessLogMapper.insert(accessLog) != 1 || accessLog.getId() == null) {
+            throw new IllegalStateException("lifecycle audit record was not persisted");
+        }
         return accessLog;
     }
 

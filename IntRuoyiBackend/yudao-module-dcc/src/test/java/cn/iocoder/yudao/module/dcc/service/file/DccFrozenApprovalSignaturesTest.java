@@ -68,4 +68,49 @@ class DccFrozenApprovalSignaturesTest {
         var malformed = roster(); malformed.get(1).setResolvedUserIds("1,");
         assertThrows(ServiceException.class, () -> DccFrozenApprovalSignatures.requireComplete(file, malformed, signed()));
     }
+
+    @Test
+    void previousWorkflowRoundCannotSatisfyCurrentFrozenApprovalRoster() {
+        file.setProcessInstanceId("current-round");
+        var signatures=signed();
+        for(var signature:signatures) {
+            signature.setProcessInstanceId("current-round");
+            signature.setEvidencePayloadVersion("v4-workflow");
+        }
+        assertDoesNotThrow(()->DccFrozenApprovalSignatures.requireComplete(file,roster(),signatures));
+        signatures.get(signatures.size()-1).setProcessInstanceId("previous-round");
+        assertThrows(ServiceException.class,()->DccFrozenApprovalSignatures.requireComplete(file,roster(),signatures));
+    }
+    @Test void historicalFormatsCannotSatisfyTheNewNativeRoundEvenIfStoredValidAndTaskIdsMatch() {
+        var nativeFile=nativeFile();var nativeRoster=nativeRoster();var signatures=nativeSignatures();
+        assertDoesNotThrow(()->DccFrozenApprovalSignatures.requireComplete(nativeFile,nativeRoster,signatures,nativeAssignments()));
+        for(String format:List.of("v1","v2","v3","")) {
+            var changed=nativeSignatures();changed.get(1).setEvidencePayloadVersion(format);changed.get(1).setProcessInstanceId(null);
+            assertThrows(ServiceException.class,()->DccFrozenApprovalSignatures.requireComplete(nativeFile,nativeRoster,changed,nativeAssignments()));
+        }
+    }
+    @Test void theNewNativeRoundCannotBeOmittedFromTheFileOrItsAssignmentEvidence() {
+        var nativeFile=nativeFile();nativeFile.setProcessInstanceId(null);
+        var signed=nativeSignatures();signed.forEach(sig->sig.setProcessInstanceId(null));
+        var assigned=nativeAssignments();assigned.forEach(row->row.setProcessInstanceId(null));
+        assertThrows(ServiceException.class,()->DccFrozenApprovalSignatures.requireComplete(nativeFile,nativeRoster(),signed,assigned));
+    }
+    private DccControlledFileDO nativeFile(){return DccControlledFileDO.builder().id(10L).versionNo("A/1")
+            .processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD).processInstanceId("current-round").build();}
+    private List<DccControlledFileRouteSnapshotDO> nativeRoster(){return List.of(
+            DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).stageCode("MATRIX_REVIEW").candidateSourceType("DEPT")
+                    .candidateSourceIds("51").resolvedUserIds("1").approveMethod("ALL").requireAllApprovals(true).build(),
+            DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).stageCode("MATRIX_APPROVAL").resolvedUserIds("2").approveMethod("ANY").build(),
+            DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).stageCode("DOC_CONTROL_REVIEW").resolvedUserIds("3").approveMethod("ANY").build());}
+    private List<DccControlledFileTaskAssigneeSnapshotDO> nativeAssignments(){return List.of(DccControlledFileTaskAssigneeSnapshotDO.builder()
+            .controlledFileId(10L).departmentId(51L).stageCode("MATRIX_REVIEW").processInstanceId("current-round").leaderUserId(1L)
+            .assigneeUserId(1L).assignmentSignatureId(100L).assignedTime(LocalDateTime.now()).bpmTaskId("review-task").build());}
+    private List<DccControlledFileSignatureDO> nativeSignatures(){var assignment=nativeSignature(100L,1L,"review-task","MATRIX_REVIEW");
+        assignment.setActionType("ASSIGN");assignment.setMeaningCode("MATRIX_REVIEW_ASSIGN");return List.of(assignment,
+            nativeSignature(101L,1L,"review-task","MATRIX_REVIEW"),nativeSignature(102L,2L,"approval-task","MATRIX_APPROVAL"),
+            nativeSignature(103L,3L,"control-task","DOC_CONTROL_REVIEW"));}
+    private DccControlledFileSignatureDO nativeSignature(long id,long actor,String task,String stage){return DccControlledFileSignatureDO.builder()
+            .id(id).controlledFileId(10L).revisionId(10L).versionNo("A/1").actorId(actor).actionType("APPROVE").meaningCode(stage+"_APPROVE")
+            .taskId(task).processInstanceId("current-round").evidencePayloadVersion("v4-workflow").evidenceStatus("VALID")
+            .passwordVerified(true).signedAt(LocalDateTime.now()).evidenceHash("frozen-hmac").build();}
 }

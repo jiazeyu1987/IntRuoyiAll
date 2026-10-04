@@ -1,0 +1,25 @@
+{
+  "status": "EXISTING_BROWSER_ENTRY_TEST_FIXTURE_CORRECTED_ACTUAL_GUARD_PASS",
+  "file": "IntRuoyiFronted/tests/unit/dcc-browser-application-entry.test.cjs",
+  "bytes": 3120,
+  "sha256": "c309f5e061568a6395959e653fd4199c672a7bb4528416095c2b1fe0ddf78c3e",
+  "command": "node --test tests/unit/dcc-browser-application-entry.test.cjs",
+  "exitCode": 0,
+  "tests": 2,
+  "passed": 2,
+  "failed": 0,
+  "actualDeclarations": [
+    "canEditVersion",
+    "canSubmitWorkingIteration",
+    "handleSubmitWorkingIteration"
+  ],
+  "guardStubAlwaysTrue": false,
+  "availableFixture": "currentactor99 exactselectedWORKING actionLockedfalse notcheckout",
+  "unavailableFixture": "sameactorWORKING actionLockedtrue -> zero navigation",
+  "submitApiCalls": 0,
+  "productionFilesEdited": 0,
+  "MavenRuns": 0,
+  "browserRuns": 0,
+  "databaseWrites": 0,
+  "newProductRedClaimed": false
+}

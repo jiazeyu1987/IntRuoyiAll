@@ -1,0 +1,28 @@
+{
+  "status": "G29_OFFLINE_READONLY_COLLECTOR_PASS_NOT_INVOKED",
+  "tests": 13,
+  "deliveryFingerprintSha256": "a8aef83b9cb50e7a6053384c48a43349d8c8fdc45f5dea955d2565102d54f653",
+  "actualCollectorInvocations": 0,
+  "actualDatabaseWrites": false,
+  "actualBackupWrites": false,
+  "actualDDLExecuted": false,
+  "requestDefaultSpecificAuthorization": false,
+  "requestDefaultAuthorizationReceipt": null,
+  "protectedTableCount": 7,
+  "protectedTables": [
+    "dcc_controlled_file",
+    "dcc_controlled_file_master",
+    "dcc_controlled_file_name_claim",
+    "dcc_controlled_file_source_ownership",
+    "dcc_controlled_file_signature",
+    "system_electronic_signature",
+    "infra_release_migration"
+  ],
+  "freshWindowSeconds": 900,
+  "g28DependenciesFrozen": true,
+  "productionSourceChanged": false,
+  "schemaRawQueryNewlinesPreserved": true,
+  "schemaCaptureUsesActualSameSessionEnvelope": true,
+  "supersededFingerprintSha256": "73b580ed3836b00575b6a573d97754aaac2bf923cff7e17680e876630b66d538",
+  "windowsRawFactBytesPreserved": true
+}

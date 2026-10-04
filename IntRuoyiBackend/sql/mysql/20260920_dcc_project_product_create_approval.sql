@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260903_dcc_explicit_data_relation.sql; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260903_dcc_explicit_data_relation; type=schema; riskLevel=medium
 -- DCC 项目代码与产品目录联合新建审批链：申请记录与一对一关系记录。
 
 CREATE TABLE IF NOT EXISTS dcc_project_product_create_request (

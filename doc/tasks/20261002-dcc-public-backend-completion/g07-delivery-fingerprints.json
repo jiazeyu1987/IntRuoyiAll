@@ -1,0 +1,22 @@
+[
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+    "sha256": "f71610d0eec883427745f404f100bc77cb39b5a52ed2215545236f7447abccb1",
+    "utf8LfSha256": "3539da89577c61bb4a839baad652b99fc67cab679d8d01be3b8afcfdbf5c84ca"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccThreeControlledVersionActivationTest.java",
+    "sha256": "70009b56c075eef4a69527450d4d1b9ac33e458bb48f122b5c508fda24e47caa",
+    "utf8LfSha256": "02a2d830bd6767909ece8bf2d1e064ed0fa2858dd801dc515475288aed1dfe67"
+  },
+  {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccActivationJobRegistrationContractTest.java",
+    "sha256": "dc119287938eaea7d970df80ed065f46e2ebeb53e05706f0fd5d1ae80308e041",
+    "utf8LfSha256": "dc119287938eaea7d970df80ed065f46e2ebeb53e05706f0fd5d1ae80308e041"
+  },
+  {
+    "path": "IntRuoyiBackend/sql/mysql/20261003_dcc_controlled_file_activation_job_registration.sql",
+    "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5",
+    "utf8LfSha256": "7a485fe6893eb4f67ba137ddb76a1f880cc08e53ddcd1c8dd88d13610638b606"
+  }
+]

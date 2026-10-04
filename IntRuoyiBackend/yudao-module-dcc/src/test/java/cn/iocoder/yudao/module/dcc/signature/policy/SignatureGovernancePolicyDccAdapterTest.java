@@ -85,6 +85,12 @@ class SignatureGovernancePolicyDccAdapterTest {
         private String comment;
 
         @Override
+        public DccUnifiedSignatureResult verifyPasswordAndCreateWorkflowSignature(Long actorId, Long controlledFileId,
+                String taskId, String processInstanceId, String stageCode, String actionType, String password, String comment) {
+            throw new UnsupportedOperationException("This policy test double only exercises its registered legacy review action");
+        }
+
+        @Override
         public DccUnifiedSignatureResult verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId,
                                                                           String taskId, String stageCode,
                                                                           String actionType, String password,

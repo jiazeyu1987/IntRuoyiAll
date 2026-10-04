@@ -1,0 +1,92 @@
+{
+  "projectId" : "2106144219494023172",
+  "projectName" : "REFERENCE-LONG-TARGET",
+  "projectLeaderUserId" : "9223372036854775707",
+  "leaderAccount" : {
+    "id" : "9223372036854775707",
+    "status" : 0
+  },
+  "folders" : [ {
+    "createTime" : 1790978886853,
+    "updateTime" : 1790978886853,
+    "creator" : "7",
+    "updater" : "7",
+    "deleted" : false,
+    "tenantId" : 1,
+    "id" : "2106144219494023176",
+    "projectCodeId" : "2106144219494023172",
+    "parentId" : 0,
+    "name" : "first",
+    "sortOrder" : 0,
+    "active" : true,
+    "sourceTemplateId" : 1,
+    "sourceNodeKey" : "first"
+  }, {
+    "createTime" : 1790978886853,
+    "updateTime" : 1790978886853,
+    "creator" : "7",
+    "updater" : "7",
+    "deleted" : false,
+    "tenantId" : 1,
+    "id" : "2106144219494023177",
+    "projectCodeId" : "2106144219494023172",
+    "parentId" : 0,
+    "name" : "second",
+    "sortOrder" : 0,
+    "active" : true,
+    "sourceTemplateId" : 1,
+    "sourceNodeKey" : "second"
+  } ],
+  "created" : [ {
+    "reference" : {
+      "id" : "9007199254742001",
+      "projectId" : "2106144219494023172",
+      "folderId" : "2106144219494023176",
+      "masterId" : "2106144219494023178",
+      "selectedControlledFileId" : "2106144219494023179",
+      "createdBy" : "9223372036854775707"
+    },
+    "selectedVersion" : {
+      "tenantId" : "1",
+      "controlledFileId" : "2106144219494023179",
+      "masterId" : "2106144219494023178",
+      "projectId" : "2106144219494023174",
+      "fileNumber" : "Pinned source.pdf",
+      "fileName" : "Pinned source.pdf",
+      "versionNo" : "A/1",
+      "status" : "ACTIVE",
+      "controlled" : true,
+      "pendingEffect" : false,
+      "executable" : true
+    },
+    "referenceProjectCount" : 1
+  } ],
+  "listed" : [ {
+    "reference" : {
+      "id" : "9007199254742001",
+      "projectId" : "2106144219494023172",
+      "folderId" : "2106144219494023176",
+      "masterId" : "2106144219494023178",
+      "selectedControlledFileId" : "2106144219494023179",
+      "createdBy" : "9223372036854775707"
+    },
+    "selectedVersion" : {
+      "tenantId" : "1",
+      "controlledFileId" : "2106144219494023179",
+      "masterId" : "2106144219494023178",
+      "projectId" : "2106144219494023174",
+      "fileNumber" : "Pinned source.pdf",
+      "fileName" : "Pinned source.pdf",
+      "versionNo" : "A/1",
+      "status" : "ACTIVE",
+      "controlled" : true,
+      "pendingEffect" : false,
+      "executable" : true
+    },
+    "referenceProjectCount" : 1
+  } ],
+  "firstCancel" : 1,
+  "lastCancel" : 0,
+  "sourceProjectId" : "2106144219494023174",
+  "sourceProjectName" : "REFERENCE-LONG-SOURCE"
+}

@@ -67,6 +67,8 @@ public class DccProjectCodeController {
     @Operation(summary = "更新 DCC 项目代码")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
     public CommonResult<Boolean> updateProjectCode(@Valid @RequestBody DccProjectCodeUpdateReqVO reqVO) {
+        projectCodeService.getReadableProjectCode(getLoginUserId(), reqVO.getId());
+        projectAccessService.assertProjectEditorOrOwner(getLoginUserId(), reqVO.getId());
         projectCodeService.updateProjectCode(reqVO);
         return success(true);
     }
@@ -75,24 +77,26 @@ public class DccProjectCodeController {
     @Operation(summary = "删除 DCC 项目代码")
     @PreAuthorize("@ss.hasPermission('dcc:project-code:delete')")
     public CommonResult<Boolean> deleteProjectCode(@RequestParam("id") Long id) {
+        projectCodeService.getReadableProjectCode(getLoginUserId(), id);
+        projectAccessService.assertProjectEditorOrOwner(getLoginUserId(), id);
         projectCodeService.deleteProjectCode(id);
         return success(true);
     }
 
     @GetMapping("/page")
     @Operation(summary = "获得 DCC 项目代码分页")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')")
     public CommonResult<PageResult<DccProjectCodeRespVO>> getProjectCodePage(
             @Valid DccProjectCodePageReqVO pageReqVO) {
-        return success(BeanUtils.toBean(projectCodeService.getProjectCodePage(getLoginUserId(), pageReqVO),
+        return success(BeanUtils.toBean(projectCodeService.getReadableProjectCodePage(getLoginUserId(), pageReqVO),
                 DccProjectCodeRespVO.class));
     }
 
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "获得 DCC 项目代码详情")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')")
     public CommonResult<DccProjectCodeRespVO> getProjectCode(@PathVariable("id") Long id) {
-        return success(BeanUtils.toBean(projectCodeService.getProjectCode(getLoginUserId(), id),
+        return success(BeanUtils.toBean(projectCodeService.getReadableProjectCode(getLoginUserId(), id),
                 DccProjectCodeRespVO.class));
     }
 

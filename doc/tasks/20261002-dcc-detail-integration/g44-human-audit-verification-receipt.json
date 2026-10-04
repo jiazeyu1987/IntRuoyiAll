@@ -1,0 +1,141 @@
+{
+  "status": "G44_MAINLINE_CURRENT_DIRECTORY_AUDIT_EFFECTIVE_RED_GREEN_REGRESSION_PASS_NO_RUNTIME",
+  "RED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g44-human-audit-red.log",
+    "bytes": 32571,
+    "sha256": "0f694c375474e76484f2943dcd7985ebebb3fd67bc2312b3ea0163bce36a93d1"
+  },
+  "REDMeaning": "realH2 kernelformalLoginUser nickname/deptId emitted SYSTEM_ACTOR instead ofqa.admin;1assertionfailure0errors",
+  "systemGREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g44-human-audit-system-green.log",
+    "bytes": 30647,
+    "sha256": "bc189cbbb61a3e09afda4c11af1fdfb29f7baa48378cd0f381ab2b2412fdca88"
+  },
+  "systemGREENExecutions": 15,
+  "systemGREENClasses": 2,
+  "initialRelatedRegression": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g44-human-audit-related-regression.log",
+    "bytes": 212157,
+    "sha256": "429079abc204bef1db6f9496b3bd06309bd07be189b07bc311e8357fc34f91d5"
+  },
+  "initialRegressionMeaning": "System15PASS/DCC169 includes22 Ledgererrors becauseoldfixture actor9 notpresentAdminUserApi. Realguard correctlyrejects. Finite exactapplicant9 enabledtenant1 directory fixture+formalLoginInfo+actualeventusername assertion added; no production fallback.",
+  "finalGREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g44-human-audit-final-regression.log",
+    "bytes": 74261,
+    "sha256": "2a58d7a988a3395dfc5f38dd07ca7b77eaff8a09cbe049a51b22da1fba96e3c4"
+  },
+  "MavenExitCode": 0,
+  "finishedAt": "2026-10-04T18:50:33+08:00",
+  "executions": 184,
+  "classes": 11,
+  "systemExecutions": 15,
+  "dccExecutions": 169,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "classResults": [
+    {
+      "class": "cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPersistenceModelTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImplTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceCommandTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceEntryTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceGateTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceKernelTest",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacyMaintenanceLoggingTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameRegistrationTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccApprovedProjectLeaderOwnerTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectProductLedgerTest",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "overlap": "Kernel24 inherits22 registration cases. PriorSystem15 andG43 tests overlap finalrun; do not add to independentcase count.",
+  "sourceFingerprint": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g44-human-audit-fingerprints.json",
+    "bytes": 2178,
+    "sha256": "0d4ea5a0fcf193b782bfcd0c8f8fb0d01d43a35caf29925c8309f05995a40407"
+  },
+  "humanAuthoritativeDirectoryUsernameRealH2EventPassed": true,
+  "missingDisabledDirectoryIdTenantContextIgnoreWrongTypeZeroEventsAndWatermark": true,
+  "formalLoginUserAndCacheNotMutated": true,
+  "exactSystemActorPathsPreserved": true,
+  "historicalReplayUntouchedAndMissingDirectoryRejects": true,
+  "DCCFormalNicknameDeptMapActualLedgerEventUsernamePassed": true,
+  "OWNERAndMaintenancePolicyAuthRegressionRetained": true,
+  "actualRootDiagnostic": {
+    "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g44-normal-ui-audit-identity.json",
+    "bytes": 2356,
+    "sha256": "9f7bb3f8cd1a7e895a345996de6fdfb2143bb6cd104f88ccb2fc3131a7da17e8"
+  },
+  "actualDBConnectionsByThisAgent": 0,
+  "actualRedisConnections": 0,
+  "actualTokenReads": 0,
+  "actualHistoryWrites": 0,
+  "serviceStarts": 0,
+  "packageRuns": 0,
+  "GitMutations": false,
+  "evidenceBoundary": "RealSpring/H2/Gxp event+sequence+transaction; currentuser API is isolated readonly directoryport, sourceAPI formalimplementation reviewed. No actualUI/auth/runtime acceptance claim."
+}

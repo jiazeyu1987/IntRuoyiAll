@@ -1,0 +1,22 @@
+{
+  "status": "ACTUAL_CONDITIONAL_USER_AUTHORIZATION_PHRASE_PROTOCOL_FIX_FROZEN",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.java",
+      "bytes": 24775,
+      "sha256": "5219018a7fd24292d44f7108cbbae99ad0ca4972293e67930efd131075f1aa2e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGateTest.java",
+      "bytes": 25214,
+      "sha256": "4ad9477644c71077408c511f8318ac7141be9df483602705bf46961700a5a8ad"
+    }
+  ],
+  "actualAnswerAddedVerbatim": "授权条件齐备后按方案执行（建议）",
+  "allExistingQualitySchemaRuntimeGuardsRetained": true,
+  "schemaValidatorSha256": "667a81edf468e1212afef8a01ae5cb996bd62737cfba7db6138e30259e0db2d4",
+  "schemaContractSha256": "f1ec2ec8207b34f0427d021f717c4859d6b71715fbdc436706263ed0fd7e9f0a",
+  "supersedesPathsInPreviousSeal": "g39-maintenance-pin-fingerprints.json",
+  "previousSealPreserved": true,
+  "actualDBWrites": false
+}

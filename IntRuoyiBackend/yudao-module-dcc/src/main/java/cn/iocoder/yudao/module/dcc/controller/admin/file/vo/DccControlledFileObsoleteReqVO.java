@@ -9,12 +9,19 @@ import java.util.Map;
 
 @Data
 public class DccControlledFileObsoleteReqVO {
+    private java.util.List<Long> selectedSignoffDepartmentIds;
+    private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes projectAttributes;
 
     @NotBlank(message = "reason is required")
     private String reason;
 
     @NotBlank(message = "idempotencyKey is required")
     private String idempotencyKey;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String approvalProcessInstanceId;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String approvedVersionNo;
 
     private Map<String, List<Long>> startUserSelectAssignees;
 

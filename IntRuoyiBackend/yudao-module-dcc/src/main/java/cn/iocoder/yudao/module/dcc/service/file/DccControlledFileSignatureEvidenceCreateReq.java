@@ -16,6 +16,7 @@ public class DccControlledFileSignatureEvidenceCreateReq {
     private Long tenantId;
     private Long controlledFileId;
     private String taskId;
+    private String processInstanceId;
     private String taskActionResult;
     private String meaningCode;
     private Long signerUserId;

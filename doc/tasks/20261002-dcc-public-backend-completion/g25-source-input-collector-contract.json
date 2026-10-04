@@ -1,0 +1,21 @@
+{
+  "status": "prepared_collector_code_not_runtime_proof",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "sourceContainer": "int-ruoyi-mysql",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "maxAgeSeconds": 900,
+  "sourceToolHashes": {
+    "g23-source-upgrade-driver.py": "3afe3715a1fb00ef872ae01f3d3dc6a97fd70bfda1864bcbb80f25a7f3344ff5",
+    "g23-source-upgrade-request-template.json": "bc039479cb82e24a75f970efb3677931fe981181fb0df2281eb628e729075656",
+    "g21-rehearsal-driver.py": "86e9e8b5504f926dfd1d7ad529afe006393289ec811378232ded997c097e99a9",
+    "g21-rehearsal-prepared-inputs.json": "9928792f07877c20100d2e785065b2cbbd73b54dc8b14284ad2f00f52face532",
+    "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21_capture_facts.py": "66f74c6c4e7aaa622b144712f4f8ef4821fffd60112b9e1090fb517b8bc3c73c",
+    "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21_migration_scope.py": "5fe9fe0bdcadec348a0f4ba3e4b0aab56efdc9df1b2f2fb6792b5382b754430d",
+    "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21_execution_materials.py": "9467c3ed5f3f49d22b14b14cdd988bc78790d76fd6bfef4009bc2ba18ce2a0f8",
+    "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21_mysql_support.py": "6416a70ce24ea4fdec6abcbeb1f1a7746bd471533fff5c994b3c6ee08faf1331"
+  },
+  "databaseWritesExecuted": false,
+  "actualCollectionExecuted": false,
+  "collectorMayInvokeUpgrade": false
+}

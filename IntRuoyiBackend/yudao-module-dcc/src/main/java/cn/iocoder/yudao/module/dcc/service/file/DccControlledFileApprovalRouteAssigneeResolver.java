@@ -88,12 +88,30 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         return resolveRoute(categoryId, submitterUserId, actionType, false);
     }
 
+    public ResolvedRoute resolveRouteForReadiness(Long categoryId, Long submitterUserId, String actionType,
+                                                 List<Long> selectedDepartments) {
+        return resolveRoute(categoryId, submitterUserId, actionType, false, selectedDepartments);
+    }
+
+    public ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, String actionType,
+                                      List<Long> selectedDepartments) {
+        return resolveRoute(categoryId, submitterUserId, actionType, true, selectedDepartments);
+    }
+
     private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, boolean requireConfiguredPosts) {
         return resolveRoute(categoryId, submitterUserId, null, requireConfiguredPosts);
     }
 
     private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, String actionType,
                                        boolean requireConfiguredPosts) {
+        return resolveRoute(categoryId, submitterUserId, actionType, requireConfiguredPosts, null);
+    }
+
+    private ResolvedRoute resolveRoute(Long categoryId, Long submitterUserId, String actionType,
+                                       boolean requireConfiguredPosts, List<Long> selectedDepartments) {
+        List<Long> selected = normalizeSelectedDepartments(selectedDepartments);
+        if (selected != null && !DccActionApprovalRoutePolicy.supports(actionType))
+            throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
         DccCategoryApprovalRouteDO route = StrUtil.isBlank(actionType)
                 ? routeMapper.selectLatestActiveByCategoryId(categoryId)
                 : routeMapper.selectLatestActiveByCategoryIdAndActionType(categoryId, actionType);
@@ -114,7 +132,9 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
             DccActionApprovalRoutePolicy.validateRouteNodes(actionType, routeNodes, CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
         }
         List<ResolvedRouteNode> resolvedNodes = routeNodes.stream()
-                .map(routeNode -> resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
+                .map(routeNode -> selected != null && "MATRIX_REVIEW".equals(routeNode.getStageCode())
+                        ? resolveSelectedDepartmentNode(routeNode, selected, requireConfiguredPosts)
+                        : resolveRouteNode(routeNode, submitterUserId, requireConfiguredPosts))
                 .toList();
         if (toPendingStatus(resolvedNodes.get(0).stageCode()) == null) {
             throw exception(CONTROLLED_FILE_ROUTE_NOT_CONFIGURED);
@@ -122,7 +142,43 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         return new ResolvedRoute(route, resolvedNodes);
     }
 
+    private List<Long> normalizeSelectedDepartments(List<Long> selected) {
+        if (selected == null) return null;
+        if (selected.isEmpty() || selected.stream().anyMatch(id -> id == null || id <= 0)
+                || selected.stream().distinct().count() != selected.size())
+            throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        return selected.stream().sorted().toList();
+    }
+
+    private ResolvedRouteNode resolveSelectedDepartmentNode(DccCategoryApprovalRouteNodeDO node,
+            List<Long> selected, boolean requireConfiguredPosts) {
+        if (!"DEPT".equals(node.getCandidateSourceType())) throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        return new ResolvedRouteNode(node.getStageNo(), node.getStageCode(), node.getStageName(), node.getStageOrder(),
+                "DEPT", selected.get(0), selected, node.getApproveMethod(), node.getApproveRatio(),
+                node.getRequireAllApprovals(), resolveDepartmentLeaders(selected, requireConfiguredPosts));
+    }
+
     public Map<String, List<Long>> buildStartUserSelectAssigneeMap(List<ResolvedRouteNode> nodes) {
+        return buildUniqueStageAssigneeMapForStart(nodes);
+    }
+
+    /** A submitted department set replaces only this action's signoff node; later candidates stay frozen. */
+    public ResolvedRoute withSelectedSignoffDepartments(ResolvedRoute route,List<Long> selected) {
+        if(selected==null) return route;
+        if(route==null) throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        var departments=normalizeSelectedDepartments(selected);
+        var leaders=resolveDepartmentLeaders(departments,false);
+        long count=route.nodes().stream().filter(node->"MATRIX_REVIEW".equals(node.stageCode())).count();
+        if(count!=1) throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+        return new ResolvedRoute(route.route(),route.nodes().stream().map(node-> {
+            if(!"MATRIX_REVIEW".equals(node.stageCode())) return node;
+            if(!"DEPT".equals(node.candidateSourceType())) throw exception(CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+            return new ResolvedRouteNode(node.stageNo(),node.stageCode(),node.stageName(),node.stageOrder(),"DEPT",
+                    departments.get(0),departments,node.approveMethod(),node.approveRatio(),true,leaders);
+        }).toList());
+    }
+
+    private Map<String,List<Long>> buildUniqueStageAssigneeMapForStart(List<ResolvedRouteNode> nodes) {
         if (nodes == null || nodes.isEmpty()) {
             return Map.of();
         }

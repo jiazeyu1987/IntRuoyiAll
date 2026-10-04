@@ -1,0 +1,2 @@
+DELETE FROM dcc_project_file_reference;
+DELETE FROM dcc_application_round_link;

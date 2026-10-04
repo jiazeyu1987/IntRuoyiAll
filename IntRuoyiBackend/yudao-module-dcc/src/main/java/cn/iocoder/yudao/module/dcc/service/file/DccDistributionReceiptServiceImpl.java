@@ -43,6 +43,7 @@ public class DccDistributionReceiptServiceImpl implements DccDistributionReceipt
     private static final String MESSAGE_TEMPLATE_DISTRIBUTION = "dcc_distribution";
     private static final Set<String> ACK_ALLOWED_FILE_STATUSES = Set.of(
             DccControlledFileStatusEnum.ACTIVE.getStatus(),
+            DccControlledFileStatusEnum.CONTROLLED_PENDING_EFFECTIVE.getStatus(),
             DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
             DccControlledFileStatusEnum.OBSOLETE.getStatus()
     );

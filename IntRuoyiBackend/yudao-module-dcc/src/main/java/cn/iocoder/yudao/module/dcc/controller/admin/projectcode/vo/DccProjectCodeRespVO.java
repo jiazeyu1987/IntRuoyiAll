@@ -17,6 +17,8 @@ public class DccProjectCodeRespVO {
     private String category;
     private String commissionedProduction;
     private String projectLeader;
+    private Long projectLeaderUserId;
+    private String defaultAttributesJson;
     private String projectEngineer;
     private String storageLocation;
     private String priority;

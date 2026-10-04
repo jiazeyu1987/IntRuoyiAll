@@ -1,0 +1,131 @@
+{
+  "status": "R2_FROZEN_FOR_ROOT_REVIEW_NO_ACTUAL_EXECUTION",
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-driver-r2.py",
+      "bytes": 33060,
+      "sha256": "1560ee9ad223b4f65b6393428b84e949422fcc433ce92242285dd762d71c2f56"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-driver-r2-test.py",
+      "bytes": 10327,
+      "sha256": "12d93c7afc9f75d0d179f3e00f4cb5ce041f59f1e8b02dbee54ea94a8190b21d"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-collector-r2.py",
+      "bytes": 19812,
+      "sha256": "b2db3483ecc747010a89d87ceea377bd0885f73bc8883cbdd49a71f7d2fde574"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-collector-r2-test.py",
+      "bytes": 11206,
+      "sha256": "308fef2de3e1c3dfbce1e26e8679f5a3a1fa8e008d6cd01717605a239037114a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-dump-parser.py",
+      "bytes": 4728,
+      "sha256": "ab425b0c7740d3df5b8fdcf1e2b821ad263ac27463b2af6ad20dce8f1473218c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-dump-parser-test.py",
+      "bytes": 3438,
+      "sha256": "b0b40e9ca6b5b51282b05c2d5b08a14744e64a46835dbe710c3cdb475333fe29"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-plan.json",
+      "bytes": 59098,
+      "sha256": "8e5571fa446ded61eadba3a8ed511f47dc34f38ce533bfb8fb1c0afa7ee7a8d3"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-source-first.sql",
+      "bytes": 6151,
+      "sha256": "8369d8dd5acf0bae0cff246e04cc4a180becc286df7eecdd977fb14e949d0494"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-source-repeat.sql",
+      "bytes": 5643,
+      "sha256": "60fc0e0102dbb54f92aa4a1a091bb804fdca90d3e15aba0c2cebde95dde671b6"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-schema-contract.json",
+      "bytes": 46228,
+      "sha256": "f1ec2ec8207b34f0427d021f717c4859d6b71715fbdc436706263ed0fd7e9f0a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-schema-capture.sql",
+      "bytes": 2392,
+      "sha256": "a7fa3e3661db6de7d5a525b7e0fd7f5b4bbd8af43dd988d2260146e61e4f969b"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-schema-row-counts.sql",
+      "bytes": 397,
+      "sha256": "627d220fb2ea2072d86f02d1f094e47d521c3288ab6d5f4969c8725e45ae2149"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-preserved-dump-read-receipt.json",
+      "bytes": 2127,
+      "sha256": "54decfe7655607cfcc4d39a86954c18b39826dfe9d2748a4098f1f02e0d5851a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-r2-generated-dump-review.md",
+      "bytes": 2840,
+      "sha256": "54f5019dc207ae0cfdca1624a15c13ec6300bdf29349295ce67e3490ac9c5297"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g28-schema.py",
+      "bytes": 14373,
+      "sha256": "c4ef3ac1004df611fa4b81adc936c7f3202de00e65645649e8bc4deb762e3356"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema.py",
+      "bytes": 28859,
+      "sha256": "07862bba3fe364e2cd4c4a29397b7ff0afc4f5bf236fe8e17e6a4f20ac2ecb7c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21_structure_prerequisites.py",
+      "bytes": 29320,
+      "sha256": "249d3c03e7a2af97051eaa2e98e3931942a31c9ad82a2158389fa87a5c88a99c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema-contract.json",
+      "bytes": 216559,
+      "sha256": "8394d73c3f2bd1e402204df4f8d56c3d03489238173098ada3925abd2343011e"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema-queries.sql",
+      "bytes": 4037,
+      "sha256": "7f7984776a09c43ccee4b50c6fd453dc905712b804467694ad5ac87dc1f6ef9e"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-environment-query.sql",
+      "bytes": 452,
+      "sha256": "7899782be4aae738faa26a34e2b639a082c579a3debfda612f4d87a0f48c209e"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g28-delivery-fingerprints.json",
+      "bytes": 2653,
+      "sha256": "ea64fd36d37fc9f3cf98da9f2ebd7b1949301a2ada671c0c96cc4fe1bd5fcadf"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-collector-fingerprints.json",
+      "bytes": 879,
+      "sha256": "a8aef83b9cb50e7a6053384c48a43349d8c8fdc45f5dea955d2565102d54f653"
+    },
+    {
+      "path": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g21_mysql_support.py",
+      "bytes": 7732,
+      "sha256": "6416a70ce24ea4fdec6abcbeb1f1a7746bd471533fff5c994b3c6ee08faf1331"
+    }
+  ],
+  "sourceSqlSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+  "supersedesForFutureUseOnly": {
+    "g28Seal": "ea64fd36d37fc9f3cf98da9f2ebd7b1949301a2ada671c0c96cc4fe1bd5fcadf",
+    "g29Seal": "a8aef83b9cb50e7a6053384c48a43349d8c8fdc45f5dea955d2565102d54f653"
+  },
+  "actualNewCollection": false,
+  "oldFailedCaptureModified": false,
+  "actualDatabaseWrites": false,
+  "actualDDLExecuted": false
+}

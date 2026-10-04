@@ -1,0 +1,29 @@
+{
+  "status": "G43_AUTH_DATETIME_ZERO_ROUNDING_FROZEN_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.java",
+      "bytes": 5485,
+      "sha256": "dfe025f80d2b7bd97acf1a3021a306d2c9771d4e1b9b7444c2db5a1f230ba130"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceEntryTest.java",
+      "bytes": 12345,
+      "sha256": "014ef61ccd88c51b4b3f366870a74cf2107513caab3a98a8e55298c571e0d0e6"
+    }
+  ],
+  "productionFiles": 1,
+  "testFiles": 1,
+  "priorAuthSha256": "b8413a964cd562a0cde7f1131c63c58e1bd28b5ba2cd5c31a11b739e2b69286f",
+  "previousG43SixSourcesUnchanged": true,
+  "original41ZeroDrift": true,
+  "OWNER4AndPolicyAndRunnerZeroDrift": true,
+  "supersedesAuthOnlyFromOldG33Seal": true,
+  "frozenPreviousG43Fingerprint": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-development-entry-fingerprints.json",
+    "bytes": 3815,
+    "sha256": "611d06410f55953ae4204089d27e10b730787a07e24e5a0e24a0e4c156f311d4"
+  },
+  "rule": "exact expiry equality OR stored nano0 equals checked half-up second; original stored and checked both strictly future; no arbitrary time tolerance or refresh fallback",
+  "knownNarrowBoundary": "When original nanos499999500..499999999 round to micro500000000 before DATETIME0 while cache loses submillis to499ms, cannot reconstruct uniquely: alternate nextsecond remains rejected. No guessing/exception fallback."
+}

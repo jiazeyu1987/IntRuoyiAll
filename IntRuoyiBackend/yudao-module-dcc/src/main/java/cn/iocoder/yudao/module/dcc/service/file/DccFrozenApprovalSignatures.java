@@ -20,6 +20,56 @@ final class DccFrozenApprovalSignatures {
     private DccFrozenApprovalSignatures() {}
 
     static void requireComplete(DccControlledFileDO file, List<DccControlledFileRouteSnapshotDO> snapshots,
+            List<DccControlledFileSignatureDO> signatures,
+            List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO> assignments) {
+        if (!isThreeWorkflow(file)) {
+            requireComplete(file,snapshots,signatures);
+            return;
+        }
+        if (assignments == null || snapshots == null || signatures == null)
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        List<DccControlledFileRouteSnapshotDO> actualRoster = new ArrayList<>();
+        for (var stage : snapshots) {
+            if (!"MATRIX_REVIEW".equals(stage.getStageCode())) { actualRoster.add(stage); continue; }
+            List<Long> departments = parseIds(stage.getCandidateSourceIds());
+            List<Long> actors = new ArrayList<>();
+            for (Long department : departments) {
+                var matches = assignments.stream().filter(row -> Objects.equals(file.getId(),row.getControlledFileId())
+                        && Objects.equals(department,row.getDepartmentId())
+                        && "MATRIX_REVIEW".equals(row.getStageCode())
+                        && Objects.equals(file.getProcessInstanceId(),row.getProcessInstanceId())).toList();
+                if (matches.size() != 1) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                var row = matches.get(0);
+                if (row.getAssignmentSignatureId() == null || row.getAssignedTime() == null
+                        || row.getBpmTaskId() == null || signatures.stream().noneMatch(signature ->
+                        Objects.equals(row.getAssignmentSignatureId(),signature.getId())
+                                && Objects.equals(file.getId(),signature.getControlledFileId())
+                                && Objects.equals(file.getId(),signature.getRevisionId())
+                                && Objects.equals(file.getVersionNo(),signature.getVersionNo())
+                                && signatureMatchesWorkflowRound(file,signature)
+                                && Objects.equals(row.getLeaderUserId(),signature.getActorId())
+                                && Objects.equals(row.getBpmTaskId(),signature.getTaskId())
+                                && "MATRIX_REVIEW_ASSIGN".equals(signature.getMeaningCode())
+                                && Boolean.TRUE.equals(signature.getPasswordVerified())
+                                && signature.getSignedAt()!=null && StrUtil.isNotBlank(signature.getEvidenceHash())
+                                && "ASSIGN".equals(signature.getActionType()) && "VALID".equals(signature.getEvidenceStatus()))
+                        || signatures.stream().noneMatch(signature -> Objects.equals(row.getBpmTaskId(),signature.getTaskId())
+                                && Objects.equals(row.getAssigneeUserId(),signature.getActorId())
+                                && isValidStageSignature(file,"MATRIX_REVIEW",signature)))
+                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                actors.add(row.getAssigneeUserId());
+            }
+            var copy = DccControlledFileRouteSnapshotDO.builder().controlledFileId(stage.getControlledFileId())
+                    .stageCode(stage.getStageCode()).candidateSourceType("DEPT")
+                    .candidateSourceIds(stage.getCandidateSourceIds()).approveMethod(stage.getApproveMethod())
+                    .requireAllApprovals(stage.getRequireAllApprovals())
+                    .resolvedUserIds(actors.stream().map(String::valueOf).collect(Collectors.joining(","))).build();
+            actualRoster.add(copy);
+        }
+        requireComplete(file,actualRoster,signatures);
+    }
+
+    static void requireComplete(DccControlledFileDO file, List<DccControlledFileRouteSnapshotDO> snapshots,
                                 List<DccControlledFileSignatureDO> signatures) {
         Set<String> expectedStages = isThreeWorkflow(file) ? THREE_WORKFLOW_STAGES : LEGACY_STAGES;
         if (file == null || file.getId() == null || StrUtil.isBlank(file.getVersionNo())
@@ -93,11 +143,20 @@ final class DccFrozenApprovalSignatures {
         return signature.getId() != null && Objects.equals(file.getId(), signature.getControlledFileId())
                 && Objects.equals(file.getId(), signature.getRevisionId())
                 && Objects.equals(file.getVersionNo(), signature.getVersionNo())
+                && signatureMatchesWorkflowRound(file,signature)
                 && "APPROVE".equals(signature.getActionType())
                 && (stageCode + "_APPROVE").equals(signature.getMeaningCode())
                 && Boolean.TRUE.equals(signature.getPasswordVerified()) && signature.getSignedAt() != null
                 && StrUtil.isNotBlank(signature.getTaskId()) && StrUtil.isNotBlank(signature.getEvidenceHash())
                 && "VALID".equals(signature.getEvidenceStatus());
+    }
+
+    private static boolean signatureMatchesWorkflowRound(DccControlledFileDO file, DccControlledFileSignatureDO signature) {
+        if(isThreeWorkflow(file)) return StrUtil.isNotBlank(file.getProcessInstanceId())
+                && DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW.equals(signature.getEvidencePayloadVersion())
+                && Objects.equals(file.getProcessInstanceId(),signature.getProcessInstanceId());
+        return !DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW.equals(signature.getEvidencePayloadVersion())
+                || Objects.equals(file.getProcessInstanceId(),signature.getProcessInstanceId());
     }
 
     private static boolean coversRequiredDepartmentApprovals(List<Long> requiredUsers,

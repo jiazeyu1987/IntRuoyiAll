@@ -51,14 +51,14 @@ public final class DccActionApprovalRoutePolicy {
 
     public static void validateSaveNodes(String actionType, List<DccApprovalRouteNodeSaveReqVO> nodes,
                                          ErrorCode errorCode) {
-        if (!supports(actionType) || nodes == null || nodes.size() != ACTION_STAGE_NOS.size()
+        if (!supports(actionType) || nodes == null || nodes.size() != stageNos(actionType).size()
                 || nodes.stream().anyMatch(Objects::isNull)) {
             throw exception(errorCode);
         }
         List<Integer> stageNos = nodes.stream()
                 .map(DccApprovalRouteNodeSaveReqVO::getStageNo)
                 .toList();
-        validateStageNos(stageNos, errorCode);
+        validateStageNos(actionType, stageNos, errorCode);
         nodes.forEach(node -> {
             DccFixedApprovalRoutePolicy.FixedStageDefinition stage = requireStage(node.getStageNo(), errorCode);
             if (!Objects.equals(stage.approveMethod(), node.getApproveMethod())
@@ -77,14 +77,14 @@ public final class DccActionApprovalRoutePolicy {
 
     public static void validateRouteNodes(String actionType, List<DccCategoryApprovalRouteNodeDO> nodes,
                                           ErrorCode errorCode) {
-        if (!supports(actionType) || nodes == null || nodes.size() != ACTION_STAGE_NOS.size()
+        if (!supports(actionType) || nodes == null || nodes.size() != stageNos(actionType).size()
                 || nodes.stream().anyMatch(Objects::isNull)) {
             throw exception(errorCode);
         }
         List<Integer> stageNos = nodes.stream()
                 .map(DccCategoryApprovalRouteNodeDO::getStageNo)
                 .toList();
-        validateStageNos(stageNos, errorCode);
+        validateStageNos(actionType, stageNos, errorCode);
         nodes.forEach(node -> {
             DccFixedApprovalRoutePolicy.FixedStageDefinition stage = ACTION_STAGE_MAP.get(node.getStageNo());
             if (stage == null
@@ -105,9 +105,14 @@ public final class DccActionApprovalRoutePolicy {
         }
     }
 
-    private static void validateStageNos(List<Integer> stageNos, ErrorCode errorCode) {
+    public static List<Integer> stageNos(String actionType) {
+        return DccControlledFileChangeTypeEnum.OBSOLETE.getCode().equals(actionType)
+                ? List.of(1, 2) : ACTION_STAGE_NOS;
+    }
+
+    private static void validateStageNos(String actionType, List<Integer> stageNos, ErrorCode errorCode) {
         Set<Integer> seenStageNos = stageNos.stream().collect(Collectors.toSet());
-        if (seenStageNos.size() != ACTION_STAGE_NOS.size() || !seenStageNos.containsAll(ACTION_STAGE_NOS)) {
+        if (seenStageNos.size() != stageNos(actionType).size() || !seenStageNos.containsAll(stageNos(actionType))) {
             throw exception(errorCode);
         }
     }

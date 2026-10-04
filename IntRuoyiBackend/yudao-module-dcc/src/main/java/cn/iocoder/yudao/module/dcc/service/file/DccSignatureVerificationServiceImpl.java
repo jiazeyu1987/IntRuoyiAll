@@ -66,6 +66,19 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
     public DccUnifiedSignatureResult verifyPasswordAndCreateSignature(Long actorId, Long controlledFileId, String taskId,
                                                                       String stageCode, String actionType,
                                                                       String password, String comment) {
+        return createSignature(actorId, controlledFileId, taskId, null, stageCode, actionType, password, comment);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccUnifiedSignatureResult verifyPasswordAndCreateWorkflowSignature(Long actorId, Long controlledFileId,
+            String taskId, String processInstanceId, String stageCode, String actionType, String password, String comment) {
+        if (StrUtil.isBlank(processInstanceId)) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        return createSignature(actorId, controlledFileId, taskId, processInstanceId, stageCode, actionType, password, comment);
+    }
+
+    private DccUnifiedSignatureResult createSignature(Long actorId, Long controlledFileId, String taskId,
+            String processInstanceId, String stageCode, String actionType, String password, String comment) {
         String reasonText = requireReasonText(comment);
         electronicSignatureAuthorizationService.validateElectronicSignatureEnabled(actorId);
         String meaningCode = resolveMeaningCode(stageCode, actionType);
@@ -78,6 +91,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                         .tenantId(TenantContextHolder.getRequiredTenantId())
                         .controlledFileId(controlledFileId)
                         .taskId(taskId)
+                        .processInstanceId(processInstanceId)
                         .taskActionResult(normalizeTaskActionResult(actionType))
                         .meaningCode(meaningCode)
                         .signerUserId(actorId)
@@ -116,6 +130,11 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                 idempotencyKey(actorId, controlledFileId, taskId, stageCode, actionType, meaningCode, evidence),
                 null,
                 null));
+        if(signature==null || signature.signatureId()==null || signature.signatureId()<=0
+                || !"VALID".equals(signature.verificationStatus()) || signature.signedAt()==null
+                || StrUtil.hasBlank(signature.subjectVersion(),signature.contentHash(),signature.evidenceHash(),
+                    signature.algorithm(),signature.keyVersion(),signature.timeEvidenceId()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         DccControlledFileSignatureDO projection = persistSignatureEvidence(actorId, controlledFileId, taskId,
                 actionType, reasonText, signedAt, meaningCode, actorSnapshot, evidence, signature);
         signatureImageService.markReferenced(imageSnapshot.getImageId());
@@ -143,6 +162,8 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
                 .revisionId(evidence.getRevisionId())
                 .versionNo(evidence.getVersionNo())
                 .taskId(taskId)
+                .processInstanceId(evidence.getProcessInstanceId())
+                .fileNumberSnapshot(evidence.getFileNumberSnapshot())
                 .actorId(actorId)
                 .actorUsernameSnapshot(actorSnapshot.actorUsernameSnapshot())
                 .actorNicknameSnapshot(actorSnapshot.actorNicknameSnapshot())
@@ -203,6 +224,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
 
     private static String resolveMeaningLabel(String meaningCode) {
         return switch (StrUtil.trimToEmpty(meaningCode)) {
+            case "MATRIX_REVIEW_ASSIGN" -> "会签指派确认";
             case "APPROVE", "APPLICANT_REWORK_APPROVE", "DOC_CONTROL_REVIEW_APPROVE", "MATRIX_REVIEW_APPROVE",
                     "MATRIX_APPROVAL_APPROVE", "DOC_CONTROL_APPROVAL_APPROVE" -> "审批通过";
             case "REJECT", "APPLICANT_REWORK_REJECT", "DOC_CONTROL_REVIEW_REJECT", "MATRIX_REVIEW_REJECT",
@@ -321,6 +343,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
             case "RETURN" -> "RETURNED";
             case "TRANSFER" -> "TRANSFERRED";
             case "ADD_SIGN" -> "SIGN_ADDED";
+            case "ASSIGN" -> "ASSIGNED";
             case "DISTRIBUTION_ACK" -> "DISTRIBUTION_ACK";
             case "DISTRIBUTION_SIGN" -> "DISTRIBUTION_SIGN";
             default -> throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
@@ -360,6 +383,7 @@ public class DccSignatureVerificationServiceImpl implements DccSignatureVerifica
             case "RETURN" -> "RETURN";
             case "TRANSFER" -> "TRANSFER";
             case "ADD_SIGN" -> "ADD_SIGN";
+            case "ASSIGN" -> "ASSIGN";
             default -> throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         };
     }

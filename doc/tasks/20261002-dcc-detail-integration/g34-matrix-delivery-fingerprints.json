@@ -1,0 +1,26 @@
+{
+  "status": "G34_MAIN_APPROVAL_ROUTE_BLOCKER_FIX_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl.java",
+      "bytes": 63715,
+      "sha256": "11a6b75ba7b26781b84bd383797bb6d17faf44ca865bc8e8d92b774c2ac66da2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileCategoryMapper.java",
+      "bytes": 770,
+      "sha256": "673044f6c0e529f85167e0a4fea35ac5117740ea6ca2af054a38af7cdf6eb86f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImplTest.java",
+      "bytes": 67596,
+      "sha256": "0638b8c6ceae8c7a3df13109f18758f247126810cf32b49458901c7a94c18d61"
+    }
+  ],
+  "scope": "LEGACY-only review matrix administration and effective legacy projection; NEW/REVISION/OBSOLETE formal routes unchanged",
+  "actualDatabaseWrites": false,
+  "runtimeStarted": false,
+  "jarPackageRun": false
+}

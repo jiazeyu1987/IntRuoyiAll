@@ -1,0 +1,82 @@
+{
+  "status": "prepared_exact_postflight_contract",
+  "readyForDriver": true,
+  "executionAuthorized": false,
+  "databaseConnected": false,
+  "candidates": 19,
+  "affectedTables": 26,
+  "newTables": 17,
+  "newNullableColumns": 51,
+  "finalColumns": 463,
+  "finalIndexes": 85,
+  "anonymousIndexShapes": 11,
+  "unitTests": 12,
+  "testsResult": "PASS",
+  "validatorSuccessStatus": "POSTFLIGHT_SCHEMA_PASS_NOT_EXECUTION_EVIDENCE",
+  "validatorFailureStatus": "FAIL",
+  "files": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema-queries.sql",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema-queries.sql",
+      "sha256": "7f7984776a09c43ccee4b50c6fd453dc905712b804467694ad5ac87dc1f6ef9e",
+      "bytes": 4037
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-environment-query.sql",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-environment-query.sql",
+      "sha256": "7899782be4aae738faa26a34e2b639a082c579a3debfda612f4d87a0f48c209e",
+      "bytes": 452
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema.py",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema.py",
+      "sha256": "07862bba3fe364e2cd4c4a29397b7ff0afc4f5bf236fe8e17e6a4f20ac2ecb7c",
+      "bytes": 28859
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-schema-contract.json",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-schema-contract.json",
+      "sha256": "8394d73c3f2bd1e402204df4f8d56c3d03489238173098ada3925abd2343011e",
+      "bytes": 216559
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21_structure_prerequisites.py",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21_structure_prerequisites.py",
+      "sha256": "249d3c03e7a2af97051eaa2e98e3931942a31c9ad82a2158389fa87a5c88a99c",
+      "bytes": 29320
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\test_g21_postflight_schema.py",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/test_g21_postflight_schema.py",
+      "sha256": "0e65d0b6fb8b6ef9d702cbd660dbed640c752c99c1ddc3c9b11a1fdfce5afe51",
+      "bytes": 10703
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g21-postflight-review.md",
+      "relativePath": "doc/tasks/20261002-dcc-detail-integration/g21-postflight-review.md",
+      "sha256": "c2b8028b61eba0fce2982752fba0068c336388431162f1c73846508db60a343f",
+      "bytes": 7377
+    }
+  ],
+  "cli": "g21-postflight-schema.py validate --facts FILE.jsonl --environment FROZEN_ENVIRONMENT.jsonl --result RESULT.json [--previous FIRST_RESULT.json]",
+  "schemaJsonlKinds": [
+    "runtime",
+    "table",
+    "column",
+    "index",
+    "ledger"
+  ],
+  "environmentJsonlKinds": [
+    "environment"
+  ],
+  "requiredEnvironmentFields": [
+    "database",
+    "serverUuid",
+    "databaseCharset",
+    "databaseCollation",
+    "utf8mb4DefaultCollation",
+    "defaultStorageEngine"
+  ],
+  "driverMustVerifyAllDependencyHashes": true,
+  "runtimeTestsExecuted": false
+}

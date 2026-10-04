@@ -145,12 +145,10 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
                 relatedActive(200L, 20L, 3L, "A/1"), relatedActive(300L, 30L, 4L, "C/1")));
         when(assignmentScopeService.filterBusinessVisibleUserIds(Set.of(1L, 2L, 5L), 100L))
                 .thenReturn(Set.of(1L, 2L));
-        when(adminUserApi.getUserList(Set.of(1L, 2L, 3L, 4L))).thenReturn(List.of(
-                user(1L, "责任人", 10L), user(2L, "分发人", 11L), user(3L, "关联人Y", 12L),
-                user(4L, "关联人Z", 13L)));
-        when(deptApi.getDeptList(Set.of(10L, 11L, 12L, 13L))).thenReturn(List.of(
-                dept(10L, "质量部"), dept(11L, "生产部"), dept(12L, "研发一部"),
-                dept(13L, "研发二部")));
+        when(adminUserApi.getUserList(Set.of(1L, 2L))).thenReturn(List.of(
+                user(1L, "责任人", 10L), user(2L, "分发人", 11L)));
+        when(deptApi.getDeptList(Set.of(10L, 11L))).thenReturn(List.of(
+                dept(10L, "质量部"), dept(11L, "生产部")));
 
         service.recordPublishedRevision(published, activeA2());
 
@@ -182,10 +180,10 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
 
         ArgumentCaptor<DccPublicationNotificationCandidateDO> candidateCaptor =
                 ArgumentCaptor.forClass(DccPublicationNotificationCandidateDO.class);
-        verify(candidateMapper, times(4)).insert(candidateCaptor.capture());
-        assertEquals(Set.of(1L, 2L, 3L, 4L), candidateCaptor.getAllValues().stream()
+        verify(candidateMapper, times(2)).insert(candidateCaptor.capture());
+        assertEquals(Set.of(1L, 2L), candidateCaptor.getAllValues().stream()
                 .map(DccPublicationNotificationCandidateDO::getUserId).collect(java.util.stream.Collectors.toSet()));
-        verify(candidateReasonMapper, times(5)).insert(any(DccPublicationNotificationCandidateReasonDO.class));
+        verify(candidateReasonMapper, times(3)).insert(any(DccPublicationNotificationCandidateReasonDO.class));
 
         ArgumentCaptor<DccPublicationRelationSnapshotDO> relationCaptor =
                 ArgumentCaptor.forClass(DccPublicationRelationSnapshotDO.class);
@@ -197,7 +195,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         verify(relationDirectionMapper, times(3)).insert(directionCaptor.capture());
         assertEquals(Set.of("FORWARD", "REVERSE"), directionCaptor.getAllValues().stream()
                 .map(DccPublicationRelationDirectionSnapshotDO::getDirection).collect(java.util.stream.Collectors.toSet()));
-        verify(impactAssessmentService).materializeForPublicationBatch(900L);
+        verify(impactAssessmentService,never()).materializeForPublicationBatch(any());
         verify(publicationNotificationService).materializeForPublicationBatch(900L);
         verify(impactAssessmentService).resolveLinkedRevisionAfterPublication(published);
     }
@@ -258,7 +256,7 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void recordPublishedRevision_impactMaterializationFailurePropagatesBeforeNotificationCandidates() {
+    void recordPublishedRevision_distributionNotificationFailurePropagatesAndNoImplicitImpactMaterialization() {
         DccControlledFileDO published = publishedB1();
         when(viewMatrixRuleMapper.selectActiveListByCategoryId(20L)).thenReturn(List.of());
         when(distributionMapper.selectListByControlledFileId(100L)).thenReturn(List.of());
@@ -267,14 +265,14 @@ class DccPublicationFollowupServiceTest extends BaseMockitoUnitTest {
         when(assignmentScopeService.filterBusinessVisibleUserIds(Set.of(1L), 100L)).thenReturn(Set.of(1L));
         when(adminUserApi.getUserList(Set.of(1L))).thenReturn(List.of(user(1L, "责任人", 10L)));
         when(deptApi.getDeptList(Set.of(10L))).thenReturn(List.of(dept(10L, "质量部")));
-        doThrow(new IllegalStateException("impact materialization failed"))
-                .when(impactAssessmentService).materializeForPublicationBatch(900L);
+        doThrow(new IllegalStateException("distribution notification materialization failed"))
+                .when(publicationNotificationService).materializeForPublicationBatch(900L);
 
         IllegalStateException error = assertThrows(IllegalStateException.class,
                 () -> service.recordPublishedRevision(published, activeA2()));
 
-        assertEquals("impact materialization failed", error.getMessage());
-        verifyNoInteractions(candidateMapper, candidateReasonMapper);
+        assertEquals("distribution notification materialization failed", error.getMessage());
+        verify(impactAssessmentService,never()).materializeForPublicationBatch(any());
         verify(impactAssessmentService, never()).resolveLinkedRevisionAfterPublication(any());
     }
 

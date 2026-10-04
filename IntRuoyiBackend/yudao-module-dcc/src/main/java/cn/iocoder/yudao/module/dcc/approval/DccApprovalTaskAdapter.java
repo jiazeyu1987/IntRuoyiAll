@@ -410,22 +410,6 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 "APPROVAL_TASK_ID_REQUIRED: DCC review requires source task id");
         String password = requireText(context.getSignaturePassword(),
                 "APPROVAL_SIGNATURE_PASSWORD_REQUIRED: DCC review requires signature password");
-        if (isObsoleteApprovalTask(context)) {
-            if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
-                bpmTaskService.approveTask(context.getLoginUserId(), new BpmTaskApproveReqVO()
-                        .setId(taskId)
-                        .setReason(requireApprovalReason(context.getReason()))
-                        .setNextAssignees(buildFrozenStageAssigneeMap(fileId)));
-                return;
-            }
-            if (context.getResult() == ApprovalTaskReviewResult.REJECT) {
-                bpmTaskService.rejectTask(context.getLoginUserId(), new BpmTaskRejectReqVO()
-                        .setId(taskId)
-                        .setReason(requireText(context.getReason(),
-                                "APPROVAL_REJECT_REASON_REQUIRED: DCC reject requires reason")));
-                return;
-            }
-        }
         if (context.getResult() == ApprovalTaskReviewResult.APPROVE) {
             DccControlledFileApproveTaskReqVO reqVO = new DccControlledFileApproveTaskReqVO();
             reqVO.setTaskId(taskId);
@@ -505,6 +489,16 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static Set<String> resolveTodoAvailableActions(String processDefinitionKey,
                                                            String taskDefinitionKey,
                                                            String fileStatus) {
+        // Native approval requires the exact task/BPM owner-selection dialog, absent from quick-review context.
+        if ("MATRIX_APPROVAL".equals(taskDefinitionKey)
+                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(processDefinitionKey)
+                    || DccControlledFileProcessDefinitionKeys.REVISION.equals(processDefinitionKey)))
+            return PROCESS_IN_MODULE_ACTIONS;
+        if ("MATRIX_REVIEW".equals(taskDefinitionKey)
+                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(processDefinitionKey)
+                    || DccControlledFileProcessDefinitionKeys.REVISION.equals(processDefinitionKey)
+                    || DccControlledFileProcessDefinitionKeys.OBSOLETE.equals(processDefinitionKey)))
+            return PROCESS_IN_MODULE_ACTIONS;
         if (processDefinitionKey != null
                 && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS.contains(processDefinitionKey)) {
             return FORM_CENTER_OBSOLETE_ACTIONS;

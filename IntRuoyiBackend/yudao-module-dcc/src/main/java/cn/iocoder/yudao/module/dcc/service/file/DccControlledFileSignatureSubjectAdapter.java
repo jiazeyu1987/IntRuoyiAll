@@ -25,6 +25,7 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
     @Override
     public Set<SignatureActionDefinition> supportedActions() {
         return Set.of(
+                action("ASSIGN", "会签指派确认"),
                 action("APPROVE", "审批通过"),
                 action("REJECT", "审批驳回"),
                 action("RETURN", "流程回退"),
@@ -38,6 +39,10 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
     @Override
     public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
         DecodedSubject decoded = decodeSubjectId(command.subjectId());
+        if (!MODULE_CODE.equals(command.moduleCode()) || !SUBJECT_TYPE.equals(command.subjectType())
+                || !decoded.actionType().equals(command.actionCode())
+                || !subjectVersion(command.subjectId()).equals(command.expectedSubjectVersion()))
+            throw new IllegalArgumentException("DCC_SIGNATURE_SUBJECT_CONTEXT_MISMATCH");
         String canonicalJson = "{"
                 + "\"adapter\":\"DCC_CONTROLLED_FILE\","
                 + "\"controlledFileId\":\"" + json(decoded.controlledFileId()) + "\","
@@ -53,9 +58,11 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
                 + "\"controlledCopyHash\":\"" + json(decoded.controlledCopyHash()) + "\","
                 + "\"legacyEvidenceHash\":\"" + json(decoded.evidenceHash()) + "\","
                 + "\"canonicalPayloadHash\":\"" + json(decoded.canonicalPayloadHash()) + "\""
+                + (decoded.processInstanceId() == null ? "" : ",\"processInstanceId\":\"" + json(decoded.processInstanceId()) + "\"")
                 + "}";
         return new SignatureSubjectSnapshot(SUBJECT_TYPE, command.subjectId(), subjectVersion(command.subjectId()),
-                canonicalJson, null, null, null, null, decoded.taskId(), decoded.stageCode(), nodeOrder(decoded.stageCode()));
+                canonicalJson, null, null, null, decoded.processInstanceId(), decoded.taskId(), decoded.stageCode(),
+                nodeOrder(decoded.stageCode(),decoded.processInstanceId()!=null));
     }
 
     static String encodeSubjectId(Long controlledFileId, String taskId, String stageCode, String actionType,
@@ -73,6 +80,11 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
                 value(evidence.getControlledCopyHash()),
                 value(evidence.getEvidenceHash()),
                 ApprovalSignatureHash.sha256(value(evidence.getCanonicalPayload())));
+        if (DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW.equals(evidence.getEvidencePayloadVersion())) {
+            if (evidence.getProcessInstanceId() == null || evidence.getProcessInstanceId().isBlank())
+                throw new IllegalArgumentException("DCC_SIGNATURE_WORKFLOW_ROUND_REQUIRED");
+            payload = "v4-workflow\n" + evidence.getProcessInstanceId() + "\n" + payload;
+        }
         return Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
     }
@@ -89,14 +101,28 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
     private static DecodedSubject decodeSubjectId(String subjectId) {
         String payload = new String(Base64.getUrlDecoder().decode(subjectId), StandardCharsets.UTF_8);
         String[] values = payload.split("\n", -1);
-        if (values.length != 12) {
+        String processInstanceId = null;
+        if (values.length == 14 && "v4-workflow".equals(values[0]) && !values[1].isBlank()) {
+            processInstanceId = values[1];
+            values = java.util.Arrays.copyOfRange(values, 2, 14);
+        } else if (values.length != 12) {
             throw new IllegalArgumentException("DCC_SIGNATURE_SUBJECT_INVALID");
         }
         return new DecodedSubject(values[0], values[1], values[2], values[3], values[4], values[5],
-                values[6], values[7], values[8], values[9], values[10], values[11]);
+                values[6], values[7], values[8], values[9], values[10], values[11], processInstanceId);
     }
 
-    private static Integer nodeOrder(String stageCode) {
+    private static Integer nodeOrder(String stageCode,boolean workflowRound) {
+        if(workflowRound) {
+            return switch(value(stageCode)) {
+                case "APPLICANT_REWORK" -> 5;
+                case "MATRIX_REVIEW" -> 10;
+                case "MATRIX_APPROVAL" -> 20;
+                case "DOC_CONTROL_REVIEW" -> 30;
+                case "DISTRIBUTION" -> 40;
+                default -> throw new IllegalArgumentException("DCC_WORKFLOW_SIGNATURE_STAGE_UNSUPPORTED");
+            };
+        }
         return switch (value(stageCode)) {
             case "APPLICANT_REWORK" -> 10;
             case "DOC_CONTROL_REVIEW" -> 20;
@@ -119,7 +145,7 @@ public class DccControlledFileSignatureSubjectAdapter implements ElectronicSigna
     private record DecodedSubject(String controlledFileId, String revisionId, String versionNo, String taskId,
                                   String stageCode, String actionType, String meaningCode, String recordHashSnapshot,
                                   String sourceFileHash, String controlledCopyHash, String evidenceHash,
-                                  String canonicalPayloadHash) {
+                                  String canonicalPayloadHash, String processInstanceId) {
     }
 
 }

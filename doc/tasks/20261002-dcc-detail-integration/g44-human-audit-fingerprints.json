@@ -1,0 +1,42 @@
+{
+  "status": "G44_CURRENT_DIRECTORY_HUMAN_AUDIT_SOURCE_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+      "bytes": 14443,
+      "sha256": "00d5532cffcb83672284a5b482a7bf641d8237c732111776b9ad215d96bf6546"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImplTest.java",
+      "bytes": 15632,
+      "sha256": "6994c5761fd5d54c2faa678448c37fab5ac801b03bc15eafa331c5aef7a63886"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductLedgerTest.java",
+      "bytes": 23476,
+      "sha256": "01950677b726d4429f18887ee364afa4221b8046fbb2d398db9e5632a8769ed5"
+    }
+  ],
+  "original41ZeroDrift": true,
+  "OWNERAllAssetsZeroDrift": true,
+  "G43DirectoryAuthTwoAssetsZeroDrift": true,
+  "G43DeveloperSixAssetsZeroDrift": true,
+  "policyUnchanged": {
+    "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+    "bytes": 18022,
+    "sha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894"
+  },
+  "unchangedFormalUserApiSource": {
+    "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/user/AdminUserApiImpl.java",
+    "bytes": 4661,
+    "sha256": "0ede12e2132c8745e14eed707fdb99dba318c7c96cf7ded378e23a6aea5bff15"
+  },
+  "unchangedExplicitSystemCallerSource": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowFileStateAudit.java",
+    "bytes": 11717,
+    "sha256": "06b4eabe99eda906ecbd066b9e47714673f0b2f22d83df09e3f8dd2a304cb3ba"
+  },
+  "identityContract": "Current sameid/tenant enabled AdminUserApi directory owns username/nickname. HumanADMIN/positiveid/contexttenant/nonignore required before replay/sequencewrites. FormalLoginUser info is not mutated. Explicit no-login tenant system path and exactlydeclared-1SYSTEM identity preserved. Historical replay retains originaleventbytefacts."
+}

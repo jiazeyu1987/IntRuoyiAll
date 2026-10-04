@@ -1,0 +1,676 @@
+{
+  "status": "STATIC_SCHEMA_AND_DEPENDENCY_POLICY_PASS_REAL_MYSQL_PENDING",
+  "actualDBActions": 0,
+  "sqlSha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+  "migrationId": "20261003_dcc_legacy_source_name_occupancy",
+  "directDependencies": [
+    "20260930_dcc_c_revision_identity",
+    "20260811_dcc_source_ownership"
+  ],
+  "closureCount": 8,
+  "closureIds": [
+    "20260513_dcc_base_schema",
+    "20260811_dcc_source_ownership",
+    "20260906_dcc_new_file_lifecycle_p1",
+    "20260906_dcc_new_file_lifecycle_p2",
+    "20260906_dcc_new_file_lifecycle_p3",
+    "20260917_dcc_controlled_file_name_claim",
+    "20260930_dcc_c_revision_identity",
+    "20261003_dcc_legacy_source_name_occupancy"
+  ],
+  "policyReport": {
+    "status": "passed",
+    "migrationCount": 8,
+    "migrations": [
+      {
+        "migrationId": "20260513_dcc_base_schema",
+        "file": "sql/mysql/20260513_dcc_base_schema.sql",
+        "sha256": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20260811_dcc_source_ownership",
+        "file": "sql/mysql/20260811_dcc_source_ownership.sql",
+        "sha256": "65064b7423cfb2362437c50ee50907874d7dd7cf5e638e3818d8cbef92142d82",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260513_dcc_base_schema"
+        ],
+        "riskLevel": "high"
+      },
+      {
+        "migrationId": "20260906_dcc_new_file_lifecycle_p1",
+        "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p1.sql",
+        "sha256": "631bae6a1dbd521e5afd1df5838309c1403f9f641f22418e356253d30e8bba0b",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260513_dcc_base_schema"
+        ],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20260906_dcc_new_file_lifecycle_p2",
+        "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p2.sql",
+        "sha256": "3121fb0a6d6f12ad01408fb981f1de5af49f85deae9f3834e28e557a8a79907b",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260906_dcc_new_file_lifecycle_p1"
+        ],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20260906_dcc_new_file_lifecycle_p3",
+        "file": "sql/mysql/20260906_dcc_new_file_lifecycle_p3.sql",
+        "sha256": "5d4905c888a5163a593a138dc2bef1b3c88c0d889a74999293fdfab25f10818a",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260906_dcc_new_file_lifecycle_p2"
+        ],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20260917_dcc_controlled_file_name_claim",
+        "file": "sql/mysql/20260917_dcc_controlled_file_name_claim.sql",
+        "sha256": "34a2950ca9ecaaf10a1d71e1e86a3b06115e80c06faaa0a118f9f2e5d50162fe",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260513_dcc_base_schema"
+        ],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20260930_dcc_c_revision_identity",
+        "file": "sql/mysql/20260930_dcc_c_revision_identity.sql",
+        "sha256": "b8ad667f71352d50e06f121d29e989fb1c984d7b28fb3915c5e73ad06211c901",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260917_dcc_controlled_file_name_claim",
+          "20260906_dcc_new_file_lifecycle_p3"
+        ],
+        "riskLevel": "medium"
+      },
+      {
+        "migrationId": "20261003_dcc_legacy_source_name_occupancy",
+        "file": "sql/mysql/20261003_dcc_legacy_source_name_occupancy.sql",
+        "sha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a",
+        "type": "schema",
+        "allowedEnvironments": [
+          "test",
+          "backup",
+          "prod"
+        ],
+        "dependsOn": [
+          "20260930_dcc_c_revision_identity",
+          "20260811_dcc_source_ownership"
+        ],
+        "riskLevel": "medium"
+      }
+    ]
+  },
+  "tables": [
+    {
+      "table": "dcc_legacy_source_name_scope",
+      "columnCount": 19,
+      "columns": [
+        {
+          "name": "id",
+          "declaration": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "tenant_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "scope_id",
+          "declaration": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "manifest_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "facts_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "bytes_receipt_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "user_decision_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "scope_identity_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "status",
+          "declaration": "VARCHAR(16) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "claim_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "version_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "edge_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "name_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "verified_at",
+          "declaration": "DATETIME(6) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "activated_at",
+          "declaration": "DATETIME(6)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "actor_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "reason",
+          "declaration": "VARCHAR(2000) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "request_id",
+          "declaration": "VARCHAR(128) NOT NULL",
+          "nullable": false,
+          "generated": false
+        }
+      ],
+      "indexes": [
+        "UNIQUE KEY uk_dcc_legacy_scope_id (tenant_id, scope_id)",
+        "UNIQUE KEY uk_dcc_legacy_scope_manifest (tenant_id, manifest_sha256)"
+      ],
+      "checkCount": 3,
+      "checks": [
+        "CHECK (status IN ('PREPARED','VERIFIED','INVALID'))",
+        "CHECK (claim_count>0 AND version_count>0 AND source_count>0 AND edge_count>0 AND name_count>0)",
+        "CHECK (manifest_sha256 REGEXP '^[0-9a-f]{64}$' AND facts_sha256 REGEXP '^[0-9a-f]{64}$' AND bytes_receipt_sha256 REGEXP '^[0-9a-f]{64}$' AND user_decision_sha256 REGEXP '^[0-9a-f]{64}$' AND scope_identity_sha256 REGEXP '^[0-9a-f]{64}$')"
+      ]
+    },
+    {
+      "table": "dcc_legacy_source_name_evidence",
+      "columnCount": 36,
+      "columns": [
+        {
+          "name": "id",
+          "declaration": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "tenant_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "verification_scope_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "legacy_claim_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "legacy_master_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "controlled_file_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_file_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "config_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_path",
+          "declaration": "VARCHAR(1024) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "storage_type",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "storage_endpoint",
+          "declaration": "VARCHAR(1024) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "storage_bucket",
+          "declaration": "VARCHAR(256) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "storage_region",
+          "declaration": "VARCHAR(256)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "storage_path_style",
+          "declaration": "TINYINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "version_no",
+          "declaration": "VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_original_file_name",
+          "declaration": "VARCHAR(256) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_name_key",
+          "declaration": "VARBINARY(1024) GENERATED ALWAYS AS (CONVERT(source_original_file_name USING BINARY)) STORED",
+          "nullable": true,
+          "generated": true
+        },
+        {
+          "name": "expected_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "actual_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "expected_size",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "actual_size",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "bytes_status",
+          "declaration": "VARCHAR(16) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "expected_version_count",
+          "declaration": "INT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "claim_normalized_name",
+          "declaration": "VARCHAR(256) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "claim_project_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "claim_leaf_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "claim_number",
+          "declaration": "VARCHAR(128)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "master_project_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "master_leaf_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "master_number",
+          "declaration": "VARCHAR(128)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "metadata_identity_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "preimage_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "proof_row_sha256",
+          "declaration": "CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "obsolete_time",
+          "declaration": "DATETIME(6)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "retain_until",
+          "declaration": "DATETIME(6)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "released_time",
+          "declaration": "DATETIME(6)",
+          "nullable": true,
+          "generated": false
+        }
+      ],
+      "indexes": [
+        "UNIQUE KEY uk_dcc_legacy_claim_version (tenant_id, verification_scope_id, legacy_claim_id, controlled_file_id)",
+        "UNIQUE KEY uk_dcc_legacy_scope_version (tenant_id, verification_scope_id, controlled_file_id)",
+        "KEY idx_dcc_legacy_name_owner (tenant_id,source_name_key,legacy_master_id)"
+      ],
+      "checkCount": 2,
+      "checks": [
+        "CHECK (bytes_status='MATCH' AND expected_sha256=actual_sha256 AND expected_size=actual_size AND expected_size>=0 AND expected_version_count>0)",
+        "CHECK (expected_sha256 REGEXP '^[0-9a-f]{64}$' AND actual_sha256 REGEXP '^[0-9a-f]{64}$' AND metadata_identity_sha256 REGEXP '^[0-9a-f]{64}$' AND preimage_sha256 REGEXP '^[0-9a-f]{64}$' AND proof_row_sha256 REGEXP '^[0-9a-f]{64}$')"
+      ]
+    },
+    {
+      "table": "dcc_source_name_reservation",
+      "columnCount": 15,
+      "columns": [
+        {
+          "name": "id",
+          "declaration": "BIGINT AUTO_INCREMENT PRIMARY KEY",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "tenant_id",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_original_file_name",
+          "declaration": "VARCHAR(256) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "source_name_key",
+          "declaration": "VARBINARY(1024) GENERATED ALWAYS AS (CONVERT(source_original_file_name USING BINARY)) STORED",
+          "nullable": true,
+          "generated": true
+        },
+        {
+          "name": "reservation_kind",
+          "declaration": "VARCHAR(16) NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "verification_scope_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "modern_claim_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "modern_master_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "generation",
+          "declaration": "BIGINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "active",
+          "declaration": "TINYINT NOT NULL",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "actor_id",
+          "declaration": "BIGINT",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "reason",
+          "declaration": "VARCHAR(2000)",
+          "nullable": true,
+          "generated": false
+        },
+        {
+          "name": "create_time",
+          "declaration": "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "update_time",
+          "declaration": "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)",
+          "nullable": false,
+          "generated": false
+        },
+        {
+          "name": "released_time",
+          "declaration": "DATETIME(6)",
+          "nullable": true,
+          "generated": false
+        }
+      ],
+      "indexes": [
+        "UNIQUE KEY uk_dcc_source_name_registry (tenant_id, source_name_key)"
+      ],
+      "checkCount": 2,
+      "checks": [
+        "CHECK (generation>0 AND active IN (0,1))",
+        "CHECK ((reservation_kind='LEGACY_GROUP' AND active=1 AND verification_scope_id IS NOT NULL AND modern_claim_id IS NULL AND modern_master_id IS NULL) OR (reservation_kind='MODERN' AND active=1 AND verification_scope_id IS NULL AND modern_claim_id IS NOT NULL AND modern_master_id IS NOT NULL) OR (reservation_kind='NONE' AND active=0))"
+      ]
+    }
+  ],
+  "totalColumns": 70,
+  "generatedColumns": 2,
+  "tableDefault": "InnoDB utf8mb4 utf8mb4_bin",
+  "firstAndRepeatExecuted": false,
+  "existingWrongSchemaRequiresPostflight": true,
+  "supersedesSqlSha256": "2c7451a09f88c46c9243cda6ca89acfbd5f101da4fb108473a4da818da9f42eb",
+  "datetimeColumns": [
+    {
+      "table": "dcc_legacy_source_name_scope",
+      "column": "verified_at",
+      "declaration": "DATETIME(6) NOT NULL"
+    },
+    {
+      "table": "dcc_legacy_source_name_scope",
+      "column": "activated_at",
+      "declaration": "DATETIME(6)"
+    },
+    {
+      "table": "dcc_legacy_source_name_evidence",
+      "column": "obsolete_time",
+      "declaration": "DATETIME(6)"
+    },
+    {
+      "table": "dcc_legacy_source_name_evidence",
+      "column": "retain_until",
+      "declaration": "DATETIME(6)"
+    },
+    {
+      "table": "dcc_legacy_source_name_evidence",
+      "column": "released_time",
+      "declaration": "DATETIME(6)"
+    },
+    {
+      "table": "dcc_source_name_reservation",
+      "column": "create_time",
+      "declaration": "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)"
+    },
+    {
+      "table": "dcc_source_name_reservation",
+      "column": "update_time",
+      "declaration": "DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)"
+    },
+    {
+      "table": "dcc_source_name_reservation",
+      "column": "released_time",
+      "declaration": "DATETIME(6)"
+    }
+  ],
+  "actualReadinessEvidence": {
+    "factsSha256": "252b699b7ae740fbaac68ae4609bd26bca3b9ac8a7a9ab68a676361b78de8d6d",
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+    "mysqlVersion": "8.0.40",
+    "capturedAtUtc": "2026-10-03 12:28:03.704912",
+    "innodbPageSize": 16384,
+    "innodbDefaultRowFormat": "dynamic",
+    "targetLedgerRows": 0,
+    "targetTableInfoRows": 0,
+    "databaseWrites": false
+  },
+  "datetimeDefaultPrecisionVerified": true
+}

@@ -4,6 +4,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRel
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRelatedFileDO;
 
 import java.util.List;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.FileVersion;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.RelationChange;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.CurrentRelations;
 
 public interface DccControlledFileRelatedFileService {
 
@@ -18,5 +21,15 @@ public interface DccControlledFileRelatedFileService {
     List<Long> resolveCurrentActiveRelatedFileIds(Long controlledFileId, Long projectCodeId);
 
     List<DccControlledFileRelatedFileDO> listReverseCurrentActiveRelations(Long tenantId, Long relatedMasterId);
+
+    List<FileVersion> listCurrentRelatedFiles(Long actorId, Long sourceFileId);
+    CurrentRelations getCurrentRelationView(Long actorId,Long sourceFileId);
+
+    List<DccControlledFileRelatedFileRespVO> listHistoricalRelatedFiles(Long actorId, Long sourceFileId);
+
+    RelationChange replaceCurrentRelations(Long actorId, Long sourceFileId, List<Long> selectedFileIds,
+                                 List<Long> expectedMasterIds, Long expectedVersion,String idempotencyKey,String reason);
+
+    void assertRelatedContentReadable(Long actorId, Long relatedFileId);
 
 }

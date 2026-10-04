@@ -10,16 +10,28 @@ import java.time.LocalDateTime;
 public class DccProjectProductCreateRespVO {
 
     private Long id;
+    private String defaultAttributesJson;
+    private String folderTemplateSnapshotJson;
     private String projectName;
     private String projectCode;
     private String projectLeader;
+    private Long projectLeaderUserId;
+    private Long folderTemplateId;
     private String productCode;
     private String productName;
     private String classification;
     private String remark;
+    private String creationReason;
+    private Integer writeAttemptNo;
+    private String writeReason;
+    private Long writeOperatorUserId;
     private String status;
     private Long applicantUserId;
     private Long reviewerUserId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long configuredReviewerUserId;
+    private String configuredReviewerUsername;
+    private String configuredReviewerNickname;
     private Long approverUserId;
     private String reviewReason;
     private String approvalReason;
@@ -30,6 +42,7 @@ public class DccProjectProductCreateRespVO {
     private Long generatedProductCatalogId;
     private Long relationId;
     private Long previousRequestId;
+    private Long resubmittedRequestId;
     private LocalDateTime submittedTime;
     private LocalDateTime reviewedTime;
     private LocalDateTime approvedTime;

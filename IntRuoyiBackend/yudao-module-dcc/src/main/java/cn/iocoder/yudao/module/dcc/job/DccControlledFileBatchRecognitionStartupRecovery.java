@@ -6,8 +6,10 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBatchRecognitio
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Component
+@ConditionalOnProperty(prefix = "yudao.local-job-control", name = "dcc-batch-recognition-enabled", havingValue = "true", matchIfMissing = true)
 public class DccControlledFileBatchRecognitionStartupRecovery {
 
     @Resource

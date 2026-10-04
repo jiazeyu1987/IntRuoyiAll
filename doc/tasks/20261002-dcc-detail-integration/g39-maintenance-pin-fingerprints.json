@@ -1,0 +1,29 @@
+{
+  "status": "FORMAL_MAINTENANCE_VALIDATOR_PIN_G39_FROZEN_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.java",
+      "bytes": 24723,
+      "sha256": "ea06e2eda1da5150b9911dacfedf0fe21ef4e1f51dced14debe4aff69e01983f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGateTest.java",
+      "bytes": 22284,
+      "sha256": "6f51b5a73117f6f7f0ac577ccad8d09ea6184017f625caa2670fe3d7f1067eff"
+    }
+  ],
+  "previousValidatorSha256": "1560ee9ad223b4f65b6393428b84e949422fcc433ce92242285dd762d71c2f56",
+  "currentValidator": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-driver.py",
+    "bytes": 43114,
+    "sha256": "667a81edf468e1212afef8a01ae5cb996bd62737cfba7db6138e30259e0db2d4"
+  },
+  "fixedSchemaContractSha256": "f1ec2ec8207b34f0427d021f717c4859d6b71715fbdc436706263ed0fd7e9f0a",
+  "oldG33ManifestPreservedNotRewritten": true,
+  "supersededG33PathsOnly": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGateTest.java"
+  ],
+  "productionFileCount": 1,
+  "testFileCount": 1
+}

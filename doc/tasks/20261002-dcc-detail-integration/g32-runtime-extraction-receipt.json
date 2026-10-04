@@ -1,0 +1,192 @@
+{
+  "status": "EXACT_MAIN_JAR_LIBRARIES_EXTRACTED_TASK_ONLY_NO_APP_STARTUP",
+  "sourceJarSha256": "81b56aa3e1c518ae8f989498a8624826a1ad946d8e2640e652e4cb3a32f30bc5",
+  "assets": [
+    {
+      "entry": "BOOT-INF/lib/yudao-common-2026.04-SNAPSHOT.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\yudao-common-2026.04-SNAPSHOT.jar",
+      "bytes": 111561,
+      "sha256": "7b6d28459be9246d9adc307ece9e2edcf589f15797cc3f169c85d980fb15eb49"
+    },
+    {
+      "entry": "BOOT-INF/lib/hutool-all-5.8.44.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\hutool-all-5.8.44.jar",
+      "bytes": 2824782,
+      "sha256": "1acbb5a643cb4dd9c132c92189f6672f68cd9c444a8fd25e6dec5c45bca1e254"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-aop-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-aop-6.2.18.jar",
+      "bytes": 420221,
+      "sha256": "a07fbaacb1d740b9ec9797940765b0b37a134f36eed9319c641dab877d4b9af7"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-expression-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-expression-6.2.18.jar",
+      "bytes": 317788,
+      "sha256": "12c772bb6ec3e4942db0f83b93fb20c30df830eabfd40157e2c696d14fe3f971"
+    },
+    {
+      "entry": "BOOT-INF/lib/mysql-connector-j-9.7.0.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\mysql-connector-j-9.7.0.jar",
+      "bytes": 2607237,
+      "sha256": "0353648eaa1c91e0f4020c959abf756bc866ffd583df22ae6b6f6e0cbd43eb44"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-context-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-context-6.2.18.jar",
+      "bytes": 1359919,
+      "sha256": "55739b239e91944554dda6eeb813e63986e80dfac23177a6608f32de3f813131"
+    },
+    {
+      "entry": "BOOT-INF/lib/jackson-datatype-jsr310-2.21.2.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\jackson-datatype-jsr310-2.21.2.jar",
+      "bytes": 136578,
+      "sha256": "a083d57cd1c4a28fefcc6bd071740779eb7fc1c22a3c1b40451b5477c443f02f"
+    },
+    {
+      "entry": "BOOT-INF/lib/jackson-annotations-2.21.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\jackson-annotations-2.21.jar",
+      "bytes": 82104,
+      "sha256": "53ca085f4a150f703f49e1aabd935bd03b43e1ea3d55d135438292af22cef56b"
+    },
+    {
+      "entry": "BOOT-INF/lib/jackson-core-2.21.2.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\jackson-core-2.21.2.jar",
+      "bytes": 595531,
+      "sha256": "12e8655b100267b44d0f14d01b1f5082a5105e616174dc4307be1a761e92407b"
+    },
+    {
+      "entry": "BOOT-INF/lib/jackson-databind-2.21.2.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\jackson-databind-2.21.2.jar",
+      "bytes": 1701926,
+      "sha256": "8c982f01f148d805f0aaac2339011244757e0df7c6ff8951f2fa3f433b8ed849"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-tx-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-tx-6.2.18.jar",
+      "bytes": 289958,
+      "sha256": "7267a0c23801972aa7f1548c840e062ebdec3dc8e26f326effb7d0091ff8083d"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-context-support-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-context-support-6.2.18.jar",
+      "bytes": 175412,
+      "sha256": "d493ab9158ae9c1e81d32967ab6b9bf737689af699e8bc886b03b5aa610a2cfd"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-beans-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-beans-6.2.18.jar",
+      "bytes": 891562,
+      "sha256": "963524e5573becf2fb779c8f9b2fd6e86bbe5e3bd77a01c70559d37f9e4ebccb"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-autoconfigure-3.5.14.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-autoconfigure-3.5.14.jar",
+      "bytes": 2087353,
+      "sha256": "af850d1c416d329947dfcf2a145b91663f415aecf3bb1c73953283f03a708962"
+    },
+    {
+      "entry": "BOOT-INF/lib/slf4j-api-2.0.17.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\slf4j-api-2.0.17.jar",
+      "bytes": 69908,
+      "sha256": "7b751d952061954d5abfed7181c1f645d336091b679891591d63329c622eb832"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-admin-starter-server-3.5.8.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-admin-starter-server-3.5.8.jar",
+      "bytes": 2339,
+      "sha256": "148bd3a2d0a9f479437fe2485438dbc78f4c7dd07b0562444fdf43fe859f07c5"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-admin-server-3.5.8.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-admin-server-3.5.8.jar",
+      "bytes": 362075,
+      "sha256": "fcd49168818c311c5577c34c9d55dac787952c3da1a486c8fb648bac11b43a37"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-web-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-web-6.2.18.jar",
+      "bytes": 2094948,
+      "sha256": "db5b1324a1aa1fa1782175375ce7dd858c946c02cad574cadd43ac6def5db9c7"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-actuator-autoconfigure-3.5.14.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-actuator-autoconfigure-3.5.14.jar",
+      "bytes": 842200,
+      "sha256": "97e8056deea80c96a0919e4910e474099761f272cf20e9759fc3bf3813381010"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-actuator-3.5.14.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-actuator-3.5.14.jar",
+      "bytes": 707482,
+      "sha256": "d2ba98fa7c7ba5f0b5e80d50bd86293a5f09e1f2d2f9585eeb666c012910bf87"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-admin-server-ui-3.5.8.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-admin-server-ui-3.5.8.jar",
+      "bytes": 3622272,
+      "sha256": "3dd9939d32262d7a744605988eea4d9f7b5ca32b6ba3c762f137c6aaddcb426c"
+    },
+    {
+      "entry": "BOOT-INF/lib/yudao-spring-boot-starter-web-2026.04-SNAPSHOT.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\yudao-spring-boot-starter-web-2026.04-SNAPSHOT.jar",
+      "bytes": 105002,
+      "sha256": "f72d9e4f01334efc2bcbbbe97761f37bf11bbf0462621688c34bc6a6dcb71586"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-jdbc-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-jdbc-6.2.18.jar",
+      "bytes": 475809,
+      "sha256": "71aa0bdf41d01f19c7533ecd78ee8f8c9e2be7316ca838ce78ea1a2ae41068c6"
+    },
+    {
+      "entry": "BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\yudao-module-dcc-2026.04-SNAPSHOT.jar",
+      "bytes": 4170705,
+      "sha256": "b6f3b4f7078f63b5c041b9102b777702b9164bc5abcd7e968de290513158cbe4"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-3.5.14.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-3.5.14.jar",
+      "bytes": 1904310,
+      "sha256": "3f1d94101be1ad63fbd067432280e3ffd7fc6549cce43d11c87609843d46ed56"
+    },
+    {
+      "entry": "BOOT-INF/lib/logback-classic-1.5.32.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\logback-classic-1.5.32.jar",
+      "bytes": 286451,
+      "sha256": "2d4cf592db78be2de4d6140434c2fec170dcb16a09e8c8b7b207dbf5e31b848a"
+    },
+    {
+      "entry": "BOOT-INF/lib/logback-core-1.5.32.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\logback-core-1.5.32.jar",
+      "bytes": 644407,
+      "sha256": "6a904d5778d0e361a9692f9cbe68b1b0620ae0f3eda2ec2ed09102755bf036c4"
+    },
+    {
+      "entry": "BOOT-INF/lib/jakarta.annotation-api-2.1.1.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\jakarta.annotation-api-2.1.1.jar",
+      "bytes": 26141,
+      "sha256": "5f65fdaf424eee2b55e1d882ba9bb376be93fb09b37b808be6e22e8851c909fe"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-core-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-core-6.2.18.jar",
+      "bytes": 1981491,
+      "sha256": "8f4e9f833b952c9af78e7aa1e38d742df4471648e39bc5696d2f03c0543208d5"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-jcl-6.2.18.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-jcl-6.2.18.jar",
+      "bytes": 24495,
+      "sha256": "c0c0f3b2a22799cc04b91419c0b057e6470d1c58e5f3827852e7defa36514f14"
+    },
+    {
+      "entry": "BOOT-INF/lib/spring-boot-jarmode-tools-3.5.9.jar",
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-java-runtime\\libs\\spring-boot-jarmode-tools-3.5.9.jar",
+      "bytes": 51688,
+      "sha256": "cc6ad12f7ecb867a01d353efce16250aba74aa52d4e00697ce0e1f562fd1ded4"
+    }
+  ]
+}

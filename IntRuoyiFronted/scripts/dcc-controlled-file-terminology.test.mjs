@@ -12,7 +12,7 @@ const scanRoots = [
   join(repoRoot, 'IntRuoyiFronted/src/views/dcc/controlled-file')
 ]
 const allowedExtensions = new Set(['.java', '.ts', '.vue'])
-const forbiddenTerms = ['工作稿', '工作版本', '现行版', '现行版本']
+const forbiddenTerms = ['现行版', '现行版本']
 
 function listFiles(root) {
   const entries = readdirSync(root)
@@ -43,9 +43,9 @@ test('controlled-file pages describe effective and pending status without retire
   const handlingSummary = readFileSync(join(repoRoot, 'IntRuoyiFronted/src/views/dcc/controlled-file/shared/handlingSummary.ts'), 'utf8')
   const publicationLabels = readFileSync(join(repoRoot, 'IntRuoyiFronted/src/views/dcc/controlled-file/shared/publicationFollowupPresentation.ts'), 'utf8')
 
-  assert.match(uploadPage, /label="当前有效版本"/)
+  assert.match(uploadPage, /label="受控版本"/)
   assert.match(uploadPage, /创建受控文件/)
-  assert.match(browserPage, /最新待提交受控文件版本/)
-  assert.match(handlingSummary, /当前有效版本/)
+  assert.match(browserPage, /受控版本/)
+  assert.match(handlingSummary, /当前受控版本/)
   assert.match(publicationLabels, /WORKING: '待提交'/)
 })

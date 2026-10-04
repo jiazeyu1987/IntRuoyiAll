@@ -40,3 +40,6 @@ export const updateFileTypeTaxonomy = async (
 export const deleteFileTypeTaxonomy = async (id: number): Promise<boolean> => {
   return await request.delete({ url: `/dcc/file-type-taxonomies/${id}` })
 }
+
+export const resolveFileTypeActiveCategory = (id: number | string): Promise<number | string> =>
+  request.get({ url: `/dcc/file-type-taxonomies/${id}/active-category`, ignoreErrorMessage: true })

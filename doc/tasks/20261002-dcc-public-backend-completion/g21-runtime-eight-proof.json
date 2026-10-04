@@ -1,0 +1,182 @@
+{
+  "status": "satisfied_by_existing_target_facts",
+  "offlineOnly": false,
+  "migrationExecutionProven": false,
+  "ledgerWrites": false,
+  "migrationMustNotExecute": true,
+  "contractVersion": "g21-bpm-policy-v1",
+  "queryFile": "g21-bpm-policy-facts.sql",
+  "querySha256": "51da829aaf0891e36a1490a44bee28bd7a431d9d7c7fccea0f52e4a373895648",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "captureId": "29",
+  "capturedAt": "2026-10-03T06:02:37.052761Z",
+  "endCapturedAt": "2026-10-03T06:02:37.198764Z",
+  "snapshotHashes": {
+    "g18BackupReceiptSha256": "a8cde19e891ca7a335b141d7dabf2b791996c110944d20d789948303ce603511",
+    "affectedDumpSha256": "04dec6bd67bcef3743bb4b259a27840a24d597f2837ecbafddca9c720e3b706c",
+    "schemaDumpSha256": "cf6a94375b95720637d7b75a471e508420ffa9cc6b399c4438851237d4fc66fa",
+    "g18ConfigLogSha256": "fc52fd543a5e1d7b26e16f43bd215b3f72e457f88c1d2cc4d593e1ef01545501"
+  },
+  "prerequisites": [
+    {
+      "migrationId": "20260922_dcc_three_workflow_bpmn_seed",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "native-history-v1",
+          "status": "PASS"
+        },
+        {
+          "checkId": "native-current-v3-chain",
+          "status": "PASS"
+        },
+        {
+          "checkId": "obsolete-active-policy",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260923_dcc_three_workflow_candidate_strategy_fix",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "native-history-v2",
+          "status": "PASS"
+        },
+        {
+          "checkId": "native-current-v3-strategies",
+          "status": "PASS"
+        },
+        {
+          "checkId": "native-editor-resource-linkage",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "native-current-v3-chain",
+          "status": "PASS"
+        },
+        {
+          "checkId": "native-v3-obligation-multi-instance",
+          "status": "PASS"
+        },
+        {
+          "checkId": "v3-six-model-definition-info-tenant-links",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260719_business_approval_policy",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "policy-request-table-columns",
+          "status": "PASS"
+        },
+        {
+          "checkId": "published-pending-generated-identities",
+          "status": "PASS"
+        },
+        {
+          "checkId": "policy-request-unique-indexes",
+          "status": "PASS"
+        },
+        {
+          "checkId": "current-dcc-policy-identity-uniqueness",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260719_dcc_upload_form_policy_seed",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "two-tenant-upload-published-exact",
+          "status": "PASS"
+        },
+        {
+          "checkId": "legacy-latest-active-procdef-info-resource",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260720_dcc_publish_form_policy_seed",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "historical-publish-bpm-required-disabled",
+          "status": "PASS"
+        },
+        {
+          "checkId": "p4-current-direct-exact",
+          "status": "PASS"
+        },
+        {
+          "checkId": "two-tenant-upload-published-exact",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p4",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "p4-current-direct-exact",
+          "status": "PASS"
+        },
+        {
+          "checkId": "historical-publish-bpm-required-disabled",
+          "status": "PASS"
+        },
+        {
+          "checkId": "publish-none-empty-slots",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "migrationId": "20260907_dcc_publication_notification",
+      "status": "satisfied_by_existing_target_facts",
+      "migrationMustNotExecute": true,
+      "historicalSqlExecutionProven": false,
+      "checks": [
+        {
+          "checkId": "notification-table-columns-indexes",
+          "status": "PASS"
+        },
+        {
+          "checkId": "one-exact-publication-template",
+          "status": "PASS"
+        }
+      ]
+    }
+  ],
+  "captureReceiptSha256": "556c2f6898b8ec7aa62d569d46a6d090e2b3416bea028e9c167b759b961f8e13",
+  "contractSha256": "f615123d0d614476053bdf66f06496698c99d35c460302955940e4ea42ef2373",
+  "evidenceSha256": "12fc4f398f8b4edf0cc6b447ba3f961ae2a55756015edb884b76c37168ea19fa"
+}

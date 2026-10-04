@@ -1,0 +1,50 @@
+{
+  "scope": "G21 eight external BPM/policy/template current fact contracts",
+  "database": "ruoyi-vue-pro",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "freshRootCaptureId": "29",
+  "assets": [
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21-bpm-policy-facts.sql",
+      "sha256": "51da829aaf0891e36a1490a44bee28bd7a431d9d7c7fccea0f52e4a373895648",
+      "normalizedUtf8LfSha256": "52dcb771a55b60789de3a25c92714b22aea9485358243cde88e33f960e5ae385",
+      "bytes": 58459
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21-bpm-policy-contract.json",
+      "sha256": "f615123d0d614476053bdf66f06496698c99d35c460302955940e4ea42ef2373",
+      "normalizedUtf8LfSha256": "8208e030fb3a0fd622dc638b66acc67515dc16bc2c5db191e37ab442325d1e08",
+      "bytes": 88351
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21_validate_bpm_policy_facts.py",
+      "sha256": "737f72cd5a8c0d797d5d172f53ab4bd0b223f8dea8012dc1120d3d3dd09c3719",
+      "normalizedUtf8LfSha256": "0c01a457d5187ddf03d9632b22462962105203791e662a343e50ef4d11f01291",
+      "bytes": 16853
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21_build_bpm_policy_contract.py",
+      "sha256": "cfaa45b7726ca70ed511ed25f5f79238db0b47384b27bce842a52ee075c3737d",
+      "normalizedUtf8LfSha256": "9979a88c418b7e993c558de2f865b15cfed3c558eeeb6dfd3eb61039e26a14cb",
+      "bytes": 22588
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/test_g21_bpm_policy_facts.py",
+      "sha256": "793465c4a9cafb0c3f1bd65fdc129c3d3f59d342b1d7a16527fe633abbc91459",
+      "normalizedUtf8LfSha256": "8d32090084bc1423b7416fef05094976d124ad0800e95f3e0ef127e93260bc46",
+      "bytes": 9408
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21-bpm-policy-offline-fixture.json",
+      "sha256": "4712fa6501341a51d76f55ab4778efee548d26e547833137e74d4eb90fc3b297",
+      "normalizedUtf8LfSha256": "a15993789f76ef31334e6100eca8d4e9804ca09c4c9c7c27183b0496910b9647",
+      "bytes": 188605
+    },
+    {
+      "file": "doc/tasks/20261002-dcc-public-backend-completion/g21-runtime-eight-proof.json",
+      "sha256": "e9dda78fc1e5de8cbb5cb655009da720a07fc95c6ae4ee92973a616f0bf14f4c",
+      "normalizedUtf8LfSha256": "f791b626a8f5fc9265afec038647934bf3f3927fc386e79b2f23072b2255da56",
+      "bytes": 5725
+    }
+  ]
+}

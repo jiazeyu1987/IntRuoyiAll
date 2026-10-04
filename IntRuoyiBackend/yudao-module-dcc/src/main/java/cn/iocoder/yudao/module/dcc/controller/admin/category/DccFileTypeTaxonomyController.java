@@ -34,6 +34,13 @@ public class DccFileTypeTaxonomyController {
     @Resource
     private DccFileTypeTaxonomyAdminService taxonomyAdminService;
 
+    @GetMapping("/{id:\\d+}/active-category")
+    @Operation(summary = "解析文件类型唯一启用的分类/审批矩阵身份")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:submit','dcc:controlled-file:category:manage')")
+    public CommonResult<Long> activeCategory(@PathVariable Long id) {
+        return success(taxonomyAdminService.resolveActiveCategoryId(id));
+    }
+
     @GetMapping("/upload-options")
     @Operation(summary = "获取上传可用的文件类型分类候选")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")

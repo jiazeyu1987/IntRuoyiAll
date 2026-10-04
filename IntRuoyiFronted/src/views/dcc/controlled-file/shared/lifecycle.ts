@@ -10,6 +10,7 @@ import {
 
 export const DCC_CONTROLLED_FILE_STATUSES = [
   'DRAFT',
+  'WORKING',
   'PENDING_DOC_CONTROL_REVIEW',
   'PENDING_MATRIX_REVIEW',
   'PENDING_MATRIX_APPROVAL',
@@ -20,6 +21,7 @@ export const DCC_CONTROLLED_FILE_STATUSES = [
   'FINALIZING',
   'TRAINING_IN_PROGRESS',
   'PENDING_MANUAL_DISTRIBUTION',
+  'CONTROLLED_PENDING_EFFECTIVE',
   'ACTIVE',
   'REJECTED',
   'WITHDRAWN',
@@ -87,22 +89,24 @@ export type DccPendingControlledFileStatus =
 export const DCC_CONTROLLED_FILE_STATUS_DEFINITIONS: readonly DccControlledFileStatusDefinition[] =
   [
     { value: 'DRAFT', label: '草稿', tagType: 'info', order: 1 },
+    { value: 'WORKING', label: '工作版本', tagType: 'info', order: 1.5 },
     { value: 'PENDING_DOC_CONTROL_REVIEW', label: '待文控审核', tagType: 'primary', order: 2 },
     { value: 'PENDING_MATRIX_REVIEW', label: '待会签审核', tagType: 'primary', order: 3 },
     { value: 'PENDING_MATRIX_APPROVAL', label: '待会签批准', tagType: 'primary', order: 4 },
     { value: 'PENDING_DOC_CONTROL_APPROVAL', label: '待文控批准', tagType: 'primary', order: 5 },
     { value: 'PENDING_APPLICANT_REWORK', label: '待申请人处理回退', tagType: 'warning', order: 6 },
-    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待申请人上传培训记录', tagType: 'warning', order: 7 },
-    { value: 'READY_TO_PUBLISH', label: '待生效处理', tagType: 'warning', order: 8 },
-    { value: 'FINALIZING', label: '生效处理中', tagType: 'warning', order: 9 },
+    { value: 'PENDING_APPLICANT_TRAINING_RECORD', label: '待文控上传培训记录', tagType: 'warning', order: 7 },
+    { value: 'READY_TO_PUBLISH', label: '待受控', tagType: 'warning', order: 8 },
+    { value: 'FINALIZING', label: '受控处理中', tagType: 'warning', order: 9 },
     { value: 'TRAINING_IN_PROGRESS', label: '培训中', tagType: 'warning', order: 10 },
     { value: 'PENDING_MANUAL_DISTRIBUTION', label: '待文控下发', tagType: 'primary', order: 11 },
-    { value: 'ACTIVE', label: '当前有效', tagType: 'success', order: 12 },
+    { value: 'CONTROLLED_PENDING_EFFECTIVE', label: '受控（待生效）', tagType: 'warning', order: 11.5 },
+    { value: 'ACTIVE', label: '受控（已生效）', tagType: 'success', order: 12 },
     { value: 'REJECTED', label: '已驳回', tagType: 'danger', order: 13 },
     { value: 'WITHDRAWN', label: '已撤回', tagType: 'info', order: 14 },
     { value: 'OBSOLETE', label: '已作废', tagType: 'info', order: 15 },
     { value: 'SUPERSEDED', label: '已替代', tagType: 'info', order: 16 },
-    { value: 'FINALIZATION_FAILED', label: '生效失败', tagType: 'danger', order: 17 }
+    { value: 'FINALIZATION_FAILED', label: '受控处理失败', tagType: 'danger', order: 17 }
   ]
 
 export const DCC_CONTROLLED_FILE_STAGE_DEFINITIONS: readonly DccControlledFileStageDefinition[] = [

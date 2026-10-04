@@ -1,0 +1,115 @@
+{
+  "status": "prepared_input_interface_not_runtime_proof",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "sourceContainer": "int-ruoyi-mysql",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "maxAgeSeconds": 900,
+  "actualUserWriteApprovalRecordedByRoot": false,
+  "rootAuthorizationReference": null,
+  "descriptorShape": {
+    "path": "absolute path beneath C:/IntRuoyiBackups/20261003-dcc-integration",
+    "sha256": "actual raw SHA256"
+  },
+  "clonePass": {
+    "description": "hashed actual G21 driver-receipt.json plus every protected sibling artifact; offline fixtures not accepted as runtime proof",
+    "actualRuntimeReceipt": true,
+    "testFixture": false,
+    "driverSha256": "86e9e8b5504f926dfd1d7ad529afe006393289ec811378232ded997c097e99a9",
+    "artifacts": [
+      {
+        "relativePath": "each file under exact journal parent excluding driver-receipt.json",
+        "sha256": "raw checksum"
+      }
+    ],
+    "mandatoryEvidence": [
+      "restore-schema/data exit0 and unchanged prepared dumpSha256",
+      "first/repeat original-rows/history/seed33/ledger19/new17/schema facts/result",
+      "first/repeat actualSQL whole/material/prefix hashes and38 exact ordered markers",
+      "raw ledger19/17 counts/restored922+final939 identities",
+      "old16+ledger unchanged and new33/new19 exact",
+      "full copied V3baseline27info+10procdef fields",
+      "each actual metadata/stdio/queryfactreceipt sealed"
+    ]
+  },
+  "sourceProof": {
+    "fileName": "g21-prerequisite-runtime-receipt.json",
+    "content": "same Root25 aggregation contract with fresh facts/tools/proof checksums, in a new protected collection directory",
+    "additionalGroupFields": [
+      "captureReceiptSha256"
+    ],
+    "collectedAtRule": "every group.collectedAtUtc exactly equals captureReceipt.capture.collectedAtUtc; age0..900s, original25 IDs exact; actual storedfacts revalidated by each frozenvalidator"
+  },
+  "newBackupReceipt": {
+    "database": "ruoyi-vue-pro",
+    "sourceContainer": "int-ruoyi-mysql",
+    "serverUuid": "fixed actual UUID",
+    "tableCount": 210,
+    "databaseWrites": false,
+    "credentialsExported": false,
+    "backupDirectory": "new independent direct child of protected BACKUPS",
+    "startedAtUtc": "freshUTC",
+    "completedAtUtc": "freshUTC",
+    "sourceCapture": {
+      "database": "ruoyi-vue-pro",
+      "serverUuid": "fixed UUID",
+      "mysqlVersion": "8.0.40",
+      "captureId": "same epoch captureidentity sealed in everydumpcommand receipt"
+    },
+    "sourceSnapshotSha256": "actual sourceBaseline descriptor.sha256",
+    "writerExclusionReceiptSha256": "actual writerExclusion descriptor.sha256",
+    "affectedTables": "exact original16 plus infra_release_migration",
+    "artifacts": "schema/data/affected original Root receipt shape +dumpCommandReceipt {path,sha256}; gzip bytes/expanded size/SHA/exit0/integrity checked; actual schema922 identity/data210/affected17 tables parsed",
+    "dumpCommandReceipt": {
+      "kind": "schema|data|affected",
+      "database": "ruoyi-vue-pro",
+      "sourceContainer": "int-ruoyi-mysql",
+      "serverUuid": "fixed UUID",
+      "captureId": "matches newBackupReceipt.sourceCapture.captureId",
+      "exitCode": 0,
+      "path": "actual artifact path",
+      "sha256": "artifact raw checksum",
+      "startedAtUtc": "inside backup range",
+      "completedAtUtc": "inside backup range",
+      "argvProfile": "mysqldump-readonly-fixed-local-no-routines-events-no-credentials-export"
+    }
+  },
+  "sourceBaseline": {
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "fixed UUID",
+    "origin": "ACTUAL_SOURCE_READ_NOT_CLONE",
+    "databaseWrites": false,
+    "collectedAtUtc": "freshUTC",
+    "snapshot": "original16 plus ledger; each columns complete ordered originalinformation_schema, rows {HEX(actualPK):exactrowSHA},count,aggregateSha256; liveprewrite rediscovers fullcolumns independently"
+  },
+  "sourceEnvironment": {
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "fixed UUID",
+    "databaseWrites": false,
+    "collectedAtUtc": "freshUTC",
+    "environment": "full existingdetail SELECT environment JSON object with kind/database/server/defaults"
+  },
+  "writerExclusionReceipt": {
+    "database": "ruoyi-vue-pro",
+    "serverUuid": "fixed UUID",
+    "collectedAtUtc": "writer barrier epochUTC",
+    "allKnownWritersExcluded": true,
+    "mysqlFacts": {
+      "database": "ruoyi-vue-pro",
+      "serverUuid": "fixedUUID",
+      "mysqlVersion": "8.0.40",
+      "activeTransactions": 0,
+      "otherClientConnections": 0,
+      "enabledEvents": 0
+    },
+    "meaning": "Root verifies all known writers excluded/fenced throughoutsourcebackup+upgrade; driver never stops/restartsservices. ActualSQL rereads all non-daemonconnections (including null/other DB) +all enabled events +transactions twice."
+  },
+  "epochOrder": "writerReceipt <= eachproof /sourcebaseline/sourceenvironment <= backupStarted <= eachdumpStart <= eachdumpEnd <= backupCompleted <= now, evidenceage<=900",
+  "scopeExclusions": [
+    "no G22/G23 audit operation configuration",
+    "no quality proof registration",
+    "no new databases/restore/delete/servicecontrol",
+    "no general release migration planner or priorledger upsert"
+  ],
+  "runtimeStatus": "missing actualclone proof and fresh source inputs; current actualprepared state must stayblocked"
+}

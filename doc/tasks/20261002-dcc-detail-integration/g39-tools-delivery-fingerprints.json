@@ -1,0 +1,112 @@
+{
+  "status": "G39_VERSIONED_TOOLS_PREPARED_FOR_ROOT_REVIEW_NO_ACTUAL_RESUME",
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-schema.py",
+      "bytes": 15774,
+      "sha256": "0e7f5817a651c2f3323f223df485082ad32b7ca02c24693c1d6a70c3af05a864"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-driver.py",
+      "bytes": 43114,
+      "sha256": "667a81edf468e1212afef8a01ae5cb996bd62737cfba7db6138e30259e0db2d4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-collector.py",
+      "bytes": 20733,
+      "sha256": "d564137718838d4e0d5a1272daa6f19ee77ab93ec1ac7011340948e0dcdfed30"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-schema-test.py",
+      "bytes": 2716,
+      "sha256": "5b9892e1d3a196ace3e13564725debe21987280e96e4fe79e2ecd7908d875d0d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-driver-test.py",
+      "bytes": 9130,
+      "sha256": "05d5da23b87cd9147b8bcef3f7ddd7880c5ef00e283a394b10123e20588ee00f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-collector-test.py",
+      "bytes": 2197,
+      "sha256": "c5e8442944c46bcc4d3ce5e4501780d4f9accb417c5f54507b0e1eb4fd7b3d9e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-schema-resume-design.md",
+      "bytes": 8411,
+      "sha256": "a3789f152a53530693ff0e0f336807d7762a2a865ea85febf006f9226915b3da"
+    }
+  ],
+  "rawEvidence": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-schema-red.log",
+      "bytes": 5343,
+      "sha256": "ccf5ded5461be9c94743863543726d9dd1457e2b7e974ec6df331a173bd73a71"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-schema-green.log",
+      "bytes": 107,
+      "sha256": "2c6992c9829eddc55c4c4ffa5572afb8f785f03c267e6de9e4782d91ca9635c3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-resume-green.log",
+      "bytes": 3090,
+      "sha256": "676f605d4e04dd390f43ccfd2a7ace35530507e4b258fbad15770d9f711b7e52"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-resume-green-r2.log",
+      "bytes": 109,
+      "sha256": "7389171a9307d38565d216ed68eef3de6ce5afb8aec2089767fc22dd84f0bf45"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-collector-green.log",
+      "bytes": 107,
+      "sha256": "c660c811f40747fc6b588448afeb78ec33ca207233c07f90d7fced8196669cbc"
+    }
+  ],
+  "protectedActualFactSha256": "0d51a3fa3c0c940c3ecfe582dfe1b140e0eeeae8424c8a78d0b9c7699d366200",
+  "offlineResults": {
+    "schemaActual104Facts": {
+      "tests": 4,
+      "failures": 0,
+      "cliExitCode": 0
+    },
+    "resumeIsolatedTransport": {
+      "tests": 6,
+      "failures": 0,
+      "cliExitCode": 0
+    },
+    "collectorPureModeAst": {
+      "tests": 4,
+      "failures": 0,
+      "cliExitCode": 0
+    }
+  },
+  "actualDatabaseActionsByAgent": false,
+  "actualResumeRunByAgent": false,
+  "mavenOrJavaChanges": false,
+  "originalSealedTools": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema.py",
+      "bytes": 14373,
+      "sha256": "c4ef3ac1004df611fa4b81adc936c7f3202de00e65645649e8bc4deb762e3356"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g29-driver-r2.py",
+      "bytes": 33060,
+      "sha256": "1560ee9ad223b4f65b6393428b84e949422fcc433ce92242285dd762d71c2f56"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g29-collector-r2.py",
+      "bytes": 19812,
+      "sha256": "b2db3483ecc747010a89d87ceea377bd0885f73bc8883cbdd49a71f7d2fde574"
+    }
+  ],
+  "originalSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261003_dcc_legacy_source_name_occupancy.sql",
+    "bytes": 5304,
+    "sha256": "621fe041064ac07c5bfe995abd556c3f9436b0253c883a3b7d2b33014e68de2a"
+  },
+  "sourceByteProvenance": "Newdriver=R2copy+schemaimport/explicitmanualresume; Newcollector=R2copy+versioneddriver/explicitcloneREPEATinputmode; NewSchema=G28copy+externalescapedliterallexer only",
+  "G33Followup": "Root/JavaOwner updates SCHEMA_VALIDATOR_SHA and fixture to new driver rawSHA; validatorReceipt field shape unchanged; formal schema contract unchanged"
+}

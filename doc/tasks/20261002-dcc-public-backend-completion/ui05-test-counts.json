@@ -1,0 +1,125 @@
+{
+  "ui05-usage-page-green-2.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccReferenceUsagePageDatabaseTest"
+      }
+    ],
+    "executions": 2
+  },
+  "ui05-usage-page-affected-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccReferenceUsagePageDatabaseTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationPlatformPersistenceTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationsApiErrorTest"
+      },
+      {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAuthorityReferenceCombinationTest"
+      }
+    ],
+    "executions": 59
+  },
+  "ui05-usage-page-final-regression-2.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceApiPersistenceTest"
+      },
+      {
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceTransactionTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccReferenceUsagePageDatabaseTest"
+      },
+      {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest"
+      },
+      {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationPlatformPersistenceTest"
+      },
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationsApiErrorTest"
+      },
+      {
+        "tests": 28,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAuthorityReferenceCombinationTest"
+      },
+      {
+        "tests": 33,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReferenceViewDirectoryCombinationTest"
+      }
+    ],
+    "executions": 117
+  }
+}

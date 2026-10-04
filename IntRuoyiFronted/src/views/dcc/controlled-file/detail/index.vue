@@ -8,7 +8,7 @@
         </el-button>
         <el-tag type="info" effect="plain">只读预览态</el-tag>
         <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
-          当前有效版 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
+          当前受控版本 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
         </el-tag>
       </div>
       <div class="detail-viewer-split" data-testid="dcc-controlled-preview-layout">
@@ -49,7 +49,7 @@
             <el-tag v-if="fileDetail?.modifying" type="warning">修改中</el-tag>
             <el-tag v-if="fileDetail?.status === 'SUPERSEDED'" type="info">历史版</el-tag>
             <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
-              当前有效版 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
+              当前受控版本 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
             </el-tag>
           </div>
           <div class="mt-8px flex flex-wrap items-center gap-10px text-13px text-[var(--el-text-color-secondary)]">
@@ -65,7 +65,16 @@
               返回
             </el-button>
             <el-button
-              v-if="showDetailManagementActions && canUploadApplicantTrainingRecord"
+              v-if="showDetailManagementActions && !isApprovalUploadHandlingPage && fileDetail"
+              data-testid="dcc-detail-working-browser"
+              :disabled="!isWorkingBrowserDetailCurrent"
+              plain
+              @click="openWorkingFileInBrowser"
+            >
+              检出 / 检入
+            </el-button>
+            <el-button
+              v-if="!isBrowserTraceabilityPage && canUploadApplicantTrainingRecord"
               type="primary"
               plain
               :loading="applicantTrainingRecordDialog.submitting"
@@ -88,7 +97,6 @@
               v-if="showDetailManagementActions && detailActionState.canManualRelease"
               type="primary"
               plain
-              :loading="manualReleaseLoading"
               @click="handleManualRelease"
             >
               <Icon icon="ep:promotion" class="mr-5px" />
@@ -459,10 +467,10 @@
             <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
               去修改正文
             </el-button>
-            <el-button v-else type="primary" @click="openActionDialog('approve')">
+            <el-button v-else type="primary" :disabled="isSignoffTask && !signoffReadyForReview" @click="openActionDialog('approve')">
               {{ approvalActionLabels.approveText }}
             </el-button>
-            <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
+            <el-button v-if="!isReturnedApplicantTask" type="danger" plain :disabled="isSignoffTask && !signoffReadyForReview" @click="openActionDialog('reject')">
               {{ approvalActionLabels.rejectText }}
             </el-button>
             <el-button v-if="isExternalReviewProcess && returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
@@ -510,6 +518,47 @@
       </el-table>
       <el-empty v-else :image-size="72" description="暂无普通附件" />
     </ContentWrap>
+
+    <ContentWrap v-if="fileDetail" data-testid="dcc-detail-formal-version-facts">
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="实际变更类型">{{ revisionChangeLabel(fileDetail.revisionChangeType) }}</el-descriptions-item>
+        <el-descriptions-item label="文件记录身份">#{{ fileDetail.id }}</el-descriptions-item>
+        <el-descriptions-item label="升版申请尝试">{{ fileDetail.revisionAttemptNo ?? '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="返工前驱文件">{{ fileDetail.reworkPredecessorControlledFileId ? `#${fileDetail.reworkPredecessorControlledFileId}` : '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="本版本 BPM">{{ fileDetail.processInstanceId || '未绑定' }}</el-descriptions-item>
+        <el-descriptions-item label="批准选择的文件负责人">{{ fileDetail.fileOwnerNicknameSnapshot ? `${fileDetail.fileOwnerNicknameSnapshot}（${fileDetail.fileOwnerUsernameSnapshot}，账号 #${fileDetail.fileOwnerUserId}）` : '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="负责人批准签名">{{ fileDetail.fileOwnerSignatureId ? `#${fileDetail.fileOwnerSignatureId} · BPM ${fileDetail.fileOwnerProcessInstanceId}` : '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="来源受控版本">{{ fileDetail.revisionSourceVersionNo || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="选用正文小版本">{{ fileDetail.selectedIterationVersionNo || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="变更说明">{{ fileDetail.changeDescription || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="受控日期">{{ fileDetail.controlledTime || '尚未受控' }}</el-descriptions-item>
+        <el-descriptions-item label="预设生效日期">{{ fileDetail.effectiveDate || '未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="实际生效时间">{{ fileDetail.activatedTime || '尚未生效' }}</el-descriptions-item>
+        <el-descriptions-item label="下发时间">{{ fileDetail.distributedTime || '尚未下发' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-alert
+        v-if="fileDetail.status === 'CONTROLLED_PENDING_EFFECTIVE'" class="mt-12px" type="warning" :closable="false"
+        :title="`${fileDetail.effectiveDate || '生效日期未记录'} 生效，生效前不得执行；旧版保持当前执行版。`" />
+    </ContentWrap>
+    <DetailApplicationPanel
+      v-if="fileDetail && showDetailManagementActions && !isExternalReviewProcess && checkPermi(['dcc:controlled-file:submit']) && ['WORKING', 'ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(fileDetail.status)"
+      :key="String(fileDetail.id)" :file="fileDetail" @submitted="handleApplicationSubmitted"
+    />
+    <DetailSignoffAssignment
+      v-if="fileDetail && isSignoffTask && approvalProcessInstanceId"
+      :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
+      @state="signoffAssignmentState = $event" @saved="reloadAll"
+    />
+
+    <DetailApplicationHistory
+      v-if="fileDetail?.id" :file-id="fileDetail.id"
+      :primary-bpm-round="applicationRoundSelection.primaryBpmRound"
+      :context-key="applicationRoundContextKey"
+      :context-error="applicationRoundSelection.blockedReason"
+      :lock-primary-round="applicationRoundSelection.lockPrimaryRound" />
+    <DetailRelationsPanel
+v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
+      :key="String(fileDetail.id)" :file="fileDetail" :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
 
     <template v-if="showLifecycleTraceSections">
     <ContentWrap data-testid="dcc-detail-project-code-linkage" class="mt-16px">
@@ -568,7 +617,7 @@
         </div>
         <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
           <Icon icon="ep:position" class="mr-5px" />
-          查看受控浏览当前有效版
+          查看受控版本正文
         </el-button>
       </div>
       <div class="controlled-browser-linkage-grid">
@@ -587,7 +636,7 @@
           <div class="controlled-browser-linkage-card__meta">状态来源：后端盖章件可用性</div>
         </div>
         <div class="controlled-browser-linkage-card">
-          <div class="controlled-browser-linkage-card__label">当前有效版来源（master 当前生效版本）</div>
+          <div class="controlled-browser-linkage-card__label">当前执行受控版本来源</div>
           <div class="controlled-browser-linkage-card__value">{{ currentActiveVersionSourceText }}</div>
                 <div class="controlled-browser-linkage-card__meta">高级信息：currentActiveVersionNo {{ fileDetail?.currentActiveVersionNo || '-' }}</div>
         </div>
@@ -608,7 +657,7 @@
         </div>
         <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
           <Icon icon="ep:position" class="mr-5px" />
-          查看受控浏览当前有效版
+          查看受控版本正文
         </el-button>
       </div>
       <div class="publish-completion-summary-grid">
@@ -687,10 +736,10 @@
           <el-button v-if="isReturnedApplicantTask" type="primary" @click="openReturnedApplicantReworkInBrowser">
             去修改正文
           </el-button>
-          <el-button v-else type="primary" @click="openActionDialog('approve')">
+          <el-button v-else type="primary" :disabled="isSignoffTask && !signoffReadyForReview" @click="openActionDialog('approve')">
             {{ approvalActionLabels.approveText }}
           </el-button>
-          <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
+          <el-button v-if="!isReturnedApplicantTask" type="danger" plain :disabled="isSignoffTask && !signoffReadyForReview" @click="openActionDialog('reject')">
             {{ approvalActionLabels.rejectText }}
           </el-button>
           <el-button v-if="isExternalReviewProcess && returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
@@ -1012,6 +1061,18 @@
           :width="getVersionHistoryColumnWidthString('versionNo', 100)"
           v-bind="sortColumnAttrs('versionNo')"
         />
+        <el-table-column label="本版变更事实" min-width="240">
+          <template #default="{ row }">
+            <div>{{ revisionChangeLabel(row.revisionChangeType) }}</div>
+            <div>文件记录：#{{ row.id }} · 升版尝试：{{ row.revisionAttemptNo ?? '未记录' }}</div>
+            <div>返工前驱：{{ row.reworkPredecessorControlledFileId ? `#${row.reworkPredecessorControlledFileId}` : '未记录' }}</div>
+            <div>BPM：{{ row.processInstanceId || '未绑定' }}</div>
+            <div>文件负责人：{{ row.fileOwnerNicknameSnapshot || '未记录' }} · 账号 {{ row.fileOwnerUserId || '未记录' }}</div>
+            <div>来源受控版：{{ row.revisionSourceVersionNo || '未记录' }}</div>
+            <div>送审正文：{{ row.selectedIterationVersionNo || '未记录' }}</div>
+            <div>说明：{{ row.changeDescription || '未记录' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column
           v-if="isVersionHistoryColumnVisible('changeReasonText')"
           label="升版原因/变更说明"
@@ -1343,7 +1404,7 @@
             <div>
               <div class="text-15px font-600">受控打印记录</div>
               <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-                仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。
+                仅当前受控版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。
               </div>
             </div>
             <el-button
@@ -2060,6 +2121,9 @@
             type="textarea"
           />
         </el-form-item>
+        <el-form-item v-if="requiresFileOwnerSelection" label="文件负责人" :error="actionDialog.fieldErrors.fileOwnerUserId">
+          <ApprovalFileOwnerPicker :key="`${fileDetail?.id}:${approvalTodoTask?.id}`" v-model="actionDialog.form.fileOwnerUserId" :disabled="actionDialog.submitting" />
+        </el-form-item>
         <template v-if="shouldCollectFourthNodeFiles">
           <el-alert title="最终批准前需确认盖章 PDF 和正式存入路径；培训与分发证据由前序节点冻结。" type="info" :closable="false" />
           <el-form-item label="盖章 PDF" :error="actionDialog.fieldErrors.stampedPdfUploadTicket">
@@ -2426,61 +2490,20 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="obsoleteDialog.visible" title="作废当前版本" width="720px" destroy-on-close>
-      <el-alert
-        v-if="obsoleteDialog.inlineError"
-        :closable="false"
-        class="mb-16px"
-        show-icon
-        type="error"
-        :title="obsoleteDialog.inlineError"
+    <DetailObsoleteApplication
+      v-if="fileDetail" v-model="obsoleteDialog.visible" :file="fileDetail"
+      :allowed="canSubmitObsoleteAction" @submitted="reloadAll"
+    />
+
+    <el-dialog v-model="workflowDistributionVisible" title="受控文件下发" width="880px" destroy-on-close>
+      <WorkflowDistributionPanel
+        v-if="fileDetail?.processInstanceId && fileDetail.effectiveDate"
+        :file-id="fileDetail.id" :process-instance-id="fileDetail.processInstanceId" :version-no="fileDetail.versionNo"
+        :facts="{ status: fileDetail.status, effectiveDate: fileDetail.effectiveDate, controlledTime: fileDetail.controlledTime, activatedTime: fileDetail.activatedTime, distributedTime: fileDetail.distributedTime }"
+        :can-distribute="detailActionState.canManualRelease" :departments="workflowDistributionDepartments"
+        :load-recipients="getWorkflowDistributionRecipients" :save="distributeControlledWorkflow"
+        @saved="handleWorkflowDistributionSaved"
       />
-      <el-form label-width="96px">
-        <el-form-item label="作废原因">
-          <el-input
-            v-model="obsoleteDialog.reason"
-            :autosize="{ minRows: 3, maxRows: 6 }"
-            placeholder="请输入作废原因"
-            type="textarea"
-          />
-        </el-form-item>
-        <el-form-item
-          v-for="task in obsoleteDialog.startUserSelectTasks"
-          :key="task.id"
-          :label="`${task.name}审批人`"
-        >
-          <UserSelectV2
-            v-model="obsoleteDialog.startUserSelectAssignees[task.id]"
-            multiple
-            :placeholder="`请选择${task.name}审批人`"
-          />
-        </el-form-item>
-      </el-form>
-      <section data-testid="dcc-obsolete-form-center-panel">
-        <ActionFormPanel
-          v-if="dccObsoleteFormCenterContext"
-          :context="dccObsoleteFormCenterContext"
-          :disabled="
-            obsoleteDialog.submitting || !canSubmitObsoleteAction || !obsoleteDialog.reason.trim()
-          "
-          :form-data="dccObsoleteFormCenterFormData"
-          :idempotency-key="obsoleteDialog.idempotencyKey"
-          :initial-instance-id="obsoleteDraftAction?.id"
-          :initial-instance-code="obsoleteDraftAction?.instanceCode"
-          :initial-instance-status="obsoleteDraftAction?.status"
-          :initial-bpm-process-instance-id="obsoleteDraftAction?.bpmProcessInstanceId"
-        />
-        <el-alert
-          v-else
-          :closable="false"
-          show-icon
-          title="当前文件缺少平台动作上下文，无法发起作废申请。"
-          type="error"
-        />
-      </section>
-      <template #footer>
-        <el-button @click="closeObsoleteDialog">关闭</el-button>
-      </template>
     </el-dialog>
 
     <el-dialog v-model="publishDialog.visible" title="提交生效处理申请" width="520px" destroy-on-close>
@@ -2835,6 +2858,19 @@
 
 <script lang="ts" setup>
 import type { UploadProps, UploadUserFile } from 'element-plus'
+import DetailApplicationHistory from './DetailApplicationHistory.vue'
+import { resolveApplicationRoundSelection, validateApplicationApprovalRead, type ApplicationApprovalRead } from './application-round-context'
+import DetailRelationsPanel from './DetailRelationsPanel.vue'
+import DetailApplicationPanel from './DetailApplicationPanel.vue'
+import ApprovalFileOwnerPicker from './ApprovalFileOwnerPicker.vue'
+import DetailSignoffAssignment from './DetailSignoffAssignment.vue'
+import DetailObsoleteApplication from './DetailObsoleteApplication.vue'
+import { revisionChangeLabel } from '../revision/revision-model'
+import WorkflowDistributionPanel from '../workflow/WorkflowDistributionPanel.vue'
+import { distributeControlledWorkflow, getWorkflowDistributionRecipients } from '@/api/dcc/controlledFile/workflowLifecycle'
+import { trainingUploadSession } from '../workflow/workflow-actions'
+import { buildWorkingBrowserRoute } from '../shared/working-browser-navigation'
+import { buildSubmittedApplicationRoute, requireSubmittedApplicationId } from '../shared/submitted-application-navigation'
 import * as DefinitionApi from '@/api/bpm/definition'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
 import * as TaskApi from '@/api/bpm/task'
@@ -2861,7 +2897,6 @@ import {
   getControlledFileUploadDirectoryTree,
   getPaperDistributionRecords,
   isControlledFileTaskPasswordInvalidError,
-  manualReleaseControlledFile,
   publishControlledFile,
   recoverPaperDistribution,
   recognizeControlledFileProjectCode,
@@ -2894,7 +2929,6 @@ import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { useUserStore } from '@/store/modules/user'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
-import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import PublicationFollowupPanel from './PublicationFollowupPanel.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
@@ -2902,10 +2936,8 @@ import type { TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter
 import { checkPermi } from '@/utils/permission'
 import { downloadByData } from '@/utils/filt'
 import { generateUUID } from '@/utils'
-import { previewApprovalRoute } from '@/api/dcc/controlledFile/approvalRoutes'
 import {
   findActiveBusinessAction,
-  findDraftBusinessAction,
   type FormInstanceVO
 } from '@/api/form-center/instance'
 import { resolveBusinessAction, type BusinessActionContextVO } from '@/api/form-center/businessAction'
@@ -2926,6 +2958,7 @@ import {
   getDccApprovalSignatureMeaningPreview,
   resolveDccApprovalSignatureErrorMessage,
   submitDccApprovalAction,
+  validateDccApprovalActionForm,
   type DccApprovalActionMode
 } from './approval-actions'
 import {
@@ -3027,7 +3060,6 @@ const controlledPrintHighlightRecordId = ref<number>()
 let controlledPrintHighlightTimer: ReturnType<typeof setTimeout> | undefined
 const projectCodeRecognitionLoading = ref(false)
 const trainingAckLoading = ref(false)
-const manualReleaseLoading = ref(false)
 const paperDistributionAckLoadingId = ref<number>()
 const paperDistributionRecoverLoadingId = ref<number>()
 const electronicReceiptLoadingRecipientId = ref<number>()
@@ -3046,6 +3078,23 @@ const userNameMap = ref(new Map<number, string>())
 const deptNameMap = ref(new Map<number, string>())
 const departmentList = ref<DeptVO[]>([])
 const approvalTodoTask = ref<any>()
+const signoffAssignmentState = ref<{ fileId: string; taskId: string; assigned: boolean }>()
+const isSignoffTask = computed(() => !isExternalReviewProcess.value && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW')
+const approvalProcessInstanceId = computed(() => String(route.query.processInstanceId || fileDetail.value?.processInstanceId || ''))
+const applicationApprovalRead = ref<ApplicationApprovalRead>()
+const applicationRoundContextKey = computed(() => JSON.stringify([String(fileDetail.value?.id || ''), route.fullPath, String(currentUserId.value)]))
+const applicationRoundSelection = computed(() => resolveApplicationRoundSelection({
+  fileId: fileDetail.value?.id,
+  requestedFileId: controlledFileId.value,
+  nativeBpmRound: fileDetail.value?.processInstanceId,
+  requestedBpmRound: route.query.processInstanceId,
+  requestedTaskId: route.query.taskId,
+  contextKey: applicationRoundContextKey.value,
+  readContext: applicationApprovalRead.value
+}))
+const signoffReadyForReview = computed(() => signoffAssignmentState.value?.assigned === true
+  && signoffAssignmentState.value.taskId === String(approvalTodoTask.value?.id || '')
+  && signoffAssignmentState.value.fileId === String(fileDetail.value?.id || ''))
 const approvalTaskList = ref<DccTaskLike[]>([])
 const stageProgressList = ref<DccTaskStageProgress[]>([])
 const paperDistributionRecords = ref<ControlledFilePaperDistributionRecordVO[]>([])
@@ -3353,9 +3402,18 @@ const actionDialog = reactive({
   fieldErrors: {} as Record<string, string>,
   form: {
     password: '',
-    reason: ''
+    reason: '',
+    fileOwnerUserId: undefined as string | undefined
   }
 })
+const requiresFileOwnerSelection = computed(() => actionDialog.mode === 'approve' && !isExternalReviewProcess.value
+  && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_APPROVAL'
+  && ['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(fileDetail.value?.processDefinitionKey || '')
+  && approvalProcessInstanceId.value === fileDetail.value?.processInstanceId)
+let actionDialogGeneration = 0
+const actionDialogContextKey = computed(() => JSON.stringify([route.fullPath, String(controlledFileId.value),
+  String(fileDetail.value?.id || ''), String(approvalTodoTask.value?.id || ''), approvalProcessInstanceId.value,
+  actionDialog.mode, String(currentUserId.value)]))
 
 const taskActionReadiness = reactive({
   loading: false,
@@ -3447,18 +3505,8 @@ const controlledPrintResultDialog = reactive({
   record: null as ControlledFilePrintRecordVO | null
 })
 
-const obsoleteDialog = reactive({
-  visible: false,
-  submitting: false,
-  inlineError: '',
-  reason: '',
-  idempotencyKey: '',
-  startUserSelectTasks: [] as ProcessInstanceApi.ApprovalNodeInfo[],
-  startUserSelectAssignees: {} as Record<string, number[]>,
-  approveUserSelectAssignees: {} as Record<string, number[]>
-})
+const obsoleteDialog = reactive({ visible: false })
 
-const obsoleteDraftAction = ref<FormInstanceVO | null>(null)
 
 const publishDialog = reactive({
   visible: false,
@@ -3507,6 +3555,21 @@ const selectedAttachmentPreviewSource = computed(() =>
     : undefined
 )
 const currentUserId = computed(() => userStore.getUser.id)
+watch(() => [route.fullPath, String(controlledFileId.value), String(fileDetail.value?.id || ''),
+  String(approvalTodoTask.value?.id || ''), approvalProcessInstanceId.value, String(currentUserId.value)], () => {
+  actionDialogGeneration++
+  taskActionReadinessRequestSeq++
+  actionDialog.visible = false
+  actionDialog.submitting = false
+  actionDialog.form.fileOwnerUserId = undefined
+  actionDialog.form.password = ''
+  actionDialog.form.reason = ''
+}, { flush: 'sync' })
+onBeforeUnmount(() => {
+  actionDialogGeneration++
+  taskActionReadinessRequestSeq++
+  actionDialog.form.password = ''
+})
 const fileStatus = computed(() => toDccControlledFileStatus(fileDetail.value?.status))
 const obsoleteActionLocked = computed(() => Boolean(activeObsoleteAction.value))
 const publishActionLocked = computed(() => Boolean(activePublishAction.value))
@@ -3559,9 +3622,9 @@ const controlledPrintPermissionHintDescription = computed(() => {
     return '当前账号缺少受控打印菜单权限，或该文件类别未授予 PRINT 打印权限；页面已按只读方式隐藏受控打印入口。'
   }
   if (!isCurrentActiveVersion.value) {
-    return '受控打印仅允许 master 指向的当前有效 ACTIVE 版本；历史版或候选版不能打印。'
+    return '受控打印仅允许 master 指向的当前受控 ACTIVE 版本；历史版或候选版不能打印。'
   }
-  return '后端动作投影未允许本文件受控打印，请核对文件类别 PRINT 权限和当前有效版本状态。'
+  return '后端动作投影未允许本文件受控打印，请核对文件类别 PRINT 权限和当前受控版本状态。'
 })
 const buildDccActionProjectionMessage = (
   activeAction: FormInstanceVO | null,
@@ -3663,7 +3726,6 @@ const canWithdraw = computed(
 const canUploadApplicantTrainingRecord = computed(
   () =>
     fileStatus.value === 'PENDING_APPLICANT_TRAINING_RECORD' &&
-    fileDetail.value?.requesterId === currentUserId.value &&
     Boolean(fileDetail.value?.needTraining) &&
     isDccControlledFileActionAllowed(fileDetail.value, 'UPLOAD_TRAINING_RECORD')
 )
@@ -3852,7 +3914,7 @@ const currentActiveVersionSourceText = computed(() => {
   if (file.status === 'ACTIVE' && !activeVersionNo) {
     return `当前详情 ACTIVE 版本 ${currentVersionNo || '-'}`
   }
-  return `非受控浏览当前有效版：${getDetailStatusLabel(file.status)}`
+  return `非受控浏览当前受控版本：${getDetailStatusLabel(file.status)}`
 });
 const publishVisibilityScopeText = computed(() => {
   const file = fileDetail.value
@@ -3988,7 +4050,10 @@ const getVersionHistoryIdentityText = (version: ControlledFileVersionHistoryVO) 
   const identityParts = [
     version.fileNumber,
     version.versionNo ? `版本 ${version.versionNo}` : '',
-    version.title
+    version.title,
+    `文件 #${version.id}`,
+    version.revisionAttemptNo == null ? '' : `升版尝试 ${version.revisionAttemptNo}`,
+    version.processInstanceId ? `BPM ${version.processInstanceId}` : ''
   ].filter((item): item is string => Boolean(item))
   return identityParts.length ? identityParts.join(' · ') : `记录 #${version.id}`
 }
@@ -4556,22 +4621,6 @@ const buildObsoleteBusinessActionContext = (
   }
 }
 
-const dccObsoleteFormCenterContext = computed(() =>
-  buildObsoleteBusinessActionContext(
-    fileDetail.value,
-    obsoleteDialog.reason.trim() || '作废当前版本'
-  )
-)
-const dccObsoleteFormCenterFormData = computed(() => ({
-  reason: obsoleteDialog.reason.trim(),
-  obsoleteReason: obsoleteDialog.reason.trim(),
-  controlledFileId: controlledFileId.value,
-  fileNumber: fileDetail.value?.fileNumber || '',
-  versionNo: fileDetail.value?.versionNo || '',
-  startUserSelectAssignees: obsoleteDialog.startUserSelectAssignees,
-  approveUserSelectAssignees: obsoleteDialog.approveUserSelectAssignees
-}))
-
 const buildPublishBusinessActionContext = (
   detail: ControlledFileVO | undefined,
   reason = '发布候选版本'
@@ -4605,10 +4654,10 @@ const loadActiveObsoleteAction = async (
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   activeObsoleteAction.value = null
   activeObsoleteActionError.value = ''
-  if (viewerMode.value || !showDetailManagementActions.value) {
+  if (viewerMode.value) {
     return
   }
-  if (detail.status !== 'ACTIVE') {
+  if (!['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE'].includes(detail.status)) {
     return
   }
   const context = buildObsoleteBusinessActionContext(detail)
@@ -4622,31 +4671,6 @@ const loadActiveObsoleteAction = async (
   } catch (error) {
     if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
       activeObsoleteActionError.value = resolveReadSideErrorMessage(error, '作废动作状态加载失败，请查看后端错误后重试。')
-    }
-  }
-}
-
-const loadDraftObsoleteAction = async (
-  detail: ControlledFileVO,
-  sequence = detailLoadSequence,
-  requestedId = controlledFileId.value,
-  requestedRoute = route.fullPath
-) => {
-  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
-  obsoleteDraftAction.value = null
-  if (viewerMode.value || !showDetailManagementActions.value || detail.status !== 'ACTIVE') {
-    return
-  }
-  const context = buildObsoleteBusinessActionContext(detail)
-  if (!context) {
-    return
-  }
-  try {
-    const action = await findDraftBusinessAction(context)
-    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) obsoleteDraftAction.value = action
-  } catch (error) {
-    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
-      activeObsoleteActionError.value = resolveReadSideErrorMessage(error, '作废草稿加载失败，请查看后端错误后重试。')
     }
   }
 }
@@ -4682,6 +4706,12 @@ const loadActivePublishAction = async (
 }
 
 let detailLoadSequence = 0
+const workingBrowserLoadedContext = ref<{ sequence: number; fileId: string; route: string }>()
+const isWorkingBrowserDetailCurrent = computed(() => Boolean(workingBrowserLoadedContext.value
+  && workingBrowserLoadedContext.value.sequence === detailLoadSequence
+  && workingBrowserLoadedContext.value.fileId === controlledFileId.value
+  && workingBrowserLoadedContext.value.route === route.fullPath
+  && String(fileDetail.value?.id) === controlledFileId.value))
 
 const isCurrentDetailLoad = (sequence: number, requestedId: string, requestedRoute: string) =>
   sequence === detailLoadSequence &&
@@ -4714,10 +4744,11 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
     return false
   }
+  if (String(detail?.id) !== requestedId) throw new Error('文件详情响应与当前所选文件身份不一致，请重新读取')
   fileDetail.value = detail
+  workingBrowserLoadedContext.value = { sequence, fileId: requestedId, route: requestedRoute }
   await loadActiveObsoleteAction(detail, sequence, requestedId, requestedRoute)
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
-  await loadDraftObsoleteAction(detail, sequence, requestedId, requestedRoute)
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
   await loadActivePublishAction(detail, sequence, requestedId, requestedRoute)
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
@@ -4862,6 +4893,8 @@ const syncStageProgress = () => {
 
 const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = controlledFileId.value,
                                   requestedRoute = route.fullPath) => {
+  const roundContextKey = applicationRoundContextKey.value
+  applicationApprovalRead.value = undefined
   const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
   const taskId = String(route.query.taskId || '')
   if (isBrowserTraceabilityPage.value || !processInstanceId) {
@@ -4882,17 +4915,30 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
     if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
       return
     }
+    const hasRequestedRoundContext = (route.query.processInstanceId != null && route.query.processInstanceId !== '') ||
+      (route.query.taskId != null && route.query.taskId !== '')
+    const verifiedRound = hasRequestedRoundContext ? validateApplicationApprovalRead(processInstanceId, taskId, taskList) : undefined
+    if (detail?.todoTask) validateApplicationApprovalRead(processInstanceId, String(detail.todoTask.id), [detail.todoTask])
     const normalizedTaskList = taskList as DccTaskLike[]
     approvalTaskList.value = normalizedTaskList
     approvalTodoTask.value = detail?.todoTask || findCurrentUserTodoTask(normalizedTaskList)
+    if (verifiedRound) applicationApprovalRead.value = { contextKey: roundContextKey, ...verifiedRound }
     syncStageProgress()
+  } catch (cause) {
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) applicationApprovalRead.value = {
+      contextKey: roundContextKey,
+      error: resolveReadSideErrorMessage(cause, '实际办理轮次核验失败，未读取其他轮次属性')
+    }
+    throw cause
   } finally {
-    approvalLoading.value = false
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) approvalLoading.value = false
   }
 }
 
 const reloadAll = async () => {
   const sequence = ++detailLoadSequence
+  workingBrowserLoadedContext.value = undefined
+  applicationApprovalRead.value = undefined
   const requestedId = controlledFileId.value
   const requestedRoute = route.fullPath
   try {
@@ -5076,19 +5122,23 @@ const openBpmDetail = () => {
   })
 }
 
-const openReturnedApplicantReworkInBrowser = () => {
+const openWorkingFileInBrowser = () => {
   const file = fileDetail.value
   if (!file?.id) {
     return
   }
-  router.push({
-    name: 'DccControlledFileBrowser',
-    query: {
-      status: 'PENDING_APPLICANT_REWORK',
-      keyword: file.fileNumber || file.title || file.fileName || undefined
-    }
-  })
+  if (!isWorkingBrowserDetailCurrent.value || String(file.id) !== controlledFileId.value) {
+    message.error('当前文件详情尚未读取成功，请重新读取后进入检出 / 检入。')
+    return
+  }
+  try {
+    router.push(buildWorkingBrowserRoute(file))
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  }
 }
+
+const openReturnedApplicantReworkInBrowser = () => openWorkingFileInBrowser()
 
 const isDialogCancelled = (error: unknown) => error === 'cancel' || error === 'close'
 
@@ -5302,16 +5352,43 @@ const clearApplicantTrainingRecordFieldError = (field: string) => {
   delete applicantTrainingRecordDialog.fieldErrors[field]
 }
 
+const requireApplicantTrainingRecordContext = () => {
+  const fileId = fileDetail.value?.id
+  const processInstanceId = fileDetail.value?.processInstanceId
+  if (!canUploadApplicantTrainingRecord.value || !fileId || !processInstanceId) {
+    throw new Error('当前文件或培训流程轮次缺失，请刷新后重新办理')
+  }
+  const prefix = trainingUploadSession(fileId, processInstanceId, 'n').slice(0, -1)
+  if (!applicantTrainingRecordUploadSessionId.value.startsWith(prefix)) {
+    applicantTrainingRecordUploadSessionId.value = trainingUploadSession(
+      fileId,
+      processInstanceId,
+      generateUUID().replaceAll('-', '').slice(0, 16)
+    )
+  }
+  return { fileId, processInstanceId, sessionId: applicantTrainingRecordUploadSessionId.value }
+}
+
 const handleApplicantTrainingRecordChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   if (!file.raw) {
     return
   }
+  let context: ReturnType<typeof requireApplicantTrainingRecordContext>
+  try {
+    context = requireApplicantTrainingRecordContext()
+  } catch (error) {
+    applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(error, '培训上传上下文缺失')
+    return
+  }
   const requestSequence = ++applicantTrainingRecordUploadSequence
-  const sessionId = applicantTrainingRecordUploadSessionId.value
+  const { fileId, processInstanceId, sessionId } = context
   const isCurrentApplicantTrainingRecordUpload = () =>
     requestSequence === applicantTrainingRecordUploadSequence &&
     applicantTrainingRecordUploadSessionId.value === sessionId &&
-    applicantTrainingRecordDialog.visible
+    applicantTrainingRecordDialog.visible &&
+    canUploadApplicantTrainingRecord.value &&
+    fileDetail.value?.id === fileId &&
+    fileDetail.value?.processInstanceId === processInstanceId
   clearApplicantTrainingRecordFieldError('trainingRecordUploadTicket')
   applicantTrainingRecordFileList.value = uploadFiles.slice(-1)
   applicantTrainingRecordDialog.file = undefined
@@ -5320,7 +5397,7 @@ const handleApplicantTrainingRecordChange: UploadProps['onChange'] = async (file
     const uploaded = await uploadControlledFilePreview(
       file.raw as File,
       'TRAINING_RECORD',
-      buildDetailUploadPreviewContext(sessionId)
+      { ...buildDetailUploadPreviewContext(sessionId), controlledFileId: fileId }
     )
     if (!isCurrentApplicantTrainingRecordUpload()) {
       try {
@@ -5420,6 +5497,7 @@ const handleExternalOutputFileRemove: UploadProps['onRemove'] = () => {
 }
 
 const resetTaskActionReadiness = () => {
+  taskActionReadinessRequestSeq++
   taskActionReadiness.loading = false
   taskActionReadiness.ready = false
   taskActionReadiness.finalApproval = false
@@ -5452,15 +5530,19 @@ const refreshTaskActionReadiness = async () => {
     return false
   }
   const requestSeq = ++taskActionReadinessRequestSeq
+  const requestGeneration = actionDialogGeneration, requestContext = actionDialogContextKey.value
+  const requestFileId = controlledFileId.value
+  const isCurrentReadiness = () => requestSeq === taskActionReadinessRequestSeq && requestGeneration === actionDialogGeneration
+    && requestContext === actionDialogContextKey.value && actionDialog.visible
   taskActionReadiness.loading = true
   taskActionReadiness.error = ''
   try {
-    const readiness = await getControlledFileTaskActionReadiness(controlledFileId.value, {
+    const readiness = await getControlledFileTaskActionReadiness(requestFileId, {
       taskId,
       sessionId: fourthNodeUpload.stampedPdf?.sessionId,
       stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket
     })
-    if (requestSeq !== taskActionReadinessRequestSeq) {
+    if (!isCurrentReadiness()) {
       return false
     }
     taskActionReadiness.ready = readiness.ready
@@ -5469,7 +5551,7 @@ const refreshTaskActionReadiness = async () => {
     applyTaskActionReadinessFieldErrors()
     return readiness.ready
   } catch (error) {
-    if (requestSeq === taskActionReadinessRequestSeq) {
+    if (isCurrentReadiness()) {
       taskActionReadiness.ready = false
       taskActionReadiness.finalApproval = isFourthNodeApprovalTask.value
       taskActionReadiness.blockers = []
@@ -5480,7 +5562,7 @@ const refreshTaskActionReadiness = async () => {
     }
     return false
   } finally {
-    if (requestSeq === taskActionReadinessRequestSeq) {
+    if (isCurrentReadiness()) {
       taskActionReadiness.loading = false
     }
   }
@@ -5531,6 +5613,7 @@ const closeApplicantTrainingRecordDialog = async (submitted: boolean | MouseEven
 }
 
 const submitApplicantTrainingRecordDialog = async () => {
+  if (applicantTrainingRecordDialog.submitting) return
   if (applicantTrainingRecordDialog.uploading) {
     applicantTrainingRecordDialog.inlineError = '培训记录仍在上传，请等待上传完成。'
     return
@@ -5540,24 +5623,43 @@ const submitApplicantTrainingRecordDialog = async () => {
     applicantTrainingRecordDialog.inlineError = '请上传培训记录'
     return
   }
+  let context: ReturnType<typeof requireApplicantTrainingRecordContext>
+  try {
+    context = requireApplicantTrainingRecordContext()
+    if (applicantTrainingRecordDialog.file.sessionId !== context.sessionId) {
+      throw new Error('培训记录不属于当前文件及流程轮次，请重新上传')
+    }
+  } catch (error) {
+    applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(error, '培训记录上下文已变化')
+    return
+  }
+  const upload = applicantTrainingRecordDialog.file
+  const isCurrent = () =>
+    fileDetail.value?.id === context.fileId &&
+    fileDetail.value?.processInstanceId === context.processInstanceId &&
+    applicantTrainingRecordUploadSessionId.value === context.sessionId &&
+    applicantTrainingRecordDialog.visible
   applicantTrainingRecordDialog.submitting = true
   applicantTrainingRecordDialog.inlineError = ''
   applicantTrainingRecordDialog.fieldErrors = {}
   try {
-    await uploadControlledFileTrainingRecord(controlledFileId.value, {
-      sessionId: applicantTrainingRecordDialog.file.sessionId,
-      trainingRecordUploadTicket: applicantTrainingRecordDialog.file.uploadTicket
+    const saved = await uploadControlledFileTrainingRecord(context.fileId, {
+      sessionId: context.sessionId,
+      trainingRecordUploadTicket: upload.uploadTicket
     })
-    message.success('培训记录已上传，流程已进入人工分发')
+    if (!isCurrent()) return
+    if (saved !== true) throw new Error('培训记录绑定未确认成功，请刷新后核对')
+    message.success('培训记录已上传，流程已进入文控审核')
     await closeApplicantTrainingRecordDialog(true)
     await reloadAll()
   } catch (error) {
+    if (!isCurrent()) return
     applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(
       error,
       '培训记录上传失败，请查看错误提示后重试。'
     )
   } finally {
-    applicantTrainingRecordDialog.submitting = false
+    if (isCurrent()) applicantTrainingRecordDialog.submitting = false
   }
 }
 
@@ -5587,7 +5689,7 @@ const cancelActiveObsoleteAction = async () => {
     return
   }
   try {
-    await message.confirm('确认撤回当前作废申请吗？撤回后文件保持当前有效状态。')
+    await message.confirm('确认撤回当前作废申请吗？撤回后文件保持当前受控状态。')
     obsoleteCancelLoading.value = true
     await ProcessInstanceApi.cancelProcessInstanceByStartUser(
       activeAction.bpmProcessInstanceId,
@@ -5700,31 +5802,6 @@ const handleRetryStamp = async () => {
   }
 }
 
-const loadObsoleteStartUserSelectTasks = async () => {
-  obsoleteDialog.startUserSelectTasks = []
-  obsoleteDialog.startUserSelectAssignees = {}
-  obsoleteDialog.approveUserSelectAssignees = {}
-  const context = buildObsoleteBusinessActionContext(fileDetail.value)
-  if (!context) {
-    throw new Error('当前文件缺少平台动作上下文，无法解析作废审批人。')
-  }
-  const categoryId = fileDetail.value?.categoryId
-  if (!categoryId) {
-    throw new Error('当前文件缺少文件类别，无法解析作废审批人。')
-  }
-  const routePreview = await previewApprovalRoute({ categoryId, actionType: 'OBSOLETE' })
-  const matrixReview = routePreview.find((node) => node.stageCode === 'MATRIX_REVIEW')
-  const resolvedUserIds = matrixReview?.resolvedUserIds || []
-  if (!matrixReview || resolvedUserIds.length === 0) {
-    throw new Error('作废会签部门负责人未解析到有效审批人。')
-  }
-  obsoleteDialog.startUserSelectAssignees[matrixReview.stageCode || 'MATRIX_REVIEW'] = resolvedUserIds
-  for (const node of routePreview) {
-    if (node === matrixReview || !node.stageCode || !node.resolvedUserIds?.length) continue
-    obsoleteDialog.approveUserSelectAssignees[node.stageCode] = node.resolvedUserIds
-  }
-}
-
 const loadPublishStartUserSelectTasks = async () => {
   publishDialog.startUserSelectTasks = []
   publishDialog.startUserSelectAssignees = {}
@@ -5764,32 +5841,6 @@ const openObsoleteDialog = async () => {
     return
   }
   obsoleteDialog.visible = true
-  obsoleteDialog.submitting = false
-  obsoleteDialog.inlineError = ''
-  obsoleteDialog.reason = ''
-  obsoleteDialog.idempotencyKey = `DCC-OBSOLETE-${controlledFileId.value}-${generateUUID()}`
-  obsoleteDialog.startUserSelectTasks = []
-  obsoleteDialog.startUserSelectAssignees = {}
-  obsoleteDialog.approveUserSelectAssignees = {}
-  try {
-    await loadObsoleteStartUserSelectTasks()
-  } catch (error) {
-    obsoleteDialog.inlineError = resolveReadSideErrorMessage(
-      error,
-      '作废审批人加载失败，请查看错误提示后重试。'
-    )
-  }
-}
-
-const closeObsoleteDialog = () => {
-  obsoleteDialog.visible = false
-  obsoleteDialog.submitting = false
-  obsoleteDialog.inlineError = ''
-  obsoleteDialog.reason = ''
-  obsoleteDialog.idempotencyKey = ''
-  obsoleteDialog.startUserSelectTasks = []
-  obsoleteDialog.startUserSelectAssignees = {}
-  obsoleteDialog.approveUserSelectAssignees = {}
 }
 
 const openPublishDialog = async () => {
@@ -5889,23 +5940,29 @@ const handleAcknowledgeTraining = async () => {
   }
 }
 
+const workflowDistributionVisible = ref(false)
+const workflowDistributionDepartments = computed(() => departmentList.value.flatMap(department =>
+  department.id == null ? [] : [{ id: department.id, name: department.name }]))
 const handleManualRelease = async () => {
-  if (!ensureDetailActionAllowed('MANUAL_RELEASE', '下发')) {
+  if (!ensureDetailActionAllowed('MANUAL_RELEASE', '下发')) return
+  if (!fileDetail.value?.processInstanceId || !fileDetail.value.effectiveDate || !fileDetail.value.controlledTime) {
+    message.error('当前文件缺少受控时间、生效日期或真实申请流程，无法下发。')
     return
   }
-  try {
-    await message.confirm('确认完成历史培训放行并下发当前版本吗？')
-    manualReleaseLoading.value = true
-    await manualReleaseControlledFile(controlledFileId.value)
-    message.success('当前版本已下发')
-    await reloadAll()
-  } catch (error) {
-    if (!isDialogCancelled(error)) {
-      message.error(resolveReadSideErrorMessage(error, '下发失败，请查看错误提示后重试。'))
-    }
-  } finally {
-    manualReleaseLoading.value = false
-  }
+  workflowDistributionVisible.value = true
+}
+const handleWorkflowDistributionSaved = async (context: { fileId: number | string; processInstanceId: string; versionNo: string }) => {
+  if (String(context.fileId) !== String(fileDetail.value?.id) || context.processInstanceId !== fileDetail.value?.processInstanceId
+    || context.versionNo !== fileDetail.value?.versionNo) return
+  workflowDistributionVisible.value = false
+  message.success('当前受控版本已下发')
+  await reloadAll()
+}
+const handleApplicationSubmitted = async (id: string) => {
+  const submittedId = requireSubmittedApplicationId(id)
+  message.success('本次申请已正式提交')
+  if (submittedId === controlledFileId.value) await reloadAll()
+  else await router.push(buildSubmittedApplicationRoute(submittedId, route.query))
 }
 
 const resetPaperDistributionIssueDialog = () => {
@@ -6419,7 +6476,7 @@ const openControlledPrintDialog = () => {
     return
   }
   if (!controlledPrintAllowed.value) {
-    message.error('当前用户没有受控打印权限，或该文件不是当前有效受控版本。')
+    message.error('当前用户没有受控打印权限，或该文件不是当前受控版本。')
     return
   }
   if (!controlledPrintDialog.form.receivingDepartment) {
@@ -6669,6 +6726,11 @@ const handleDetailDangerCommand = (command: string) => {
 }
 
 const openActionDialog = (mode: DccApprovalActionMode) => {
+  if (isSignoffTask.value && !signoffReadyForReview.value) {
+    message.error('请先由部门负责人签名指派，再由实际会签人独立签名。')
+    return
+  }
+  actionDialogGeneration++
   actionDialog.visible = true
   actionDialog.mode = mode
   actionDialog.submitting = false
@@ -6676,6 +6738,7 @@ const openActionDialog = (mode: DccApprovalActionMode) => {
   actionDialog.fieldErrors = {}
   actionDialog.form.password = ''
   actionDialog.form.reason = ''
+  actionDialog.form.fileOwnerUserId = fileDetail.value?.fileOwnerUserId == null ? undefined : String(fileDetail.value.fileOwnerUserId)
   resetFourthNodeUploads()
   resetTaskActionReadiness()
   if (mode === 'approve' && !isExternalReviewProcess.value) {
@@ -6687,17 +6750,22 @@ const openActionDialog = (mode: DccApprovalActionMode) => {
 }
 
 const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
+  const generation = actionDialogGeneration, context = actionDialogContextKey.value
   if (submitted !== true && !(await cleanupFourthNodeUploadSessions())) {
-    return
+    return false
   }
+  if (generation !== actionDialogGeneration || context !== actionDialogContextKey.value) return false
+  actionDialogGeneration++
   actionDialog.visible = false
   actionDialog.submitting = false
   actionDialog.inlineError = ''
   actionDialog.fieldErrors = {}
   actionDialog.form.password = ''
   actionDialog.form.reason = ''
+  actionDialog.form.fileOwnerUserId = undefined
   resetFourthNodeUploads()
   resetTaskActionReadiness()
+  return true
 }
 
 const buildActionSuccessMessage = (
@@ -6711,10 +6779,51 @@ const buildActionSuccessMessage = (
   return `${actionText}，版本 ${response.versionNo}，证据 ${response.evidenceHashShort}`
 }
 
+const readActionDialogRequest = () => ({
+  generation: actionDialogGeneration,
+  contextKey: actionDialogContextKey.value,
+  fileId: controlledFileId.value,
+  taskId: String(approvalTodoTask.value?.id || ''),
+  processInstanceId: approvalProcessInstanceId.value,
+  action: actionDialog.mode,
+  fileNumber: fileDetail.value?.fileNumber || '',
+  versionNo: fileDetail.value?.versionNo || '',
+  external: isExternalReviewProcess.value,
+  collectFourthNodeFiles: shouldCollectFourthNodeFiles.value,
+  form: {
+    password: actionDialog.form.password,
+    reason: actionDialog.form.reason,
+    fileOwnerRequired: requiresFileOwnerSelection.value,
+    fileOwnerUserId: requiresFileOwnerSelection.value ? actionDialog.form.fileOwnerUserId : undefined,
+    sessionId: fourthNodeUpload.stampedPdf?.sessionId,
+    stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
+    confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
+    selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes.map(scope => ({ ...scope }))
+  },
+  externalForm: {
+    reviewConclusion: externalReviewAction.reviewConclusion || undefined,
+    conclusionComment: externalReviewAction.conclusionComment?.trim() || undefined,
+    sessionId: externalReviewAction.outputFile?.sessionId,
+    outputUploadTicket: externalReviewAction.outputFile?.uploadTicket
+  }
+})
+const actionDialogRequestIsCurrent = (request: ReturnType<typeof readActionDialogRequest>) => actionDialog.visible
+  && request.generation === actionDialogGeneration && request.contextKey === actionDialogContextKey.value
+
 const submitActionDialog = async () => {
+  if (actionDialog.submitting || !actionDialog.visible) return
   if (!approvalTodoTask.value?.id) {
     return
   }
+  const request = readActionDialogRequest()
+  const fingerprint = JSON.stringify([request.form, request.externalForm, request.external, request.collectFourthNodeFiles])
+  const isClickedForm = () => {
+    if (!actionDialogRequestIsCurrent(request)) return false
+    const current = readActionDialogRequest()
+    return fingerprint === JSON.stringify([current.form, current.externalForm, current.external, current.collectFourthNodeFiles])
+  }
+  let signatureSent = false, signatureSucceeded = false
+  const originalRecord = `文件 #${request.fileId}（${request.versionNo}），原任务 #${request.taskId}`
   actionDialog.submitting = true
   actionDialog.inlineError = ''
   actionDialog.fieldErrors = {}
@@ -6722,44 +6831,48 @@ const submitActionDialog = async () => {
     if (!validateExternalReviewConclusion()) {
       return
     }
-    if (isExternalReviewProcess.value) {
-      if (!actionDialog.form.password.trim()) {
+    if (request.external) {
+      if (!request.form.password.trim()) {
         actionDialog.fieldErrors = { password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE }
         actionDialog.inlineError = '请输入登录密码完成电子签名'
         return
       }
-      if (actionDialog.mode === 'approve') {
-        await approveExternalFileReviewTask(controlledFileId.value, {
-          taskId: approvalTodoTask.value.id,
-          password: actionDialog.form.password,
-          reason: actionDialog.form.reason?.trim() || undefined,
-          reviewConclusion: externalReviewAction.reviewConclusion || undefined,
-          conclusionComment: externalReviewAction.conclusionComment?.trim() || undefined,
-          sessionId: externalReviewAction.outputFile?.sessionId,
-          outputUploadTicket: externalReviewAction.outputFile?.uploadTicket
+      if (!isClickedForm()) throw new Error('签名任务或填写内容已变化，请重新提交确认')
+      if (request.action === 'approve') {
+        signatureSent = true
+        await approveExternalFileReviewTask(request.fileId, {
+          taskId: request.taskId,
+          password: request.form.password,
+          reason: request.form.reason?.trim() || undefined,
+          ...request.externalForm
         })
       } else {
-        if (!actionDialog.form.reason.trim()) {
+        if (!request.form.reason.trim()) {
           actionDialog.fieldErrors = { reason: '请输入驳回原因' }
           actionDialog.inlineError = '请输入驳回原因'
           return
         }
-        await rejectExternalFileReviewTask(controlledFileId.value, {
-          taskId: approvalTodoTask.value.id,
-          password: actionDialog.form.password,
-          reason: actionDialog.form.reason.trim()
+        signatureSent = true
+        await rejectExternalFileReviewTask(request.fileId, {
+          taskId: request.taskId,
+          password: request.form.password,
+          reason: request.form.reason.trim()
         })
       }
-      message.success(actionDialog.mode === 'approve' ? '外来文件评审已签名通过' : '外来文件评审已驳回')
-      await closeActionDialog(true)
-      await reloadAll()
+      signatureSucceeded = true
+      if (!actionDialogRequestIsCurrent(request)) { message.success(`${originalRecord}已签名提交，请到原记录核对；当前弹框已保留。`); return }
+      message.success(request.action === 'approve' ? '外来文件评审已签名通过' : '外来文件评审已驳回')
+      const closed = await closeActionDialog(true)
+      if (closed && actionDialogGeneration === request.generation + 1 && actionDialogContextKey.value === request.contextKey) await reloadAll()
       return
     }
-    await refreshTaskActionReadiness()
+    const readinessReady = await refreshTaskActionReadiness()
+    if (!actionDialogRequestIsCurrent(request)) return
+    if (!isClickedForm()) throw new Error('批准文件、任务、意见或负责人选择已变化，请重新确认')
     if (
-      shouldCollectFourthNodeFiles.value &&
-      actionDialog.mode === 'approve' &&
-      !fourthNodeUpload.selectedDistributionScopes.length
+      request.collectFourthNodeFiles &&
+      request.action === 'approve' &&
+      !request.form.selectedDistributionScopes.length
     ) {
       actionDialog.fieldErrors = {
         selectedDistributionScopes: '请选择文件下发范围'
@@ -6767,7 +6880,7 @@ const submitActionDialog = async () => {
       actionDialog.inlineError = '请选择文件下发范围'
       return
     }
-    if (!taskActionReadiness.ready) {
+    if (readinessReady !== true || !taskActionReadiness.ready) {
       applyTaskActionReadinessFieldErrors()
       actionDialog.inlineError =
         taskActionReadiness.error ||
@@ -6775,19 +6888,24 @@ const submitActionDialog = async () => {
         '当前审批条件尚未就绪'
       return
     }
-    const result = await submitDccApprovalAction({
-      fileId: controlledFileId.value,
-      action: actionDialog.mode,
-      form: {
-        password: actionDialog.form.password,
-        reason: actionDialog.form.reason,
-        sessionId: fourthNodeUpload.stampedPdf?.sessionId,
-        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
-        confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
-        selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes
-      },
-      taskId: String(approvalTodoTask.value.id)
-    })
+    const confirmedOwner = request.form.fileOwnerUserId
+    if (request.form.fileOwnerRequired) {
+      const validation = validateDccApprovalActionForm(request.action, request.form)
+      if (validation.fileOwnerUserId) { actionDialog.fieldErrors = { fileOwnerUserId: validation.fileOwnerUserId }; actionDialog.inlineError = validation.fileOwnerUserId; return }
+      try { await message.confirm(`确认批准文件 ${request.fileNumber} ${request.versionNo}，并选择账号 #${confirmedOwner} 为本版本文件负责人？`) }
+      catch (cause) { if (cause === 'cancel' || cause === 'close') return; throw cause }
+      if (!actionDialogRequestIsCurrent(request)) return
+      if (!isClickedForm())
+        throw new Error('批准文件、任务、意见或负责人选择已变化，请重新确认')
+    }
+    signatureSent = true
+    const result = await submitDccApprovalAction({ fileId: request.fileId, action: request.action, form: request.form, taskId: request.taskId })
+    signatureSucceeded = result.success
+    if (!actionDialogRequestIsCurrent(request)) {
+      if (result.success) message.success(`${originalRecord}已签名提交，请到原记录核对；当前弹框已保留。`)
+      else message.warning(`${originalRecord}的签名请求未确认成功，请到原记录核对结果；当前弹框已保留。`)
+      return
+    }
     if (!result.success) {
       if (result.field) {
         actionDialog.fieldErrors = {
@@ -6797,10 +6915,18 @@ const submitActionDialog = async () => {
       actionDialog.inlineError = result.inlineError || ''
       return
     }
-    message.success(buildActionSuccessMessage(actionDialog.mode, result.response))
-    await closeActionDialog(true)
-    await reloadAll()
+    message.success(buildActionSuccessMessage(request.action, result.response))
+    const closed = await closeActionDialog(true)
+    if (closed && actionDialogGeneration === request.generation + 1 && actionDialogContextKey.value === request.contextKey) await reloadAll()
   } catch (error) {
+    if (signatureSucceeded) {
+      message.error(`${originalRecord}签名已提交，但详情刷新失败，请到原记录核对。`)
+      return
+    }
+    if (!actionDialogRequestIsCurrent(request)) {
+      if (signatureSent) message.warning(`${originalRecord}的签名请求未确认成功，请到原记录核对结果；当前弹框已保留。`)
+      return
+    }
     if (isControlledFileTaskPasswordInvalidError(error)) {
       actionDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
@@ -6811,7 +6937,7 @@ const submitActionDialog = async () => {
       '签名提交失败，请查看错误提示后重试。'
     )
   } finally {
-    actionDialog.submitting = false
+    if (actionDialogRequestIsCurrent(request)) actionDialog.submitting = false
   }
 }
 
@@ -6983,7 +7109,26 @@ watch(
   () => route.fullPath,
   () => {
     reloadAll()
-  }
+  },
+  { flush: 'sync' }
+)
+
+watch(
+  () => [String(fileDetail.value?.id || ''), fileDetail.value?.processInstanceId || ''],
+  (current, previous) => {
+    if (!previous?.[0] || (current[0] === previous[0] && current[1] === previous[1])) return
+    const upload = applicantTrainingRecordDialog.file
+    const sessionId = applicantTrainingRecordUploadSessionId.value
+    applicantTrainingRecordDialog.visible = false
+    applicantTrainingRecordDialog.submitting = false
+    resetApplicantTrainingRecordDialog()
+    if (upload?.uploadTicket) {
+      void cleanupControlledFileUploadTicket(sessionId, upload.uploadTicket, upload.requestId).catch((error) => {
+        message.error(resolveReadSideErrorMessage(error, '旧流程培训记录临时文件清理失败，请联系管理员处理。'))
+      })
+    }
+  },
+  { flush: 'sync' }
 )
 </script>
 

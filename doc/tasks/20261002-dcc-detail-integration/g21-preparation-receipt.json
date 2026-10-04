@@ -1,0 +1,45 @@
+{
+  "status": "offline_preparation_verified_pending_fresh_target_collection",
+  "prerequisites": 17,
+  "tables": 41,
+  "requiredColumns": 562,
+  "requiredIndexes": 110,
+  "historicalLedgerFacts": 6,
+  "tests": 13,
+  "testsResult": "PASS",
+  "databaseConnected": false,
+  "migrationExecuted": false,
+  "executionAuthorized": false,
+  "files": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21-structure-prerequisite-review.md",
+      "sha256": "42503182f4f3640f454792949284200b6d6659f685bc7e6da2040a0b7cb94dde",
+      "bytes": 8657
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21-structure-prerequisite-queries.sql",
+      "sha256": "967320dac9c63e2e0ace5b6ca7ae44e1c32fc4de9b8be8e76d535a1b282c04d7",
+      "bytes": 5881
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21-structure-prerequisites.json",
+      "sha256": "84e607d892f50155467eec37b3a7ca276af7fe38779d7bac9bd234dd20fb24c5",
+      "bytes": 255292
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21_structure_prerequisites.py",
+      "sha256": "249d3c03e7a2af97051eaa2e98e3931942a31c9ad82a2158389fa87a5c88a99c",
+      "bytes": 29320
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/test_g21_structure_prerequisites.py",
+      "sha256": "37ab92ccc51514bd2526e9fbaa21a03a2d8ccffa79c5293dcf932dd9b0cf4090",
+      "bytes": 8549
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g21-prior-source-consistency.json",
+      "sha256": "80ff0a39bbb173b53356004b05d9a7487f4b38f9e90a64055188cde5a5fef911",
+      "bytes": 7677
+    }
+  ]
+}

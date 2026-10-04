@@ -5,8 +5,11 @@ import lombok.Data;
 @Data
 public class DccControlledFileCheckinReqVO {
 
-    /** MINOR advances the iteration; MAJOR advances the revision and requires project OWNER. */
+    /** Only MINOR is accepted: check-in creates a hyphen working iteration. */
     private String versionChangeType = "MINOR";
+
+    /** Formal intent belongs to the separate revision submission, never check-in. */
+    private String revisionChangeType;
 
     private String uploadTicket;
 

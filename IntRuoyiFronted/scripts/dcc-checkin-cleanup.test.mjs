@@ -17,6 +17,7 @@ const setup = fail => {
   const calls = []
   const c = {
     checkinUpload: { value: { uploadTicket: 'SOURCE-X', sessionId: 'S1', requestId: 'R1' } },
+    checkinUploadContext: {value:{fileId:'1',clientSessionId:'S1',scopedSessionId:'S1',ticket:'SOURCE-X'}},
     checkinDrawingPdfUpload: { value: undefined }, checkinSourceState: { value: 'ready' },
     checkinUploadSessionId: { value: 'S1' }, checkinCleanupLoading: { value: false },
     checkinSubmitting: { value: false }, checkinUploadLoading: { value: false }, checkinDrawingPdfLoading: { value: false },

@@ -1,0 +1,15 @@
+{
+  "status": "AUTHENTICATED_MAINTENANCE_ENTRY_DESIGN_PREPARED_NOT_IMPLEMENTED",
+  "reviewSha256": "a4b1f48728ff537f0fe717bd58a9953fe515f81fac97a60e3a4d4f47a7b76e8f",
+  "actualAuthApi": "OAuth2TokenCommonApi",
+  "tokenRefreshCompatibilityExplicitlyRejected": true,
+  "actualTokenReadOrAuthentication": false,
+  "productionEdits": 0,
+  "mavenRuns": 0,
+  "actualDBOrObjectActions": 0,
+  "newPermissionRequested": false,
+  "preferredEntry": "explicit local once-only command/runner, default absent noREST nojob; formalverifiedauthonly",
+  "actual39BytesComplete": false,
+  "actualQuality26Approved": false,
+  "registrationWriteAuthorized": false
+}

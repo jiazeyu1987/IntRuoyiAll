@@ -37,6 +37,8 @@ export interface DccProjectCodeRespVO {
   batchRecordTotalRecognitionJson?: string | null
   createTime?: number
   updateTime?: number
+  projectLeaderUserId?: number | null
+  defaultAttributesJson?: string | null
 }
 
 export interface DccProjectCodeSaveReqVO {

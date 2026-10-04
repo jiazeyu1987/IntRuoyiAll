@@ -27,6 +27,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
 
     public static final String PAYLOAD_VERSION_V2 = "v2";
     public static final String PAYLOAD_VERSION_V3_IMAGE = "v3-image";
+    public static final String PAYLOAD_VERSION_V4_WORKFLOW = "v4-workflow";
     public static final String EVIDENCE_HASH_ALGORITHM = "HMAC_SHA256";
     public static final String FILE_HASH_ALGORITHM = "SHA-256";
     public static final String STATUS_VALID = "VALID";
@@ -51,7 +52,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 || revision.getSourceFileId() == null
                 || StrUtil.isBlank(revision.getFileNumber())
                 || StrUtil.isBlank(revision.getVersionNo())
-                || StrUtil.isBlank(revision.getProcessInstanceId())) {
+                || req.getProcessInstanceId() == null && StrUtil.isBlank(revision.getProcessInstanceId())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
         String sourceFileHash = digestFile(revision.getSourceFileId());
@@ -61,6 +62,8 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 controlledCopyEvidence.hashForPayload(), signedAtText);
         return DccControlledFileSignatureEvidence.builder()
                 .revisionId(revision.getId())
+                .processInstanceId(req.getProcessInstanceId())
+                .fileNumberSnapshot(req.getProcessInstanceId() == null ? null : revision.getFileNumber())
                 .versionNo(revision.getVersionNo())
                 .sourceFileId(revision.getSourceFileId())
                 .sourceFileHash(sourceFileHash)
@@ -79,7 +82,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 .signatureImageFileSize(req.getSignatureImageFileSize())
                 .signatureImageStatusSnapshot(req.getSignatureImageStatusSnapshot())
                 .signatureImageVerifiedStatus(req.getSignatureImageVerifiedStatus())
-                .evidencePayloadVersion(PAYLOAD_VERSION_V3_IMAGE)
+                .evidencePayloadVersion(payloadVersion(req))
                 .evidenceKeyVersion(signatureEvidenceProperties.getKeyVersion())
                 .evidenceHash(hmacSha256Hex(canonicalPayload))
                 .evidenceHashAlgorithm(EVIDENCE_HASH_ALGORITHM)
@@ -112,6 +115,8 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                 || req.getSignedAt() == null) {
             throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
         }
+        if (req.getProcessInstanceId() != null && StrUtil.isBlank(req.getProcessInstanceId()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
     }
 
     private static void validateControlledCopyReq(DccControlledFileSignatureEvidenceCreateReq req) {
@@ -183,7 +188,7 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
                                          String controlledCopyHash,
                                          String signedAtText) {
         StringBuilder payload = new StringBuilder("{");
-        append(payload, "payloadVersion", PAYLOAD_VERSION_V3_IMAGE);
+        append(payload, "payloadVersion", payloadVersion(req));
         append(payload, "hashAlgorithm", EVIDENCE_HASH_ALGORITHM);
         append(payload, "keyVersion", signatureEvidenceProperties.getKeyVersion());
         append(payload, "tenantId", req.getTenantId());
@@ -202,7 +207,8 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         append(payload, "signatureImageFileSize", req.getSignatureImageFileSize());
         append(payload, "signatureImageStatusSnapshot", req.getSignatureImageStatusSnapshot());
         append(payload, "signatureImageVerifiedStatus", req.getSignatureImageVerifiedStatus());
-        append(payload, "processInstanceId", revision.getProcessInstanceId());
+        append(payload, "processInstanceId", req.getProcessInstanceId() == null
+                ? revision.getProcessInstanceId() : req.getProcessInstanceId());
         append(payload, "taskId", req.getTaskId());
         append(payload, "taskActionResult", req.getTaskActionResult());
         append(payload, "meaningCode", req.getMeaningCode());
@@ -220,6 +226,10 @@ public class DccControlledFileSignatureEvidenceServiceImpl implements DccControl
         append(payload, "reasonText", StrUtil.trimToEmpty(req.getReasonText()));
         payload.append('}');
         return payload.toString();
+    }
+
+    private static String payloadVersion(DccControlledFileSignatureEvidenceCreateReq req) {
+        return req.getProcessInstanceId() == null ? PAYLOAD_VERSION_V3_IMAGE : PAYLOAD_VERSION_V4_WORKFLOW;
     }
 
     private static void append(StringBuilder payload, String field, String value) {

@@ -9,6 +9,8 @@ public class DccControlledFileSignatureSummaryRespVO {
 
     private Long id;
     private String taskId;
+    private String processInstanceId;
+    private String fileNumberSnapshot;
     private Long actorId;
     private String actionType;
     private String taskActionResult;

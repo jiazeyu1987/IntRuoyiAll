@@ -63,7 +63,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         String uploadTicket = newTicket();
         LocalDateTime expireTime = LocalDateTime.now().plusMinutes(TICKET_TTL_MINUTES);
         try {
-            temporaryFileMapper.insert(DccControlledFileTemporaryFileDO.builder()
+            var temporaryFile=DccControlledFileTemporaryFileDO.builder()
                     .uploadTicket(uploadTicket)
                     .sessionId(sessionId)
                     .purpose(purpose)
@@ -78,7 +78,9 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                     .expireTime(expireTime)
                     .cleanupStatus(CLEANUP_ACTIVE)
                     .requestId(StrUtil.trimToNull(command.requestId()))
-                    .build());
+                    .build();
+            temporaryFile.setTenantId(TenantContextHolder.getRequiredTenantId());
+            if(temporaryFileMapper.insert(temporaryFile)!=1)throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         } catch (DuplicateKeyException ex) {
             DccUploadTicketCreated winner = resolveReusableActiveTicket(command.userId(), command.categoryId(), sessionId, purpose,
                     contentSha256);

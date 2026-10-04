@@ -17,6 +17,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.FileVersion;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.RelationChange;
+import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.CurrentRelations;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_DUPLICATE;
@@ -36,88 +42,176 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccControlledFileMasterMapper controlledFileMasterMapper;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore relationStore;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicy relationAccessPolicy;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolver latestFileResolver;
 
     @Override
+    public List<FileVersion> listCurrentRelatedFiles(Long actorId, Long sourceFileId) {
+        FileVersion source=requireSelected(sourceFileId);
+        relationAccessPolicy.assertNameVisible(actorId,sourceFileId);
+        relationStore.assertCurrentRelationsInitialized(TenantContextHolder.getRequiredTenantId(),source.masterId());
+        return relationStore.jdbc().queryForList("SELECT related_master_id FROM dcc_current_file_relation WHERE tenant_id=? AND source_master_id=? ORDER BY related_master_id FOR UPDATE",
+                Long.class,TenantContextHolder.getRequiredTenantId(),source.masterId()).stream().map(master->{
+            FileVersion latest=requireLatest(master); relationAccessPolicy.assertNameVisible(actorId,latest.controlledFileId()); return latest;
+        }).toList();
+    }
+    @Override
+    @Transactional(rollbackFor=Exception.class)
+    public CurrentRelations getCurrentRelationView(Long actorId,Long sourceFileId){
+        var source=requireSelected(sourceFileId);
+        relationAccessPolicy.assertNameVisible(actorId,sourceFileId);
+        relationStore.lockMaster(TenantContextHolder.getRequiredTenantId(),source.masterId());
+        var rows=relationStore.jdbc().query("SELECT controlled_file_id,row_version FROM dcc_current_file_relation_set WHERE tenant_id=? AND source_master_id=? FOR UPDATE",
+                (rs,n)->new CurrentRelations(rs.getLong(1),rs.getLong(2),List.of()),TenantContextHolder.getRequiredTenantId(),source.masterId());
+        if(rows.size()!=1) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_CURRENT_SET_NOT_INITIALIZED");
+        var currentSource = requireSelected(rows.get(0).sourceControlledFileId());
+        if (!Objects.equals(currentSource.masterId(), source.masterId()))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_SOURCE_IDENTITY_MISMATCH");
+        relationAccessPolicy.assertNameVisible(actorId,rows.get(0).sourceControlledFileId());
+        return new CurrentRelations(rows.get(0).sourceControlledFileId(),rows.get(0).rowVersion(),listCurrentRelatedFiles(actorId,sourceFileId));
+    }
+    @Override
+    public List<DccControlledFileRelatedFileRespVO> listHistoricalRelatedFiles(Long actorId, Long sourceFileId) {
+        requireSelected(sourceFileId); relationAccessPolicy.assertNameVisible(actorId,sourceFileId);
+        var rows=relatedFileMapper.selectListByControlledFileId(sourceFileId);
+        rows.forEach(row->relationAccessPolicy.assertNameVisible(actorId,row.getRelatedControlledFileId()));
+        return rows.stream().map(this::toSnapshotRespVO).toList();
+    }
+    @Override
+    @Transactional(rollbackFor=Exception.class)
+    public RelationChange replaceCurrentRelations(Long actorId, Long sourceFileId, List<Long> ids, List<Long> expected,Long expectedVersion,String idempotencyKey,String reason) {
+        if(actorId==null || actorId<=0 || ids==null || expected==null || reason==null || reason.isBlank()
+                || expectedVersion==null || expectedVersion<0 || idempotencyKey==null || idempotencyKey.isBlank()
+                || idempotencyKey.length()>128 || !idempotencyKey.equals(idempotencyKey.trim())
+                || ids.stream().anyMatch(id->id==null || id<=0) || expected.stream().anyMatch(id->id==null || id<=0)
+                || new LinkedHashSet<>(ids).size()!=ids.size() || new LinkedHashSet<>(expected).size()!=expected.size())
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationInputFailure("DCC_RELATION_COMMAND_REQUIRED");
+        var source=requireSelected(sourceFileId); Long tenant=TenantContextHolder.getRequiredTenantId();
+        relationStore.lockMaster(tenant,source.masterId());
+        relationAccessPolicy.assertCanEditRelations(actorId,sourceFileId);
+        var payload=new java.util.TreeMap<String,Object>();
+        payload.put("actorId",actorId);payload.put("sourceFileId",sourceFileId);payload.put("selectedFileIds",ids.stream().sorted().toList());
+        payload.put("expectedMasterIds",expected.stream().sorted().toList());payload.put("expectedVersion",expectedVersion);payload.put("reason",reason);
+        String hash=org.apache.commons.codec.digest.DigestUtils.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(payload));
+        var committed=relationStore.jdbc().query("SELECT source_file_id,payload_hash,resulting_version,related_master_ids FROM dcc_relation_change_command WHERE tenant_id=? AND source_master_id=? AND idempotency_key=? FOR UPDATE",
+                (rs,n)->new RelationCommand(rs.getLong(1),rs.getString(2),rs.getLong(3),rs.getString(4)),tenant,source.masterId(),idempotencyKey);
+        if(!committed.isEmpty()){
+            var saved=committed.get(0);
+            if(committed.size()!=1 || !Objects.equals(saved.sourceFileId(),sourceFileId) || !Objects.equals(saved.payloadHash(),hash))
+                throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_COMMAND_REPLAY_CONFLICT");
+            return new RelationChange(sourceFileId,saved.resultingVersion(),List.copyOf(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(saved.masterIds(),Long.class)));
+        }
+        relationStore.assertCurrentRelationsInitialized(tenant,source.masterId());
+        var relationSet=relationStore.jdbc().queryForObject("SELECT controlled_file_id,row_version FROM dcc_current_file_relation_set WHERE tenant_id=? AND source_master_id=? FOR UPDATE",
+                (rs,n)->new CurrentRelations(rs.getLong(1),rs.getLong(2),List.of()),tenant,source.masterId());
+        if(!Objects.equals(relationSet.sourceControlledFileId(),sourceFileId))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_SOURCE_VERSION_CHANGED");
+        if(relationSet.rowVersion()!=expectedVersion) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_CONCURRENT_CHANGE");
+        var current=relationStore.jdbc().queryForList("SELECT related_master_id FROM dcc_current_file_relation WHERE tenant_id=? AND source_master_id=? ORDER BY related_master_id FOR UPDATE",Long.class,tenant,source.masterId());
+        if(expected.stream().anyMatch(Objects::isNull) || new LinkedHashSet<>(expected).size()!=expected.size()
+                || !new LinkedHashSet<>(current).equals(new LinkedHashSet<>(expected))) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_CONCURRENT_CHANGE");
+        var selected=new LinkedHashSet<Long>();
+        for(Long id:ids) {
+            var candidate=requireSelected(id);var latest=requireLatest(candidate.masterId());
+            relationAccessPolicy.assertNameVisible(actorId,id);
+            if(!latest.controlled() || !Objects.equals(latest.controlledFileId(),id) || Objects.equals(source.masterId(),candidate.masterId()))
+                throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+            if(!selected.add(candidate.masterId())) throw exception(CONTROLLED_FILE_RELATED_FILE_DUPLICATE);
+        }
+        long nextVersion=expectedVersion;
+        if(!new LinkedHashSet<>(current).equals(selected)){
+            nextVersion=Math.addExact(expectedVersion,1);
+            relationStore.jdbc().update("DELETE FROM dcc_current_file_relation WHERE tenant_id=? AND source_master_id=?",tenant,source.masterId());
+            selected.forEach(master->relationStore.jdbc().update("INSERT INTO dcc_current_file_relation VALUES (?,?,?)",tenant,source.masterId(),master));
+            if(relationStore.jdbc().update("UPDATE dcc_current_file_relation_set SET row_version=? WHERE tenant_id=? AND source_master_id=? AND row_version=?",
+                    nextVersion,tenant,source.masterId(),expectedVersion)!=1) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_CONCURRENT_CHANGE");
+        }
+        String selectedJson=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(List.copyOf(selected));
+        if(selectedJson.length()>8192) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationInputFailure("DCC_RELATION_SELECTION_TOO_LARGE");
+        if(relationStore.jdbc().update("INSERT INTO dcc_relation_change_command (tenant_id,source_master_id,source_file_id,actor_id,idempotency_key,payload_hash,resulting_version,related_master_ids) VALUES (?,?,?,?,?,?,?,?)",
+                tenant,source.masterId(),sourceFileId,actorId,idempotencyKey,hash,nextVersion,selectedJson)!=1)
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_COMMAND_WRITE_FAILED");
+        relationStore.audit("dcc.relation.replace","MASTER_RELATIONS:"+source.masterId(),reason,
+                new RelationChange(sourceFileId,expectedVersion,current),new RelationChange(sourceFileId,nextVersion,List.copyOf(selected)));
+        return new RelationChange(sourceFileId,nextVersion,List.copyOf(selected));
+    }
+    @Override
+    public void assertRelatedContentReadable(Long actorId, Long relatedFileId) {
+        // The content policy must repeat exact tenant/identity/state authorization at the binary endpoint.
+        relationAccessPolicy.assertContentReadable(actorId,relatedFileId);
+    }
+
+    @Override
+    @Transactional(rollbackFor=Exception.class)
     public void validateAndBindRelatedFiles(Long controlledFileId, Long projectCodeId,
                                             List<Long> relatedControlledFileIds) {
         List<Long> normalizedIds = normalizeRelatedFileIds(controlledFileId, projectCodeId, relatedControlledFileIds);
         if (normalizedIds.isEmpty()) {
             return;
         }
-        Map<Long, DccControlledFileDO> fileMap = controlledFileMapper
-                .selectAssociatedFilesByProjectCodeId(projectCodeId, normalizedIds)
-                .stream()
-                .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity()));
-        if (fileMap.size() != normalizedIds.size()) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
-        }
-        if (fileMap.values().stream().anyMatch(file -> file.getMasterId() == null)) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
-        }
-        Map<Long, DccControlledFileMasterDO> masterMap = controlledFileMasterMapper.selectBatchIds(
-                        fileMap.values().stream().map(DccControlledFileDO::getMasterId).filter(Objects::nonNull)
-                                .distinct().toList()).stream()
-                .collect(Collectors.toMap(DccControlledFileMasterDO::getId, Function.identity()));
         DccControlledFileDO owner = controlledFileMapper.selectById(controlledFileId);
         if (owner == null || owner.getMasterId() == null
+                || !Objects.equals(owner.getTenantId(),TenantContextHolder.getRequiredTenantId())
                 || !Objects.equals(owner.getDccProjectCodeId(), projectCodeId)) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
-        boolean containsInvalidCandidate = fileMap.values().stream()
-                .anyMatch(file -> !ACTIVE.getStatus().equals(file.getStatus()) || file.getMasterId() == null
-                        || !Objects.equals(masterMap.get(file.getMasterId()) == null ? null
-                                : masterMap.get(file.getMasterId()).getCurrentActiveControlledFileId(), file.getId())
-                        || !Objects.equals(file.getDccProjectCodeId(), projectCodeId)
-                        || Objects.equals(owner.getMasterId(), file.getMasterId()));
-        if (containsInvalidCandidate) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        owner=requireWritableSnapshotTarget(owner);
+        if(!Objects.equals(owner.getDccProjectCodeId(),projectCodeId))throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        var chosen=new java.util.ArrayList<FileVersion>();var masters=new LinkedHashSet<Long>();
+        for(Long id:normalizedIds) {
+            var file=requireSelected(id);var latest=requireLatest(file.masterId());
+            relationAccessPolicy.assertNameVisible(SecurityFrameworkUtils.getLoginUserId(),id);
+            if(!latest.controlled() || !Objects.equals(id,latest.controlledFileId()) || Objects.equals(owner.getMasterId(),file.masterId()))
+                throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+            if(!masters.add(file.masterId())) throw exception(CONTROLLED_FILE_RELATED_FILE_DUPLICATE);
+            chosen.add(latest);
         }
-        for (Long relatedFileId : normalizedIds) {
-            DccControlledFileDO relatedFile = fileMap.get(relatedFileId);
-            relatedFileMapper.insert(DccControlledFileRelatedFileDO.builder()
+        for (FileVersion relatedFile : chosen) {
+            var relation=DccControlledFileRelatedFileDO.builder()
                     .controlledFileId(controlledFileId)
-                    .relatedControlledFileId(relatedFile.getId())
+                    .relatedControlledFileId(relatedFile.controlledFileId())
                     .projectCodeId(projectCodeId)
-                    .relatedMasterId(relatedFile.getMasterId())
-                    .relatedFileNumberSnapshot(relatedFile.getFileNumber())
-                    .relatedFileNameSnapshot(relatedFile.getFileName())
-                    .relatedVersionNoSnapshot(relatedFile.getVersionNo())
+                    .relatedMasterId(relatedFile.masterId())
+                    .relatedFileNumberSnapshot(relatedFile.fileNumber())
+                    .relatedFileNameSnapshot(relatedFile.fileName())
+                    .relatedVersionNoSnapshot(relatedFile.versionNo())
                     .relationSource(RELATION_SOURCE_UPLOAD)
-                    .build());
+                    .build();
+            relation.setTenantId(TenantContextHolder.getRequiredTenantId());
+            relatedFileMapper.insert(relation);
         }
     }
 
     @Override
     public List<DccControlledFileRelatedFileRespVO> listRelatedFiles(Long controlledFileId) {
-        List<DccControlledFileRelatedFileDO> relations = relatedFileMapper.selectListByControlledFileId(controlledFileId);
-        if (relations.isEmpty()) {
-            return List.of();
-        }
-        List<Long> relatedFileIds = relations.stream()
-                .map(DccControlledFileRelatedFileDO::getRelatedControlledFileId)
-                .toList();
-        Map<Long, DccControlledFileDO> currentFileMap = controlledFileMapper.selectBatchIds(relatedFileIds)
-                .stream()
-                .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity()));
-        return relations.stream()
-                .map(relation -> toRespVO(relation, currentFileMap.get(relation.getRelatedControlledFileId())))
-                .toList();
+        // Existing Query callers remain historical until C explicitly connects the current projection.
+        return listHistoricalRelatedFiles(SecurityFrameworkUtils.getLoginUserId(),controlledFileId);
     }
 
     @Override
+    @Transactional(rollbackFor=Exception.class)
     public void inheritRelatedFiles(Long sourceControlledFileId, Long targetControlledFileId) {
         if (sourceControlledFileId == null || targetControlledFileId == null
                 || Objects.equals(sourceControlledFileId, targetControlledFileId)) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
         DccControlledFileDO target = controlledFileMapper.selectById(targetControlledFileId);
-        if (target == null) {
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        DccControlledFileDO source=controlledFileMapper.selectById(sourceControlledFileId);
+        if (target == null || source==null || !Objects.equals(tenant,target.getTenantId())
+                || !Objects.equals(tenant,source.getTenantId()) || !Objects.equals(source.getMasterId(),target.getMasterId())) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
         }
+        target=requireWritableSnapshotTarget(target);
         List<DccControlledFileRelatedFileDO> sourceRelations =
                 relatedFileMapper.selectListByControlledFileId(sourceControlledFileId);
         for (DccControlledFileRelatedFileDO sourceRelation : sourceRelations) {
-            relatedFileMapper.insert(DccControlledFileRelatedFileDO.builder()
+            if(!Objects.equals(tenant,sourceRelation.getTenantId())) throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+            var inherited=DccControlledFileRelatedFileDO.builder()
                     .controlledFileId(targetControlledFileId)
                     .relatedControlledFileId(sourceRelation.getRelatedControlledFileId())
                     .projectCodeId(target.getDccProjectCodeId())
@@ -126,7 +220,9 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
                     .relatedFileNameSnapshot(sourceRelation.getRelatedFileNameSnapshot())
                     .relatedVersionNoSnapshot(sourceRelation.getRelatedVersionNoSnapshot())
                     .relationSource(RELATION_SOURCE_CHECKIN_INHERITED)
-                    .build());
+                    .build();
+            inherited.setTenantId(tenant);
+            relatedFileMapper.insert(inherited);
         }
     }
 
@@ -144,31 +240,11 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
         if (relations.isEmpty()) {
             return List.of();
         }
-        List<Long> masterIds = relations.stream().map(DccControlledFileRelatedFileDO::getRelatedMasterId)
-                .filter(Objects::nonNull).distinct().toList();
-        Map<Long, DccControlledFileMasterDO> masterMap = controlledFileMasterMapper.selectBatchIds(masterIds).stream()
-                .collect(Collectors.toMap(DccControlledFileMasterDO::getId, Function.identity()));
-        if (masterMap.size() != masterIds.size()) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
-        }
-        List<Long> currentIds = relations.stream().map(relation -> {
-            DccControlledFileMasterDO master = masterMap.get(relation.getRelatedMasterId());
-            return master == null ? null : master.getCurrentActiveControlledFileId();
-        }).toList();
-        if (currentIds.stream().anyMatch(Objects::isNull) || new LinkedHashSet<>(currentIds).size() != currentIds.size()) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
-        }
-        Map<Long, DccControlledFileDO> currentFileMap = controlledFileMapper
-                .selectAssociatedFilesByProjectCodeId(projectCodeId, currentIds).stream()
-                .collect(Collectors.toMap(DccControlledFileDO::getId, Function.identity()));
-        boolean invalid = currentIds.stream().anyMatch(id -> {
-            DccControlledFileDO file = currentFileMap.get(id);
-            return file == null || !ACTIVE.getStatus().equals(file.getStatus());
-        });
-        if (invalid) {
-            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
-        }
-        return List.copyOf(currentIds);
+        // Retained caller signature; resubmission must consume latest controlled, including pending effect.
+        return relations.stream().map(row->requireLatest(row.getRelatedMasterId())).map(file->{
+            if(!file.controlled()) throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+            relationAccessPolicy.assertNameVisible(SecurityFrameworkUtils.getLoginUserId(),file.controlledFileId());return file.controlledFileId();
+        }).distinct().toList();
     }
 
     @Override
@@ -200,17 +276,51 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
         return List.copyOf(uniqueIds);
     }
 
-    private DccControlledFileRelatedFileRespVO toRespVO(DccControlledFileRelatedFileDO relation,
-                                                        DccControlledFileDO currentFile) {
+    private DccControlledFileRelatedFileRespVO toSnapshotRespVO(DccControlledFileRelatedFileDO relation) {
         DccControlledFileRelatedFileRespVO respVO = new DccControlledFileRelatedFileRespVO();
+        respVO.setRelationId(relation.getId());
         respVO.setControlledFileId(relation.getRelatedControlledFileId());
         respVO.setMasterId(relation.getRelatedMasterId());
         respVO.setProjectCodeId(relation.getProjectCodeId());
-        respVO.setFileNumber(currentFile == null ? relation.getRelatedFileNumberSnapshot() : currentFile.getFileNumber());
-        respVO.setFileName(currentFile == null ? relation.getRelatedFileNameSnapshot() : currentFile.getFileName());
-        respVO.setVersionNo(currentFile == null ? relation.getRelatedVersionNoSnapshot() : currentFile.getVersionNo());
-        respVO.setStatus(currentFile == null ? null : currentFile.getStatus());
+        respVO.setFileNumber(relation.getRelatedFileNumberSnapshot());
+        respVO.setFileName(relation.getRelatedFileNameSnapshot());
+        respVO.setVersionNo(relation.getRelatedVersionNoSnapshot());
+        // Historical status is not frozen in the original schema; do not invent one from current metadata.
         return respVO;
     }
+
+    private FileVersion requireSelected(Long fileId) {
+        FileVersion file=latestFileResolver.resolveSelected(fileId);
+        if(file==null || !Objects.equals(file.tenantId(),TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(file.controlledFileId(),fileId) || file.masterId()==null) throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        return file;
+    }
+    private DccControlledFileDO requireWritableSnapshotTarget(DccControlledFileDO identity){
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        if(identity.getMasterId()==null)throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        relationStore.lockMaster(tenant,identity.getMasterId());
+        var target=controlledFileMapper.selectByIdAndTenantForUpdate(tenant,identity.getId());
+        if(target==null || !Objects.equals(tenant,target.getTenantId())
+                || !Objects.equals(identity.getMasterId(),target.getMasterId()))
+            throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        if(target.getControlledTime()!=null || target.getActivatedTime()!=null
+                || (target.getProcessInstanceId()!=null && !target.getProcessInstanceId().isBlank())
+                || java.util.Set.of("ACTIVE","CONTROLLED_PENDING_EFFECTIVE","OBSOLETE","SUPERSEDED",
+                    "PENDING_MATRIX_REVIEW","PENDING_MATRIX_APPROVAL","PENDING_DOC_CONTROL_APPROVAL",
+                    "PENDING_APPLICANT_REWORK","PENDING_APPLICANT_TRAINING_RECORD","TRAINING_IN_PROGRESS",
+                    "PENDING_MANUAL_DISTRIBUTION","REJECTED","WITHDRAWN","APPROVING","APPROVED")
+                    .contains(target.getStatus()==null?"":target.getStatus()))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_APPROVAL_SNAPSHOT_FROZEN");
+        return target;
+    }
+    private FileVersion requireLatest(Long masterId) {
+        if(masterId==null) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_STABLE_IDENTITY_MISSING");
+        FileVersion file=latestFileResolver.resolveLatest(masterId);
+        if(file==null || !Objects.equals(file.tenantId(),TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(file.masterId(),masterId) || file.controlledFileId()==null)
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_RELATION_LATEST_CONTROLLED_MISSING");
+        return file;
+    }
+    private record RelationCommand(Long sourceFileId,String payloadHash,long resultingVersion,String masterIds){}
 
 }

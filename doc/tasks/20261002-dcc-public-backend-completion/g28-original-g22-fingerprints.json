@@ -1,0 +1,80 @@
+{
+  "status": "ORIGINAL_G22_FROZEN_PROVENANCE",
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-coverage-file-byte-red.log",
+      "bytes": 1304,
+      "sha256": "3f02821df6bdfc0cfe7b66be0a082fee045f5899a5d6474b0fc0e81d07ac7df7"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-formal-policy-source-coverage.txt",
+      "bytes": 6682,
+      "sha256": "319fc04a677dcb8670b420c9791bf5e4584d6708e0e765e58dbb637d9ab6b558"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-25-operation-config.review.sql",
+      "bytes": 21820,
+      "sha256": "6d9c185033455151e24f6e6e9909b5ae5c4d0b1e74ee286dc8901128a677f034"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-25-operation-impact.json",
+      "bytes": 24536,
+      "sha256": "476b27400eacd1d8711cea10800f2d27645794446dc70eaac9749e073715f774"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-local-test-configuration-plan.md",
+      "bytes": 14640,
+      "sha256": "5abc79395b1d11ba9045f37be36bd1b0657a1a659eec9b2604369294736a35f3"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-preparation-green.log",
+      "bytes": 226,
+      "sha256": "fe8ebfdd878c6bb9caf5016e25832d6ec50d9b232a421732199e0d3ff6600ebc"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-preparation-red.log",
+      "bytes": 6829,
+      "sha256": "2d78e8be0e82d637e615f7a07586debd93e2de667e8d914a3faae4793949b555"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-quality-version-registration.review.sql",
+      "bytes": 4915,
+      "sha256": "c7f1cd92dc79c2c66026ca1c5c1e40a1430edb0a6db134b91ea933a9e413a3e1"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-gxp-readonly-preflight.sql",
+      "bytes": 1763,
+      "sha256": "b9e2fdb14297202db440fbecfde9d867139b7e2edcb6f3df31c10c8ac43e95cc"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-quality-approval-input.template.json",
+      "bytes": 929,
+      "sha256": "195c57a0380e4c0272058dc8cfd615a60ab42cf5afee0a3825648f082c88f26b"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-quality-registration-red.log",
+      "bytes": 1778,
+      "sha256": "bcb3efaf953ef6023cf14585b44eee73c080ff3055daff563348ac5d5650eb05"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-safe-sql-guard-red.log",
+      "bytes": 22299,
+      "sha256": "53da3b5e7391d33f46daa8d26952d6e459afdd4289c4079ebb96fcf8421ce377"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22-version-identity-red.log",
+      "bytes": 1058,
+      "sha256": "ac386d03f0e5b431d22d7f0354af24c08043f9fc016e97024facf78954645ebb"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\g22_gxp_configuration.py",
+      "bytes": 31192,
+      "sha256": "b466e4bf823fae4bdb19e1ba94e9b526d53e79b8c2e67b393cda281cc5d7b7b2"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-browser\\test_g22_gxp_configuration.py",
+      "bytes": 10269,
+      "sha256": "5fbdaa7f65c1f170f1a5d84f8b4f3bac103550962759e31a54da373c4e5e4744"
+    }
+  ]
+}

@@ -32,6 +32,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
 
     private static final Set<String> DISTRIBUTION_VISIBLE_FILE_STATUSES = Set.of(
             DccControlledFileStatusEnum.ACTIVE.getStatus(),
+            DccControlledFileStatusEnum.CONTROLLED_PENDING_EFFECTIVE.getStatus(),
             DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
             DccControlledFileStatusEnum.OBSOLETE.getStatus()
     );

@@ -6,10 +6,12 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import jakarta.annotation.Resource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.time.LocalDateTime;
 
 @Component
+@ConditionalOnProperty(prefix = "yudao.local-job-control", name = "dcc-upload-temporary-cleanup-enabled", havingValue = "true", matchIfMissing = true)
 public class DccUploadTemporaryFileCleanupScheduler {
 
     public static final int CLEANUP_BATCH_SIZE = 100;

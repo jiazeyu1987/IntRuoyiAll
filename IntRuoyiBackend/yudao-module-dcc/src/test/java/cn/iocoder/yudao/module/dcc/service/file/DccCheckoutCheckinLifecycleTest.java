@@ -24,9 +24,9 @@ class DccCheckoutCheckinLifecycleTest {
 
     @Test
     void checkinAutomaticallyCreatesNextIterationAndPreservesBaseVersion() {
-        DccWindchillVersionNumber base = DccWindchillVersionNumber.parse("A/1");
-        assertEquals("A/2", base.nextIteration().display());
-        assertEquals("A/1", base.display());
+        var base = cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.builder().versionNo("A/1").build();
+        assertEquals("A/1-1", DccControlledFileVersionPolicy.defaultPolicy().nextWorking(base, java.util.List.of(base)).display());
+        assertEquals("A/1", base.getVersionNo());
     }
 
     @Test

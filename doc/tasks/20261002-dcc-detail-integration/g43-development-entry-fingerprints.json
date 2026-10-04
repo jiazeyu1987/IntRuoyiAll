@@ -1,0 +1,82 @@
+{
+  "status": "G43_DEVELOPMENT_ENTRY_SOURCE_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 3,
+  "testFiles": 3,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.java",
+      "bytes": 21693,
+      "sha256": "33fb904bce7b6b7c485c66eca02909706f074c85dc9a430c939d53bc091b44ee"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceCommand.java",
+      "bytes": 5359,
+      "sha256": "6aa55a4f68ad9eaca45a1c32f15249ace3fff869442438cf5d357bdaada51bc1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceExecutor.java",
+      "bytes": 1189,
+      "sha256": "cb0f98dd3020c1e92f046aef55d4aa19a3eb807b8f0be028aae5a4e2a207fcf5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGateTest.java",
+      "bytes": 29826,
+      "sha256": "5545821669888c08ca8ded184c2355b9cb285872a85cd88ff3858a4f55cb3ee8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceCommandTest.java",
+      "bytes": 5736,
+      "sha256": "b6cfc5d0a535947b50dc3edb42456d645dfc864215f78ec058ed970f02746e40"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceKernelTest.java",
+      "bytes": 7925,
+      "sha256": "16abcf735a0a7e0e9999ff759e7e59ad217275812d25964220b4e3e30e52545d"
+    }
+  ],
+  "preservedAssets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessService.java",
+      "bytes": 1407,
+      "sha256": "2298d18acdcc7fd688c60e8b4ec7b6d3e3ff837000f8af67bc3923202c4c32f3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.java",
+      "bytes": 14701,
+      "sha256": "db1c822c7242b8c91ddba1aadbd42d26ac5747e0db1f23d3192c4c678aa95192"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java",
+      "bytes": 10132,
+      "sha256": "ede03e01218342d39c79255cd78d28a441f50a40a41d87ed8f48dfb731faa879"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService.java",
+      "bytes": 5704,
+      "sha256": "b1a9b73970e444b7226d41d58da2729fd11f304ab5df86c2483e416dd9f42f44"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.java",
+      "bytes": 4856,
+      "sha256": "b8413a964cd562a0cde7f1131c63c58e1bd28b5ba2cd5c31a11b739e2b69286f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceRunner.java",
+      "bytes": 2620,
+      "sha256": "d686bb9c8f614145cb14484fb9c4404af136213dea4aa8c369ad01d4618f3a5e"
+    },
+    {
+      "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+      "bytes": 18022,
+      "sha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894"
+    }
+  ],
+  "original41RawShaDrift": [],
+  "original41Count": 41,
+  "supersedesOnlyDeclaredSourcesFromHistoricalSeals": [
+    "g33-independent-entry-closure-receipt.json",
+    "g39-maintenance-pin-fingerprints.json",
+    "g39-conditional-answer-fingerprints.json"
+  ],
+  "runtimeActionsByThisAgent": false
+}

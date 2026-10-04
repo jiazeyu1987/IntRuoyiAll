@@ -9,11 +9,13 @@ public interface DccProjectProductCreateService {
 
     Long createRequest(Long applicantUserId, DccProjectProductCreateReqVO reqVO);
 
+    Long resubmitRejectedRequest(Long applicantUserId, Long rejectedRequestId, DccProjectProductCreateReqVO reqVO);
+
     List<DccProjectProductCreateRequestDO> getPendingRequests();
 
     DccProjectProductCreateRequestDO review(Long operatorUserId, Long requestId, String reason, boolean approve);
 
     DccProjectProductCreateRequestDO approve(Long operatorUserId, Long requestId, String reason, boolean approve);
 
-    DccProjectProductCreateRequestDO retryWrite(Long operatorUserId, Long requestId);
+    DccProjectProductCreateRequestDO retryWrite(Long operatorUserId, Long requestId, String reason);
 }

@@ -1,0 +1,31 @@
+{
+  "status": "G32_OFFLINE_BUILDER_AND_ACTUAL_STRICT_JAVA_FACTORY_PASS_SOURCES_BLOCKED",
+  "tests": 10,
+  "deliveryFingerprintSha256": "348f8bae91e62fcf2b4e115f8f71b4c112904706f7f5c5145098f0c2ada669d8",
+  "realProtectedSources": {
+    "matches": 35,
+    "objects": 39,
+    "missing": 4,
+    "diagnosticPath": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g32-incomplete-source-diagnostic\\blocked-source-diagnostic.json",
+    "diagnosticSha256": "ef7de59a81b2885f05f7fa84013074d74946a53f3742e50431bf72ea975c1e18",
+    "activationManifestPresent": false
+  },
+  "fakeAllMatchManifestAcceptedByActualCompiledJavaFactory": true,
+  "actualJavaRowHashCanonicalizationUsed": true,
+  "runtimeBootMapperProbe": "{\"nil\":null}",
+  "actualApplicationMapperValidatedAtRuntime": false,
+  "actualJdbcPreimageCollectInvoked": false,
+  "actualLegacyActivation": false,
+  "databaseWrites": false,
+  "runtimeServicesStarted": false,
+  "MavenInvoked": false,
+  "GitMutation": false,
+  "supersededFingerprintSha256": "8f94ff98b7d5374cbe2d936a1c3048a0ad260d286f4d38ca0847cfa883461574",
+  "actualJdbcProvenanceRequired": {
+    "readOnly": true,
+    "snapshotIsolation": "REPEATABLE_READ",
+    "mysqlVersion": "8.0.40",
+    "nullProbe": "{\"nil\":null}",
+    "freshUtcAgeMaximumSeconds": 900
+  }
+}

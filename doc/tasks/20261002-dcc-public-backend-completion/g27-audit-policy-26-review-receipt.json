@@ -1,0 +1,15 @@
+{
+  "status": "PROSPECTIVE_FORMAL_DELTA_REVIEW_PASS_NOT_RUNTIME_APPLY",
+  "impactSha256": "95b112d8add1cd116fbd3209727853a108fe3069c46e465fc8febb5a81578c76",
+  "reviewSha256": "a59bd3e221356dd6e0a8e79c7fe2b390e2362a02a29deca8c1d0a413980f6844",
+  "policyCandidateSha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "sourceCoverageSha256": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+  "old33PayloadsUnchanged": true,
+  "extraOperations": 1,
+  "missingDccOperationRows": 26,
+  "maximumQualityVersionRegistrations": 1,
+  "qualityApproved": false,
+  "actualAuthoritativePolicyEdit": false,
+  "actualDatabaseActions": 0,
+  "originalG22ArtifactsPreserved": true
+}

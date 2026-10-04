@@ -6,4 +6,7 @@ public interface DccSignatureVerificationService {
                                                                String stageCode, String actionType, String password,
                                                                String comment);
 
+    DccUnifiedSignatureResult verifyPasswordAndCreateWorkflowSignature(Long actorId, Long controlledFileId,
+            String taskId, String processInstanceId, String stageCode, String actionType, String password, String comment);
+
 }

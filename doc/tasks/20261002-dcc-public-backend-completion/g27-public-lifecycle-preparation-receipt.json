@@ -1,0 +1,16 @@
+{
+  "status": "SOURCE_BASED_PREPARATION_SYNTAX_PASS_REAL_DOM_PENDING",
+  "matrixRows": 22,
+  "actualBrowserActions": 0,
+  "actualApiActions": 0,
+  "actualDatabaseActions": 0,
+  "standaloneFullE2eReady": false,
+  "sourceSha256": "37f8c1e482dc1b5ee0f693d6467a0f4945c158023a6bc8dbaffb0f413316bef0",
+  "planSha256": "3fe656df46af4668c5c543819e28c9b24069ef765b3f76e324e9368951a4c74d",
+  "passwordCaptureHooksRequired": true,
+  "registrationReviewPriorityPreserved": true,
+  "testSha256": "e98bcf6ac77b3094a3acc7b96b57cac9e8496076b5ed5c06f0dc3360ec3a8e1e",
+  "offlineHelperCases": 16,
+  "helperStatus": "OFFLINE_GREEN_REAL_DOM_PENDING",
+  "relativeParentLocatorFixed": true
+}

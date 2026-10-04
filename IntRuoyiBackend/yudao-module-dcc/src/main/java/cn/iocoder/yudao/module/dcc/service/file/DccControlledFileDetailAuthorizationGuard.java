@@ -83,7 +83,7 @@ class DccControlledFileDetailAuthorizationGuard {
             return isCurrentRouteSnapshotParticipant(userId, file)
                     || hasCurrentRunningApprovalTask(userId, file);
         }
-        if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
+        if (!DccControlledFileVersionPolicy.isCurrentControlledStatus(file.getStatus())) {
             return false;
         }
         return canAccessCurrentViewMatrix(userId, file, viewMatrixCache)
