@@ -1,5 +1,21 @@
 # Verification report
 
+## G57 offline training native queue, management notification and readonly handoff
+
+唯一DCC provider培训native queue接FE，准确file+BPM四query管理route，不taskID/handling伪UserTask；工作台完整分页精筛显示真实编号/版本、loadedactor上下文，旧600s阅读确认保持；通知marker/file/BPM双URL同源绑定，原共享列表/顶栏复用。F03已实际guardbrowser caller及readonly指派formgate，管理表单保。effectiveRED核心4、readonly/ctx独立失败保，最终8files32执行PASS0fail/skip/exit0、6prod lint0warning/exit0。fixture新依赖/constant/旧permissionguard断言正向合同校正，不改生产降级。非真实E2E，Root全types/build与独立文控实际发现/通知/upload待验；RootAPI mappingflag/workingnav与BE untouched by this agent。
+
+G56r3阶段证据：Root真实record-node误签名提示；唯一Parent准确native fact-stageformatter与“阶段证据”标签，原审批/legacy签名逻辑保。effectiveRED3/4→相关4files31PASS0fail/skip/exit0、单源lint0warning/exit0；实际formatter+原gridmeta Vue renderer，非新的实际UI验收。旧r2其它source/tests准确未变，新r3Parentpin交RootFEtypes/build，不改BE/服务/签名业务。
+
+G56r2：Root真实完整types10656exit2唯一F03父漏import；旧build23344exit0终态后只补现路由helpernamedimport，不改行为。原viewer2PASS/0skip、Parentlint0warning/exit0，其余6source/9tests精确原pin；新r2types/buildRoot待验，不能用原90或Vite0冒新全类型PASS。
+
+## G56 public folder, readonly trace, native progress and current relation stage
+
+Root后续有限4项授权实现已冻结：publicfolder入口复用现editor；viewer只读trace exactselectedID；native进度按正式file+BPMround/真实tasks，trainingreceive根据actualneed/status/availability、legacy只正式身份，signatureactualASSIGN同task职责；metadatabooleanfalse当前来源不可用准确提示+真history0currentGET，true原latest/edit保持。各独立effectiveRED保，最终15files90执行PASS0fail/skip/exit0、7prod lint0warning/exit0。首组合旧wrapper未配既有helpers导致7fail，一次纠fixture真实deps保assert后全通过。非真实E2E，Root完整types/build/BE同源及实际菜单/前受控关系/多角色progress待验；旧矩阵及seal作为前阶段历史不覆盖当前delivery。
+
+## G56 HTML flow1–8 audit and bounded preview facts
+
+审查矩阵记录正式页面handler→backend链与G55真实收据，未实测管理/独立账号/历史/多日期不冒PASS。有限授权只sharedBasicInfoPanel项目link用formalname/code和“当前执行受控版本”标签，产品和实际ID导航保持，unbound明确。effectiveRED3/4→相关4files15执行PASS0skip/exit0、单源lint0warning/exit0；actualhelper+原template AST renderer不是E2E。其他确认入口/档案/进度缺口未改，Root统一types/build/真实viewer验收待续。
+
 ## G55 detail wording, route reads and formal project facts
 
 Root三实际证据顺派有限同源修正。签名流转提示分列上传升版完整顺序/预设生效与独立作废、reject原样；离开detail准确route/LongID/捕获fullPath守卫、0invalid请求/清读状态/晚响应不补blankaccess；项目文字只正式projectName/Code且API VO补字段，产品栏/真实ID导航/未绑定提示保。各独立BDD/effectiveRED保留，最后5files31执行全PASS/0skip/exit0，2prod lint0warning/exit0；copy旧seal独立保，route初fixture挂住及跨realm误差日志如实记录非业务RED。G54资产和upload实源保持，workflowAPI两新增VO字段明确supersedes旧pin。Root types/build/BE正式投影及真实路由文案验收待续，本Agent无实际环境/DB/API/Git动作，不冒E2E。
@@ -172,3 +188,37 @@ ready_for_closeout for Root Review of prepared artifacts only. Shared task remai
 - g22-gxp-local-test-configuration-plan.md contains source anchors, all25 scope, fixed raw policy/coverage hashes,1row versus25row versus existing19migration authorization boundaries, real person/role/account/ref/signature/time input template, fresh readonly schema/identity preflight, backup/stop-write and Root actual first/repeat/conflict/rollback verification plan. Transient routine DDL residue handling is explicit; no pre-drop or mysql--force workaround.
 - No formal GxP audit policy-operation/version approval page/controller was found in inspected frontend/system sources. Existing signature-governance policy pane is a read of electronic-signature policy. Actual QA/quality approval and local-test database write scopes require user facts/confirmation; no assumption that admin/account1/dev is QA and no production CSV completion claim. QA non-self-approval and real signature/config-audit requirements stay visible rather than fabricating records.
 - Ten exact durable G22 artifacts enter Cleanup Keep; raw logs remain local evidence only. Default reports archive effective RED/GREEN. Structural/AST/JSON/relative Keep/whitespace and actual policy/report hash checks PASS; no DB/network/process driver imports. G21 Git candidate manifest remains frozen; Root owns final asset rescan/approval and actual DB/UI verification.
+
+## G57 r2 — 只读元数据编辑入口
+
+Root R4/086真实readonly viewer出现修改按钮，批准唯一Parent canEditMetadata增加非viewer与管理态两条件，原角色+正式projection保留，已有按钮/handler共同使用。Root已关闭实际UI后，仅该生产computed临时恢复实际旧getter跑新增2项；权威production-red exit1/2失败，再恢复后4文件15项PASS0fail/skip、Parentlint0warning/exit0。前期VM/换行golden宿主错误及撤销的test-only旧getter重建不计业务RED。恢复前后规范化Parenthash严格相同；旧G57seal保留，新r2替代Parentpin、增加专属test，其余5生产/5测试原始hash/bytes全部保持。Source/test冻结，ready_for_closeout_for_Root_review；共享任务仍in_progress。旧34712types/40694build仅旧版本结果，本r2需Root最终types/build与真实readonly无修改/无指派表单复验。未运行API/DB/UI/服务/Git/Maven/fulltypes/build，15项含旧回归不累加32。
+
+## G58 独立线下培训记录类别权限
+
+Root实际独立文控角色/菜单满足但training类别APPROVE绑定批准人，正式BE新TRAINING_RECORD消除批准权耦合。FE只2生产3行：fileCategories actionunion/shared lifecycle permissions+中文option；CategoryPermissionRulesTab原Exclude/filter只护REVIEW/APPROVE自然支持新action，正式wrapper不改。BDD先行，未改源码RED3=1PASS/2FAIL为准确union+实际下拉缺项；末相关3files15执行全PASS0fail/skip/exit0，2prodlint0warning/exit0(71988终态)。新3项实际AST声明/原SFC片段Vue renderer/真实openRules+saveRules经HTTPwrapper及失败可见，其余旧集成/静态数量不累加先前G57。Source/test冻结ready_for_closeout_for_Root_review，Keep/精确pin/log归档齐全；共享任务in_progress。Parent/队列/Rootmapping与working导航未改、账号授权/批准人/DB无写，本Agent无actualUI/API/服务/Git/Maven/fulltypes/build。Root正式BE拼接/全typesbuild/独立文控真实链仍待，不声称真实页面通过。
+
+## G58 AC23 所选工作版本显示
+
+Root真实r7/031检入A/1-1锁释放，库两metadata固定执行受控tag但内容所选WORKING，summary按latest-selected二分误历史。有限2生产修改：browserpresentation准确actualstatus阶段、显式rowMaster.currentActiveVersionNo与ACTIVE相等才当前执行；browser两metadata动态所选阶段/号+正式Master执行事实、版本summarycaller传同rowmaster，不改查询/版本选择/动作ID或检入。有效RED3均FAIL/exit1；首v-for renderer卸载宿主nextSibling恒null挂起仅停精确自己child21112，日志保且不计RED，host真实parent/sibling纠正后旧源RED419ms。末3files20全PASS0fail/skip/exit0、2prodlint0warning/exit0；首GREEN后去掉selected-master默认及unusedimport、补unknown/缺事实判断，最后frozen日志为准。Source/testfreeze，G58category与G57r2旧pins保持，旧seals保；Root最终全types/build和实际UI待验。Agent无真实API/UI/DB/服务/Git/Maven/fulltypesbuild，不累加17旧回归。
+
+## G59 显式生命周期投影维护入口
+
+Root稳定preview/POST合同relay后3生产Parent/newDialog/newAPI+1test。有效未改源RED4FAIL/exit1，首次hostasync语法准备错误不算RED；末5files20PASS0fail/skip/exit0、3prodlint0warning/exit0(final-frozen)。实际Parentgate/handler全部三menu逐项every+doccontrol+非viewer管理；原checkPermi数组为OR已准确避，readonly不mount维护child。显式preview严格同fileLong/hash/nullable事实，展示原DCC控制/生效/审批/签名/BPM/artifacts/master/ref/预像与servertarget/actions；canRepairfalse原SFC渲染只读无POST按钮。原因二confirm、exactcontext/sequence/实时tenant再核、不clientactor/time/fake签名/taskID，payload8字段白名单；receipt绑定身份/hash/key/audit真实时间后完成，旧响应/取消零写，success+refreshfailure明确已维护。15旧回归不累加，Parent继承G57readonly/native合同，G58两组和G57其余11资产同rawpin。Source/test冻结ready_for_closeout_for_Root_review；共享任务in_progress，Root全typesbuild/BEtechnicalrule/实际自有页面维护待，Agent无实际API/UI/DB/service/Git/Maven/globalbuild。
+
+## G59 r2 严格维护合同
+
+Root正式reason500限定、LongMAX及receipt审核，有限2生产newDialog/API+原test，Parent保持旧raw7584fa5。BDD先actual旧源RED8=5PASS/3FAIL，准确501/overflow/invalidstate未拒；守卫实现后有限3files13全PASS0fail/skip/exit0(最后frozen-r3)、2prodlint0warning/exit0(15874终态)，原20不累加。原因maxlength/canSubmit/wrapper皆500，BigInt精确Long最大值保string、overflow拒，回执两allowed同名及previewtarget匹配才complete，POST仍8fields。首Greenrenderer因SFC缓存IFbranches未遍历、试compiler-dom未导出两宿主错误日志保留，不计RED；最终沿现AST遍历branches/实际input renderer通过，无无效import。旧seal保，新r2替代仅Dialog/API/test，Parent/G58/其余G57旧pin保；Source/testfreeze ready_for_closeout_for_Root_review，Rootr2全typesbuild/真实maintenance待，旧55673/47918仅旧源0。Agent无DB/API/UI/service/Git/Maven/globalbuild；旧summary另只读报未改。
+
+## G59 旧工作台分区菜单与未知指标
+
+Root真实Doc无training:mine/allcatch0差异，授权2生产workbenchindex/presentation+1专属test。BDD先actualRED4FAIL/exit1；有限权限gate各旧审批query+processquery、确认mine、失败filequery，未授权section/KPI隐藏0GET，native原独立singleprovider不动。授权HTTP/business失败本区error+null数量/无空table，另一成功row/count保；正式0仅成功显示。指标type/nullhelper不转0，route原样。工作台route/actor/tenant/menu+generation过滤late，现场tenant漂移准确清理过期视图报context变；无角色猜menu、无新增API或600sec逻辑。末3files19全PASS0fail/skip/exit0(专属5/native6/distribute8 overlap)、2prodlint0warn/exit0、旧workbenchstaticPASS；首宿主el-tag未注册warning保不当业务fail。旧全0静态脚本还锁已退休pendingRows，本批未跑改或声称通过，actual行为test保护。2source/testfreeze，oldG57workbenchpin被声明替代、Parentrepairr2/G58/Rootnav保，Root完整typesbuild/独立Doc真实页面待。Agent无actualDB/API/UI/service/Git/Maven/fulltypesbuild，共享任务in_progress，ready_for_closeout_for_Root_review。
+
+## G62 完成面板最终冻结与完整验证
+
+后继单行标题清晰“旧版自动作废”，末5files32/lint0；Root授权单次等效正式全types78607实际0，Vite61132实际0/Buildsuccessful，仅旧Browserslist提示，未依赖更新。source/test在checks期间未写；outDir为本task临时g62-build-local-output，不改共享dist/服务，由Rootcleanup。g62seal只Parentraw86039a+newtest18b99c，所有G58/G59其它声明资产保持，原seals不覆盖。ready_for_closeout_for_Root_review，Root实际新文案UI待，sharedtaskin_progress；无Maven/DB/API/UI/Git/服务。
+
+## G63 正常审批中心native会签指派入口
+
+Root真实OBSOLETE todo受原managementonly隐藏child，Parent一源新增精确写panelgate，原global管理/metadata不放；actualnativefile+BPM/type/任务MATRIXREVIEW/currentassignee/reviewmenu&&!viewertrace+actualreadcontext/taskID/round匹配，防同BPM另一部门。旧管理合格指派保，child原canAssign/部门/签名writer不动。不猜status新枚举。当前OBSOLETE卡用正式scope无需training/会签批准结束，UPREV原needTraining主flow保。权威actual旧template单字段RED=2P/1F exit1→最终5files23PASS0fail/skip/exit0，Parentlint81722actual0、单fulltypes52767actual0；no build(按Root避免重复5min)、旧G62build仅旧源。初helper缺失test3fail含hostfalse默认不作旧sourceRED，后已去；viewer夹具新computed缺、首childtest路径选错18不称完整，末correctexistingchild5组合23。Source/testfreeze Parentf54e+newtest47392+viewer7653，旧seals保，G58/G59其它/child原pin保。ready_for_closeout_for_Root_review/sharedtaskin_progress，RootnormalUI实际签名待，Agent无API/UI/DB/Git/服务/Maven。
+
+G63最终实际：普通审批center会签处理页已准确显示指派原child，元数据等全管理仍false；r9/333无需培训本轮作废二节点说明、345ASSIGN424、350APPROVE425，r10/006审批center正式签名APPROVE426。独立BPMd7c17fa8只MATRIX_REVIEW/MATRIX_APPROVAL且00:43:40.162结束，无runtime任务；原File4033/shared65595OBSOLETE，名称编号保留到2046-10-06 00:43:39，原受控23:09:37/实际生效00:00/上传BPM四签名420–423和record9198354931289保。G63 finite23/lint/types52767实际0，finalsource1+tests2+BDD commit33ad8350a正常push。UIr10/011最终A2完成面板已显示真实旧A1自动作废，不再套SUPERSEDED。27AC正式源码核对/明确差异修复完成，源码与定向测试及真实页面分别记录，不称全部负向排列E2E。源码已push0/0，文档即将单独commit/push。正式cleanup工具不可用，仅精准永久清单/结构验证/原证据私有归档已完成，不冒cleanupPASS/completed，主任务ready_for_closeout。

@@ -1,0 +1,1312 @@
+{
+  "status": "EXACT_CURRENT_TASK_RAW_EVIDENCE_COPIED_AND_HASH_VERIFIED_NOT_DELETED",
+  "count": 217,
+  "assets": [
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b489c76afc9065f82ebba823.xml",
+      "bytes": 96874,
+      "sha256": "545a46929cab2795d24616278b52aeb111dc39f45f0c89679b613605b9802d07"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/de453b58fa64437ec813cca2.log",
+      "bytes": 70019,
+      "sha256": "49baa2bf72e13014095b0bd24e97dea05c2bb07989e2e33bc1c6d0e0129ed549"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5383ef54aa864b928dfb6faa.log",
+      "bytes": 76370,
+      "sha256": "663d66882fe08d548a3bc8e7cb3334c78a31eaac477ee0f993e83d2036bb4502"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b40c08d886651ddfc696560a.log",
+      "bytes": 71374,
+      "sha256": "7eb1640d08a8c7f21df109e750cc0389e5e7b84724d27d904e2dfcf040e533bb"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/846ed6177f475fdc407f7e5e.log",
+      "bytes": 81436,
+      "sha256": "4f34d9c1ab0bb7efd5f45572d072ad8b0fd4aa7ce0a026051fe2f7a25054e323"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c8021fc9aa1510231b667816.xml",
+      "bytes": 101181,
+      "sha256": "c3dba59694e7eee030834003acf777a67f630e3eac7e3fb76ca7e538977a006e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ea623c3484393dd8f39ff474.log",
+      "bytes": 93773,
+      "sha256": "d7a763f04928f2ea18c35286ecea904993b8ddd251801844a26cec72571cc9a6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/04851cd77059a5541dbb13f1.log",
+      "bytes": 99434,
+      "sha256": "5fe3ae81b9d214b2b17114cce94cc30c2ab822160ec680f4ecf6d07001500f55"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/155e21eaeb8ec0269a28dafe.log",
+      "bytes": 75752,
+      "sha256": "fbe6ba9708914a6bf46b7daa62b8237d4fcc62f6f0aaee601682c4c90d9849f2"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-combination.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/612d3217a4fcbb850f4d4cfe.log",
+      "bytes": 86878,
+      "sha256": "b63ffa06279c1a4984486b51ed8879b2f0f8d33364c11dc28f895d83556c4b9b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9a0c1ef9af78047831862b58.xml",
+      "bytes": 98990,
+      "sha256": "36f0ad5604155b2208c117282848b05d768db7e7b1c7e4b0d8a702153309bd3c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-final-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c471bc6c0959d337b9e4283c.log",
+      "bytes": 91829,
+      "sha256": "f761a9d340164d6deee3ca060a56575abdb75b3ece182048237d024faba826e2"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/3e6ca8ed237a5a44f80e7ae3.log",
+      "bytes": 95272,
+      "sha256": "0e448eb4c46bdeaef7c4a19f422c363560160e4ae8cae216a65731d2d9d4bf4b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/99b3430fa6480484c6d253f9.log",
+      "bytes": 70278,
+      "sha256": "fbf4117f645fd946cc08cfcf9fd5781dddce0442f017ef114222e25da1f6547e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/86ec62af96df3af2cb7bc7ce.log",
+      "bytes": 35020,
+      "sha256": "905f5e22ee1aa199c94ec33191708e0020580fdab5f0e2a2d24d0ddb88cf01ae"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-red-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/288b0f7dee714d241baa8827.log",
+      "bytes": 73530,
+      "sha256": "c23322e166edb1e46847e6f882422d2a603bcf0a9cefacc245b86a5c4ab7c93a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-red-r4.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e5c20c1db4cb0a32b61c972b.log",
+      "bytes": 73546,
+      "sha256": "417b65e7bf140c88d01489175df2dbad12927da7432e2b2db5abe6a046634ff5"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/904235dac12cebed7a2c6122.log",
+      "bytes": 35178,
+      "sha256": "ddc52e542785f61e548ee88b624c64eee70be870e31aafb838c729aa1f7c79b6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/18bf9da68243dd295ec4942e.xml",
+      "bytes": 96907,
+      "sha256": "ff93be103570846eb63a4ab7fe0defeb6d1db6fd71ef6598ee4009897f94d359"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/98262a7cf7c58b6d9a6e2950.log",
+      "bytes": 75239,
+      "sha256": "3394d7c7dc2c0deb185173b8b96199ea9b476cabca89da13a4e3c2b6730cc8a9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/93e1e308dba25f65505f0334.log",
+      "bytes": 71401,
+      "sha256": "4b5639c5b4f5f9494f4fc2a37a2aa584f807076c7d44b08f8dbdbcbabbdeaa27"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f6bcdb91515fd0e1491abeb0.log",
+      "bytes": 69452,
+      "sha256": "3c74f928394d33673bc06aea833f1fbee117e1495cac8c2145159d4c03bcb79a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-related-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5b5a83f235a081e85df5c6a5.log",
+      "bytes": 153411,
+      "sha256": "9dc8cd58dbfff8970d4de2cd2ae49b492f3cd325f06df834e4d11e2caca7ad10"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d093e34cbbdffa4b2098ee0d.xml",
+      "bytes": 96230,
+      "sha256": "60e0f725e07cc1472cc2a3a83da0b99dd5dc10620f3f82a76d1eb2a21bcb43ae"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-final-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d35a4b425c173272eadc52f7.log",
+      "bytes": 96483,
+      "sha256": "9d1a46c7ce3a03af8dc13dbc6f159b5647bb83cba7ed9c753ec57f503469b2ab"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/81b210761b73fac9e7ee0ea8.log",
+      "bytes": 62342,
+      "sha256": "9eb68fd91df0463e3611647e8a35e15e3decc77ba73c6d89b7d2b69e7b07ff9f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-green-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b172119edd5ca8a3afd3068c.log",
+      "bytes": 95891,
+      "sha256": "0ced210ad5f0b8e782634a680908d2303a9b029f5a31e8dc2dc7569fde0687b4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/1eb8ab201a311e40373a8b7d.log",
+      "bytes": 35930,
+      "sha256": "69b28edcb72f0eb111d5011fc10aa0c63d23b995e08a9dd859708d78c31efb15"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f53cfde5b788c34640524d44.log",
+      "bytes": 38047,
+      "sha256": "ae33f09a2421176cb3a36d14fba92447980b480c1934f7c7c9e46050aa1da785"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-combination-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a3bfe89be352519c9f8758f3.log",
+      "bytes": 111110,
+      "sha256": "fae595c7e030d49b6730965121e340f2ee46342db05dcac238e593481775e30f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-combination.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/56ebda008f9e637340b2969c.log",
+      "bytes": 183186,
+      "sha256": "4c4270b8e2ccfbeb4537c22e06f8cb5c00289918e8995bcc44f83919bbe0a2ca"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/eac8574fd0895ddd699b11e4.xml",
+      "bytes": 100920,
+      "sha256": "601e9559d5ad8d0d9c5eb0193157ae3a4737cfa8454c8e5c5a0ef61c360cf9e1"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0b9f6ab99775093d47bfb4a0.log",
+      "bytes": 74245,
+      "sha256": "ee500718dab05ba9c033b25a5b6816689eb52685c51b4af749b8ba078e1828e9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/81273e0c6ce7a1f96a3419a7.log",
+      "bytes": 75418,
+      "sha256": "073c9ffc42a4cc3a09953c5c6f0f883df989b41716dcd664175cbec44c5cfffa"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-related-regression-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a62c9c130b43730309d54eb6.log",
+      "bytes": 68219,
+      "sha256": "ef367635f8ee01108da46ae564ccf8e4efa4426e7257024a4e50b7585a1a9c9c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-related-regression-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c5ec6ea0ecba5a5dbb79341a.log",
+      "bytes": 132004,
+      "sha256": "15fb1f350d40d9af141d5228481a458806fb466bc701a23651cb493cdfd71dec"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-related-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7552d19df62acc94695a6562.log",
+      "bytes": 68219,
+      "sha256": "8ed73e87d5aafb640dd5747273682111e7619da52e8698d89b6d43b349b58b75"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/15a9ecb426a4d50a0c48cc39.xml",
+      "bytes": 109550,
+      "sha256": "fc48aa0dbe728c1a205377ce143b15d59ff25f00c33f4a79b5ee7a340b707f69"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-green-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7f7216037f6f7da255b760f5.log",
+      "bytes": 96491,
+      "sha256": "0a72f306fc9224d2abfc1aac213ae11a9c670c102ebd52a2fce36d080f4fad21"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5bd5db34bac68e2a2359964b.log",
+      "bytes": 81519,
+      "sha256": "72268c20df8e9728dc717e0a7d1db5f2e15de911b530e97abb4b13b6cefdd359"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7fe39e37e9357d55c4bb39b8.log",
+      "bytes": 83992,
+      "sha256": "ae2a7de5fb84fe33cf91b6f25a0e4d6de9e831bb878d86cb71a57a91e10c549d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-red-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/dcdf601e0a1a0d70246dbcd1.log",
+      "bytes": 84048,
+      "sha256": "d244ee1012b004e2829d324cdbea82459eca8ce05dfa9604a703d5c9679c1608"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-red-r4.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/cd2cca4312fe4ad43df0aeb0.log",
+      "bytes": 83906,
+      "sha256": "93d982c14ad77e81f731faad012a5b316264a31864c7a255b4d06c00c5d15517"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7dfc0ce274303091955513bf.log",
+      "bytes": 68523,
+      "sha256": "104e37318c9d248c1677c36080c7c536fdd5b212de162de1eefbb93a5dd7b311"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-core-repair-combination.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/756760299c5c06e4c133e306.log",
+      "bytes": 75087,
+      "sha256": "5f443550f1e7daffb7b3cc0ca6c62a98ba13326d7c55cd5721f5c08c5a46d77d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-related-regression-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4ddd46f77bf65a33c1d9903a.log",
+      "bytes": 75670,
+      "sha256": "7a89adca152559814bbc393f22923c1177f29a7fa1ae0c956b50f89350ca7140"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-related-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/db1e70393e71487800d6c3ea.log",
+      "bytes": 307176,
+      "sha256": "24d810b6287f9453cfe0263d8a545583f75d2cd4b9bf1519eb8204fad0deb8c3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-coverage-prepared-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d495af17bae98b685135b6b9.log",
+      "bytes": 131,
+      "sha256": "7021580a77390180911f4b0bbe698d2a7bb47faeddaed7693d8a3f3e8130d86c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-coverage-prepared.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7522118a9b6ec9e1263c94fc.log",
+      "bytes": 1260,
+      "sha256": "499b348e5073db6cc9100ea1abdb5b1437b76cb119516218d88f3ac6055c6e3f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/022d4ec10836a76ab8f1f131.xml",
+      "bytes": 96979,
+      "sha256": "1cd7c16674e4cb29980038c9e363b81716c88697fd2685beeb27b9f8638a7bbc"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ae343e12eae91855dbe21aa5.log",
+      "bytes": 70282,
+      "sha256": "89553fe8ca91af889f2a840f886a2a16e3894ee3ea4cca4399cd0524eda894da"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/42ae77c6de157262350ddfe5.log",
+      "bytes": 71483,
+      "sha256": "75de8ca38a55d7d0dc31c63406ad1562c7cb3c60619b69a9c15f068163cfd8bf"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-combination-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/06fd70f254475e97d8e6ac17.log",
+      "bytes": 83493,
+      "sha256": "ef6e6fba7f2d4d954ce8f4a8fe644e3645829cd3070fda44077a8b3315889e2d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-combination.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5ae71fd1f8dc887a3272fb31.log",
+      "bytes": 40968,
+      "sha256": "425d0fb3792fa8618457bf62e5fa2cd9d6043e23238146764665eb6b8bb3d546"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/aa945e7f491b9403e50cf509.xml",
+      "bytes": 96947,
+      "sha256": "753e70c197a8aa8420e3d6651f7dba0aae4cb473da993d48a4b7e818d4c2ba42"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5760716750ceedafe29c0450.log",
+      "bytes": 75247,
+      "sha256": "d4520f7ada8c7738dfacecf450881bb4957c8ef4136be940029377060dad70b5"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d663fcf8617fd5c3e0b0810f.log",
+      "bytes": 71451,
+      "sha256": "6f913873c41206d2e01fca69cc9bc07746c7652817110df8c8e78bfb6a83f901"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-event-identity-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e9078d4f3407fe5a5d92149c.xml",
+      "bytes": 96794,
+      "sha256": "e53d6308c775f180b2baad59aa4d84f9536df2a099af5be27b2132a7bc3b226f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-event-identity-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/42b9828502afd89cdc47a150.log",
+      "bytes": 71313,
+      "sha256": "3b8884e65c2c06e1c74886161aff28736a08cb1f430da8ffdb99ec248fa1e3f4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/258e7bc59bbb9312f031ee88.log",
+      "bytes": 70280,
+      "sha256": "2ca67724072aff864a15ed56d3a0f17397b379c6aa5e40b3176add1cd41644f9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r4.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/544c0daccdba42c783cbe132.log",
+      "bytes": 70281,
+      "sha256": "d293aeed077358520272f05f78078a4adb2c67adc158d2bbcfb359140e97168f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-green-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b963c24e51da0fc89400afc6.log",
+      "bytes": 97972,
+      "sha256": "1afdfe695c29d2a8565955c02908b7725105ea005af449406d64258fd03edf21"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-green-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/496ca2cd297fff867bba5fef.log",
+      "bytes": 75783,
+      "sha256": "93bbb37ed9e8ce80e912e7a2df68f286b37f9695cda3de64e1729f019c2fc5e1"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-green-r4.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7e6b1e860589f8e34bbf1187.log",
+      "bytes": 75410,
+      "sha256": "bf1d146a4f2931ce13e245725cdb66ef31b5fe0f3ffa42775cc3e0ad57f786fe"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-green-r5.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b537d4b9d8f0ff8585550a69.log",
+      "bytes": 69098,
+      "sha256": "dea8e2a7d434eda2980f3287fe0354d232bdda76e34cdc8571e0753187dab5eb"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-roster-tenant-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/94870a5eb56dbd557ba321c6.xml",
+      "bytes": 96770,
+      "sha256": "52e7505ce1fc133fd232cffc682c374a6b93b9798c63ae123b8a512d4b21219c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-roster-tenant-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f858d9af9c2b3dc39e14074e.log",
+      "bytes": 71285,
+      "sha256": "634d30eefeddc2a9b73f1d5e8b0f7721addd1582d9e9dc2440a724f016dac8a4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-related-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/12f4cee70fcce5c6afb87e47.log",
+      "bytes": 71089,
+      "sha256": "8b93974f335908d81816cf6bd332aec585f90039acca276ee43b4ab83f3373dd"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/80b994398fb417f7d1182215.xml",
+      "bytes": 97181,
+      "sha256": "bd4b5b4bef6aec56003daaec03d253520b37943d91bb44c445933f3bce89ccf6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/08336488d83ac7bf386d2e54.log",
+      "bytes": 70285,
+      "sha256": "22c63188f7d77aa1338413cf5abb020857b0767399cfc3369fa5991be5e2153f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e7eb7a8d90f81d0c3449b8c5.log",
+      "bytes": 71746,
+      "sha256": "eb15e17584d41410f873c15109e38f37699cbed375a9da8aa0e4dd3e4e03a701"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/97958e5499c6a2b24068b6b8.log",
+      "bytes": 68383,
+      "sha256": "ec9d65d41393169f919dd9e330fb6901f780e53e3d6389b2bf0d2fa945d9da33"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-final-query-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/38131ab0fecc9bbd04eb475a.log",
+      "bytes": 70183,
+      "sha256": "7118d959d201ab3cf461c78355c828333041cedd6a75b902f2c39ab5c2a72d6c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-combination.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/42de245921caf207a77f572c.log",
+      "bytes": 69504,
+      "sha256": "b0c8d1806b879ae64185f7c56d6ac694a7a81f714ab8fc7d334ee37939a996fc"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9bf661d355155cd8fc92afe5.xml",
+      "bytes": 97315,
+      "sha256": "807e0c8d1c5bb2f7a4041ddff7eeb3ea07d6426ea3bf37a0dc0de12360b0f3ab"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/97c8678780245e0f9c244800.log",
+      "bytes": 82747,
+      "sha256": "af0ab9136c68df90cc3369d69fe1be0255992378dc4aa5d56352cd6484ada345"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/8f147a8ca679ef9fd11e8aef.log",
+      "bytes": 71816,
+      "sha256": "a093b30061f76bc0d51b081d0fd758f7316c3fc45529f2d8f99f46272f4a5a8f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f38b64db5e1f5a5b2aec783a.xml",
+      "bytes": 98450,
+      "sha256": "c1bea44d829c0d612079a0a2b42d8979bc3fa302cb81e75cfd929d432d1bb3d4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/6b2e7842b635e686651f79d2.xml",
+      "bytes": 94090,
+      "sha256": "287b318bbb1ffe5e343fb41be6e6197314b38e1372512a6e1529e6b920ee4859"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9b807b2bbf9aefed1b96be63.xml",
+      "bytes": 98201,
+      "sha256": "6731a8cb6b7120352d32e1d3b1190ce6e8b0c138bd57eb04fc7568ff7011c334"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccInitialRevisionArrangementReadTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ed5898b5281b3480a0e839c2.xml",
+      "bytes": 127584,
+      "sha256": "6765f096a617972f2112b35bce4d4299f1f54cc98585d949a7fab4840e256871"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/6f9359080ce5478b0b5a12a9.xml",
+      "bytes": 94206,
+      "sha256": "057a519448e16533c17a23ba62c7e3be8aa1722df5b7034cf09d9c7f08004d23"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/803430ba124c840aa0948bb8.xml",
+      "bytes": 96676,
+      "sha256": "c7640c9d660b6ff555f3be05e3934e771772c72b6e0a374b6c362012793119fe"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/68d1dc0db35771d0bedf5bcf.xml",
+      "bytes": 94437,
+      "sha256": "6b00f27320bdf23534e0286113e9d1fbcd3849511598044be295b2d027deca0b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f4605577597b47e50adb557b.xml",
+      "bytes": 123426,
+      "sha256": "c0f010b1acb9949b47a51efb3998dc1b11135afe5d4bc0f72c90578f740e5a00"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0d53265432beab97430658af.xml",
+      "bytes": 98043,
+      "sha256": "da0708b309b97ee8dd24f6e9b5f19e9ccd7a2121c54d33b2363ac9122f0151b9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/8fa1fdb13cca1f7543beb77a.xml",
+      "bytes": 127195,
+      "sha256": "4b5e373cb5957886c2cc4a018229a74e79b0cd546a68ef3441c2f7162f96dc11"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLinkedUploadBindingOrderDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/3407fb9a8c723642881219f8.xml",
+      "bytes": 111374,
+      "sha256": "a852ba4402322f50250bff5379ae2420b15da8b125496cd58c65e49dd8927fad"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b98810ad124426ef2c9dbbaa.xml",
+      "bytes": 109051,
+      "sha256": "62250bb50c6a835f3b7be0bb88a6ef79701b9a31ac4b49c4ff1e421fa9bb9427"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSubmissionRelationPersistenceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ae8dbe6b16ca010f20df9a6b.xml",
+      "bytes": 99030,
+      "sha256": "1415a0d1a26fc73f1cc3739ec2b5f680881e501f664503960fbf2e787fa1151b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/59ac158a2b2e01f7cdab5ed4.xml",
+      "bytes": 94594,
+      "sha256": "7e15741207d3539686a0366313e3e13cf88925e1bb183437a177e9ac8051affb"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/28e0afba0772eae62469d7fb.xml",
+      "bytes": 96683,
+      "sha256": "1735140a9288bdd99d7fc8e7a4e0895c95cac595f3d8d51658ddc7ae407dcc3b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a7c8486c9d113fc0f1e09e4f.xml",
+      "bytes": 98942,
+      "sha256": "7c1fecfa5f0b95e555191b75c37fd4d5cb751f6d4e4fee0dce250f522f4dd902"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/2958c28538726406df8a1a8a.xml",
+      "bytes": 95150,
+      "sha256": "1bc8b148a66944ca9d153d08739a5ec2a0950c2ea8a20e34aab0bda9de9d573b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d570c7c803077da2f3c01eaf.xml",
+      "bytes": 95581,
+      "sha256": "fa75d2d9bc7b3e07b02e750ff0dbde90fc2ea5c6046bb7a85ac4a855e577fc01"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/6ac01a138de13890f85529e1.xml",
+      "bytes": 127830,
+      "sha256": "56862741f7c68632d10a7d12c312353f06076f29c78bcc0c02aadb5e209dba42"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/155e9d3cfb074a218e4b9ae9.xml",
+      "bytes": 134511,
+      "sha256": "1dddce17e34ae7b3ae7a7a6fda66438913fd0b7f08deb675d6566b77b85377ea"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/864b0a53dc5f243f72a0e083.xml",
+      "bytes": 105002,
+      "sha256": "477485cb115a94e445ce8f3887af4651c0b984f526aac23a09d48745a1c6e10e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/1d5ff6a4134e908b768f53e3.xml",
+      "bytes": 133346,
+      "sha256": "ebecb8654f715d64d916e639f0bdd66761deda2d494ed9c375e6e60122a02fd4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/46b1bfe56c177f8b700b2405.xml",
+      "bytes": 101213,
+      "sha256": "b096010a855a975abaf05bff0837633d48093b999dd2bd40db08eeb98f3296c7"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/58573cf8b6bff2d1dba1447d.xml",
+      "bytes": 100439,
+      "sha256": "a93bf12367bd65503096068935c11c82fad44dd60faedc77dc77267de0c4e8ad"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4856074fda3b94be82b03e47.xml",
+      "bytes": 124826,
+      "sha256": "2cf88ed9151523ad293bee1b30c2fb0802c24031407c35051ee14c7fc81629b9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a72c1c64fc23099edd74abb4.xml",
+      "bytes": 70641,
+      "sha256": "cbc68d3f4fa7dbe0e61d3a7d11671107eb818f7a66c449eb6263894a9c9f4819"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-r2/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/cb69a1aa732cc811217f072c.xml",
+      "bytes": 124831,
+      "sha256": "eb8a9003eff83096bc13bcb39b92e7d102cf2eb2ebc5fd623c6bb06b40a852c7"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-r2/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/1dcb81fb4be3fb0f6cea8e29.xml",
+      "bytes": 70644,
+      "sha256": "5a372d4bc1738eb2a315fccc9c02924e26b9534928db3cac4bcac50dba7fe483"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-training-combination-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a778603bd1daad10b8c9abcc.xml",
+      "bytes": 105929,
+      "sha256": "55432c4e8dfcea2e8d1533f1656b9db76ec592f15235c6e99e5ab9a9b44d60c4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g57-training-combination-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f13425d75933e01c62b83b1b.xml",
+      "bytes": 130029,
+      "sha256": "7a3c3306d40484339e0361c6c67823224fb5908e9d876d1aedc6448f4f8d36d6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/1c61566c5ed21d09621b44b5.xml",
+      "bytes": 99082,
+      "sha256": "fe373ffa69acb109ffb67ac7ccebea4b0080f8cb24af53bc2dadb41c6e0ef7be"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.category.DccCategoryPermissionAdminServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9a20e3294a4b19e4512542f7.xml",
+      "bytes": 97786,
+      "sha256": "ed71fda684f6194a9264b3dc4493b97194d5aa4a0b8e06368e9e0c01e9d8a6ac"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b7e7480dbac83656e7a3ab8c.xml",
+      "bytes": 101182,
+      "sha256": "d6ab6d15d017f27931f7457b5eec2a4fc3959fbdeab1b048dc3e21652d29eb85"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/517400f3e49eb72399abade0.xml",
+      "bytes": 128223,
+      "sha256": "b71e865be111cfbcca712cc02be1bae74a8348423434b92856151634c08cfc3f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/12b2e598fd733067a8b4c5e4.xml",
+      "bytes": 136934,
+      "sha256": "f33ea5842bc156b945f356bce575fe8a4cd7c5faf1d842bfa48f5a955fd1c2d2"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyApprovalTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4470bcb441ba7b98eff60fb2.xml",
+      "bytes": 103132,
+      "sha256": "c01cd47a51e9bbb54fda497b97a3f755ac105e3e512c09fb507d3951829b6d35"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/fefd872deffd4e67ba376497.xml",
+      "bytes": 111401,
+      "sha256": "7aad79bca68cda1f78172b37e50acc05986f24b096e32088101fad48409692f6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/bcddbf64493fc4189d934d6a.xml",
+      "bytes": 96239,
+      "sha256": "98e2d21bbcc156a4551da5e089eb07a712dc84a6770903486a77af0648fbc61d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5b49a55b2ebc976428b842f7.xml",
+      "bytes": 106615,
+      "sha256": "0f3454fef89fd5c269118fd2df1fd8fd0f7e44a485cf3e371e3b5452b4513753"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c1bc1106abce575c2f92c15a.xml",
+      "bytes": 97278,
+      "sha256": "4338a61eff665aeb872fa3524569a7698d6ea44c9fb949e4a6563832cc7d1066"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ea96b879b026c2c282a0c5b7.xml",
+      "bytes": 98102,
+      "sha256": "9fc9fb90fc50396e77e8fa4694baa7fd02909d323fc21ff7af2e7e1df3374604"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9112e488a8dfd4c7621fa18d.xml",
+      "bytes": 98540,
+      "sha256": "43d588c3f3f83990e1e33ea64872ddc05ab2895e134c4ec4de2bfda6e281421c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/087cc524293dd18726edb2c2.xml",
+      "bytes": 97103,
+      "sha256": "30f2d8f2702663bca32541bfeb2877c32e38497b04fce855619ccf893162c939"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/29e2b8cd8115bbaa30a048ae.xml",
+      "bytes": 73476,
+      "sha256": "5cac2cc90cc843f085724c7404b9165c98f19d7c714fc37412c2a179d95c7ada"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ba211288aefb3c00f100fecb.xml",
+      "bytes": 76318,
+      "sha256": "a3ba6f6b0c20e2648705eac551794c397f2dde8ed863b7d8d43d9f36c4433a42"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0c6dd10451e1dd9adf19e5d7.xml",
+      "bytes": 71864,
+      "sha256": "f1dc4f9bfe36032407232182169a3754bbe7cf3a8179833e21769f9d278f923a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a86c41d0517a1270eeed1a9c.xml",
+      "bytes": 97372,
+      "sha256": "ffa873dadebe4412de551d50c3373014aa5c764008d7b425ec7d83c45875f552"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/09e240039dd4a726d90fce24.xml",
+      "bytes": 96812,
+      "sha256": "1b41e70404cc5ac7dd9122f1ddfc5997dd3bf7ea35767b341e4f2e2021d09154"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r4-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/86dd11d252378949a3246b86.xml",
+      "bytes": 97085,
+      "sha256": "d2a8647772f35f0c39c48260ef36f1acaa8f401ddf23465de7c04d0199953613"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9b65342811da447062c7b935.xml",
+      "bytes": 95694,
+      "sha256": "d2d168bc80b96f195bd32f4e1082d9c916a7f33bc243059ba12c31e403f607db"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d2e06a5d5547642537b203ce.xml",
+      "bytes": 95615,
+      "sha256": "b090afa0bdaecb34c93a83ccfb04e10f8577d4dfe47a9f65d81663e4cf350da8"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ae0e470088a5ee0453c9e80b.xml",
+      "bytes": 96835,
+      "sha256": "8785af14e991f5e5a87bd4c0b2321dab0ba41eafd4b7eade4026c9adfbbe2d5a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccPendingObsoletePlatformTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4c9296919ef6f32feb8c3663.xml",
+      "bytes": 96568,
+      "sha256": "6daf7e7e447a37cb54c1951bc8347f0abc5046d29f96041e7dbe788392520385"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/5ebb14583bf2763db4d0ef44.xml",
+      "bytes": 96320,
+      "sha256": "002dc4ee9e89cf63083726749f684abf96a834db5eb339cc248bcdcb55766ab8"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/1554dd8fcefcbbceb59dc29e.xml",
+      "bytes": 72936,
+      "sha256": "271d592064a2113277405a942a8b91978ea145676e9f07ead1a39e1f5a5be458"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ec3345bbe3913950a467f34c.xml",
+      "bytes": 71320,
+      "sha256": "c8fb2df20d6ef091b434f496b79373de5dd8b7bec6e08ede89787bbe53385cca"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4085f05e951f1d71c36a66b3.xml",
+      "bytes": 94939,
+      "sha256": "3a67d912e287f9f843cc6fc1c8e39ee302b8df1d5e7e6d391a1df28e85b66992"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/daaebbd6d1e95ed4468daf75.xml",
+      "bytes": 104614,
+      "sha256": "a18e8989eb6b45344f97103846974cabf509cbe20d603ba7bcf05de04c488d99"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-related-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/10d397976e76fe021ff09ee0.log",
+      "bytes": 2978,
+      "sha256": "e5a1468f98dd36fb3321f84091622ffd1976f6ff715642543b688a2ac20382e3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-related-initial.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/03e50600f6cfe9b2aa05b9d0.log",
+      "bytes": 6599,
+      "sha256": "b4324f3b7a50b44f1e2a5abbc410e51ca6f08cf1d10235ab459660681aca7c34"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f934961f4ddd5894340b7252.log",
+      "bytes": 1202,
+      "sha256": "e61eaf753d2ab89083190b8547f0deb87592868155d8d51e4ea850b474bfcb87"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/93cd925fc8717d54fc2e804f.log",
+      "bytes": 2681,
+      "sha256": "e6f356ef0ad969be8cfbf7a6f0c6a18088ed9da901007cc96fb98459a71e43f5"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/18fd55bdc97990c1f864ea01.log",
+      "bytes": 10582,
+      "sha256": "fb8342a4ea76a405268e621b00fdf4365a13b6d543c665858e4ef3ff6150f3cf"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-final-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/884a4347514b0cb0e76b0073.log",
+      "bytes": 10346,
+      "sha256": "7b7b4eb154079817ede8fba34ed323ff494533610a30858a42f20bb19f08ac6e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d922c45f094b67732e57b5df.log",
+      "bytes": 18910,
+      "sha256": "4a474d5625e56f742c66d29c14ba4e77c40b9bad7143aaa528a7af33add5a8fc"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-lint-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c596daaf80b72b372a3fffe2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e05e1b03125255051b092f3e.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-folder-trace-stage-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/2dbbbcf18d1decc6acb1d5be.log",
+      "bytes": 1322,
+      "sha256": "c978a80db0eff4093204ac7b2b47bc14341527fe42ae1e57f4ec019905234ffd"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/6886422c32e3250ab5b23799.log",
+      "bytes": 569,
+      "sha256": "80b369026d6f743b9c8a65cc69aaa9d65dfb1bd4497a36d9bd2bb4136523cd55"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/2d204f51046315519b71a8a2.log",
+      "bytes": 4856,
+      "sha256": "df8222013e3a10d250b80a4df12ae7d6ab412124dc275270f67982df8eb7c37a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-real-training-action-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9a892a9ac44b11546d138bfd.log",
+      "bytes": 2650,
+      "sha256": "e7939de83131cf76f9fd6e08bd2c2d4393b9eec19d223e2c017aaf79525328de"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-responsibility-placement-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/6ed08635fe480a1ef72ac122.log",
+      "bytes": 1919,
+      "sha256": "e67bd365644f4c8f198208313f40c99c4697f39c8e3356ce6e3e19758c042427"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/3c98c050f2c69411704bdcb1.log",
+      "bytes": 3778,
+      "sha256": "f957a993717f246b82251b9bc3de30f17ab1ec4637fedb3b32713466e31c8a7b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/dc01eacb59c8def21a523b54.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b64a7327addb581bf7a70ea7.log",
+      "bytes": 3636,
+      "sha256": "f29f8dece0a1478246038d414cd877b6505ba19a3f942035935315e8218816bc"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/75e4f6ec5baf7c6463b74a26.log",
+      "bytes": 1732,
+      "sha256": "f02082b21051a71bd2116bee0a21fbb4668966ca26e6e61797da61f070547306"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a1cb60ba07055f3d8c07047d.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/dde0d32ac18eb12f68d2b241.log",
+      "bytes": 3733,
+      "sha256": "2bb8a11e383718e1b6b69105616ead02cf7964c8f7d4628f4b2de1e9009327e3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/221b48e4a5218a5c8d27fbd2.log",
+      "bytes": 462,
+      "sha256": "1f8451906c39311faf274efe8d191272e05efe35b9e3fd108e6dcabfc02bd137"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d761c332111b66ddccb0c81e.log",
+      "bytes": 3908,
+      "sha256": "c44199bccbf06c716ce36d40339d7fd2333aa9cbbae07ffeb997962285c8c43d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-public-progress-stage-final-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e0a197ea5898ae123e30d2a9.log",
+      "bytes": 3384,
+      "sha256": "91392d2e5f3a18da8f96f7e20a68b6b8201b4bb3dd3732109ec18ae1ae7286f7"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-public-progress-stage-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/054a9c6e61d0ac140711eb33.log",
+      "bytes": 5126,
+      "sha256": "1f80a0fe11eace0e3bae0bba0516bf6dd02fee3cf0232bef51951e53b84b64bc"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-public-progress-stage-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/706ebc0cd970f1ef71a335c2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/35c9177aa24850a27a568700.log",
+      "bytes": 1076,
+      "sha256": "8e4e174cab95406fd3bb76e43e6678692f5f80c3fca09ed9683bcb290a47eca1"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9509b5252fa5f71c61e10d58.log",
+      "bytes": 2260,
+      "sha256": "9d11c06c0a3fbd81a6977f8c625c8414160111875323865d13b79714242eb194"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/09b5ec098b7dee1d7ee71e8c.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/668085a61675a5ec50f9898a.log",
+      "bytes": 348,
+      "sha256": "2e7f53f8085850c96fe65fbeaaa96f793ca702e70b44fdb717d9896f833c22c2"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-native-queue-loaded-context-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/405b9405c0bf89949adab185.log",
+      "bytes": 1573,
+      "sha256": "6d49b28afc8275e0a56224bbe82b5630563d8dbfba7bc5b07cc8e8cadac15f1c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/927ead3f8e848024016d3c45.log",
+      "bytes": 3849,
+      "sha256": "65b17d17504cf5c6a52b74e5eead21dc784356b7915a61355ffa78246697af3e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7276236c5106b2863d30c403.log",
+      "bytes": 3301,
+      "sha256": "f36b0709a775310f7f425f266ed96a70132de5cb88165d8b5a9619b4a9e1c954"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final-source.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e612f5ec30730eb5bf40da68.log",
+      "bytes": 3846,
+      "sha256": "bfabd0ef28245db6ba28519dfeca1bfd5f9ff63a6f2c9ef64f5a3105f971f1d3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/311fd11f808c37fa6489a209.log",
+      "bytes": 18355,
+      "sha256": "9ae375b573d3f5e2f595f0b95108d074d137f73dc8db827d6a22d2de39d95f91"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e77315d02978a63539cb3b6b.log",
+      "bytes": 854,
+      "sha256": "7632a5b04c0eb3f974cadf84fe6d3f58e90e11a21c47dd81036c8645a18c34fd"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-lint-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ca15e35249238431a4e03c61.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-lint-source.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/71664bef3ccd744d4bb4bccc.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/34998c0cc449497a465b77df.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/e9bae0c399da5f084592142e.log",
+      "bytes": 4704,
+      "sha256": "64a96bba2daee280caed66604e510cda48a87af8486ceb9722410a60dbc41c6f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b50e4657738cb8105915b0b7.log",
+      "bytes": 28052,
+      "sha256": "d716708446a9ec8b85b7fc39b56bb010bec78d80f6a3600033043a7f4dc1f842"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-assignment-gate-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/c9b4107d5364f7e4d8e3f736.log",
+      "bytes": 1423,
+      "sha256": "824d99daf8667cf6ecea2bd2ad51e9c81c1653597406ada0293b0e069aae2039"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-current-source-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d015e96d582ffe487dfb776b.log",
+      "bytes": 1912,
+      "sha256": "5cf30de9e2976f29a8d96bdf7b53578670ab46f0da1651e2890381e1b7a14d7b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-effective-red-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/52b532587321a12729306fa1.log",
+      "bytes": 2192,
+      "sha256": "a710cabd2730db410b7e9a0cd1a7a4f70fb175334a6c64b82c16c65eccfcdf92"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-effective-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/4e0c16e0e25026d6426fbd74.log",
+      "bytes": 1255,
+      "sha256": "148e89bdf29866008a581a0ff9167ed48b09d5448366ec30eefc902b0bf5a2da"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-effective-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ed55d5f0a36cafd1f905b6cb.log",
+      "bytes": 1533,
+      "sha256": "e64251256f4e23ef3f3ea4664ebeb5381e40eca290c0c418c18edbdeaef63668"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-final-source.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/fc27aed96647563cdce4d361.log",
+      "bytes": 1912,
+      "sha256": "14cc69b5fd022a0e822c78ab5b93c3a21491f99b7a018c12183900ef081ba636"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b7c3a2874c0446508d0c0bcb.log",
+      "bytes": 3365,
+      "sha256": "6d108629c3febcf69dd60ca20b5bb483eb2bd4e69c71e418e469dc9b51472fa4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/aceb23a5f565dac556bacaac.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/21605715c95ba998ff93e46c.log",
+      "bytes": 1822,
+      "sha256": "4498b71a335d40c4ffd1f355304ee89a73ec874adafe8fe281604d6f3118fd12"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-normalized-before.txt",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0e5732c146cfc6094f5567e6.txt",
+      "bytes": 64,
+      "sha256": "a3f922976c56c231b3ba9fa6f56145ec36bd4470c443c0c2db6867760e5dd3b6"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a425517f27a5acad56abed5e.log",
+      "bytes": 1909,
+      "sha256": "d5a545c949065758e6dc1115921fcf46c2dbc20593c4e8edad1e4c7a169e2dd9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7460970225e3cf957eba7d25.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ea8f565b3d9f3abd4ab069cf.log",
+      "bytes": 2193,
+      "sha256": "64ccca1c738675c46bc57b431798f256e81c6332173a3f75dbe8eb0458e1b0ff"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g57-viewer-readonly-guard-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a5d2ac70a0569bc538b9fad1.log",
+      "bytes": 1069,
+      "sha256": "d407ccfa204272cd872f6dacccefe2b284c624bdf0970cf6a899bc6099f917a3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-effective-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/7beff8813d745a3407173631.log",
+      "bytes": 3885,
+      "sha256": "2f8263ac0373bb3553d920d55fe5bb3de056e26c2d6c0803d2081e43220ad848"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/88077bfb263f89303ce62f01.log",
+      "bytes": 2293,
+      "sha256": "fc2d0e7ef3b10e61bddd151ed265606e18e486391c91a5116838fa128d82b32f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b7763d24056d354fdd053f19.log",
+      "bytes": 2297,
+      "sha256": "ad76bb34e150c1250b9063b100928ad8b01c6a75de4ea09eaa45537c3744be6f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-helper-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0f7cec10046b2d2f54407195.log",
+      "bytes": 2392,
+      "sha256": "defeb1c41289cae2967e3157dbb0ff034c0feb639d3a9e3d8f102d14b49c1a1c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-lint-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0c9b35348dd4206cb82a637e.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d881e9d20c13abb73aa212ea.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b162abe24070e3a4b29e43c3.log",
+      "bytes": 391,
+      "sha256": "e2f1219098cb756f68c613872a3315fe6929ab0011e0ab9a0069e6d3225d40d7"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/0725f9fe641d1a10dbe4510b.log",
+      "bytes": 1822,
+      "sha256": "e948f47137c6cb252a389fa40df0639e80405d3f66fb50b9dbde2c57ea9a55ee"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a0a4201b6ae3c977344555f7.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/49f15dcd8a21f847d37f0fdf.log",
+      "bytes": 2504,
+      "sha256": "70152d678ad41b6aaa0acfabe88b2b95c0a126c3e8e605bbf567edf477f1c55f"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-effective-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/961bdb98e177772ed8119ef9.log",
+      "bytes": 5695,
+      "sha256": "c07d7bc9c82c7aaa8ebeef56ca0571228bbb344ce373206c22b79e72e0c147c7"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/fedff014e2116b4c527628c4.log",
+      "bytes": 2539,
+      "sha256": "1168898f8365c768adb4255a49c51e285e9f4d9bd5eaf94390f0c0abf306851d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/80c966394d35bbfff7a91209.log",
+      "bytes": 2541,
+      "sha256": "e8e003753f32e8641eef3098d88fa0d55785470a54a676d92d9463678a15b5ef"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a82665d8cb00a2ef3d6d5698.log",
+      "bytes": 628,
+      "sha256": "56ac85d513c11dad0a51e29601e362c63068e20dcc65e865bc10f6631c792b39"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-lint-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/f8307662d686b6cbb2b8ece2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/932aa185f5f1ad7b5abf517e.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d55a5d8cb902cb873e7326a2.log",
+      "bytes": 1780,
+      "sha256": "8451acfd6158d1cad883d3debf6ef2b6d962a67a13ed8bb655f185bc77e45ef3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-final-frozen-r3.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/19c53b962f0379a97e47120b.log",
+      "bytes": 1714,
+      "sha256": "36daf4ff73f5a270b40429d2fdbabeb028672e20376d0be9005514309ab4b66a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/9f40d763f24f0664a11e6e39.log",
+      "bytes": 1955,
+      "sha256": "f89e5d8ac8bb09f8b05ff52ce6d6640fa8389123dbbf1c614a42984dc4c5a8cb"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d714ce808cedc39bc934b432.log",
+      "bytes": 2464,
+      "sha256": "1fa9bbc29e2a5c251c66fe37b318e36d2512ee9989d660755118a31a60b72265"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/ac5148eca389deb9ca3aed8f.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/43847ae0ed3d446c9e3fa91a.log",
+      "bytes": 3280,
+      "sha256": "ddf0cba082b4f39c37de79be9b4180a07022e6b8a0a4d4b5d1a2ff9c6e8ba5fd"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-final-frozen.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/b4d361131b508b4f925c6175.log",
+      "bytes": 2352,
+      "sha256": "b3c49f8b7d5d45f68a8bc643df141f86ba75b5f1e04351e50a65a86e03757dfd"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/a693989cfd89e44fde0000e2.log",
+      "bytes": 2246,
+      "sha256": "a18dbaf174a12714339854807e97254f6f0182289a7223fa380f51b78b016f7b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-green.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d2d8147f5a2fc352668c2510.log",
+      "bytes": 952,
+      "sha256": "b20ae74522449f414c30e1bec32c7f4b2049905a8bee9ed533c5a90dc9cce64b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/778b36e28d68875579cf0021.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/d4e6003e358d75f85d50406c.log",
+      "bytes": 4037,
+      "sha256": "d615ab998180ec7ba2c3aae86634671fe64045e4f296886f78b7006face72088"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-static-existing.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g62-closeout-flat/884fd8b6fee4f57896b8f0b5.log",
+      "bytes": 37,
+      "sha256": "5936bef5c5d8ce0ce0fd77447a8df2a7203d213cb13069a62fab69cc416e6e67"
+    }
+  ],
+  "formalCleanupTool": "UNAVAILABLE_IN_CURRENT_TOOL_AND_LOCAL_SKILL_CATALOG",
+  "apply": "NOT_RUN",
+  "otherTasks": "UNTOUCHED",
+  "firstNestedArchive": "Win32longpath failure recorded; changed to flat private hash mapping, no source deletion"
+}

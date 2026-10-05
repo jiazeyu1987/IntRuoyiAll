@@ -1,0 +1,18 @@
+{
+  "status": "G56_FINAL_FRONTEND_PINS90_TYPE_BUILD_R2_PASS_WAIT_REAL_PAGE",
+  "manifestSha256": "e4e3eeda96e4fd73ab4f9d432a296ace7edede429dc485b6feff8d3548282ea2",
+  "finalSourceAndTestAssets": 16,
+  "finiteTests": 90,
+  "localImportRegression": 2,
+  "initialTypesActualExit": 2,
+  "initialTypeError": "missing presentation helper named import",
+  "newTypesSession": 64158,
+  "newBuildSession": 44337,
+  "actualPageAfterFinalPackage": "PENDING",
+  "fullHtmlClaim": "NOT_YET",
+  "newTypesExitCode": 0,
+  "typesLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "newBuild": "PASS_ACTUAL_44337_EXIT_0",
+  "newBuildExitCode": 0,
+  "buildLogSha256": "b46813d7b7f90633292868570bae094be23a5dbf82483cdf35b3a462a1166e96"
+}

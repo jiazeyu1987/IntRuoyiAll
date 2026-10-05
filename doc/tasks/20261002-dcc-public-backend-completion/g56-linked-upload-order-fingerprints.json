@@ -1,0 +1,123 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW_R03",
+  "productionFiles": 1,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 218547,
+      "sha256": "30d6a320a5eedb858e410dc0663ba8e7dd1ae17c4845d704f8e103faee0c0a4a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLinkedUploadBindingOrderDatabaseTest.java",
+      "bytes": 17512,
+      "sha256": "8b8241c06ea21ae509674606cffb94e98339dadb447765afff9df32f1fdbf328"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 295983,
+      "sha256": "bf5d6574573cd62583290ef4d2c8e6436264a44408952f3e43fb20fb0f75cd45"
+    }
+  ],
+  "compiledClassInventory": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$1.class",
+      "bytes": 1147,
+      "sha256": "3c485eddd36e4e1bfe8057f4c508fcf9dd152e8585d62209c90448e56d3e195b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ControlledFileInsertConflict.class",
+      "bytes": 686,
+      "sha256": "4896ed38185104ccbe20a51c732cb7ec54c27dd82e61b0775642ff40d4ed16d7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalArtifacts.class",
+      "bytes": 2965,
+      "sha256": "23b20992fed226f9dab76fca0a03190d006db45a46895776dc677244e7e06cc0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalReadinessEvaluation.class",
+      "bytes": 4433,
+      "sha256": "6b34507c3cb5a587060d1fc9cab2f65217f60b6332dd4e0583141328131129a6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$FileTrace.class",
+      "bytes": 1860,
+      "sha256": "167170dde763048a2a89f73295a8fee944692cc0d98882b90a012cb5125a40b1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$PreparedSubmitContext.class",
+      "bytes": 5447,
+      "sha256": "60d79aaa9e6ea88e0ddb9031d0fa046d2800c9c54e7ab116c8fe70b5c4df0e46"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedDistributionPlan.class",
+      "bytes": 2225,
+      "sha256": "ef0e33a7e9eb4c3abe3fb15e28135300da6fedaa0391106d831d968e205391e7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedFileTypeTaxonomy.class",
+      "bytes": 2692,
+      "sha256": "fee7c6507d54b9bb5f016c6eb85130a0843cb0992b503a1c7e1e849bfaec8473"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedSubmitFiles.class",
+      "bytes": 3310,
+      "sha256": "cb1019615ee4ff8f0b730185dd5e633762423d09d69e5d8dadaf2c9d17b8ca86"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$SubmitTicketBinding.class",
+      "bytes": 2011,
+      "sha256": "436265a80def345578d97713a05a0b3e3092709e248daca0609b25c93730ecd1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedReturnTarget.class",
+      "bytes": 1804,
+      "sha256": "10ea4c32bafa615a103bbb8aee5f7a4ed6e5d8bd1cde201aef60d2301da28fb0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedTaskActionContext.class",
+      "bytes": 2802,
+      "sha256": "b10b3e09004f9fcf21751bc567a9564675129b26e80920bd3e3cb5490e6ab7d4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$WorkingIterationSubmissionPayload.class",
+      "bytes": 2223,
+      "sha256": "85f340ae3c3889a5fbdd4ad2704e15aeea34197291597a8fd78e635cff3ff9bf"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.class",
+      "bytes": 175855,
+      "sha256": "b897c222b147b819327f24e48c939727b86b12b958b63ade07f57cb7193861ed"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-verification-receipt.json",
+    "bytes": 6757,
+    "sha256": "6299301c970793222688dd2eb2c6e5911dbde1b700ac82fac30816f86fd402a7"
+  },
+  "priorR02AssetsUnchanged": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.java",
+      "bytes": 882,
+      "sha256": "44ae09285796203c3d871bef7a3529e37c738e96fa2018d73f2583ee694f1c37"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 265664,
+      "sha256": "e187d642f9e20784e82d7b0d59e239b0531caecfd2dd1b6feca7529c0fbc9b70"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 13561,
+      "sha256": "e536c3ee81f974447ebe17457c86073f4a4db9910dc3e6bd55995a70cc4c62c3"
+    }
+  ],
+  "productionScope": "Only new candidate relation binding precedes pending/finalizing transition; existing Related snapshot guard and Revision candidate inheritance unchanged.",
+  "workingRevisionSourceReview": {
+    "createWorking": "Workflow WORKING_CREATE already passes WORKING and binds selected relations once",
+    "selectedIteration": "Workflow submitWorkingIteration does not rebind request links; Revision freezeCandidate target WORKING and inheritRelatedFiles once (source unchanged)",
+    "databaseGuardRegression": "DccSubmissionRelationPersistenceTest actual persisted inheritance and immutable source plus ten frozen-target facts; explicit resolver/access fixtures"
+  },
+  "scopeNotClaimed": "No live browser training/effectiveness/revision/obsolete acceptance; Root owns actual package/runtime/Git and full HTML checks."
+}

@@ -1,0 +1,18 @@
+{
+  "status": "ROOT_WORKBENCH_SECTION_PERMISSION_SOURCE_FULLTYPESBUILD_REALDOC_PASS",
+  "manifestSha256": "d8fe4a49f4936b80829c08899b5e059ced851cea7bd223bd8e9422217f6d1fa9",
+  "assetsMatched": 3,
+  "tests": 19,
+  "lint": 0,
+  "typesSession": 28157,
+  "typesExit": 0,
+  "buildSession": 1882,
+  "buildExit": 0,
+  "actualUi": "g56-real-ui-r9/020",
+  "actor": "910328 independentdoc_control+exacttaskentry",
+  "nativeQueueVisible": true,
+  "oldUnauthorizedLegacySectionRequests": 0,
+  "oldSummaryPermissionErrorAbsent": true,
+  "actualBodyGrantsByFix": 0,
+  "historicalFailedFilesDisplayed": "2 unrelated oldcases left untouched"
+}

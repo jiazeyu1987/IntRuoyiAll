@@ -363,3 +363,73 @@ BPM最新定义9项、会签范围六组69项及另外一个必要已有上下�
 真实页面已完成项目产品批准生成、正常新上传、两部门指派/会签、批准选择负责人、文控审核、受控和下发；审核驳回8→9及批准驳回9→10保留原申请历史，新10统一待办可见。当前源码本地提交 ee4d9b4e0136885deb28ac9e9ca83bf68b0026a9，源码/迁移/前端验收分层证据在主报告中列明。
 
 本轮使用一个真实admin账号兼任不同角色、未选培训，不冒称独立多账号及全部HTML生命周期重跑。主任务 ready_for_closeout，未推送远端，未将缺失正式cleanup工具写成PASS。
+
+## G56 首次升版整改读取有限修复
+
+唯一生产DccRelationAccessPolicyImpl、新专属DccInitialRevisionArrangementReadTest：旧正式业务拒绝RED（1test/1error）→11项GREEN→最后67/6定向回归全部0fail/error/skip，CLI0，2026-10-05 14:21:54。真实H2原File/义务全列及NULLround不写，当前Flowable task/definition与正式Bpm validate方法参与；人员目录和名称发现端口显式隔离，未作真实E2E。原六XML已永久归档并hash，收据与源码/class manifest可独立核验。已bound历史participant读、原signed write资格未改；跨round/actor/tenant/obligation/非revision/ended/status/disabled拒绝。Root保留实际运行包和真实升版验收，其他AC及G56 R02未关闭，非整套HTML完成。Maven FREE，模块ready_for_closeout，无actualDB/runtime/Git操作。
+
+
+## G56 R03 linked NEW binding order 2026-10-05
+
+Root actual training/link submit hit DCC_RELATION_APPROVAL_SNAPSHOT_FROZEN with zero File. Effective RED publiccontroller/H2/realRelated1 businesserror preserved, earlier imports/directory fixture separately classified. Workflow only defers newcandidate pending/finalizing transition until selectedlinks/tickets/attachments bound under WORKING, no Related guard/Revision/R02/schema change. Five actual isolated public combinations prove same-key once-only BPM/link/ticket, actual ticket failure rollback, actual isolatedFlowable instance rollback after late placement audit-port failure, and legitimate existing withoutApproval sameTenant controlled-source FINALIZING boundary. Initial257 one old exact2-update assertion corrected to precise3candidate/history phases, old withdrawn state/BPM unchanged. Final reactor257/6 all0 exit0 at15:42:21; 6rawXML byte archived, source/class14/receipt/log SHA in g56-linked-upload-order-fingerprints.json. R02three assets hashunchanged. Source/target now frozen Maven FREE, no liveDB/UI/token/runtime/package/Git by child; Root sole package/E2E/commit owner. Earlier runs not summed; entireHTML remains runtime acceptance scope.
+
+
+## G57 native offline training work and exact current file location
+
+Root observed separate-role discovery gap after actual single-admin training pass, then actual checkout navigation lacked formal file folder. Training oldprovider/actualH2+Flowable ReceiveTask TODO expected1/actual0 effectiveRED1failure0error; location authorizeddetail actualH2 folder expected500/actualNULL effectiveRED1failure0error. New mandatory native delegate remains inside soleDCCprovider, has exact currenttenant/file/Master/project/process/definition/ReceiveExecution and enabled real doc_control/category/assignment/menu business qualification; no UserTask/fake taskId/QuickReview/new node. Metadata adds upload read only, original binary policy untouched. Existing dcc_task_assigned official idempotent API is REQUIRED in signed approval physical transaction; real isolated HMAC+unified signatures/owner/BPM and official system_notify_message insert commit/rollback together. Missing template or postInsert failure rollback actual rows/taskcompletion tested. No SQL/schema/policy changes.
+
+Root later authorized Query+RespVO hasProjectStorageMapping primitive: exact currentFile ownplacement/folder/storage projection, registered derivedleaf without placement ERROR, normal unmapped historical false, damaged facts ERROR. Effective location RED separate archived. One firstnegative fixture misunderstood tenant-filtered findFile; actual same-tenant leaf proof plus foreign placement now requires preciseMISSING, no cross-tenant bypass probe. Initial trainingcombined errors were overridden inherited @Sql cleanup fixture duplicate rows; restored explicit existing isolated clean SQL, not businessRED. Adjacent new startup test Date compilation error fixed by soleowner, not ourRED.
+
+Final current-source reactor284/9 all0 CLI0 18:15:24; original9XML byte archived g57-final-junit and 16/2 earlier combo2XML preserved, overlapping runs never summed. 8production/7test files+32compiled classes and rawlog/receiptSHA in g57-backend-fingerprints.json; pre-doc-close manifest preserved as r1, only BDD status/hash closeout differs. Legacy nullkey remains normal outside this lane; trueREVISION own definition/wait and controlled baseline positive. Existing file/project metadata, current controlled relations, realowner signatures, native filetask and projectrequest provider regression pass.
+
+Business qualification excludesbpm:task:query by Rootdecision: valid notification/directupload need only existing business read/approve+role/category/hard scope; center/workbench readACL separately requiresbpm:task:query. Testdoc88 leaves that permission absent and official message/business qualification passes; no rolegrant/newendpoint. No actualDB/API/browser/service/package/Git by this owner, no fullHTML or real different-account E2E claim. Maven/source/target frozen and released to Root/legacy; Root handles FE/build/runtime/Review/commit and actual acceptance.
+
+## G57 本机准确既有分钟任务重启恢复
+
+新专属Runner1/test1已冻结最终R2：真实Spring旧启动/空RAM missingJobKey行为RED1failure0error；17专属GREEN；最终最小24/2（17+既有startupSync开关7）all0、CLI0、18:52:39，2个原XML新archive-r2与源码/class/log完整SHA。默认关闭仅dcc-local-development；exact5625/NORMAL/handler/cron、实际本机连接UUID/+08、JVM上海、独立RAM无其它任务、globalSync显式false。零JobDO CRUD/globalSync；完全相符RAM重复no-op，损坏或其它任务拒，不清空；复用正式Invoker/tenantJob。Root池状态Review后R2不再setReadOnly，positive核never改变借用连接flag，metadata/SELECT源身份不变。旧r1seal/失败编译/Datefixture保留，不能冒新源PASS。测试RAM standby不执行业务、Mapper/DataSource读端口隔离，不是真实库或分钟运行；Root独占核包/启动/UI日志验收，Maven已FREE。
+
+
+## G58 independent document-control training duty
+
+Root actual newdoc account categoryAPPROVE blocked bymatrix-only UI/BE rules; role/menu alone cannot givecontentapproval categoryscope. Root authorized existingframework actionTRAINING_RECORD without changing sharedMatrix or legacy. Effective old3test RED realCategoryPermissionSupport/H2 TRAINING_RECORD USER88 and APPROVE USER1 yields1assertfailure+2formal1080000024 preview/POST errors; originalXML retained. Early compile/publicUserAgent/categorylifecycle and Greenphysicalcleanup fixture failures separate, no mockcategorytrue business claim. Productiononlyenum+sharedtraining+Workflow native gate, legacy remains role/categoryAPPROVE. Formal replacePermissionRules acceptsdedicatedduty and retainsoldAPPROVEexactrow, manualAPPROVEstillforbidden; dedicatedrule doesn't grantcontentapproval/body/UserTask identity.
+
+Final actualcurrentreactor260/7 all0 CLI0 19:44:28 sevenrawXMLbytearchive; publiccontrollerpreview actualticket andPOSTrealreceive advancement, oldAPPROVE-only rejects beforebinding, actualsignedapproval/HMACdualsignature/Flowable/officialNotifytransaction rollback testedunderrealcategoryrules. Initialr1/r2last compile error onlycleanupRunnable checkedException fixture, sourcefixed3noadditionalguardloosening. Source3/test2+compiled/log/receiptfingerprints permanent, otherG57 source/testassets unchanged15minus2production. Prior284/9 receipt leftimmutable, not summed. Mavenreleased/frozen; noactualDB/API/UI/services/package/Git orSQL/schema, RoothandlesconfignewTRAINING_RECORD throughrealUI andindependentactualdocacceptance.
+
+
+## G59 native/platform closure final finite delivery
+
+Root actual partialsubmit hit sharedA1FINALIZING while DCCACTIVE; actual nativecompleteControl returned beforeplatformrecordFinalized. Effective oldLifecycle+realcore/H2 RED1failure0error retained→nativecontrolledpending/activate/oldlowobsolete same physicaltxn. Three DCC-onlyactions and canonicalCONTROLLED_PENDING_EFFECTIVE, flags/source/successor/fromdomain/CAS/replay exact, nonDCCguard unchanged. Eightcore+repairservice/controller/threeDTO production13/tests5. ExplicitrepairGETreadonly/POSTexactfullpreimage/currentactor/qualdcc/menu/filehard/realtenantFrozenSignature/BPM/artifact/controlactivationevent proof; nofakeoriginaltime/signature/SQLflag andofficialGxp realsameTx, missingpolicy/lateGxp rollback/replay checked. RequiredschemaRootconfirmedvarchar/unique noDDL; one newtechnicalpolicyconfigRootexecutedclone/sourcefirstrepeat separately, 0qualityregistry.
+
+Finalcore/adjacent143/9 all0 CLI0 21:01:12 original9XML bytearchive, old Threecontrolled10 setupErrors duemandatorycurrentaccountbean fixedonlyfixture. Foreigntenant roster effectiveRED1→filteredbeforecomplete→repair5PASS, then final independentreview exacteventMaster/version/key effectiveRED1→repair6/1 all0 CLI0 21:26:02. Raw6XML archived, overlapping repair4/5/6 never summed. Versionedg59-backend-fingerprints-r2+receipt-r2 retainsold seals and onlyfinal repairservice/test changes; other12prod/4test &coreclasses unchanged andallG58five assets0drift. Manifest/class/source originalbytes preserved.
+
+MavenFREE/source/targetfrozen beforehandoff. No actualDB/API/UI/SQLexec/service/package/Git by child; Root owns actualtaskonly projectionrepair/browserRoletraining/revisionfuturedate/entireHTML andfinalpush. PreparedGxp35/13sourcegate passed with candidate beforeRootadoption; actualRootconfigexecution explicitly external evidence, not thischildclaim. Remaining docsstatus/Keep structure only; nonewsourceedgework.
+
+
+## G59 actual JDBC LocalDateTime preview closure R3
+
+RootactualMySQL R9 previewHTTP200semanticfail DCC_REPAIR_LIFECYCLE_EVENT_REQUIRED21:51:13 despitefullidentity/dateprecision0. CurrentexactEvent sameTimeacceptedonlyjava.sql.Timestamp. EffectiveoldH2persistedeventMap Timestamptrue butsameLocalDateTimefalseRED1failure0error; newliteraltypedLocalDateTime branch exactequals plusoriginalTimestamp exactequals, no stringparse/timeTruncate/DBhistorymutation. Original6repair+newtypedcase sevenactualreactor testsall0 CLI0 22:00:56, XMLbytearchiveg59-jdbc-event-time-junit/effectiveRED preserved. Newcasenanosdiff1/string/wrongMasterfalse, originalproofguards unchanged. Twoassetsha supersedesr2 only, other12prod/4test/coreclasses0drift.
+
+Maven/source/targetFREE/FROZEN toRootbefore doccloseout. Rootactualpreview/POST/DB/services/Git/package not executedbychild. Original143/9, repair6 andnew7 overlapnever summed. r3manifest/receipt/docKeep permanent andhashstructurechecked.
+
+
+## G60 controlled-pending independent obsolete closure
+
+RootapproveddeterminateAC20coupling pendingallowednativeObsolete butlegacyAdapterhardACTIVE sharedfrom. EffectiveactualapprovedFormEffect/H2/nativeService/realCore RED1businessError→minimalAdapter+Servicepreimagecopy GREEN1→currentreactor68/7all0 CLI0 22:29:26 raw7XMLpermanent. ServicekeepslockedoriginalFile identitybeforewrite, Adapterexactnativepending→OBSOLETE_CONTROLLED orACTIVE→OBSOLETE_ACTIVE viaG59strongCore; originalsourceBPMnotindependentobsoleteapprovalround, legacyActivepathunchanged. Truepending/activeonce/actualsharedafterlateouterrollback3cases verify20yearretention/time/history/oldbodyunmutated/nativeShared/Gxp/archive/messagesallrollback. OldAccountBeanfixturewiredexplicit+oldlifecycleplatformmock not proof, actualnewCorehostnoadaptermock.
+
+Two production/two test fingerprints pluscompiled classes/receipt frozen; allG59exceptAdapterasset hashunchanged, R3JDBCtwoassets unchanged. No Coreglobal/sourceguard/schema/SQL/UI/services/Git/package actions. FirsttestgetMessagecompileonlyfixtureerror retainedseparately. Maven/source/targetFREE beforedoccloseout; Rootsolepackage/realrolesignature/endstateHTML/Git. Priorcountsnotadditivefullrunandnonewedgeexpansion.
+
+
+## G61 confirmed controlled-pending obsolete entry
+
+Rootactual4033CONTROLLED_PENDING_EFFECTIVE lackedriskobsolete becauseQuery3canObsolete/projectionACTIVEonly. ActualpublicHTTP/H2 savedmetadataexpectedtrue/actualfalseeffectiveRED retained. AuthorizedminimalQuerystagepredicate+pendingFormlookup nowclosed: exactgenuinependingcontroltenant/nondeleted/nativeartifacts/formalversion/Masteridentity; ACTIVElegacy unchanged, no latest=id/body/print/major/releasegrant. SamependingFormread keepsduplicateobsolete lock/originalapplicantwithdraw/reqID. Truecontrollerdetail/browser/historypositive; narrowmissingfact/permission/nameOnly/working/Mastertaxonomy/Formlock negatives. FirstGreen readonlyrow assertiononlygeneratedbinaryreference comparisonfixturefailure, canonicalJSONwholeRowcontent fixedwithoutdatachange.
+
+Combination8all0 then current46/2all0 CLI0 23:27:56, original2XMLbytearchived andQuery1/test1/classmanifestready. G60all4assets/otherG59sourcepinsunchanged. NoSQL/schema/FE/actualDB/API/UI/service/package/Git bychild. Maven/source/targetFREEbeforedocclosure; Rootsolepackage/actual4033obsolete/HTML/Git. Prior46/68/143countsnotadditivefullgoal.
+
+
+## G62 actual obsolete draft-obligation caller closure
+
+Rootactual4033route/readiness2nodesvalid butPOSTfailedDCC冻结会签义务. ServicecreateddraftbeforeaddingdccSignoffDepartmentIds, FormRuntime buildsrequestfromsavedinstanceJSONbeforeapplyingnewsubmitdata. ActualCaller/strictimmediateserializer/realFormRuntimeBpmBuilder effectiveRED1businessError retained. Minimalcallerputsdepartmentsbeforecreate, noguard/node/signature/historyorRuntimechange. Newbuilderfullrequestassertperdeptform37:51/52andexactleaders7201/7202; firstregressiononlywrongexpected6101/6102 correctedfixturestrict, notcodebug.
+
+Finalsame-tree41/4all0 CLI0 2026-10-06 00:06:11 original4XMLbytesarchive; Source1/test1/classreceiptfingerprints ready. QueryG61/AdapterG60/Core/JDBC unchanged. Explicitsave/submitports isolatednotactualFlowableorE2Eproof, actualJson/FormBpmBuilder andadjacentH2/signedeffectcontracts green. Maven/source/targetFREE beforedocs, Rootsolepackage/real4033obsolete/wholeHTML/Git. NoSQL/schema/API/DB/UI/service/Git/package bychild, noadditionaledgeexpansion.
+
+G63最终实际：普通审批center会签处理页已准确显示指派原child，元数据等全管理仍false；r9/333无需培训本轮作废二节点说明、345ASSIGN424、350APPROVE425，r10/006审批center正式签名APPROVE426。独立BPMd7c17fa8只MATRIX_REVIEW/MATRIX_APPROVAL且00:43:40.162结束，无runtime任务；原File4033/shared65595OBSOLETE，名称编号保留到2046-10-06 00:43:39，原受控23:09:37/实际生效00:00/上传BPM四签名420–423和record9198354931289保。G63 finite23/lint/types52767实际0，finalsource1+tests2+BDD commit33ad8350a正常push。UIr10/011最终A2完成面板已显示真实旧A1自动作废，不再套SUPERSEDED。27AC正式源码核对/明确差异修复完成，源码与定向测试及真实页面分别记录，不称全部负向排列E2E。源码已push0/0，文档即将单独commit/push。正式cleanup工具不可用，仅精准永久清单/结构验证/原证据私有归档已完成，不冒cleanupPASS/completed，主任务ready_for_closeout。

@@ -1,0 +1,15 @@
+{
+  "status": "ROOT_PENDING_CONTROLLED_OBSOLETE_LOCKED_PREIMAGE_AND_SHAREDSTATE_REVIEW_PASS",
+  "manifestSha256": "1448c667d6525c6a70658f9285d52a2b13c00bcd85f3aae1a2ce545ea1f6cdda",
+  "sourcePins": 4,
+  "actualCliExitCode": 0,
+  "totals": {
+    "tests": 68,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "direction": "source copy before DCC writes, exact pending/ACTIVE native adapter formalCoretransition, no invented stage/history orlegacyfallback",
+  "G59JdbcAndOtherSourcesUnchanged": true,
+  "actualRuntime": "newG60packpending"
+}

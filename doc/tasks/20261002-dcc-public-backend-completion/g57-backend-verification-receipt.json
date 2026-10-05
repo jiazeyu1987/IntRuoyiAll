@@ -1,0 +1,178 @@
+{
+  "status": "PASS_CURRENT_SOURCE_ISOLATED_REACTOR_NOT_RUNTIME_E2E",
+  "finishedAt": "2026-10-05T18:15:24+08:00",
+  "actualCliExitCode": 0,
+  "tests": 284,
+  "groups": 9,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "finalLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-related-regression.log",
+    "bytes": 153411,
+    "sha256": "9dc8cd58dbfff8970d4de2cd2ae49b492f3cd325f06df834e4d11e2caca7ad10"
+  },
+  "suites": [
+    {
+      "name": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "bytes": 98942,
+      "sha256": "7c1fecfa5f0b95e555191b75c37fd4d5cb751f6d4e4fee0dce250f522f4dd902"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest.xml",
+      "bytes": 95150,
+      "sha256": "1bc8b148a66944ca9d153d08739a5ec2a0950c2ea8a20e34aab0bda9de9d573b"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "bytes": 95581,
+      "sha256": "fa75d2d9bc7b3e07b02e750ff0dbde90fc2ea5c6046bb7a85ac4a855e577fc01"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 127830,
+      "sha256": "56862741f7c68632d10a7d12c312353f06076f29c78bcc0c02aadb5e209dba42"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest.xml",
+      "bytes": 134511,
+      "sha256": "1dddce17e34ae7b3ae7a7a6fda66438913fd0b7f08deb675d6566b77b85377ea"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "bytes": 105002,
+      "sha256": "477485cb115a94e445ce8f3887af4651c0b984f526aac23a09d48745a1c6e10e"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "bytes": 133346,
+      "sha256": "ebecb8654f715d64d916e639f0bdd66761deda2d494ed9c375e6e60122a02fd4"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest",
+      "tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "bytes": 101213,
+      "sha256": "b096010a855a975abaf05bff0837633d48093b999dd2bd40db08eeb98f3296c7"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "bytes": 100439,
+      "sha256": "a93bf12367bd65503096068935c11c82fad44dd60faedc77dc77267de0c4e8ad"
+    }
+  ],
+  "effectiveRed": [
+    {
+      "name": "native receive task absent from old provider",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "expected": "TODO=1 but actual=0 while actual TRAINING execution exists and UserTask count=0",
+      "xml": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-effective-red.xml",
+        "bytes": 100920,
+        "sha256": "601e9559d5ad8d0d9c5eb0193157ae3a4737cfa8454c8e5c5a0ef61c360cf9e1"
+      },
+      "log": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-red.log",
+        "bytes": 75418,
+        "sha256": "073c9ffc42a4cc3a09953c5c6f0f883df989b41716dcd664175cbec44c5cfffa"
+      }
+    },
+    {
+      "name": "authorized detail loses actual current folder",
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "expected": "actual own placement folder500 but detail folder=null",
+      "xml": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-effective-red.xml",
+        "bytes": 96907,
+        "sha256": "ff93be103570846eb63a4ab7fe0defeb6d1db6fd71ef6598ee4009897f94d359"
+      },
+      "log": {
+        "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-red-r2.log",
+        "bytes": 71401,
+        "sha256": "4b5639c5b4f5f9494f4fc2a37a2aa584f807076c7d44b08f8dbdbcbabbdeaa27"
+      }
+    }
+  ],
+  "intermediateEvidence": {
+    "firstTrainingGreen": "1/1 PASS17:36:56",
+    "trainingCombination": "16/2 PASS17:48:41 archived original XML; overlap not summed",
+    "trainingCombinationR1": "15 test-host duplicate-row errors from child @Sql overriding inherited cleanup, not businessRED; restored explicit isolated clean SQL only",
+    "locationFirstCommand": "testCompile unrelated new startup runner Date import ambiguity, not businessRED; owner fixed only test then froze",
+    "locationFirstGreen": "10 tests one negative fixture expected INVALID for a tenant-filtered missing row; refined actual same-tenant leaf evidence plus foreign placement to exact MISSING, no tenant-ignore lookup or weakened guard"
+  },
+  "permissions": {
+    "shared": "official enabled same-tenant doc_control membership, dcc query/approve, category APPROVE, existing file/project hard assignment scopes, exact approved native file/current process/definition/ReceiveTask execution",
+    "binary": "unchanged separate original binary permission; metadata positive+original preview false tested",
+    "bpmTaskQuery": "not an upload/notification prerequisite; existing center/workbench controller requires bpm:task:query. Independent doc88 fixtures leave this permission absent and direct qualification/official notification still pass. No automatic grants."
+  },
+  "transactions": "Existing public approved-owner host uses actual DCC HMAC and unified signature rows, H2 and Flowable same transaction plus actual official Notify API/service/message insert. Missing template or failure after insert rolls back signatures, owner, approvedTime/status, task completion and message. Account/password/image/Gxp and template directory ports are explicit isolated fixtures.",
+  "qualification": [
+    "Actual UPLOAD waiting tested",
+    "Actual REVISION exact own definition and previous controlled baseline tested",
+    "Null legacy process key normally outside new lane",
+    "Role/account/category/file/project/menu denial tested",
+    "Stale wait and wrong process identity raise exact errors, not empty fallback",
+    "GET repeated reads create no tasks or notifications",
+    "Current state advancement removes native work",
+    "Official message exact replay zero extra rows"
+  ],
+  "metadata": "hasProjectStorageMapping required primitive; true from exact own File placement/folder/storage identity. No placement+no derived leaf false, exact derived leaf without placement error. Bad folder/placement/mapping errors. Name-only/list defaults false and no permission grants.",
+  "actualActionsByChild": {
+    "browser": false,
+    "liveDatabase": false,
+    "api": false,
+    "objectStore": false,
+    "service": false,
+    "package": false,
+    "git": false,
+    "sqlMigration": false
+  },
+  "mavenOwnership": "FREE_FROZEN; no further source/target/Maven writes by child"
+}

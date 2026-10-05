@@ -1,0 +1,47 @@
+{
+  "status": "FROZEN_RUNNER_ONE_TEST_ONE_MAVEN_FREE_READY_FOR_ROOT",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccLocalActivationStartupSyncRunner.java",
+      "bytes": 9730,
+      "sha256": "5096864ff2cd08b4d495527f1f9a04ba44754c5c753fac614c7c4f81e3a235df"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLocalActivationStartupSyncRunnerTest.java",
+      "bytes": 11422,
+      "sha256": "a963ebbbe15fa4543924fc3f340534929c6d4b31d2d90435421b7c0692f87887"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/listener/DccLocalActivationStartupSyncRunner.class",
+      "bytes": 11815,
+      "sha256": "1addf46d37b076993a4b3d239d6cf81238edae95543d5387a3d4e97472838b37"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt.json",
+    "bytes": 3852,
+    "sha256": "9d8a30ea31048e41049781299b432431752d30fff5391d1dc99c4fecc8da18da"
+  },
+  "contracts": [
+    "Default disabled and exclusive dcc-local-development; rejects global startup sync or any other profile",
+    "Exact existing enabled JobID5625 handler dccControlledFileActivationJob cron0 * * * * ?; no DB CRUD/new registration/copy/delete/shared sync",
+    "Actual same DataSource metadata loopback23306/sourceDB_UUID/session+08 and Shanghai JVM; RAM actual scheduler identity only",
+    "Only empty RAM restore or complete exact existing no-op; partial/foreign/wrong row or payload fail, no automatic clear",
+    "Reuse formal SchedulerManager.addJob and JobHandlerInvoker/tenantjob; validate actual JobDetail/CronTrigger payload and nextFire"
+  ],
+  "runtimeFlags": [
+    "--dcc.local-activation-startup-sync.enabled=true",
+    "--dcc.local-activation-startup-sync.job-id=5625"
+  ],
+  "genericJobServiceEdits": 0,
+  "newSql": 0,
+  "sharedConfigEdits": 0,
+  "actualDb": 0,
+  "actualRuntime": 0,
+  "Git": 0,
+  "package": 0
+}

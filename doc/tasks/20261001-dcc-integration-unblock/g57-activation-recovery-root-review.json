@@ -1,0 +1,15 @@
+{
+  "status": "ROOT_SINGLE_REGISTERED_LOCAL_RAM_RECOVERY_REVIEW_R2_PASS",
+  "manifestSha256": "1e1fe7d3930124c3b791eba3895b0b3e764cfb4f76add8a0d67d2a2c2a56ccb4",
+  "actualCliExitCode": 0,
+  "actualTotals": {
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "zeroConnectionReadOnlyMutation": true,
+  "zeroJobDatabaseCrud": true,
+  "scope": "defaultfalse/dcc-local-development/exactsourceUUID+job5625/minutehandler/nootherRAMjobs/globalSyncfalse; existingManager only",
+  "actualRuntime": "launch7 pending"
+}

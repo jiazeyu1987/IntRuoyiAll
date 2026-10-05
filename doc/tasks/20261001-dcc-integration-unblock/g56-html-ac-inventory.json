@@ -1,0 +1,226 @@
+{
+  "htmlSha256": "53e9afc74cafd1539cd48d9f2384d364511dd4802c4d686431b444b549930222",
+  "status": "CONFIRMED_HTML_SOURCE_DIRECTION_REVIEW_AND_KNOWN_GAPS_FIXED_KEY_REAL_UI_PASS_NOT_ALL_NEGATIVE_E2E",
+  "items": [
+    {
+      "id": "AC-01",
+      "operation": "在后台配置项目及产品审核人，创建项目、填写模板及三组属性并审核批准；提交后再修改审核配置。",
+      "expectedBusinessResult": "提交时带出并保存当时审核账号；后续改配置不改变旧申请审核身份。项目产品可用，文件夹按模板生成，三组默认值准确回显；批准创建同事务为选定负责人建立一条正式 USER/OWNER 权限，负责人能进入新项目及目录，其他人员不被自动授权，初始化失败整体回滚。缺配置或账号不可用时明确拒绝提交。",
+      "implementationEvidence": "ProjectProductCreate + frozen ReviewerConfiguration + transactional USER/OWNER (G55 real positive)",
+      "realPageStatus": "G55 positive singleadmin and rejected/resubmitted requests; configuration-change/independentactor not re-run",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-02",
+      "operation": "上传时选择项目并修改带出的属性，提交。",
+      "expectedBusinessResult": "申请保存修改值；项目默认值、其他文件不变；会签与批准看到相同申请值。",
+      "implementationEvidence": "ProjectAttributes beginDraft/save/freeze, defaultSource and actual immutable per submitted round (G55 real CE/FDA)",
+      "realPageStatus": "G55 passed CEdefault/FDA actual",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-03",
+      "operation": "文件原属性与项目默认不同，分别发起升版、作废。",
+      "expectedBusinessResult": "两种新申请都先带出项目默认值，允许修改；作废申请不覆盖旧版历史属性。",
+      "implementationEvidence": "Revision/Obsolete new draft from current project, old version actual kept (G56 lifecycle source review)",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-04",
+      "operation": "修改项目默认值，再查看草稿、在途流程和历史版本。",
+      "expectedBusinessResult": "已保存值不被覆盖；新申请带出新的项目默认值。",
+      "implementationEvidence": "reservedDraft + immutable round snapshots, project edits affect future starts (G56 lifecycle source review)",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-05",
+      "operation": "选择“其他”、N/A及文件转移是/否。",
+      "expectedBusinessResult": "按确认的D01互斥与条件必填规则校验；不能提交矛盾组合或空转移目标。",
+      "implementationEvidence": "ProjectAttributesFields and backend validated N/A/OTHER/transfer invariants",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-06",
+      "operation": "填写上传信息、关联和培训选择，点击确认。",
+      "expectedBusinessResult": "出现二次确认；取消保留输入；再次确认后才创建审批。",
+      "implementationEvidence": "正式上传两次确认和关联冻结在同一申请事务完成；非空关联先合法冻结再送审（G56已修）。",
+      "realPageStatus": "G55 cancel/two-confirm PASS;G56 new linked +training real submit PASS r2/036 and frozenrelationrow1 aftercorrectsource",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-07",
+      "operation": "部门负责人指定自己及其他人为会签人。",
+      "expectedBusinessResult": "被指定人收到正式会签任务，指派和会签签名分别留痕。",
+      "implementationEvidence": "exact task-definition/department obligation, ASSIGN and APPROVE separate signatures; G55 six real signatures",
+      "realPageStatus": "G55 two departments sameadmin ASSIGN/APPROVE PASS, independentperson not re-run",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-08",
+      "operation": "会签、批准及文控审核分别驳回；文控审核尝试未签名提交。",
+      "expectedBusinessResult": "均不提前受控，按规则修正重提；文控审核驳回回到申请节点，签名必需，新轮次重新会签。",
+      "implementationEvidence": "native rejection cancels current round/rework predecessor and full new round, no inherited signature result; R01 initial revision read repaired",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-09",
+      "operation": "上传、升版分别提交需要培训和不需要培训的申请。",
+      "expectedBusinessResult": "顺序为会签→批准→可选培训→文控审核→受控→下发；跳过培训也不能跳过文控审核，受控日期与预设生效日期分别保留。",
+      "implementationEvidence": "正式上传/升版会签→批准→可选线下培训记录→文控审核→受控→下发；独立TRAINING_RECORD权限和真实待办通知（G57/G58）。",
+      "realPageStatus": "G55无培训上传；G56关联+培训上传→文控审核→受控→下发；G61独立文控910328真实上传线下记录，培训待办1→0，随后审核并提前受控。未把上传组合外推为升版培训组合。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-10",
+      "operation": "多人尝试检出同一文件，由检出人检入。",
+      "expectedBusinessResult": "只有一人持有编辑锁，其他人看到检出人；检入生成横杠小版本并释放锁。",
+      "implementationEvidence": "Master lock + explicit checkout owner + actual checked-in iteration source and lifecycle invariants",
+      "realPageStatus": "G58真实检出、两次检入形成A/1-1和A/1-2并释锁；跨账号抢锁由定向事务测试证明，未称真实页面竞争通过。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-11",
+      "operation": "选择小版本局部变更、A/9局部变更、换版变更。",
+      "expectedBusinessResult": "分别得到A/2、B/1及下一字母/1；以实际选定正文审批；未受控前旧版仍保持受控。",
+      "implementationEvidence": "RevisionService exact selected WORKING source + PARTIAL/REPLACEMENT intent, single-letter1..9 rollover policy",
+      "realPageStatus": "G60真实选定A/1-1正文申请PARTIAL，形成A/2并受控；A/9进位和换版由正式版本策略测试证明，未称全部真实办理。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-12",
+      "operation": "新版提前受控及受控失败各一次，观察关联、旧版和新版生效日。",
+      "expectedBusinessResult": "提前受控后关联切换并显示待生效，旧版继续执行；新版生效时旧版自动作废。受控失败时旧版、关联保持不变，不发整改通知。",
+      "implementationEvidence": "受控更新latest，生效才更新currentActive并自动作废旧版；native/shared同事务投影，分钟任务单注册恢复（G59/G60）。",
+      "realPageStatus": "G60提前受控A/2时原A/1继续执行；2026-10-06上海零点自然分钟job44263生效2条，A/2 ACTIVE、A/1 OBSOLETE，native/shared/Master指针同向，原日期与历史签名保留。关联最新/冻结快照亦已真实对比。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-13",
+      "operation": "会签中选择部分关联文件的责任人和期限。",
+      "expectedBusinessResult": "只在主文件受控后通知所选人员；未选择的不产生本次整改任务；审批中断不通知。",
+      "implementationEvidence": "R01 exact first REVISION arrangement read repaired; signed arrangements + CONTROLLED event + exact outbox after commit",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-14",
+      "operation": "跨项目关联文件，目标产生新受控版后打开关联。",
+      "expectedBusinessResult": "当前关联显示最新受控版；原审批记录仍展示当时审阅版本。",
+      "implementationEvidence": "当前关联取Master.latestControlled；审批快照固定当时版本；未受控初始来源明确展示（G56/G61实际对比）。",
+      "realPageStatus": "G61真实当前关联显示目标A/2待生效；本版本审批关联快照保留A/1历史审批版本，选定ID不同且原快照不变。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-15",
+      "operation": "从目录和搜索分别浏览同一文件及其历史版。",
+      "expectedBusinessResult": "正文、版本、状态与属性一致；历史已作废标识明确；无内容权限不能看正文。",
+      "implementationEvidence": "project/global browse exact selected ID binary permissions, readonly trace viewer entry and stage availability F03/R02 repairs",
+      "realPageStatus": "G55目录正文canvas、G56搜索/历史及只读浏览追溯实际通过；浏览入口无管理编辑权限扩张。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-16",
+      "operation": "各目标项目负责人分别引用同一文件到自己的项目及文件夹，并由非负责人尝试引用。",
+      "expectedBusinessResult": "仅目标项目负责人可成功；非负责人前后端均不可操作；引用入口橙色且有文字标识，按项目去重计数。",
+      "implementationEvidence": "project references exact official leader front+back, pinned chosen body, count distinct project",
+      "realPageStatus": "G56项目负责人实际引用至另一项目目录，引用数0→1且引用行标识正确；非负责人负向由正式权限测试证明。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-17",
+      "operation": "当前项目负责人取消单个、项目最后一个及全局最后一个引用，并由非负责人尝试取消。",
+      "expectedBusinessResult": "只有当前项目负责人能取消；只移除相应入口，计数正确；最后一个引用解除后源文件颜色恢复。",
+      "implementationEvidence": "exact same target-project leader, second confirmation and only targeted reference removal/global color count",
+      "realPageStatus": "G56负责人二次确认取消引用，入口移除、计数1→0、源样式恢复；未把同账号证据外推不同负责人竞争。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-18",
+      "operation": "有权限和无权限用户分别编辑文件夹模板；删除非空文件夹、停用已使用文件类型。",
+      "expectedBusinessResult": "模板编辑仅校验权限，有权限保存后完成、不创建审批任务，无权限禁止；目录与类型按确认规则保护文件及历史记录。",
+      "implementationEvidence": "模板直接权限保存；非空目录和使用中类型保护；正式项目文件夹维护入口已接入（G56）。",
+      "realPageStatus": "G56真实创建、改名、删除任务目录；模板直接权限维护、非空删除及已使用类型保护有定向测试，未称全部排列真实办理。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-19",
+      "operation": "文控从按生效日期排序的列表办理已受控文件下发，并记录接收及纸件处置。",
+      "expectedBusinessResult": "下发业务没有失败或驳回分支，不改变预设生效日期；提前下发标识生效前不得执行，签收与下发分别记录。",
+      "implementationEvidence": "pendingDistribution formal dates, two-confirm distribution vs individual ack; no business rejection branch",
+      "realPageStatus": "G55 electronic distribution PASS, paper/individualreceipt not re-run",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-20",
+      "operation": "进入受控文件，通过选择器选中文件，在操作面板发起作废并通过会签、批准。",
+      "expectedBusinessResult": "批准通过即作废且流程结束，不创建培训、文控审核、受控或下发节点；三组属性独立保存，关联与引用标示作废。",
+      "implementationEvidence": "独立作废两个审批节点，原文件历史不重写；正式部门义务在createInstance前冻结（G62），入口支持真正pending受控（G60/G61）；正常待办指派入口G63补齐。",
+      "realPageStatus": "G63真实普通待办入口会签指派424→实际会签425→批准426，独立BPM00:43:40结束，只有MATRIX_REVIEW/APPROVAL，File/sharedOBSOLETE、原培训record和四签名保留。待生效入口已实际验证；完整批准发生在自然生效后，不冒待生效全链E2E。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-21",
+      "operation": "另一项目上传SOP.pdf、sop.pdf、SOP.PDF和SOP.docx；已有文件为SOP.pdf。",
+      "expectedBusinessResult": "仅完整名称SOP.pdf为同名且新建被阻止；其他三者按大小写或后缀差异视为不同文件。改变目录或编号不能绕过完全同名判定。",
+      "implementationEvidence": "exact full original filename binary/case-sensitive name claim, extensions distinct and cross-project new chain conflict",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-22",
+      "operation": "查看由局部变更形成的A/2、由局部变更进位形成的B/1、由换版变更形成的B/1，并切换历史版本。",
+      "expectedBusinessResult": "无论版本号是什么，详情均展示本次实际操作的“局部变更”或“换版变更”、来源版本和说明；切换历史版显示对应历史事实。",
+      "implementationEvidence": "stored revisionChangeType+baseline+choseniteration+reason actual intent, history own row",
+      "realPageStatus": "G60实际A/2详情显示局部变更、来源A/1及选定小版本；其它进位/换版的历史事实由策略/来源冻结测试证明。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-23",
+      "operation": "查看列表、文件选择器、详情、版本历史和审批展示。",
+      "expectedBusinessResult": "关于文件版本的业务术语统一使用“受控版本”，且与审批中、小版本、已作废版本明确区分。",
+      "implementationEvidence": "file business terminology controlled, shared currentActive label executing controlled version F01 repaired",
+      "realPageStatus": "G58真实工作稿/受控版本/当前执行版本分开显示，G60待生效状态实际显示，不根据B/1猜变更类型。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-24",
+      "operation": "文件作废后，在其保留期限内用原编号、原完整名称发起另一条文件链上传。",
+      "expectedBusinessResult": "编号和名称都仍被占用，不能因作废绕过；同一逻辑文件自己的后续版本不受历史占用阻断。",
+      "implementationEvidence": "name/number identity ownMaster exception plus 20year retention claims from actual obsolete time",
+      "realPageStatus": "G63真实作废NameClaim原完整name/number保留至2046-10-06；保留期NEW冲突拒绝由正式binary命名/NameClaim测试证明，未称实库另一次上传冲突通过。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-25",
+      "operation": "编制时预设晚于受控日期的生效日期，完成文控审核和受控，随后到达生效日。",
+      "expectedBusinessResult": "两日期分别保存；受控后待生效，旧版继续执行；到预设日期新版生效并自动作废旧版，切换和历史记录一致。日期已过时不能静默改期或追溯生效。",
+      "implementationEvidence": "预设生效日、受控时间、实际生效时间分别保存；上海分钟任务按期同事务切换native/shared与旧版作废，已自然跨日观察。",
+      "realPageStatus": "G60提前受控A/2时原A/1继续执行；2026-10-06上海零点自然分钟job44263生效2条，A/2 ACTIVE、A/1 OBSOLETE，native/shared/Master指针同向，原日期与历史签名保留。关联最新/冻结快照亦已真实对比。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-26",
+      "operation": "存在不同生效日期、已到期、临期及已处置文件，文控打开待处置列表。",
+      "expectedBusinessResult": "按生效日期升序排列并优先提醒到期事项；已处置不重复作为未办理提醒；提前天数按明确配置，不凭空补值。",
+      "implementationEvidence": "上海/提前7天/生效日排序；单分钟job5625按正式UI创建并独立恢复，实际日志及两版本自然激活已核验。",
+      "realPageStatus": "真实分钟job5625重启恢复；零点logger44263实际生效2条，下分钟44264实际0；正式上海7天排序配置和有限日期测试已证明，不以外层SUCCESS冒数据成功。",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    },
+    {
+      "id": "AC-27",
+      "operation": "A/1申请升到A/2被驳回，修改正文后连续重新提交，并逐次打开失败申请与新申请。",
+      "expectedBusinessResult": "正式目标仍为A/2；各次申请拥有独立文件身份、正文来源、BPM、默认来源、实际属性及签名历史。失败历史不删除、不改号、不被新申请覆盖；新版生效之前A/1仍为当前执行受控版本。",
+      "implementationEvidence": "retry formal target reservation sameA2, new independent file/BPM/source/snapshot/signature history and old active preserved",
+      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
+    }
+  ],
+  "originalHtmlSha256": "2b854c484b5374ef3ef23680d8a3fa998fcee0eec1ad0ea4d39b558ad3f3f9ad",
+  "clarification": "Only stale unconfirmed reminder sentence replaced with already user-confirmed Asia/Shanghai, lead7 and minute check;27 acceptance rows unchanged.",
+  "actualLinkedTrainingState": "ACTIVE_DISTRIBUTED",
+  "knownActualFailuresRepaired": "R03 source24 c9ca and actual re-submit completed"
+}

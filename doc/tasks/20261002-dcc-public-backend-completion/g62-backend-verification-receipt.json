@@ -1,0 +1,105 @@
+{
+  "status": "PASS_CALLER_DRAFT_OBLIGATION_SOFTWARE_NOT_REAL_UI_OBSOLETE",
+  "actualCliExitCode": 0,
+  "finishedAt": "2026-10-06T00:06:11+08:00",
+  "tests": 41,
+  "groups": 4,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "name": "cn.iocoder.yudao.module.bpm.formcenter.runtime.DccWorkflowFormCenterObligationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.bpm.formcenter.runtime.DccWorkflowFormCenterObligationTest.xml",
+      "bytes": 93297,
+      "sha256": "32a74ae7fc459fefee144f55538e22448512ebe61e54000854b4a95b25ef9b1d"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml",
+      "bytes": 95291,
+      "sha256": "028a3c37975e0ee264546741871a57b941361c22b8a9038e8d4bee0310e6fd2c"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml",
+      "bytes": 96508,
+      "sha256": "ce4bce57b9b1c5a8b9e5770b875bf2cbc1a4714118b5bc3a2d578ae514000880"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml",
+      "bytes": 98033,
+      "sha256": "23b859191227b9fdfe593a5d0acc9910bdf39699a6f03555fb406f50a441c7c1"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-obligation-regression-r2.log",
+    "bytes": 70388,
+    "sha256": "f9b4c1d0736dd56295edd2595ac399b2d590a794474f27fbcfb9839a5c419f6d"
+  },
+  "effectiveRED": {
+    "tests": 1,
+    "failures": 0,
+    "errors": 1,
+    "reason": "ActualBpmRequestbuilder fromexactcreate-time saved draftJSON rejects missing frozenDCCsignoffdepartment obligations",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-effective-red.xml",
+      "bytes": 96156,
+      "sha256": "1b75ed7880bb4a3f12e51cc227cf14195ec523b60b6b9f62242fbb4549d37881"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-red.log",
+      "bytes": 71115,
+      "sha256": "28b6eb5c3ed641b256ba8528c1c8b56e7793a787c55eb4c3672d34d2efa59c9f"
+    }
+  },
+  "firstRegression": "Newbuilder reachedvalidobligation, testexpected usedwrongfixturedepartments6101/6102; formalfixture51/52 correctedstrict assert, no productionextra changes",
+  "productionDelta": "Only ObsoleteService puts frozen resolveddepartments intoformData beforecreateInstance. Runtime submitbuild readsoriginalsavedJSON; neverloosen missingobligation guard.",
+  "proof": "Actualcaller/realJsonserializer/actualFormCenterRuntime.buildBpmRequest compose; create/submitport fixtures emulate immediatepersistedJSONcontract, do notfakebusinesssuccessorBPM. Requiredmaps2dept/2leader and stableformID verify. AdjacentH2obsolete transactions/signatureeffectcontract formalBpmObligation negative checks PASS.",
+  "unchangedPriorAssets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 269993,
+      "sha256": "9f2f14d389e989ec795af4368d64099227e87a5967a5628f41cadf6fc3bf31a1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 25438,
+      "sha256": "11255c32c717ccff389718890490ed27d61f7302b5e2f42fe01e5f0de9e4343a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java",
+      "bytes": 21888,
+      "sha256": "99a9768e957b14eaa9d3c1aebfe60d11cc91e1c11b8613aae566ba5ac3d0d3b0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java",
+      "bytes": 10805,
+      "sha256": "67ef9aed9fef4765c2fa7163be1163b8e19bf35c55db15a6dfaf468949d411c4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "bytes": 20322,
+      "sha256": "0c9a0c94fb6e57c4682d391c63b0ea2f4d1663a15e3160acbbbf294b1912fedd"
+    }
+  ],
+  "actualDBAPIUiServiceGitPackageByChild": false,
+  "mavenOwnership": "FREE_FROZEN_NO_MORE_SOURCE_TARGET_OR_MAVEN"
+}

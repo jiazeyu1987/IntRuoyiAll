@@ -1,0 +1,66 @@
+{
+  "status": "G58_FINITE_SOURCE_TEST_FREEZE_BE260FE15_20_29_FULLTYPEBUILDPASS",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccFileCategoryPermissionActionEnum.java",
+      "sha256": "a116acb661153de3b4354f1f6ba83d17053910f65c5a48b42ff09b11415767ae"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "sha256": "566b0886c28534a5e0e662f9146893b6e4c2765bec0bc0bafa69a7d1a81e3b41"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "sha256": "91ab127fc7b7ecdfc0ab988c996c0c55cc253320dd6da07ec39a00fcad9f5093"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyApprovalTransactionTest.java",
+      "sha256": "d1b6ff03d8d4cc2f21c0e3d60389b481a215dd3d51228f8d82998d54b1a7afb0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyDatabaseTest.java",
+      "sha256": "6b64a1f0ecdfccfa68595548e840a7b3efcef9a6747bafd6171fdad8011064ed"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileCategories.ts",
+      "sha256": "42436f379ad12b7d513af82a6a3e81d845579d6ac765574eeeba6c7842173453"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "sha256": "dab12d6eab93d715b1f182314b32ac8f983ac8b7ac76881e4a70d0a434707f28"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts",
+      "sha256": "b21b9905ef8b6ef9e91689c22f795b62356d939b0f50406f7cd209209f803ec4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts",
+      "sha256": "045708aa798ffe9c09e2fe93b86cd0cb22a74f7f28b232df1e786207b24c1a63"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/working-browser-navigation.ts",
+      "sha256": "fa1d46bfdc7a613ea9100174b6a8e4035ae7d2a0d9ae14816b73125a8ef84de0"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-selected-version-display.test.cjs",
+      "sha256": "6781379840a3dc182f00e4dbf1ab2f3485567f3a7e1daaae83163ee5fd258936"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-training-record-category-permission.test.cjs",
+      "sha256": "101eb3955dbafbc5b682f310184605e92e59c2a44be1acc74ac206ae2bfbecda"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-working-browser-navigation.test.cjs",
+      "sha256": "a6c97ee49b28ce9f7189854579e9cb79f87b06dd0f35b3b13ad6fe52ddcd0c70"
+    }
+  ],
+  "sourceCount": 13,
+  "typesExit": 0,
+  "typesSession": 74726,
+  "buildExit": 0,
+  "buildSession": 57908,
+  "mainProjectionG59": {
+    "notIncluded": true,
+    "next": true
+  }
+}

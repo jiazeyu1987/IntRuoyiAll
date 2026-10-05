@@ -1,0 +1,66 @@
+{
+  "status": "ACTUAL_TASK_DOC_MENU_ROLE_ASSIGNMENT_AND_MINUTE_RESTORE_READONLY_EVIDENCE",
+  "taskUser": {
+    "id": "910328",
+    "username": "g57dccdoc20261005",
+    "assignedRoles": [
+      "910233doc_control",
+      "991222g58_dcc_training_entry"
+    ],
+    "noAdminOrLogRole": true,
+    "realLoggedIn": "g56-real-ui-r9/013, actual initial/reset credential change completed through frontend",
+    "credentialCaptured": false,
+    "credentialStatus": "first-password-changed, random in persistent test process only",
+    "normalUserPolicyUnchanged": true,
+    "nativeQueueVisible": "g56-real-ui-r9/016, empty before new training event; no fabricatedtodo",
+    "oldWorkbenchSummary": "permissionerror separately visible, owner readonlyreview; nativequeue authorized independently"
+  },
+  "taskRole": {
+    "id": "991222",
+    "menus": [
+      "1185",
+      "1207",
+      "1221",
+      "6807",
+      "6817"
+    ],
+    "actualPermissionCodes": [
+      "bpm:task:query",
+      "dcc:controlled-file:query",
+      "dcc:controlled-file:approve"
+    ],
+    "categoryTrainingRecordRuleNotConfiguredYet": true,
+    "noBodyVIEWorDOWNLOADCategoryGrant": true
+  },
+  "jobRestoration": {
+    "task5625sameId": true,
+    "afterRestartUiConsecutiveLogs": [
+      "44101",
+      "44100",
+      "44099"
+    ],
+    "times": [
+      "20:19:00",
+      "20:18:00",
+      "20:17:00"
+    ],
+    "allTenantResults": {
+      "1": 0,
+      "162": 0,
+      "121": 0,
+      "122": 0
+    }
+  },
+  "readonlyViewerActual": {
+    "path": "g56-real-ui-r7/124.json",
+    "visibleMetadataEditCount": 0,
+    "selectedFile": "2054545668044084026",
+    "sourceProject": "G53-P-20261005",
+    "bodyRendered": true,
+    "archivePath": "g56-real-ui-r7/126.json",
+    "archiveWriteButtons": []
+  },
+  "scope": "actual page actions; ordinaryrole guard preserved, rawbody logger disabled; fullHTML notclaimed",
+  "actualUiOnly": true,
+  "menuAncestors": "role991222 only3 permissioncodes plusworkFlow/todo ancestors; doc_control separatelyprovidescategorymanage/print noadmin/log"
+}

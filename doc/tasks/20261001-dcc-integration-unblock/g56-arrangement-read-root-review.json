@@ -1,0 +1,10 @@
+{
+  "status": "G56_INITIAL_REVISION_ARRANGEMENT_READ_ROOT_REVIEW_PASS",
+  "tests": 67,
+  "classes": 6,
+  "actualBpmGetTaskIncludesLocalVariables": true,
+  "writeGuardPreserved": true,
+  "getDoesNotWriteUnsignedRound": true,
+  "backendOwnerOtherWork": "G56_R02_IN_PROGRESS",
+  "actualRevisionUi": "PENDING"
+}

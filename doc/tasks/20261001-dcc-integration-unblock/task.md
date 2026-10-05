@@ -1,5 +1,11 @@
 # 四模块阻塞消除与主管理整合
 
+## 最新完整HTML核验与提交推送授权（2026-10-05）
+
+用户当前要求“提交推送代码，然后确认html里的需求被满足，如果没有满足，修复没有满足的地方”。本次以HTML v1.6的12流程及27项AC为业务依据，继续原主任务，不以原四方向完成或旧推送限制结束。已正常推送origin/int_qms到c9ca1bf4b，另保新G57实现、定向验证和实际相关页面验收。既有子Agent、任务服务及真实Playwright授权沿用，Root独占Git、实库只读佐证和QMS48061/8061；原3项无关修改及旧他任务资产不暂存、不删。
+
+原目标工具已无活动goal，此当前普通任务不创建新goal。每项分别记录源级实现、定向验证、实际页面及未定规则；未走完所有多账号/自然未来日期分支不得称全HTML E2E通过。最新范围和验证见g56-full-html-verification-plan.md、g56-html-ac-inventory.json及g56-fix-scope-matrix.json，旧段保历史。
+
 ## Task Goal
 
 2026-10-04最新目标：先融合必要worktree，只保留一个本机DCC开发主干int_qms，再按LD01产品身份→LD02上传预设名限制→LD03双目录→LD04项目待办通知顺序开发。此明确覆盖旧“业务全验收后才合入”的阶段顺序，但不把当前未完成四类差异或全流程当已完成。允许先保存经过Review现有代码为开发基线，后续修复在主树进行；不推送、不发布、不触碰非任务资产。旧worker与整合树删除前保留可核完整归档、未提交差异及任务记录，先确认无独有成果／运行进程／依赖再清理。
@@ -262,7 +268,7 @@ H09主管理公共上传接线：四Owner交付与H08反馈无新变化，不重
 
 ## Current Status
 
-ready_for_closeout — 四方向已融合唯一 int_qms，三项本机迁移与真实主流程验收通过；本批25源/测试提交 ee4d9b4e0。远端推送不在授权范围，正式 cleanup 工具未提供，不能标 completed 或冒全 HTML 全量验收。
+ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
 
 ## BDD
 
@@ -351,6 +357,40 @@ Root按8项A冻结源接收已实现增量，但X-01真实未送审来源FAIL仍
 - 已确认文控上传本轮线下培训文件即可、作废20年、审核人后台配置及失败原目标号重提；提醒配置仍待答，不猜值或模拟完成。
 
 ## Cleanup Keep
+
+- doc/tasks/20261001-dcc-integration-unblock/g57-implementation-stage-paths.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-implementation-commit-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-runtime-readiness.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-backend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-frontend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-activation-recovery-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g57-protected-evidence-archive.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-implementation-stage-paths.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-implementation-commit-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-push-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-backend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-frontend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g58-working-actor-real-checkpoint.json
+- doc/tasks/20261001-dcc-integration-unblock/g59-actual-version-projection-failure.json
+- doc/tasks/20261001-dcc-integration-unblock/g59-runtime-actor-readonly-checkpoint.json
+- doc/tasks/20261001-dcc-integration-unblock/g59-frontend-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g59-audit-rule-execution-plan.md
+- doc/tasks/20261001-dcc-integration-unblock/g59-execute-audit-rule.py
+- doc/tasks/20261001-dcc-integration-unblock/g59-audit-rule-root-execution.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-activation-runtime-plan.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-arrangement-read-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-current-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-fix-scope-matrix.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-html-ac-inventory.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-real-failure.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-local-runtime.py
+- doc/tasks/20261001-dcc-integration-unblock/g56-types-first-failure.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-full-html-verification-plan.md
+- doc/tasks/20261001-dcc-integration-unblock/g56-initial-push-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g56-real-ui.cjs
 
 - doc/tasks/20261001-dcc-integration-unblock/g55-document-stage-paths.json
 
@@ -695,6 +735,332 @@ Root按8项A冻结源接收已实现增量，但X-01真实未送审来源FAIL仍
 - doc/tasks/20261001-dcc-integration-unblock/g43-visible-document-review.json
 
 
+- doc/tasks/20261001-dcc-integration-unblock/g56-auth-session-expiry-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r10.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r11.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r12.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r6.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r7.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r8.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-backend-start-receipt-r9.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-folder-job-project-real-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-frontend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-implementation-commit-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-implementation-stage-paths.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-fixed-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-linked-upload-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-precontrol-relation-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-reference-readonly-real-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-runtime-readiness.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-second-push-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-training-completion-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-training-pending-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-working-mapped-navigation-bdd.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g56-working-navigation-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g57-prepackage-runtime-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g58-document-stage-candidates.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-actual-projection-repair-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-backend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-frontend-root-review-r2.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-implementation-commit-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-implementation-stage-paths-r3.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-implementation-stage-paths.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-jdbc-implementation-commit-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-package-root-review-r3.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-real-repair-preview-failure.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-workbench-section-commit-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g59-workbench-section-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-backend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-final-package-stage-pins.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-git-network-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-implementation-commit-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-implementation-stage-paths.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-partial-future-control-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-protected-final-evidence-archive.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-push-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-runtime-business-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g60-runtime-final-readiness.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-backend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-current-latest-association-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-final-package-stage-pins.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-full-html-final-review.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-owned-backend-stop.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-pending-obsolete-entry-real-failure.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-training-actor-acceptance-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-training-record-role-config-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g61-verify-final-package.py
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-backend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-final-package-stage-pins.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-natural-activation-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-natural-date-activation-readonly.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-obsolete-frozen-obligations-real-failure.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-owned-backend-stop.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-protected-evidence-archive.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-verify-final-package.py
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-normal-todo-assignment-real-failure.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-controlled-source-contract.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-independent-interface-integration-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit-archive.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-revision-arrangement-read-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-lifecycle-html-acceptance-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-binding-order-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-relations-reference-name-ac-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-training-record-entry-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-activation-ram-recovery-readonly-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints-r1.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-document-control-category-access-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-obsolete-rework-ui-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-task-doc-entry-role-ui-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-training-record-duty-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r3.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r3.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-core-direction-independent-source-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-policy-candidate.yaml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-contract-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-audit-rule.review.sql
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-impact.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-shared-state-and-reconcile-independent-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-html-code-direction-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g61-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g61-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g62-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g62-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-wiring-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-delivery.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r3.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-flow1-8-review-matrix.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-r3-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-next-fe-boundaries-readonly.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-r2-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g59-legacy-workbench-summary-acl-readonly.md
+
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g61-pending-controlled-obsolete-entry-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-bdd.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g62-frontend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-document-stage-paths.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-document-structure-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-final-completion-display-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-frontend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g63-independent-obsolete-real-proof.json
+
 ## G44 真实主流程验证
 
 上一goal turn为实际progress：取消开发质量前置，实际配置26／历史登记25-39-13／恢复正常同源服务。当前沿用slot6真实页面和当前source，不再恢复已覆盖QA blocker。Root独占实际Playwright／DB只读佐证／配置影响／服务／最终Git；两个Agent只读当前UI源码与剩余验收范围。
@@ -873,3 +1239,8 @@ G54FE frozen2prod/2tests hashfaaada06、50finite0/lint0、Rootpin全部准确+ty
 - doc/tasks/20261001-dcc-integration-unblock/g54-frontend-root-review.json
 
 G55最终交付：唯一int_qms四方向已主流程验收，源25项commit ee4d9b4e0136885deb28ac9e9ca83bf68b0026a9；三项双库首次重复12次迁移0且原21表旧行不变；真实申请7完成/8审核驳回→9/9批准驳回→10重新审核，文件六签名→受控→真实下发，逻辑folder列表与正文非空canvas均通过。项目标题与退出详情空ID读取修复实际通过；完整types39830/build17848/package20539均退出0。原登录过期、运行中Jar替换失败有记录，9未被补写，最新own6604/48061核新jar/healthUP后才经UI新提交10；以后重包前先停已核所属任务后端。只读通知初projection键旧名纠正r2，原收据保留。当前ready_for_closeout：本机业务修复/验证已完成，推送不在授权范围，当前catalog/工具/本地技能未找到正式cleanup与experience技能；仅更新既有经验、资产清单与精确归档，不冒技能/cleanupPASS或completed。每项证据见g55-final-business-delivery.md和g55-real-mainflow-root-review.json，完整HTML全量/不同账号/可选培训/未来激活/升版作废未外推。
+
+
+G56–G59 当前全HTML验收进展（2026-10-05）：旧初始17提交已推8090e7193；G56修复24源c9ca、G57修复33源+5BDD85b76ea6b均正常推origin/int_qms验证0ahead0behind。实际含关联/培训4028四签名→受控下发，folder3新增/更名/软删、request10批准→272/615、crossproject引用count0/1/0、分钟job5625恢复后实际alltenant0日志正常。真实检入4026→4029 A1-1正文v2、4030 A1-2正文v3，baselineA1仍ACTIVE。G58新增独立TRAINING_RECORD权限及正确workinglabel/globaloperation scope，BE3+2tests实际260/7全0，FE分别15/20/29有限PASS+全types74726/build57908exit0；source冻结待G59同包。实际PARTIAL选earlier4029/未来20261006送审在公共controlled-content ref65592仍FINALIZING时拒绝，新candidate0；新nativeLifecycle遗漏共享收口是确定G59主架构缺口，不松openCandidate守卫、不写SQL清flag。Root已授权DCC-onlysharedpending状态、受控/生效/作废同事务投影及显式审核证据后的维护修复，BE/FE并行TDD中。真实独立Docuser910328及taskrole991222前端创建；首次3existingrole因合法logrole限制整体拒，尚未通过独立待办资格，不伪多账号PASS。最新Jar45a9...fcb7/own56836 48061和FE50712 8061保持健康。G59未完，mainTaskin_progress，不标全HTML或cleanupcompleted。每scope含setup错误与有效RED/GREEN原证，重叠数量不加。既有3无关资产rawSHA始终保留，不暂存其他旧资产。
+
+G63最后实际入口校验：G62作废申请正常POST成功，单MATRIX_REVIEW task d7c6aef6-c0d7-11f1-8698-b082e25ec548 / processd7c17fa8-c0d7-11f1-8698-b082e25ec548，assignee1；原File4033ACTIVE、原BPM4c5d、训练record/四签名保。实际normaltodo325→327至handlingapproval页，DetailSignoffAssignment旧management gate不显示、review按钮正式disabled；不拼management参数绕验收，FE按真实currenttask同轮次单组件资格G63修。后端有限一次只读g63-native-obsolete-current-round-readonly-review已确认独立两个userTask、不从file.needTraining/旧BPM/旧签名借资格、批准owner字段不适用，没有新增BE缺口。G62FE修native完成panel+2asset/BDD commit3d760fb正常push，G62BE46b同已正常push；两oldwarnings只构建提示不更新依赖。原3无关资产rawSHA保护逐项正确，正式cleanup/experience技能工具仍缺未伪PASS；已更新既有experience，精确217raw归档byte验证，不删除他任务。

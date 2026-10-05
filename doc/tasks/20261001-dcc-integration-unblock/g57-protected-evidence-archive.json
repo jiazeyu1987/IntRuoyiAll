@@ -1,0 +1,90 @@
+{
+  "status": "EXACT_BYTE_COPY_VERIFIED_NO_REWRITE_OR_DELETE",
+  "entries": [
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+      "sha256": "7c1fecfa5f0b95e555191b75c37fd4d5cb751f6d4e4fee0dce250f522f4dd902"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest.xml",
+      "sha256": "1bc8b148a66944ca9d153d08739a5ec2a0950c2ea8a20e34aab0bda9de9d573b"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "sha256": "fa75d2d9bc7b3e07b02e750ff0dbde90fc2ea5c6046bb7a85ac4a855e577fc01"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "sha256": "56862741f7c68632d10a7d12c312353f06076f29c78bcc0c02aadb5e209dba42"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest.xml",
+      "sha256": "1dddce17e34ae7b3ae7a7a6fda66438913fd0b7f08deb675d6566b77b85377ea"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "sha256": "477485cb115a94e445ce8f3887af4651c0b984f526aac23a09d48745a1c6e10e"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "sha256": "ebecb8654f715d64d916e639f0bdd66761deda2d494ed9c375e6e60122a02fd4"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "sha256": "b096010a855a975abaf05bff0837633d48093b999dd2bd40db08eeb98f3296c7"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml",
+      "sha256": "a93bf12367bd65503096068935c11c82fad44dd60faedc77dc77267de0c4e8ad"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-training-combination-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-training-combination-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml",
+      "sha256": "55432c4e8dfcea2e8d1533f1656b9db76ec592f15235c6e99e5ab9a9b44d60c4"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-training-combination-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-training-combination-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml",
+      "sha256": "7a3c3306d40484339e0361c6c67823224fb5908e9d876d1aedc6448f4f8d36d6"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-offline-training-entry-effective-red.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-offline-training-entry-effective-red.xml",
+      "sha256": "601e9559d5ad8d0d9c5eb0193157ae3a4737cfa8454c8e5c5a0ef61c360cf9e1"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-current-file-location-effective-red.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-current-file-location-effective-red.xml",
+      "sha256": "ff93be103570846eb63a4ab7fe0defeb6d1db6fd71ef6598ee4009897f94d359"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g57-final-related-regression.log",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-final-related-regression.log",
+      "sha256": "9dc8cd58dbfff8970d4de2cd2ae49b492f3cd325f06df834e4d11e2caca7ad10"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-browser\\g57-readonly-metadata-production-red.log",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-readonly-metadata-production-red.log",
+      "sha256": "64ccca1c738675c46bc57b431798f256e81c6332173a3f75dbe8eb0458e1b0ff"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-browser\\g57-readonly-metadata-production-green.log",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-readonly-metadata-production-green.log",
+      "sha256": "d5a545c949065758e6dc1115921fcf46c2dbc20593c4e8edad1e4c7a169e2dd9"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-browser\\g57-offline-training-entry-final-frozen.log",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g57-permanent-evidence\\g57-offline-training-entry-final-frozen.log",
+      "sha256": "65b17d17504cf5c6a52b74e5eead21dc784356b7915a61355ffa78246697af3e"
+    }
+  ]
+}

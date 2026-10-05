@@ -1,0 +1,279 @@
+{
+  "status": "G56_F01_F02_F03_F04_R02_FRONTEND_FINAL_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 7,
+  "testFiles": 9,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "bytes": 9704,
+      "sha256": "d3a176035eacfa4463d6564899c2f6bd82ea0e03c2cfb280c6e94ba66dbacf2b"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "bytes": 14720,
+      "sha256": "6961595efd717934fb0cd2a21f893cea1146aa8da28217a8a252043215588e64"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 312113,
+      "sha256": "d7051dcec5fbcfdb9622b0b298fe2e087c45efc6d0484f30907324bd161707ea"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/native-approval-progress.ts",
+      "bytes": 6122,
+      "sha256": "87436db252c7c93afd7ed0045789b62d27f0da31e0e8e6790f6ef8edf723a904"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/approval.ts",
+      "bytes": 7796,
+      "sha256": "a7e181db64833d4541aa6305918bc49e7384614a9d327c7bba094e7a49039a5f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "bytes": 11711,
+      "sha256": "e8a0f8e9225db37262d1c766234bcb3b1ba9482a2d14f9dc62e7f980b2586558"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21598,
+      "sha256": "07aff39518252ebaf8be5499af1d7301820186d9d83a350ddc4e84112cba5a9d"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-project-execution-version.test.cjs",
+      "bytes": 4227,
+      "sha256": "f5937d041d1168dc2524815d997fd73d74cf7936a22fd984d3de611e8b8efdff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-public-folder-maintenance.test.cjs",
+      "bytes": 4050,
+      "sha256": "0e126433c4098e3004365276a3e29e10f9e0b1e325a867a081034d7140f1801a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 3554,
+      "sha256": "f49a6ec886a5dc01db836667f31afc2e64e4669330971d26f29a2dfafbecef2b"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-progress-duty.test.cjs",
+      "bytes": 8643,
+      "sha256": "3816156045349b5003697d8214e477fe17ece751d18dcaae84ad993134557392"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-relation-source.test.cjs",
+      "bytes": 5666,
+      "sha256": "3606c961a1e77971586b377413a6c41486b5d9391c28d2449686e80bf99ff092"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-round-context.test.cjs",
+      "bytes": 13922,
+      "sha256": "909164454e1ffb72ed1631b1158d1d97e0d46ce2dcebc4b13a1bada0d92ecbbc"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6200,
+      "sha256": "4e6705a35f484edf363666a96261e8039820a85563baaf8aba73aea1b39407f5"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-closure.test.cjs",
+      "bytes": 24807,
+      "sha256": "aedd221c98b429a11a7427185f583fe563e2ecc3f292cd1b8c14b73afc0c2589"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-directory-view-wrapper-unit.spec.js",
+      "bytes": 5349,
+      "sha256": "d9ca506ead16f0542d2d4e7d28258a9678a4d27a9ff46cf15747188db3ade00c"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-bdd.md",
+      "bytes": 1594,
+      "sha256": "5fe6824de72fe371f69987f944f368dae2cf467c0a07dbc5ece0a239df66a5a7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-bdd.md",
+      "bytes": 1338,
+      "sha256": "5a1aea4334de1bc3109394ed8eef0b378860645e2da33be49465213952153283"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-bdd.md",
+      "bytes": 2447,
+      "sha256": "9bafb2c7f97c85b76bfbcb3d4d9733ca46a88c8fc0b11cd531ceebe8f6eabe26"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-bdd.md",
+      "bytes": 1839,
+      "sha256": "d57da0fc640e236877bbdc1dade783949120fc13ecc6a1a2bf01a1836a0919bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-delivery.md",
+      "bytes": 3557,
+      "sha256": "be6c5c4b512a019e03f93f25ae24d03fc6c2dd58029134f3659687c9b65d2b26"
+    }
+  ],
+  "previousSharedStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-fingerprints.json",
+    "bytes": 5235,
+    "sha256": "3beed9f4fa4257092c66692f975ddb70340bfe8dfa56d1c90b9cff7114b575d5"
+  },
+  "unchangedPriorAssets": [
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86280,
+      "sha256": "91628ac1833ee857201f77fa55e2c952fbf2b02652d35d94672bc8b04d322d2a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-publish-transition-static.spec.cjs",
+      "bytes": 3516,
+      "sha256": "82ba1b1eaa55f818466cd3ef97de482b82d604cd7be97eec2db2b9f103f7dea2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-project-facts.test.cjs",
+      "bytes": 3506,
+      "sha256": "4f60e6b7e97b6ed853979db66f5072b2529b3c9fa096f78dc2546322b9065537"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    }
+  ],
+  "supersedes": "Only declared source/test files replace earlier G55/G54/current G56 pins; immutable old manifests remain. Product/workflow write API, upload source and G54 SignoffAssignment unchanged.",
+  "contracts": [
+    "Public project folder create/edit/delete reuses existing editor/API, update permission and backend editor/owner rule; exact project/folder and stale result guard",
+    "Readonly preview links exact selected ID to existing traceability route with no management",
+    "Native UPLOAD/REVISION/OBSOLETE scope from exact validated file+BPM application rounds; LEGACY only exact authorized ApprovalDetail identity; missing unknown no fourth-stage fallback",
+    "Native training receive-task uses actual needTraining/pending state and formal availability plus later stage; unknown evidence never completion",
+    "Signature duties from actual sameBPM taskId/key plus ASSIGN/APPROVE/REJECT; missing facts unrecorded",
+    "R02 requires boolean hasCurrentControlledSource; false accurate unavailable+selected historical read no currentGET, true old latest/current edit/rowversion guards"
+  ],
+  "verification": {
+    "folderRED": {
+      "tests": 3,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "viewerRED": {
+      "tests": 2,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "nativeRED": {
+      "tests": 4,
+      "failures": 4,
+      "exitCode": 1
+    },
+    "actualTrainingActionRED": {
+      "tests": 5,
+      "pass": 3,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "relationRED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 15,
+      "tests": 90,
+      "pass": 90,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "All earlier phase/shared and existing nearby cases overlap, not additive"
+    },
+    "ownedLint": {
+      "files": 7,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "fixtureAndDevelopmentFindings": [
+    "First viewer GREEN expected mode=browser, corrected test to existing traceability=1 without changing helper",
+    "Existing round fixture helper initially placed in wrong function, one correction and final PASS",
+    "R02 true-edit fixture missing registered folder corrected, production directory guard retained",
+    "Old closure relation fixtures supply actual new availability boolean instead of compatibility fallback",
+    "Initial final7 failures old directory wrapper missing existing project configuration/state imports; actual helper dependencies loaded, all old assertions retained",
+    "Native responsibility code accidentally inserted in wrong block found in source review, new actualcomputed RED before correction; final actual renderer/helper PASS"
+  ],
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-red.log",
+      "bytes": 3908,
+      "sha256": "c44199bccbf06c716ce36d40339d7fd2333aa9cbbae07ffeb997962285c8c43d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-green.log",
+      "bytes": 462,
+      "sha256": "1f8451906c39311faf274efe8d191272e05efe35b9e3fd108e6dcabfc02bd137"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-red.log",
+      "bytes": 2260,
+      "sha256": "9d11c06c0a3fbd81a6977f8c625c8414160111875323865d13b79714242eb194"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-green.log",
+      "bytes": 1076,
+      "sha256": "8e4e174cab95406fd3bb76e43e6678692f5f80c3fca09ed9683bcb290a47eca1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-red.log",
+      "bytes": 4856,
+      "sha256": "df8222013e3a10d250b80a4df12ae7d6ab412124dc275270f67982df8eb7c37a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-real-training-action-red.log",
+      "bytes": 2650,
+      "sha256": "e7939de83131cf76f9fd6e08bd2c2d4393b9eec19d223e2c017aaf79525328de"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-responsibility-placement-red.log",
+      "bytes": 1919,
+      "sha256": "e67bd365644f4c8f198208313f40c99c4697f39c8e3356ce6e3e19758c042427"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-red.log",
+      "bytes": 2681,
+      "sha256": "e6f356ef0ad969be8cfbf7a6f0c6a18088ed9da901007cc96fb98459a71e43f5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-green.log",
+      "bytes": 1202,
+      "sha256": "e61eaf753d2ab89083190b8547f0deb87592868155d8d51e4ea850b474bfcb87"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-final.log",
+      "bytes": 18910,
+      "sha256": "4a474d5625e56f742c66d29c14ba4e77c40b9bad7143aaa528a7af33add5a8fc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-final-frozen.log",
+      "bytes": 10582,
+      "sha256": "fb8342a4ea76a405268e621b00fdf4365a13b6d543c665858e4ef3ff6150f3cf"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-lint-frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual production handlers/helpers and real template AST Vue renderer with explicit offline hosts, no actual browser E2E",
+    "Root full types/build and actual field/route/current stage verification pending",
+    "BE availability39/3 is independent Owner evidence; no backend modifications by FE agent",
+    "No actual DB/API/browser/services/Maven/Git or grants by this agent"
+  ]
+}

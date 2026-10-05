@@ -14,7 +14,7 @@ Connect the public browser to authorized project discovery, logical folders, con
 - Root owns full type/build/backend verification. No Maven, E2E, services, real DB or Git commit/push here.
 
 ## Current Status
-ready_for_closeout — G53–G55 前端及启动修复已由 Root 核对并提交 ee4d9b4e0；完整 types/build 和真实主流程/详情/正文复验通过。与主管理任务一并正式收尾，未独立推送。
+ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
 
 ## BDD
 - Given authorized projects including empty projects, when opening project browsing and a logical folder, then getProjectDiscoveryPage and getProjectFolders/buildProjectFolderTree supply identities; the browser uses projectFolderId and keeps server total.
@@ -135,6 +135,47 @@ G16 milestone: ready_for_closeout for Root Review. Current checkin-directed 24 P
 ready_for_closeout for Root review of this display-only increment; shared task remains in_progress. Given two formal blockers have the same message but different stages/people, When the actual upload readiness subtree renders, Then each displays returned stage number/name, actual person/name and exact account ID plus unchanged reason; missing facts are explicitly未记录. No guard, API, role or fallback changes. Effective RED3/4→GREEN4; affectedupload threefiles27PASS andowned eslint exit0. Root owns types/realHMR/mainline acceptance and finalGit/cleanup; oldG20seal retained, thissingleassetnewseal in g44-route-blocker-display-fingerprints.json.
 
 ## Cleanup Keep
+
+- doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g61-pending-controlled-obsolete-entry-readonly-review.md
+- doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g59-legacy-workbench-summary-acl-readonly.md
+- doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-bdd.md
+
+- doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-r2-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-r3-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r3.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-delivery.md
+- doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g56-next-fe-boundaries-readonly.md
+
+- doc/tasks/20261002-dcc-public-browser/g56-flow1-8-review-matrix.md
+- doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g56-preview-project-execution-version-fingerprints.json
 
 - doc/tasks/20261002-dcc-public-browser/g53-real-ui-entry-plan.md
 

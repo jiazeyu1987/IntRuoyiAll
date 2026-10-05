@@ -23,9 +23,11 @@ Isolated H2 and in-memory Flowable only; Maven reactor targeted tests, main appl
 
 ## Current Status
 
-ready_for_closeout — G55 finite authorized-detail project projection frozen: production2/test1, effectiveRED1→actual current-reactor13 selected executions all0fail/error/skip at2026-10-05 12:33:20. Project name/code only from exact same-tenant formal project; unbound history remains readable, products/list/name-only unchanged. Original XML/manifest/receipt permanent. Maven released Root; noactualDB/runtime/browser/package/Git. Whole-goal acceptance remains Root scope. G54 prior69/6 plus separate1case retain immutable receipts, not additive total.
+ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
 
 Preserved G53 latestdefinition finite receipt9/3 PASS and G49 projectapplication broad102/7 plus later43/2 PASS are independent prior deliveries, not additive totals or replacements for RootactualUI.
+
+G57 local restoration separate newRunner1/test1 is ready_for_closeout final R2: actual oldstartup missingRAMJob RED1failure0error -> 17GREEN -> minimal24/2 all0 CLI0 at18:52:39. Defaultdisabled, only dcc-local-development/exactexisting5625/localDBUUID/Shanghai/RAM/globalSyncfalse, no pooledconnection state setter or DBCRUD/sharedsync. TwooriginalXML archived-r2; final manifest1e1fe7d3...ccb4. Maven FREE Root, noactualDB/UI/runtime/Git/package by this owner; do not sum24 with284 or claim fullHTML.
 
 Previous finite delivery remains ready_for_closeout: LD03/G48 mapping17production/6tests/4schema, actual219/6 PASS and six XML permanently archived. The new G49 implementation does not rewrite that receipt or claim the overall goal completed.
 
@@ -73,6 +75,151 @@ Root resumes this existing record for a bounded obsolete readiness repair. Curre
 
 ## Cleanup Keep
 
+- doc/tasks/20261002-dcc-public-backend-completion/g63-native-obsolete-current-round-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-wiring-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g62-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g62-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.bpm.formcenter.runtime.DccWorkflowFormCenterObligationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g61-pending-obsolete-entry-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g61-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g61-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g61-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g60-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccPendingObsoletePlatformTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g60-final-html-code-direction-review.md
+- doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r3.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r3.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-roster-tenant-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-event-identity-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-gxp-policy-candidate.yaml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-audit-rule.review.sql
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-impact.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r2.json
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-final-r2-junit/TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r4-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-lifecycle-contract-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-native-platform-lifecycle-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-training-record-duty-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g58-training-duty-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g58-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.category.DccCategoryPermissionAdminServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadApiTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyApprovalTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g58-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTrainingRecordDutyDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-document-control-category-access-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-activation-ram-recovery-readonly-plan.md
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-archive-r2.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt-r2.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-r2/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit-r2/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-obsolete-rework-ui-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-fingerprints-r1.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-backend-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g57-offline-training-entry-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-current-file-location-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-training-combination-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g57-training-combination-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-training-record-entry-readonly-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-binding-order-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLinkedUploadBindingOrderDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSubmissionRelationPersistenceTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-lifecycle-html-acceptance-readonly-review.md
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-controlled-source-contract.md
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSelectorDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-current-source-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-relations-reference-name-ac-review.md
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-revision-arrangement-read-bdd.md
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-effective-red.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit-archive.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-verification-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-fingerprints.json
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccInitialRevisionArrangementReadTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml
 - doc/tasks/20261002-dcc-public-backend-completion/g53-bpm-latest-independent-review.md
 - doc/tasks/20261002-dcc-public-backend-completion/g53-execution-driver-readonly-review.md
 - doc/tasks/20261002-dcc-public-backend-completion/g54-empty-relations-readonly-review.md
@@ -364,6 +511,14 @@ G33 candidate is ready_for_closeout with final101/7 isolated PASS; master status
 - doc/tasks/20261002-dcc-public-backend-completion/g48-DccFileCategoryAdminServiceImplTest.xml
 - doc/tasks/20261002-dcc-public-backend-completion/g48-DccPublicUploadPlacementHttpContractTest.xml
 - doc/tasks/20261002-dcc-public-backend-completion/g48-G48StorageProjectionTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g56-independent-interface-integration-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g58-task-doc-entry-role-ui-plan.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-core-direction-independent-source-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g59-shared-state-and-reconcile-independent-review.md
 
 ## P05/P06/P07 verification and handoff
 

@@ -1,0 +1,253 @@
+{
+  "status": "G57_OFFLINE_TRAINING_HANDOFF_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 6,
+  "testFiles": 5,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/utils/dccOfflineTrainingRecord.ts",
+      "bytes": 4744,
+      "sha256": "04757b4ceca584c0809eb75ff0ca9845a806d2048a877927a270be013616dcf9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 56265,
+      "sha256": "1751e82a53b3738b755c71ba56b1cc43d4c118ad16d676e10a2ba719f035cba4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "bytes": 38361,
+      "sha256": "30ab4c9a40b25b025b7d4b7ff9e04ee8702c5e75b83a8fdbd55c5a3c6a88f4f0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 11217,
+      "sha256": "5921441ae9cf92eacc420686350a69baaf91c6606ee7fec139365e8d302c9285"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 12607,
+      "sha256": "abca7f5a59f59209bba7412ac642a4a4d212b58f3c7350431ad81506b33eea06"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 313130,
+      "sha256": "2566e89ff233250b2fdb13f2b04217aba085037cca908d8f66c6d560a2bd5fc4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-offline-training-entry.test.cjs",
+      "bytes": 9382,
+      "sha256": "87f55bb748e3fe53f549aa1bc3c5762fb62b52ee85d407cc5f23ceeb5105afd0"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5730,
+      "sha256": "595a775f50f36d12cf3a401ad7ea9852e2352aa03288a647af1385dcb08b8af3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12955,
+      "sha256": "975fe3d06f848d6f7d47e7b7d24792f6fae6c9bfa4b42840b7470a5e8b85a0f3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-distribution-public.test.cjs",
+      "bytes": 13827,
+      "sha256": "f078a34406033b78c2dba01a141fd62d0fe52aa458e81e0524cd6783bc20ddb4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
+      "bytes": 4897,
+      "sha256": "f49b004fe5d6531f0927a15f7b07f2ce5ba1458bf0400feee3267e92c533a4b1"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-bdd.md",
+      "bytes": 3678,
+      "sha256": "e76d86b7399ef1e4bd271a336b665da4ccb1069cf61f0560a64dfd03f4b063c6"
+    }
+  ],
+  "previousParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r3.json",
+    "bytes": 6238,
+    "sha256": "d88ec4f1e16a1900e2096613136bb1619ac4a41f4d6ee472e23dd9c8b939dbae"
+  },
+  "unchangedOtherPriorAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "bytes": 9704,
+      "sha256": "d3a176035eacfa4463d6564899c2f6bd82ea0e03c2cfb280c6e94ba66dbacf2b"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "bytes": 14720,
+      "sha256": "6961595efd717934fb0cd2a21f893cea1146aa8da28217a8a252043215588e64"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/native-approval-progress.ts",
+      "bytes": 6122,
+      "sha256": "87436db252c7c93afd7ed0045789b62d27f0da31e0e8e6790f6ef8edf723a904"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/approval.ts",
+      "bytes": 7796,
+      "sha256": "a7e181db64833d4541aa6305918bc49e7384614a9d327c7bba094e7a49039a5f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "bytes": 11711,
+      "sha256": "e8a0f8e9225db37262d1c766234bcb3b1ba9482a2d14f9dc62e7f980b2586558"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21598,
+      "sha256": "07aff39518252ebaf8be5499af1d7301820186d9d83a350ddc4e84112cba5a9d"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-project-execution-version.test.cjs",
+      "bytes": 4227,
+      "sha256": "f5937d041d1168dc2524815d997fd73d74cf7936a22fd984d3de611e8b8efdff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-public-folder-maintenance.test.cjs",
+      "bytes": 4050,
+      "sha256": "0e126433c4098e3004365276a3e29e10f9e0b1e325a867a081034d7140f1801a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-progress-duty.test.cjs",
+      "bytes": 8643,
+      "sha256": "3816156045349b5003697d8214e477fe17ece751d18dcaae84ad993134557392"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-relation-source.test.cjs",
+      "bytes": 5666,
+      "sha256": "3606c961a1e77971586b377413a6c41486b5d9391c28d2449686e80bf99ff092"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-round-context.test.cjs",
+      "bytes": 13922,
+      "sha256": "909164454e1ffb72ed1631b1158d1d97e0d46ce2dcebc4b13a1bada0d92ecbbc"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6200,
+      "sha256": "4e6705a35f484edf363666a96261e8039820a85563baaf8aba73aea1b39407f5"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-closure.test.cjs",
+      "bytes": 24807,
+      "sha256": "aedd221c98b429a11a7427185f583fe563e2ecc3f292cd1b8c14b73afc0c2589"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-directory-view-wrapper-unit.spec.js",
+      "bytes": 5349,
+      "sha256": "d9ca506ead16f0542d2d4e7d28258a9678a4d27a9ff46cf15747188db3ade00c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-stage-evidence.test.cjs",
+      "bytes": 4509,
+      "sha256": "28cf5a87f95b2bddcdac25ce2e53cd87d1ae8e0686bdec8cad0037c65cae1d3f"
+    }
+  ],
+  "supersedes": "Declared approval-center/workbench/notification/Parent sources and owned tests only; previous manifests retained. Root-owned workflow.ts hasProjectStorageMapping and working-navigation/source tests not included or modified.",
+  "exactContracts": [
+    "DCC_OFFLINE_TRAINING_RECORD only PROCESS_IN_MODULE/false signature, no Flowable task ID",
+    "Actual fileLongstring businessKey/path and BPM summary/query match; only management1/fromworkbench/returnToworkbench/processInstanceId four query keys",
+    "Workbench reads all pages from existing approval-center DCC TODO provider and strictly filters native source; actual file number/unique version tag, old reading confirmation queue unchanged",
+    "Notification marker/file/currentBPM/detailURL+actionURL sameorigin strict management route; shared message list/top callers reused",
+    "Old UserTask center taskId/handling behavior retained, native sourceTaskId not passed as taskId",
+    "Readonly viewer trace caller frombrowser activates actual guard; actual assignment child only management context, original child auth/signing unchanged",
+    "Loaded actor/tenant/route context required for native queue click as well as late response"
+  ],
+  "verification": {
+    "coreRED": {
+      "tests": 4,
+      "failures": 4,
+      "exitCode": 1
+    },
+    "readonlyGuardRED": {
+      "tests": 2,
+      "pass": 1,
+      "failures": 1,
+      "exitCode": 1
+    },
+    "readonlyAssignmentRED": {
+      "tests": 3,
+      "pass": 2,
+      "failures": 1,
+      "exitCode": 1
+    },
+    "loadedContextRED": {
+      "tests": 6,
+      "pass": 5,
+      "failures": 1,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 8,
+      "tests": 32,
+      "pass": 32,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Contains existing project/distribution/stage/click contracts; previous executions not additive"
+    },
+    "ownedLint": {
+      "files": 6,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "fixtureCorrections": [
+    "Old workbench fullSFC fixture adds explicit new read API and actual helper imports, old distribution assertions retained",
+    "Old project-center VM adds actual helper constants and notification runtime import",
+    "Static process permission assertion updated to already approved G56 task-independent authorized approvalDetail read; keeps permission guard and old UserTask navigation checks"
+  ],
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-red.log",
+      "bytes": 4704,
+      "sha256": "64a96bba2daee280caed66604e510cda48a87af8486ceb9722410a60dbc41c6f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-viewer-readonly-guard-red.log",
+      "bytes": 1069,
+      "sha256": "d407ccfa204272cd872f6dacccefe2b284c624bdf0970cf6a899bc6099f917a3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-assignment-gate-red.log",
+      "bytes": 1423,
+      "sha256": "824d99daf8667cf6ecea2bd2ad51e9c81c1653597406ada0293b0e069aae2039"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-native-queue-loaded-context-red.log",
+      "bytes": 1573,
+      "sha256": "6d49b28afc8275e0a56224bbe82b5630563d8dbfba7bc5b07cc8e8cadac15f1c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-regression.log",
+      "bytes": 28052,
+      "sha256": "d716708446a9ec8b85b7fc39b56bb010bec78d80f6a3600033043a7f4dc1f842"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final.log",
+      "bytes": 18355,
+      "sha256": "9ae375b573d3f5e2f595f0b95108d074d137f73dc8db827d6a22d2de39d95f91"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-final-source.log",
+      "bytes": 3846,
+      "sha256": "bfabd0ef28245db6ba28519dfeca1bfd5f9ff63a6f2c9ef64f5a3105f971f1d3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-lint-source.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual production center/queue/notification handlers/helpers and real button/template AST Vue renderer with explicit offline hosts; no browser E2E",
+    "Root new full types/build, formal BE provider/notification integration and independent doc_control actual discovery/upload pending",
+    "No DB/API/browser/services/Git/Maven/fulltypes/build/role grants by agent",
+    "No backend or new Flowable training approval/signature node created; query markers never confer rights"
+  ]
+}

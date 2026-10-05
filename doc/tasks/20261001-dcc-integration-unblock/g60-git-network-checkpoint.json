@@ -1,0 +1,20 @@
+{
+  "status": "GIT_NETWORK_ERRORS_PRESERVED_AFTER_EARLIER_SUCCESSFUL_PUSHES",
+  "lastVerifiedOrigin": "8ead0a8f5858fa037cbb34ae39089c2f1a4d3d5f",
+  "latestLocal": "42942d714119107ad168e8e7accbbf7c5cbb2ed1",
+  "unpublishedCommits": [
+    "49ceef41f3fbbe75cca35ea5279a14c1d490fb65",
+    "8c564a3d716995704367bf8f72b177f7de973d3a",
+    "42942d714119107ad168e8e7accbbf7c5cbb2ed1"
+  ],
+  "observedErrors": [
+    "connecttimeout300sec",
+    "connectionreset",
+    "schannel handshakefail",
+    "opensslreset"
+  ],
+  "configuration": "dead local proxy percommand bypass, WindowsProxydisabled, no globalnetworkconfigurationchange",
+  "dnsVerified": "github.com20.205.243.166 viaresolver8.8.8.8",
+  "port443Current": "TLSconnecttimeOut viaactualcurl15s",
+  "retryPolicy": "continue actual business independently; next normalpush after later bounded connectivity probe"
+}

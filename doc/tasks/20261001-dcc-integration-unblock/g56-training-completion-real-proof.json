@@ -1,0 +1,22 @@
+{
+  "status": "ACTUAL_OFFLINE_RECORD_UPLOAD_ADVANCES_TO_DOCUMENT_CONTROL_REVIEW",
+  "fileId": "2054545668044084028",
+  "processInstanceId": "8a634e88-c095-11f1-9629-b082e25ec548",
+  "trainingRecordFileId": "9198354931280",
+  "state": "PENDING_DOC_CONTROL_REVIEW",
+  "controlTimeStillAbsent": true,
+  "realUiEvidence": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r3/022.json",
+  "noIndividualOnlineTrainingActionNeeded": true,
+  "noExtraTrainingApprovalNode": true,
+  "currentSourceCommit": "c9ca1bf4bb89610a02bf476cfc263e924b22e566",
+  "readOnly corroboration": true,
+  "controlCompletedAfterDocReview": true,
+  "controlledTime": "2026-10-05 16:46:51",
+  "activatedTime": "2026-10-05 16:46:51",
+  "latestState": "ACTIVE",
+  "postControlRealUi": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r3/027.json",
+  "distributionStillSeparate": "notyet",
+  "distributedTime": "2026-10-05 16:57:02",
+  "actualDistributionUi": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r3/039.json",
+  "distributionVerified": true
+}

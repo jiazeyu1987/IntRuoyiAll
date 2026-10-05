@@ -1,0 +1,34 @@
+{
+  "status": "G60_LAST_PENDING_OBSOLETE_SOURCE_SCOPE4_FINAL_GREEN",
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java",
+      "bytes": 21888,
+      "sha256": "99a9768e957b14eaa9d3c1aebfe60d11cc91e1c11b8613aae566ba5ac3d0d3b0"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "bytes": 26041,
+      "sha256": "60f6fd8c2adf8354d26b4bcdbb8b28e2acdc9b6e3860956b9379933231034dfc"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java",
+      "bytes": 10805,
+      "sha256": "67ef9aed9fef4765c2fa7163be1163b8e19bf35c55db15a6dfaf468949d411c4"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "bytes": 20322,
+      "sha256": "0c9a0c94fb6e57c4682d391c63b0ea2f4d1663a15e3160acbbbf294b1912fedd"
+    }
+  ],
+  "sourceCount": 4,
+  "tests": 68,
+  "groups": 7,
+  "actualCliExitCode": 0,
+  "actualruntimeNext": "packageafterliveapprovalboundary"
+}

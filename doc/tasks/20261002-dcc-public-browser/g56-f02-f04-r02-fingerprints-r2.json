@@ -1,0 +1,165 @@
+{
+  "status": "G56_R2_PARENT_IMPORT_ONLY_FROZEN_AWAITING_ROOT_FULL_TYPES_BUILD",
+  "previousDelivery": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints.json",
+    "bytes": 11847,
+    "sha256": "c13204fc2f4d9d27790d3a9c98bed77cc885eb35280a1d2e2564b00112cba407"
+  },
+  "changedSourceFiles": 1,
+  "changedTestFiles": 0,
+  "productionFiles": 7,
+  "testFiles": 9,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "bytes": 9704,
+      "sha256": "d3a176035eacfa4463d6564899c2f6bd82ea0e03c2cfb280c6e94ba66dbacf2b"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "bytes": 14720,
+      "sha256": "6961595efd717934fb0cd2a21f893cea1146aa8da28217a8a252043215588e64"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 312149,
+      "sha256": "6d2a11b8506f81959ce1fc73f1ca44551fa7ca96dd86377bc209936050081d30"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/native-approval-progress.ts",
+      "bytes": 6122,
+      "sha256": "87436db252c7c93afd7ed0045789b62d27f0da31e0e8e6790f6ef8edf723a904"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/approval.ts",
+      "bytes": 7796,
+      "sha256": "a7e181db64833d4541aa6305918bc49e7384614a9d327c7bba094e7a49039a5f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "bytes": 11711,
+      "sha256": "e8a0f8e9225db37262d1c766234bcb3b1ba9482a2d14f9dc62e7f980b2586558"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21598,
+      "sha256": "07aff39518252ebaf8be5499af1d7301820186d9d83a350ddc4e84112cba5a9d"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-project-execution-version.test.cjs",
+      "bytes": 4227,
+      "sha256": "f5937d041d1168dc2524815d997fd73d74cf7936a22fd984d3de611e8b8efdff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-public-folder-maintenance.test.cjs",
+      "bytes": 4050,
+      "sha256": "0e126433c4098e3004365276a3e29e10f9e0b1e325a867a081034d7140f1801a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 3554,
+      "sha256": "f49a6ec886a5dc01db836667f31afc2e64e4669330971d26f29a2dfafbecef2b"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-progress-duty.test.cjs",
+      "bytes": 8643,
+      "sha256": "3816156045349b5003697d8214e477fe17ece751d18dcaae84ad993134557392"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-relation-source.test.cjs",
+      "bytes": 5666,
+      "sha256": "3606c961a1e77971586b377413a6c41486b5d9391c28d2449686e80bf99ff092"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-round-context.test.cjs",
+      "bytes": 13922,
+      "sha256": "909164454e1ffb72ed1631b1158d1d97e0d46ce2dcebc4b13a1bada0d92ecbbc"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6200,
+      "sha256": "4e6705a35f484edf363666a96261e8039820a85563baaf8aba73aea1b39407f5"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-closure.test.cjs",
+      "bytes": 24807,
+      "sha256": "aedd221c98b429a11a7427185f583fe563e2ecc3f292cd1b8c14b73afc0c2589"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-directory-view-wrapper-unit.spec.js",
+      "bytes": 5349,
+      "sha256": "d9ca506ead16f0542d2d4e7d28258a9678a4d27a9ff46cf15747188db3ade00c"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-bdd.md",
+      "bytes": 1498,
+      "sha256": "6cce191a9cc5ad10af6b6d4c6f1cba41cdfc660bb62c586a64083ce16c634c93"
+    }
+  ],
+  "unchangedPreviousDocuments": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-public-folder-maintenance-bdd.md",
+      "bytes": 1594,
+      "sha256": "5fe6824de72fe371f69987f944f368dae2cf467c0a07dbc5ece0a239df66a5a7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-entry-bdd.md",
+      "bytes": 1338,
+      "sha256": "5a1aea4334de1bc3109394ed8eef0b378860645e2da33be49465213952153283"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-progress-duty-bdd.md",
+      "bytes": 2447,
+      "sha256": "9bafb2c7f97c85b76bfbcb3d4d9733ca46a88c8fc0b11cd531ceebe8f6eabe26"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-current-relation-source-bdd.md",
+      "bytes": 1839,
+      "sha256": "d57da0fc640e236877bbdc1dade783949120fc13ecc6a1a2bf01a1836a0919bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-delivery.md",
+      "bytes": 3557,
+      "sha256": "be6c5c4b512a019e03f93f25ae24d03fc6c2dd58029134f3659687c9b65d2b26"
+    }
+  ],
+  "exactChange": "Only named import buildControlledFileTraceabilityPath added to existing ../view/presentation import in detail/index.vue; actual handler, route, UI, metadata, other sources and tests unchanged",
+  "RED": {
+    "source": "Root actual full types session10656",
+    "exitCode": 2,
+    "error": "Only detail/index.vue(5169,22) Cannot find name buildControlledFileTraceabilityPath",
+    "oldBuildSession": 23344,
+    "oldBuildExitCode": 0,
+    "scope": "Historical old missing-import version; not current r2 proof"
+  },
+  "localVerification": {
+    "viewerCases": 2,
+    "pass": 2,
+    "failures": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "ownedLintFiles": 1,
+    "lintExitCode": 0,
+    "warnings": 0,
+    "scope": "Original2 not additive; full types/build Root pending"
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-regression.log",
+      "bytes": 348,
+      "sha256": "2e7f53f8085850c96fe65fbeaaa96f793ca702e70b44fdb717d9896f833c22c2"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Root complete new types/build pending; no actual new browser UI verification",
+    "No DB/API/browser/services/Git/Maven/fulltypes/build by agent",
+    "Old90 and old Vite0 do not prove new full type success"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "PREPACKAGE_EXACT_OWNED_BACKEND_STOPPED",
+  "oldBackendPid": 16096,
+  "backendPort": 48061,
+  "frontendPort": 8061,
+  "frontendKeptRunning": true,
+  "sourceAfter": {
+    "beG57": "15pins/284finite",
+    "localRunner": "r2 singlelineReadOnlyState fix finalverification pending",
+    "feG57r2": "12pins/Types41690exit0/Build46227exit0",
+    "rootLocation": "3assets/29finite"
+  },
+  "databaseIdentity": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "jobRegistration": {
+    "id": 5625,
+    "normal": true,
+    "handler": "dccControlledFileActivationJob",
+    "cron": "0 * * * * ?",
+    "handlerParam": "",
+    "retryCount": 0,
+    "retryInterval": 0
+  },
+  "oldJobObjectCleared": "RAM oldtaskbackendstop only, formalDB5625 kept",
+  "noOtherServiceStopped": true
+}

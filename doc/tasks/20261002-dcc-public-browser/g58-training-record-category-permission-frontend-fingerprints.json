@@ -1,0 +1,98 @@
+{
+  "status": "G58_TRAINING_RECORD_CATEGORY_PERMISSION_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileCategories.ts",
+      "bytes": 13877,
+      "sha256": "42436f379ad12b7d513af82a6a3e81d845579d6ac765574eeeba6c7842173453"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts",
+      "bytes": 11667,
+      "sha256": "045708aa798ffe9c09e2fe93b86cd0cb22a74f7f28b232df1e786207b24c1a63"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-training-record-category-permission.test.cjs",
+      "bytes": 6642,
+      "sha256": "101eb3955dbafbc5b682f310184605e92e59c2a44be1acc74ac206ae2bfbecda"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-bdd.md",
+      "bytes": 2856,
+      "sha256": "984d449d666288a8c9ebf2d552d4862948159c3339bf3f085626e8c2c3754b23"
+    }
+  ],
+  "retainedCaller": {
+    "path": "IntRuoyiFronted/src/views/dcc/controlled-file/categories/components/CategoryPermissionRulesTab.vue",
+    "bytes": 13179,
+    "sha256": "b5d1fa2ce75c0630a4b7837f83685cb8c7bb7a76e336db2485c1d35791c80c22"
+  },
+  "protectedParent": {
+    "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+    "bytes": 313189,
+    "sha256": "5a34915427e9d1e041bbdd0fc900a827c8f9f5407e609e6b734101de32137176"
+  },
+  "previousParentSeal": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json",
+    "bytes": 7747,
+    "sha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8"
+  },
+  "exactContract": [
+    "Independent category action TRAINING_RECORD labelled 上传线下培训记录",
+    "Existing permission editor Exclude/filter REVIEW and APPROVE remains unchanged; new action editable with current ordinary permission subjects/scope",
+    "Actual openRules keeps matrix rules separate; actual saveRules sends existing PUT permission-rules with TRAINING_RECORD",
+    "No approval user/matrix protection/role grants/binary privilege changes"
+  ],
+  "verification": {
+    "RED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1,
+      "reason": "Actual API type and actual SFC action select lacked TRAINING_RECORD; load/save existing behavior passed"
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 15,
+      "pass": 15,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Includes existing detail integration/static editor contracts, not additive to previous runs"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 71988
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-red.log",
+      "bytes": 2504,
+      "sha256": "70152d678ad41b6aaa0acfabe88b2b95c0a126c3e8e605bbf567edf477f1c55f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-final.log",
+      "bytes": 1822,
+      "sha256": "e948f47137c6cb252a389fa40df0639e80405d3f66fb50b9dbde2c57ea9a55ee"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "supersedes": "Only the two declared category action/options source assets; previous G57 Parent/native queue and all older seals retained unchanged",
+  "limitations": [
+    "Actual production options, SFC fragment renderer and handlers/API transport with explicit offline dependencies; no real UI or API execution",
+    "Root full types/build and BE integration plus real independent doc-control account category configuration/upload acceptance pending",
+    "No backend/DB/roles/browser/services/Git/Maven/global types/build by this agent",
+    "Shared task remains in_progress; this finite increment ready_for_closeout_for_Root_review"
+  ]
+}

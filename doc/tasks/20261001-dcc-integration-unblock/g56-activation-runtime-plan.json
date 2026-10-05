@@ -1,0 +1,30 @@
+{
+  "status": "PREPARED_FOR_FINAL_REVIEWED_QMS_RUNTIME_NOT_STARTED",
+  "sourceRequirement": "HTML AC12/25/26, approved Asia/Shanghai lead7/minute",
+  "handler": "dccControlledFileActivationJob",
+  "cron": "0 * * * * ?",
+  "registration": "Root Playwright official infra/job form after newest backend package start",
+  "businessWritesViaSqlOrApi": false,
+  "runtimeBackendPort": 48061,
+  "runtimeFrontendPort": 8061,
+  "quartzStore": "RAMJobStore",
+  "quartzAutoStartup": true,
+  "jobStartupSync": false,
+  "otherJobsRegisteredOrEnabled": false,
+  "sharedQuartzTablesUsed": false,
+  "actualReadAllTenantPendingEffectiveVersions": 0,
+  "actualReadDuePendingVersions": 0,
+  "existingExactHandlerInfraJobRows": 0,
+  "readDate": "2026-10-05",
+  "zoneId": "Asia/Shanghai",
+  "reminderLeadDays": 7,
+  "evidenceNeeded": [
+    "actual formal job created through UI with exact handler/cron",
+    "minute actual logger via UI and tenant execution results, not outer success alone",
+    "future-controlled UI keeps execution version and preset date, targeted DB rollback/clock tests for actual due-switch invariants"
+  ],
+  "limits": [
+    "RAM acceptance mode does not claim durable restart restoration; normal deployment already has official persisted startup sync",
+    "No machine-clock alteration or backdated business objects to fake a future date"
+  ]
+}

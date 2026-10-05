@@ -1,0 +1,15 @@
+# G57 r2 — 只读正文及档案不开放元数据修改
+
+Status: ready_for_closeout_for_Root_review。共享任务保持 in_progress。Root真实R4/086正文popup只读预览仍看到“修改”，原Parentviewer showEdit取canEditMetadata，computed仅元数据角色+actionProjection，handler也仅该flag。早期preview有角色可改的实现不是当前F03约定的readonly零management；不改变角色权限或正文授权。
+
+GivenviewerMode或只读trace导致showDetailManagementActions=false，When实际canEditMetadata computed及viewer showEdit/metadatahandler运行，ThenFalse/按钮不显示/不开编辑弹框；不是只CSS隐藏。Given正常管理态且原metadataeditor role+formal actionProjection，Then原编辑资格仍true，不放宽角色或坏projection。
+
+Root34712types/40694build都实际0后才授权本后续唯一Parentcomputed加!viewerMode与showDetailManagementActions，旧G57source/tests先冻结；RED实际computed/template/handler，GREEN有限viewer/旧guard/metadata动作回归+Parentlint，Root新types/build与实际readonly重验。本Agent不BE/sharedcomponent/DB/API/UI/Git/环境操作。
+
+生产唯一修改为 canEditMetadata 同时要求非 viewerMode、showDetailManagementActions、原元数据角色和正式操作投影。已有 showEdit 和 openMetadataDialog 继续消费同一 computed；只读按钮及真实handler均拒，管理态原角色/投影规则保持。
+
+Root关闭实际Playwright session60159并确认没有本任务UI编制后，授权临时仅将生产 computed 恢复已核实际旧 getter。新增测试执行实际SFC AST提取的 computed/handler及原viewer模板Vue renderer：g57-readonly-metadata-production-red.log 实际 exit1，2项均因 true !== false 失败。随后恢复唯一条件，删除前期测试内旧getter重建分支，实际源最终 g57-readonly-metadata-production-green.log 为4文件15项PASS、0fail/skip、exit0；Parent ESLint --max-warnings 0 实际exit0、无输出。临时生产RED前后规范化Parent SHA均为6000ea53da0b4f3b44498129658f7ac1d39ca48df17f8af365accfe9b935b199，恢复后原始SHA为5a34915427e9d1e041bbdd0fc900a827c8f9f5407e609e6b734101de32137176。
+
+前期VM变量未导出导致TypeError、旧golden原始字节/换行不一致导致fixture断言失败，均为宿主准备错误，不算业务RED；测试内硬编码旧getter重建已撤销，不作为实际旧源码RED证据。保留这些日志而不覆盖。权威RED/GREEN为上述production-red/production-green日志。
+
+G57旧manifest保留不变，新r2仅替代Parent生产指纹并新增专属2项测试；其余5生产/5测试的原始SHA和字节与旧manifest全部相同。本次15项含既有viewer/训练入口/路由回归，不与旧32项累加。Root旧完整types/build结果仅代表先前源码，本r2的最终完整types/build与真实只读无修改/无签名表单复验由Root执行，尚未声称页面E2E PASS。

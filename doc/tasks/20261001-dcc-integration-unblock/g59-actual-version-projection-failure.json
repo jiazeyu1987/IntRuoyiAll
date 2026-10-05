@@ -1,0 +1,33 @@
+{
+  "status": "ACTUAL_PARTIAL_SUBMIT_FAILURE_FORMAL_DRIFT_READ_ONLY_CORROBORATED",
+  "ui": "g56-real-ui-r7/057confirmation and061realPOST",
+  "at": "2026-10-05 19:47:22",
+  "selectedFile": "2054545668044084029",
+  "selectedVersion": "A/1-1",
+  "intent": "PARTIAL",
+  "target": "A/2",
+  "effectiveDate": "2026-10-06",
+  "training": false,
+  "departmentIds": [
+    "100"
+  ],
+  "baselineId": "2054545668044084026",
+  "master": "2054545668044079116",
+  "nativeBaseline": "ACTIVE",
+  "newCandidateRows": 0,
+  "sharedRef": {
+    "id": "65592",
+    "version": "A/1",
+    "canonical": "FINALIZING",
+    "domain": "FINALIZING",
+    "openCandidateUniqueFlag": 1,
+    "activeUniqueFlag": null
+  },
+  "actualFailure": "controlled content already has an open candidate: A/1/FINALIZING",
+  "sameMasterRows": [
+    "4026ACTIVE",
+    "4029WORKING",
+    "4030WORKING"
+  ],
+  "resolution": "native same-transaction projection synchronization and explicit audited repair plan, no SQL/lazyGET fallback"
+}

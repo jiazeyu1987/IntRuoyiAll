@@ -1,0 +1,13 @@
+# G56 F04 — 准确轮次的native进度与签名职责
+
+Status: ready_for_closeout_for_Root_review。Root授权native三流程显示真实顺序/职责，legacy真四级独立保；不改BPM引擎、权限或File旧key猜作废。
+
+Given已验证fileID+BPM的唯一application-round映射UPLOAD/REVISION/OBSOLETE，When显示进度，Then上传升版会签→批准→可选真实培训→文控审核→受控→下发；作废只有会签→批准，独立BPM不继承File原upload。当前/完成由该BPM真实tasks及受控/下发时间，缺needTraining或身份不猜。
+
+GivenLEGACY，Then仅当前正式ApprovalDetail的processInstance/BPM、definition.id/key与file原BPM都准确一致时显示原四级；空mapping/未知metadata不能当legacy。读取保持现BPM query权限和late guards。Given签名taskId，Then只按同BPM真实task-definitionKey及ASSIGN动作展示职责，未知为签名职责未记录，不一律四级审批人；产品和正文权限不变。
+
+实际parent computed/round解析/helper有效RED→GREEN及已有context/dialog回归，Root统一types/build/真实页面。无实际环境/API/DB/browser/Git/Maven。
+
+结果：首effectiveRED4全FAIL，准确nativehelper+actualparent去固定四级→GREEN4PASS。独立review指出TRAINING是receiveTask无userTask、实际actionType=ASSIGN而非meaningCode；两新合同有效RED5=3P/2F后按Root确认当前scope.needTraining、真实training-pending与trainingRecordAvailable及后阶段证据修正，未知记录不完成，OBSOLETE无训练。真实同BPM/task-definitionKey加ASSIGN→部门负责人指派，APPROVE/REJECT→会签人，缺失职责未记录，legacy只正式identity后保四级。
+
+源码自审发现native职责段落误放syncStageProgress而未进入detailHandlingSummary，新增actualcomputed测试有效RED证明仍申请人，再移动到正确computed，不涉及引擎。保此RED；actualstage-grid Vue渲染证明真实顺序无假第四级。最后专属7项，关联本批15files90执行PASS0skip/exit0、7prod lint0warning/exit0。已验证正式roundlist请求需要当前file+primaryBPM匹配，所有await后复核route/sequence；legacy只能existing有权限ApprovalDetail的instance/definitionID/key与File原BPM一致，缺identity不猜。旧roundfixture一次正确引helper位置+必要dependency，原断言保。source/testsfreeze，Root完整types/build/实际receive培训/独立作废另验。

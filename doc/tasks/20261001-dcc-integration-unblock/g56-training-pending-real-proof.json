@@ -1,0 +1,10 @@
+{
+  "status": "ACTUAL_APPROVAL_WITH_SELECTED_OWNER_ENTERS_OFFLINE_TRAINING_BEFORE_CONTROL",
+  "fileId": "2054545668044084028",
+  "state": "PENDING_APPLICANT_TRAINING_RECORD",
+  "ownerUserId": "1",
+  "ownerSignatureId": "414",
+  "controlTimeAbsent": true,
+  "trainingRecordNotYetUploaded": true,
+  "actualUiEvidence": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r3\\017.json"
+}

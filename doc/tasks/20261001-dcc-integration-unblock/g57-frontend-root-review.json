@@ -1,0 +1,25 @@
+{
+  "status": "ROOT_G57_FRONTEND_CONTRACT_AND_READONLY_SOURCE_FULL_TYPES_BUILD_R2_PASS",
+  "manifest": "doc\\tasks\\20261002-dcc-public-browser\\g57-offline-training-entry-frontend-fingerprints-r2.json",
+  "manifestSha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8",
+  "sourcePinsVerified": 12,
+  "nativeSource": "DCC_OFFLINE_TRAINING_RECORD",
+  "serverRouteKeys": [
+    "management",
+    "from",
+    "returnTo",
+    "processInstanceId"
+  ],
+  "fakeTaskId": false,
+  "strictQueuePagination": true,
+  "stageEvidence": "formal records for training/control/distribution; approval signatures retained",
+  "readonlyWriteControls": "metadata/assignment gated by actual management context",
+  "rootLocationSource": "separate root reviewed 3assets/29tests and lint0",
+  "typesSession": 41690,
+  "typesExit": 0,
+  "buildSession": 46227,
+  "buildExit": 0,
+  "realRetest": "PENDING_SAME_SOURCE_PACKAGE",
+  "typesLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "buildLogSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1"
+}

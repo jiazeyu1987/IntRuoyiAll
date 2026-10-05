@@ -1,0 +1,8 @@
+{
+  "when": "2026-10-05T23:30:23.2295302+08:00",
+  "branch": "int_qms",
+  "port": 48061,
+  "jar": "C:\\IntRuoyiAll-int_main\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+  "status": "EXACT_OWNED_QMS_BACKEND_STOP",
+  "pid": 14968
+}

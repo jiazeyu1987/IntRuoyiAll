@@ -1,0 +1,159 @@
+{
+  "status": "G56_R3_NATIVE_RECORD_STAGE_EVIDENCE_DISPLAY_FROZEN_FOR_ROOT",
+  "rootRuntimeBaseline": "Root reported running source26 commitc9ca and protected actual R3/039 page; no new backend/package/service change by agent",
+  "previousDelivery": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g56-f02-f04-r02-fingerprints-r2.json",
+    "bytes": 6577,
+    "sha256": "e4e3eeda96e4fd73ab4f9d432a296ace7edede429dc485b6feff8d3548282ea2"
+  },
+  "changedSourceFiles": 1,
+  "addedTestFiles": 1,
+  "productionFiles": 7,
+  "testFiles": 10,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/ControlledFileBasicInfoPanel.vue",
+      "bytes": 9704,
+      "sha256": "d3a176035eacfa4463d6564899c2f6bd82ea0e03c2cfb280c6e94ba66dbacf2b"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "bytes": 14720,
+      "sha256": "6961595efd717934fb0cd2a21f893cea1146aa8da28217a8a252043215588e64"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 313099,
+      "sha256": "a56a9f564a7637872d76a0c90b2e7cf63f4178891bcf9cee7c1e4177e9e8eb6e"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/native-approval-progress.ts",
+      "bytes": 6122,
+      "sha256": "87436db252c7c93afd7ed0045789b62d27f0da31e0e8e6790f6ef8edf723a904"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/approval.ts",
+      "bytes": 7796,
+      "sha256": "a7e181db64833d4541aa6305918bc49e7384614a9d327c7bba094e7a49039a5f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "bytes": 11711,
+      "sha256": "e8a0f8e9225db37262d1c766234bcb3b1ba9482a2d14f9dc62e7f980b2586558"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21598,
+      "sha256": "07aff39518252ebaf8be5499af1d7301820186d9d83a350ddc4e84112cba5a9d"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-preview-project-execution-version.test.cjs",
+      "bytes": 4227,
+      "sha256": "f5937d041d1168dc2524815d997fd73d74cf7936a22fd984d3de611e8b8efdff"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-public-folder-maintenance.test.cjs",
+      "bytes": 4050,
+      "sha256": "0e126433c4098e3004365276a3e29e10f9e0b1e325a867a081034d7140f1801a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 3554,
+      "sha256": "f49a6ec886a5dc01db836667f31afc2e64e4669330971d26f29a2dfafbecef2b"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-progress-duty.test.cjs",
+      "bytes": 8643,
+      "sha256": "3816156045349b5003697d8214e477fe17ece751d18dcaae84ad993134557392"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-current-relation-source.test.cjs",
+      "bytes": 5666,
+      "sha256": "3606c961a1e77971586b377413a6c41486b5d9391c28d2449686e80bf99ff092"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-round-context.test.cjs",
+      "bytes": 13922,
+      "sha256": "909164454e1ffb72ed1631b1158d1d97e0d46ce2dcebc4b13a1bada0d92ecbbc"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6200,
+      "sha256": "4e6705a35f484edf363666a96261e8039820a85563baaf8aba73aea1b39407f5"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-closure.test.cjs",
+      "bytes": 24807,
+      "sha256": "aedd221c98b429a11a7427185f583fe563e2ecc3f292cd1b8c14b73afc0c2589"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-directory-view-wrapper-unit.spec.js",
+      "bytes": 5349,
+      "sha256": "d9ca506ead16f0542d2d4e7d28258a9678a4d27a9ff46cf15747188db3ade00c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-stage-evidence.test.cjs",
+      "bytes": 4509,
+      "sha256": "28cf5a87f95b2bddcdac25ce2e53cd87d1ae8e0686bdec8cad0037c65cae1d3f"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-r3-bdd.md",
+      "bytes": 1901,
+      "sha256": "d20ae35bc5396d2a15b80bb88b60ecd4460fe2124c6df62832db5156fa31dbd2"
+    }
+  ],
+  "unchangedOldDocuments": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-viewer-trace-import-r2-bdd.md",
+      "bytes": 1498,
+      "sha256": "6cce191a9cc5ad10af6b6d4c6f1cba41cdfc660bb62c586a64083ce16c634c93"
+    }
+  ],
+  "exactChange": "Parent formatStageSignatureStatus handles only exact current native training/control/distribution record facts and stage-grid label 阶段证据; original matrix/approval/legacy signature behavior retained; no new distribution signing policy",
+  "verification": {
+    "RED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 4,
+      "tests": 31,
+      "pass": 31,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Existing native/round/dialog included; not additive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-red.log",
+      "bytes": 3636,
+      "sha256": "f29f8dece0a1478246038d414cd877b6505ba19a3f942035935315e8218816bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-final.log",
+      "bytes": 3778,
+      "sha256": "f957a993717f246b82251b9bc3de30f17ab1ec4637fedb3b32713466e31c8a7b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g56-native-stage-evidence-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual formatter and original stage-grid subtree Vue renderer via offline hosts, not new browser E2E",
+    "Root new FE full types/build and actual display verify pending",
+    "No BE/DB/API/browser/services/Git/Maven/fulltypes/build operations by agent"
+  ]
+}

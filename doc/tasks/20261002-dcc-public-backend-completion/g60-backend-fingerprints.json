@@ -1,0 +1,147 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW_G60",
+  "productionFiles": 2,
+  "testFiles": 2,
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java",
+      "bytes": 21888,
+      "sha256": "99a9768e957b14eaa9d3c1aebfe60d11cc91e1c11b8613aae566ba5ac3d0d3b0"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "bytes": 26041,
+      "sha256": "60f6fd8c2adf8354d26b4bcdbb8b28e2acdc9b6e3860956b9379933231034dfc"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java",
+      "bytes": 10805,
+      "sha256": "67ef9aed9fef4765c2fa7163be1163b8e19bf35c55db15a6dfaf468949d411c4"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "bytes": 20322,
+      "sha256": "0c9a0c94fb6e57c4682d391c63b0ea2f4d1663a15e3160acbbbf294b1912fedd"
+    }
+  ],
+  "compiledClassInventory": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.class",
+      "bytes": 17073,
+      "sha256": "de5b2185bd55130d1c8239f2885bf1abd4c80bffb9ac99db686e1a1a55aa0111"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.class",
+      "bytes": 34681,
+      "sha256": "c14748424c9ce8afc143af2fc07bc9e2516beba1b30929b7ac0447586681381d"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-backend-verification-receipt.json",
+    "bytes": 10986,
+    "sha256": "c081bb24e75dc8283e1cbc8be4d95254fdd964b58587b9c5c6ea0d64a506846f"
+  },
+  "bdd": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g60-pending-obsolete-bdd.md",
+    "bytes": 2631,
+    "sha256": "9184dee9ef4960f63b114f26785845bc140a6b50958f04d025b8c967652cb762"
+  },
+  "priorG59Manifest": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-fingerprints-r3.json",
+    "bytes": 13946,
+    "sha256": "4c5a586be608388c8cb0458cc1296399b00dd1e7acafb658ecb96af5cb8ba67a"
+  },
+  "priorG59UnchangedAssets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentCanonicalStatus.java",
+      "bytes": 406,
+      "sha256": "4d6fa9a1ec8595da62e3f70c4d4ed7984fc9820defb1faa616d4ee4e3e8e411d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentTransitionAction.java",
+      "bytes": 597,
+      "sha256": "70e909e91155f3fa7564961f199761e8eaa88f6bdecd7e083b48e9be7d5aaece"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine.java",
+      "bytes": 7716,
+      "sha256": "e858752015e98fc3dae1837a6d9a74e7682a330c710d088831998df698fc4588"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentTransitionProfile.java",
+      "bytes": 4948,
+      "sha256": "dedafa6c41808a3fe4280aece80a8eca33dfb2239bbf934bf1486f718265a97f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentLifecycleCoreService.java",
+      "bytes": 35157,
+      "sha256": "a55319b208dedb193c33c05c91bfa199efaf5b2a6a5d716c34af2025e0c998fb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/controlledcontent/ControlledContentVersionRefMapper.java",
+      "bytes": 3671,
+      "sha256": "b4f1400049316c9714197868302ce2328d690c7b7f6afdb0a576131a7490476e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "bytes": 17261,
+      "sha256": "5236cdf476b2f9528b24c7b6b428f10619417b6e1e1e696e81bd02857a93a767"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+      "bytes": 22356,
+      "sha256": "d24f20b3aa0c26e0120bf352df42ac8a4d43e865792121165f6db98e2b99cff7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.java",
+      "bytes": 1819,
+      "sha256": "db72b9277eac4c094805e1be7bcd6f8247e00986381948ddaf27d821799f9877"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairPreviewRespVO.java",
+      "bytes": 820,
+      "sha256": "d2e37ccb7dd7c7cae9ffee6f5a9da548f361804b44983416ff146e602af96660"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairReqVO.java",
+      "bytes": 690,
+      "sha256": "36031cdc3c93d57bd31fa4477584f40a6ca56ab816d95971ca7f082248eec80b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairRespVO.java",
+      "bytes": 379,
+      "sha256": "a8ac1b1ed0b17c5d501e138c48bc7c185c9178f92042d63753edae58b20c5657"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativePlatformLifecycleTransactionTest.java",
+      "bytes": 12259,
+      "sha256": "ebd12f4a4f6ca484759091d3c7df318fec9fcf80e0b11ec441fab97dc3e060fa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairDatabaseTest.java",
+      "bytes": 17735,
+      "sha256": "2b404a4f9b139de934cca2cb71e70884be0c07d9679ff4eda034e3c7c6bd1775"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "bytes": 17398,
+      "sha256": "171f6c326a0482a1373b95c9c37a7d5e0f6d7f4ed53823a403e45dea9b878368"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "bytes": 98847,
+      "sha256": "6f14c1b4d5df41dda7781435780d43b9c75e341211686cf6440846eeeac07bfa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccThreeControlledVersionActivationTest.java",
+      "bytes": 17926,
+      "sha256": "04ee6adccf63f8917daa8ef9fa6a49796e716fbbe0c6bb8c276f7a10564870ff"
+    }
+  ],
+  "supersession": "OnlyG59Adapter production asset superseded; obsoleteService+newtest/oldfixture alsofinite changes. G59JDBCtwoassets/Coreenumstates/transitions allimmutable thisbatch.",
+  "wholeHtml": "Rootsoleactualpackage/UI/DBverification/Git owner; nofullgoalclaim fromisolated68tests"
+}

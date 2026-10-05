@@ -1,0 +1,24 @@
+{
+  "status": "ACTUAL_FORMAL_LINKED_NEW_UPLOAD_WITH_TRAINING_SUBMITTED_AFTER_SOURCE_FIX",
+  "fileId": "2054545668044084028",
+  "fileNumber": "G56-TRAIN-20261005-01",
+  "version": "A/1",
+  "needTraining": true,
+  "state": "PENDING_MATRIX_REVIEW",
+  "processInstanceId": "8a634e88-c095-11f1-9629-b082e25ec548",
+  "relatedFileId": "2054545668044084026",
+  "relatedFrozenVersion": "A/1",
+  "sourceCommit": "c9ca1bf4bb89610a02bf476cfc263e924b22e566",
+  "jarSha256": "c2b818c8cd02148a2934fe8e1ca34d75cc5001944995cfa44b3b85d9fc3fd2b5",
+  "realUiProof": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r2/036.json",
+  "oldFailureRetained": "g56-linked-upload-real-failure.json",
+  "businessWritesByRead": 0,
+  "fullTrainingWorkflowCompleted": true,
+  "controlCompletedAfterOfflineTraining": true,
+  "actualFourSignatureIds": [
+    "412",
+    "413",
+    "414",
+    "415"
+  ]
+}

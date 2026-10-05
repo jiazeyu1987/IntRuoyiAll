@@ -1,0 +1,14 @@
+{
+  "status": "ACTUAL_READONLY_REPAIR_PREVIEW_FAILURE_NO_WRITES",
+  "UI": "g56-real-ui-r9/028.json",
+  "fileId": "2054545668044084026",
+  "sharedRef": "65592",
+  "backendPid": 23136,
+  "sourceJar": "c52b6722b57d41ba69c004875063a1f1009dfc663d8b6f344f8bfa826a25a781",
+  "error": "DCC_REPAIR_LIFECYCLE_EVENT_REQUIRED",
+  "at": "2026-10-05 21:51:13",
+  "SQLexactevents": "master/version/key/BPM/occurrence already formallyMATCH",
+  "suspectedIntegration": "MySQL JDBC datetime object LocalDateTime vs H2Timestamp-onlyhelper",
+  "formalMaintenancePostCount": 0,
+  "businessWrites": 0
+}

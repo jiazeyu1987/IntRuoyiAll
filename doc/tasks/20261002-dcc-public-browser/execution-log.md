@@ -148,6 +148,16 @@
 Root本轮有限授权第2步source实现，main/int_qms不使用旧worktree。BDD先写，4实际SFC模板/validator/handler旧行为有效RED；实施singleupload-options正式启用leaf路径/stringID→existingactive-category唯一map，无模板空名单也可上传。项目template仅参考name/辅助error，类型独立读取；actualrawFile.name先建立SOURCEsession/display，readonlyname，返回preview原名不一致清理准确拒。旧nameitem/stagequalification已移除，真实folder/ticket/binary/globalclaim/product/attrs/部门training/confirmation保留，NAS目录3不改。最初GREEN两夹具问题（missingisExternalReview/AST选externalbranch）如实留证，纠正实际scope/依赖未放宽产品。最终8files55PASS0skip、5prodESLint finalexit0/0warn；新增actualVue typefullpathrender，globalworkflow taxonomyLong contract升级复用正式identityguard不弱化。共享类型/build/BE/实库/真实UI/GitRoot独占，Agent0上述动作。旧G46封存不改，G47source新seal只supersedesdeclaredidx/API/draft；文控blocker原3span不变。
 # LD03/G48 frontend single logical folder
 
+G57线下培训发现handoff：Root/BE定稿sourceDCC_OFFLINE_TRAINING_RECORD/onlyPROCESS/noSignature、exactfile/BPM+管理四query，不fakeUserTask。FE中心特分支不注namespace当taskID；workbench同DCC provider分页全读精筛native并独立error/context/count，旧600s确认保；notify sharedhelper专用marker/file/BPM/双URLsameorigin严格合同+详情动作。actualcoreRED4→GREEN后专属6，F03actualreadonlyguardRED修callerbrowser及已授权childManage gateASTRED；queue已读actorcontextRED后加click一致性。末8files32全PASS0skip/exit0、6prodlint0warning/exit0。旧fixture新imports/constant及G56已定BPMpermission静态断言一次校正、原失败保，无prodguard降级。Rootworkflow新hasProjectStorageMapping与workingnav二源不动，本6源明确替代旧centre/workbench/notify/Parentpin，旧seals保。source/testsfreeze，Roottypes/build/BE拼接/真实独立DocControl验，Agent无实际环境/DB/API/Git。
+
+G56r3阶段证据小显示：Root真实R3/039六阶段及training1/1显示把记录节点当签名待同步，唯一授权Parentformatter/gridlabel。先BDD，actualformatter+原AST Vue metadataRED4=1P/3F→相关4files31全PASS0skip/exit0、单源lint0warning/exit0(59067终态)。准确currentnative file/BPM/readscope下training正式availability、control/distribution正式记录时间显示wait/saved，unknown不猜；审批/legacy签名原方法保持，不作下发无需签名新政策。唯一Parent源+新testfreeze，旧r2其它pins保持，Root只新FEtypes/build/实际UI，后端/服务无重启需求，Agent无环境/API/DB/Git。
+
+G56r2装配修：Root完整types10656实际exit2唯一Parent缺buildControlledFileTraceabilityPath，旧build23344actual0不证明类型。等待该build终态后Root授权只补原presentation namedimport，handler/UI/其余source/test不变。原2viewer行为实际PASS/exit0、Parentlint0warning/exit0（68301/52699终态）。旧c132seal保留，r2字节pin只替代Parent；Root新types/build作为完整GREEN待验，未重复90或镜像test。
+
+G56后续Root授权F02/03/04+R02本批：各BDD先行effectiveRED→GREEN，复用folderEditor准确project维护、viewerselectedfile只读trace、正式exactnativeBPMround进度/legacy元数据和真实ASSIGN职责、receiveTask训练只实际pending/availability后阶段、不猜userTask。独立review2risk有效RED修；actual职责computedplacementRED修、actualgridrender保持。R02正式booleanfalse0GETcurrent/准确warning+history，true既有latest/currentedit保，strict无字段拒。末15files90执行PASS0fail/skip/exit0、7prodESLint0warning/exit0。旧directorywrapper7缺既有helpers一次配真实import原assert保；阶段fixture问题原日志保。7source/9testsfreeze，旧stage/seals不改，明确同父/API授权新pin替代G55/G54历史；Root一次types/build/实UI/Git，Agent无实际DB/API/browser/services/Maven/Git。
+
+G56本轮HTML1–8及指定AC独立审查，依据Root8090e7193和最新G55实际主线，逐handler/API核矩阵，区分已实现/真实PASS/待实测/源码缺口。Root随后唯一授权sharedBasicInfoPanel项目链接正确正式name/code、currentActive标签“当前执行受控版本”，不重复主detail。先BDD actualhelper+原AST Vue render RED4=1P/3F→GREEN相关4files15执行全PASS0skip/exit0、单源lint0warning/exit0(36480终态)。产品/真实项目导航/历史unbound保持；G55/G54及upload/API未动，其他publicfolder入口、裸preview档案、native阶段进度缺口仅报告未改。Source/testfreeze交Root types/build/实际viewer；Agent无环境/DB/API/Git。
+
 G55三有限详情修复Root顺派：1only签名computed throughliteral按HTML分列全上传升版和独立作废，reject原样；actualcomputed/描述AST文案RED3/4→copyGREEN14/lint0，独立copyseal261a保。2Rootr4/067真实离开browser空ID三GET，detail精准route/正Long/capturedfullPath入口守卫、generation失效/清读状态，不补lateblank/access，actualhandlersRED3/4→GREEN4/相关28。初自有96051fixture共pending挂住仅stopnode34992，修原IDpending后effectiveRED；VM数组跨realm初GREEN失败改length宿主断言，全部原日志保。3真实项目误用产品，Root授权BE正式同tenantproject投影name/code；FEcomputed一行改name/code，TS当前VO补这两字段，产品/导航/历史未绑定不变，RED3全FAIL。最终G55共5files31执行PASS0skip/exit0、2源lint0warning/exit0，source/testsfreeze；G54所有资产精确保持、uploadindex/submitter保，workflowAPI历史pin只因本2VO字段新seal。Root新types/build/实际UI待验，Agent未DB/API/browser/services/Git/Maven。
 
 G54真实指派P1：RootNEW文件实际arrangement GET403/0POST，HTML仅revision适用。两源child+applicationReadDTO/wrapper按Root协调正式context当前taskprocesskey三值校验，不借file旧key。有效RED4=2P/2F→正式API合同RED5=2P/3F→GREEN5PASS；真childwatch/save、真SignoffPanel.submit/helper/APIwrapper链NEW/obsoleteomit安排且不读不适用依赖，revision原read/ref/validate/error0POST保持。6files50最终全PASS0skip/exit0、2prodlint0warn/exit0(1341终态)；旧integrationrevisionfixture只补真实key。父index/Panel/helpers/writer/upload未改，Root统一BEfield/save适用/types/build及真实UI，Agent无实际环境/Git/API/DB/Maven，source/testsfreeze。
@@ -165,3 +175,57 @@ LD04有限前置：Root允许先写g49-project-application-entry-bdd.md，源码
 2026-10-05最终冻结后执行一次9文件62项定向回归，exit0、0fail/skip；3当前生产文件ESLint --max-warnings 0退出0、0warning。日志final-frozen/lint-frozen与6source/test文件精确pin交Root。生产/测试此后不再写，完整types/build及实际服务/页面由Root统一。
 
 Root实施授权后仅normalcontrolledNEW取消第二NAS选择/必填/加载及发送。有效RED5=1pass/4fail，GREEN5PASS；实际type mapping不loaddirectory，NEW目录SFC不render、external原controller保留；publicsubmit实际无NAS tree也confirm/send，externalmissing拒。payloadNEW省略directoryownproperty，无null/root/folderproxy；working/submit同guard拒extra，包括真实normalizeProcessType默认CONTROLLED的空/省略。external/REVISION保原目录transport，draft旧dir不跨NEW。最终9files62PASS0skip、3prodlint0warn/exit0；VMfixture增加正式scope ref，不改产品断言。预检只说逻辑folder已选+系统提交时配置，没假映射/ACL通过。旧G47seal保留，新G48supersedes3prod；LD01产品helper/LD02typehelper及blocker3span保留。Agent无DB/API/browser/service/Maven/fulltypes/build/Git，Rootmapping/migration/combinedtypes/E2E负责。
+
+## G57 r2 — 只读元数据编辑入口
+
+Root R4/086真实readonly viewer出现修改按钮，批准唯一Parent canEditMetadata增加非viewer与管理态两条件，原角色+正式projection保留，已有按钮/handler共同使用。Root已关闭实际UI后，仅该生产computed临时恢复实际旧getter跑新增2项；权威production-red exit1/2失败，再恢复后4文件15项PASS0fail/skip、Parentlint0warning/exit0。前期VM/换行golden宿主错误及撤销的test-only旧getter重建不计业务RED。恢复前后规范化Parenthash严格相同；旧G57seal保留，新r2替代Parentpin、增加专属test，其余5生产/5测试原始hash/bytes全部保持。Source/test冻结，ready_for_closeout_for_Root_review；共享任务仍in_progress。旧34712types/40694build仅旧版本结果，本r2需Root最终types/build与真实readonly无修改/无指派表单复验。未运行API/DB/UI/服务/Git/Maven/fulltypes/build，15项含旧回归不累加32。
+
+## G58 独立线下培训记录类别权限
+
+Root实际独立文控角色/菜单满足但training类别APPROVE绑定批准人，正式BE新TRAINING_RECORD消除批准权耦合。FE只2生产3行：fileCategories actionunion/shared lifecycle permissions+中文option；CategoryPermissionRulesTab原Exclude/filter只护REVIEW/APPROVE自然支持新action，正式wrapper不改。BDD先行，未改源码RED3=1PASS/2FAIL为准确union+实际下拉缺项；末相关3files15执行全PASS0fail/skip/exit0，2prodlint0warning/exit0(71988终态)。新3项实际AST声明/原SFC片段Vue renderer/真实openRules+saveRules经HTTPwrapper及失败可见，其余旧集成/静态数量不累加先前G57。Source/test冻结ready_for_closeout_for_Root_review，Keep/精确pin/log归档齐全；共享任务in_progress。Parent/队列/Rootmapping与working导航未改、账号授权/批准人/DB无写，本Agent无actualUI/API/服务/Git/Maven/fulltypes/build。Root正式BE拼接/全typesbuild/独立文控真实链仍待，不声称真实页面通过。
+
+## G58 AC23 所选工作版本显示
+
+Root真实r7/031检入A/1-1锁释放，库两metadata固定执行受控tag但内容所选WORKING，summary按latest-selected二分误历史。有限2生产修改：browserpresentation准确actualstatus阶段、显式rowMaster.currentActiveVersionNo与ACTIVE相等才当前执行；browser两metadata动态所选阶段/号+正式Master执行事实、版本summarycaller传同rowmaster，不改查询/版本选择/动作ID或检入。有效RED3均FAIL/exit1；首v-for renderer卸载宿主nextSibling恒null挂起仅停精确自己child21112，日志保且不计RED，host真实parent/sibling纠正后旧源RED419ms。末3files20全PASS0fail/skip/exit0、2prodlint0warning/exit0；首GREEN后去掉selected-master默认及unusedimport、补unknown/缺事实判断，最后frozen日志为准。Source/testfreeze，G58category与G57r2旧pins保持，旧seals保；Root最终全types/build和实际UI待验。Agent无真实API/UI/DB/服务/Git/Maven/fulltypesbuild，不累加17旧回归。
+
+## G59 生命周期投影维护前端准备
+
+Root已授权显式管理入口，先定位现more菜单/handler及readonly门禁。新增BDD g59-lifecycle-projection-repair-frontend-bdd.md，计划Parent+newDialog+newAPI+tests；BE contract仍proposal，已发owner请求稳定preview/POST字段，故当前未生产编辑/TDD或假接口。只显式preview、正式资格+reason二确认后POST、上下文失效零写，原文件历史签名不改。Root独占实际环境/技术规则/fulltypesbuild/真实验，Agent无DB/API/UI/Git/service。
+
+## G59 显式生命周期投影维护入口
+
+Root稳定preview/POST合同relay后3生产Parent/newDialog/newAPI+1test。有效未改源RED4FAIL/exit1，首次hostasync语法准备错误不算RED；末5files20PASS0fail/skip/exit0、3prodlint0warning/exit0(final-frozen)。实际Parentgate/handler全部三menu逐项every+doccontrol+非viewer管理；原checkPermi数组为OR已准确避，readonly不mount维护child。显式preview严格同fileLong/hash/nullable事实，展示原DCC控制/生效/审批/签名/BPM/artifacts/master/ref/预像与servertarget/actions；canRepairfalse原SFC渲染只读无POST按钮。原因二confirm、exactcontext/sequence/实时tenant再核、不clientactor/time/fake签名/taskID，payload8字段白名单；receipt绑定身份/hash/key/audit真实时间后完成，旧响应/取消零写，success+refreshfailure明确已维护。15旧回归不累加，Parent继承G57readonly/native合同，G58两组和G57其余11资产同rawpin。Source/test冻结ready_for_closeout_for_Root_review；共享任务in_progress，Root全typesbuild/BEtechnicalrule/实际自有页面维护待，Agent无实际API/UI/DB/service/Git/Maven/globalbuild。
+
+## G59 r2 严格维护合同
+
+Root正式reason500限定、LongMAX及receipt审核，有限2生产newDialog/API+原test，Parent保持旧raw7584fa5。BDD先actual旧源RED8=5PASS/3FAIL，准确501/overflow/invalidstate未拒；守卫实现后有限3files13全PASS0fail/skip/exit0(最后frozen-r3)、2prodlint0warning/exit0(15874终态)，原20不累加。原因maxlength/canSubmit/wrapper皆500，BigInt精确Long最大值保string、overflow拒，回执两allowed同名及previewtarget匹配才complete，POST仍8fields。首Greenrenderer因SFC缓存IFbranches未遍历、试compiler-dom未导出两宿主错误日志保留，不计RED；最终沿现AST遍历branches/实际input renderer通过，无无效import。旧seal保，新r2替代仅Dialog/API/test，Parent/G58/其余G57旧pin保；Source/testfreeze ready_for_closeout_for_Root_review，Rootr2全typesbuild/真实maintenance待，旧55673/47918仅旧源0。Agent无DB/API/UI/service/Git/Maven/globalbuild；旧summary另只读报未改。
+
+## G59 旧工作台摘要ACL只读报告
+
+g59-legacy-workbench-summary-acl-readonly.md完成有限source核对：不存在单summaryendpoint，loadWorkbench组合BPMtasks/process/detail、旧training/my-page(精确training:mine)、browser-page(query)。任一失败当前全rows清空+oldKPI0，native同provider独立队列不依赖。未核actual首拒URL/账号permission，不推断缺training:mine；建议后续按正式section menu能力分别不请求未授权区，授权错误仍显示本区+未知count，禁止0假成功或新增广权。当前仅docs/Keep，无workbench/helper/API/BE/sourceedit/实际操作，G59r2冻结保持，Root决定后续source。
+
+## G59 旧工作台分区菜单与未知指标
+
+Root真实Doc无training:mine/allcatch0差异，授权2生产workbenchindex/presentation+1专属test。BDD先actualRED4FAIL/exit1；有限权限gate各旧审批query+processquery、确认mine、失败filequery，未授权section/KPI隐藏0GET，native原独立singleprovider不动。授权HTTP/business失败本区error+null数量/无空table，另一成功row/count保；正式0仅成功显示。指标type/nullhelper不转0，route原样。工作台route/actor/tenant/menu+generation过滤late，现场tenant漂移准确清理过期视图报context变；无角色猜menu、无新增API或600sec逻辑。末3files19全PASS0fail/skip/exit0(专属5/native6/distribute8 overlap)、2prodlint0warn/exit0、旧workbenchstaticPASS；首宿主el-tag未注册warning保不当业务fail。旧全0静态脚本还锁已退休pendingRows，本批未跑改或声称通过，actual行为test保护。2source/testfreeze，oldG57workbenchpin被声明替代、Parentrepairr2/G58/Rootnav保，Root完整typesbuild/独立Doc真实页面待。Agent无actualDB/API/UI/service/Git/Maven/fulltypesbuild，共享任务in_progress，ready_for_closeout_for_Root_review。
+
+## G61 AC20 待生效作废前端只读复核
+
+Root请求核pending作废FE，g61-pending-controlled-obsolete-entry-readonly-review.md完成。正式detail canObsolete→resolve→Parentallowed+pending/error锁→管理菜单/handler→原作废snapshot/confirm无ACTIVE限定；共享allowedActions无statusfilter。Workflow ACTIVE仅执行正文/下发事实非作废。无确定性FE源码缺口，不改source/test不强enable，后端两正式投影需一致，不能前端互补伪造。所有frozen源保持，Root新BE和真实UI作废待验，此仅静态不E2E，Agent无测试/全typesbuild/API/DB/UI/服务/Git/Maven。
+
+## G61 新Query待生效作废投影有限复核
+
+仅只读actual新isObsoleteControlledStage/3caller与FEconsumer，Queryraw9f2f14d3同Parent7584fa/shared045708已记报告。pendinghelper严native/control/artifact/BPM/nonworking/formalMastertenantprojecttypenumber+原categoryOBSOLETE，开放作废lookup锁保；其它print/major旧ACTIVE没放。actionLocked!active仍true但sharedmap lockedForAction=locked&&!allowed，正式允许OBSOLETE不整体禁用；detailcanObsolete直接消费且另原Formpending/error硬锁，browserglobalunlocked仅metadata/working不包obsolete。未见限定scope新P1/P2或FE硬ACTIVE，source不改。未构建测试/HTTP/DB/UI，Root新Jar与实际作废待验。
+
+## G62 原生完成面板正确旧版作废
+
+Root真实00:00A2ACTIVE/旧A1OBSOLETE却显示SUPERSEDED，授权唯一Parent展示。BDD actualgetter+原模板RED3全FAIL→末5files32PASS0fail/skip/exit0/Parentlint0；纯filefactshelper+key/BPM mode分nativeUP/REV与显式legacy，native正确受控/预设日期/实际生效/Master当前执行和OBSOLETE后继旧版，缺Master不猜，原旧approval/external措辞/证据保。仅ACTIVE旧panel，不加pending功能/操作/API/权限。后Root授权单次完整types78607已exit0；build61132仍运行，独立临时outDir保共享dist，source/test冻结，待其终态后finalseal。未Maven/服务/真实API/DB/UI/Git。
+
+## G62 完成面板最终冻结与完整验证
+
+后继单行标题清晰“旧版自动作废”，末5files32/lint0；Root授权单次等效正式全types78607实际0，Vite61132实际0/Buildsuccessful，仅旧Browserslist提示，未依赖更新。source/test在checks期间未写；outDir为本task临时g62-build-local-output，不改共享dist/服务，由Rootcleanup。g62seal只Parentraw86039a+newtest18b99c，所有G58/G59其它声明资产保持，原seals不覆盖。ready_for_closeout_for_Root_review，Root实际新文案UI待，sharedtaskin_progress；无Maven/DB/API/UI/Git/服务。
+
+## G63 正常审批中心native会签指派入口
+
+Root真实OBSOLETE todo受原managementonly隐藏child，Parent一源新增精确写panelgate，原global管理/metadata不放；actualnativefile+BPM/type/任务MATRIXREVIEW/currentassignee/reviewmenu&&!viewertrace+actualreadcontext/taskID/round匹配，防同BPM另一部门。旧管理合格指派保，child原canAssign/部门/签名writer不动。不猜status新枚举。当前OBSOLETE卡用正式scope无需training/会签批准结束，UPREV原needTraining主flow保。权威actual旧template单字段RED=2P/1F exit1→最终5files23PASS0fail/skip/exit0，Parentlint81722actual0、单fulltypes52767actual0；no build(按Root避免重复5min)、旧G62build仅旧源。初helper缺失test3fail含hostfalse默认不作旧sourceRED，后已去；viewer夹具新computed缺、首childtest路径选错18不称完整，末correctexistingchild5组合23。Source/testfreeze Parentf54e+newtest47392+viewer7653，旧seals保，G58/G59其它/child原pin保。ready_for_closeout_for_Root_review/sharedtaskin_progress，RootnormalUI实际签名待，Agent无API/UI/DB/Git/服务/Maven。
+
+G63最终实际：普通审批center会签处理页已准确显示指派原child，元数据等全管理仍false；r9/333无需培训本轮作废二节点说明、345ASSIGN424、350APPROVE425，r10/006审批center正式签名APPROVE426。独立BPMd7c17fa8只MATRIX_REVIEW/MATRIX_APPROVAL且00:43:40.162结束，无runtime任务；原File4033/shared65595OBSOLETE，名称编号保留到2046-10-06 00:43:39，原受控23:09:37/实际生效00:00/上传BPM四签名420–423和record9198354931289保。G63 finite23/lint/types52767实际0，finalsource1+tests2+BDD commit33ad8350a正常push。UIr10/011最终A2完成面板已显示真实旧A1自动作废，不再套SUPERSEDED。27AC正式源码核对/明确差异修复完成，源码与定向测试及真实页面分别记录，不称全部负向排列E2E。源码已push0/0，文档即将单独commit/push。正式cleanup工具不可用，仅精准永久清单/结构验证/原证据私有归档已完成，不冒cleanupPASS/completed，主任务ready_for_closeout。

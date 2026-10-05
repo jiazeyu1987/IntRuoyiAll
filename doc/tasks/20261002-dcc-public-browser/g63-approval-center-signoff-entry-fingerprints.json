@@ -1,0 +1,108 @@
+{
+  "status": "G63_NORMAL_APPROVAL_CENTER_SIGNOFF_ENTRY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 320797,
+      "sha256": "f54e0475f0b0242d71a1445d5a192cfb5c63858b149f0a41c6912ac55d5914b1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-approval-center-signoff-entry.test.cjs",
+      "bytes": 5754,
+      "sha256": "47392bdef72f7ad7192a470a4b1c480a775694c402203018eccae866f5c873eb"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5774,
+      "sha256": "7653a21b71f5109e8db384a35b0492081b07d408849f91fdd9333979f7c4abdc"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-bdd.md",
+      "bytes": 3696,
+      "sha256": "7f626ce7a9514886b0b393450733fb0bfeb6a569978be72a6a93e72b59016182"
+    }
+  ],
+  "previousParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-fingerprints.json",
+    "bytes": 3912,
+    "sha256": "80d94a9027092b2568b3f3853345125f44e7e5ee7fc1002dc63bb1dfb3599fb0"
+  },
+  "verification": {
+    "actualTemplateProductionRED": {
+      "tests": 3,
+      "pass": 2,
+      "failures": 1,
+      "exitCode": 1,
+      "scope": "Only actual Parent template restored old management-only condition temporarily; actual renderer fails expectedvisible"
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 23,
+      "pass": 23,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new plus20 existing round/viewer/readonly/signoff applicability; not additive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 81722
+    },
+    "fullTypes": {
+      "session": 52767,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json"
+    },
+    "fullBuild": {
+      "status": "Not repeated by Root explicit scope",
+      "previousG62Build": "61132 exit0 applies to previous Parent stage only"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-template-production-red.log",
+      "bytes": 1392,
+      "sha256": "7984bc90417a00b994289297d5d94f68d1a72791eb6a00159e7746112dac8ba9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-final-frozen.log",
+      "bytes": 2848,
+      "sha256": "144a80041401db806dc055424ad1aa885000865917277c7cf227fcbabc0c70ba"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g63-final-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContracts": [
+    "Qualified native currentfile+BPM/round/type, authentic MATRIX_REVIEW task/currentassignee/reviewmenu and no viewer/trace",
+    "Normal approval-center handling additionally actual applicationApprovalRead context/task exact matches, permits only signoff panel not broad management",
+    "Original child canAssign/department candidates/signature writer remain; no guessed runtime statuses or role lists",
+    "Current validated OBSOLETE copy no training ends atapproval; File oldneedTraining/key not treated currentobsolete",
+    "Original metadata and readonly guards kept"
+  ],
+  "setupIncidents": [
+    "Initial missing-helper test defaultfalse not oldsource proof; finalremoved, authoritative actualproductiontemplateRED used",
+    "Viewer template fixture updated new computed projection after retained failure, originalassertions unchanged",
+    "First combined test selection nonexistent child file only18 executed; final existing childscope5 gives23, not claiming missedcasePASS"
+  ],
+  "supersedes": "Only Parent display/gate and owned viewerfixture; adds new test. G62/older seals retained; other G58/G59 and G54 child remainunchanged",
+  "limitations": [
+    "Offline actualAST/helper/template renderer and fulltypes, not real signed assignment/UIacceptance",
+    "No new build this batch per Root; priorbuild0 does not validate newsource",
+    "Root actualnormaltodo signature flow/Git/runtime/DB/cleanup remainsowner",
+    "No actualAPI/UI/DB/Git/service/Maven by agent; sharedtaskin_progress"
+  ]
+}

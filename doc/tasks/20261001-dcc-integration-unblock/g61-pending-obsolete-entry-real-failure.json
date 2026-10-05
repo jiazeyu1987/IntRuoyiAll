@@ -1,0 +1,11 @@
+{
+  "status": "ACTUAL_PENDING_CONTROLLED_FILE_OPERATION_ENTRY_MISSING",
+  "fileId": "2054545668044084033",
+  "state": "CONTROLLED_PENDING_EFFECTIVE",
+  "UI": "r9/207",
+  "discoveredAt": "2026-10-05 23:12",
+  "direction": "service/effect/sharedalreadyallow, Query active-only canObsolete fields3 +allowedActions gate",
+  "sourceOwner": "missing_object_recovery",
+  "FE": "trustedserveractionprojection so no forcedmenu",
+  "testPlan": "publicmetadata realformalpendingwith categoryobsolete shows action; brokenfacts/noauth/currentpendingformdeny"
+}

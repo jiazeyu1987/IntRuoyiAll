@@ -1,0 +1,112 @@
+{
+  "status": "G59_R2_REPAIR_CONTRACT_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 3,
+  "testFiles": 1,
+  "modifiedProductionFilesInR2": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 315365,
+      "sha256": "7584fa5adca8b9d3b4e9fe2a3509db8485c6bd3a7554d5a84e41c42c13a36889"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailLifecycleProjectionRepairDialog.vue",
+      "bytes": 7866,
+      "sha256": "e2fe4ecb7ed95e31ebd655a0609a920734e83393ab3136dbce3b3227c565ae02"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/lifecycleProjectionRepair.ts",
+      "bytes": 6776,
+      "sha256": "001f553bd57cd43b1fe218efa3c0ef675e14991c3ef0e52ec174f334cfc5f443"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-lifecycle-projection-repair.test.cjs",
+      "bytes": 14807,
+      "sha256": "0c1801141e10462016cee10521eb67bd35cc9eefe138cd931d6fb6ad4717ba53"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-bdd.md",
+      "bytes": 2682,
+      "sha256": "79ed0324f9b1872a9a8150d358061d127947d31367ed8e71d37f464eee226973"
+    }
+  ],
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints.json",
+    "bytes": 4832,
+    "sha256": "e6095838009d0158544c5677a3289feb80adf9b76a95736a716bc1accb3133c5"
+  },
+  "unchangedParent": {
+    "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+    "bytes": 315365,
+    "sha256": "7584fa5adca8b9d3b4e9fe2a3509db8485c6bd3a7554d5a84e41c42c13a36889"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 8,
+      "pass": 5,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 13,
+      "pass": 13,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "8 owned repaircases plus5 readonlyexisting; not additive to prior20"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 15874
+    },
+    "rootPriorTypes": {
+      "session": 55673,
+      "exitCode": 0,
+      "scope": "Prior G59 source only"
+    },
+    "rootPriorBuild": {
+      "session": 47918,
+      "exitCode": 0,
+      "scope": "Prior G59 source only"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-red.log",
+      "bytes": 3280,
+      "sha256": "ddf0cba082b4f39c37de79be9b4180a07022e6b8a0a4d4b5d1a2ff9c6e8ba5fd"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-final-frozen-r3.log",
+      "bytes": 1714,
+      "sha256": "36daf4ff73f5a270b40429d2fdbabeb028672e20376d0be9005514309ab4b66a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-repair-contract-r2-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContract": [
+    "Formal reason max500 enforced by actual input/computed/wrapper;501 rejected beforePOST",
+    "Exact Java Long maximum string identities, BigInt overflow rejection in path/facts/command/receipt",
+    "Receipt only ACTIVE or CONTROLLED_PENDING_EFFECTIVE with same canonical/domain; dialog compares same formal preview target beforeclose/emit",
+    "Original POST8fields and Parent production bytes remain unchanged"
+  ],
+  "setupIncidents": [
+    "Renderer traversal first missed compiler-transformed cached IFbranches; later compiler-dom not exported error; both retained setup failures, not businessRED",
+    "Final test uses existing compiler-sfc AST children/branches and original input actualrenderer, invalid import removed"
+  ],
+  "supersedes": "Only Dialog/API and owned test bytes; previous manifests preserved; Parent same rawSHA/bytes and all G58 assets unchanged",
+  "limitations": [
+    "Actualsource offline tests and renderer, no runtime/API/UI evidence",
+    "Root new r2 fulltypes/build and actual technical maintenance acceptance pending",
+    "Old summary permission diagnosis read-only separate, no workbench source changes",
+    "No DB/API/UI/service/Git/Maven/fulltypesbuild by agent; sharedtask remains in_progress"
+  ]
+}

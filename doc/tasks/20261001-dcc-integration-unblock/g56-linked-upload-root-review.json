@@ -1,0 +1,11 @@
+{
+  "status": "G56_REAL_LINKED_UPLOAD_CAUSE_WORKFLOW_SOURCE_XML257_ROOT_REVIEW_PASS",
+  "productionSourceFiles": 1,
+  "actualTests": 257,
+  "classes": 6,
+  "historicalRelationGuardUnchanged": true,
+  "oldWithdrawnRecordPreserved": true,
+  "realPostFixedRetry": "PENDING_NEW_PACKAGE",
+  "backendStoppedBeforePackage": "EXACT_TASK_PID6604",
+  "initialProofReaderKeyCorrection": "owner receipt uses suites/actualCliExitCode; no test or business outcome altered"
+}

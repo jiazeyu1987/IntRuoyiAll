@@ -1,0 +1,30 @@
+{
+  "status": "G56_REVIEWED_SCOPE_R01_R02_R03_EMBEDDED_SOURCE_PACKAGE_PASS",
+  "exitCode": 0,
+  "packageSession": 69419,
+  "jarSha256": "c2b818c8cd02148a2934fe8e1ca34d75cc5001944995cfa44b3b85d9fc3fd2b5",
+  "classes": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationAccessPolicyImpl.class",
+      "sha256": "e14ab0acb22eebe20456d3f83cad1eb1f99dc6ddcfa29467136901e8ccf5b77a"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "sha256": "a759aeeb80dcc8050bceb8e2b894c5182408f8c2406c4e09b0d7076bd445c428"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.class",
+      "sha256": "f07c99a65c05001e9e1caed9288dd7a0239815b2dfc50399cd7b3ecf77224292"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.class",
+      "sha256": "b897c222b147b819327f24e48c939727b86b12b958b63ade07f57cb7193861ed"
+    }
+  ],
+  "backendBeforeRepack": "OWNED6604_STOPPED_NO48061_LISTENER",
+  "actualPostRetest": "PENDING",
+  "sourceCommit": "c9ca1bf4bb89610a02bf476cfc263e924b22e566",
+  "actualBackendPid": 16096,
+  "health": "UP",
+  "officialJobRegistered": "5625"
+}

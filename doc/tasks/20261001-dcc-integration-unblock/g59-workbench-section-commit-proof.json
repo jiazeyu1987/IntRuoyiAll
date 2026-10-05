@@ -1,0 +1,15 @@
+{
+  "status": "WORKBENCH_SCOPED_PERMISSION_IMPLEMENTATION_COMMITTED",
+  "commit": "8c564a3d716995704367bf8f72b177f7de973d3a",
+  "files": [
+    "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/presentation.ts",
+    "IntRuoyiFronted/tests/unit/dcc-workbench-section-permissions.test.cjs",
+    "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-bdd.md"
+  ],
+  "tests": 19,
+  "types28157exit0": true,
+  "build1882exit0": true,
+  "realIndependentDocUI": "g56-real-ui-r9/020",
+  "otherSectionsNoPermissionRequestOrFalse0": true
+}

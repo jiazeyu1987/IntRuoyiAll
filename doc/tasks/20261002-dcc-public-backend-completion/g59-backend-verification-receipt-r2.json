@@ -1,0 +1,64 @@
+{
+  "status": "FINAL_EVENT_PROOF_CLOSED_FROZEN_NOT_RUNTIME_E2E",
+  "previousVerification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt.json",
+    "bytes": 11374,
+    "sha256": "7c857d05c07a117ab86a85b610c8704491a73d1bc3c207f819caa514cd5f89e0"
+  },
+  "broadRegressionUnchanged": {
+    "actualCliExitCode": 0,
+    "tests": 143,
+    "groups": 9,
+    "finishedAt": "2026-10-05T21:01:12+08:00",
+    "xmlArchive": "g59-final-r2-junit",
+    "scope": "Core/stateMachine/registrationcontract/adapter/native/date/finalization source unchanged; prior4repair superseded by latest6"
+  },
+  "latestRepair": {
+    "actualCliExitCode": 0,
+    "finishedAt": "2026-10-05T21:26:02+08:00",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "groups": 1,
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r4-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "bytes": 97085,
+      "sha256": "d2a8647772f35f0c39c48260ef36f1acaa8f401ddf23465de7c04d0199953613"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-final-r4.log",
+      "bytes": 70281,
+      "sha256": "d293aeed077358520272f05f78078a4adb2c67adc158d2bbcfb359140e97168f"
+    }
+  },
+  "effectiveRED": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "reason": "corrupted CONTROLLED master/version had sameFile/BPM/time and oldrepair preview did not reject",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-event-identity-effective-red.xml",
+      "bytes": 96794,
+      "sha256": "e53d6308c775f180b2baad59aa4d84f9536df2a099af5be27b2132a7bc3b226f"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-repair-event-identity-red.log",
+      "bytes": 71313,
+      "sha256": "3b8884e65c2c06e1c74886161aff28736a08cb1f430da8ffdb99ec248fa1e3f4"
+    }
+  },
+  "delta": "Only repairService exactEvent proof and one scoped H2 test changed since143/9+5/1; no source/state/event rewrite.",
+  "rawSourceHashChecks": {
+    "changedAssets": [
+      "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairDatabaseTest.java",
+      "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java"
+    ],
+    "unchangedProduction": 12,
+    "unchangedTest": 4,
+    "allOtherCompiledClassesUnchanged": true
+  },
+  "formalDTO": "Stable current source Longstrings/null/strict4querymanagement1, reason500; no contract keychange.",
+  "RootActualContext": "Parent confirms oldtaskowned4026 original CONTROLLED/ACTIVATED events fullkeys/Master/version/times match; auditrule1 perclone/sourcefirst-repeat inserted/protected oldrows. Child executed no actualdata/service/browser/SQL/Git.",
+  "mavenOwnership": "FREE_FROZEN_NO_FURTHER_CODE_OR_TARGET_OR_MAVEN"
+}

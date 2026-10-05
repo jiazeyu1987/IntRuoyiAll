@@ -1,0 +1,13 @@
+{
+  "status": "FINAL_G60_SAME_COMMITTED_QMS_RUNTIME_HEALTH_UP",
+  "backendPid": 14968,
+  "backendPort": 48061,
+  "frontendPid": 50712,
+  "frontendPort": 8061,
+  "sourceCommit": "1f81bae4b63a765edfdeca79e3e08a5995974ba1",
+  "jarSha256": "4383357e77195ae707976374fa801416577bde1cb7feea638513e6d9c652dab2",
+  "quartz": "single original5625restored RAM/globalSyncfalse",
+  "policyRules": "27DCCdevelopment configuredold26payloadpreserved+repair1; oldapproved8 unaffected",
+  "actualNewAcceptance": "independentDoc rulesavedfromUI/newtraininguploadpreparing; futureA2controlled true oldA1executing",
+  "remote": "originintqms0ahead0behindlatestverified"
+}

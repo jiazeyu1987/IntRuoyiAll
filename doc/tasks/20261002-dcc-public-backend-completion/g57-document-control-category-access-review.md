@@ -1,0 +1,27 @@
+# G57 独立文控类别授权入口急核
+
+状态：只读完成，发现当前训练资格与正式配置入口不闭合。本owner无源码/Maven/测试/真实DB/API/浏览器/Git动作。以下实际库事实来自Root只读消息，不是本owner独立查库：类别908710 APPROVE仅USER1；doc_control role910233只有categorymanage/print，wenkong910305有dccquery/approve，center910295有bpmquery。
+
+## 正式现状
+
+`CategoryPermissionRulesTab.vue:199`定义matrix-managed action精确为REVIEW和APPROVE；configurableActionOptions排除两者，维护权限drawer仅显示它们的只读矩阵规则。`DccCategoryPermissionAdminServiceImpl:27,47–56`同样禁止replacePermissionRules携带任一REVIEW/APPROVE，错误CATEGORY_PERMISSION_RULE_MANUAL_REVIEW_APPROVE_FORBIDDEN；它只重建非matrix规则，保旧两种。
+
+因此没有前端合法路径“给Doc单独追加类别APPROVE且不改签核矩阵”。USER1规则不因Doc继承doc_control/wenkong/center角色而匹配，现CategoryPermissionSupport只按真实active rule/action/USER或DEPT/ROLE/POSITION匹配。
+
+更精确地说，“矩阵管理”的UI声明不能推断typed矩阵会自动授APPROVE：`DccApprovalRouteAdminServiceImpl.saveRoute:109–150`只创建actiontype对应route/nodes，不写categorypermission。当前旧`DccCategoryApprovalMatrixAdminServiceImpl.persistApprovalMatrix:1081`只在写LEGACYroute前removeMatrixManagedPermissionRules删除REVIEW/APPROVE，没有新的permission insert步骤；typed三路线不会因它LEGACY写自动获得类别规则。不要为了测试改现共享MATRIX_APPROVAL人员、给DocADMIN身份或手工SQL追加。
+
+## 业务判断
+
+G57共用训练资格目前要求doc_control真实enabled成员、dccquery/approve菜单、categoryAPPROVE以及file/project hard scope。该类别APPROVE是内容批准矩阵管理动作；HTML已确认训练由文控上传线下文件，而文控不是必须的内容批准人。两者共用会阻断独立角色，是本次实际人员环境揭示的业务配置耦合，不是缺真实账号或UI未验收。
+
+现没有满足“独立文控、保持内容批准名单”要求的纯前端配置方案。把Doc加入MATRIX_APPROVAL会改变后续签核名单，typed还不生成该permission，不能作为合法绕过；给Doc与原USER1相同帐号不算独立角色证明。
+
+## 最小修复建议（Root确认范围后实施）
+
+建议沿当前类别权限规则框架增加一个独立可配置动作TRAINING_RECORD，业务标签“上传线下培训记录”。这不新表、不放开REVIEW/APPROVE、不改会签/批准route或历史签核名单。前端现权限drawer新增该操作选项，可用现ROLE910233或任务自有Doc USER规则，由正式categorymanage保存。DCC共用训练资格改用该专用类别动作，原doc_control/实际账号启用、业务菜单、硬范围及真实批准文件/currentBPM/ReceiveTask wait全部保持。
+
+现preview/POST里旧categoryAPPROVE冗余校验也须在native lane同改为共用资格，不能service里新资格放行但Workflow前置旧APPROVE仍拒；旧legacy training分支保持原独立合同。元数据和队列继续共用同资格，不授正文。通知仍由正式同事务API发给合法Doc，不强求bpmquery；center/workbench ACL保持。
+
+另一方案只允许正式冻结DOC_CONTROL_REVIEW参与者上传，可避免额外类别动作，但会把培训资料职责收窄为签名审核人；现样本4028已冻结旧admin，不能回改快照授Doc，不足以解决本轮独立文控与保存签核历史。是否选择这种更窄业务规则需Root明确，不默认采用。
+
+必要TDD：在类别APPROVE只有原批准人1、Doc有真实role/菜单/专用TRAINING_RECORD规则而无APPROVE时，正式permissionRules保存可用，共用队列/metadata/nativepreview/POST/通知正常；同Doc不能因此做MATRIX_APPROVAL签名、不能看正文、无专用规则拒且旧APPROVE不能冒充新动作。Root真实UI为Doc赋现3roles后新增该专用categoryrule再验；不需要改SharedMatrix或QA策略。

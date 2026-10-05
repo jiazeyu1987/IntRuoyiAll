@@ -1,0 +1,46 @@
+{
+  "status": "REAL_NORMAL_TODO_SIGNED_OBSOLETE_END_AND20YEAR_RETENTION_PASS",
+  "fileId": "2054545668044084033",
+  "bpm": "d7c17fa8-c0d7-11f1-8698-b082e25ec548",
+  "originalUploadBpmRetained": "4c5da4e8-c0cd-11f1-86f2-b082e25ec548",
+  "ui": [
+    "r9/333 actualqualifiedassignment normalcurrenttodo",
+    "r9/345 actualsignedassign POST",
+    "r9/350 actualsignedreview thennexttask",
+    "r10/006 normalapprovalcenter signedapprove",
+    "r10/007 no remainingtask"
+  ],
+  "readonly": [
+    {
+      "query": "SELECT id,status,version_no,process_instance_id,controlled_time,effective_date,activated_time,obsoleted_time,training_record_file_id FROM dcc_controlled_file WHERE tenant_id=1 AND id=2054545668044084033;",
+      "result": "2054545668044084033\tOBSOLETE\tA/1\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:09:37\t2026-10-06\t2026-10-06 00:00:00\t2026-10-06 00:43:39\t9198354931289\n"
+    },
+    {
+      "query": "SELECT id,task_id,action_type,actor_id,process_instance_id,signed_at,evidence_status FROM dcc_controlled_file_signature WHERE tenant_id=1 AND controlled_file_id=2054545668044084033 AND deleted=0 ORDER BY id;",
+      "result": "420\t4c654628-c0cd-11f1-86f2-b082e25ec548\tASSIGN\t1\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:00:24\tVALID\n421\t4c654628-c0cd-11f1-86f2-b082e25ec548\tAPPROVE\t1\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:01:50\tVALID\n422\tb1809b1a-c0cd-11f1-86f2-b082e25ec548\tAPPROVE\t1\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:03:02\tVALID\n423\t77ab317a-c0ce-11f1-86f2-b082e25ec548\tAPPROVE\t1\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:09:36\tVALID\n424\td7c6aef6-c0d7-11f1-8698-b082e25ec548\tASSIGN\t1\td7c17fa8-c0d7-11f1-8698-b082e25ec548\t2026-10-06 00:37:52\tVALID\n425\td7c6aef6-c0d7-11f1-8698-b082e25ec548\tAPPROVE\t1\td7c17fa8-c0d7-11f1-8698-b082e25ec548\t2026-10-06 00:38:44\tVALID\n426\t3bcf2d06-c0db-11f1-8698-b082e25ec548\tAPPROVE\t1\td7c17fa8-c0d7-11f1-8698-b082e25ec548\t2026-10-06 00:43:36\tVALID\n"
+    },
+    {
+      "query": "SELECT COUNT(*) FROM ACT_RU_TASK WHERE PROC_INST_ID_='d7c17fa8-c0d7-11f1-8698-b082e25ec548';",
+      "result": "0\n"
+    },
+    {
+      "query": "SELECT ID_,END_TIME_ FROM ACT_HI_PROCINST WHERE PROC_INST_ID_='d7c17fa8-c0d7-11f1-8698-b082e25ec548';",
+      "result": "d7c17fa8-c0d7-11f1-8698-b082e25ec548\t2026-10-06 00:43:40.162\n"
+    },
+    {
+      "query": "SELECT ACT_ID_,ACT_TYPE_,START_TIME_,END_TIME_ FROM ACT_HI_ACTINST WHERE PROC_INST_ID_='d7c17fa8-c0d7-11f1-8698-b082e25ec548' AND ACT_TYPE_='userTask' ORDER BY START_TIME_;",
+      "result": "MATRIX_REVIEW\tuserTask\t2026-10-06 00:14:29.577\t2026-10-06 00:38:45.768\nMATRIX_APPROVAL\tuserTask\t2026-10-06 00:38:45.899\t2026-10-06 00:43:37.673\n"
+    },
+    {
+      "query": "SELECT master_id,source_original_file_name,normalized_file_number,obsolete_time,retain_until FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=2054545668044079119;",
+      "result": "2054545668044079119\t20261005-dcc-full-html-g61-independent-training.pdf\tG61-DOCTRAIN-20261005-01\t2026-10-06 00:43:39\t2046-10-06 00:43:39\n"
+    },
+    {
+      "query": "SELECT id,native_version_id,canonical_status,active_unique_flag,open_candidate_unique_flag FROM controlled_content_version_ref WHERE tenant_id=1 AND native_version_id=2054545668044084033;",
+      "result": "65595\t2054545668044084033\tOBSOLETE\tNULL\tNULL\n"
+    }
+  ],
+  "actorId": "1",
+  "noAPIorDBBusinessActions": true,
+  "pendingToActiveDuringVerification": "originalpendingentrysource/G61finitequalified; naturaldateactivated4033beforefinalindependentobsolete. This actualapproval verifies ACTIVE, pendingeffectG60 realH2/shared transaction finite only."
+}
