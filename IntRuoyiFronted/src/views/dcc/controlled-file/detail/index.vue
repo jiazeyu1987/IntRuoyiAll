@@ -4111,7 +4111,7 @@ const detailHandlingSummary = computed(() => {
   if (file.status === 'WITHDRAWN' && file.processDefinitionKey === 'dcc-controlled-file-revision'
     && file.processInstanceId?.trim() && !file.supersededByFileId) {
     return { nextStep: '已撤回，请通过检出 / 检入修正正文后重新提交',
-      responsibilityHint: '责任：原申请人；重提目标由正式服务保持，原撤回记录及签名历史保留' }
+      responsibilityHint: '责任：原申请人；重新提交仍申请原目标版本，原撤回记录及签名历史保留' }
   }
   if (approvalProgressScope.value && approvalProgressScope.value.applicationType !== 'LEGACY') {
     const stage = currentStage.value

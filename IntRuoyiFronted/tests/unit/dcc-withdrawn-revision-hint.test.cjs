@@ -10,7 +10,7 @@ function host(file=current,scope={fileId:'4043',bpmRound:'actual-withdrawn-bpm',
  return{c,summary:c.exports.summary}
 }
 test('actual native withdrawn summary leads to existing checkout/checkin repair even when an old stage remains visible',()=>{
- const h=host();assert.match(h.summary.value.nextStep,/检出.*检入.*修正.*重新提交/);assert.match(h.summary.value.responsibilityHint,/目标.*正式服务.*保持/);assert.doesNotMatch(JSON.stringify(h.summary.value),/删除流程/)
+ const h=host();assert.match(h.summary.value.nextStep,/检出.*检入.*修正.*重新提交/);assert.match(h.summary.value.responsibilityHint,/重新提交仍申请原目标版本/);assert.doesNotMatch(JSON.stringify(h.summary.value),/删除流程/)
 })
 test('legacy, missing native identity and already superseded withdrawn facts retain their original helper behavior',()=>{
  for(const file of [{...current,processDefinitionKey:'dcc-controlled-file-approval'},{...current,processInstanceId:''}])assert.equal(host(file,null,null).summary.value.nextStep,'已撤回，可删除流程或重新提交')
