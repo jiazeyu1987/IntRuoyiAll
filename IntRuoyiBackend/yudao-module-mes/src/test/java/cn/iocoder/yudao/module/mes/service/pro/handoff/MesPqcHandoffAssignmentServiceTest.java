@@ -56,6 +56,32 @@ class MesPqcHandoffAssignmentServiceTest {
     }
     @AfterEach void clear() {TenantContextHolder.clear();}
 
+    @Test void userOptionsIncludesEffectiveCreateGrantWithoutStaticRolePermissions() {
+        var user=users.getUser(344L);when(users.getUserListByNickname("正式PQC")).thenReturn(List.of(user));
+        when(permissions.hasAnyPermissions(344L,MesPqcHandoffAssignmentService.CREATE_PERMISSION)).thenReturn(true);
+        assertEquals(List.of(new MesPqcHandoffAssignmentService.Option(344L,"正式PQC检验员（pqc-user）")),service.userOptions(" 正式PQC "));
+        verify(permissions).hasAnyPermissions(344L,MesPqcHandoffAssignmentService.CREATE_PERMISSION);
+        verify(permissions,never()).getUserRoleIdListByUserId(anyLong());
+        verify(permissions,never()).hasAnyPermissionsInRoles(anySet(),anyString());verifyNoInteractions(owners,roles);
+    }
+    @Test void userOptionsExcludesAccountWithoutEffectiveCreateGrant() {
+        var user=users.getUser(344L);when(users.getUserListByNickname("正式PQC")).thenReturn(List.of(user));
+        when(permissions.hasAnyPermissions(344L,MesPqcHandoffAssignmentService.CREATE_PERMISSION)).thenReturn(false);
+        assertTrue(service.userOptions("正式PQC").isEmpty());
+        verify(permissions).hasAnyPermissions(344L,MesPqcHandoffAssignmentService.CREATE_PERMISSION);
+        verify(permissions,never()).getUserRoleIdListByUserId(anyLong());
+        verify(permissions,never()).hasAnyPermissionsInRoles(anySet(),anyString());
+    }
+    @Test void userOptionsNeverOffersDisabledAccountEvenWithAnEffectiveGrant() {
+        var user=users.getUser(344L);user.setStatus(1);when(users.getUserListByNickname("正式PQC")).thenReturn(List.of(user));
+        when(permissions.hasAnyPermissions(344L,MesPqcHandoffAssignmentService.CREATE_PERMISSION)).thenReturn(true);
+        assertTrue(service.userOptions("正式PQC").isEmpty());verifyNoInteractions(permissions);
+    }
+    @ParameterizedTest @ValueSource(strings={"","   "})
+    void userOptionsRequiresExplicitSearchInsteadOfScanningTenantAccounts(String keyword) {
+        assertThrows(RuntimeException.class,()->service.userOptions(keyword));verifyNoInteractions(users,permissions);
+    }
+
     @Test void missingExactRouteRuleFailsWithoutScanningTenantPersonnelOrQaRules() {
         var error=assertThrows(RuntimeException.class,()->service.resolve(98L));assertTrue(error.getMessage().contains("未配置"));
         verify(rules).selectListByScopeAndType("ROUTE",98L,"PQC_HANDOFF");verifyNoInteractions(owners,users,roles,permissions);

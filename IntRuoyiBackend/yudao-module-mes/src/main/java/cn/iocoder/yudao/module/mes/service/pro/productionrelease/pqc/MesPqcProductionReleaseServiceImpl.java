@@ -507,12 +507,19 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             MesProcessPoolActiveOrderReleaseApplicationDO application,
             MesProEdhrNonconformanceReviewDO review,
             String viewStatus) {
+        var batchVoid = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                StrUtil.isBlank(application.getDossierSummaryJson()) ? "{}" : application.getDossierSummaryJson()).path("batchVoid");
+        if ("BATCH_VOIDED".equals(application.getApplicationStatus()) && !batchVoid.path("changeEventId").isIntegralNumber()) {
+            throw new IllegalStateException("独立批次作废历史缺少正式变更事件");
+        }
         return new MesPqcProductionReleasePageItem()
                 .setApplicationId(application.getId())
                 .setPqcReleaseWorkTaskId(application.getPqcReleaseWorkTaskId())
                 .setVersion(application.getVersion())
                 .setViewStatus(viewStatus)
                 .setApplicationStatus(application.getApplicationStatus())
+                .setBatchVoidChangeEventId(batchVoid.path("changeEventId").isIntegralNumber() ? batchVoid.path("changeEventId").longValue() : null)
+                .setBatchVoidReason(batchVoid.path("reason").isTextual() ? batchVoid.path("reason").textValue() : null)
                 .setActiveOrderId(application.getActiveOrderId())
                 .setWorkOrderId(application.getWorkOrderId())
                 .setWorkOrderCode(application.getWorkOrderCode())

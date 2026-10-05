@@ -80,6 +80,10 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         service = new MesProcessPoolProductionReportCorrectionService(
                 eventMapper, fragmentMapper, feedbackMapper, feedbackMaterialMapper, revisionService,
                 signatureService, lossReasonValidator, scopeService, reportManagementSummaryService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffOwners", fixtureOwners);
+        org.mockito.Mockito.lenient().when(fixtureOwners.submissionIdentity(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER", call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getActualEmployeeId(), call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getDeviceAccountId()));
         initializeAuditFixture();
         lenient().when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L))).thenReturn(List.of(formalFeedback()));
         lenient().when(feedbackMapper.updateCorrectedProductionReport(
@@ -133,6 +137,19 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         verify(fragmentMapper).updateById(fragmentCaptor.capture());
         assertEquals(new BigDecimal("6"), fragmentCaptor.getValue().getTotalQuantity());
         assertEquals(new BigDecimal("6"), fragmentCaptor.getValue().getAvailableQuantity());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"pending_review","void","external"})
+    void frozenProductionCorrectionRejectsBeforeAnySignatureOrWrite(String state) {
+        var original=event();
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        ReflectionTestUtils.setField(service,"nonconformanceReviewService",
+                cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(original.getWorkOrderId(),state));
+        assertThrows(ServiceException.class,()->service.correct(command()));
+        org.mockito.Mockito.verifyNoInteractions(signatureService,revisionService,fragmentMapper,scopeService);
+        verify(eventMapper,never()).updateById(any(MesProProcessPoolEventDO.class));
+        verify(feedbackMapper,never()).updateCorrectedProductionReport(any(),any(),any(),any(),any(),any(),any());
     }
 
     @Test

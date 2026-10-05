@@ -10389,8 +10389,9 @@ const navigateToProductionEvent = async (value: unknown) => {
 
 const requireProductionHandoffDetail = (
   selected: ProcessPoolTimelineDetailVO,
-  task: Awaited<ReturnType<typeof handoffNavigationContext>>['task']
+  context: Awaited<ReturnType<typeof handoffNavigationContext>>
 ) => {
+  const task = context.task
   const positiveIdentity = (value: unknown): boolean =>
     (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ||
     (typeof value === 'string' && /^[1-9][0-9]*$/.test(value))
@@ -10435,8 +10436,12 @@ const requireProductionHandoffDetail = (
   })
   if (originalAllocations.length > 1) throw new Error('原周期生产分配关联不唯一')
   // Rejection retires CURRENT allocations; a signed correction creates a new PENDING round before FIFO.
-  const awaitingReallocation = selected.submissionReviewStatus === 'REJECTED' ||
-    (!sameIdentity(task.roundId, task.sourceId) && selected.submissionReviewStatus === 'PENDING')
+  const awaitingReallocation = context.current && context.processable && task.status === 'TODO' && (
+    (task.sourceType === 'PROCESS_POOL_EVENT_REJECTED_REVIEW' && context.profileLeaderCorrection &&
+      selected.submissionReviewStatus === 'REJECTED') ||
+    (task.sourceType === 'PROCESS_POOL_EVENT_SIGNED_REVISION' && !context.profileLeaderCorrection &&
+      selected.submissionReviewStatus === 'PENDING')
+  )
   if (!originalAllocations.length && !awaitingReallocation) throw new Error('原周期正式生产分配不存在')
 }
 
@@ -10467,18 +10472,35 @@ const navigateToLeaderHandoff = async () => {
     }
     const leader = context.task.taskType === 'PRODUCTION_REVIEW' ? 'PRODUCTION' : context.task.taskType === 'PQC_REVIEW' ? 'PQC' : undefined
     if (!leader || resolveCurrentLeaderType() !== leader) throw new Error('交接类型与当前岗位页面不一致')
-    if (context.task.sourceType !== 'PROCESS_POOL_EVENT' ||
+    const originalReview = context.task.sourceType === 'PROCESS_POOL_EVENT' &&
+      String(context.task.roundId) === String(context.task.sourceId) && !context.profileLeaderCorrection
+    const signedReview = context.task.sourceType === 'PROCESS_POOL_EVENT_SIGNED_REVISION' &&
+      !context.profileLeaderCorrection
+    const profileReturn = leader === 'PRODUCTION' &&
+      context.task.sourceType === 'PROCESS_POOL_EVENT_REJECTED_REVIEW' && context.profileLeaderCorrection
+    if ((!originalReview && !signedReview && !profileReturn) ||
       String(context.task.sourceId) !== target.query.eventId ||
       String(context.task.roundId) !== target.query.roundId) throw new Error('交接任务与原提交事件、原轮次不一致')
     const eventId = parseProductionEventQuery(target.query.eventId)!
     const selected = await getTeamLeaderSubmissionDetail(eventId, leader)
     if (epoch !== handoffNavigationEpoch) return
     if (String(selected.id) !== target.query.eventId) throw new Error('正式提交详情与原事件不一致')
-    if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context.task)
+    if (signedReview && context.processable && selected.submissionReviewStatus !== 'PENDING') {
+      throw new Error('签名补正交接不是当前待复核轮次')
+    }
+    if (profileReturn && context.processable && selected.submissionReviewStatus !== 'REJECTED') {
+      throw new Error('临时人员补正交接不是当前拒绝轮次')
+    }
+    if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context)
     else if (String(selected.activeOrderId) !== target.query.activeOrderId) throw new Error('正式提交详情与原周期、原事件不一致')
     detail.value = selected; pqcDetailQuery.pageNo = 1
     if (leader === 'PQC') activePqcModuleTab.value = 'detail'
-    else { activeProductionModuleTab.value = ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'; detailVisible.value = true }
+    else {
+      const correctingProfile = context.profileLeaderCorrection && context.processable && route.query.handoffReadOnly !== '1'
+      activeProductionModuleTab.value = correctingProfile ? 'report' : ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'
+      detailVisible.value = true
+      if (correctingProfile) await openCorrection(selected)
+    }
   } catch (error) { if (epoch === handoffNavigationEpoch) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
 }
 watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })

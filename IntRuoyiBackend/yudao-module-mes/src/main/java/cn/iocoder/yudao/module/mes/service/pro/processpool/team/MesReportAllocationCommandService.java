@@ -91,6 +91,10 @@ public class MesReportAllocationCommandService {
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesReportAllocationCommandService(
             MesTeamLeaderScopeService scopeService,
@@ -146,7 +150,8 @@ public class MesReportAllocationCommandService {
         Set<Long> releaseCandidates = activeOrders.stream().map(MesProcessPoolActiveOrderDO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId).forEach(releaseCandidates::add);
-        Set<Long> releasedIds = releaseStateService.findReleasedActiveOrderIds(releaseCandidates);
+        Set<Long> releasedIds = allocationLockedIds(releaseCandidates, activeOrders.stream().collect(Collectors.toMap(
+                MesProcessPoolActiveOrderDO::getId, Function.identity())), false);
         List<MesProcessPoolReportAllocationDO> locked = current.stream()
                 .filter(row -> releasedIds.contains(row.getActiveOrderId())).toList();
         BigDecimal lockedTotal = sumAllocations(locked);
@@ -334,20 +339,41 @@ public class MesReportAllocationCommandService {
                 .filter(order -> "ACTIVE".equals(order.getActiveStatus())).toList();
         Map<Long, MesProcessPoolActiveOrderDO> activeById = activeOrders.stream().collect(Collectors.toMap(
                 MesProcessPoolActiveOrderDO::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
-        Map<Long, BigDecimal> desired = aggregateDesired(command.getAllocations(), activeById, event.getId());
-        Set<Long> releaseCandidates = new LinkedHashSet<>(desired.keySet());
-        current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId).forEach(releaseCandidates::add);
-        assertActiveOrdersOpenForProduction(releaseCandidates, activeById);
-        Set<Long> releasedIds = releaseStateService.findReleasedActiveOrderIdsForUpdate(releaseCandidates);
-        for (Long activeOrderId : desired.keySet()) {
-            if (releasedIds.contains(activeOrderId)) {
-                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED, activeOrderId);
-            }
+        Set<Long> currentIds = current.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        for (Long id : currentIds) {
+            MesProcessPoolActiveOrderDO order = activeById.get(id);
+            if (order == null) order = activeOrderMapper.selectByIdForUpdate(id);
+            if (order == null) throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, id);
+            activeById.put(id, order);
         }
+        Map<Long, BigDecimal> desired = aggregateDesired(command.getAllocations(), activeById, event.getId());
+        Map<Long, BigDecimal> previous = aggregateRows(current);
+        Set<Long> lockedIds = allocationLockedIds(currentIds, activeById, true);
+        for (Long id : lockedIds) {
+            boolean explicitlyRequested = command.getAllocations() != null && command.getAllocations().stream()
+                    .anyMatch(line -> line != null && Objects.equals(line.getActiveOrderId(), id));
+            if (explicitlyRequested && (!previous.containsKey(id) || !desired.containsKey(id) || desired.get(id).compareTo(previous.get(id)) != 0)) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED, id);
+            }
+            // Closed-cycle rows are retained even when omitted from the editable request.
+            desired.remove(id);
+        }
+        Set<Long> retainedIds = new LinkedHashSet<>(lockedIds);
+        previous.forEach((id, quantity) -> {
+            if (desired.containsKey(id) && quantity.compareTo(desired.get(id)) == 0) retainedIds.add(id);
+        });
+        retainedIds.forEach(desired::remove);
         List<MesProcessPoolReportAllocationDO> locked = current.stream()
-                .filter(row -> releasedIds.contains(row.getActiveOrderId())).toList();
+                .filter(row -> retainedIds.contains(row.getActiveOrderId())).toList();
         List<MesProcessPoolReportAllocationDO> editableOld = current.stream()
-                .filter(row -> !releasedIds.contains(row.getActiveOrderId())).toList();
+                .filter(row -> !retainedIds.contains(row.getActiveOrderId())).toList();
+        Set<Long> changedIds = new LinkedHashSet<>(desired.keySet());
+        editableOld.stream().map(MesProcessPoolReportAllocationDO::getActiveOrderId).forEach(changedIds::add);
+        assertActiveOrdersOpenForProduction(changedIds, activeById);
+        for (Long id : changedIds) {
+            nonconformanceReviewService.ensureWorkOrderNotFrozen(activeById.get(id).getWorkOrderId(), "报工分配调整");
+        }
         BigDecimal lockedTotal = sumAllocations(locked);
         BigDecimal availablePool = pool.subtract(lockedTotal);
         if (availablePool.compareTo(BigDecimal.ZERO) < 0) {
@@ -366,6 +392,11 @@ public class MesReportAllocationCommandService {
             ReviewEvidenceRequirement reviewRequirement = reviewEvidenceRequirement(event, current);
             MesProcessPoolSubmissionReviewDO auditReview = null;
             if (reviewRequirement.required()) {
+                if (locked.stream().anyMatch(row -> lockedIds.contains(row.getActiveOrderId())) &&
+                        (locked.stream().anyMatch(row -> row.getReviewId() == null)
+                        || reviewRequirement.reviewToBackfill() != null)) {
+                    throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "lockedAllocation.reviewEvidence");
+                }
                 MesProcessPoolSubmissionReviewDO review = requireReview(event, command,
                         reviewRequirement.reviewToBackfill());
                 auditReview = review;
@@ -415,9 +446,11 @@ public class MesReportAllocationCommandService {
                 }
             }
             if (!current.isEmpty()) {
-                completionService.reconcileAffectedAllocations(event, current);
+                completionService.reconcileAffectedAllocations(event, current.stream()
+                        .filter(row -> !lockedIds.contains(row.getActiveOrderId())).toList());
             }
-            if (auditReview != null) handoffService.reviewed(event.getId(), auditReview.getId());
+            if (auditReview != null) handoffService.allocationReviewed(event.getId(), auditReview.getId(), current.stream()
+                    .filter(row -> !lockedIds.contains(row.getActiveOrderId())).toList());
             return buildSnapshot(event, pool, state.getCurrentVersion(), current,
                     validation.overageByActiveOrderId());
         }
@@ -448,7 +481,8 @@ public class MesReportAllocationCommandService {
         }
         List<MesProcessPoolReportAllocationDO> next = new ArrayList<>(locked);
         next.addAll(inserted);
-        quantityFragmentService.rebuildForVersion(event, newVersion, next);
+        if (locked.isEmpty()) quantityFragmentService.rebuildForVersion(event, newVersion, inserted);
+        else quantityFragmentService.rebuildPreservingAllocations(event, newVersion, inserted, locked);
         List<MesProcessPoolReportAllocationDO> affected = new ArrayList<>(editableOld);
         affected.addAll(inserted);
         completionService.reconcileAffectedAllocations(event, affected);
@@ -469,7 +503,7 @@ public class MesReportAllocationCommandService {
                 beforeAllocationSnapshot, newVersion,
                 next, allocationAuditActiveOrderIds,
                 review.getReviewSignatureId(), "分配保存", null);
-        handoffService.reviewed(event.getId(), review.getId());
+        handoffService.allocationReviewed(event.getId(), review.getId(), inserted);
         return buildSnapshot(event, pool, newVersion, next, validation.overageByActiveOrderId());
     }
 
@@ -904,8 +938,8 @@ public class MesReportAllocationCommandService {
                                                        int version,
                                                        List<MesProcessPoolReportAllocationDO> current,
                                                        Map<Long, BigDecimal> overageByActiveOrderId) {
-        Set<Long> released = releaseStateService.findReleasedActiveOrderIds(current.stream()
-                .map(MesProcessPoolReportAllocationDO::getActiveOrderId).distinct().toList());
+        Set<Long> released = allocationLockedIds(current.stream()
+                .map(MesProcessPoolReportAllocationDO::getActiveOrderId).distinct().toList(), Map.of(), false);
         List<MesReportAllocationSnapshotLine> lines = toSnapshotLines(current, released, overageByActiveOrderId);
         BigDecimal releasedTotal = current.stream().filter(row -> released.contains(row.getActiveOrderId()))
                 .map(MesProcessPoolReportAllocationDO::getAllocatedQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -932,6 +966,8 @@ public class MesReportAllocationCommandService {
         Map<Long, MesProWorkOrderDO> workOrders = workOrderMapper.selectListByIds(rows.stream()
                 .map(MesProcessPoolReportAllocationDO::getWorkOrderId).distinct().toList()).stream()
                 .collect(Collectors.toMap(MesProWorkOrderDO::getId, Function.identity(), (a, b) -> a));
+        Set<Long> actuallyReleased = releaseStateService.findReleasedActiveOrderIds(rows.stream()
+                .map(MesProcessPoolReportAllocationDO::getActiveOrderId).distinct().toList());
         return rows.stream().sorted(Comparator.comparing(MesProcessPoolReportAllocationDO::getId,
                         Comparator.nullsLast(Long::compareTo)))
                 .map(row -> {
@@ -945,7 +981,7 @@ public class MesReportAllocationCommandService {
                             .routeProcessId(row.getRouteProcessId()).processId(row.getProcessId())
                             .allocatedQuantity(row.getAllocatedQuantity()).allocationMode(row.getAllocationMode())
                             .overageQuantity(overage).needsAdjustment(overage.compareTo(BigDecimal.ZERO) > 0)
-                            .released(released).editable(!released).build();
+                            .released(actuallyReleased.contains(row.getActiveOrderId())).editable(!released).build();
                 }).toList();
     }
 
@@ -1117,7 +1153,8 @@ public class MesReportAllocationCommandService {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, activeOrderId);
             }
             if (!"ACTIVE".equals(activeOrder.getBusinessStatus())
-                    || !"ACTIVE".equals(activeOrder.getActiveStatus())) {
+                    || !"ACTIVE".equals(activeOrder.getActiveStatus())
+                    || completionReceiptMapper.selectByActiveOrderIdForUpdate(activeOrderId) != null) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED, activeOrderId);
             }
         }
@@ -1134,6 +1171,24 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     eventId, review.getReviewStatus());
         }
+    }
+
+    private Set<Long> allocationLockedIds(Collection<Long> ids,
+            Map<Long, MesProcessPoolActiveOrderDO> knownOrders, boolean forUpdate) {
+        Set<Long> locked = new LinkedHashSet<>(forUpdate
+                ? releaseStateService.findReleaseApplicationLockedActiveOrderIdsForUpdate(ids)
+                : releaseStateService.findReleaseApplicationLockedActiveOrderIds(ids));
+        locked.addAll(forUpdate ? releaseStateService.findReleasedActiveOrderIdsForUpdate(ids)
+                : releaseStateService.findReleasedActiveOrderIds(ids));
+        for (Long id : ids) {
+            MesProcessPoolActiveOrderDO order = knownOrders.get(id);
+            if (order == null) order = forUpdate ? activeOrderMapper.selectByIdForUpdate(id) : activeOrderMapper.selectById(id);
+            if (order == null) throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED, id);
+            if (!"ACTIVE".equals(order.getBusinessStatus()) || !"ACTIVE".equals(order.getActiveStatus())
+                    || (forUpdate ? completionReceiptMapper.selectByActiveOrderIdForUpdate(id)
+                        : completionReceiptMapper.selectByActiveOrderId(id)) != null) locked.add(id);
+        }
+        return locked;
     }
     private int requiredReviewRound(MesProcessPoolSubmissionReviewDO review) {
         cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.require(

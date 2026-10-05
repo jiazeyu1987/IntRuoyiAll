@@ -56,6 +56,8 @@ class MesReportAllocationFlowCycleRegressionTest {
                 releases, targets, mock(MesTeamLeaderFifoAllocationService.class), authority,
                 mock(MesReportAllocationQuantityFragmentService.class), completion,
                 mock(MesProductionReportManagementSummaryService.class), snapshots);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "completionReceiptMapper", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         MesProBatchRecordExecutionSignatureService signature = mock(MesProBatchRecordExecutionSignatureService.class);
@@ -115,12 +117,16 @@ class MesReportAllocationFlowCycleRegressionTest {
     }
 
     @Test
-    void involvedCompletedOrderMustStillBlockRemovingItsAllocation() {
+    void completedShareCannotBeSilentlyRemovedToExceedPool() {
         MesProcessPoolActiveOrderDO old = order(82L, 92L).setBusinessStatus("COMPLETED");
         when(orders.selectActiveListByLeaderForUpdate(30L)).thenReturn(List.of(old, order));
-        when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(allocation(10L, old, "100")));
+        var existing = allocation(10L, old, "100");
+        String before = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing);
+        when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(existing));
         ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED.getCode(), error.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), error.getCode());
+        assertEquals(before, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing));
+        verify(allocations, never()).supersedeCurrentRows(anyCollection(), anyInt());
         verify(allocations, never()).insertBatch(anyCollection());
     }
 
@@ -136,13 +142,16 @@ class MesReportAllocationFlowCycleRegressionTest {
     }
 
     @Test
-    void oldReworkCycleCannotBeRemovedFromAllocationThroughCurrentActiveOrder() {
+    void oldReworkShareCannotBeSilentlyRemovedToExceedPool() {
         MesProcessPoolActiveOrderDO previousCycle = order(82L, 91L)
                 .setActiveStatus("REMOVED").setBusinessStatus("REWORKED");
         when(orders.selectByIdForUpdate(82L)).thenReturn(previousCycle);
-        when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(allocation(10L, previousCycle, "100")));
+        var existing = allocation(10L, previousCycle, "100");
+        String before = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing);
+        when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(existing));
         ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
-        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED.getCode(), error.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), error.getCode());
+        assertEquals(before, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing));
         verify(allocations, never()).insertBatch(anyCollection());
         verify(allocations, never()).supersedeCurrentRows(anyCollection(), anyInt());
     }

@@ -45,15 +45,23 @@ public class MesReportAllocationQuantityFragmentService {
 
     public void rebuildForVersion(MesProProcessPoolEventDO event, Integer version,
                                   Collection<MesProcessPoolReportAllocationDO> currentAllocations) {
+        rebuildPreservingAllocations(event, version, currentAllocations, List.of());
+    }
+
+    public void rebuildPreservingAllocations(MesProProcessPoolEventDO event, Integer version,
+            Collection<MesProcessPoolReportAllocationDO> changedAllocations,
+            Collection<MesProcessPoolReportAllocationDO> retainedAllocations) {
+        List<MesProcessPoolReportAllocationDO> currentAllocations = new ArrayList<>(changedAllocations);
+        currentAllocations.addAll(retainedAllocations);
         validateContext(event, version, currentAllocations);
-        List<MesProcessPoolReportAllocationDO> allocations = List.copyOf(currentAllocations);
+        List<MesProcessPoolReportAllocationDO> allocations = List.copyOf(changedAllocations);
         List<MesProProcessPoolQuantityFragmentDO> fragments = fragmentMapper
                 .selectOutputListByProductionSubmitEventIdForUpdate(event.getId());
         validateFragments(event, fragments);
         List<MesProcessPoolFifoAllocationLineDO> previousLines = lineMapper
                 .selectListBySourceEventIdForUpdate(event.getId());
         Map<Long, MesProWorkOrderDO> workOrders = loadWorkOrders(allocations);
-        BigDecimal required = allocations.stream().map(MesProcessPoolReportAllocationDO::getAllocatedQuantity)
+        BigDecimal required = currentAllocations.stream().map(MesProcessPoolReportAllocationDO::getAllocatedQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal available = fragments.stream().map(MesProProcessPoolQuantityFragmentDO::getTotalQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -62,9 +70,44 @@ public class MesReportAllocationQuantityFragmentService {
                     available.stripTrailingZeros().toPlainString());
         }
 
+        Map<Target, BigDecimal> retained = retainedAllocations.stream().collect(Collectors.groupingBy(
+                a -> new Target(a.getWorkOrderId(), a.getRouteProcessId(), a.getProcessId()),
+                Collectors.reducing(BigDecimal.ZERO, MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
+        for (var line : previousLines) {
+            if (retained.containsKey(new Target(line.getTargetWorkOrderId(), line.getTargetRouteProcessId(), line.getTargetProcessId()))
+                    && (line.getAllocatedQuantity() == null || line.getSourceQuantityFragmentId() == null)) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "retainedAllocation.fragmentIdentity");
+            }
+        }
+        List<MesProcessPoolFifoAllocationLineDO> retainedLines = previousLines.stream()
+                .filter(l -> retained.containsKey(new Target(l.getTargetWorkOrderId(), l.getTargetRouteProcessId(), l.getTargetProcessId())))
+                .toList();
+        Map<Target, BigDecimal> actual = retainedLines.stream().collect(Collectors.groupingBy(
+                l -> new Target(l.getTargetWorkOrderId(), l.getTargetRouteProcessId(), l.getTargetProcessId()),
+                Collectors.reducing(BigDecimal.ZERO, MesProcessPoolFifoAllocationLineDO::getAllocatedQuantity, BigDecimal::add)));
+        retained.forEach((target, quantity) -> {
+            if (!actual.containsKey(target) || quantity.compareTo(actual.get(target)) != 0) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "retainedAllocation.fragmentEvidence");
+            }
+        });
+        Map<Long, BigDecimal> reserved = retainedLines.stream().collect(Collectors.groupingBy(
+                MesProcessPoolFifoAllocationLineDO::getSourceQuantityFragmentId,
+                Collectors.reducing(BigDecimal.ZERO, MesProcessPoolFifoAllocationLineDO::getAllocatedQuantity, BigDecimal::add)));
+        for (var line : retainedLines) {
+            if (!Objects.equals(event.getId(), line.getSourceEventId()) || line.getAllocatedQuantity().signum() <= 0
+                    || fragments.stream().noneMatch(f -> Objects.equals(f.getId(), line.getSourceQuantityFragmentId()))) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "retainedAllocation.fragmentIdentity");
+            }
+        }
+        for (var fragment : fragments) {
+            if (reserved.getOrDefault(fragment.getId(), BigDecimal.ZERO).compareTo(fragment.getTotalQuantity()) > 0) {
+                throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH, fragment.getTotalQuantity());
+            }
+        }
         List<MesProcessPoolFifoAllocationLineDO> rebuilt = buildLines(event, version, allocations, fragments,
-                workOrders);
-        List<Long> previousIds = previousLines.stream().map(MesProcessPoolFifoAllocationLineDO::getId)
+                workOrders, reserved);
+        List<Long> previousIds = previousLines.stream().filter(l -> !retainedLines.contains(l))
+                .map(MesProcessPoolFifoAllocationLineDO::getId)
                 .filter(Objects::nonNull).toList();
         if (!previousIds.isEmpty() && lineMapper.supersedeCurrentRows(previousIds, version) != previousIds.size()) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
@@ -73,23 +116,29 @@ public class MesReportAllocationQuantityFragmentService {
         if (!rebuilt.isEmpty() && !Boolean.TRUE.equals(lineMapper.insertBatch(rebuilt))) {
             throw new IllegalStateException("Failed to insert report allocation quantity fragment lines");
         }
-        persistFragmentBalances(fragments, rebuilt);
+        List<MesProcessPoolFifoAllocationLineDO> next = new ArrayList<>(retainedLines);
+        next.addAll(rebuilt);
+        persistFragmentBalances(fragments, next);
     }
+
+    private record Target(Long workOrderId, Long routeProcessId, Long processId) { }
 
     private List<MesProcessPoolFifoAllocationLineDO> buildLines(
             MesProProcessPoolEventDO event, Integer version,
             List<MesProcessPoolReportAllocationDO> allocations,
             List<MesProProcessPoolQuantityFragmentDO> fragments,
-            Map<Long, MesProWorkOrderDO> workOrders) {
+            Map<Long, MesProWorkOrderDO> workOrders, Map<Long, BigDecimal> reserved) {
         List<MesProcessPoolFifoAllocationLineDO> result = new ArrayList<>();
         int fragmentIndex = 0;
-        BigDecimal fragmentRemaining = fragments.get(0).getTotalQuantity();
+        BigDecimal fragmentRemaining = fragments.get(0).getTotalQuantity()
+                .subtract(reserved.getOrDefault(fragments.get(0).getId(), BigDecimal.ZERO));
         for (MesProcessPoolReportAllocationDO allocation : allocations) {
             BigDecimal targetRemaining = allocation.getAllocatedQuantity();
             while (targetRemaining.compareTo(BigDecimal.ZERO) > 0) {
                 while (fragmentRemaining.compareTo(BigDecimal.ZERO) <= 0) {
                     fragmentIndex++;
-                    fragmentRemaining = fragments.get(fragmentIndex).getTotalQuantity();
+                    fragmentRemaining = fragments.get(fragmentIndex).getTotalQuantity()
+                            .subtract(reserved.getOrDefault(fragments.get(fragmentIndex).getId(), BigDecimal.ZERO));
                 }
                 MesProProcessPoolQuantityFragmentDO fragment = fragments.get(fragmentIndex);
                 BigDecimal quantity = targetRemaining.min(fragmentRemaining);

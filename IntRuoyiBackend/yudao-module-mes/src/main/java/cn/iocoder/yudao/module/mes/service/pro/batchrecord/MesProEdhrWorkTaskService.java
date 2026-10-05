@@ -130,6 +130,10 @@ public interface MesProEdhrWorkTaskService {
 
     void cancelActiveTasksByBatch(Long batchExecutionId, String reason);
 
+    void cancelPqcReleaseTaskForBatchVoid(
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO application,
+            Long changeEventId, String reason);
+
     /** Internal fixed-test reset: cancel current tasks and revoke even terminal tasks' grants. */
     void cancelTasksForTestReset(List<Long> workTaskIds, String reason);
 

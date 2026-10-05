@@ -315,6 +315,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         }).when(eventMapper).updateById(any(MesProProcessPoolEventDO.class));
         var revisionService = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
                 diffs, fifo, reviewMapper, signatureService);
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionService, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         Long revisionId = revisionService.updateProductionReportRecord(new MesProcessPoolEventRevisionUpdateReqBO()
                 .setEventId(401L).setAfterPayload(payload(99, 88)).setChangeReason("R3 correction isolation")
                 .setRevisionSignatureId(952L).setRevisionSignatureUserId(53L).setModifiedByUserId(53L)

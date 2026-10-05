@@ -73,6 +73,11 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private GxpAuditService gxpAuditService;
 
+    @MockitoBean private PermissionCommandProtocol permissionCommandProtocol;
+    @org.junit.jupiter.api.AfterEach void noPermissionAssignmentCommands() {
+        verifyNoInteractions(permissionCommandProtocol);
+    }
+
     @Test
     void createGrant_shouldRejectMissingOrPastExpireTime() {
         insertRoleAndMenu();

@@ -84,6 +84,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplications;
 
     @Override
     public EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO) {
@@ -296,6 +298,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                     .setArchiveValidStatus("VOIDED")
                     .setInvalidatedByChangeEventId(event.getId()));
         }
+        closePendingReleaseApplications(event, batch, actorUserId, now);
         workTaskService.cancelActiveTasksByBatch(batch.getId(), buildBatchVoidWorkTaskCancelReason(event));
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
@@ -305,8 +308,36 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                 .setEffectiveAt(now)
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
+        event.setChangeStatus(CHANGE_STATUS_EFFECTIVE);
         recordBatchVoidOperation("BATCH_VOID_EFFECTIVE", "批次作废生效", event, batch, actorUserId);
         return toResp(changeEventMapper.selectById(event.getId()));
+    }
+
+    private void closePendingReleaseApplications(MesProEdhrRecordChangeEventDO event,
+            MesProEdhrBatchExecutionDO batch, Long actorUserId, LocalDateTime at) {
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(tenantId, batch.getTenantId()) || changeEventMapper.selectByIdAndTenantForUpdate(event.getId(), tenantId) == null
+                || !Objects.equals(batch.getId(), event.getBatchExecutionId())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
+        }
+        for (var application : releaseApplications.selectListByBoundBatchForUpdate(batch.getId())) {
+            if (!Objects.equals(tenantId, application.getTenantId())
+                    || !Objects.equals(application.getBatchExecutionId(), batch.getId())
+                    || !Objects.equals(application.getWorkOrderId(), batch.getWorkOrderId())) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
+            }
+            if (!"PQC_RELEASE_PENDING".equals(application.getApplicationStatus())) continue;
+            workTaskService.cancelPqcReleaseTaskForBatchVoid(application, event.getId(), event.getReasonText());
+            var dossier = StrUtil.isBlank(application.getDossierSummaryJson()) ? new cn.hutool.json.JSONObject()
+                    : JSONUtil.parseObj(application.getDossierSummaryJson());
+            dossier.set("batchVoid", Map.of("changeEventId", event.getId(), "batchExecutionId", batch.getId(),
+                    "applicationId", application.getId(), "pqcReleaseWorkTaskId", application.getPqcReleaseWorkTaskId(),
+                    "effectedBy", actorUserId, "effectiveAt", at.toString(), "reason", event.getReasonText()));
+            if (releaseApplications.closeFromBatchVoid(application.getId(), tenantId, application.getVersion(), batch.getId(),
+                    application.getPqcReleaseWorkTaskId(), dossier.toString()) != 1) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_STATUS_INVALID);
+            }
+        }
     }
 
     private void recordBatchVoidOperation(String operationType, String actionName,

@@ -318,6 +318,7 @@ class MesPqcCorrectionMysqlTransactionTest {
                 event, mapper(MesProProcessPoolEventRevisionMapper.class), mapper(MesProProcessPoolEventRevisionDiffMapper.class),
                 new MesProcessPoolFifoAllocationService(mapper(MesProcessPoolFifoAllocationLineMapper.class)),
                 review, mesSignature);
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionTarget, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         inject(revisionTarget, "pqcTaskMapper", task);
         MesProcessPoolEventRevisionService revision = transactional(revisionTarget, null);
         MesProEdhrNonconformanceReviewServiceImpl freezeGuard = new MesProEdhrNonconformanceReviewServiceImpl();

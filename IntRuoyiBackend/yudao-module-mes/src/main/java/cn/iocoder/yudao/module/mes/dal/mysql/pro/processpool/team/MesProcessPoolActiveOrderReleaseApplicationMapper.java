@@ -51,6 +51,22 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     MesProcessPoolActiveOrderReleaseApplicationDO selectByBatchExecutionIdForUpdate(
             @Param("batchExecutionId") Long batchExecutionId);
 
+    default List<MesProcessPoolActiveOrderReleaseApplicationDO> selectListByBoundBatchForUpdate(Long batchExecutionId) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getBatchExecutionId, batchExecutionId).last("FOR UPDATE"));
+    }
+
+    @Update("""
+            UPDATE mes_pro_process_pool_active_order_release_application
+            SET application_status = 'BATCH_VOIDED', dossier_summary_json = #{dossierSummaryJson}, version = version + 1
+            WHERE id = #{id} AND tenant_id = #{tenantId} AND deleted = 0
+              AND version = #{expectedVersion} AND application_status = 'PQC_RELEASE_PENDING'
+              AND batch_execution_id = #{batchExecutionId} AND pqc_release_work_task_id = #{pqcReleaseWorkTaskId}
+            """)
+    int closeFromBatchVoid(@Param("id") Long id, @Param("tenantId") Long tenantId,
+            @Param("expectedVersion") Integer expectedVersion, @Param("batchExecutionId") Long batchExecutionId,
+            @Param("pqcReleaseWorkTaskId") Long pqcReleaseWorkTaskId, @Param("dossierSummaryJson") String dossierSummaryJson);
+
     @Select("""
             SELECT *
             FROM mes_pro_process_pool_active_order_release_application
@@ -361,7 +377,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "       a.release_approval_work_task_id, a.pqc_release_work_task_id, a.pqc_decision, a.pqc_decided_by,",
             "       a.pqc_decided_at, a.pqc_reject_reason, a.application_status, a.source_snapshot_hash,",
             "       a.report_snapshot_hash, a.version, a.applied_by, a.applied_at, a.last_precheck_at, a.remark,",
-            "       a.creator, a.create_time, a.updater, a.update_time, a.deleted, a.tenant_id",
+            "       a.dossier_summary_json, a.creator, a.create_time, a.updater, a.update_time, a.deleted, a.tenant_id",
             "FROM mes_pro_process_pool_active_order_release_application a",
             "INNER JOIN mes_pro_edhr_work_task t",
             "        ON t.id = a.pqc_release_work_task_id",
@@ -425,7 +441,13 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
             "    AND (r.id IS NULL OR r.review_status &lt;&gt; 'closed' OR r.closed_at &lt; a.applied_at)",
             "  </when>",
             "  <when test='viewStatus == \"VOIDED\"'>",
-            "    AND r.review_status = 'closed' AND r.disposition = 'void' AND r.closed_at &gt;= a.applied_at",
+            "    AND ((r.review_status = 'closed' AND r.disposition = 'void' AND r.closed_at &gt;= a.applied_at)",
+            "      OR (a.application_status = 'BATCH_VOIDED' AND EXISTS (",
+            "          SELECT 1 FROM mes_pro_edhr_record_change_event v",
+            "          WHERE v.tenant_id = a.tenant_id AND v.deleted = 0 AND v.batch_execution_id = a.batch_execution_id",
+            "            AND v.change_type = 'VOID' AND v.target_scope = 'BATCH' AND v.change_status = 'EFFECTIVE'",
+            "            AND v.id = CAST(JSON_UNQUOTE(JSON_EXTRACT(a.dossier_summary_json, '$.batchVoid.changeEventId')) AS UNSIGNED)",
+            "      )))",
             "  </when>",
             "  <when test='viewStatus == \"REWORKED\"'>",
             "    AND r.review_status = 'closed' AND r.disposition = 'rework' AND r.closed_at &gt;= a.applied_at",

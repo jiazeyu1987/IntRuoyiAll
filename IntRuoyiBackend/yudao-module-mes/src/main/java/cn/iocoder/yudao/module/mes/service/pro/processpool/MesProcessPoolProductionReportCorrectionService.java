@@ -83,6 +83,14 @@ public class MesProcessPoolProductionReportCorrectionService {
     private MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
     @Resource
     private MesFrontlineReturnCorrectionService ownReturnService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver handoffOwners;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper submissionReviews;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     public MesProcessPoolProductionReportCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
@@ -132,8 +140,25 @@ public class MesProcessPoolProductionReportCorrectionService {
         if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
         }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工更正");
+        Long profileRejectedReviewId = null;
         if (ownReturn == null) {
-            scopeService.assertCanAccessEmployee(command.getActorUserId(), "PRODUCTION", event.getActualEmployeeId());
+            var identity = handoffOwners.submissionIdentity(event);
+            if (identity.isSystemUser()) {
+                scopeService.assertCanAccessEmployee(command.getActorUserId(), "PRODUCTION", identity.signerId());
+            } else {
+                Long leader = handoffOwners.profileProductionLeader(event);
+                if (!Objects.equals(leader, command.getActorUserId())) {
+                    throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "profileCorrection.originalLeader");
+                }
+                var previous = submissionReviews.selectLatestByEventIdForUpdate(event.getId());
+                if (previous != null && "REJECTED".equals(previous.getReviewStatus())) {
+                    if (!Objects.equals(previous.getLeaderUserId(), leader)) {
+                        throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "profileCorrection.originalReviewLeader");
+                    }
+                    profileRejectedReviewId = previous.getId();
+                }
+            }
         } else if (!Objects.equals(ownReturn.event().getId(), event.getId())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.eventChanged");
         }
@@ -141,6 +166,8 @@ public class MesProcessPoolProductionReportCorrectionService {
         ObjectNode afterPayload = requireObject(event.getRawPayload(), "rawPayload").deepCopy();
         if (ownReturn != null) {
             afterPayload.put("supersededReviewId", ownReturn.review().getId());
+        } else if (profileRejectedReviewId != null) {
+            afterPayload.put("supersededReviewId", profileRejectedReviewId);
         }
         ObjectNode fieldValues = requireObject(afterPayload.get("fieldValues"), "rawPayload.fieldValues");
         BigDecimal beforeOutput = requireDecimal(afterPayload.get("outputQuantity"), "rawPayload.outputQuantity");
@@ -211,6 +238,9 @@ public class MesProcessPoolProductionReportCorrectionService {
         }
         CorrectionAuditState after = correctionAuditState(persisted, requireOutputFragment(event.getId()), revisionId);
         appendCorrectionAudit(command, persisted, revisionId, signature, signatureContentHash, challengeHash, before, after);
+        if (profileRejectedReviewId != null) {
+            handoffService.completeProfileLeaderCorrection(event.getId(), profileRejectedReviewId, revisionId, command.getActorUserId());
+        }
         return revisionId;
     }
 

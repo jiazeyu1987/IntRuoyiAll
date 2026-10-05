@@ -126,10 +126,16 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrOperationAuditService operationAuditService;
     @MockitoBean
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
+    // Domain/task regression: auxiliary audit is a collaborator; its callbacks must execute.
+    @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
+        org.mockito.Mockito.doAnswer(call -> { call.getArgument(3, Runnable.class).run(); return null; })
+                .when(auxiliaryAudit).entitlements(any(), any(), any(), any());
+        org.mockito.Mockito.doAnswer(call -> { call.getArgument(1, java.util.function.Supplier.class).get(); return null; })
+                .when(auxiliaryAudit).notifications(any(), any());
         lenient().when(routeProcessService.resolveCurrentRouteProcess(any(), any(), any()))
                 .thenAnswer(invocation -> MesProRouteProcessDO.builder()
                         .id(invocation.getArgument(0))
@@ -2182,6 +2188,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
             assertNotNull(canceled.getCompletedAt());
         }
         assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(done.getId()).getStatus());
+        ArgumentCaptor<SystemEntitlementRevokeReqDTO> revoked = ArgumentCaptor.forClass(SystemEntitlementRevokeReqDTO.class);
+        verify(permissionApi, times(3)).revokeEntitlementSource(revoked.capture());
+        assertEquals(Set.of("WORK_TASK|"+todo.getId(), "WORK_TASK|"+doing.getId(), "WORK_TASK|"+overdue.getId()),
+                revoked.getAllValues().stream().map(SystemEntitlementRevokeReqDTO::getSourceKey).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(revoked.getAllValues().stream().allMatch(row -> "EDHR_WORK_TASK_ASSIGNEE".equals(row.getSourceType())
+                && "MES_EDHR_FILLER_MINIMAL".equals(row.getPolicyCode())));
     }
 
     @Test

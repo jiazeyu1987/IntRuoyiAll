@@ -53,6 +53,7 @@ class MesProcessPoolEventRevisionServiceTest {
     void setUp() {
         service = new MesProcessPoolEventRevisionServiceImpl(eventMapper, revisionMapper,
                 revisionDiffMapper, fifoAllocationService, submissionReviewMapper, signatureService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
     }
 
     @Test
@@ -116,6 +117,18 @@ class MesProcessPoolEventRevisionServiceTest {
         verify(eventMapper).updateById(eventCaptor.capture());
         assertEquals(1001L, eventCaptor.getValue().getId());
         assertEquals("{\"outputQuantity\":12,\"equipmentPressure\":\"22\"}", eventCaptor.getValue().getRawPayload());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"pending_review","void","external"})
+    void publicProductionRevisionCannotBypassRealFreezeAuthority(String state) {
+        var original=event().setEventType("PRODUCTION_SUBMIT");
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(original);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"nonconformanceReviewService",
+                cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(original.getWorkOrderId(),state));
+        assertThrows(ServiceException.class,()->service.updateOriginalRecord(updateReq()));
+        org.mockito.Mockito.verifyNoInteractions(signatureService,revisionMapper,revisionDiffMapper,submissionReviewMapper);
+        verify(eventMapper,never()).updateById(any(MesProProcessPoolEventDO.class));
     }
 
     @Test

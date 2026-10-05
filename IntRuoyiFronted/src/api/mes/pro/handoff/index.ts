@@ -36,4 +36,4 @@ export const pqcRoleOptions = (): Promise<AssignmentOption[]> => request.get({ u
 export const pqcAssignment = (routeId: number): Promise<PqcAssignmentRule | null> => request.get({ url: `${base}/pqc-assignment`, params: { routeId } })
 export const savePqcAssignment = (data: { routeId: number; candidateSourceType: 'USER' | 'ROLE_GROUP'; candidateSourceId: number; enabled: boolean; reason: string; expectedRuleId: number | null }): Promise<PqcAssignmentRule> => request.post({ url: `${base}/pqc-assignment`, data })
 
-export const handoffNavigationContext = (taskId: number | string): Promise<{ task: HandoffTask; current: boolean; processable: boolean }> => request.get({ url: `${base}/navigation-context`, params: { taskId } })
+export const handoffNavigationContext = (taskId: number | string): Promise<{ task: HandoffTask; current: boolean; processable: boolean; profileLeaderCorrection: boolean }> => request.get({ url: `${base}/navigation-context`, params: { taskId } })

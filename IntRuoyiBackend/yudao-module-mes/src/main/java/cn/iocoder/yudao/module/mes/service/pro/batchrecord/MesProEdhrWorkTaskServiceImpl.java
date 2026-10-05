@@ -1352,14 +1352,31 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         LocalDateTime now = LocalDateTime.now();
         List<MesProEdhrWorkTaskDO> activeTasks = workTaskMapper.selectActiveListByBatchExecutionId(batchExecutionId);
         for (MesProEdhrWorkTaskDO task : activeTasks) {
-            workTaskMapper.updateById(new MesProEdhrWorkTaskDO()
-                    .setId(task.getId())
-                    .setStatus(MesProEdhrWorkTaskStatus.CANCELED)
-                    .setReason(reason)
-                    .setRemark(reason)
-                    .setCompletedAt(now));
-            revokeRuntimeTaskEntitlement(task);
+            cancelTaskAndRevokeRuntimeEntitlement(task, reason, now);
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelPqcReleaseTaskForBatchVoid(MesProcessPoolActiveOrderReleaseApplicationDO application,
+                                                Long changeEventId, String reason) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (application == null || !Objects.equals(tenantId, application.getTenantId())
+                || application.getPqcReleaseWorkTaskId() == null || changeEventId == null || changeEventId <= 0
+                || StrUtil.isBlank(reason)) throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        var task = workTaskMapper.selectByIdAndTenantForUpdate(application.getPqcReleaseWorkTaskId(), tenantId);
+        if (task == null
+                || !Objects.equals(task.getId(), application.getPqcReleaseWorkTaskId())
+                || !"PQC_PRODUCTION_RELEASE".equals(task.getTaskType())
+                || !"RELEASE_APPLICATION".equals(task.getBusinessScopeType())
+                || !Objects.equals(application.getId(), task.getBusinessScopeId())
+                || (task.getBatchExecutionId() != null && !Objects.equals(application.getBatchExecutionId(), task.getBatchExecutionId()))
+                || !Objects.equals(application.getWorkOrderId(), task.getWorkOrderId())) {
+            throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        }
+        if (!Set.of(MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE)
+                .contains(task.getStatus())) throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        cancelTaskAndRevokeRuntimeEntitlement(task, "批次作废变更#" + changeEventId + "：" + reason, LocalDateTime.now());
     }
 
     @Override

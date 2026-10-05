@@ -123,6 +123,49 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
         }
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"OWN_RETURN_CORRECTION","LEADER_PROFILE_CORRECTION"})
+    void productionWorkbenchReopensOnlyExactSignedCorrectionWithRealPendingReview(String origin) throws Exception {
+        try(Connection db=database()) {
+            event(db,1,101,null);review(db,1,101,101,"REJECTED");
+            try(var st=db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET event_type='PRODUCTION_SUBMIT', report_management_status='UNALLOCATED' WHERE id=101");
+                st.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET leader_user_id=7 WHERE id=101");
+            }
+            var req=new ProcessPoolTimelinePageReqVO().setEventType("PRODUCTION_SUBMIT").setAllocationView("WORKBENCH").setSubmissionReviewStatus("PENDING");req.setPageNo(1);req.setPageSize(20);
+            var params=Map.<String,Object>of("reqVO",req);
+            assertEquals(List.of(),rows(db,params));
+            correction(db,1,101,101,101,901L);
+            String domain="LEADER_PROFILE_CORRECTION".equals(origin)?"MES_EMPLOYEE_PROFILE":"SYSTEM_USER";
+            Long signer="LEADER_PROFILE_CORRECTION".equals(origin)?342L:7L;
+            String payload="{\"activeOrderId\":413,\"signatureIdentityDomain\":\""+domain+"\",\"supersededReviewId\":101,\"count\":3}";
+            try(var st=db.prepareStatement("UPDATE mes_pro_process_pool_event SET raw_payload=? WHERE id=101")) { st.setString(1,payload);st.executeUpdate(); }
+            try(var st=db.prepareStatement("UPDATE mes_pro_process_pool_event_revision SET after_payload=? WHERE id=101")) { st.setString(1,payload);st.executeUpdate(); }
+            try(var st=db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET work_order_id=123,route_process_id=88,actual_employee_id="+signer+",signature_user_id="+signer+",signature_id=9001 WHERE id=101");
+                st.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET leader_type='PRODUCTION' WHERE id=101");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event_revision SET before_payload='{\"count\":2}',change_reason='核对正式报工' WHERE id=101");
+                st.executeUpdate("INSERT INTO system_electronic_signature(id,tenant_id,module_code,action_code,subject_type,actor_id,verification_status,signed_at,canonical_content_json) VALUES(9001,1,'MES','PRODUCTION_SUBMIT','MES_BATCH_RECORD',"+signer+",'VALID','2026-10-02 10:00:00','{\"signatureIdentity\":{\"domain\":\""+domain+"\",\"signerId\":"+signer+",\"tenantId\":1}}')");
+                st.executeUpdate("INSERT INTO system_electronic_signature(id,tenant_id,module_code,action_code,subject_type,actor_id,verification_status,signed_at) VALUES(901,1,'MES','FIELD_CHANGE','MES_BATCH_RECORD',7,'VALID','2026-10-02 13:00:00')");
+            }
+            assertEquals(List.of(),rows(db,params)); // Signature alone is not a pending review.
+            try(var st=db.prepareStatement("INSERT INTO mes_active_order_handoff_task(id,tenant_id,deleted,task_type,source_type,source_id,round_id,status,initiated_by,candidate_user_snapshot,active_order_id,responsibility_snapshot_json,work_order_id,route_process_id) VALUES(501,1,0,'PRODUCTION_REVIEW','PROCESS_POOL_EVENT_SIGNED_REVISION',101,101,'TODO',7,'7',413,?,123,88)")) {
+                st.setString(1,"{\"correctionOrigin\":\""+origin+"\"}");st.executeUpdate();
+            }
+            assertEquals(List.of("101:PENDING"),rows(db,params));
+            BoundSql count=configuration().getMappedStatement(NAMESPACE+".selectTimelineCount").getBoundSql(params);
+            try(var st=db.prepareStatement(count.getSql()+" AND pool_event.tenant_id=1")) {bind(st,count,params);try(var result=st.executeQuery()){result.next();assertEquals(1,result.getLong(1));}}
+            try(var st=db.createStatement();var audit=st.executeQuery("SELECT review_status FROM mes_pro_process_pool_submission_review WHERE id=101")){audit.next();assertEquals("REJECTED",audit.getString(1));}
+            for(String mutation:List.of("round_id=999","tenant_id=2","status='DONE'","candidate_user_snapshot='8'","active_order_id=414","responsibility_snapshot_json='{\"correctionOrigin\":\"LEADER_PQC_CORRECTION\"}'")) {
+                try(var st=db.createStatement()){st.executeUpdate("UPDATE mes_active_order_handoff_task SET "+mutation+" WHERE id=501");}
+                assertEquals(List.of(),rows(db,params),mutation);
+                try(var st=db.prepareStatement("UPDATE mes_active_order_handoff_task SET round_id=101,tenant_id=1,status='TODO',candidate_user_snapshot='7',active_order_id=413,responsibility_snapshot_json=? WHERE id=501")) {st.setString(1,"{\"correctionOrigin\":\""+origin+"\"}");st.executeUpdate();}
+            }
+            correction(db,1,302,101,999,902L);assertEquals(List.of(),rows(db,params)); // Newer wrong round supersedes old correction.
+        }
+    }
+
     @Test
     void originalProductionActorSignedCorrectionReopensOnlyItsExactRejectedRound() throws Exception {
         try (Connection db = database()) {
@@ -252,7 +295,7 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             statement.executeUpdate("INSERT INTO mes_pro_process_pool_submission_review(id,tenant_id,event_id,leader_user_id,leader_type,review_status,reviewed_at) VALUES(201,1,101,9,'PRODUCTION','REJECTED','2026-10-02 12:00:00')");
             statement.executeUpdate("INSERT INTO system_electronic_signature(id,tenant_id,module_code,action_code,subject_type,actor_id,verification_status,signed_at,canonical_content_json) VALUES(9001,1,'MES','PRODUCTION_SUBMIT','MES_BATCH_RECORD',7,'VALID','2026-10-02 10:00:00','{\"signatureIdentity\":{\"domain\":\"SYSTEM_USER\",\"signerId\":7,\"tenantId\":1}}')");
             statement.executeUpdate("INSERT INTO system_electronic_signature(id,tenant_id,module_code,action_code,subject_type,actor_id,verification_status,signed_at) VALUES(901,1,'MES','FIELD_CHANGE','MES_BATCH_RECORD',7,'VALID','2026-10-02 13:00:00')");
-            statement.executeUpdate("INSERT INTO mes_active_order_handoff_task(id,tenant_id,active_order_id,work_order_id,route_process_id,task_type,source_type,source_id,round_id,candidate_user_snapshot,responsibility_snapshot_json,initiated_by,status) VALUES(501,1,414,123,88,'PRODUCTION_REVIEW','PROCESS_POOL_EVENT',101,301,'9','{\"correctionOrigin\":\"OWN_RETURN_CORRECTION\"}',7,'TODO')");
+            statement.executeUpdate("INSERT INTO mes_active_order_handoff_task(id,tenant_id,active_order_id,work_order_id,route_process_id,task_type,source_type,source_id,round_id,candidate_user_snapshot,responsibility_snapshot_json,initiated_by,status) VALUES(501,1,414,123,88,'PRODUCTION_REVIEW','PROCESS_POOL_EVENT_SIGNED_REVISION',101,301,'9','{\"correctionOrigin\":\"OWN_RETURN_CORRECTION\"}',7,'TODO')");
         }
         try (var statement = db.prepareStatement("INSERT INTO mes_pro_process_pool_event_revision(id,tenant_id,event_id,revision_status,revision_signature_id,revision_signature_user_id,modified_by_user_id,revision_signature_snapshot,after_payload,server_revision_time,before_payload,change_reason) VALUES(301,1,101,'EFFECTIVE',901,7,7,'{\"signatureId\":901,\"actorId\":7,\"signedAt\":\"2026-10-02T13:00:00\"}',?,'2026-10-02 13:00:00',?,'核对清洗次数')")) {
             statement.setString(1, after); statement.setString(2, before); statement.executeUpdate();
@@ -329,8 +372,9 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             statement.execute("CREATE ALIAS JSON_EXTRACT FOR '" + type + ".jsonExtract'");
             statement.execute("CREATE ALIAS JSON_UNQUOTE FOR '" + type + ".jsonUnquote'");
             statement.execute("CREATE ALIAS JSON_TYPE FOR '" + type + ".jsonType'");
+            statement.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
             // Columns checked against existing event/review/revision migrations; only queried columns are needed here.
-            statement.execute("CREATE TABLE mes_pro_process_pool_event(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,event_type VARCHAR(40),raw_payload VARCHAR(4000),work_order_id BIGINT)");
+            statement.execute("CREATE TABLE mes_pro_process_pool_event(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,event_type VARCHAR(40),raw_payload VARCHAR(4000),work_order_id BIGINT,report_management_status VARCHAR(40))");
             statement.execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
             statement.execute("CREATE TABLE mes_pro_process_pool_submission_review(id BIGINT,tenant_id BIGINT,event_id BIGINT,leader_user_id BIGINT,review_status VARCHAR(30),review_remark VARCHAR(50),reviewed_at TIMESTAMP,deleted INT DEFAULT 0)");
             statement.execute("CREATE TABLE mes_pro_process_pool_event_revision(id BIGINT,tenant_id BIGINT,event_id BIGINT,revision_status VARCHAR(30),revision_signature_id BIGINT,revision_signature_user_id BIGINT,modified_by_user_id BIGINT,revision_signature_snapshot VARCHAR(2000),after_payload VARCHAR(4000),server_revision_time TIMESTAMP,deleted INT DEFAULT 0)");

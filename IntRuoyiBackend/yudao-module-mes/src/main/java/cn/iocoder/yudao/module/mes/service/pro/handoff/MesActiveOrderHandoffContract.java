@@ -7,6 +7,9 @@ import java.net.URI;
 import java.util.*;
 
 public final class MesActiveOrderHandoffContract {
+    // sourceId always identifies the event; sourceType identifies the table owning roundId.
+    public static final String EVENT_REJECTED_REVIEW="PROCESS_POOL_EVENT_REJECTED_REVIEW";
+    public static final String EVENT_SIGNED_REVISION="PROCESS_POOL_EVENT_SIGNED_REVISION";
     public static final String TEMPLATE="MES_ACTIVE_ORDER_HANDOFF";
     public static final Set<String> TYPES=Set.of("PRODUCTION_HANDOFF","PRODUCTION_REVIEW","PQC_HANDOFF","PQC_REVIEW","PRODUCTION_RETURN","PQC_RETURN","QA_REVIEW","QA_DECISION_HANDOFF");
     private MesActiveOrderHandoffContract() { }
@@ -45,7 +48,9 @@ public final class MesActiveOrderHandoffContract {
             default -> "eventId";
         };
         String sourceType=switch(sourceKey) {case "cycleId"->"ACTIVE_ORDER";case "pqcTaskId"->"PQC_INSPECTION_TASK";case "reviewId"->"NONCONFORMANCE_REVIEW";default->"PROCESS_POOL_EVENT";};
-        require(Objects.equals(sourceType,task.getSourceType()),"交接类型与正式来源不一致");
+        boolean review=Set.of("PRODUCTION_REVIEW","PQC_REVIEW").contains(task.getTaskType());
+        require(Objects.equals(sourceType,task.getSourceType()) || (review && EVENT_SIGNED_REVISION.equals(task.getSourceType()))
+                || ("PRODUCTION_REVIEW".equals(task.getTaskType()) && EVENT_REJECTED_REVIEW.equals(task.getSourceType())),"交接类型与正式来源不一致");
         Set<String> paths=switch(task.getTaskType()) {
             case "PRODUCTION_HANDOFF","PRODUCTION_RETURN" -> Set.of("/mes/pro/feedback/edhr-batch-production-fill");
             case "PQC_HANDOFF","PQC_RETURN" -> Set.of("/mes/pro/feedback/edhr-batch-pqc-fill");

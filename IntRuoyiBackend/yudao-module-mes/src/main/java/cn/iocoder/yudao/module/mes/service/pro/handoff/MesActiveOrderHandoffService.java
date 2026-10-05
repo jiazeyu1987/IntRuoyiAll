@@ -38,6 +38,7 @@ public class MesActiveOrderHandoffService {
     @Resource private MesActiveOrderHandoffDeliveryService delivery;
     @Resource private MesActiveOrderHandoffAudit audit;
     @Resource private MesSignedReturnCorrectionResolver correctionResolver;
+    @Resource private MesProcessPoolReportAllocationMapper allocations;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper routeProcesses;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper processes;
@@ -86,8 +87,8 @@ public class MesActiveOrderHandoffService {
         close(task,actorUserId,revisionId,"DONE");
         // The original rejected review owns this round; current responsibility edits cannot redirect it.
         owners.user(previous.getLeaderUserId(),"mes:pro-process-pool-team-leader:review");
-        createDefaultRound(order,type,"PROCESS_POOL_EVENT",eventId,revisionId,previous.getLeaderUserId().toString(),actorUserId,
-                "PRODUCTION_REVIEW".equals(type),revision.getChangeReason(),routeProcessId,false);
+        create(order,type,EVENT_SIGNED_REVISION,eventId,revisionId,previous.getLeaderUserId().toString(),actorUserId,
+                "PRODUCTION_REVIEW".equals(type),revision.getChangeReason(),routeProcessId,false,"OWN_RETURN_CORRECTION",null);
     }
 
     /** Existing formal leader correction has its own frozen origin; it never impersonates an own return. */
@@ -107,7 +108,7 @@ public class MesActiveOrderHandoffService {
                 &&candidates(returned.getCandidateUserSnapshot()).equals(List.of(owners.originalActor(event))),"组长补正缺少原正式本人退回记录");
         close(returned,actor,revisionId,"DONE");
         owners.user(previous.getLeaderUserId(),"mes:pro-process-pool-team-leader:review");
-        create(order,"PQC_REVIEW","PROCESS_POOL_EVENT",eventId,revisionId,previous.getLeaderUserId().toString(),actor,
+        create(order,"PQC_REVIEW",EVENT_SIGNED_REVISION,eventId,revisionId,previous.getLeaderUserId().toString(),actor,
                 false,revision.getChangeReason(),routeProcessId,false,"LEADER_PQC_CORRECTION",null);
     }
 
@@ -122,6 +123,18 @@ public class MesActiveOrderHandoffService {
         require("PRODUCTION_SUBMIT".equals(event.getEventType())&&Objects.equals(activeOrderId,active(event)),"生产提交与活跃周期不一致");
         var identity=owners.submissionIdentity(event); require(Objects.equals(identity.signerId(),actor),"生产提交接手人与原签名人不一致");
         if(identity.isSystemUser()) closeMatching(activeOrderId,"PRODUCTION_HANDOFF","ACTIVE_ORDER",activeOrderId,actor,eventId);
+        else {
+            require(Objects.equals(owners.profileProductionLeader(event),order.getLeaderUserId()),"临时提交不属于原周期正式生产责任");
+            // This is automatic closure from verified business submission, attributed to its actual operator.
+            // A profile signer never becomes an inbox candidate or a system-user signer.
+            for(var task:tasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
+                    .eq(MesActiveOrderHandoffTaskDO::getTenantId,tenant()).eq(MesActiveOrderHandoffTaskDO::getActiveOrderId,activeOrderId)
+                    .eq(MesActiveOrderHandoffTaskDO::getTaskType,"PRODUCTION_HANDOFF").eq(MesActiveOrderHandoffTaskDO::getSourceType,"ACTIVE_ORDER")
+                    .eq(MesActiveOrderHandoffTaskDO::getSourceId,activeOrderId).eq(MesActiveOrderHandoffTaskDO::getStatus,"TODO"))) {
+                validate(task); require(Objects.equals(task.getWorkOrderId(),event.getWorkOrderId()),"临时提交接手任务工单不一致");
+                close(task,identity.operatorId(),eventId,"DONE");
+            }
+        }
         Long operator=identity.isSystemUser()?actor:identity.operatorId();
         createDefaultRound(order,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",eventId,eventId,owners.productionLeader(order).toString(),operator,true,
                 "本人生产提交已完成，请组长签名复核",event.getRouteProcessId(),false);
@@ -147,13 +160,18 @@ public class MesActiveOrderHandoffService {
         require(latest!=null&&Objects.equals(latest.getId(),reviewId),"旧复核轮次禁止关闭或创建新轮交接");
         Long routeProcessId=submissionRouteProcess(event,order);
         Long round=review.getSourceRevisionId()==null?eventId:review.getSourceRevisionId();
-        closeReviewRound(order.getId(),production?"PRODUCTION_REVIEW":"PQC_REVIEW",eventId,round,review.getLeaderUserId(),reviewId);
+        closeReviewRound(order.getId(),production?"PRODUCTION_REVIEW":"PQC_REVIEW",
+                review.getSourceRevisionId()==null?"PROCESS_POOL_EVENT":EVENT_SIGNED_REVISION,eventId,round,review.getLeaderUserId(),reviewId);
         if("REJECTED".equals(review.getReviewStatus())) {
             require(review.getReviewRemark()!=null&&!review.getReviewRemark().isBlank(),"退回原因不能为空");
             var identity=owners.submissionIdentity(event);
             if(identity.isSystemUser()) createDefaultRound(order,production?"PRODUCTION_RETURN":"PQC_RETURN","PROCESS_POOL_EVENT",eventId,reviewId,
                     identity.signerId().toString(),review.getLeaderUserId(),false,review.getReviewRemark(),routeProcessId,false);
-            // PROFILE has no personal system inbox; keep its existing leader correction chain intact.
+            else {
+                require(production && Objects.equals(owners.profileProductionLeader(event),review.getLeaderUserId()),"临时人员退回原生产组长责任不一致");
+                create(order,"PRODUCTION_REVIEW",EVENT_REJECTED_REVIEW,eventId,reviewId,review.getLeaderUserId().toString(),
+                        review.getLeaderUserId(),false,"临时人员报工退回，请责任组长更正后重新签名复核："+review.getReviewRemark(),routeProcessId,false,"LEADER_PROFILE_RETURN",null);
+            }
         } else {
             require("APPROVED".equals(review.getReviewStatus()),"正式复核结果无效");
             if(production) closeDecisionHandoff(order.getId(),review.getLeaderUserId(),reviewId);
@@ -164,6 +182,70 @@ public class MesActiveOrderHandoffService {
                 if(assignment==null) assignment=pqcAssignment.resolve(order.getRouteId());
                 create(order,"PQC_HANDOFF","PQC_INSPECTION_TASK",pqc.getId(),pqc.getId(),assignment.candidateUserSnapshot(),
                         review.getLeaderUserId(),true,"生产组长复核已通过，请接手对应PQC任务",pqcRouteProcessId,false,null,assignment);
+            }
+        }
+    }
+
+    public void completeProfileLeaderCorrection(Long eventId, Long rejectedReviewId, Long revisionId, Long actor) {
+        audit.lock(); var event=event(eventId); var previous=reviews.selectById(rejectedReviewId);
+        var latest=reviews.selectLatestByEventIdForUpdate(eventId); var revision=revisions.selectById(revisionId);
+        require(previous!=null && latest!=null && Objects.equals(latest.getId(),rejectedReviewId)
+                && Objects.equals(actor,previous.getLeaderUserId()) && Objects.equals(actor,owners.profileProductionLeader(event)),
+                "临时人员组长更正必须绑定当前原拒绝轮次");
+        require(revision!=null && Objects.equals(revision.getEventId(),eventId) && Objects.equals(revision.getTenantId(),tenant())
+                && Objects.equals(revision.getModifiedByUserId(),actor) && Objects.equals(revision.getRevisionSignatureUserId(),actor)
+                && "EFFECTIVE".equals(revision.getRevisionStatus()), "责任组长更正未形成正式签名版本");
+        var latestRevisions=revisions.selectListByEventId(eventId);
+        require(!latestRevisions.isEmpty() && Objects.equals(latestRevisions.get(0).getId(),revisionId),"组长补正版本已被后续版本覆盖");
+        correctionResolver.verifyProfileLeaderRevision(event,previous,revision,actor);
+        var order=order(active(event),true);
+        var returned=tasks.byIdentity(order.getId(),"PRODUCTION_REVIEW",EVENT_REJECTED_REVIEW,eventId,rejectedReviewId);
+        access(returned,actor);
+        require("LEADER_PROFILE_RETURN".equals(JsonUtils.parseTree(returned.getResponsibilitySnapshotJson()).path("correctionOrigin").asText()),
+                "临时人员组长补正缺少原正式退回来源");
+        close(returned,actor,revisionId,"DONE");
+        create(order,"PRODUCTION_REVIEW",EVENT_SIGNED_REVISION,eventId,revisionId,actor.toString(),actor,true,
+                "临时人员报工已由责任组长签名更正，请对新版本独立复核",event.getRouteProcessId(),false,"LEADER_PROFILE_CORRECTION",null);
+    }
+
+    /** A shared event keeps its original review cycle; downstream work belongs to formal allocation targets. */
+    public void allocationReviewed(Long eventId, Long reviewId, Collection<MesProcessPoolReportAllocationDO> targets) {
+        audit.lock(); var event = event(eventId); var review = reviews.selectById(reviewId);
+        var latest = reviews.selectLatestByEventIdForUpdate(eventId);
+        require("PRODUCTION_SUBMIT".equals(event.getEventType()) && review != null
+                && Objects.equals(tenant(), review.getTenantId()) && Objects.equals(eventId, review.getEventId())
+                && "APPROVED".equals(review.getReviewStatus()) && review.getReviewSignatureId() != null
+                && review.getReviewSignatureId() > 0 && Objects.equals(review.getLeaderUserId(), review.getReviewSignatureUserId())
+                && latest != null && Objects.equals(reviewId, latest.getId()), "分配交接缺少当轮正式生产复核签名");
+        var source = order(active(event), false);
+        Long round = review.getSourceRevisionId() == null ? eventId : review.getSourceRevisionId();
+        var reviewTask = tasks.byIdentity(source.getId(), "PRODUCTION_REVIEW", review.getSourceRevisionId()==null?"PROCESS_POOL_EVENT":EVENT_SIGNED_REVISION, eventId, round);
+        access(reviewTask, review.getLeaderUserId());
+        require("ACTIVE".equals(source.getActiveStatus()) || ("DONE".equals(reviewTask.getStatus())
+                && Objects.equals(reviewId, reviewTask.getCompletionSourceId())), "归档源周期不能产生新的复核动作");
+        close(reviewTask, review.getLeaderUserId(), reviewId, "DONE");
+        var current = allocations.selectListByEventIdForUpdate(eventId);
+        Set<Long> handled = new HashSet<>();
+        for (var target : targets) {
+            require(target.getId() != null && current.stream().anyMatch(a -> Objects.equals(a.getId(), target.getId())
+                    && Objects.equals(a.getActiveOrderId(), target.getActiveOrderId())
+                    && Objects.equals(a.getWorkOrderId(), target.getWorkOrderId())
+                    && Objects.equals(a.getRouteProcessId(), target.getRouteProcessId())
+                    && Objects.equals(a.getProcessId(), target.getProcessId())
+                    && a.getAllocatedQuantity().compareTo(target.getAllocatedQuantity()) == 0), "PQC交接目标不是当前正式分配");
+            var order = order(target.getActiveOrderId(), true);
+            require(Objects.equals(order.getWorkOrderId(), target.getWorkOrderId()), "分配目标工单与正式周期不一致");
+            if (!handled.add(order.getId())) continue;
+            closeDecisionHandoff(order.getId(), review.getLeaderUserId(), reviewId);
+            MesPqcHandoffAssignmentService.ResolvedAssignment assignment = null;
+            for (var pqc : pqcTasks.selectListByActiveOrderId(order.getId())) {
+                if (!"PENDING".equals(pqc.getTaskStatus()) || !Objects.equals(pqc.getRouteProcessId(), target.getRouteProcessId())) continue;
+                require(Objects.equals(tenant(), pqc.getTenantId()) && Objects.equals(order.getWorkOrderId(), pqc.getWorkOrderId())
+                        && Objects.equals(target.getProcessId(), pqc.getProcessId()), "目标PQC正式任务身份不一致");
+                Long pqcRouteProcessId = pqcRouteProcess(pqc, order);
+                if (assignment == null) assignment = pqcAssignment.resolve(order.getRouteId());
+                create(order, "PQC_HANDOFF", "PQC_INSPECTION_TASK", pqc.getId(), pqc.getId(), assignment.candidateUserSnapshot(),
+                        review.getLeaderUserId(), true, "生产分配已正式复核，请接手对应PQC任务", pqcRouteProcessId, false, null, assignment);
             }
         }
     }
@@ -245,8 +327,8 @@ public class MesActiveOrderHandoffService {
             close(task,actor,eventId,"DONE");
         }
     }
-    private void closeReviewRound(Long activeId,String type,Long eventId,Long roundId,Long actor,Long completionSource) {
-        var task=tasks.byIdentity(activeId,type,"PROCESS_POOL_EVENT",eventId,roundId);
+    private void closeReviewRound(Long activeId,String type,String sourceType,Long eventId,Long roundId,Long actor,Long completionSource) {
+        var task=tasks.byIdentity(activeId,type,sourceType,eventId,roundId);
         access(task,actor);close(task,actor,completionSource,"DONE");
     }
     private void close(MesActiveOrderHandoffTaskDO candidate,Long actor,Long source,String state) {
@@ -267,7 +349,10 @@ public class MesActiveOrderHandoffService {
             MesPqcHandoffAssignmentService.ResolvedAssignment pqcAssignmentSnapshot) {
         var existing=tasks.byIdentity(order.getId(),type,source,sourceId,round);
         if(existing!=null) {
-            require(Objects.equals(existing.getCandidateUserSnapshot(),receivers),"交接重放与原冻结责任不一致"); return existing;
+            require(Objects.equals(existing.getCandidateUserSnapshot(),receivers),"交接重放与原冻结责任不一致");
+            if(correctionOrigin!=null) require(correctionOrigin.equals(JsonUtils.parseTree(existing.getResponsibilitySnapshotJson()).path("correctionOrigin").asText()),
+                    "交接重放与原正式补正来源不一致");
+            return existing;
         }
         require(reason!=null&&!reason.isBlank(),"交接原因或业务意见缺失");
         var workOrder=workOrders.selectById(order.getWorkOrderId());
@@ -280,7 +365,7 @@ public class MesActiveOrderHandoffService {
             require(process!=null&&process.getName()!=null&&!process.getName().isBlank(),"交接缺少正式工序名称");
             processId=process.getId();processLabel=process.getName();
         }
-        boolean originalSubmission="PROCESS_POOL_EVENT".equals(source)&&Objects.equals(sourceId,round)&&type.endsWith("_REVIEW");
+        boolean originalSubmission="PROCESS_POOL_EVENT".equals(source)&&type.endsWith("_REVIEW");
         var initiatorIdentity=owners.initiatorSnapshot(initiator,originalSubmission?event(sourceId):null);
         var responsibility=new LinkedHashMap<String,Object>();
         responsibility.put("identityDomain","SYSTEM_USER");responsibility.put("userIds",candidates(receivers));
@@ -296,17 +381,19 @@ public class MesActiveOrderHandoffService {
             responsibility.put("handlerLeaderUserIds",pqcAssignmentSnapshot.handlerLeaderUserIds());
             responsibility.put("pqcAssignmentRule",pqcAssignmentSnapshot.snapshot());
         }
-        if("PROCESS_POOL_EVENT".equals(source)&&Set.of("PQC_REVIEW","PQC_RETURN").contains(type)) {
+        if(Set.of("PROCESS_POOL_EVENT",EVENT_SIGNED_REVISION).contains(source)&&Set.of("PQC_REVIEW","PQC_RETURN").contains(type)) {
             var pqc=owners.pqcTask(event(sourceId));
             responsibility.put("pqcTaskId",pqc.getId());responsibility.put("qaProcessId",pqc.getQaProcessId());
             responsibility.put("routeVersionId",pqc.getRouteVersionId());responsibility.put("regulationVersionId",pqc.getRegulationVersionId());
         }
-        if("PROCESS_POOL_EVENT".equals(source)&&!Objects.equals(sourceId,round)&&type.endsWith("_REVIEW"))
-            responsibility.put("correctionOrigin",correctionOrigin==null?"OWN_RETURN_CORRECTION":correctionOrigin);
+        if(EVENT_SIGNED_REVISION.equals(source)||EVENT_REJECTED_REVIEW.equals(source)) {
+            require(correctionOrigin!=null&&!correctionOrigin.isBlank(),"补正轮次必须明确正式来源");
+            responsibility.put("correctionOrigin",correctionOrigin);
+        }
         responsibility.put("initiator",initiatorIdentity);responsibility.put("activeStatus",order.getActiveStatus());responsibility.put("businessStatus",order.getBusinessStatus());
         String businessState=switch(type) {
             case "PRODUCTION_HANDOFF" -> "人员已确认，待生产接手";
-            case "PRODUCTION_REVIEW" -> originalSubmission?"生产已提交，待组长复核":"生产已签名补正，待组长再审";
+            case "PRODUCTION_REVIEW" -> "LEADER_PROFILE_RETURN".equals(correctionOrigin)?"临时人员报工已退回，待责任组长签名更正":originalSubmission?"生产已提交，待组长复核":"生产已签名补正，待组长再审";
             case "PQC_HANDOFF" -> "生产复核已通过，待PQC检验";
             case "PQC_REVIEW" -> originalSubmission?"PQC已提交，待组长复核":"PQC已签名补正，待组长再审";
             case "PRODUCTION_RETURN","PQC_RETURN" -> "组长已退回，待签名更正";
@@ -338,7 +425,7 @@ public class MesActiveOrderHandoffService {
             case "QA_DECISION_HANDOFF" -> "DONE".equals(task.getStatus())?"/user/profile":"/mes/pro/process-pool/production-leader";
             default -> "/mes/pro/process-pool/production-leader";
         };
-        String sourceKey=switch(task.getSourceType()) {case "PROCESS_POOL_EVENT"->"eventId";case "PQC_INSPECTION_TASK"->"pqcTaskId";case "NONCONFORMANCE_REVIEW"->"reviewId";case "ACTIVE_ORDER"->"cycleId";default->throw failure("交接来源类型无效");};
+        String sourceKey=switch(task.getSourceType()) {case "PROCESS_POOL_EVENT",EVENT_SIGNED_REVISION,EVENT_REJECTED_REVIEW->"eventId";case "PQC_INSPECTION_TASK"->"pqcTaskId";case "NONCONFORMANCE_REVIEW"->"reviewId";case "ACTIVE_ORDER"->"cycleId";default->throw failure("交接来源类型无效");};
         String url=path+"?activeOrderId="+task.getActiveOrderId()+"&"+sourceKey+"="+task.getSourceId()+"&handoffTaskId="+task.getId()+"&roundId="+task.getRoundId()+"&handoffType="+task.getTaskType();
         if("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"DONE".equals(task.getStatus()))url+="&tab=notifyMessage";
         if(task.getTaskType().endsWith("_RETURN"))url+="&returnTaskId="+task.getId()+"&rejectedReviewId="+task.getRoundId();
@@ -370,7 +457,8 @@ public class MesActiveOrderHandoffService {
         var order=orders.selectByIdForUpdate(id);require(order!=null&&Objects.equals(order.getTenantId(),tenant()),"活跃周期不存在");
         if(active)require("ACTIVE".equals(order.getActiveStatus()),"旧周期已关闭，禁止办理");return order;
     }
-    public record NavigationContext(MesActiveOrderHandoffTaskDO task, boolean current, boolean processable) { }
+    public record NavigationContext(MesActiveOrderHandoffTaskDO task, boolean current, boolean processable,
+            boolean profileLeaderCorrection) { }
     @Transactional(readOnly=true,propagation=Propagation.SUPPORTS)
     public NavigationContext navigationContext(Long taskId,Long actor) {
         var task=tasks.selectById(taskId);access(task,actor);validate(task);
@@ -378,7 +466,25 @@ public class MesActiveOrderHandoffService {
         require(!"CANCELED".equals(task.getStatus()),"旧周期交接已取消，请在历史记录中查看，禁止办理新周期");
         require(isCurrent||("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"DONE".equals(task.getStatus())
                 &&task.getReason().startsWith("void：")),"旧周期交接已失效，禁止办理；请查看原周期历史");
-        return new NavigationContext(task,isCurrent,isCurrent&&"TODO".equals(task.getStatus()));
+        boolean profileCorrection=false;
+        if(isCurrent && "TODO".equals(task.getStatus()) && Set.of("PRODUCTION_REVIEW","PQC_REVIEW").contains(task.getTaskType())) {
+            var previous=reviews.selectLatestByEventIdForUpdate(task.getSourceId());
+            if(EVENT_REJECTED_REVIEW.equals(task.getSourceType())) {
+                require("PRODUCTION_REVIEW".equals(task.getTaskType()),"临时人员补正只能属于原生产复核");
+                require(previous!=null && "REJECTED".equals(previous.getReviewStatus()) && Objects.equals(previous.getId(),task.getRoundId()),"临时人员更正交接不是当前拒绝轮次");
+                var event=event(task.getSourceId());
+                require("LEADER_PROFILE_RETURN".equals(JsonUtils.parseTree(task.getResponsibilitySnapshotJson()).path("correctionOrigin").asText())
+                        && !owners.submissionIdentity(event).isSystemUser()
+                        && Objects.equals(actor,previous.getLeaderUserId()) && Objects.equals(actor,owners.profileProductionLeader(event)),
+                        "临时人员更正交接缺少原组长正式责任");
+                profileCorrection=true;
+            } else if(EVENT_SIGNED_REVISION.equals(task.getSourceType())) {
+                var correction=correctionResolver.find(event(task.getSourceId()),previous);
+                require(correction!=null && Objects.equals(task.getRoundId(),correction.getId()),
+                        "再审交接不是当前正式签名补正轮次");
+            }
+        }
+        return new NavigationContext(task,isCurrent,isCurrent&&"TODO".equals(task.getStatus()),profileCorrection);
     }
     @Transactional(readOnly=true,propagation=Propagation.SUPPORTS)
     public boolean current(MesActiveOrderHandoffTaskDO task) {

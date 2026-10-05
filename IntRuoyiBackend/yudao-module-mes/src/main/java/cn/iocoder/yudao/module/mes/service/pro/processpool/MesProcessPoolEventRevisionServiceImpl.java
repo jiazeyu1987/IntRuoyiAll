@@ -49,6 +49,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
     private final MesProBatchRecordExecutionSignatureService signatureService;
     @jakarta.annotation.Resource
     private MesPqcInspectionTaskMapper pqcTaskMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     public MesProcessPoolEventRevisionServiceImpl(MesProProcessPoolEventMapper eventMapper,
                                                   MesProProcessPoolEventRevisionMapper revisionMapper,
@@ -88,6 +90,9 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
+        }
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工版本更正");
         }
         validateJsonPayload(event.getRawPayload(), "rawPayload");
         validateRevisionPolicy(event, revisionPolicy);

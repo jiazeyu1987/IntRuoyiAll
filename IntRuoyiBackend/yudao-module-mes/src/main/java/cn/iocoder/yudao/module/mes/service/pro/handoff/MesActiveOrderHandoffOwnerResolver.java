@@ -30,14 +30,14 @@ public class MesActiveOrderHandoffOwnerResolver {
     @Resource private MesPqcInspectionTaskMapper pqcTasks;
     @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService productionEvidence;
     @Resource private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService signatureQuery;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper orders;
 
     public void user(Long id,String permission) {
         require(id!=null&&id>0,"交接负责人缺少正式系统账号");
         var user=users.selectById(id);
         require(user!=null&&Objects.equals(user.getTenantId(),tenant())&&CommonStatusEnum.isEnable(user.getStatus()),
                 "交接负责人系统账号不存在、非本租户或已停用");
-        var roles=permissions.getUserRoleIdListByUserId(id);
-        require(roles!=null&&!roles.isEmpty()&&permissions.hasAnyPermissionsInRoles(roles,permission),
+        require(permissions.hasAnyPermissions(id,permission),
                 "交接负责人缺少岗位办理权限："+permission);
     }
 
@@ -98,6 +98,21 @@ public class MesActiveOrderHandoffOwnerResolver {
         var identity=submissionIdentity(event);
         require(identity.isSystemUser(),"原签名为人员档案域；该域沿用正式组长更正链路，没有个人系统待办合同");
         return identity.signerId();
+    }
+
+    public Long profileProductionLeader(MesProProcessPoolEventDO event) {
+        var identity = submissionIdentity(event);
+        require(!identity.isSystemUser() && "PRODUCTION_SUBMIT".equals(event.getEventType()), "该提交不是临时人员生产签名域");
+        var profile = profiles.selectById(identity.signerId());
+        var activeId = JsonUtils.parseTree(event.getRawPayload()).path("activeOrderId");
+        require(activeId.isIntegralNumber() && activeId.longValue() > 0, "临时人员提交原周期缺失");
+        var order = orders.selectById(activeId.longValue());
+        require(profile != null && Objects.equals(tenant(), profile.getTenantId()) && Boolean.TRUE.equals(profile.getEnabled())
+                && "TEMPORARY".equals(profile.getEmployeeType()) && profile.getSystemUserId() == null
+                && order != null && Objects.equals(tenant(), order.getTenantId())
+                && Objects.equals(order.getWorkOrderId(), event.getWorkOrderId())
+                && Objects.equals(order.getLeaderUserId(), profile.getLeaderUserId()), "临时签名人与原周期正式生产组长责任不一致");
+        return productionLeader(order);
     }
 
     public void assertPqcLeaderCorrector(MesProProcessPoolEventDO event,Long actor) {

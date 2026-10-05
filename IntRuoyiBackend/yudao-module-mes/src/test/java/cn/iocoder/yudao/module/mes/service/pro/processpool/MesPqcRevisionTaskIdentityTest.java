@@ -69,6 +69,7 @@ class MesPqcRevisionTaskIdentityTest {
                 session.getMapper(MesProProcessPoolEventRevisionMapper.class), diffs,
                 mock(MesProcessPoolFifoAllocationService.class), mock(MesProcessPoolSubmissionReviewMapper.class),
                 mock(MesProBatchRecordExecutionSignatureService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         ReflectionTestUtils.setField(service, "pqcTaskMapper", tasks);
         event = MesProcessPoolEventRevisionServiceTest.event()
                 .setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)

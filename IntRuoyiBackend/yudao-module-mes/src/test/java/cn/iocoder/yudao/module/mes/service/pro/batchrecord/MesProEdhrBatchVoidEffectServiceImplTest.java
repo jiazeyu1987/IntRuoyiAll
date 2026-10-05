@@ -26,6 +26,12 @@ import static org.mockito.Mockito.when;
 @Import({MesProEdhrBatchVoidEffectServiceImpl.class, MesEdhrBatchLifecycleGuard.class})
 class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
 
+    @org.junit.jupiter.api.BeforeEach void tenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(0L); org.springframework.test.util.ReflectionTestUtils.setField(batchVoidEffectService,"workTaskService",workTaskService); }
+    @org.junit.jupiter.api.AfterEach void clearTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper applications;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper realTasks;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper changes;
+
     @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
     @MockitoBean private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
@@ -159,6 +165,7 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
                 .closedBy(ACTOR_ID)
                 .closedAt(LocalDateTime.now().minusHours(1))
                 .build();
+        batch.setTenantId(0L);
         batchExecutionMapper.insert(batch);
         return batch;
     }
@@ -184,4 +191,88 @@ class MesProEdhrBatchVoidEffectServiceImplTest extends BaseDbUnitTest {
         batchArchiveMapper.insert(archive);
         return archive;
     }
+
+    @Resource private javax.sql.DataSource dataSource;
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @org.junit.jupiter.api.BeforeEach void jdbcFixture(){
+        jdbc=new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS mes_pro_edhr_nonconformance_review(id BIGINT PRIMARY KEY,tenant_id BIGINT,source_type VARCHAR(40),source_id BIGINT,active_order_id BIGINT,deleted BOOLEAN DEFAULT FALSE,frozen_at TIMESTAMP,review_status VARCHAR(40),disposition VARCHAR(40),closed_at TIMESTAMP)");
+    }
+
+    private void installRealTaskCancellation() {
+        var real=new MesProEdhrWorkTaskServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(real,"workTaskMapper",realTasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(batchVoidEffectService,"workTaskService",real);
+    }
+    private cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO pendingApplication(Long batchId) {
+        var app=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO.builder()
+                .activeOrderId(8101L).workOrderId(30L).workOrderCode("MO-VOID-EFFECT").routeId(40L).routeVersionId(41L)
+                .batchCode("BATCH-VOID-EFFECT").batchExecutionId(batchId).applicationStatus("PQC_RELEASE_PENDING")
+                .sourceSnapshotHash(HASH_64).version(1).requestIdempotencyKey("void-app-request-"+java.util.UUID.randomUUID())
+                .businessIdempotencyKey("void-app-business-"+java.util.UUID.randomUUID()).dossierSummaryJson("{\"formalDossier\":\"unchanged\"}").appliedAt(LocalDateTime.now()).build();
+        app.setTenantId(0L);applications.insert(app);
+        var task=cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO.builder()
+                .taskCode("PQC-VOID-"+app.getId()).taskType("PQC_PRODUCTION_RELEASE").businessScopeType("RELEASE_APPLICATION")
+                .businessScopeId(app.getId()).workOrderId(30L).assigneeUserId(ACTOR_ID).candidateUserSnapshot(ACTOR_ID.toString())
+                .status("TODO").actionUrl("/pqc-production-release").build();
+        realTasks.insert(task);applications.updateById(app.setPqcReleaseWorkTaskId(task.getId()));return app;
+    }
+    private EdhrRecordChangeRequestReqVO voidRequest(Long id) {
+        return new EdhrRecordChangeRequestReqVO().setBatchExecutionId(id).setReasonCategory("ORDER_CANCELLED")
+                .setReasonText("正式独立作废，关闭准确申请").setPassword("test-password");
+    }
+    @Test void batchVoidClosesExactApplicationTaskAndReturnsActualChangeHistoryWithoutPqcSignature() {
+        var batch=insertClosedBatchExecution();insertSealedBatchArchive(batch.getId());var app=pendingApplication(batch.getId());installRealTaskCancellation();
+        var otherBatch=insertClosedBatchExecution();var otherApp=pendingApplication(otherBatch.getId());
+        String otherApplicationBefore=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(applications.selectById(otherApp.getId()));
+        String otherTaskBefore=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(realTasks.selectById(otherApp.getPqcReleaseWorkTaskId()));
+        try(var login=mockLoginUser()) {
+            var requested=batchVoidEffectService.requestPlatformVoidBatchExecution(voidRequest(batch.getId()),"sa14-bpm");
+            var result=batchVoidEffectService.handleVoidBatchExecutionApprovalCallback("sa14-bpm","approved-event","APPROVED",null,ACTOR_ID);
+            org.junit.jupiter.api.Assertions.assertEquals(requested.getId(),result.getId());
+            var saved=applications.selectById(app.getId());var task=realTasks.selectById(app.getPqcReleaseWorkTaskId());
+            org.junit.jupiter.api.Assertions.assertEquals("BATCH_VOIDED",saved.getApplicationStatus());org.junit.jupiter.api.Assertions.assertEquals(2,saved.getVersion());
+            org.junit.jupiter.api.Assertions.assertEquals("CANCELED",task.getStatus());
+            org.junit.jupiter.api.Assertions.assertNull(task.getBatchExecutionId());
+            org.junit.jupiter.api.Assertions.assertEquals(otherApplicationBefore,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(applications.selectById(otherApp.getId())));
+            org.junit.jupiter.api.Assertions.assertEquals(otherTaskBefore,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(realTasks.selectById(otherApp.getPqcReleaseWorkTaskId())));
+            org.junit.jupiter.api.Assertions.assertNull(saved.getPqcDecision());org.junit.jupiter.api.Assertions.assertNull(saved.getPqcDecidedBy());org.junit.jupiter.api.Assertions.assertNull(saved.getPqcDecidedAt());
+            var dossier=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(saved.getDossierSummaryJson());
+            org.junit.jupiter.api.Assertions.assertEquals("unchanged",dossier.path("formalDossier").asText());
+            org.junit.jupiter.api.Assertions.assertEquals(result.getId().longValue(),dossier.path("batchVoid").path("changeEventId").longValue());
+            org.junit.jupiter.api.Assertions.assertEquals("EFFECTIVE",changes.selectById(result.getId()).getChangeStatus());
+            String applicationBefore=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(saved);
+            String taskBefore=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(task);
+            batchVoidEffectService.handleVoidBatchExecutionApprovalCallback("sa14-bpm","approved-event","APPROVED",null,ACTOR_ID);
+            org.junit.jupiter.api.Assertions.assertEquals(applicationBefore,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(applications.selectById(app.getId())));
+            org.junit.jupiter.api.Assertions.assertEquals(taskBefore,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(realTasks.selectById(task.getId())));
+            cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
+            jdbc.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
+            var page=new cn.iocoder.yudao.framework.common.pojo.PageParam();
+            var history=applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId());
+            org.junit.jupiter.api.Assertions.assertEquals(1L,history.getTotal());org.junit.jupiter.api.Assertions.assertEquals(saved.getDossierSummaryJson(),history.getList().get(0).getDossierSummaryJson());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"PENDING",null,null,app.getId(),task.getId()).getTotal());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,1L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+            jdbc.update("UPDATE mes_pro_edhr_record_change_event SET change_status = 'SUBMITTED' WHERE id = ?",result.getId());
+            org.junit.jupiter.api.Assertions.assertEquals(0L,applications.selectPqcReleasePage(page,0L,ACTOR_ID,"VOIDED",null,null,app.getId(),task.getId()).getTotal());
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"scope","workOrder","tenant","applicationTenant"})
+    void wrongReleaseAssociationRollsBackBatchArchiveApplicationAndTask(String mismatch) {
+        var batch=insertClosedBatchExecution();var archive=insertSealedBatchArchive(batch.getId());var app=pendingApplication(batch.getId());installRealTaskCancellation();
+        if("scope".equals(mismatch))realTasks.updateById(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO().setId(app.getPqcReleaseWorkTaskId()).setBusinessScopeId(app.getId()+1));
+        if("workOrder".equals(mismatch))realTasks.updateById(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO().setId(app.getPqcReleaseWorkTaskId()).setWorkOrderId(31L));
+        if("tenant".equals(mismatch))jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id = 1 WHERE id = ?",app.getPqcReleaseWorkTaskId());
+        if("applicationTenant".equals(mismatch))jdbc.update("UPDATE mes_pro_process_pool_active_order_release_application SET tenant_id = 1 WHERE id = ?",app.getId());
+        try(var login=mockLoginUser()) {
+            batchVoidEffectService.requestPlatformVoidBatchExecution(voidRequest(batch.getId()),"sa14-wrong-bpm");
+            org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,()->batchVoidEffectService.handleVoidBatchExecutionApprovalCallback("sa14-wrong-bpm","wrong-event","APPROVED",null,ACTOR_ID));
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(30,batchExecutionMapper.selectById(batch.getId()).getStatus());
+        org.junit.jupiter.api.Assertions.assertTrue(batchArchiveMapper.selectById(archive.getId()).getArchiveValidFlag());
+        org.junit.jupiter.api.Assertions.assertEquals("PQC_RELEASE_PENDING",applications.selectById(app.getId()).getApplicationStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("TODO",realTasks.selectById(app.getPqcReleaseWorkTaskId()).getStatus());
+    }
+
 }

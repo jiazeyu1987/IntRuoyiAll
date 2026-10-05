@@ -110,6 +110,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         when(signer.recordFieldChangeSignature(any())).thenAnswer(call -> insertSignature(call.getArgument(0)));
         var revisionTarget = new MesProcessPoolEventRevisionServiceImpl(events, revisions, diffs,
                 mock(MesProcessPoolFifoAllocationService.class), mock(MesProcessPoolSubmissionReviewMapper.class), signer);
+        org.springframework.test.util.ReflectionTestUtils.setField(revisionTarget, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         var summary = new MesProductionReportManagementSummaryService(events, mock(MesProcessPoolReportAllocationMapper.class),
                 mock(MesProcessPoolActiveOrderReleaseApplicationMapper.class), new MesReportAllocationPoolQuantityService(),
                 mock(MesReportAllocationReleaseStateService.class));
@@ -118,6 +119,10 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 session.getMapper(MesProProcessPoolQuantityFragmentMapper.class), session.getMapper(MesProFeedbackMapper.class),
                 session.getMapper(MesProFeedbackMaterialMapper.class), (MesProcessPoolEventRevisionService) tx(revisionTarget, manager),
                 signer, mock(MesFrontlineLossReasonValidator.class), scope, summary);
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffOwners", fixtureOwners);
+        org.mockito.Mockito.lenient().when(fixtureOwners.submissionIdentity(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER", call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getActualEmployeeId(), call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getDeviceAccountId()));
         var writer = new GxpAuditServiceImpl();
         ReflectionTestUtils.setField(writer, "auditEventMapper", session.getMapper(GxpAuditEventMapper.class));
         ReflectionTestUtils.setField(writer, "eventRelationMapper", session.getMapper(GxpAuditEventRelationMapper.class));
@@ -176,6 +181,32 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 statement.execute("SHUTDOWN");
             }
         }
+    }
+
+
+    @Test
+    void profileOriginalIdentitySurvivesLeaderSignedCorrectionAndActualAuditWrites() throws Exception {
+        var target=org.springframework.test.util.AopTestUtils.getUltimateTargetObject(service);
+        var owners=(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver)ReflectionTestUtils.getField(target,"handoffOwners");
+        org.mockito.Mockito.doReturn(new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",2001L,1L)).when(owners).submissionIdentity(any());
+        when(owners.profileProductionLeader(any())).thenReturn(3001L);
+        var reviews=mock(MesProcessPoolSubmissionReviewMapper.class);
+        when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO.builder()
+                .id(176L).eventId(176L).leaderUserId(3001L).leaderType("PRODUCTION").reviewStatus("REJECTED").build());
+        var handoff=mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+        ReflectionTestUtils.setField(target,"submissionReviews",reviews);ReflectionTestUtils.setField(target,"handoffService",handoff);
+        var original=JsonUtils.parseTree(jdbc.queryForObject("SELECT raw_payload FROM "+EVENT+" WHERE id=176",String.class));
+        ((ObjectNode)original).put("actualEmployeeIdentityDomain","MES_EMPLOYEE_PROFILE").put("activeOrderId",413);
+        jdbc.update("UPDATE "+EVENT+" SET signature_user_id=2001, raw_payload=? WHERE id=176",original.toString());
+        long revisionId=service.correct(command());
+        assertEquals(8001L,jdbc.queryForObject("SELECT signature_id FROM "+EVENT+" WHERE id=176",Long.class));
+        assertEquals(2001L,jdbc.queryForObject("SELECT signature_user_id FROM "+EVENT+" WHERE id=176",Long.class));
+        var revisionPayload=JsonUtils.parseTree(jdbc.queryForObject("SELECT after_payload FROM "+REVISION+" WHERE id=?",String.class,revisionId));
+        assertEquals("MES_EMPLOYEE_PROFILE",revisionPayload.path("actualEmployeeIdentityDomain").asText());assertEquals(176L,revisionPayload.path("supersededReviewId").asLong());
+        assertEquals(3001L,jdbc.queryForObject("SELECT revision_signature_user_id FROM "+REVISION+" WHERE id=?",Long.class,revisionId));
+        assertEquals(9102L,jdbc.queryForObject("SELECT revision_signature_id FROM "+REVISION+" WHERE id=?",Long.class,revisionId));
+        assertEquals(1,count(SIGNATURE));assertEquals(1,count("gxp_audit_event"));assertTrue(count(DIFF)>0);
+        verify(handoff).completeProfileLeaderCorrection(176L,176L,revisionId,3001L);verifyNoInteractions(scope);
     }
 
     @Test

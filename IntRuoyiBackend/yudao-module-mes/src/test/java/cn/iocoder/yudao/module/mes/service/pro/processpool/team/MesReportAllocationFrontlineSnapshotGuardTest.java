@@ -63,6 +63,8 @@ class MesReportAllocationFrontlineSnapshotGuardTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "completionReceiptMapper", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);

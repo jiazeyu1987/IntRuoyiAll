@@ -52,8 +52,7 @@ public class MesPqcHandoffAssignmentService {
     public List<Option> userOptions(String keyword) {
         require(keyword!=null&&!keyword.isBlank()&&keyword.length()<=100,"请输入PQC检验员姓名以查询正式账号");
         return users.getUserListByNickname(keyword.trim()).stream().filter(u->CommonStatusEnum.isEnable(u.getStatus()))
-                .filter(u->{var ids=permissions.getUserRoleIdListByUserId(u.getId());return ids!=null&&!ids.isEmpty()
-                    &&permissions.hasAnyPermissionsInRoles(ids,CREATE_PERMISSION);})
+                .filter(u->permissions.hasAnyPermissions(u.getId(),CREATE_PERMISSION))
                 .map(u->new Option(u.getId(),u.getNickname()+"（"+u.getUsername()+"）")).toList();
     }
     public List<Option> roleOptions() {

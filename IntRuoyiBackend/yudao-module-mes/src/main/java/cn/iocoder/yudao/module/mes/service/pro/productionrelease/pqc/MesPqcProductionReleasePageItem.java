@@ -14,6 +14,8 @@ public class MesPqcProductionReleasePageItem {
     private Integer version;
     private String viewStatus;
     private String applicationStatus;
+    private Long batchVoidChangeEventId;
+    private String batchVoidReason;
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;

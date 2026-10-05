@@ -34,7 +34,7 @@ class MesActiveOrderHandoffLifecycleTest {
  when(tasks.insert(any(MesActiveOrderHandoffTaskDO.class))).thenReturn(1);when(owners.productionLeader(order)).thenReturn(341L);
  }
  @AfterEach void clear(){TenantContextHolder.clear();}
- @Test void profileSubmissionContinuesToRealLeaderWithoutImpersonatedPersonalTask(){when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",342L,1L));when(owners.initiatorSnapshot(1L,event)).thenReturn(Map.of("domain","MES_EMPLOYEE_PROFILE","id",342L,"operatorId",1L,"name","正式档案提交人"));service.productionSubmitted(413L,176L,342L);var c=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(c.capture());assertEquals("PRODUCTION_REVIEW",c.getValue().getTaskType());assertEquals("341",c.getValue().getCandidateUserSnapshot());assertEquals(1L,c.getValue().getInitiatedBy());assertTrue(c.getValue().getReason().contains("工单：EDHR-413；工序：组装；发起人：正式档案提交人（MES_EMPLOYEE_PROFILE）"));assertTrue(c.getValue().getResponsibilitySnapshotJson().contains("handoffBusinessState"));verify(tasks,never()).close(any(),any(),any(),any(),any(),any(),any());verify(delivery).schedule(c.getValue());}
+ @Test void profileSubmissionContinuesToRealLeaderWithoutImpersonatedPersonalTask(){when(owners.profileProductionLeader(event)).thenReturn(341L);when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",342L,1L));when(owners.initiatorSnapshot(1L,event)).thenReturn(Map.of("domain","MES_EMPLOYEE_PROFILE","id",342L,"operatorId",1L,"name","正式档案提交人"));service.productionSubmitted(413L,176L,342L);var c=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(c.capture());assertEquals("PRODUCTION_REVIEW",c.getValue().getTaskType());assertEquals("341",c.getValue().getCandidateUserSnapshot());assertEquals(1L,c.getValue().getInitiatedBy());assertTrue(c.getValue().getReason().contains("工单：EDHR-413；工序：组装；发起人：正式档案提交人（MES_EMPLOYEE_PROFILE）"));assertTrue(c.getValue().getResponsibilitySnapshotJson().contains("handoffBusinessState"));verify(tasks,never()).close(any(),any(),any(),any(),any(),any(),any());verify(delivery).schedule(c.getValue());}
  @Test void wrongOriginalActorStopsSubmissionBeforeTaskCreation(){when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",342L,1L));assertThrows(RuntimeException.class,()->service.productionSubmitted(413L,176L,344L));verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));}
  @Test void repeatedOldReviewCannotCloseCorrectionNewRound(){var old=review(700L);when(reviews.selectById(700L)).thenReturn(old);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(review(701L));assertThrows(RuntimeException.class,()->service.reviewed(176L,700L));verify(tasks,never()).byIdentity(any(),any(),any(),any(),any());verify(tasks,never()).close(any(),any(),any(),any(),any(),any(),any());}
  @Test void frozenQaCandidateRemainsExclusiveWithoutReresolvingChangedRule(){var task=MesActiveOrderHandoffContractTest.review().setTaskType("QA_REVIEW").setCandidateUserSnapshot("345");when(tasks.byIdentity(413L,"QA_REVIEW","NONCONFORMANCE_REVIEW",91L,91L)).thenReturn(task);assertDoesNotThrow(()->service.assertQaCanDispose(91L,413L,345L));assertThrows(RuntimeException.class,()->service.assertQaCanDispose(91L,413L,346L));verifyNoInteractions(assignment);}
@@ -165,4 +165,108 @@ class MesActiveOrderHandoffLifecycleTest {
  void assertPqcStage(MesActiveOrderHandoffTaskDO task,Long round){assertEquals(413L,task.getActiveOrderId());assertEquals(274L,task.getWorkOrderId());assertEquals(91L,task.getRouteProcessId());assertEquals(176L,task.getSourceId());assertEquals(round,task.getRoundId());var snapshot=JsonUtils.parseTree(task.getResponsibilitySnapshotJson());assertEquals(15L,snapshot.path("processId").longValue());assertEquals(91L,snapshot.path("routeProcessId").longValue());assertEquals("组装",snapshot.path("processName").asText());assertEquals(55L,snapshot.path("pqcTaskId").longValue());assertEquals(985L,snapshot.path("qaProcessId").longValue());assertEquals(17L,snapshot.path("routeVersionId").longValue());assertEquals(19L,snapshot.path("regulationVersionId").longValue());assertFalse(task.getReason().contains("工序：整单"));}
  MesActiveOrderHandoffTaskDO pqcHandoff(){var t=MesActiveOrderHandoffContractTest.review().setTaskType("PQC_HANDOFF").setSourceType("PQC_INSPECTION_TASK").setSourceId(55L).setRoundId(55L).setCandidateUserSnapshot("344").setNotificationOnly(true);var snapshot=new LinkedHashMap<String,Object>();snapshot.put("identityDomain","SYSTEM_USER");snapshot.put("activeOrderId",413L);snapshot.put("workOrderId",274L);snapshot.put("routeId",98L);snapshot.put("sourceType","PQC_INSPECTION_TASK");snapshot.put("sourceId",55L);snapshot.put("roundId",55L);snapshot.put("routeProcessId",91L);snapshot.put("processId",15L);snapshot.put("handlerLeaderUserIds",List.of(343L));t.setResponsibilitySnapshotJson(JsonUtils.toJsonString(snapshot));return t;}
  static MesProcessPoolSubmissionReviewDO review(Long id){var r=MesProcessPoolSubmissionReviewDO.builder().id(id).eventId(176L).leaderUserId(341L).reviewSignatureUserId(341L).reviewSignatureId(905L).reviewStatus("REJECTED").reviewRemark("次数错误，请本人核对").reviewedAt(LocalDateTime.of(2026,10,5,10,0)).reviewRound(0).build();r.setTenantId(1L);return r;}
+
+ @Test void archivedSourceReviewDispatchesPqcOnlyToCurrentFormalAllocationTarget(){
+  order.setActiveStatus("ARCHIVED");var approved=review(700L).setReviewStatus("APPROVED");
+  when(reviews.selectById(700L)).thenReturn(approved);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(approved);
+  var sourceTask=MesActiveOrderHandoffContractTest.review().setTaskType("PRODUCTION_REVIEW").setRoundId(176L).setCandidateUserSnapshot("341")
+      .setStatus("DONE").setCompletionSourceId(700L);
+  when(tasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L)).thenReturn(sourceTask);when(tasks.lock(sourceTask.getId())).thenReturn(sourceTask);
+  var target=MesProcessPoolActiveOrderDO.builder().id(414L).workOrderId(275L).routeId(98L).leaderUserId(341L).activeStatus("ACTIVE").build();target.setTenantId(1L);
+  when(orders.selectByIdForUpdate(414L)).thenReturn(target);
+  var allocation=MesProcessPoolReportAllocationDO.builder().id(772L).eventId(176L).activeOrderId(414L).workOrderId(275L).routeProcessId(91L).processId(15L)
+      .allocatedQuantity(new java.math.BigDecimal("120")).lifecycleStatus("CURRENT").build();
+  var allocations=mock(MesProcessPoolReportAllocationMapper.class);ReflectionTestUtils.setField(service,"allocations",allocations);
+  when(allocations.selectListByEventIdForUpdate(176L)).thenReturn(List.of(allocation));
+  var pqc=(MesPqcInspectionTaskMapper)ReflectionTestUtils.getField(service,"pqcTasks");
+  var inspection=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO().setId(56L).setActiveOrderId(414L)
+      .setWorkOrderId(275L).setRouteId(98L).setRouteProcessId(91L).setProcessId(15L).setTaskStatus("PENDING");inspection.setTenantId(1L);
+  when(pqc.selectListByActiveOrderId(414L)).thenReturn(List.of(inspection));when(pqcAssignment.resolve(98L)).thenReturn(new MesPqcHandoffAssignmentService.ResolvedAssignment(901L,98L,"USER",344L,"344",List.of(343L)));
+  var workOrders=(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper)ReflectionTestUtils.getField(service,"workOrders");
+  var wo=cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(275L).code("TARGET-B").build();wo.setTenantId(1L);when(workOrders.selectById(275L)).thenReturn(wo);
+  service.allocationReviewed(176L,700L,List.of(allocation));
+  var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  assertEquals(414L,captured.getValue().getActiveOrderId());assertEquals(56L,captured.getValue().getSourceId());assertEquals("PQC_HANDOFF",captured.getValue().getTaskType());
+  assertEquals("DONE",sourceTask.getStatus());assertEquals(700L,sourceTask.getCompletionSourceId());verify(pqc,never()).selectListByActiveOrderId(413L);
+  var frozen=JsonUtils.parseTree(captured.getValue().getResponsibilitySnapshotJson());assertEquals(901L,frozen.path("pqcAssignmentRule").path("ruleId").longValue());assertEquals(98L,frozen.path("pqcAssignmentRule").path("scopeId").longValue());assertEquals("344",captured.getValue().getCandidateUserSnapshot());assertEquals(343L,frozen.path("handlerLeaderUserIds").get(0).longValue());verify(pqcAssignment).resolve(98L);
+ }
+ @Test void profileReturnHasActionableExactLeaderCorrectionThenIndependentReviewRound(){
+  event.setWorkOrderId(274L);when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",342L,1L));
+  when(owners.profileProductionLeader(event)).thenReturn(341L);
+  var previous=review(700L).setLeaderType("PRODUCTION");when(reviews.selectById(700L)).thenReturn(previous);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(previous);
+  var original=MesActiveOrderHandoffContractTest.review().setTaskType("PRODUCTION_REVIEW").setRoundId(176L).setCandidateUserSnapshot("341");
+  when(tasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L)).thenReturn(original);when(tasks.lock(original.getId())).thenReturn(original);when(tasks.selectById(original.getId())).thenReturn(original);
+  when(tasks.close(eq(1L),eq(original.getId()),eq(0),eq("DONE"),eq(341L),eq(700L),any())).thenAnswer(i->{original.setStatus("DONE").setCompletionSourceId(700L).setRowVersion(1);return 1;});
+  service.reviewed(176L,700L);var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+  var returned=captured.getValue();assertEquals("341",returned.getCandidateUserSnapshot());assertFalse(returned.getNotificationOnly());assertTrue(returned.getResponsibilitySnapshotJson().contains("LEADER_PROFILE_RETURN"));
+  when(tasks.selectById(returned.getId())).thenReturn(returned);when(tasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT_REJECTED_REVIEW",176L,700L)).thenReturn(returned);when(tasks.lock(returned.getId())).thenReturn(returned);
+  assertTrue(service.navigationContext(returned.getId(),341L).profileLeaderCorrection());
+  assertThrows(RuntimeException.class,()->service.navigationContext(returned.getId(),342L));
+  var revision=MesProProcessPoolEventRevisionDO.builder().id(800L).eventId(176L).modifiedByUserId(341L).revisionSignatureUserId(341L).revisionSignatureId(902L).revisionStatus("EFFECTIVE").build();revision.setTenantId(1L);
+  when(revisions.selectById(800L)).thenReturn(revision);when(revisions.selectListByEventId(176L)).thenReturn(List.of(revision));
+  when(tasks.close(eq(1L),eq(returned.getId()),eq(0),eq("DONE"),eq(341L),eq(800L),any())).thenAnswer(i->{returned.setStatus("DONE").setRowVersion(1).setCompletionSourceId(800L);return 1;});
+  service.completeProfileLeaderCorrection(176L,700L,800L,341L);verify(corrections).verifyProfileLeaderRevision(event,previous,revision,341L);
+  var rounds=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks,times(2)).insert(rounds.capture());var pending=rounds.getAllValues().get(1);
+  assertEquals(800L,pending.getRoundId());assertEquals("341",pending.getCandidateUserSnapshot());assertTrue(pending.getNotificationOnly());assertTrue(pending.getResponsibilitySnapshotJson().contains("LEADER_PROFILE_CORRECTION"));
+  when(tasks.selectById(pending.getId())).thenReturn(pending);when(corrections.find(event,previous)).thenReturn(revision);
+  var context=service.navigationContext(pending.getId(),341L);assertTrue(context.processable());assertFalse(context.profileLeaderCorrection());
+  when(corrections.find(event,previous)).thenReturn(null);assertThrows(RuntimeException.class,()->service.navigationContext(pending.getId(),341L));
+  assertEquals("REJECTED",previous.getReviewStatus());assertEquals(342L,event.getSignatureUserId());assertEquals(901L,event.getSignatureId());
+ }
+
+ @Test void equalPqcSignedRoundNavigatesOnlyAfterActualCorrectionResolverAcceptsLatestRevision(){
+  pqcSource();var previous=review(176L).setLeaderType("PQC").setLeaderUserId(343L);
+  when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(previous);
+  var task=MesActiveOrderHandoffContractTest.review().setTaskType("PQC_REVIEW")
+      .setSourceType(MesActiveOrderHandoffContract.EVENT_SIGNED_REVISION).setSourceId(176L).setRoundId(176L).setCandidateUserSnapshot("343");
+  task.setActionUrl(task.getActionUrl().replace("roundId=701","roundId=176"));
+  when(tasks.selectById(task.getId())).thenReturn(task);
+  var revision=new MesProProcessPoolEventRevisionDO().setId(176L).setEventId(176L);
+  when(corrections.find(event,previous)).thenReturn(revision);
+  var context=service.navigationContext(task.getId(),343L);assertTrue(context.processable());assertFalse(context.profileLeaderCorrection());
+  verify(corrections).find(event,previous);assertNull(event.getProcessId());assertNull(event.getRouteProcessId());
+  when(corrections.find(event,previous)).thenReturn(null);assertThrows(RuntimeException.class,()->service.navigationContext(task.getId(),343L));
+  when(corrections.find(event,previous)).thenReturn(new MesProProcessPoolEventRevisionDO().setId(177L));
+  assertThrows(RuntimeException.class,()->service.navigationContext(task.getId(),343L));
+  assertEquals("REJECTED",previous.getReviewStatus());verify(tasks,never()).insert(any(MesActiveOrderHandoffTaskDO.class));
+ }
+
+
+ @Test void equalEventReviewAndRevisionIdsPersistIndependentRoundsAndReplaySameRound() throws Exception {
+  var ds=new org.springframework.jdbc.datasource.DriverManagerDataSource("jdbc:h2:mem:handoff_equal_"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1","sa","");
+  var jdbc=new org.springframework.jdbc.core.JdbcTemplate(ds);
+  jdbc.execute("CREATE TABLE mes_active_order_handoff_task(id BIGINT PRIMARY KEY,tenant_id BIGINT,active_order_id BIGINT,work_order_id BIGINT,route_process_id BIGINT,task_type VARCHAR(40),source_type VARCHAR(40),source_id BIGINT,round_id BIGINT,candidate_user_snapshot VARCHAR(100),responsibility_snapshot_json VARCHAR(5000),initiated_by BIGINT,notification_only BOOLEAN,status VARCHAR(20),action_url VARCHAR(1000),reason VARCHAR(2000),row_version INT,completed_by BIGINT,completion_source_id BIGINT,completed_at TIMESTAMP,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,deleted BOOLEAN DEFAULT FALSE,UNIQUE(tenant_id,active_order_id,task_type,source_type,source_id,round_id))");
+  var config=new com.baomidou.mybatisplus.core.MybatisConfiguration();config.setMapUnderscoreToCamelCase(true);config.addMapper(MesActiveOrderHandoffTaskMapper.class);
+  var factory=new com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean();factory.setDataSource(ds);factory.setConfiguration(config);
+  var session=new org.mybatis.spring.SqlSessionTemplate(factory.getObject());var realTasks=session.getMapper(MesActiveOrderHandoffTaskMapper.class);
+  ReflectionTestUtils.setField(service,"tasks",realTasks);
+  var realResolver=new MesSignedReturnCorrectionResolver();
+  var evidence=mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesCorrectionSignatureEvidenceReader.class);
+  for(var entry:Map.of("tasks",realTasks,"revisions",revisions,"owners",owners,"correctionEvidence",evidence).entrySet())ReflectionTestUtils.setField(realResolver,entry.getKey(),entry.getValue());
+  ReflectionTestUtils.setField(service,"correctionResolver",realResolver);
+  event.setWorkOrderId(274L);when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("MES_EMPLOYEE_PROFILE",342L,1L));when(owners.profileProductionLeader(event)).thenReturn(341L);
+  service.productionSubmitted(413L,176L,342L);service.productionSubmitted(413L,176L,342L);
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM mes_active_order_handoff_task",Integer.class));
+  var rejected=review(176L).setLeaderType("PRODUCTION");when(reviews.selectById(176L)).thenReturn(rejected);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(rejected);
+  service.reviewed(176L,176L);service.reviewed(176L,176L);
+  var returned=realTasks.byIdentity(413L,"PRODUCTION_REVIEW",MesActiveOrderHandoffContract.EVENT_REJECTED_REVIEW,176L,176L);
+  assertNotNull(returned);assertEquals("TODO",returned.getStatus());assertTrue(service.navigationContext(returned.getId(),341L).profileLeaderCorrection());
+  assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM mes_active_order_handoff_task",Integer.class));
+  var before=event.getRawPayload();event.setRawPayload("{\"activeOrderId\":413,\"supersededReviewId\":176,\"count\":3}");
+  var revision=MesProProcessPoolEventRevisionDO.builder().id(176L).eventId(176L).revisionStatus("EFFECTIVE").modifiedByUserId(341L).revisionSignatureUserId(341L)
+    .revisionSignatureId(902L).revisionSignatureSnapshot("{\"signatureId\":902,\"actorId\":341,\"signedAt\":\"2026-10-05T11:00:00\"}")
+    .serverRevisionTime(LocalDateTime.of(2026,10,5,11,0)).beforePayload(before).afterPayload(event.getRawPayload()).build();revision.setTenantId(1L);
+  when(revisions.selectById(176L)).thenReturn(revision);when(revisions.selectListByEventId(176L)).thenReturn(List.of(revision));
+  service.completeProfileLeaderCorrection(176L,176L,176L,341L);service.completeProfileLeaderCorrection(176L,176L,176L,341L);
+  var pending=realTasks.byIdentity(413L,"PRODUCTION_REVIEW",MesActiveOrderHandoffContract.EVENT_SIGNED_REVISION,176L,176L);
+  assertNotNull(pending);assertNotEquals(returned.getId(),pending.getId());assertEquals("TODO",pending.getStatus());assertEquals("REJECTED",rejected.getReviewStatus());
+  assertTrue(pending.getResponsibilitySnapshotJson().contains("LEADER_PROFILE_CORRECTION"));assertFalse(service.navigationContext(pending.getId(),341L).profileLeaderCorrection());assertTrue(service.navigationContext(pending.getId(),341L).processable());
+  assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM mes_active_order_handoff_task",Integer.class));assertSame(revision,realResolver.find(event,rejected));verify(evidence,atLeastOnce()).require(event,revision);
+  assertEquals(342L,event.getSignatureUserId());assertEquals(901L,event.getSignatureId());
+  var approved=review(177L).setReviewStatus("APPROVED").setSourceRevisionId(176L).setLeaderType("PRODUCTION");
+  when(reviews.selectById(177L)).thenReturn(approved);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(approved);
+  service.reviewed(176L,177L);assertEquals("DONE",realTasks.selectById(pending.getId()).getStatus());assertEquals(177L,realTasks.selectById(pending.getId()).getCompletionSourceId());
+  assertEquals("DONE",realTasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L).getStatus());
+  assertEquals(176L,realTasks.selectById(returned.getId()).getCompletionSourceId());
+ }
 }
