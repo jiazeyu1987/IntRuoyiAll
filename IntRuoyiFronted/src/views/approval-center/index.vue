@@ -422,6 +422,7 @@ import {
   type ApprovalTaskViewType
 } from '@/api/approval-center'
 import { useApprovalTodoBadgeStore } from '@/store/modules/approvalTodoBadge'
+import { DCC_OFFLINE_TRAINING_RECORD, resolveOfflineTrainingRecordLocation } from '@/utils/dccOfflineTrainingRecord'
 
 defineOptions({ name: 'ApprovalCenterWorkbench' })
 
@@ -494,7 +495,8 @@ const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   BPM_PROCESS_INSTANCE_COPY: '流程抄送实例',
   DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
   DCC_PROJECT_PRODUCT_REVIEW: '项目产品审核',
-  DCC_PROJECT_PRODUCT_APPROVAL: '项目产品批准'
+  DCC_PROJECT_PRODUCT_APPROVAL: '项目产品批准',
+  DCC_OFFLINE_TRAINING_RECORD: '文控上传线下培训记录'
 }
 
 const APPROVAL_BUSINESS_TITLE_LABELS: Record<string, string> = {
@@ -919,6 +921,7 @@ const resolveDccApprovalDetailLocation = (
 ) => {
   const normalizedPath = String(path || '').trim()
   const nextQuery = { ...query }
+  if (row.sourceTaskType === DCC_OFFLINE_TRAINING_RECORD) return resolveOfflineTrainingRecordLocation(row, normalizedPath, nextQuery)
   const isDccModuleHandling = isDccModuleHandlingAction(row)
   if (row.moduleCode === 'DCC' && normalizedPath.startsWith(DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX)) {
     if (isDccModuleHandling) {

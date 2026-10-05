@@ -248,6 +248,8 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     @Resource
     private PermissionApi permissionApi;
     @Resource
+    private DccOfflineTrainingRecordService offlineTraining;
+    @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
@@ -1504,7 +1506,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (reqVO == null) {
             throw exception(CONTROLLED_FILE_TRAINING_RECORD_REQUIRED);
         }
-        if(isThreeWorkflowUploadOrRevision(file)) requireNativeTrainingContext(file,reqVO.getSessionId());
+        if(isThreeWorkflowUploadOrRevision(file)) requireNativeTrainingContext(userId,file,reqVO.getSessionId());
         DccUploadTicketBoundFile trainingRecord = uploadTicketService.resolveForBinding(
                 new DccUploadTicketResolveCommand(reqVO.getTrainingRecordUploadTicket(), userId, file.getCategoryId(),
                         reqVO.getSessionId(),
@@ -1539,10 +1541,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || file.getPublishedFileId()!=null || !permissionApi.hasAnyRoles(userId,"doc_control")
                 || !categoryPermissionSupport.hasCategoryPermission(categoryId,userId,DccFileCategoryPermissionActionEnum.APPROVE))
             throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
-        requireNativeTrainingContext(file,sessionId);
+        requireNativeTrainingContext(userId,file,sessionId);
     }
 
-    private void requireNativeTrainingContext(DccControlledFileDO file,String sessionId) {
+    private void requireNativeTrainingContext(Long userId,DccControlledFileDO file,String sessionId) {
+        offlineTraining.requireUpload(userId,file);
         String round=file.getProcessInstanceId();
         if(StrUtil.isBlank(round) || versionPolicy.parseStored(file)==null)
             throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
@@ -3391,6 +3394,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_TASK_STAGE_UNSUPPORTED);
         }
         file.setStatus(nextStatus);
+        if (DccOfflineTrainingRecordService.STATUS.equals(nextStatus) && isThreeWorkflowUploadOrRevision(file)) {
+            offlineTraining.notifyWaiting(file);
+        }
     }
 
     private String resolveLatestStatus(DccControlledFileDO file) {

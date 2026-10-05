@@ -297,6 +297,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     @Resource
     private DccControlledFileAssignmentScopeService assignmentScopeService;
     @Resource
+    private DccOfflineTrainingRecordService offlineTraining;
+    @Resource
     private DccControlledFileDetailAuthorizationGuard detailAuthorizationGuard;
     @Resource
     private DccProjectAccessService projectAccessService;
@@ -304,6 +306,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private DccProjectCodeMapper projectCodeMapper;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper projectFilePlacementMapper;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderMapper projectFolderMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper projectStorageMappingMapper;
 
     @Resource
     private DccWorkingApplicationDraftInitializer workingApplicationDraftInitializer;
@@ -2183,6 +2186,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private boolean canAccessQuery(Long userId, DccControlledFileDO file, DccControlledFilePageReqVO reqVO,
                                    boolean hasDirectoryManagementPermission,
                                    Map<Long, Boolean> currentViewMatrixAccessByCategory) {
+        if (DccOfflineTrainingRecordService.isNativeWaitingFile(file) && offlineTraining.canUpload(userId, file)) {
+            return true;
+        }
         if (reqVO.getRequesterId() != null && reqVO.getRequesterId().equals(userId) && userId.equals(file.getRequesterId())) {
             return true;
         }
@@ -2903,7 +2909,10 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
         respVO.setDccProjectCodeId(file.getDccProjectCodeId());
-        if (includeRouteSnapshots) populateDetailProjectIdentity(respVO, file);
+        if (includeRouteSnapshots) {
+            populateDetailProjectIdentity(respVO, file);
+            populateDetailProjectStorageLocation(respVO, file);
+        }
         respVO.setProjectCodeRecognitionType(file.getProjectCodeRecognitionType());
         respVO.setProjectCodeRecognitionText(file.getProjectCodeRecognitionText());
         respVO.setProjectCodeRecognizedBy(file.getProjectCodeRecognizedBy());
@@ -3022,6 +3031,38 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         }
         response.setProjectName(project.getProjectName());
         response.setProjectCode(project.getProjectCode());
+    }
+
+    /** Resolve only this file's registered location; never borrow another version's or a reference folder. */
+    private void populateDetailProjectStorageLocation(DccControlledFileRespVO response, DccControlledFileDO file) {
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var placement = projectFilePlacementMapper.findFile(file.getId());
+        var derived = file.getDirectoryId() == null ? null : projectStorageMappingMapper.findLeaf(tenant, file.getDirectoryId());
+        if (placement == null) {
+            if (derived != null) throw new IllegalStateException("DCC_FILE_PROJECT_LOCATION_MISSING");
+            return;
+        }
+        var folder = placement.getProjectFolderId() == null ? null : projectFolderMapper.selectById(placement.getProjectFolderId());
+        if (!Objects.equals(file.getTenantId(), tenant) || !Objects.equals(placement.getTenantId(), tenant)
+                || Boolean.TRUE.equals(placement.getDeleted())
+                || !Objects.equals(placement.getControlledFileId(), file.getId())
+                || file.getDccProjectCodeId() == null || !Objects.equals(placement.getProjectCodeId(), file.getDccProjectCodeId())
+                || file.getDirectoryId() == null || !Objects.equals(placement.getStorageDirectoryId(), file.getDirectoryId())
+                || folder == null || !Objects.equals(folder.getId(), placement.getProjectFolderId())
+                || !Objects.equals(folder.getTenantId(), tenant) || !Objects.equals(folder.getProjectCodeId(), file.getDccProjectCodeId())
+                || Boolean.TRUE.equals(folder.getDeleted()) || !Boolean.TRUE.equals(folder.getActive()) || StrUtil.isBlank(folder.getName())) {
+            throw new IllegalStateException("DCC_FILE_PROJECT_LOCATION_INVALID");
+        }
+        if (derived != null && (!Objects.equals(derived.getTenantId(), tenant) || Boolean.TRUE.equals(derived.getDeleted())
+                || !Objects.equals(derived.getProjectCodeId(), file.getDccProjectCodeId())
+                || !Objects.equals(derived.getProjectFolderId(), placement.getProjectFolderId())
+                || !Objects.equals(derived.getStorageDirectoryId(), file.getDirectoryId())
+                || !Objects.equals(derived.getCategoryId(), file.getCategoryId()))) {
+            throw new IllegalStateException("DCC_FILE_PROJECT_STORAGE_MAPPING_INVALID");
+        }
+        response.setHasProjectStorageMapping(true);
+        response.setProjectFolderId(folder.getId());
+        response.setProjectFolderName(folder.getName());
     }
 
     private DccControlledFileRespVO toBrowserRespVO(Long userId, DccControlledFileDO file) {
@@ -3248,8 +3289,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             allowedActions.add(ACTION_WITHDRAW);
         }
         if (DccControlledFileStatusEnum.PENDING_APPLICANT_TRAINING_RECORD.getStatus().equals(status)
-                && permissionApi.hasAnyRoles(userId,"doc_control") && Boolean.TRUE.equals(file.getNeedTraining())
-                && permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.APPROVE)) {
+                && (DccOfflineTrainingRecordService.isNativeWaitingFile(file) ? offlineTraining.canUpload(userId, file)
+                    : permissionApi.hasAnyRoles(userId,"doc_control") && Boolean.TRUE.equals(file.getNeedTraining())
+                    && permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.APPROVE))) {
             allowedActions.add(ACTION_UPLOAD_TRAINING_RECORD);
         } else if (DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(status)
                 && requester && file.getSupersededByFileId() == null) {

@@ -1,0 +1,17 @@
+# G57 — 文控线下培训记录队列和通知入口
+
+Status: ready_for_closeout_for_Root_review。Root确认v4 TRAINING为receiveTask，独立文控不能通过BPM UserTask发现工作；唯一DCC provider由BE组合DCC_OFFLINE_TRAINING_RECORD原生待办。现审批中心会把native sourceTaskId当taskId并加handling，不适合线下记录。FE仅接同正式provider、现管理详情和消息helper，不造UserTask/签名或新平台。
+
+正式导航：Root relay定稿**仅四query**：management=1/from=workbench/returnTo=/dcc/controlled-file/workbench/processInstanceId真实BPM。真实fileLongstring businessKey与detail路径ID一致、summaryprocessInstanceId与query一致；sourceType只在正式summary/notification marker，不加queryhint，无taskId/handling/viewer。query不授权限，已存在training上传按钮取后端精准actionProjection。中心native特分支、工作台从同provider分页完整读后精确筛该source、旧600秒阅读确认不改。全部POST仍真实详情现上传流程。
+
+正式通知：dcc_task_assigned参数marker notifyTargetType同sourceType、notifyTargetId=fileID、notifyProcessInstanceId=BPM、detailUrl/actionUrl同准确管理URL；parser只sameorigin/准确path和白名单query/身份一致，不落projectRequest或genericBPM分支。通知列表/顶栏复用同helper，详情可见专用“上传线下培训记录”入口。
+
+BDD Given正式训练原生row，When中心/工作台或通知打开，Then原file+BPM管理详情无fakeTaskId，编号/版本取正式businessCode/版本tag；独立角色资格仍BE校，旧UserTask/阅读确认保持。Given多页native夹在普通DCC待办后，Then完整分页total/count准确不firstpage假空；字段缺/页冲突/lateactor准确错误或失效，不造空成功。
+
+Root已另授权F03补caller from=browser以匹配actual isBrowserTraceabilityPage guard，保traceScope/readonlySelectedID，不改全guard/正文权限。有效RED actualcenter/queue/helper/通知与routeguard→GREEN有限相关，Root最后统一types/build及真实独立doc_control；Agent无DB/UI/API/Git/服务/Maven。
+
+实际有效RED核心4项全FAIL→GREEN，扩真实workbench按钮/消息详情handler后专属6。sameprovider DCC TODO分页100逐页读完整total、ID去重/变动错误，精筛type而非firstpage；编号businessCode/唯一版本tag，No Signature/only PROCESS合同准确核验。通知marker绑定file/BPM及detail/action两个sameorigin严格四query位置，非法不落genericBPM/project；旧消息目标行为保。工作台原读取确认和其他队列不改，native独立loading/error与—计数、不造0成功；load/点击都核实际actor/tenant/route上下文，loadedcontext切actor有效RED后修。
+
+F03实际readonlyguard RED1/2→frombrowser；Parent真实指派child原在trace可能可写，Root授权showDetailManagementActions gate，实际ASTRED1/3→readonly无child/管理有child。原G54指派内部不改，trace任务/签名证据读取仍受原权限，训练管理入口与只读档案明确分支。
+
+最终8文件32执行全PASS/0fail/0skip/exit0（原相关轮次重叠不累计）、6生产文件ESLint --max-warnings 0 exit0、日志空。初相关旧workbench夹具缺新增API/helperimports，补真实helper；旧projectCentre VM缺constant和notificationruntimeimport补正式exports；旧static锁G56前Boolean(taskId)BPM读模式改为已批准的permission guard，权限断言保持。原失败日志保，不改业务为测试降级。源码/测试冻结、Root统一types/build及backend/new通知实际独立文控验收待续，不能用本离线组合冒已实现所有角色发现。

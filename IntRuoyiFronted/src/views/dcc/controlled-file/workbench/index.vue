@@ -53,6 +53,19 @@
   </ContentWrap>
 
   <div class="dcc-workbench-panel-grid">
+    <ContentWrap v-if="canReadOfflineTrainingTodos" class="dcc-workbench-panel" data-testid="dcc-workbench-offline-training-records">
+      <div class="dcc-workbench-panel__header">
+        <div class="dcc-workbench-panel__title">待文控上传线下培训记录（{{ offlineTrainingLoading || offlineTrainingError ? '—' : offlineTrainingRows.length }}）</div>
+        <el-button :loading="offlineTrainingLoading" link @click="loadOfflineTrainingTodos">刷新</el-button>
+      </div>
+      <el-alert v-if="offlineTrainingError" :title="offlineTrainingError" type="error" :closable="false" />
+      <el-table v-else v-loading="offlineTrainingLoading" :data="offlineTrainingRows" row-key="id" empty-text="暂无待上传线下培训记录">
+        <el-table-column prop="fileName" label="文件" min-width="160" />
+        <el-table-column prop="fileNumber" label="文件编号" min-width="130" />
+        <el-table-column prop="versionNo" label="本次版本" width="100" />
+        <el-table-column label="操作" min-width="150"><template #default="{ row }"><el-button data-testid="dcc-offline-training-open" link type="primary" @click="openOfflineTrainingRecord(row)">上传线下培训记录</el-button></template></el-table-column>
+      </el-table>
+    </ContentWrap>
     <ContentWrap class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">我的审批待办</div>
@@ -372,6 +385,10 @@ import {
   type DccWorkbenchTrainingRow
 } from './presentation'
 
+import { watch, onBeforeUnmount } from 'vue'
+import { getApprovalTaskPage } from '@/api/approval-center'
+import { DCC_WORKBENCH_PATH, loadOfflineTrainingRecordTodos, resolveOfflineTrainingRecordLocation, type OfflineTrainingRecordTodo } from '@/utils/dccOfflineTrainingRecord'
+
 defineOptions({ name: 'DccControlledFileWorkbench' })
 
 interface DccWorkbenchTaskRow {
@@ -400,6 +417,38 @@ interface DccWorkbenchTaskRow {
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const offlineTrainingRows = ref<OfflineTrainingRecordTodo[]>([])
+const offlineTrainingLoadedContext = ref('')
+const offlineTrainingLoading = ref(false), offlineTrainingError = ref('')
+let offlineTrainingSequence = 0
+const canReadOfflineTrainingTodos = computed(() => userStore.getIsSetUser
+  && (userStore.getPermissions.has('bpm:task:query') || userStore.getPermissions.has('*:*:*')))
+const readOfflineTrainingContext = () => {
+  const tenant = getVisitTenantId() || getTenantId(), actor = userStore.getUser.id
+  return canReadOfflineTrainingTodos.value && route.path === DCC_WORKBENCH_PATH && isWorkflowId(tenant) && isWorkflowId(actor)
+    ? JSON.stringify([String(tenant), String(actor), route.fullPath]) : ''
+}
+const loadOfflineTrainingTodos = async () => {
+  const sequence = ++offlineTrainingSequence, context = readOfflineTrainingContext()
+  offlineTrainingRows.value = []; offlineTrainingLoadedContext.value = ''; offlineTrainingError.value = ''; offlineTrainingLoading.value = false
+  if (!canReadOfflineTrainingTodos.value || !context) return
+  const current = () => sequence === offlineTrainingSequence && context === readOfflineTrainingContext()
+  offlineTrainingLoading.value = true
+  try {
+    const rows = await loadOfflineTrainingRecordTodos(getApprovalTaskPage, current)
+    if (current()) { offlineTrainingRows.value = rows; offlineTrainingLoadedContext.value = context }
+  } catch (cause) {
+    if (current()) offlineTrainingError.value = cause instanceof Error ? cause.message : '线下培训记录待办读取失败，请查看接口错误'
+  } finally { if (sequence === offlineTrainingSequence) offlineTrainingLoading.value = false }
+}
+const openOfflineTrainingRecord = (row: OfflineTrainingRecordTodo) => {
+  const selected = offlineTrainingRows.value.find(item => item.id === row.id)
+  const context = readOfflineTrainingContext()
+  if (!selected || !context || offlineTrainingLoadedContext.value !== context || offlineTrainingLoading.value || offlineTrainingError.value) return
+  return router.push(resolveOfflineTrainingRecordLocation(selected.summary))
+}
+watch(() => [route.fullPath, String(userStore.getUser.id), canReadOfflineTrainingTodos.value], () => { void loadOfflineTrainingTodos() })
+onBeforeUnmount(() => { offlineTrainingSequence++; offlineTrainingRows.value = []; offlineTrainingLoadedContext.value = '' })
 const readWorkflowDistributionContext = () => {
   const tenantId = getVisitTenantId() || getTenantId()
   const userId = userStore.getUser.id
@@ -769,10 +818,10 @@ const submitImpactRevision = async () => {
 }
 
 const refreshWorkbench = async () => {
-  await Promise.all([loadWorkbench(), loadImpactTasks(), pendingDistributionPanel.value?.refresh()])
+  await Promise.all([loadWorkbench(), loadImpactTasks(), pendingDistributionPanel.value?.refresh(), loadOfflineTrainingTodos()])
 }
 
-onMounted(() => { void Promise.all([loadWorkbench(), loadImpactTasks()]) })
+onMounted(() => { void Promise.all([loadWorkbench(), loadImpactTasks(), loadOfflineTrainingTodos()]) })
 let activatedOnce = false
 onActivated(() => {
   if (activatedOnce) void refreshWorkbench()

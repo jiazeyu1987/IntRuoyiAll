@@ -63,7 +63,9 @@ function mount({ roles = ['doc_control'], permission = true, load = async () => 
     if (name === '../shared/viewer-navigation') return { openControlledFileViewer: () => { throw new Error('Pending distribution must open manage detail') } }
     if (name === '../shared/publicationFollowupPresentation') return {}
     if (name === './presentation') return presentation
-    throw new Error('Unexpected workbench import: ' + name)
+      if (name === '@/api/approval-center') return { getApprovalTaskPage: async () => ({ list: [], total: 0 }) }
+      if (name === '@/utils/dccOfflineTrainingRecord') return evaluate('src/utils/dccOfflineTrainingRecord.ts', () => { throw new Error('Unexpected offline helper runtime import') })
+      throw new Error('Unexpected workbench import: ' + name)
   }).default
   const root = make('root'), app = renderer.createApp(component)
   app.config.warnHandler = warning => { if (!warning.startsWith('Failed to resolve') && !warning.startsWith('Runtime directive')) throw new Error(warning) }

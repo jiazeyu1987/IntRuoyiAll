@@ -13,6 +13,10 @@ const locationQuery = id => ({ requestId: id, requestOpen: 'records', from: 'not
 const row = id => ({ id, projectName: '原项目', projectCode: 'P01', productName: '真实产品', status: 'REJECTED', applicantUserId: '7', rejectReason: '修正原资料', resubmittedRequestId: '9007199254740995' })
 function moduleAt(path, host = {}) {
   const context = { exports: {}, Error, String, Number, BigInt, Object, Array, URL, Set, JSON, Promise, console, ...host }
+  if (path === 'src/utils/notifyMessageNavigation.ts') {
+    const resolve = context.require
+    context.require = id => id === './dccOfflineTrainingRecord' ? moduleAt('src/utils/dccOfflineTrainingRecord.ts') : resolve(id)
+  }
   vm.runInNewContext(ts.transpileModule(read(path), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return context.exports
 }
@@ -116,7 +120,8 @@ test('actual notification helper navigates only the dedicated exact same-origin 
 })
 test('actual approval-center native source labels and module navigation keep project query out of file handling', () => {
   const source = parse(read('src/views/approval-center/index.vue')).descriptor.scriptSetup.content
-  const context = { exports: {}, String, queryParams: { viewType: 'TODO' }, DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX: '/dcc/controlled-file/detail/', DCC_APPROVAL_HANDLING_MODE: 'approval' }
+  const training = moduleAt('src/utils/dccOfflineTrainingRecord.ts')
+  const context = { exports: {}, String, queryParams: { viewType: 'TODO' }, DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX: '/dcc/controlled-file/detail/', DCC_APPROVAL_HANDLING_MODE: 'approval', ...training }
   vm.runInNewContext(ts.transpileModule(declarations(source, ['APPROVAL_SOURCE_TASK_TYPE_LABELS', 'isDccModuleHandlingAction', 'resolveDccApprovalDetailLocation']) + '\nexports.labels=APPROVAL_SOURCE_TASK_TYPE_LABELS;exports.resolve=resolveDccApprovalDetailLocation;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
   assert.equal(context.exports.labels.DCC_PROJECT_PRODUCT_REVIEW, '项目产品审核')
   assert.equal(context.exports.labels.DCC_PROJECT_PRODUCT_APPROVAL, '项目产品批准')

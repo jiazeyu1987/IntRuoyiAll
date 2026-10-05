@@ -41,6 +41,8 @@ class DccControlledFileDetailAuthorizationGuard {
     private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     @Resource
     private BpmTaskService bpmTaskService;
+    @Resource
+    private DccOfflineTrainingRecordService offlineTraining;
 
     boolean isAllowed(Long userId, DccControlledFileDO file) {
         return isAllowed(userId, file,
@@ -54,6 +56,10 @@ class DccControlledFileDetailAuthorizationGuard {
         }
         if (!assignmentScopeService.isWithinAssignedFileScope(userId, file == null ? null : file.getId())) {
             return false;
+        }
+        if (file != null && "PENDING_APPLICANT_TRAINING_RECORD".equals(file.getStatus())
+                && offlineTraining.canUpload(userId, file)) {
+            return true;
         }
         if (userId != null && userId.equals(file.getRequesterId())) {
             return true;

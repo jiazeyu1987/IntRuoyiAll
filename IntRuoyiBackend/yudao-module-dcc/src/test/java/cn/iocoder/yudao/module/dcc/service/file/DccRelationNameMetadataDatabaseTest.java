@@ -26,6 +26,7 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
     @Resource DccProjectCodeMapper projects;
     @Resource DccProjectFolderMapper folders;
     @Resource DccProjectFilePlacementMapper placements;
+    @Resource DccProjectFolderStorageMappingMapper storageMappings;
     DccControlledFileQueryServiceImpl query;JdbcTemplate jdbc;
     @BeforeEach void fixture() {
         TenantContextHolder.setTenantId(1L);jdbc=new JdbcTemplate(source);
@@ -39,13 +40,66 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy());
         if(Arrays.stream(query.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("projectFilePlacementMapper")))ReflectionTestUtils.setField(query,"projectFilePlacementMapper",placements);
         if(Arrays.stream(query.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("projectFolderMapper")))ReflectionTestUtils.setField(query,"projectFolderMapper",folders);
+        ReflectionTestUtils.setField(query,"projectStorageMappingMapper",storageMappings);
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
         var permissions=mock(DccDirectoryAccessPermissionService.class);when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(3L));when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
         var guard=new DccControlledFileDetailAuthorizationGuard();
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService"})ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
     }
-    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");TenantContextHolder.clear();}
+    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
+    @Test void authorizedDetailProjectsCurrentRegisteredFolderFromItsOwnFileLocation() {
+        var before=jdbc.queryForMap("SELECT * FROM dcc_project_file_placement WHERE id=1");
+        var response=authorizedDetail();
+        assertEquals(500L,response.getProjectFolderId(),"Authorized detail must expose the actual current file placement");
+        assertEquals("正式逻辑目录",response.getProjectFolderName());
+        var json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(response),com.fasterxml.jackson.databind.JsonNode.class);
+        assertTrue(json.get("hasProjectStorageMapping").booleanValue());
+        assertEquals("500",json.get("projectFolderId").textValue());
+        assertEquals(before,jdbc.queryForMap("SELECT * FROM dcc_project_file_placement WHERE id=1"));
+    }
+    private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO authorizedDetail() {
+        var detail=mock(DccControlledFileDetailAuthorizationGuard.class);
+        when(detail.isAllowed(any(),any(),anyBoolean(),any())).thenReturn(true);
+        ReflectionTestUtils.setField(query,"detailAuthorizationGuard",detail);
+        ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
+        return query.getControlledFile(99L,9007199254740993L);
+    }
+    @Test void historicalProjectWithoutOwnPlacementDoesNotGuessAFolderAndIsNormallyPhysical() {
+        jdbc.update("DELETE FROM dcc_project_file_placement WHERE id=1");
+        var response=authorizedDetail();
+        assertFalse(response.isHasProjectStorageMapping());assertNull(response.getProjectFolderId());assertNull(response.getProjectFolderName());
+        assertEquals(5L,response.getDccProjectCodeId());
+    }
+    @Test void exactMappedDirectoryWithMissingOwnPlacementIsAnErrorRatherThanLegacyFallback() {
+        jdbc.update("INSERT INTO dcc_project_folder_storage_mapping(tenant_id,project_code_id,project_folder_id,category_id,base_directory_id,storage_directory_id) VALUES(1,5,500,2,2,3)");
+        jdbc.update("DELETE FROM dcc_project_file_placement WHERE id=1");
+        assertEquals("DCC_FILE_PROJECT_LOCATION_MISSING",assertThrows(IllegalStateException.class,this::authorizedDetail).getMessage());
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_file_placement",Integer.class));
+    }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"FOREIGN_PLACEMENT","WRONG_PROJECT","WRONG_STORAGE","FOREIGN_FOLDER","INACTIVE_FOLDER","DELETED_FOLDER"})
+    void brokenCurrentPlacementCannotBorrowAnotherFolder(String invalid) {
+        switch(invalid) {
+            case "FOREIGN_PLACEMENT"->{
+                jdbc.update("INSERT INTO dcc_project_folder_storage_mapping(tenant_id,project_code_id,project_folder_id,category_id,base_directory_id,storage_directory_id) VALUES(1,5,500,2,2,3)");
+                jdbc.update("UPDATE dcc_project_file_placement SET tenant_id=2 WHERE id=1");
+            }
+            case "WRONG_PROJECT"->jdbc.update("UPDATE dcc_project_file_placement SET project_code_id=777 WHERE id=1");
+            case "WRONG_STORAGE"->jdbc.update("UPDATE dcc_project_file_placement SET storage_directory_id=777 WHERE id=1");
+            case "FOREIGN_FOLDER"->jdbc.update("UPDATE dcc_project_folder SET tenant_id=2 WHERE id=500");
+            case "INACTIVE_FOLDER"->jdbc.update("UPDATE dcc_project_folder SET active=0 WHERE id=500");
+            case "DELETED_FOLDER"->jdbc.update("UPDATE dcc_project_folder SET deleted=1 WHERE id=500");
+            default->fail("Unknown explicit scenario");
+        }
+        assertEquals("FOREIGN_PLACEMENT".equals(invalid)?"DCC_FILE_PROJECT_LOCATION_MISSING":"DCC_FILE_PROJECT_LOCATION_INVALID",
+                assertThrows(IllegalStateException.class,this::authorizedDetail).getMessage());
+    }
+    @Test void existingDerivedLocationMustMatchTheFilesExactCategoryAndFolder() {
+        jdbc.update("INSERT INTO dcc_project_folder_storage_mapping(tenant_id,project_code_id,project_folder_id,category_id,base_directory_id,storage_directory_id) VALUES(1,5,500,99,2,3)");
+        assertEquals("DCC_FILE_PROJECT_STORAGE_MAPPING_INVALID",assertThrows(IllegalStateException.class,this::authorizedDetail).getMessage());
+    }
     @Test void nameOnlyHistoricalTargetMetadataDoesNotRequireDetailOrGrantBodyAndCarriesExactParents() throws Exception {
         assertThrows(RuntimeException.class,()->query.getControlledFile(99L,9007199254740993L));
         var result=query.getRelationPermissions(99L,9007199254740993L);assertFalse(result.canEdit());assertFalse(result.canPreview());

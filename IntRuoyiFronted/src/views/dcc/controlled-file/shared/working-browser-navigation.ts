@@ -8,14 +8,27 @@ const exactId = (value: unknown, label: string): string => {
 
 export const buildWorkingBrowserRoute = (file: {
   id: string | number; masterId?: string | number | null; directoryId?: string | number | null; fileNumber?: string | null
+  dccProjectCodeId?: string | number | null; projectFolderId?: string | number | null
+  hasProjectStorageMapping?: boolean
 }) => {
   const id = exactId(file.id, '文件'), master = exactId(file.masterId, '逻辑文件')
-  const directory = exactId(file.directoryId, '存储目录')
-  // The existing storage tree uses numeric IDs; reject an unrepresentable directory explicitly.
-  if (!Number.isSafeInteger(Number(directory))) throw new Error('存储目录身份超出页面安全范围')
+  if (typeof file.hasProjectStorageMapping !== 'boolean') throw new Error('文件位置类型尚未正式读取，请重新读取文件')
+  const projectFolderLocation = file.hasProjectStorageMapping
+  let directoryQuery: Record<string, string> = {}
+  if (projectFolderLocation) {
+    exactId(file.dccProjectCodeId, '项目')
+    exactId(file.projectFolderId, '项目文件夹')
+    // Project-folder placement is internal storage, not a node of the physical directory tree.
+    // The operation page still selects the exact authorized file and Master below.
+  } else {
+    if (file.projectFolderId != null) throw new Error('物理目录与项目文件夹位置投影矛盾，请重新读取文件')
+    const directory = exactId(file.directoryId, '存储目录')
+    if (!Number.isSafeInteger(Number(directory))) throw new Error('存储目录身份超出页面安全范围')
+    directoryQuery = { directoryId: directory }
+  }
   if (typeof file.fileNumber !== 'string' || !file.fileNumber.trim()) throw new Error('文件缺少正式编号，无法定位检出/检入入口')
   return { name: 'DccControlledFileBrowser', query: {
-    browserMode: 'storage', directoryId: directory, scope: 'current',
+    browserMode: 'storage', ...directoryQuery, scope: 'current',
     keyword: file.fileNumber.trim(), workingFileId: id, workingMasterId: master
   } }
 }

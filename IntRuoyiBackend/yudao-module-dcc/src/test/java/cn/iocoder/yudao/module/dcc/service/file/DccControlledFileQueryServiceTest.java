@@ -280,6 +280,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
     @Mock
     private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper projectCodeMapper;
     @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper projectFilePlacementMapper;
+    @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderMapper projectFolderMapper;
+    @Mock
+    private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper projectStorageMappingMapper;
+    @Mock
     private DccWorkingApplicationDraftInitializer workingApplicationDraftInitializer;
     @Mock
     private PermissionApi permissionApi;

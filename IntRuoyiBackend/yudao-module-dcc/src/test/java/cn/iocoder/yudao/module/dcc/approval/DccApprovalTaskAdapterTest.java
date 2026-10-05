@@ -77,6 +77,8 @@ class DccApprovalTaskAdapterTest {
     private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     @Mock
     private DccProjectProductTaskDelegate projectApplications;
+    @Mock
+    private DccOfflineTrainingTaskDelegate offlineTraining;
     @InjectMocks
     private DccApprovalTaskAdapter adapter;
 

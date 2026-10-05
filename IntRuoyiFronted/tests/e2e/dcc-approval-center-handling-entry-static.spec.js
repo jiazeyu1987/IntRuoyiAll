@@ -126,7 +126,7 @@ assert.match(
 
 assert.match(
   detailPage,
-  /const canLoadApprovalDetail = Boolean\(taskId\) && checkPermi\(\['bpm:process-instance:query'\]\)/,
+  /const canLoadApprovalDetail = checkPermi\(\['bpm:process-instance:query'\]\)/,
   'DCC detail must avoid generic BPM approval-detail reads for approvers without process-instance permission'
 )
 assert.match(

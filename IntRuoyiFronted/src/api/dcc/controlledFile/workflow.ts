@@ -686,6 +686,8 @@ export interface ControlledFileVO extends ControlledFileOwnerFacts {
   projectName?: string | null
   projectCode?: string | null
   projectFolderId?: number | string | null
+  /** Formal normal detail always supplies this; an absent fact cannot authorize operation navigation. */
+  hasProjectStorageMapping?: boolean
   categoryId: number
   directoryId: number
   directoryPath?: string | null

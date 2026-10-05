@@ -8,6 +8,11 @@ function host(){const calls=[],c={exports:{},String,route:{fullPath:'/dcc/contro
 test('actual preview archive/history entry retains selected Long ID and formal readonly trace contract',async()=>{
  const h=host();await h.open();const u=new URL(h.calls[0],'http://localhost:8061')
  assert.equal(u.pathname,'/dcc/controlled-file/detail/9007199254740993');assert.equal(u.searchParams.get('traceability'),'1');assert.equal(u.searchParams.get('traceScope'),'trace');assert.equal(u.searchParams.has('management'),false);assert.equal(u.searchParams.has('viewer'),false)
+ const ast=ts.createSourceFile('detail.ts',descriptor.scriptSetup.content,ts.ScriptTarget.Latest,true)
+ const guard=ast.statements.find(n=>ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>ts.isIdentifier(d.name)&&d.name.text==='isBrowserTraceabilityPage'));assert.ok(guard)
+ const g={exports:{},computed:vue.computed,String,route:{query:Object.fromEntries(u.searchParams)}}
+ vm.runInNewContext(ts.transpileModule(guard.getText(ast)+'\nexports.readonly=isBrowserTraceabilityPage.value',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,g)
+ assert.equal(g.exports.readonly,true)
  h.c.fileDetail.value={id:'9007199254740995'};await h.open();h.c.isWorkingBrowserDetailCurrent.value=false;await h.open();assert.equal(h.calls.length,1)
 })
 test('actual readonly preview toolbar renders the archive/history action and calls actual navigation',async()=>{
@@ -18,4 +23,16 @@ test('actual readonly preview toolbar renders the archive/history action and cal
  const renderer=vue.createRenderer({createElement:type=>({type,children:[],props:{}}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText:(n,t)=>{n.text=t},setElementText:(n,t)=>{n.text=t},patchProp:(n,k,_old,v)=>{n.props[k]=v},parentNode:()=>null,nextSibling:()=>null})
  const app=renderer.createApp(c.exports.default);app.component('el-button',{setup:(_p,ctx)=>()=>vue.h('button',ctx.attrs,ctx.slots.default?.())});const root={children:[]};app.mount(root)
  try{await root.children[0].props.onClick();assert.equal(h.calls.length,1)}finally{app.unmount()}
+})
+test('actual assignment-form template remains absent in readonly trace and present in management',()=>{
+ const find=n=>{if(n.type===1&&n.tag==='DetailSignoffAssignment')return n;for(const child of n.children||[]){const found=find(child);if(found)return found}}
+ const node=find(descriptor.template.ast);assert.ok(node)
+ for(const management of [false,true]){
+  const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const fileDetail={id:"10"};const isSignoffTask=true;const approvalProcessInstanceId="round";const approvalTodoTask={id:"task"};let signoffAssignmentState;const reloadAll=()=>{};const showDetailManagementActions=__management;</script>').descriptor,{id:'readonly-assignment-gate',inlineTemplate:true})
+  const c={exports:{},require:()=>vue,__management:management};vm.runInNewContext(ts.transpileModule(compiled.content,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,c)
+  const renderer=vue.createRenderer({createElement:type=>({type,children:[]}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText:(n,t)=>{n.text=t},setElementText:(n,t)=>{n.text=t},patchProp(){},parentNode:()=>null,nextSibling:()=>null})
+  const app=renderer.createApp(c.exports.default);app.component('DetailSignoffAssignment',{render:()=>vue.h('button','真实指派表单')});const root={children:[]};app.mount(root)
+  const text=n=>(n.text||'')+(n.children||[]).map(text).join('')
+  try{assert.equal(text(root).includes('真实指派表单'),management)}finally{app.unmount()}
+ }
 })

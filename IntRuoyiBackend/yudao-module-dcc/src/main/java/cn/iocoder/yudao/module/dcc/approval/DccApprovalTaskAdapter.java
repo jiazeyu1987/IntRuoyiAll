@@ -83,6 +83,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private final DccFileCategoryMapper fileCategoryMapper;
     private final DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     private final DccProjectProductTaskDelegate projectApplications;
+    private final DccOfflineTrainingTaskDelegate offlineTraining;
 
     private static List<String> buildDccProcessDefinitionKeys() {
         List<String> keys = new ArrayList<>(DccControlledFileProcessDefinitionKeys.APPROVAL_CENTER_KEYS);
@@ -96,7 +97,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                                   DccControlledFileMapper controlledFileMapper,
                                   DccFileCategoryMapper fileCategoryMapper,
                                   DccControlledFileRouteSnapshotMapper routeSnapshotMapper,
-                                  DccProjectProductTaskDelegate projectApplications) {
+                                  DccProjectProductTaskDelegate projectApplications,
+                                  DccOfflineTrainingTaskDelegate offlineTraining) {
         this.bpmTaskService = bpmTaskService;
         this.processInstanceService = processInstanceService;
         this.workflowService = workflowService;
@@ -104,6 +106,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         this.fileCategoryMapper = fileCategoryMapper;
         this.routeSnapshotMapper = routeSnapshotMapper;
         this.projectApplications = Objects.requireNonNull(projectApplications);
+        this.offlineTraining = Objects.requireNonNull(offlineTraining);
     }
 
     @Override
@@ -148,6 +151,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         };
         List<ApprovalTaskSummary> combined = new ArrayList<>(files.getList());
         combined.addAll(projectApplications.list(context));
+        combined.addAll(offlineTraining.list(context));
         combined.sort(java.util.Comparator.comparing((ApprovalTaskSummary row) -> row.getTaskCreatedAt() == null
                         ? row.getInitiatedAt() : row.getTaskCreatedAt(), java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder()))
                 .thenComparing(ApprovalTaskSummary::getId));

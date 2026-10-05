@@ -75,6 +75,7 @@
           <el-button v-if="dccProjectProductNavigation" type="primary" @click="navigateToDccProjectProduct">
             查看项目及产品申请
           </el-button>
+          <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
         </div>
       </section>
     </div>
@@ -94,6 +95,7 @@ import {
   type EdhrWorkTaskNotifyTarget,
   type DccPublicationNotifyTarget,
   type DccProjectProductNotifyTarget,
+  type DccOfflineTrainingNotifyTarget,
   type ShowroomProductNotifyTarget
 } from '@/utils/notifyMessageNavigation'
 
@@ -146,6 +148,9 @@ const dccPublicationNavigation = computed(
 )
 
 const hiddenTemplateParamKeys = NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS
+const dccOfflineTrainingNavigation = computed(() => notifyMessageTargets.value.find(
+  (target): target is DccOfflineTrainingNotifyTarget => target.type === 'dccOfflineTraining'
+) ?? null)
 const dccProjectProductNavigation = computed(
   () => notifyMessageTargets.value.find(
     (target): target is DccProjectProductNotifyTarget => target.type === 'dccProjectProduct'
@@ -261,6 +266,14 @@ const navigateToDccProjectProduct = async () => {
       resetDialogState()
       await nextTick()
     }
+  })
+}
+
+const navigateToDccOfflineTraining = async () => {
+  const navigation = dccOfflineTrainingNavigation.value
+  if (!navigation) return
+  await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => { resetDialogState(); await nextTick() }
   })
 }
 

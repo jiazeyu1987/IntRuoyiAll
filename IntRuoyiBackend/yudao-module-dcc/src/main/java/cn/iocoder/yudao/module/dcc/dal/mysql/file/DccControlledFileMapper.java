@@ -27,6 +27,14 @@ import java.util.Map;
 @Mapper
 public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO> {
 
+    default List<DccControlledFileDO> selectOfflineTrainingCandidates(Long tenantId) {
+        return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
+                .eq(DccControlledFileDO::getTenantId, tenantId)
+                .eq(DccControlledFileDO::getStatus, "PENDING_APPLICANT_TRAINING_RECORD")
+                .in(DccControlledFileDO::getProcessDefinitionKey, "dcc-controlled-file-upload", "dcc-controlled-file-revision")
+                .eq(DccControlledFileDO::getDeleted, false));
+    }
+
     default List<DccControlledFileDO> selectListByPredecessorControlledFileId(Long predecessorId) {
         return selectList(new LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getPredecessorControlledFileId, predecessorId)

@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import type { NotifyMessageVO } from '@/api/system/notify/message'
+import { DCC_OFFLINE_TRAINING_RECORD, readOfflineTrainingManagementLocation, type OfflineTrainingRecordLocation } from './dccOfflineTrainingRecord'
 import {
   EDHR_WORK_TASK_NOTIFY_PATHS,
   navigateToEdhrWorkTask
@@ -20,7 +21,8 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'changeRequestId',
   'notifyOpen',
   'workTaskId',
-  'followupUrl'
+  'followupUrl',
+  'notifyProcessInstanceId'
 ])
 
 type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'>
@@ -59,6 +61,11 @@ export type DccProjectProductNotifyTarget = {
   targetId: string
   query: { requestId: string; requestOpen: 'records'; from: 'notification' }
 }
+export type DccOfflineTrainingNotifyTarget = {
+  type: 'dccOfflineTraining'
+  label: '上传线下培训记录'
+  location: OfflineTrainingRecordLocation
+}
 
 export type NotifyMessageTarget =
   | ShowroomProductNotifyTarget
@@ -66,6 +73,7 @@ export type NotifyMessageTarget =
   | EdhrWorkTaskNotifyTarget
   | DccPublicationNotifyTarget
   | DccProjectProductNotifyTarget
+  | DccOfflineTrainingNotifyTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -217,6 +225,20 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
   if (!templateParams) {
     return []
   }
+  if (templateParams.notifyTargetType === DCC_OFFLINE_TRAINING_RECORD) {
+    try {
+      const urls = [templateParams.detailUrl, templateParams.actionUrl]
+      if (urls.some(value => typeof value !== 'string')) return []
+      const locations = urls.map(value => {
+        const url = new URL(value as string, window.location.origin)
+        if (url.origin !== window.location.origin || url.hash || url.username || url.password
+          || Array.from(url.searchParams.keys()).some(key => url.searchParams.getAll(key).length !== 1)) throw new Error('培训通知入口无效')
+        return readOfflineTrainingManagementLocation(templateParams.notifyTargetId, templateParams.notifyProcessInstanceId, url.pathname, Object.fromEntries(url.searchParams))
+      })
+      if (JSON.stringify(locations[0]) !== JSON.stringify(locations[1])) return []
+      return [{ type: 'dccOfflineTraining', label: '上传线下培训记录', location: locations[0] }]
+    } catch { return [] }
+  }
   if (templateParams.notifyTargetType === 'DCC_PROJECT_PRODUCT_REQUEST') {
     const target = resolveDccProjectProductTarget(templateParams)
     return target ? [target] : []
@@ -289,6 +311,10 @@ export const navigateToNotifyMessageTarget = async (
   }
   if (target.type === 'dccProjectProduct') {
     await router.push({ path: '/mdm/product-catalog', query: target.query })
+    return
+  }
+  if (target.type === 'dccOfflineTraining') {
+    await router.push(target.location)
     return
   }
   await router.push({

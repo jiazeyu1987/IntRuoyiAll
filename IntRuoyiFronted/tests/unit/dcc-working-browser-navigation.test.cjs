@@ -24,7 +24,7 @@ function declaration(source, name, context) {
   vm.runInNewContext(compiled, state)
   return state.exports.value
 }
-const file = (patch = {}) => ({ id: FILE, masterId: MASTER, directoryId: 7, fileNumber: 'TASK-NUMBER', title: 'task.docx', status: 'PENDING_APPLICANT_REWORK', ...patch })
+const file = (patch = {}) => ({ id: FILE, masterId: MASTER, directoryId: 7, hasProjectStorageMapping: false, fileNumber: 'TASK-NUMBER', title: 'task.docx', status: 'PENDING_APPLICANT_REWORK', ...patch })
 test('working navigation preserves the actual selected file/Master and formal storage directory', () => {
   const helper = loadHelper(), route = helper.buildWorkingBrowserRoute(file())
   assert.equal(route.name, 'DccControlledFileBrowser')
@@ -34,6 +34,33 @@ test('working navigation preserves the actual selected file/Master and formal st
   assert.equal(route.query.directoryId, '7')
   assert.equal(route.query.keyword, 'TASK-NUMBER')
   assert.equal(route.query.status, undefined, 'status filter must not hide original formal row/history')
+})
+
+test('project-folder navigation never uses internal placement as physical tree directory', () => {
+  const route = loadHelper().buildWorkingBrowserRoute(file({ hasProjectStorageMapping: true, dccProjectCodeId: '271', projectFolderId: '2', directoryId: 913876 }))
+  assert.equal(route.query.directoryId, undefined)
+  assert.equal(route.query.browserMode, 'storage')
+  assert.equal(route.query.workingFileId, FILE)
+  assert.equal(route.query.workingMasterId, MASTER)
+  assert.equal(route.query.keyword, 'TASK-NUMBER')
+})
+
+test('incomplete or invalid project-folder projection fails explicitly without physical-directory fallback', () => {
+  for (const patch of [
+    { hasProjectStorageMapping: true, dccProjectCodeId: '271', projectFolderId: null },
+    { hasProjectStorageMapping: true, dccProjectCodeId: null, projectFolderId: '2' },
+    { hasProjectStorageMapping: true, dccProjectCodeId: '0', projectFolderId: '2' },
+    { hasProjectStorageMapping: true, dccProjectCodeId: '271', projectFolderId: 9007199254740992 }
+  ]) assert.throws(() => loadHelper().buildWorkingBrowserRoute(file(patch)))
+})
+
+test('location intent requires a genuine server boolean and never guesses from project identity', () => {
+  for (const value of [undefined, null, 'true', 1]) {
+    assert.throws(() => loadHelper().buildWorkingBrowserRoute(file({ hasProjectStorageMapping: value })))
+  }
+  const route = loadHelper().buildWorkingBrowserRoute(file({ dccProjectCodeId: '271', projectFolderId: null }))
+  assert.equal(route.query.directoryId, '7', 'explicit legacy physical placement remains valid in a bound project')
+  assert.throws(() => loadHelper().buildWorkingBrowserRoute(file({ projectFolderId: '2' })), 'contradictory physical projection must fail')
 })
 test('unsafe, foreign or incomplete navigation identities fail before route construction', () => {
   const helper = loadHelper()

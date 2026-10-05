@@ -635,6 +635,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private PermissionApi permissionApi;
     @Mock
+    private DccOfflineTrainingRecordService offlineTraining;
+    @Mock
     private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccApprovedProductIdentityMapper approvedProductIdentityMapper;
     @Mock
     private MdmProductApi mdmProductApi;
@@ -3403,6 +3405,10 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 updateCaptor.getValue().getStatus());
         assertEquals(901L,updateCaptor.getAllValues().get(0).getFileOwnerUserId());
         assertNotNull(updateCaptor.getValue().getApprovedTime());
+        verify(offlineTraining).notifyWaiting(org.mockito.ArgumentMatchers.argThat(file ->
+                Long.valueOf(900L).equals(file.getId()) && "proc-1".equals(file.getProcessInstanceId())
+                        && DccControlledFileStatusEnum.PENDING_APPLICANT_TRAINING_RECORD.getStatus().equals(file.getStatus())
+                        && file.getApprovedTime() != null));
         verify(bpmTaskService).approveTask(eq(99L), any(BpmTaskApproveReqVO.class));
     }
 

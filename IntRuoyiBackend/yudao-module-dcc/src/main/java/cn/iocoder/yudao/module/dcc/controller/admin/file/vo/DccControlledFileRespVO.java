@@ -18,6 +18,8 @@ public class DccControlledFileRespVO {
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long projectFolderId;
     private String projectFolderName;
+    /** Exact current file placement; project existence alone is not a logical storage location. */
+    private boolean hasProjectStorageMapping;
     private String projectName;
     private String projectCode;
     private Boolean controlled;

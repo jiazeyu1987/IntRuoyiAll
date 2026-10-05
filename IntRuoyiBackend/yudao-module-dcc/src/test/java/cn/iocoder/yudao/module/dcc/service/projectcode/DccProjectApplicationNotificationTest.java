@@ -72,6 +72,7 @@ class DccProjectApplicationNotificationTest extends BaseDbUnitTest {
     @MockitoBean BpmTaskService tasks;
     @MockitoBean BpmProcessInstanceService instances;
     @MockitoBean DccControlledFileWorkflowService fileWorkflow;
+    @MockitoBean cn.iocoder.yudao.module.dcc.approval.DccOfflineTrainingTaskDelegate offlineTraining;
 
     JdbcTemplate jdbc() { return new JdbcTemplate(source); }
     @BeforeEach void fixtures() {

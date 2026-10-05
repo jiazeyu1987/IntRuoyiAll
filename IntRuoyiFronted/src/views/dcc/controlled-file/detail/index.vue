@@ -546,7 +546,7 @@
       :key="String(fileDetail.id)" :file="fileDetail" @submitted="handleApplicationSubmitted"
     />
     <DetailSignoffAssignment
-      v-if="fileDetail && isSignoffTask && approvalProcessInstanceId"
+      v-if="fileDetail && showDetailManagementActions && isSignoffTask && approvalProcessInstanceId"
       :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
       @state="signoffAssignmentState = $event" @saved="reloadAll"
     />
@@ -712,7 +712,7 @@ v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
           <div class="stage-card__meta">
             <span>处理人：{{ formatStageProgressActors(stage) }}</span>
             <span>处理时间：{{ formatStageProgressTime(stage) }}</span>
-            <span>签名状态：{{ formatStageSignatureStatus(stage) }}</span>
+            <span>阶段证据：{{ formatStageSignatureStatus(stage) }}</span>
           </div>
         </div>
       </div>
@@ -3609,7 +3609,8 @@ const showSignatureTraceSections = computed(
 )
 const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
 const canEditMetadata = computed(
-  () => hasMetadataEditorRole(userStore.getRoles) && hasDccControlledFileActionProjection(fileDetail.value)
+  () => !viewerMode.value && showDetailManagementActions.value
+    && hasMetadataEditorRole(userStore.getRoles) && hasDccControlledFileActionProjection(fileDetail.value)
 )
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
 const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print']))
@@ -3868,6 +3869,18 @@ const getStageSignatures = (stage: ApprovalProgressStage) =>
       : getStageTasks(stage).some(task => task.id === signature.taskId && task.processInstanceId === approvalProgressScope.value?.bpmRound)
   )
 const formatStageSignatureStatus = (stage: ApprovalProgressStage) => {
+  if (['APPLICANT_TRAINING_RECORD', 'CONTROLLED', 'DISTRIBUTED'].includes(stage.stageCode)) {
+    const scope = approvalProgressScope.value, file = fileDetail.value
+    if (!scope || scope.applicationType === 'LEGACY' || scope.applicationType === 'OBSOLETE' || !file
+      || scope.fileId !== String(file.id) || scope.bpmRound !== approvalProcessInstanceId.value
+      || !isWorkingBrowserDetailCurrent.value) return '阶段证据未记录'
+    if (stage.stageCode === 'APPLICANT_TRAINING_RECORD') {
+      if (file.needTraining !== true || typeof file.trainingRecordAvailable !== 'boolean') return '阶段证据未记录'
+      return file.trainingRecordAvailable ? '线下培训记录已上传' : '等待文控上传线下培训记录'
+    }
+    if (stage.stageCode === 'CONTROLLED') return file.controlledTime ? '受控记录已生成' : '等待生成受控记录'
+    return file.distributedTime ? '下发记录已保存' : '等待文控下发'
+  }
   const signatureCount = getStageSignatures(stage).length
   if (signatureCount > 0) {
     return `${signatureCount} 条签名证据`
@@ -5167,7 +5180,7 @@ const handleMetadataSaved = async () => {
 const openViewerTraceability = () => {
   const file = fileDetail.value
   if (!file || !isWorkingBrowserDetailCurrent.value || String(file.id) !== controlledFileId.value) return
-  return router.push(buildControlledFileTraceabilityPath(file.id, 'viewer', route.fullPath, 'trace'))
+  return router.push(buildControlledFileTraceabilityPath(file.id, 'browser', route.fullPath, 'trace'))
 }
 
 const openHistoryDetail = (id: number | string) => {
