@@ -176,6 +176,9 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_
 @Service
 @Validated
 public class DccControlledFileQueryServiceImpl implements DccControlledFileQueryService {
+    @org.springframework.context.annotation.Lazy
+    @Resource
+    private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService bpmProcessInstanceService;
     @Resource private DccPublicUploadPlacementService publicUploadPlacementService;
 
     private static final String PREVIEW_ACCESS_TYPE = "PREVIEW";
@@ -599,8 +602,11 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (checkoutMapper.insert(checkout) != 1 || checkout.getId() == null) {
             throw exception(CONTROLLED_FILE_CHECKOUT_NOT_ALLOWED);
         }
-        if (controlledFileMapper.checkoutByIdAndTenantWhenAvailable(tenantId, id, userId,
-                checkout.getReason()) != 1) {
+        int claimed = DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())
+                ? controlledFileMapper.checkoutCancelledNativeRevisionWhenAvailable(tenantId, id, userId,
+                        file.getProcessInstanceId(), checkout.getReason())
+                : controlledFileMapper.checkoutByIdAndTenantWhenAvailable(tenantId, id, userId, checkout.getReason());
+        if (claimed != 1) {
             throw exception(CONTROLLED_FILE_ALREADY_CHECKED_OUT, userId);
         }
         file.setCheckedOutBy(userId);
@@ -684,6 +690,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
         if (!hasUpload && (DccControlledFileStatusEnum.REJECTED.getStatus().equals(file.getStatus())
+                || DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())
                 || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(file.getStatus()))) {
             throw exception(CONTROLLED_FILE_CHECKIN_REQUEST_INVALID);
         }
@@ -867,6 +874,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 || DccControlledFileStatusEnum.PENDING_APPLICANT_REWORK.getStatus().equals(status)) {
             return true;
         }
+        if (DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(status)) {
+            return isEditableWithdrawnNativeRevision(file, master);
+        }
         if (versionPolicy.isControlledBaseline(file)) {
             return true;
         }
@@ -891,6 +901,37 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             return false;
         }
         return versionPolicy.isControlledBaseline(file);
+    }
+
+    private boolean isEditableWithdrawnNativeRevision(DccControlledFileDO file, DccControlledFileMasterDO lockedMaster) {
+        if (!DccRevisionReworkPolicy.failedFormal(file) || !"REVISION".equals(file.getChangeType())
+                || !DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())
+                || file.getSupersededByFileId() != null) return false;
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var master = lockedMaster == null ? controlledFileMasterMapper.selectById(file.getMasterId()) : lockedMaster;
+        if (master == null || !Objects.equals(master.getTenantId(), tenant) || !Objects.equals(file.getTenantId(), tenant)
+                || !Objects.equals(master.getId(), file.getMasterId())
+                || !Objects.equals(master.getLatestControlledFileId(), file.getRevisionSourceControlledFileId())) return false;
+        var baseline = controlledFileMapper.selectById(master.getLatestControlledFileId());
+        if (baseline == null || baseline.getControlledTime() == null
+                || !DccControlledFileVersionPolicy.isCurrentControlledStatus(baseline.getStatus())
+                || !DccRevisionReworkPolicy.sameIdentity(baseline, file)) return false;
+        var history = bpmProcessInstanceService.getHistoricProcessInstance(file.getProcessInstanceId());
+        if (history == null || history.getEndTime() == null
+                || bpmProcessInstanceService.getProcessInstance(file.getProcessInstanceId()) != null
+                || !Objects.equals(history.getId(), file.getProcessInstanceId())
+                || !tenant.toString().equals(history.getTenantId()) || !file.getId().toString().equals(history.getBusinessKey())
+                || !Objects.equals(String.valueOf(file.getRequesterId()), history.getStartUserId())
+                || !DccControlledFileProcessDefinitionKeys.REVISION.equals(history.getProcessDefinitionKey())
+                || history.getProcessVariables() == null
+                || !Integer.valueOf(4).equals(history.getProcessVariables().get("PROCESS_STATUS"))) return false;
+        try {
+            DccRevisionReworkPolicy.requireAttempt(baseline, file, file.getRevisionChangeType(),
+                    controlledFileMapper.selectListByMasterId(file.getMasterId()), versionPolicy);
+            return true;
+        } catch (IllegalArgumentException invalidLineage) {
+            return false;
+        }
     }
 
     private void rejectWhenMasterHasOtherUnfinishedWorkflow(Long masterId, DccControlledFileDO currentFile) {
@@ -3295,7 +3336,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                     && permissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.APPROVE))) {
             allowedActions.add(ACTION_UPLOAD_TRAINING_RECORD);
         } else if (DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(status)
-                && requester && file.getSupersededByFileId() == null) {
+                && requester && file.getSupersededByFileId() == null
+                && !DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())) {
             allowedActions.add(ACTION_DELETE_WITHDRAWN_FLOW);
             allowedActions.add(ACTION_RESUBMIT_WITHDRAWN_FLOW);
         } else if ((DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(status)

@@ -1,0 +1,97 @@
+{
+  "status": "PASS_FINITE_ISOLATED_WITHDRAWN_NATIVE_CORRECTION_RUNTIME_PENDING",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T06:17:25+08:00",
+  "counts": {
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml",
+      "bytes": 97936,
+      "sha256": "4b42e4e0bd8fc604fc02fa15b89862e05b7e2ac753faa767c92ea0c9c15e17d3",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccCurrentRelationsRevisionFreezeDatabaseTest.xml",
+      "bytes": 101237,
+      "sha256": "64847f127e62f3302ab19c8d9cec27b190073ce8bf7cd3ccc385f10a4c1352a7",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "bytes": 97674,
+      "sha256": "9ba15feb16da0ccf2f96d1c4491b97faffe81db40e455032b9413d5f2b8c31da",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "bytes": 95033,
+      "sha256": "844e1893057b2fe795a975ab32d3b3ddc10af05b1b45a4b454b7fd0429cfca54",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 94659,
+      "sha256": "d5d37ceddbda30b8ba63df0755082d17c9e010adebd2152cf8dc4b5462f790a4",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 273258,
+      "sha256": "6bd1c1a2a281199792b647529aba165268229dc5b723ab496b454acd6b0c5a6f"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 219041,
+      "sha256": "60d089e7f526e06c24748aa26609c6b2fc03055b8d7a2de97dca13a972b563d9"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 43573,
+      "sha256": "a2c4d55eaa0890ef2078842a0d07a9ede5193b6d4e71e6df22a4d479fc68d5e3"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWithdrawnNativeRevisionReworkDatabaseTest.java",
+      "bytes": 7794,
+      "sha256": "f058c148cf59da941fcca47703f1ec2edb499f69a9a09eb98791a46ab1ae4543"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-final-regression.log",
+    "sha256": "6c7a9211398696c5e8ecc6302e743642e025020d147510461eb410966b50ff24"
+  },
+  "effectiveRed": "g68-withdrawn-revision-effective-red.xml: actual public WF withdrawal/Flowable CANCEL ended succeeded; Query checkout NOT_ALLOWED;1test1error",
+  "subsequentFinding": "new service eligibility then old checkout SQL excluded WITHDRAWN; CAS0 surfaced ALREADY_CHECKED_OUT, real second guard gap, not duplicate checkout fixture",
+  "scope": "exact cancelled native REVISION/full failed lineage; requester lock; actual new body; same target; old withdrawal and attrs/history immutable",
+  "metadata": "native REVISION legacy delete/resubmit actions hidden and old API rejected; existing managed checkout/checkin entry only; nonnative contract retained",
+  "g67AllAssetsUnchanged": true,
+  "schemaChanges": 0,
+  "actualDbWrites": 0,
+  "actualUiRuns": 0,
+  "sourceTargetMavenFrozen": true
+}

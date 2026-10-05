@@ -1,0 +1,185 @@
+{
+  "status": "FROZEN_READY_FOR_ROOT_REVIEW",
+  "productionFiles": 3,
+  "testFiles": 1,
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 273258,
+      "sha256": "6bd1c1a2a281199792b647529aba165268229dc5b723ab496b454acd6b0c5a6f"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 219041,
+      "sha256": "60d089e7f526e06c24748aa26609c6b2fc03055b8d7a2de97dca13a972b563d9"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 43573,
+      "sha256": "a2c4d55eaa0890ef2078842a0d07a9ede5193b6d4e71e6df22a4d479fc68d5e3"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWithdrawnNativeRevisionReworkDatabaseTest.java",
+      "bytes": 7794,
+      "sha256": "f058c148cf59da941fcca47703f1ec2edb499f69a9a09eb98791a46ab1ae4543"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$1.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$1.class",
+      "bytes": 1206,
+      "sha256": "0491f0d51c16629073b5069e8409cb6a05ec77762c3916d374c06cbc4bbea5d8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$AccessReason.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$AccessReason.class",
+      "bytes": 1816,
+      "sha256": "8d7843a0bfe2a8bc73dea2b360233a9e1912d0eb8fe9c273a296f1a48e0e8332"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinReplayPayload.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinReplayPayload.class",
+      "bytes": 1942,
+      "sha256": "2cc015e2c94f16f66cf101b43e0d5ca0e23d7f33ca8dc3a97b40de11aec785f4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinVersionSelection.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinVersionSelection.class",
+      "bytes": 2242,
+      "sha256": "e0b413875f378811234561f69fa9a8af6b826dbbaba8b3d09c24b358288bf89a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$LocalDateTimeComparator.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$LocalDateTimeComparator.class",
+      "bytes": 1148,
+      "sha256": "1de8732b66766e2d28609ef40f4a22c72f30405e5fa186ce4b4d6f7464b29297"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$PreviewArtifactProjection.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$PreviewArtifactProjection.class",
+      "bytes": 1952,
+      "sha256": "8d0398e75eaa0c3ce1e696ec25e4592775de6ff8d6309908d6a7ef1a4ca86a21"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "bytes": 236356,
+      "sha256": "541c2c70512979e6e65d86581926730c1b02274b63ecfb367138152e68ff7965"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$1.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$1.class",
+      "bytes": 1147,
+      "sha256": "5652be04f277e13dae06daf48e06c142c32d4e485420c87d49d8cf0c2db2cb41"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ControlledFileInsertConflict.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ControlledFileInsertConflict.class",
+      "bytes": 686,
+      "sha256": "e28a7bc809d762664aaadb7e98af906101f0428b0c219bffc1ce887aa7a59fe0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalArtifacts.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalArtifacts.class",
+      "bytes": 2965,
+      "sha256": "52f1a610993183625933639822aa36e4aa3f3ea4639fcbe27f803af10060055d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalReadinessEvaluation.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$DocControlApprovalReadinessEvaluation.class",
+      "bytes": 4433,
+      "sha256": "dafb223a55eaff4dd75aff80e6bb17cd29ae1ba2ec4713546093e2876b3779a3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$FileTrace.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$FileTrace.class",
+      "bytes": 1860,
+      "sha256": "f2141201c699783dcec94c1d068da9664240e8e2067eeb188c6cae704d1f13d7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$PreparedSubmitContext.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$PreparedSubmitContext.class",
+      "bytes": 5447,
+      "sha256": "1ac3f5824ccc5f26f5354f898088a45225dd3117db5f1d984fda5cba7c7152a4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedDistributionPlan.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedDistributionPlan.class",
+      "bytes": 2225,
+      "sha256": "fca79b32d3bfe76eb0eacb90d95f5ba8ff874f6deebb87723f5f343f0e01a376"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedFileTypeTaxonomy.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedFileTypeTaxonomy.class",
+      "bytes": 2692,
+      "sha256": "a8a1c961ea2f62cb0705bbf3edef6bb86e34d394df3a8d1eb2cb14167939e889"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedSubmitFiles.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ResolvedSubmitFiles.class",
+      "bytes": 3310,
+      "sha256": "d8532627672d4858b4fa38660647457895defb39306fc2ec85386543cc483fea"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$SubmitTicketBinding.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$SubmitTicketBinding.class",
+      "bytes": 2011,
+      "sha256": "40fc3b0a19daecfdfc37e55f4474bf5d1209db66817f323daaf33203fe5f8ffa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedReturnTarget.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedReturnTarget.class",
+      "bytes": 1804,
+      "sha256": "b8e56dbf1dcd82638b998d5d8d18fbb7e74c3c1846f433b98374ae40e7224c16"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedTaskActionContext.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$ValidatedTaskActionContext.class",
+      "bytes": 2802,
+      "sha256": "5492e58eb52c1cbae526ac97c88e326c6192bf1888d17d226c95709bfb8082a1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$WorkingIterationSubmissionPayload.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl$WorkingIterationSubmissionPayload.class",
+      "bytes": 2223,
+      "sha256": "17e687a3a8901970480324b036a051053bd743de311805aed614f446dcc3fe82"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.class",
+      "bytes": 176560,
+      "sha256": "5e4173106c24f9d2d8b282efca7131783e6fff7246fa2fb6d06f027e29736cdf"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$GlobalSourceReference.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$GlobalSourceReference.class",
+      "bytes": 1025,
+      "sha256": "8c2833a58a699af106f7cb53efa413b5e5a776d482c94c70d32306afa2bc2fe3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$ProjectCodeFileCount.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$ProjectCodeFileCount.class",
+      "bytes": 846,
+      "sha256": "1fd59ff7f3be9179b9620ca053a3569c2a7d1308af5f581d00b01aa6182b2d20"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.class",
+      "bytes": 47715,
+      "sha256": "bd317a2251a4075cd2bf3d574997a380d18df921cfa175ebb2a41ab6c6402ab8"
+    }
+  ],
+  "verificationReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-rework-verification-receipt.json",
+    "bytes": 4378,
+    "sha256": "8640bc3159f63916abde6a793b200326e14da0dc6ca482404235a421f9ceec09"
+  },
+  "g67AllAssetsUnchanged": true,
+  "supersedes": "previous Query/WF/Mapper source/class pins only; G64 rejected callback SQL untouched",
+  "runtimeAcceptancePending": true
+}

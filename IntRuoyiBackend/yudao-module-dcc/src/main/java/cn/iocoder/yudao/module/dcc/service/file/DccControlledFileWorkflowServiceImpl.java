@@ -2402,6 +2402,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        // Native formal revisions retain their target through the normal correction/checkin chain.
+        if (DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()))
+            throw exception(CONTROLLED_FILE_WITHDRAWN_ACTION_NOT_ALLOWED);
         if (!userId.equals(file.getRequesterId())
                 || !DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())
                 || StrUtil.isBlank(file.getProcessInstanceId())

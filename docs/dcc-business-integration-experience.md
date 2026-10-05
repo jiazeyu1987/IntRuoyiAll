@@ -65,3 +65,5 @@ BPM拒绝回调的状态CAS必须匹配经过核验的真实流程key，不能�
 正式消息已有 detailUrl 并不意味着用户能打开：需同时核对发送模板、解析器分支与消息按钮。关联整改消息的 sourceControlledFileId 是准确来源申请，relatedMasterId 是关联文件身份，两者不可互换。入口须绑定完整发送载荷及只读地址，继续由原服务端权限控制；离线解析/按钮测试与真实收件点击分别记录。证据：主任务 g67-notification-root-review.md。
 
 工作稿保存后修改当前受控文件的关联，新正式升版申请必须在提交事务冻结当时的当前集合。不能继承旧稿审批历史，也不能仅在旧快照为空时回退读取当前集合；当前空集合也可能代表真实取消。准确锁定来源 Master、最新受控基线和 current set 版本，保留旧稿正文/属性及旧申请历史，同键重放不重新冻结。证据：主任务 g67-revision-relations-root-review.md。
+
+原生升版撤回仍须能沿原目标修正重提；页面按钮可见或 checkout HTTP200 不能证明获锁。服务资格、checkout SQL CAS、checkin 真实正文和失败前驱策略需同时接通，且读取真正已结束、取消的原 BPM 历史。不能把 legacy nextMinor 重提或删除旧流程当作保持目标和历史的修复。证据：主任务 g68-withdrawn-revision-root-review.md。

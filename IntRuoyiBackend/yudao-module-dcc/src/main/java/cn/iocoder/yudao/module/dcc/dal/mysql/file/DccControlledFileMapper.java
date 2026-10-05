@@ -202,6 +202,22 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
                                            @Param("actorId") Long actorId,
                                            @Param("reason") String reason);
 
+    /** Only after the service has verified exact cancelled native revision history/lineage. */
+    @Update("""
+            UPDATE dcc_controlled_file
+            SET checked_out_by = #{actorId}, checked_out_time = CURRENT_TIMESTAMP,
+                checked_out_reason = #{reason}, updater = #{actorId}, update_time = CURRENT_TIMESTAMP
+            WHERE tenant_id = #{tenantId} AND id = #{controlledFileId} AND deleted = 0
+              AND status = 'WITHDRAWN' AND checked_out_by IS NULL AND requester_id = #{actorId}
+              AND process_definition_key = 'dcc-controlled-file-revision' AND change_type = 'REVISION'
+              AND revision_change_type IN ('PARTIAL','REPLACEMENT') AND controlled_time IS NULL
+              AND superseded_by_file_id IS NULL AND process_instance_id = #{processInstanceId}
+              AND revision_source_controlled_file_id IS NOT NULL AND selected_iteration_controlled_file_id IS NOT NULL
+            """)
+    int checkoutCancelledNativeRevisionWhenAvailable(@Param("tenantId") Long tenantId,
+            @Param("controlledFileId") Long controlledFileId, @Param("actorId") Long actorId,
+            @Param("processInstanceId") String processInstanceId, @Param("reason") String reason);
+
     @Update("""
             UPDATE dcc_controlled_file
             SET checked_out_by = NULL,
