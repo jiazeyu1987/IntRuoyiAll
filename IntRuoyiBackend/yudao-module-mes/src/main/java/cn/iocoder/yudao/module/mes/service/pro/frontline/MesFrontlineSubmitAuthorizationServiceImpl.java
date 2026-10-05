@@ -26,6 +26,8 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesFrontlineSessionSnapshotService sessionSnapshotService;
     private final MesReportAllocationReleaseStateService releaseStateService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
 
     public MesFrontlineSubmitAuthorizationServiceImpl(MesFrontlineDeviceAccountContextService contextService,
                                                       MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -56,6 +58,11 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "activeOrder");
         }
         assertActiveOrderOpenForProduction(activeOrder);
+        var order = workOrderMapper.selectByIdForUpdate(workOrderId);
+        if (order == null || !Objects.equals(order.getTenantId(), activeOrder.getTenantId())
+                || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(order.getStatus())) {
+            throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "workOrder.notConfirmed");
+        }
         requireFrozenActiveOrderProcess(activeOrder, routeProcessId, processId);
     }
 

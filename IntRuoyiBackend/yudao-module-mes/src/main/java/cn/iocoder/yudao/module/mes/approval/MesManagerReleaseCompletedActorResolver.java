@@ -35,6 +35,7 @@ public class MesManagerReleaseCompletedActorResolver {
     @Resource private MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
     @Resource private AdminUserMapper users;
     @Resource private ElectronicSignatureQueryService signatures;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper nonconformanceReviews;
 
     public MesManagerReleaseCompletedActorResolver(MesProEdhrWorkTaskMapper taskMapper,
                                                   MesProEdhrReleaseTransactionMapper transactionMapper) {
@@ -78,7 +79,7 @@ public class MesManagerReleaseCompletedActorResolver {
     public Long resolvePqc(Long taskId, String scopeType, Long applicationId,
                            Long batchExecutionId, Long workOrderId, String decision, LocalDateTime completedAt) {
         require(positive(taskId) && "RELEASE_APPLICATION".equals(scopeType) && positive(applicationId)
-                && positive(workOrderId) && decision != null && Set.of("APPROVE", "REJECT").contains(decision)
+                && positive(workOrderId) && decision != null && Set.of("APPROVE", "REJECT", "NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID").contains(decision)
                 && completedAt != null, taskId, "PQC completed identity is incomplete");
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         var task = taskMapper.selectOne(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
@@ -101,11 +102,24 @@ public class MesManagerReleaseCompletedActorResolver {
                 && Objects.equals(workOrderId, application.getWorkOrderId())
                 && positive(application.getActiveOrderId()) && positive(application.getBatchExecutionId())
                 && (batchExecutionId == null || Objects.equals(batchExecutionId, application.getBatchExecutionId()))
-                && Objects.equals(decision, application.getPqcDecision())
+                , taskId, "formal current PQC application identity is inconsistent");
+        boolean qaClosed = application.getApplicationStatus() != null
+                && Set.of("NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID").contains(application.getApplicationStatus());
+        if (decision.startsWith("NONCONFORMANCE_")) {
+            require(qaClosed && Objects.equals(decision, application.getApplicationStatus())
+                    && "EDHR_NONCONFORMANCE_REVIEW".equals(task.getReviewSourceType()) && positive(task.getReviewSourceId())
+                    && application.getPqcDecision() == null && application.getPqcDecidedBy() == null
+                    && application.getPqcDecidedAt() == null, taskId, "QA closure cannot replace a persisted PQC decision");
+            var review = requireQaClosure(taskId, application, task.getReviewSourceId());
+            require(Objects.equals(completedAt, review.getClosedAt()), taskId, "QA closure time differs from task completion");
+            return review.getQaUserId();
+        }
+        if (qaClosed) requireQaClosure(taskId, application, null);
+        require(Objects.equals(decision, application.getPqcDecision())
                 && positive(application.getPqcDecidedBy()) && Objects.equals(completedAt, application.getPqcDecidedAt())
                 && ("APPROVE".equals(decision)
-                    ? application.getApplicationStatus() != null && Set.of("REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING", "RELEASED").contains(application.getApplicationStatus())
-                    : "PQC_RELEASE_REJECTED".equals(application.getApplicationStatus())
+                    ? qaClosed || (application.getApplicationStatus() != null && Set.of("REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING", "RELEASED").contains(application.getApplicationStatus()))
+                    : (qaClosed || "PQC_RELEASE_REJECTED".equals(application.getApplicationStatus()))
                         && text(application.getPqcRejectReason())), taskId, "formal current PQC application decision is inconsistent");
         var actor = users.selectOne(new LambdaQueryWrapperX<AdminUserDO>()
                 .select(AdminUserDO::getId, AdminUserDO::getTenantId, AdminUserDO::getStatus)
@@ -133,6 +147,56 @@ public class MesManagerReleaseCompletedActorResolver {
             requirePqcSignature(taskId, application, Long.valueOf(signatureId.asText()));
         }
         return actor.getId();
+    }
+
+    private cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO requireQaClosure(
+            Long taskId, MesProcessPoolActiveOrderReleaseApplicationDO application, Long reviewId) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String disposition = "NONCONFORMANCE_REWORK".equals(application.getApplicationStatus()) ? "rework" : "void";
+        require(positive(application.getQaClosureReviewId()) && (reviewId == null
+                || Objects.equals(reviewId, application.getQaClosureReviewId())), taskId, "formal QA closure reference is missing or inconsistent");
+        var review = nonconformanceReviews.selectOne(new LambdaQueryWrapperX<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO>()
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getId, application.getQaClosureReviewId())
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getTenantId, tenantId)
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getReviewStatus, "closed")
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getDisposition, disposition)
+                );
+        require(review != null && Objects.equals(tenantId, review.getTenantId())
+                && Objects.equals(application.getActiveOrderId(), review.getActiveOrderId())
+                && (review.getBatchExecutionId() == null || Objects.equals(application.getBatchExecutionId(), review.getBatchExecutionId()))
+                && Objects.equals(application.getWorkOrderId(), review.getWorkOrderId())
+                && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "formal QA closure is missing or mismatched");
+        var actor = users.selectById(review.getQaUserId());
+        require(actor != null && Objects.equals(tenantId, actor.getTenantId()) && CommonStatusEnum.isEnable(actor.getStatus()),
+                taskId, "QA deciding system account is missing, disabled or outside the tenant");
+        var snapshot = JsonUtils.parseTree(review.getTraceSnapshotJson()).path("qaSignatureSnapshotJson");
+        require(exactJsonId(snapshot.path("reviewId"), review.getId()) && exactJsonId(snapshot.path("qaUserId"), actor.getId())
+                && disposition.equals(snapshot.path("disposition").asText()) && "QA_DISPOSITION".equals(snapshot.path("actionType").asText())
+                && snapshot.path("signatureId").asText().matches("[1-9][0-9]*") && text(snapshot.path("aggregateHash").asText()),
+                taskId, "QA closure signature snapshot is inconsistent");
+        Long signatureId = Long.valueOf(snapshot.path("signatureId").asText());
+        var evidence = signatures.getById(signatureId);
+        require(evidence != null && Objects.equals(signatureId, evidence.id()) && Objects.equals(actor.getId(), evidence.actorId())
+                && "MES".equals(evidence.moduleCode()) && "QA_DISPOSITION".equals(evidence.actionCode())
+                && "MES_BATCH_RECORD".equals(evidence.subjectType()) && "VALID".equals(evidence.verificationStatus())
+                && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) && evidence.signedAt() != null
+                && Objects.equals(review.getReviewOpinion(), evidence.reason()) && text(evidence.contentHash()) && text(evidence.evidenceHash()),
+                taskId, "QA closure signature identity is inconsistent");
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "QA_DISPOSITION",
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", review.getId(),
+                "eDHR不合格评审处置", "QA_DISPOSITION", null, null, snapshot.path("aggregateHash").asText(), null);
+        require(Objects.equals(subject, evidence.subjectId()) && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(subject), evidence.subjectVersion()),
+                taskId, "QA signature belongs to another disposition");
+        var verified = signatures.verifyEvidence(signatureId);
+        require(verified != null && Objects.equals(signatureId, verified.signatureId()) && "VALID".equals(verified.verificationStatus())
+                && Objects.equals(evidence.contentHash(), verified.storedContentHash()) && Objects.equals(evidence.contentHash(), verified.calculatedContentHash())
+                && Objects.equals(evidence.evidenceHash(), verified.storedEvidenceHash()) && Objects.equals(evidence.evidenceHash(), verified.calculatedEvidenceHash()),
+                taskId, "QA closure signature integrity failed");
+        var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(actor.getId(),
+                "MES", "QA_DISPOSITION", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
+        require(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson())),
+                taskId, "QA disposition canonical signature content is inconsistent");
+        return review;
     }
 
     private void requirePqcSignature(Long taskId, MesProcessPoolActiveOrderReleaseApplicationDO application, Long signatureId) {

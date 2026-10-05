@@ -149,6 +149,10 @@ public class MesProcessPoolProductionReportCorrectionService {
             var identity = handoffOwners.submissionIdentity(event);
             if (identity.isSystemUser()) {
                 scopeService.assertCanAccessEmployee(command.getActorUserId(), "PRODUCTION", identity.signerId());
+                var previous = submissionReviews.selectLatestByEventIdForUpdate(event.getId());
+                if (previous != null && "REJECTED".equals(previous.getReviewStatus())) {
+                    throw new IllegalStateException("已退回的正式员工生产记录须由原提交员工在本人退回待办中补正");
+                }
             } else {
                 Long leader = handoffOwners.profileProductionLeader(event);
                 if (!Objects.equals(leader, command.getActorUserId())) {

@@ -827,6 +827,8 @@ class MesReportAllocationCommandServiceTest {
 
     @Test
     void shouldRejectUnreleasedProductionSubmissionAndRebuildDerivedFacts() {
+        ReflectionTestUtils.setField(service, "nonconformanceReviewService",
+                cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(9001L, "open"));
         MesProProcessPoolEventDO event = event();
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9001L));
         MesProcessPoolReportAllocationDO current = allocation(7101L, 8101L, 9001L, 5101L, "100");
@@ -1119,6 +1121,40 @@ class MesReportAllocationCommandServiceTest {
         verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
         verify(allocationMapper,never()).supersedeCurrentRows(anyCollection(),any());verify(allocationMapper,never()).insertBatch(anyCollection());
         verify(stateMapper,never()).updateById(any(MesProcessPoolReportAllocationStateDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"source,pending_review","source,void","source,external",
+            "target,pending_review","target,void","target,external"})
+    void productionRejectionChecksRealFreezeAuthorityForSourceAndPositiveCurrentTargets(String scope, String state) {
+        var source = event();
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(source);
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(
+                MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build());
+        when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(
+                allocation(7101L,8103L,9003L,5101L,"100"),allocation(7102L,8104L,9004L,5101L,"0")));
+        long frozen = scope.equals("source") ? 9001L : 9003L;
+        var authority = cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(frozen,state);
+        var orders = (MesProWorkOrderMapper) ReflectionTestUtils.getField(authority,"workOrderMapper");
+        if (scope.equals("target")) {
+            org.mockito.Mockito.doReturn(workOrder(9001L,"SOURCE").setTemporaryFrozen(false))
+                    .when(orders).selectByIdForUpdate(9001L);
+            var reviews = (cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper)
+                    ReflectionTestUtils.getField(authority,"reviewMapper");
+            org.mockito.Mockito.doReturn(null).when(reviews).selectFirstBlockingByWorkOrderId(9001L);
+        }
+        org.mockito.Mockito.lenient().when(activeOrderMapper.selectByIdForUpdate(8103L)).thenReturn(activeOrder(8103L,9003L));
+        ReflectionTestUtils.setField(service,"nonconformanceReviewService",authority);
+        var freezeFailure = assertThrows(ServiceException.class,()->service.rejectProductionSubmission(1001L,3001L,"数量错误","test-sign"));
+        assertEquals(state.equals("external")
+                ? cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN.getCode()
+                : cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), freezeFailure.getCode());
+        verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
+        verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(allocationMapper,never()).supersedeCurrentRows(anyCollection(),any());
+        verify(stateMapper,never()).updateById(any(MesProcessPoolReportAllocationStateDO.class));
+        org.mockito.Mockito.verifyNoInteractions(quantityFragmentService,completionService,reportManagementSummaryService);
+        verify(activeOrderMapper,never()).selectByIdForUpdate(8104L);
     }
 
     private static MesReportAllocationSaveCommand saveCommand(Integer version, String allocationMode,

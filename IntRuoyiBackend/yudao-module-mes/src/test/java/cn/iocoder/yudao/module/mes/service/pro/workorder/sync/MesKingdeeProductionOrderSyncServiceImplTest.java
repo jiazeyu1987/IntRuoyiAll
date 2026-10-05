@@ -82,6 +82,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
 
     private ErpKingdeeProperties kingdeeProperties;
     private MesKingdeeProductionOrderSyncServiceImpl syncService;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @BeforeEach
     void setUp() {
@@ -96,6 +97,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 productionOrderClient, kingdeeConfigService, workOrderService, workOrderMapper,
                 syncRecordMapper, scheduleOrderMapper, scheduleOrderDiffMapper,
                 itemMapper, itemTypeMapper, unitMeasureMapper, activeOrderMapper, completionReceiptMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService,"gxpAuditService",gxpAuditService);
 
     }
 

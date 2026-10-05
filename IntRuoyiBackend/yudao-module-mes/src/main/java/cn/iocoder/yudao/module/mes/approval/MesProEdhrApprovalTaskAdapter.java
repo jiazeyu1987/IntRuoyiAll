@@ -472,6 +472,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private static String resolveAction(MesProEdhrWorkTaskDO task) {
         if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
+            if (isQaClosure(task.getTaskType(), task.getReason())) return task.getReason();
             return isReleaseRejected(task) ? "REJECTED" : "APPROVED";
         }
         if (MesProEdhrWorkTaskStatus.OVERDUE.equals(task.getStatus())) {
@@ -493,11 +494,15 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         if (!MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
             return null;
         }
+        if (isQaClosure(task.getTaskType(), task.getReason())) return null;
         return isReleaseRejected(task) ? ApprovalTaskReviewResult.REJECT : ApprovalTaskReviewResult.APPROVE;
     }
 
     private static String resolveActionLabel(MesProEdhrWorkTaskDO task) {
         if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
+            if (isQaClosure(task.getTaskType(), task.getReason())) {
+                return "NONCONFORMANCE_REWORK".equals(task.getReason()) ? "QA处置返工关闭" : "QA处置作废关闭";
+            }
             return isReleaseRejected(task) ? "审批驳回" : "审批通过";
         }
         if (MesProEdhrWorkTaskStatus.OVERDUE.equals(task.getStatus())) {
@@ -513,6 +518,12 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
             return "待处理";
         }
         return task.getStatus();
+    }
+
+    private static boolean isQaClosure(String taskType, String reason) {
+        return "PQC_PRODUCTION_RELEASE".equals(taskType)
+                && reason != null
+                && Set.of("NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID").contains(reason);
     }
 
     private static LocalDateTime resolveActedAt(MesProEdhrWorkTaskDO task) {

@@ -77,6 +77,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
+        ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
         // The current review API binds the signature to its business object using its complete formal round context.
         lenient().when(signatureService.recordTeamLeaderReviewSignature(
@@ -490,6 +492,40 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"APPROVED,pending_review","APPROVED,void","APPROVED,external",
+            "REJECTED,pending_review","REJECTED,void","REJECTED,external","APPROVED,open","REJECTED,open"})
+    void pqcGroupUsesRealFreezeAuthorityBeforeFirstSignatureOrReview(String decision, String state) {
+        prepareSubmissionGroup(false);
+        when(pqcTaskMapper.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder().id(5101L).activeOrderId(8101L).workOrderId(4001L).build());
+        when(pqcTaskMapper.selectById(5102L)).thenReturn(MesPqcInspectionTaskDO.builder().id(5102L).activeOrderId(8101L).workOrderId(4001L).build());
+        var authority = cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(4001L,state);
+        if (state.equals("pending_review") || state.equals("void")) {
+            var reviews = (cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper)
+                    ReflectionTestUtils.getField(authority,"reviewMapper");
+            org.mockito.Mockito.reset(reviews);
+            org.mockito.Mockito.doReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+                    .setId(909L).setWorkOrderId(4001L).setActiveOrderId(8101L)
+                    .setReviewStatus(state.equals("pending_review") ? state : "closed")
+                    .setDisposition(state.equals("void") ? "void" : null).setReviewCode("NCR-909"))
+                    .when(reviews).selectFirstBlockingPqcSubmissionByActiveOrderId(8101L);
+        }
+        ReflectionTestUtils.setField(service,"nonconformanceReviewService",authority);
+        var request = displayed(decision.equals("APPROVED") ? reviewReq() : rejectedReviewReq());
+        if (state.equals("open")) {
+            assertEquals(7001L,service.reviewSubmission(request));
+            verify(reviewMapper,org.mockito.Mockito.times(2)).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        } else {
+            var freezeFailure = assertThrows(ServiceException.class,()->service.reviewSubmission(request));
+            assertEquals(state.equals("external")
+                    ? cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_TEMPORARY_FROZEN_OPERATION_FORBIDDEN.getCode()
+                    : cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), freezeFailure.getCode());
+            verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(MesTeamLeaderReviewSignatureContext.class));
+            verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+            org.mockito.Mockito.verifyNoInteractions(processInspectionAggregationService,ReflectionTestUtils.getField(service,"handoffService"));
+        }
     }
 
     private void prepareSubmissionGroup(boolean crossOrder) {

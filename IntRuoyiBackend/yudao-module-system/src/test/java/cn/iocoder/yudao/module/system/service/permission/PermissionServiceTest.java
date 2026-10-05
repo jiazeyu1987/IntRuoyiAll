@@ -45,7 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@Import({PermissionServiceImpl.class})
+@Import({PermissionServiceImpl.class, PermissionCommandProtocol.class})
 public class PermissionServiceTest extends BaseDbUnitTest {
 
     @Resource
@@ -70,12 +70,38 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private TemporaryRoleGrantService temporaryRoleGrantService;
     @MockitoBean
     private GxpAuditService gxpAuditService;
-    @MockitoBean
-    private PermissionCommandProtocol permissionCommandProtocol;
+    @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.permission.PermissionCommandReceiptMapper commandReceipts;
+    @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper auditEvents;
+    @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper auditActivations;
+    @MockitoBean private cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper auditOperations;
+    @Resource private javax.sql.DataSource commandDataSource;
 
     @BeforeEach
     public void setUpTemporaryRoleGrantMock() {
         when(temporaryRoleGrantService.getActiveRoleIdsByUserId(any(), any())).thenReturn(Set.of());
+        // Real command protocol; SQL/audit ports are explicit boundaries in this existing service test.
+        // PermissionReceiptPersistenceTest separately exercises actual receipt SQL and audit transactions.
+        var actor = new cn.iocoder.yudao.framework.security.core.LoginUser();
+        actor.setId(1001L); actor.setTenantId(1L);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(actor,null));
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(commandDataSource);
+        jdbc.update("INSERT INTO system_role(id,name,code,sort,status,type,tenant_id) VALUES(1,'fixture','fixture',1,0,2,1)");
+        jdbc.update("INSERT INTO system_users(id,username,canonical_username,nickname,tenant_id) VALUES(1,'fixture','fixture','fixture',1)");
+        var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+        activation.setPolicyVersion("permission-service-test-only");
+        when(auditActivations.selectLatestForUpdate(1L)).thenReturn(activation);
+        var policy = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO();
+        policy.setActive(true); policy.setApplicability("GXP");
+        when(auditOperations.selectByPolicyVersionForUpdate(eq(1L),eq("permission-service-test-only"),anyString())).thenReturn(policy);
+        when(commandReceipts.insert(any())).thenReturn(1);
+        when(gxpAuditService.append(any())).thenReturn(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(301L,1L,"ab".repeat(32),false));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearCommandActor() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -259,8 +285,10 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Set<Long> menuIds = asSet(200L, 300L);
         // mock 数据
         RoleMenuDO roleMenu01 = randomPojo(RoleMenuDO.class).setRoleId(1L).setMenuId(100L);
+        roleMenu01.setTenantId(1L);
         roleMenuMapper.insert(roleMenu01);
         RoleMenuDO roleMenu02 = randomPojo(RoleMenuDO.class).setRoleId(1L).setMenuId(200L);
+        roleMenu02.setTenantId(1L);
         roleMenuMapper.insert(roleMenu02);
 
         // 调用
@@ -278,6 +306,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     public void assignRoleMenuShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
         Long roleId = 1L;
         RoleMenuDO existing = randomPojo(RoleMenuDO.class).setRoleId(roleId).setMenuId(100L);
+        existing.setTenantId(1L);
         roleMenuMapper.insert(existing);
         when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
 
@@ -394,9 +423,9 @@ public class PermissionServiceTest extends BaseDbUnitTest {
         Long userId = 1L;
         Set<Long> roleIds = asSet(200L, 300L);
         // mock 数据
-        UserRoleDO userRole01 = randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(100L);
+        UserRoleDO userRole01 = randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(100L).setTenantId(1L);
         userRoleMapper.insert(userRole01);
-        UserRoleDO userRole02 = randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L);
+        UserRoleDO userRole02 = randomPojo(UserRoleDO.class).setUserId(1L).setRoleId(200L).setTenantId(1L);
         userRoleMapper.insert(userRole02);
 
         // 调用
@@ -413,7 +442,7 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     @Test
     public void assignUserRoleShouldAppendUnifiedGxpAuditAndRollbackOnAppendFailure() {
         Long userId = 1L;
-        UserRoleDO existing = randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(100L);
+        UserRoleDO existing = randomPojo(UserRoleDO.class).setUserId(userId).setRoleId(100L).setTenantId(1L);
         userRoleMapper.insert(existing);
         when(gxpAuditService.append(any())).thenThrow(new IllegalStateException("audit append failed"));
 

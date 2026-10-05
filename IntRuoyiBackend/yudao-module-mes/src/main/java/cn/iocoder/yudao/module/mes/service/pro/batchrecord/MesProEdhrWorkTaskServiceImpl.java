@@ -120,6 +120,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
     @Resource
+    @org.springframework.context.annotation.Lazy
+    private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
+    @Resource
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
@@ -422,6 +427,18 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!isProcessableStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
+        var batch = batchExecutionMapper.selectByIdForUpdate(workTask.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(batch.getWorkOrderId(), workTask.getWorkOrderId())
+                || batch.getStatus() == null || !Set.of(0, 10, 20, 25).contains(batch.getStatus())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "批次已冻结或关闭，禁止写入");
+        }
+        var order = workOrderMapper.selectByIdForUpdate(batch.getWorkOrderId());
+        if (order == null || !Objects.equals(order.getTenantId(), batch.getTenantId())
+                || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(order.getStatus())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "生产工单已关闭，禁止写入");
+        }
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(batch.getWorkOrderId(), "批记录草稿保存");
         validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
@@ -1353,6 +1370,18 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         List<MesProEdhrWorkTaskDO> activeTasks = workTaskMapper.selectActiveListByBatchExecutionId(batchExecutionId);
         for (MesProEdhrWorkTaskDO task : activeTasks) {
             cancelTaskAndRevokeRuntimeEntitlement(task, reason, now);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelActiveFillTasksByBatch(Long batchExecutionId, String reason) {
+        if (batchExecutionId == null || StrUtil.isBlank(reason)) throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        LocalDateTime at = LocalDateTime.now();
+        for (var task : workTaskMapper.selectActiveListByBatchExecutionId(batchExecutionId)) {
+            if (Set.of(TASK_TYPE_FILL, TASK_TYPE_REWORK).contains(task.getTaskType())) {
+                cancelTaskAndRevokeRuntimeEntitlement(task, reason, at);
+            }
         }
     }
 

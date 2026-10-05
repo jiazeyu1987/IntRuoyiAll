@@ -31,6 +31,8 @@ class MesFrontlineSubmitAuthorizationTest {
     private MesFrontlineSessionSnapshotService sessionSnapshotService;
     @Mock
     private MesReportAllocationReleaseStateService releaseStateService;
+    @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
@@ -38,6 +40,9 @@ class MesFrontlineSubmitAuthorizationTest {
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(
                 contextService, activeOrderMapper, processSnapshotMapper, sessionSnapshotService, releaseStateService);
+        org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "workOrderMapper", workOrderMapper);
+        org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(41L).status(1).build());
     }
 
     @Test
@@ -188,6 +193,22 @@ class MesFrontlineSubmitAuthorizationTest {
                 9001L, 81L, 41L, 21L, 71L, 31L));
         assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(
                 9001L, 81L, 41L, 21L, 71L, 31L));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "canceled", "finished", "released", "foreign"})
+    void refusesNewProductionFromStaleConfirmedWorkOrderContext(String state) {
+        when(contextService.resolveResponsibleLeaderUserId(9001L)).thenReturn(3001L);
+        var active = MesProcessPoolActiveOrderDO.builder().id(81L).leaderUserId(3001L).workOrderId(41L)
+                .routeId(21L).routeVersionId(61L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();
+        active.setTenantId(1L);
+        when(activeOrderMapper.selectByIdForUpdate(81L)).thenReturn(active);
+        var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
+                .id(41L).status(state.equals("canceled") ? 3 : state.equals("finished") ? 2 : state.equals("released") ? 4 : 1).build();
+        order.setTenantId(state.equals("foreign") ? 2L : 1L);
+        when(workOrderMapper.selectByIdForUpdate(41L)).thenReturn(state.equals("missing") ? null : order);
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeActiveOrder(9001L,81L,41L,21L,71L,31L));
+        org.mockito.Mockito.verifyNoInteractions(processSnapshotMapper);
     }
 
     private void givenSnapshot(List<MesFrontlineEmployeeSwitchResult> employees,

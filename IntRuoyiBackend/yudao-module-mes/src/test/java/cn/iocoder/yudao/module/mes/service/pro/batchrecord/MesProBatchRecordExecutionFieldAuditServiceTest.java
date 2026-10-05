@@ -85,11 +85,17 @@ import static org.mockito.Mockito.when;
         MesProEdhrPreReleaseEditabilityService.class,
         MesProEdhrWorkTaskServiceImpl.class,
         MesProBatchRecordExecutionAttachmentServiceImpl.class,
-        MesProEdhrGoldenFingerPermissionService.class})
+        MesProEdhrGoldenFingerPermissionService.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
     private static final Long TENANT_ID = 122L;
     private static final String FIELD_PATH = "sheet[0].rows[1].cells[2].temperature";
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper ncrRows;
+    @Resource private MesProEdhrWorkTaskService workTaskService;
+    @Resource private javax.sql.DataSource dataSource;
 
     @Resource
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
@@ -307,6 +313,51 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         assertEquals(Boolean.FALSE, signature.getPasswordVerified());
         verify(signatureService).recordFieldChangeDraftSave(any());
         verify(signatureService, never()).recordFieldChangeSignature(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"open", "frozen", "pendingNcr", "closedVoid", "temporary", "completed", "archived", "rejected", "voided", "canceled", "foreignBatch", "foreignWork"})
+    void ordinaryDraftSaveUsesRealWritableTaskAndFormalFreezeGateBeforeAnyWrite(String state) {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of("rowIndex",1,"columnIndex",2,"value","36.6")));
+        var execution = insertDraftExecution(beforeJson);
+        var command = saveCommand(execution, MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson),
+                "ordinary-draft-"+state, new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER,new BigDecimal("36.6"))).setSignature(null);
+        var actualFreeze = new MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(actualFreeze,"reviewMapper",ncrRows);
+        org.springframework.test.util.ReflectionTestUtils.setField(actualFreeze,"workOrderMapper",workOrders);
+        Object taskTarget = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(workTaskService);
+        org.springframework.test.util.ReflectionTestUtils.setField(taskTarget,"nonconformanceReviewService",actualFreeze);
+        try {
+            if (state.equals("pendingNcr") || state.equals("closedVoid")) ncrRows.insert(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO()
+                    .setReviewCode("SA25-"+state).setSourceType("ACTIVE_ORDER").setSourceId(8101L).setActiveOrderId(8101L)
+                    .setWorkOrderId(execution.getWorkOrderId()).setReviewStatus(state.equals("pendingNcr")?"pending_review":"closed")
+                    .setDisposition(state.equals("closedVoid")?"void":null).setFrozenAt(LocalDateTime.now())
+                    .setNonconformanceReason("formal freeze").setTenantId(TENANT_ID));
+            if (state.equals("temporary")) workOrders.updateById(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(execution.getWorkOrderId()).temporaryFrozen(true).build());
+            if (state.equals("canceled")) workOrders.updateById(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(execution.getWorkOrderId()).status(3).build());
+            Integer batchStatus = switch(state) { case "frozen"->15;case "completed"->30;case "archived"->40;case "rejected"->50;case "voided"->60;default->null;};
+            if(batchStatus!=null) batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(7001L).setStatus(batchStatus));
+            if(state.equals("foreignBatch")||state.equals("foreignWork")) {
+                var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+                jdbc.update("UPDATE "+(state.equals("foreignBatch")?"mes_pro_edhr_batch_execution":"mes_pro_work_order")+" SET tenant_id=123 WHERE id=?",state.equals("foreignBatch")?7001L:execution.getWorkOrderId());
+            }
+            if (state.equals("open")) {
+                mockFieldChangeDraftSave();
+                var result = fieldAuditService.saveChanges(command);
+                assertEquals(1L, result.getFieldAuditRevision());
+                assertEquals(1, batchMapper.selectList().size());
+                assertEquals(1, itemMapper.selectList().size());
+                verify(signatureService).recordFieldChangeDraftSave(any());
+                return;
+            }
+            assertThrows(RuntimeException.class,()->fieldAuditService.saveChanges(command));
+            assertEquals(beforeJson,executionMapper.selectById(execution.getId()).getCellValuesJson());
+            assertTrue(batchMapper.selectList().isEmpty()); assertTrue(itemMapper.selectList().isEmpty());
+            assertTrue(signatureMapper.selectListByExecutionId(execution.getId()).isEmpty());
+            verifyNoInteractions(signatureService);
+            verify(gxpAuditService, never()).append(any());
+        } finally { org.springframework.test.util.ReflectionTestUtils.setField(taskTarget,"nonconformanceReviewService",nonconformanceReviewService); }
     }
 
     @Test
@@ -1860,6 +1911,15 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
 
     private MesProEdhrWorkTaskDO insertFillWorkTask(MesProBatchRecordExecutionDO execution, Long assigneeUserId,
                                                     String status) {
+        if (batchExecutionMapper.selectById(7001L) == null) batchExecutionMapper.insert(new MesProEdhrBatchExecutionDO()
+                .setId(7001L).setBatchExecutionCode("FIELD-DRAFT").setWorkOrderId(execution.getWorkOrderId())
+                .setBatchCode(execution.getBatchCode()).setRouteId(4001L).setStatus(10).setTenantId(TENANT_ID));
+        if (workOrders.selectById(execution.getWorkOrderId()) == null) {
+            var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder()
+                    .id(execution.getWorkOrderId()).code("FIELD-WORK").name("Ordinary draft work").status(1).temporaryFrozen(false).build();
+            order.setTenantId(TENANT_ID);
+            workOrders.insert(order);
+        }
         MesProEdhrWorkTaskDO workTask = new MesProEdhrWorkTaskDO()
                 .setTaskCode("EDHRT-T6-" + execution.getId())
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)

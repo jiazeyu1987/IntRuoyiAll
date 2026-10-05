@@ -3511,8 +3511,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
 
     private static boolean isReworkClosedReleaseApplication(MesProcessPoolActiveOrderReleaseApplicationDO application) {
         return application != null
-                && MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(application.getApplicationStatus())
-                && NONCONFORMANCE_REWORK.equals(application.getPqcDecision());
+                && NONCONFORMANCE_REWORK.equals(application.getApplicationStatus());
     }
 
     private String requireFormalRouteName(MesProcessPoolActiveOrderDO activeOrder,

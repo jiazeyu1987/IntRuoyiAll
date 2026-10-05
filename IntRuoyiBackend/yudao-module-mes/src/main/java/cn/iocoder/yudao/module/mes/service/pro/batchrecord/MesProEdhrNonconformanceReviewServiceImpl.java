@@ -612,20 +612,22 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         if (application != null && (DISPOSITION_REWORK.equals(disposition) || DISPOSITION_VOID.equals(disposition))) {
             MesProEdhrWorkTaskDO task = requirePqcTaskForUpdate(application);
             String decision = "NONCONFORMANCE_" + disposition.toUpperCase();
-            int applicationUpdated = releaseApplicationMapper.closeFromNonconformance(
-                    application.getId(), application.getVersion(), decision,
-                    qaUserId, now, reviewOpinion,
-                    buildNonconformanceDecisionReceipt(application, task, decision, reviewOpinion, qaUserId, now));
+            int applicationUpdated = releaseApplicationMapper.closeLifecycleFromNonconformance(
+                    application.getId(), application.getVersion(), decision, review.getId());
             if (applicationUpdated != 1) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
             if (!MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
-                    && workTaskMapper.completePqcDecisionTask(task.getId(), now, decision) != 1) {
+                    && workTaskMapper.completePqcQaClosureTask(task.getId(), application.getId(),
+                    review.getId(), now, decision) != 1) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
             }
             closeManagerReleaseForNonconformance(application, decision, qaUserId, now);
         }
         Long reworkActiveOrderId = null;
+        if (batch != null && DISPOSITION_VOID.equals(disposition)) {
+            workTaskService.cancelActiveFillTasksByBatch(batch.getId(), "不合格评审作废#" + review.getId());
+        }
         if (DISPOSITION_REWORK.equals(disposition)) {
             reworkActiveOrderId = reworkCycleService.start(activeOrderId, review.getWorkOrderId(), review.getId(), now);
         }
@@ -1924,33 +1926,6 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         snapshot.put("voidedAt", update.getVoidedAt());
         snapshot.put("closedAt", update.getClosedAt());
         return JSON.toJSONString(snapshot);
-    }
-
-    private String buildNonconformanceDecisionReceipt(
-            MesProcessPoolActiveOrderReleaseApplicationDO application,
-            MesProEdhrWorkTaskDO task,
-            String decision,
-            String reason,
-            Long decidedBy,
-            LocalDateTime decidedAt) {
-        JSONObject receipt = new JSONObject(true);
-        receipt.put("applicationId", application.getId());
-        receipt.put("pqcReleaseWorkTaskId", task.getId());
-        receipt.put("decision", decision);
-        receipt.put("status", MesReleaseFlowStatus.PQC_RELEASE_REJECTED);
-        receipt.put("rejectReason", reason);
-        receipt.put("batchRecordEvidenceIds", List.of());
-        receipt.put("processInspectionEvidenceIds", List.of());
-        receipt.put("lossReportEvidenceIds", List.of());
-        receipt.put("lossReportFormCenterInstanceIds", List.of());
-        receipt.put("lossReportFieldAuditIds", List.of());
-        receipt.put("lossReportFieldAuditHeadHashes", List.of());
-        receipt.put("reportUploadTasks", List.of());
-        receipt.put("sourceSnapshotHash", application.getSourceSnapshotHash());
-        receipt.put("version", application.getVersion() + 1);
-        receipt.put("decidedBy", decidedBy);
-        receipt.put("decidedAt", decidedAt);
-        return JSON.toJSONString(receipt);
     }
 
     private MesProEdhrNonconformanceReviewRespVO toResp(MesProEdhrNonconformanceReviewDO review) {

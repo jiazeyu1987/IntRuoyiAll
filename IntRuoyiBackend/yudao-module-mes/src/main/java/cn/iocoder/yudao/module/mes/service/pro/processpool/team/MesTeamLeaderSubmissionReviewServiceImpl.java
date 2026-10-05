@@ -75,6 +75,8 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
     @Resource
     private MesPqcInspectionTaskMapper pqcTaskMapper;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
@@ -111,6 +113,15 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         List<ReviewContext> contexts = new ArrayList<>();
         for (MesProProcessPoolEventDO member : members) {
             contexts.add(prepareReview(reqBO, member));
+        }
+        for (ReviewContext context : contexts) {
+            if (context.existingReview() != null && context.correction() == null) continue;
+            if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(context.event().getEventType())) {
+                var task = resolvePqcInspectionTask(context.event());
+                nonconformanceReviewService.ensurePqcSubmissionNotFrozen(
+                        task.getActiveOrderId(), task.getWorkOrderId(), "PQC组长复核");
+                nonconformanceReviewService.ensureWorkOrderNotFrozen(task.getWorkOrderId(), "PQC组长复核");
+            }
         }
         Long requestedReviewId = null;
         for (ReviewContext context : contexts) {

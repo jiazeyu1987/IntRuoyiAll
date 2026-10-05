@@ -366,8 +366,8 @@ class MesProductionReleaseApplySp1Test {
         MesProcessPoolActiveOrderReleaseApplicationDO reworkClosed = existingApplication()
                 .setId(6901L)
                 .setPqcReleaseWorkTaskId(7901L)
-                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED)
-                .setPqcDecision("NONCONFORMANCE_REWORK")
+                .setApplicationStatus(MesReleaseFlowStatus.NONCONFORMANCE_REWORK)
+                .setQaClosureReviewId(8901L)
                 .setRequestIdempotencyKey("previous-release-request");
         when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID))
                 .thenReturn(reworkClosed);
@@ -398,8 +398,8 @@ class MesProductionReleaseApplySp1Test {
     @Test
     void retryOfOldRequestKeepsItsOriginalRoundIdentity() {
         var old = existingApplication().setId(6902L)
-                .setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED)
-                .setPqcDecision("NONCONFORMANCE_REWORK").setRequestIdempotencyKey("old-request");
+                .setApplicationStatus(MesReleaseFlowStatus.NONCONFORMANCE_REWORK)
+                .setQaClosureReviewId(8902L).setRequestIdempotencyKey("old-request");
         when(applicationMapper.selectLatestReworkClosedByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(old);
         when(applicationMapper.selectByRequestIdempotencyKey(ACTIVE_ORDER_ID, "old-request")).thenReturn(old);
         assertEquals(6902L, generationService.generate(LEADER_USER_ID, command("old-request")).getApplicationId());

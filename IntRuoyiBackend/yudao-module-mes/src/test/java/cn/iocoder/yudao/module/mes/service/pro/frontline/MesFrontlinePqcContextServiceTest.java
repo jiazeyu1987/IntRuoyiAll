@@ -180,6 +180,7 @@ class MesFrontlinePqcContextServiceTest {
         processPoolEventMapper = mock(MesProProcessPoolEventMapper.class);
         processSnapshotMapper = mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
         workOrderMapper = mock(MesProWorkOrderMapper.class);
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
         routeMapper = mock(MesProRouteMapper.class);
         routeVersionMapper = mock(MesProRouteVersionMapper.class);
         dccProjectCodeMapper = mock(DccProjectCodeMapper.class);
@@ -464,10 +465,10 @@ class MesFrontlinePqcContextServiceTest {
                 "ID-001");
     }
 
-    @ParameterizedTest(name = "{0} inspection permits adjusted actual quantity")
+    @ParameterizedTest(name = "{0} inspection with {3} formal work order")
     @MethodSource("adjustableTaskIdentities")
     void submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType(
-            String inspectionType, String ruleKey, String shiftCode) {
+            String inspectionType, String ruleKey, String shiftCode, String workState) {
         long loginUserId = 3001L;
         long actualEmployeeId = 3002L;
         long pqcTaskId = 9101L;
@@ -554,6 +555,18 @@ class MesFrontlinePqcContextServiceTest {
                 .clientSubmitTime(submitTime)
                 .build();
 
+        if (!workState.equals("confirmed")) {
+            var persisted = workOrder(WORK_ORDER_ID);
+            persisted.setStatus(workState.equals("canceled") ? 3 : workState.equals("finished") ? 2 : 1);
+            if (workState.equals("foreign")) persisted.setTenantId(2L);
+            when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(workState.equals("missing") ? null : persisted);
+            assertThrows(ServiceException.class, () -> service.submitPqcInspection(loginUserId, command));
+            verify(pqcTaskMapper, never()).updateSubmittedIfPending(anyLong(), any(), anyString(), anyString(), anyString());
+            verify(signatureService, never()).recordPqcSubmitSignature(any(), any(), any(), any());
+            verify(eventService, never()).createPqcInspectionEvent(any());
+            verify(gxpAuditService, never()).append(any());
+            return;
+        }
         MesFrontlinePqcSubmitResult result = service.submitPqcInspection(loginUserId, command);
 
         assertEquals(pqcEventId, result.pqcEventId());
@@ -699,7 +712,9 @@ class MesFrontlinePqcContextServiceTest {
                 Arguments.of("FIRST", "FIRST", "FIRST"),
                 Arguments.of("PATROL", "PATROL_AM", "AM"),
                 Arguments.of("PATROL", "PATROL_PM", "PM"),
-                Arguments.of("FINAL", "FINAL", "FINAL"));
+                Arguments.of("FINAL", "FINAL", "FINAL"))
+                .flatMap(identity -> Stream.of("confirmed", "canceled", "finished", "missing", "foreign")
+                        .map(state -> Arguments.of(identity.get()[0], identity.get()[1], identity.get()[2], state)));
     }
 
     @Test
@@ -945,8 +960,9 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     private static MesProWorkOrderDO workOrder(long id) {
-        return MesProWorkOrderDO.builder().id(id).code("WO-" + id).name("活跃订单")
-                .productId(PRODUCT_ID).quantity(new BigDecimal("100")).build();
+        var row = MesProWorkOrderDO.builder().id(id).code("WO-" + id).name("活跃订单")
+                .productId(PRODUCT_ID).quantity(new BigDecimal("100")).status(1).build();
+        row.setTenantId(1L); return row;
     }
 
     private static MesProRouteDO route() {
@@ -995,7 +1011,7 @@ class MesFrontlinePqcContextServiceTest {
     private static MesPqcInspectionTaskDO pendingTaskForSource(
             long taskId, long regulationVersionId, long qaProcessId, String qaItemCode,
             String inspectionType, String inspectionRuleKey, String shiftCode) {
-        return MesPqcInspectionTaskDO.builder()
+        var row = MesPqcInspectionTaskDO.builder()
                 .id(taskId)
                 .activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID)
@@ -1014,6 +1030,7 @@ class MesFrontlinePqcContextServiceTest {
                 .plannedInspectionQuantity(5)
                 .taskStatus("PENDING")
                 .build();
+        row.setTenantId(1L); return row;
     }
 
     private static MesQaInspectionRegulationPublishedVersionRespVO.InspectionTypeRule qaInspectionTypeRule(
@@ -1089,7 +1106,7 @@ class MesFrontlinePqcContextServiceTest {
                                                        String inspectionType,
                                                        String inspectionRuleKey,
                                                        String shiftCode) {
-        return MesPqcInspectionTaskDO.builder()
+        var task = MesPqcInspectionTaskDO.builder()
                 .id(taskId)
                 .activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID)
@@ -1108,6 +1125,8 @@ class MesFrontlinePqcContextServiceTest {
                 .plannedInspectionQuantity(1)
                 .taskStatus("PENDING")
                 .build();
+        task.setTenantId(1L);
+        return task;
     }
 
     private static MesQaInspectionRegulationItemDO publishedItem() {

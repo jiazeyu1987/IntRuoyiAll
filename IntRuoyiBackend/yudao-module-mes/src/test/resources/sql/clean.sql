@@ -94,3 +94,5 @@ DELETE FROM "mes_pro_work_order";
 DELETE FROM "mes_pro_batch_record_template";
 DELETE FROM "dcc_project_code";
 DELETE FROM "mes_md_item";
+
+DELETE FROM mes_pro_edhr_nonconformance_review;

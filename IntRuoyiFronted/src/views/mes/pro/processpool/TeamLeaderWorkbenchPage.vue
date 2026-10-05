@@ -4957,8 +4957,16 @@ const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
 const canOpenPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) =>
   canReviewSubmission(row) && Boolean(row.activeOrderId)
 
+const requiresOwnProductionReturnCorrection = (row: ProcessPoolTimelineEventVO) => {
+  if (!isProductionLeader.value || row.submissionReviewStatus !== 'REJECTED') return false
+  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
+  const raw = payload && isRecord(payload.rawPayload) ? payload.rawPayload : payload
+  return raw?.signatureIdentityDomain === 'SYSTEM_USER'
+}
+
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
+  !requiresOwnProductionReturnCorrection(row) &&
   (isProductionLeader.value || !row.released) &&
   Boolean(row.id)
 
@@ -7275,6 +7283,7 @@ const previewFifoAllocation = async () => {
 const assertUniqueAllocationActiveOrders = () => {
   const selectedWorkOrderIds = new Set<number>()
   for (const line of allocationRows.value) {
+    if (line.editable === false) continue
     const activeOrderId = normalizePositiveNumber(line.activeOrderId)
     if (activeOrderId === undefined) continue
     const selectedOrder = allocatableActiveOrderOptions.value.find(
@@ -9157,7 +9166,9 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
       return
     }
     if (!canCorrectSubmission(event)) {
-      ElMessage.error(isPqcSubmissionRow(event) ? 'PQC历史表单不能修改' : '当前报工不能修改')
+      ElMessage.error(requiresOwnProductionReturnCorrection(event)
+        ? '已退回的正式员工报工须由原提交员工在本人退回待办中补正'
+        : isPqcSubmissionRow(event) ? 'PQC历史表单不能修改' : '当前报工不能修改')
       return
     }
     if (isPqcSubmissionRow(event)) {

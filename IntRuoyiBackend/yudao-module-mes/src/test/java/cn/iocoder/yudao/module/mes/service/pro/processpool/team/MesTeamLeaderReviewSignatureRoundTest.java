@@ -132,6 +132,14 @@ class MesTeamLeaderReviewSignatureRoundTest {
         revisions = mock(MesProProcessPoolEventRevisionMapper.class);
         var target = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class), events,
                 reviews, mock(MesPqcProcessInspectionAggregationService.class));
+        // Actual open freeze authority; persistence reads are boundaries for this signature/transaction fixture.
+        var openFreeze = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"reviewMapper",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper.class));
+        var openOrders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        org.mockito.Mockito.lenient().when(openOrders.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call ->
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(call.getArgument(0)).temporaryFrozen(false).build());
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"workOrderMapper",openOrders);
+        org.springframework.test.util.ReflectionTestUtils.setField(target,"nonconformanceReviewService",openFreeze);
         { org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         correctionDiscovery=mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class);
         ReflectionTestUtils.setField(target,"returnCorrectionResolver",correctionDiscovery);

@@ -44,6 +44,8 @@ public class MesProcessPoolActiveOrderReleaseApplicationDO extends TenantBaseDO 
     private LocalDateTime pqcDecidedAt;
     private String pqcRejectReason;
     private String applicationStatus;
+    /** Formal QA closure; original PQC receipt remains immutable. */
+    private Long qaClosureReviewId;
     private String sourceSnapshotHash;
     private String reportSnapshotHash;
     private Integer version;

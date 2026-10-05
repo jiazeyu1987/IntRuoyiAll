@@ -33,12 +33,16 @@ public class MesActiveOrderHandoffOwnerResolver {
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper orders;
 
     public void user(Long id,String permission) {
+        identityUser(id);
+        require(permissions.hasAnyPermissions(id,permission),
+                "交接负责人缺少岗位办理权限："+permission);
+    }
+
+    private void identityUser(Long id) {
         require(id!=null&&id>0,"交接负责人缺少正式系统账号");
         var user=users.selectById(id);
         require(user!=null&&Objects.equals(user.getTenantId(),tenant())&&CommonStatusEnum.isEnable(user.getStatus()),
                 "交接负责人系统账号不存在、非本租户或已停用");
-        require(permissions.hasAnyPermissions(id,permission),
-                "交接负责人缺少岗位办理权限："+permission);
     }
 
     public record SubmissionIdentity(String domain,Long signerId,Long operatorId) {
@@ -61,7 +65,7 @@ public class MesActiveOrderHandoffOwnerResolver {
                     &&identity.path("signerId").isIntegralNumber()&&Objects.equals(identity.path("signerId").longValue(),event.getActualEmployeeId())
                     &&identity.path("operatorId").isIntegralNumber()&&Objects.equals(identity.path("operatorId").longValue(),event.getDeviceAccountId()),
                     "生产原签名身份域、签名人与正式操作者不一致");
-            if("SYSTEM_USER".equals(domain)) user(event.getActualEmployeeId(),"mes:pro-feedback:create");
+            if("SYSTEM_USER".equals(domain)) identityUser(event.getActualEmployeeId());
             // Existing PROFILE signatures have no system account. Preserve that formal business domain;
             // notification recipients remain the real system leader, never the device or a guessed user.
             return new SubmissionIdentity(domain,event.getActualEmployeeId(),event.getDeviceAccountId());
@@ -74,7 +78,7 @@ public class MesActiveOrderHandoffOwnerResolver {
         var task=pqcTask(event);
         var signature=signatureIdentities.read(event.getSignatureId(),event.getId(),task.getActiveOrderId(),"PQC_SUBMIT");
         require(signature!=null&&Objects.equals(signature.getSignatureId(),event.getSignatureId()),"交接禁止使用无法核验的PQC提交签名");
-        user(event.getActualEmployeeId(),"mes:pro-feedback:create");
+        identityUser(event.getActualEmployeeId());
         return new SubmissionIdentity("SYSTEM_USER",event.getActualEmployeeId(),event.getDeviceAccountId());
     }
     /** Freezes the actual signer for a submission, and the actual system actor for other commands. */

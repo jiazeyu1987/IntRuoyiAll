@@ -44,12 +44,10 @@ class MesReleaseReworkBatchConstraintTest {
 
     private void close(Statement sql, int id, String decision) throws Exception {
         String statement = String.join(" ", MesProcessPoolActiveOrderReleaseApplicationMapper.class
-                .getMethod("closeFromNonconformance", Long.class, Integer.class, String.class, Long.class,
-                        java.time.LocalDateTime.class, String.class, String.class).getAnnotation(Update.class).value())
+                .getMethod("closeLifecycleFromNonconformance", Long.class, Integer.class, String.class, Long.class).getAnnotation(Update.class).value())
                 .replace("b'0'", "FALSE").replace("#{id}", String.valueOf(id))
-                .replace("#{expectedVersion}", "2").replace("#{pqcDecision}", "'" + decision + "'")
-                .replace("#{decidedBy}", "9").replace("#{decidedAt}", "CURRENT_TIMESTAMP")
-                .replace("#{rejectReason}", "'review opinion'").replace("#{dossierSummaryJson}", "'{}'");
+                .replace("#{expectedVersion}", "2").replace("#{closureStatus}", "'" + decision + "'")
+                .replace("#{reviewId}", "9");
         assertEquals(1, sql.executeUpdate(statement));
     }
 

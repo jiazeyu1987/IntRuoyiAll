@@ -81,6 +81,22 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     @Test
+    void ordinaryLeaderCorrectionRejectsReturnedSystemEmployeeBeforeSignatureOrMutation() {
+        var original = event();
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        var reviews = (cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper)
+                ReflectionTestUtils.getField(service, "submissionReviews");
+        when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO.builder()
+                        .id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build());
+        var error = assertThrows(IllegalStateException.class, () -> service.correct(command()));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("本人退回待办"));
+        org.mockito.Mockito.verifyNoInteractions(signatureService, revisionService, fragmentMapper, reportManagementSummaryService);
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+        assertEquals(event().getRawPayload(), original.getRawPayload());
+    }
+
+    @Test
     void rejectedOwnContextFailsBeforeAnyBusinessWriteOrSignature() {
         var own=org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
         ReflectionTestUtils.setField(service,"ownReturnService",own);
@@ -123,6 +139,8 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         org.mockito.Mockito.lenient().when(fixtureOwners.submissionIdentity(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER", call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getActualEmployeeId(), call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getDeviceAccountId()));
         ReflectionTestUtils.setField(service,"sharedReportGuard",MesSharedProductionReportCorrectionGuardTest.openFixture());
         initializeAuditFixture();
+        ReflectionTestUtils.setField(service, "submissionReviews", org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper.class));
         lenient().when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L))).thenReturn(List.of(formalFeedback()));
         lenient().when(feedbackMapper.updateCorrectedProductionReport(
                 nullable(Long.class), nullable(BigDecimal.class), nullable(BigDecimal.class),

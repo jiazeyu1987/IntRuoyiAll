@@ -33,6 +33,7 @@ import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import lombok.RequiredArgsConstructor;
+import jakarta.annotation.Resource;
 import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +74,8 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private final MesMdUnitMeasureMapper unitMeasureMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProcessPoolActiveOrderCompletionReceiptMapper completionReceiptMapper;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -107,6 +110,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             ErpKingdeeProperties kingdeeProperties,
             List<ErpKingdeeProductionOrder> productionOrders,
             boolean skipExisting) {
+        // The outer transaction can update other orders before later cancelling a void order.
+        // Acquire the shared audit ledger before its first business read/write lock.
+        gxpAuditService.acquireLedgerLock();
         MesKingdeeProductionOrderSyncResult result = new MesKingdeeProductionOrderSyncResult();
         Set<String> processedSourceKeys = new LinkedHashSet<>();
         Set<String> processedWorkOrderCodes = new LinkedHashSet<>();

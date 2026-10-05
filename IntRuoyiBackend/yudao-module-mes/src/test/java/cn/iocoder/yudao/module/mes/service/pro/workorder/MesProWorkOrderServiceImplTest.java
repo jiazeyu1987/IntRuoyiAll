@@ -89,6 +89,11 @@ class MesProWorkOrderServiceImplTest {
     @Mock
     private MesReportAllocationOrderChangeService reportAllocationOrderChangeService;
 
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService releaseStateService;
+    @Mock private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
@@ -253,7 +258,8 @@ class MesProWorkOrderServiceImplTest {
     void cancelWorkOrder_shouldReturnUnreleasedAllocationsBeforeStatusChange() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder().id(202L)
                 .status(MesProWorkOrderStatusEnum.CONFIRMED.getStatus()).build();
-        when(workOrderMapper.selectById(202L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(202L)).thenReturn(workOrder);
+        when(workOrderMapper.updateById(any(MesProWorkOrderDO.class))).thenReturn(1);
 
         workOrderService.cancelWorkOrder(202L);
 

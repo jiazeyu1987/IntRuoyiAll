@@ -86,9 +86,16 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class})
+@Import({MesProEdhrWorkTaskServiceImpl.class, MesProEdhrCandidateResolver.class, MesProEdhrWorkTaskServiceImplTest.SqlDialect.class})
 class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
+    @org.springframework.boot.test.context.TestConfiguration
+    static class SqlDialect {
+        @org.springframework.context.annotation.Bean
+        org.apache.ibatis.plugin.Interceptor mysqlBitsForIsolatedH2() { return new MesNcrScopeAuditTransactionTest.MysqlBitsForH2(); }
+    }
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrders;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
@@ -2601,6 +2608,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     private MesProEdhrWorkTaskDO insertFillTask(Long executionId, Long batchTaskId, String suffix) {
+        if (batchExecutionMapper.selectById(1001L) == null) insertBatch(batchForInitialFill(1001L, 4001L).setStatus(10).setTenantId(122L));
+        if (workOrders.selectById(3001L) == null) {
+            var order = cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(3001L).code("WO-001").name("Fill fixture").status(1).build();
+            order.setTenantId(122L);
+            workOrders.insert(order);
+        }
         MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO()
                 .setTaskCode("EDHRT-FILL-" + suffix)
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)

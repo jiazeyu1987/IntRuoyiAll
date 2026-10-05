@@ -17,6 +17,11 @@ import java.util.Objects;
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
 
+    @Update("UPDATE mes_pro_process_pool_active_order SET active_status = 'REMOVED', business_status = 'CANCELED', "
+            + "removed_at = #{at}, version = version + 1 WHERE id = #{id} AND version = #{version} "
+            + "AND active_status = 'ACTIVE' AND business_status = 'ACTIVE' AND deleted = 0")
+    int cancelActiveCycle(@Param("id") Long id, @Param("version") Integer version, @Param("at") LocalDateTime at);
+
     @Update("UPDATE mes_pro_process_pool_active_order " +
             "SET simulated = #{simulated}, simulation_stage = #{simulationStage}, " +
             "simulation_run_id = #{simulationRunId}, update_time = NOW() " +

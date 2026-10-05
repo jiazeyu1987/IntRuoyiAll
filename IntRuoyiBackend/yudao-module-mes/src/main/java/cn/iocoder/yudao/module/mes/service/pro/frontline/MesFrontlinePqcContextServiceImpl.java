@@ -1358,6 +1358,11 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             appendPqcSubmitGxpAudit(task, event.getId());
             return result;
         }
+        var formalWorkOrder = workOrderMapper.selectByIdForUpdate(task.getWorkOrderId());
+        if (formalWorkOrder == null || !Objects.equals(formalWorkOrder.getTenantId(), task.getTenantId())
+                || !cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum.CONFIRMED.getStatus().equals(formalWorkOrder.getStatus())) {
+            throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, "workOrder.notConfirmed");
+        }
         String rawPayload = buildPqcInspectionEventRawPayload(command, pieceDetails, inspectionResult);
         String performedBy = MesFrontlineAuditIdentity.pqc(
                 requirePqcEmployee(loginUserId, command.getActualEmployeeId()));

@@ -323,6 +323,20 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
         return applyMyTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId, includeProcessFormCandidates);
     }
 
+    default int completePqcQaClosureTask(Long id, Long applicationId, Long reviewId,
+                                        LocalDateTime at, String closure) {
+        return update(new MesProEdhrWorkTaskDO().setStatus(MesProEdhrWorkTaskStatus.DONE)
+                        .setCompletedAt(at).setReason(closure)
+                        .setReviewSourceType("EDHR_NONCONFORMANCE_REVIEW").setReviewSourceId(reviewId),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeId, applicationId)
+                        .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyFilterWrapper(MesProEdhrWorkTaskPageReqVO reqVO) {
         return new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
@@ -416,9 +430,39 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 + " AND pa.pqc_decided_at = mes_pro_edhr_work_task.completed_at"
                                 + " AND CAST(pa.pqc_decision AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
                                 + " AND ((pa.pqc_decision = 'APPROVE' AND pa.application_status IN"
-                                + " ('REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED'))"
+                                + " ('REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED','NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID'))"
                                 + " OR (pa.pqc_decision = 'REJECT' AND pa.application_status = 'PQC_RELEASE_REJECTED'"
-                                + " AND pa.pqc_reject_reason IS NOT NULL AND TRIM(pa.pqc_reject_reason) <> '')))", userId))
+                                + " AND pa.pqc_reject_reason IS NOT NULL AND TRIM(pa.pqc_reject_reason) <> ''))"
+                                + " AND (pa.application_status NOT IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') OR EXISTS"
+                                + " (SELECT 1 FROM mes_pro_edhr_nonconformance_review nr WHERE nr.id = pa.qa_closure_review_id"
+                                + " AND nr.tenant_id = pa.tenant_id AND nr.deleted = 0 AND nr.review_status = 'closed'"
+                                + " AND nr.active_order_id = pa.active_order_id AND nr.work_order_id = pa.work_order_id"
+                                + " AND (nr.batch_execution_id IS NULL OR nr.batch_execution_id = pa.batch_execution_id)"
+                                + " AND nr.closed_at IS NOT NULL AND nr.qa_user_id > 0"
+                                + " AND ((nr.disposition = 'rework' AND pa.application_status = 'NONCONFORMANCE_REWORK')"
+                                + " OR (nr.disposition = 'void' AND pa.application_status = 'NONCONFORMANCE_VOID')))))", userId))
+                .or(qa -> qa.eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .eq(MesProEdhrWorkTaskDO::getReviewSourceType, "EDHR_NONCONFORMANCE_REVIEW")
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_edhr_nonconformance_review nr"
+                                + " JOIN mes_pro_process_pool_active_order_release_application pa ON pa.qa_closure_review_id = nr.id"
+                                + " AND pa.tenant_id = nr.tenant_id AND pa.deleted = 0"
+                                + " JOIN system_users qu ON qu.id = nr.qa_user_id AND qu.tenant_id = nr.tenant_id"
+                                + " AND qu.deleted = 0 AND qu.status = 0"
+                                + " WHERE nr.id = mes_pro_edhr_work_task.review_source_id AND nr.deleted = 0"
+                                + " AND nr.tenant_id = mes_pro_edhr_work_task.tenant_id"
+                                + " AND nr.review_status = 'closed' AND nr.qa_user_id = {0}"
+                                + " AND pa.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
+                                + " AND nr.active_order_id = pa.active_order_id AND (nr.batch_execution_id IS NULL OR nr.batch_execution_id = pa.batch_execution_id)"
+                                + " AND nr.work_order_id = pa.work_order_id AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND (mes_pro_edhr_work_task.batch_execution_id IS NULL OR mes_pro_edhr_work_task.batch_execution_id = pa.batch_execution_id)"
+                                + " AND pa.pqc_decision IS NULL AND pa.pqc_decided_by IS NULL AND pa.pqc_decided_at IS NULL"
+                                + " AND nr.closed_at = mes_pro_edhr_work_task.completed_at"
+                                + " AND pa.application_status = mes_pro_edhr_work_task.reason"
+                                + " AND ((nr.disposition = 'rework' AND pa.application_status = 'NONCONFORMANCE_REWORK')"
+                                + " OR (nr.disposition = 'void' AND pa.application_status = 'NONCONFORMANCE_VOID')))", userId))
                 .or(actor -> actor
                         .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
                         .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_TRANSACTION")

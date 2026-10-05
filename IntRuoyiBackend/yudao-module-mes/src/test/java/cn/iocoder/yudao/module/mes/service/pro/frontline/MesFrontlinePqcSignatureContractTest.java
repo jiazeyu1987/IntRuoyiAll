@@ -122,6 +122,7 @@ class MesFrontlinePqcSignatureContractTest extends BaseDbUnitTest {
         processPoolEventMapper = persistedEvents;
         processSnapshotMapper = mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
         workOrderMapper = mock(MesProWorkOrderMapper.class);
+        when(workOrderMapper.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(WORK_ORDER_ID).status(1).build());
         routeMapper = mock(MesProRouteMapper.class);
         routeVersionMapper = mock(MesProRouteVersionMapper.class);
         dccProjectCodeMapper = mock(DccProjectCodeMapper.class);

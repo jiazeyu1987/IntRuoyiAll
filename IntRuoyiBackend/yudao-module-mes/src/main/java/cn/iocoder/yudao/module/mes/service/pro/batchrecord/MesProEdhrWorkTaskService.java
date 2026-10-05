@@ -130,6 +130,8 @@ public interface MesProEdhrWorkTaskService {
 
     void cancelActiveTasksByBatch(Long batchExecutionId, String reason);
 
+    void cancelActiveFillTasksByBatch(Long batchExecutionId, String reason);
+
     void cancelPqcReleaseTaskForBatchVoid(
             cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO application,
             Long changeEventId, String reason);

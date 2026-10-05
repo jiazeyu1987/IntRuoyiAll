@@ -201,28 +201,12 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
                           @Param("rejectReason") String rejectReason,
                           @Param("dossierSummaryJson") String dossierSummaryJson);
 
-    @Update("""
-            UPDATE mes_pro_process_pool_active_order_release_application
-            SET application_status = 'PQC_RELEASE_REJECTED',
-                pqc_decision = #{pqcDecision},
-                pqc_decided_by = #{decidedBy},
-                pqc_decided_at = #{decidedAt},
-                pqc_reject_reason = #{rejectReason},
-                dossier_summary_json = #{dossierSummaryJson},
-                version = version + 1
-            WHERE id = #{id}
-              AND deleted = b'0'
-              AND version = #{expectedVersion}
-              AND application_status IN ('PQC_RELEASE_PENDING', 'REPORT_UPLOAD_PENDING',
-                                         'MANAGER_RELEASE_PENDING', 'RELEASED')
-            """)
-    int closeFromNonconformance(@Param("id") Long id,
-                                @Param("expectedVersion") Integer expectedVersion,
-                                @Param("pqcDecision") String pqcDecision,
-                                @Param("decidedBy") Long decidedBy,
-                                @Param("decidedAt") LocalDateTime decidedAt,
-                                @Param("rejectReason") String rejectReason,
-                                @Param("dossierSummaryJson") String dossierSummaryJson);
+    @Update("UPDATE mes_pro_process_pool_active_order_release_application SET application_status = #{closureStatus}, qa_closure_review_id = #{reviewId}, "
+            + "version = version + 1 WHERE id = #{id} AND deleted = 0 AND version = #{expectedVersion} "
+            + "AND #{reviewId} > 0 AND #{closureStatus} IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') "
+            + "AND application_status IN ('PQC_RELEASE_PENDING','REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED')")
+    int closeLifecycleFromNonconformance(@Param("id") Long id, @Param("expectedVersion") Integer expectedVersion,
+                                         @Param("closureStatus") String closureStatus, @Param("reviewId") Long reviewId);
 
     default MesProcessPoolActiveOrderReleaseApplicationDO selectByRequestIdempotencyKey(
             Long activeOrderId, String requestIdempotencyKey) {
@@ -276,7 +260,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
     @Select("""
             SELECT * FROM mes_pro_process_pool_active_order_release_application
             WHERE active_order_id = #{activeOrderId} AND deleted = b'0'
-              AND application_status = 'PQC_RELEASE_REJECTED' AND pqc_decision = 'NONCONFORMANCE_REWORK'
+              AND application_status = 'NONCONFORMANCE_REWORK'
             ORDER BY id DESC LIMIT 1
             """)
     MesProcessPoolActiveOrderReleaseApplicationDO selectLatestReworkClosedByActiveOrderIdInternal(
@@ -286,8 +270,7 @@ public interface MesProcessPoolActiveOrderReleaseApplicationMapper
         if (applicationIds == null || applicationIds.isEmpty()) return List.of();
         return selectList(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
                 .in(MesProcessPoolActiveOrderReleaseApplicationDO::getId, applicationIds)
-                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getApplicationStatus, "PQC_RELEASE_REJECTED")
-                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getPqcDecision, "NONCONFORMANCE_REWORK"))
+                .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getApplicationStatus, "NONCONFORMANCE_REWORK"))
                 .stream().map(MesProcessPoolActiveOrderReleaseApplicationDO::getId).toList();
     }
 

@@ -20,6 +20,28 @@ class MesActiveOrderHandoffOwnerResolverTest {
  MesActiveOrderHandoffOwnerResolver service;AdminUserMapper users;PermissionApi permissions;MesProcessPoolTeamLeaderScopeMapper scopes;MesProductionSignatureEvidenceService evidence;ElectronicSignatureQueryService signatures;MesPqcInspectionTaskMapper pqcTasks;
  @BeforeEach void setup(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffOwnerResolver();users=mock(AdminUserMapper.class);permissions=mock(PermissionApi.class);scopes=mock(MesProcessPoolTeamLeaderScopeMapper.class);evidence=mock(MesProductionSignatureEvidenceService.class);signatures=mock(ElectronicSignatureQueryService.class);pqcTasks=mock(MesPqcInspectionTaskMapper.class);for(var e:Map.of("users",users,"permissions",permissions,"scopes",scopes,"productionEvidence",evidence,"signatureQuery",signatures,"pqcTasks",pqcTasks).entrySet())ReflectionTestUtils.setField(service,e.getKey(),e.getValue());}
  @AfterEach void clear(){TenantContextHolder.clear();}
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"PRODUCTION","PQC"})
+ void historicalSignerSurvivesExpiredCreateGrantWhileNewHandlingStillRequiresIt(String kind) {
+  var user=AdminUserDO.builder().id(kind.equals("PRODUCTION")?342L:344L).status(0).build();user.setTenantId(1L);
+  when(users.selectById(user.getId())).thenReturn(user);
+  MesProProcessPoolEventDO event;
+  if(kind.equals("PRODUCTION")){event=production("SYSTEM_USER");bind(event,"SYSTEM_USER");}
+  else {
+   event=pqcEvent().setSignatureId(902L).setSignatureUserId(344L)
+           .setSignatureSnapshot("{\"performedBy\":{\"actorType\":\"SYSTEM_USER\",\"actorId\":\"344\"}}");
+   when(pqcTasks.selectById(55L)).thenReturn(pqcTask());
+   var reader=mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader.class);
+   ReflectionTestUtils.setField(service,"signatureIdentities",reader);
+   when(reader.read(902L,176L,413L,"PQC_SUBMIT")).thenReturn(
+           new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(902L));
+  }
+  assertEquals(user.getId(),service.originalActor(event));
+  verifyNoInteractions(permissions);
+  assertThrows(RuntimeException.class,()->service.user(user.getId(),"mes:pro-feedback:create"));
+  user.setStatus(1);assertThrows(RuntimeException.class,()->service.originalActor(event));
+  user.setStatus(0);user.setTenantId(2L);assertThrows(RuntimeException.class,()->service.originalActor(event));
+ }
  @Test void enabledSystemAccountStillNeedsActualHandlingPermission(){var u=AdminUserDO.builder().id(341L).status(0).build();u.setTenantId(1L);when(users.selectById(341L)).thenReturn(u);assertThrows(RuntimeException.class,()->service.user(341L,"mes:pro-process-pool-team-leader:review"));when(permissions.hasAnyPermissions(341L,"mes:pro-process-pool-team-leader:review")).thenReturn(true);assertDoesNotThrow(()->service.user(341L,"mes:pro-process-pool-team-leader:review"));u.setStatus(1);assertThrows(RuntimeException.class,()->service.user(341L,"mes:pro-process-pool-team-leader:review"));u.setStatus(0);u.setTenantId(2L);assertThrows(RuntimeException.class,()->service.user(341L,"mes:pro-process-pool-team-leader:review"));}
  @Test void employeeBindingSuppliesReviewOwnerWithoutInventedProcessScope(){var e=pqcEvent();when(pqcTasks.selectById(55L)).thenReturn(pqcTask());when(scopes.selectActiveScopesByLeaderType("PQC")).thenReturn(List.of(scope(343L,"EMPLOYEE",null)));allowUser(343L,"mes:pro-process-pool-team-leader:review");assertEquals(343L,service.pqcLeader(e));assertNull(e.getProcessId());assertNull(e.getRouteProcessId());assertEquals(985L,e.getQaProcessId());verify(scopes,never()).selectActiveScopesByLeader(anyLong(),anyString());}
  @Test void reviewOnlyLeaderIsFrozenHandlerButNotAnExtraCreateRecipient(){when(scopes.selectActiveScopesByLeaderType("PQC")).thenReturn(List.of(scope(343L,"EMPLOYEE",null)));allowUser(343L,"mes:pro-process-pool-team-leader:review");allowUser(344L,"mes:pro-feedback:create");assertEquals(List.of(343L),service.validatePqcHandoffCandidates("344"));verify(permissions,never()).hasAnyPermissions(343L,"mes:pro-feedback:create");verify(scopes,never()).selectActiveScopesByLeader(anyLong(),anyString());}

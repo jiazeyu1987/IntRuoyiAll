@@ -298,10 +298,12 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
             when(equipmentConfigService.listEnabledEquipmentOptionsByProjectVersionAndItemCodes(
                     anyLong(), anyLong(), any())).thenReturn(Map.of());
 
+            var workOrders = mock(MesProWorkOrderMapper.class);
+            when(workOrders.selectByIdForUpdate(WORK_ORDER_ID)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(WORK_ORDER_ID).status(1).build());
             service = new MesFrontlinePqcContextServiceImpl(activeOrderMapper, eventMapper,
                     processSnapshotMapper,
                     mock(MesProcessPoolTeamDeviceMapper.class),
-                    mock(MesProWorkOrderMapper.class), mock(MesProRouteMapper.class),
+                    workOrders, mock(MesProRouteMapper.class),
                     mock(MesProRouteVersionMapper.class), dccMapper, regulationMapper, versionMapper,
                     processMapper, itemMapper, mock(MesQaInspectionRegulationService.class),
                     equipmentConfigService,

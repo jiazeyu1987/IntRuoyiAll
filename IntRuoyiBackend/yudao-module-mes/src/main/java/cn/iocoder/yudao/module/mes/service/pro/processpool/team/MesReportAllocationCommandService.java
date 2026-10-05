@@ -550,11 +550,21 @@ public class MesReportAllocationCommandService {
                     eventId, existingReview.getReviewStatus());
         }
 
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工退回");
         Set<Long> activeOrderIds = current.stream()
+                .filter(line -> line.getAllocatedQuantity() != null && line.getAllocatedQuantity().signum() > 0)
                 .map(MesProcessPoolReportAllocationDO::getActiveOrderId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         assertActiveOrdersOpenForProduction(activeOrderIds, Map.of());
+        for (Long activeOrderId : activeOrderIds.stream().sorted().toList()) {
+            var order = activeOrderMapper.selectByIdForUpdate(activeOrderId);
+            if (order == null || !Objects.equals(order.getTenantId(), event.getTenantId())
+                    || order.getWorkOrderId() == null) {
+                throw new IllegalStateException("生产退回目标缺少正式同租户工单");
+            }
+            nonconformanceReviewService.ensureWorkOrderNotFrozen(order.getWorkOrderId(), "生产报工退回");
+        }
         Set<Long> releasedActiveOrderIds = releaseStateService.findReleasedActiveOrderIdsForUpdate(activeOrderIds);
         if (!releasedActiveOrderIds.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED,

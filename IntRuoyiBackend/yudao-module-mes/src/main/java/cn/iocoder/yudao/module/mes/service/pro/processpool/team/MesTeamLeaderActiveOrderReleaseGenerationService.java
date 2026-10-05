@@ -492,8 +492,7 @@ public class MesTeamLeaderActiveOrderReleaseGenerationService {
         if (existing == null) {
             return false;
         }
-        return MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(existing.getApplicationStatus())
-                && NONCONFORMANCE_REWORK.equals(existing.getPqcDecision());
+        return NONCONFORMANCE_REWORK.equals(existing.getApplicationStatus());
     }
 
     private MesProcessPoolActiveOrderReleaseApplicationDO requireCurrentApplication(

@@ -103,6 +103,14 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         var aggregation = mock(MesPqcProcessInspectionAggregationService.class);
         var producer = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class),
                 events, reviews, aggregation);
+        // Actual open freeze authority; persistence reads are boundaries for this signature/transaction fixture.
+        var openFreeze = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"reviewMapper",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper.class));
+        var openOrders = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        org.mockito.Mockito.lenient().when(openOrders.selectByIdForUpdate(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call ->
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(call.getArgument(0)).temporaryFrozen(false).build());
+        org.springframework.test.util.ReflectionTestUtils.setField(openFreeze,"workOrderMapper",openOrders);
+        org.springframework.test.util.ReflectionTestUtils.setField(producer,"nonconformanceReviewService",openFreeze);
         { org.springframework.test.util.ReflectionTestUtils.setField(producer, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(producer, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(producer, "signatureService", signatures);
@@ -145,7 +153,7 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         assertEquals("PQC", signatureSnapshot.path("leaderType").asText());
         assertEquals("APPROVED", signatureSnapshot.path("reviewStatus").asText());
         verify(audit).acquireLedgerLock();
-        verify(tasks).selectById(8001L);
+        verify(tasks, org.mockito.Mockito.atLeastOnce()).selectById(8001L);
         verify(audit).append(argThat(command -> "mes.pqc.review.approve".equals(command.getOperationId())
                 && "9101".equals(command.getSignatureRecordId())
                 && command.getLinks().stream().anyMatch(link -> "ACTIVE_ORDER".equals(link.objectType())

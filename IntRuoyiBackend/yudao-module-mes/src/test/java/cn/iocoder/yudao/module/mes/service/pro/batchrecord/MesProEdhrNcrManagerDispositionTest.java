@@ -246,11 +246,8 @@ class MesProEdhrNcrManagerDispositionTest {
         }
         when(releaseApplicationMapper.selectListByActiveOrderIdsForUpdate(List.of(activeOrderId)))
                 .thenReturn(List.of(application, laterApplication));
-        when(releaseApplicationMapper.closeFromNonconformance(eq(applicationId), eq(3), eq(decision),
-                eq(900L), any(), eq("QA disposition"), any())).thenAnswer(invocation -> {
-            application.setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED).setVersion(4)
-                    .setPqcDecision(decision).setPqcDecidedBy(900L).setPqcDecidedAt(invocation.getArgument(4))
-                    .setPqcRejectReason("QA disposition").setDossierSummaryJson(invocation.getArgument(6));
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(applicationId), eq(3), eq(decision), any())).thenAnswer(invocation -> {
+            application.setApplicationStatus(invocation.getArgument(2)).setVersion(4).setQaClosureReviewId(invocation.getArgument(3));
             return 1;
         });
         when(workTaskMapper.selectByIdForUpdate(pqcTaskId)).thenReturn(pqcTask);
@@ -328,8 +325,7 @@ class MesProEdhrNcrManagerDispositionTest {
             TenantContextHolder.clear();
         }
 
-        verify(releaseApplicationMapper).closeFromNonconformance(eq(applicationId), eq(3), eq(decision),
-                eq(900L), any(), eq("QA disposition"), any());
+        verify(releaseApplicationMapper).closeLifecycleFromNonconformance(eq(applicationId), eq(3), eq(decision), any());
         if (DISPOSITION_REWORK.equals(disposition)) {
             verify(reworkCycleService).start(eq(activeOrderId), eq(workOrderId), eq(review.getId()), any());
         }
@@ -356,7 +352,8 @@ class MesProEdhrNcrManagerDispositionTest {
         assertEquals("电子签名#9000", reviewUpdate.getValue().getQaSignature());
         assertEquals(disposition, reviewUpdate.getValue().getDisposition());
         assertEquals(MesProEdhrNonconformanceReviewService.STATUS_CLOSED, review.getReviewStatus());
-        assertEquals(MesReleaseFlowStatus.PQC_RELEASE_REJECTED, application.getApplicationStatus());
+        assertEquals(decision, application.getApplicationStatus());
+        assertEquals(review.getId(), application.getQaClosureReviewId());
         assertEquals(MesProEdhrWorkTaskStatus.CANCELED, managerTask.getStatus());
         var unifiedCommand = ArgumentCaptor.forClass(
                 cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);

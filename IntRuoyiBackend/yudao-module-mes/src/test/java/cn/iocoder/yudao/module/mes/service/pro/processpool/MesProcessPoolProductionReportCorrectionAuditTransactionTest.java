@@ -120,6 +120,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 session.getMapper(MesProFeedbackMaterialMapper.class), (MesProcessPoolEventRevisionService) tx(revisionTarget, manager),
                 signer, mock(MesFrontlineLossReasonValidator.class), scope, summary);
         org.springframework.test.util.ReflectionTestUtils.setField(target, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        ReflectionTestUtils.setField(target,"submissionReviews",mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper.class));
         ReflectionTestUtils.setField(target,"sharedReportGuard",MesSharedProductionReportCorrectionGuardTest.openFixture(20L,30L));
         var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
         org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffOwners", fixtureOwners);

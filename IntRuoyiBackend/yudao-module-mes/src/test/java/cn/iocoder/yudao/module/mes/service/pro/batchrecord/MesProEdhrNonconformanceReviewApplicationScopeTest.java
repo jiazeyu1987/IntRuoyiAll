@@ -112,6 +112,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @BeforeEach
     void setUp() {
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(service, "workTaskService", org.mockito.Mockito.mock(MesProEdhrWorkTaskService.class));
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         // Type-based optional injection keeps the pre-implementation RED at the missing behavior,
         // not at ReflectionTestUtils failing because the production dependency does not exist yet.
@@ -521,9 +522,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     void disposingApplicationReviewRecordsActiveOrderOperationFact() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
@@ -1121,16 +1121,14 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
         when(signatureService.recordQaDispositionSignature(eq(21L), eq(2601L), eq("qa-signature-password"),
                 eq("返工处理"), any())).thenReturn(9601L);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8601L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8601L), any(), any(), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
 
         service.dispose(disposeRequest(2601L, "rework"));
 
         verify(releaseApplicationMapper).selectListByActiveOrderIdsForUpdate(java.util.List.of(8101L));
-        verify(releaseApplicationMapper).closeFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any());
-        verify(workTaskMapper).completePqcDecisionTask(eq(8601L), any(), eq("NONCONFORMANCE_REWORK"));
+        verify(releaseApplicationMapper).closeLifecycleFromNonconformance(eq(7601L), eq(1), eq("NONCONFORMANCE_REWORK"), any());
+        verify(workTaskMapper).completePqcQaClosureTask(eq(8601L), any(), any(), any(), eq("NONCONFORMANCE_REWORK"));
     }
 
     @Test
@@ -1170,8 +1168,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         service.dispose(disposeRequest("concession_release"));
 
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3001L), false);
-        verify(releaseApplicationMapper, never()).closeFromNonconformance(
-                any(), any(), any(), any(), any(), any(), any());
+        verify(releaseApplicationMapper, never()).closeLifecycleFromNonconformance(any(), any(), any(), any());
         verify(workTaskMapper, never()).completePqcDecisionTask(any(), any(), any());
     }
 
@@ -1179,9 +1176,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     void qaReworkStartsNewActiveOrderCycleWithoutReusingCompletedOrder() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
@@ -1196,9 +1192,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     void replayingSameQaReworkReturnsClosedReviewWithoutCreatingAnotherCycle() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
         service.dispose(disposeRequest("rework"));
         ArgumentCaptor<MesProEdhrNonconformanceReviewDO> updated = ArgumentCaptor.forClass(MesProEdhrNonconformanceReviewDO.class);
         verify(reviewMapper).updateById(updated.capture());
@@ -1222,39 +1217,36 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     void reworkClosesApplicationAndPqcTaskAndRestoresOriginalWorkOrderState() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
 
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3001L), false);
-        verify(workTaskMapper).completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK"));
+        verify(workTaskMapper).completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK"));
     }
 
     @Test
     void voidClosesApplicationAndPqcTaskAndKeepsWorkOrderFrozen() {
         stubPendingReview("void");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), true)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_VOID"),
-                eq(21L), any(), eq("作废处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_VOID")))
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_VOID"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_VOID")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("void"));
 
         verify(workOrderMapper).updateTemporaryFrozenByIds(java.util.List.of(3001L), true);
-        verify(workTaskMapper).completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_VOID"));
+        verify(workTaskMapper).completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_VOID"));
     }
 
     @Test
     void disposeRecordsQaElectronicSignatureSnapshot() {
         stubPendingReview("rework");
         when(workOrderMapper.updateTemporaryFrozenByIds(java.util.List.of(3001L), false)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK")))
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK")))
                 .thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
@@ -1698,7 +1690,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         verify(reviewMapper, never()).insert(any(MesProEdhrNonconformanceReviewDO.class));
         verify(workOrderMapper, never()).updateTemporaryFrozenByIds(any(), any());
         verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
-        verify(releaseApplicationMapper, never()).closeFromNonconformance(any(), any(), any(), any(), any(), any(), any());
+        verify(releaseApplicationMapper, never()).closeLifecycleFromNonconformance(any(), any(), any(), any());
         verify(workTaskMapper, never()).completePqcDecisionTask(any(), any(), any());
         verifyNoInteractions(signatureService, operationAuditService);
     }
@@ -1817,11 +1809,11 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         var after = auditClosureAffectedState(command.getAfterState());
         assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING,
                 before.getJSONObject("releaseApplication").getString("applicationStatus"));
-        assertEquals(MesReleaseFlowStatus.PQC_RELEASE_REJECTED,
+        assertEquals("NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT),
                 after.getJSONObject("releaseApplication").getString("applicationStatus"));
         assertEquals(1, before.getJSONObject("releaseApplication").getIntValue("version"));
         assertEquals(2, after.getJSONObject("releaseApplication").getIntValue("version"));
-        assertEquals("NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT),
+        assertEquals(before.getJSONObject("releaseApplication").getString("pqcDecision"),
                 after.getJSONObject("releaseApplication").getString("pqcDecision"));
         assertEquals(MesProEdhrWorkTaskStatus.TODO, before.getJSONObject("pqcReleaseTask").getString("status"));
         assertEquals(MesProEdhrWorkTaskStatus.DONE, after.getJSONObject("pqcReleaseTask").getString("status"));
@@ -1893,7 +1885,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     void ncr05MissingPersistedAfterApplicationCannotProduceSuccessAudit() {
         var application = stubDispositionAuditClosure("void", false);
         lenient().when(releaseApplicationMapper.selectByIdForUpdate(7001L)).thenAnswer(call ->
-                MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(application.getApplicationStatus()) ? null : application);
+                MesReleaseFlowStatus.NONCONFORMANCE_VOID.equals(application.getApplicationStatus()) ? null : application);
 
         assertThrows(RuntimeException.class, () -> service.dispose(disposeRequest("void")));
         verify(unifiedAudit, never()).append(any());
@@ -1991,16 +1983,12 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
             return null;
         }).when(tasks).cancelReleaseApprovalTask(eq(9301L), any());
         String decision = "NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT);
-        lenient().when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq(decision),
-                eq(21L), any(), any(), any())).thenAnswer(call -> {
-                    application.setApplicationStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED).setVersion(2)
-                            .setPqcDecision(call.getArgument(2)).setPqcDecidedBy(call.getArgument(3))
-                            .setPqcDecidedAt(call.getArgument(4)).setPqcRejectReason(call.getArgument(5))
-                            .setDossierSummaryJson(call.getArgument(6));
+        lenient().when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq(decision), any())).thenAnswer(call -> {
+                    application.setApplicationStatus(call.getArgument(2)).setVersion(2).setQaClosureReviewId(call.getArgument(3));
                     return 1;
                 });
-        lenient().when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq(decision))).thenAnswer(call -> {
-            pqc.setStatus(MesProEdhrWorkTaskStatus.DONE).setCompletedAt(call.getArgument(1)).setReason(call.getArgument(2));
+        lenient().when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq(decision))).thenAnswer(call -> {
+            pqc.setStatus(MesProEdhrWorkTaskStatus.DONE).setCompletedAt(call.getArgument(3)).setReason(call.getArgument(4)).setReviewSourceType("EDHR_NONCONFORMANCE_REVIEW").setReviewSourceId(call.getArgument(2));
             return 1;
         });
         var source = activeOrderMapper.selectByIdForUpdate(8101L);
@@ -2102,9 +2090,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         }).when(reviewMapper).updateById(any(MesProEdhrNonconformanceReviewDO.class));
         if (!"concession_release".equals(disposition)) {
             String decision = "NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT);
-            when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq(decision),
-                    eq(21L), any(), any(), any())).thenReturn(1);
-            when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq(decision))).thenReturn(1);
+            when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq(decision), any())).thenReturn(1);
+            when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq(decision))).thenReturn(1);
         }
     }
 
@@ -2192,9 +2179,8 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         var review = reviewMapper.selectByIdForUpdate(1001L);
         review.setPreviousWorkOrderTemporaryFrozen(true);
         when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), true)).thenReturn(1);
-        when(releaseApplicationMapper.closeFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"),
-                eq(21L), any(), eq("返工处理"), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(8001L), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
+        when(releaseApplicationMapper.closeLifecycleFromNonconformance(eq(7001L), eq(1), eq("NONCONFORMANCE_REWORK"), any())).thenReturn(1);
+        when(workTaskMapper.completePqcQaClosureTask(eq(8001L), any(), any(), any(), eq("NONCONFORMANCE_REWORK"))).thenReturn(1);
 
         service.dispose(disposeRequest("rework"));
 
