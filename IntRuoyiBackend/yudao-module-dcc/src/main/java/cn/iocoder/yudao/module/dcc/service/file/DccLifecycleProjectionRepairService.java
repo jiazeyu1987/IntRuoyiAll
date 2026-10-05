@@ -237,7 +237,10 @@ public class DccLifecycleProjectionRepairService {
     }
     private static ControlledContentKey key(DccControlledFileDO f) {return ControlledContentKey.of(f.getTenantId(),ControlledContentType.DCC_CONTROLLED_FILE,str(f.getMasterId()));}
     private static GxpAuditStateEnvelope envelope(DccControlledFileDO f,Object state) {return GxpAuditStateEnvelope.builder().state("PRESENT").objectVersion(f.getVersionNo()).canonicalJson(JsonUtils.toJsonString(state)).build();}
-    private static boolean sameTime(Object value,LocalDateTime time) {return value instanceof java.sql.Timestamp t && t.toLocalDateTime().equals(time);}
+    private static boolean sameTime(Object value,LocalDateTime time) {
+        if(value instanceof LocalDateTime dateTime)return dateTime.equals(time);
+        return value instanceof java.sql.Timestamp timestamp && timestamp.toLocalDateTime().equals(time);
+    }
     private static boolean exactEvent(Map<String,Object> event,DccControlledFileDO file,String type,LocalDateTime time) {
         String expected="DCC:"+file.getTenantId()+":"+file.getId()+":"+file.getProcessInstanceId()+":"+type;
         return Objects.equals(str(event.get("tenant_id")),str(file.getTenantId()))

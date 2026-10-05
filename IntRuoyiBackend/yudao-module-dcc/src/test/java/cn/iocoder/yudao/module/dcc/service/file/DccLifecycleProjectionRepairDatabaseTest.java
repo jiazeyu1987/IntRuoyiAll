@@ -172,4 +172,19 @@ class DccLifecycleProjectionRepairDatabaseTest extends DccNativePlatformLifecycl
         assertTrue(events.selectList().isEmpty());
         assertEquals("FINALIZING",refs.selectByNativeVersion(1L,"DCC_CONTROLLED_FILE","10",2L).getCanonicalStatus());
     }
+
+    @Test void jdbcLocalDateTimeAndTimestampMatchExactEventWithoutTruncationOrStringCoercion() {
+        var file=files.selectById(2L);
+        var event=new HashMap<>(repairJdbc.queryForMap("SELECT * FROM dcc_workflow_lifecycle_event WHERE controlled_file_id=2 AND event_type='CONTROLLED'"));
+        assertEquals(Boolean.TRUE,ReflectionTestUtils.invokeMethod(DccLifecycleProjectionRepairService.class,"exactEvent",event,file,"CONTROLLED",file.getControlledTime()));
+        event.put("occurred_at",file.getControlledTime());
+        assertEquals(Boolean.TRUE,ReflectionTestUtils.invokeMethod(DccLifecycleProjectionRepairService.class,"exactEvent",event,file,"CONTROLLED",file.getControlledTime()),
+                "ConnectorJ LocalDateTime map must match the exact saved control time");
+        event.put("occurred_at",file.getControlledTime().plusNanos(1));
+        assertEquals(Boolean.FALSE,ReflectionTestUtils.invokeMethod(DccLifecycleProjectionRepairService.class,"exactEvent",event,file,"CONTROLLED",file.getControlledTime()));
+        event.put("occurred_at",file.getControlledTime().toString());
+        assertEquals(Boolean.FALSE,ReflectionTestUtils.invokeMethod(DccLifecycleProjectionRepairService.class,"exactEvent",event,file,"CONTROLLED",file.getControlledTime()));
+        event.put("occurred_at",file.getControlledTime());event.put("master_id",999L);
+        assertEquals(Boolean.FALSE,ReflectionTestUtils.invokeMethod(DccLifecycleProjectionRepairService.class,"exactEvent",event,file,"CONTROLLED",file.getControlledTime()));
+    }
 }
