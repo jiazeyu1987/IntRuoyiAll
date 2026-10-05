@@ -275,9 +275,28 @@ class DccControlledFileObsoleteServiceTest extends BaseMockitoUnitTest {
         submitted.setStatus("IN_APPROVAL");
         submitted.setBpmProcessInstanceId("form-process");
         submitted.setBpmProcessInstanceId("process-37");
-        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenReturn(draft);
-        when(formCenterRuntimeService.submitInstance(eq(37L), any(FormInstanceSubmitReqVO.class), eq(99L)))
-                .thenReturn(submitted);
+        var serializedDraft = new java.util.concurrent.atomic.AtomicReference<cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO>();
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), eq(99L))).thenAnswer(call -> {
+            FormInstanceCreateReqVO create = call.getArgument(0);
+            var saved = new cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO();
+            saved.setId(37L);saved.setInstanceCode("F-37");
+            saved.setBusinessContextJson(JsonUtils.toJsonString(create.getContext()));
+            // The formal runtime freezes JSON at create time; subsequent mutation of the caller's map cannot fix it.
+            saved.setFormDataJson(JsonUtils.toJsonString(create.getFormData()));
+            serializedDraft.set(saved);return draft;
+        });
+        when(formCenterRuntimeService.submitInstance(eq(37L), any(FormInstanceSubmitReqVO.class), eq(99L))).thenAnswer(call -> {
+            FormInstanceSubmitReqVO submit = call.getArgument(1);
+            var policy = cn.iocoder.yudao.module.bpm.formcenter.model.FormActionPolicy.builder()
+                    .bpmProcessKey(DccControlledFileProcessDefinitionKeys.OBSOLETE).build();
+            cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO actualRequest = ReflectionTestUtils.invokeMethod(
+                    new cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeServiceImpl(), "buildBpmRequest",
+                    serializedDraft.get(),policy,submit.getStartUserSelectAssignees(),submit.getApproveUserSelectAssignees());
+            assertEquals(List.of("form-37:MATRIX_REVIEW:51","form-37:MATRIX_REVIEW:52"),
+                    ((Map<?,?>)actualRequest.getVariables().get(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS)).get("MATRIX_REVIEW"));
+            assertEquals(List.of(7201L,7202L),actualRequest.getStartUserSelectAssignees().get("MATRIX_REVIEW"));
+            return submitted;
+        });
 
         FormInstanceRespVO result = obsoleteService.obsoleteControlledFile(99L, 900L, reqVO);
 

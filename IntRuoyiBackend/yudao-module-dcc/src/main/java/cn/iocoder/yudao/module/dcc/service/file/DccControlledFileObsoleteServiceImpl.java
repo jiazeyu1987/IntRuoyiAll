@@ -138,6 +138,8 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
         Map<String, Object> formData = buildObsoleteFormData(file, reqVO);
         formData.put("dccObsoleteSubmitActorId",userId);
         formData.put("dccApplicationPayloadHash",obsoletePayloadHash(userId,file,reqVO));
+        // FormCenter builds BPM from the persisted draft JSON, so freeze obligations before createInstance.
+        formData.put("dccSignoffDepartmentIds",signoff.candidateSourceIds());
         if(reqVO.getProjectAttributes()!=null) formData.put("projectAttributes",reqVO.getProjectAttributes());
         FormInstanceCreateReqVO createReqVO = new FormInstanceCreateReqVO();
         createReqVO.setContext(buildObsoleteContext(file, reqVO));
@@ -147,7 +149,6 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
 
         FormInstanceSubmitReqVO submitReqVO = new FormInstanceSubmitReqVO();
         submitReqVO.setFormData(formData);
-        formData.put("dccSignoffDepartmentIds",signoff.candidateSourceIds());
         Map<String, List<Long>> startUserSelectAssignees = approvalRouteAssigneeResolver
                 .buildStartUserSelectAssigneeMap(resolvedRoute.nodes());
         Map<String, List<Long>> approveUserSelectAssignees = approvalRouteAssigneeResolver
