@@ -22,14 +22,14 @@ export interface DccWorkbenchStatusSection {
 }
 
 export interface DccWorkbenchMetricSource {
-  approvalTodoTotal: number
-  pendingDistributionTotal: number
-  trainingTodoTotal: number
-  finalizationFailedTotal: number
+  approvalTodoTotal: number | null
+  pendingDistributionTotal: number | null
+  trainingTodoTotal: number | null
+  finalizationFailedTotal: number | null
 }
 
 export interface DccWorkbenchMetricItem extends DccWorkbenchStatusSection {
-  count: number
+  count: number | null
 }
 
 export interface DccWorkbenchFileRow {
@@ -90,7 +90,7 @@ export const buildDccWorkbenchMetricItems = (
 ): DccWorkbenchMetricItem[] =>
   DCC_WORKBENCH_STATUS_SECTIONS.map((section) => ({
     ...section,
-    count: source[section.key as keyof DccWorkbenchMetricSource] ?? 0
+    count: source[section.key as keyof DccWorkbenchMetricSource]
   }))
 
 export const resolveWorkbenchErrorMessage = (error: unknown, fallback: string) => {

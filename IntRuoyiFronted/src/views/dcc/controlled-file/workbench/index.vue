@@ -47,7 +47,7 @@
         @click="openWorkbenchMetric(metric)"
       >
         <span class="dcc-workbench-metric__label">{{ metric.key === 'pendingDistributionTotal' && pendingDistributionState.remindersOnly ? `${metric.label}（提醒）` : metric.label }}</span>
-        <span class="dcc-workbench-metric__count">{{ metric.key === 'pendingDistributionTotal' ? pendingDistributionState.total ?? '—' : metric.count }}</span>
+        <span class="dcc-workbench-metric__count">{{ metric.key === 'pendingDistributionTotal' ? pendingDistributionState.total ?? '—' : metric.count ?? '—' }}</span>
       </button>
     </div>
   </ContentWrap>
@@ -66,7 +66,7 @@
         <el-table-column label="操作" min-width="150"><template #default="{ row }"><el-button data-testid="dcc-offline-training-open" link type="primary" @click="openOfflineTrainingRecord(row)">上传线下培训记录</el-button></template></el-table-column>
       </el-table>
     </ContentWrap>
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canReadLegacyApprovalTodos" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">我的审批待办</div>
         <el-button link type="primary" @click="openPath('/approval-center?moduleCode=DCC&viewType=TODO')">
@@ -74,7 +74,8 @@
         </el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.approval.error"
+        v-loading="legacySectionState.approval.loading"
         :data="approvalTodoRows"
         empty-text="暂无审批待办"
         size="small"
@@ -107,6 +108,7 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.approval.error" type="error" :closable="false" />
     </ContentWrap>
 
     <ContentWrap v-if="canHandleWorkflowDistribution" id="dcc-workbench-pending-distribution" class="dcc-workbench-panel">
@@ -123,7 +125,7 @@
       />
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel">
+    <ContentWrap v-if="canReadLegacyTrainingTodos" class="dcc-workbench-panel">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">待培训确认</div>
         <el-button link type="primary" @click="openPath('/dcc/controlled-file/training-mine')">
@@ -131,7 +133,8 @@
         </el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.training.error"
+        v-loading="legacySectionState.training.loading"
         :data="trainingTodoRows"
         empty-text="暂无培训任务"
         size="small"
@@ -171,15 +174,17 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.training.error" type="error" :closable="false" />
     </ContentWrap>
 
-    <ContentWrap class="dcc-workbench-panel dcc-workbench-panel--wide">
+    <ContentWrap v-if="canReadLegacyFinalizationFailed" class="dcc-workbench-panel dcc-workbench-panel--wide">
       <div class="dcc-workbench-panel__header">
         <div class="dcc-workbench-panel__title">生效失败</div>
         <el-button link type="primary" @click="openPath('/dcc/controlled-file/browser')">全部</el-button>
       </div>
       <el-table
-        v-loading="loading"
+        v-if="!legacySectionState.finalization.error"
+        v-loading="legacySectionState.finalization.loading"
         :data="finalizationFailedRows"
         empty-text="暂无生效失败"
         size="small"
@@ -195,6 +200,7 @@
           </template>
         </el-table-column>
       </el-table>
+      <el-alert v-else :title="legacySectionState.finalization.error" type="error" :closable="false" />
     </ContentWrap>
 
     <ContentWrap
@@ -485,14 +491,35 @@ const loading = ref(false)
 const loadErrorMessage = ref('')
 const lastLoadedAt = ref('')
 const metricItems = ref<DccWorkbenchMetricItem[]>(buildDccWorkbenchMetricItems({
-  approvalTodoTotal: 0,
-  pendingDistributionTotal: 0,
-  trainingTodoTotal: 0,
-  finalizationFailedTotal: 0
+  approvalTodoTotal: null,
+  pendingDistributionTotal: null,
+  trainingTodoTotal: null,
+  finalizationFailedTotal: null
 }))
+const hasLegacyWorkbenchPermission = (permission: string) => userStore.getIsSetUser
+  && (userStore.getPermissions.has(permission) || userStore.getPermissions.has('*:*:*'))
+const canReadLegacyApprovalTodos = computed(() => hasLegacyWorkbenchPermission('bpm:task:query') && hasLegacyWorkbenchPermission('bpm:process-instance:query'))
+const canReadLegacyTrainingTodos = computed(() => hasLegacyWorkbenchPermission('dcc:controlled-file:training:mine'))
+const canReadLegacyFinalizationFailed = computed(() => hasLegacyWorkbenchPermission('dcc:controlled-file:query'))
+const legacySectionState = reactive<{ [key in 'approval' | 'training' | 'finalization']: { loading: boolean; error: string; total: number | null } }>({
+  approval: { loading: false, error: '', total: null },
+  training: { loading: false, error: '', total: null },
+  finalization: { loading: false, error: '', total: null }
+})
+let legacyWorkbenchSequence = 0
+const readLegacyWorkbenchContext = () => {
+  const tenant = getVisitTenantId() || getTenantId(), actor = userStore.getUser.id
+  return userStore.getIsSetUser && route.path === DCC_WORKBENCH_PATH && isWorkflowId(tenant) && isWorkflowId(actor)
+    ? JSON.stringify([String(tenant), String(actor), route.fullPath, canReadLegacyApprovalTodos.value, canReadLegacyTrainingTodos.value, canReadLegacyFinalizationFailed.value]) : ''
+}
 const approvalTodoRows = ref<DccWorkbenchTaskRow[]>([])
-const visibleMetricItems = computed(() => metricItems.value.filter(metric =>
-  metric.key !== 'pendingDistributionTotal' || canHandleWorkflowDistribution.value))
+const visibleMetricItems = computed(() => metricItems.value.filter(metric => {
+  if (metric.key === 'pendingDistributionTotal') return canHandleWorkflowDistribution.value
+  if (metric.key === 'approvalTodoTotal') return canReadLegacyApprovalTodos.value
+  if (metric.key === 'trainingTodoTotal') return canReadLegacyTrainingTodos.value
+  if (metric.key === 'finalizationFailedTotal') return canReadLegacyFinalizationFailed.value
+  return false
+}))
 const trainingTodoRows = ref<DccWorkbenchTrainingRow[]>([])
 const finalizationFailedRows = ref<DccWorkbenchFileRow[]>([])
 const impactLoading = ref(false)
@@ -656,44 +683,49 @@ const loadTrainingTodos = async () => {
   }
 }
 
+const syncLegacyWorkbenchMetrics = () => {
+  metricItems.value = buildDccWorkbenchMetricItems({ approvalTodoTotal: legacySectionState.approval.total,
+    pendingDistributionTotal: null, trainingTodoTotal: legacySectionState.training.total,
+    finalizationFailedTotal: legacySectionState.finalization.total })
+  loadErrorMessage.value = Object.values(legacySectionState).map(section => section.error).filter(Boolean).join('；')
+}
 const loadWorkbench = async () => {
+  const token = ++legacyWorkbenchSequence, context = readLegacyWorkbenchContext()
+  const current = () => token === legacyWorkbenchSequence && context === readLegacyWorkbenchContext()
+  approvalTodoRows.value = []; trainingTodoRows.value = []; finalizationFailedRows.value = []
+  Object.values(legacySectionState).forEach(section => { section.loading = false; section.error = ''; section.total = null })
+  lastLoadedAt.value = ''; syncLegacyWorkbenchMetrics()
+  loading.value = false
+  if (!context || ![canReadLegacyApprovalTodos.value, canReadLegacyTrainingTodos.value, canReadLegacyFinalizationFailed.value].some(Boolean)) return
   loading.value = true
-  loadErrorMessage.value = ''
-  try {
-    const [approvalTodos, trainingTodos, finalizationFailed] = await Promise.all([
-      buildTaskRows(),
-      loadTrainingTodos(),
-      loadFilePageByStatus('FINALIZATION_FAILED')
-    ])
-
-    approvalTodoRows.value = approvalTodos.rows
-    trainingTodoRows.value = trainingTodos.rows
-    finalizationFailedRows.value = finalizationFailed.rows
-    metricItems.value = buildDccWorkbenchMetricItems({
-      approvalTodoTotal: approvalTodos.total,
-      pendingDistributionTotal: 0,
-      trainingTodoTotal: trainingTodos.total,
-      finalizationFailedTotal: finalizationFailed.total
-    })
-    lastLoadedAt.value = formatDateTimeValue(new Date())
-  } catch (error) {
-    approvalTodoRows.value = []
-    trainingTodoRows.value = []
-    finalizationFailedRows.value = []
-    metricItems.value = buildDccWorkbenchMetricItems({
-      approvalTodoTotal: 0,
-      pendingDistributionTotal: 0,
-      trainingTodoTotal: 0,
-      finalizationFailedTotal: 0
-    })
-    loadErrorMessage.value = resolveWorkbenchErrorMessage(
-      error,
-      'DCC 工作台加载失败，请查看接口错误后重试。'
-    )
-  } finally {
-    loading.value = false
+  const readSection = async <T,>(key: 'approval' | 'training' | 'finalization', allowed: boolean,
+    read: () => Promise<{ rows: T[]; total: number }>, apply: (rows: T[]) => void) => {
+    if (!allowed || !current()) return
+    legacySectionState[key].loading = true
+    try {
+      const result = await read()
+      if (!current()) return
+      if (!Number.isSafeInteger(result.total) || result.total < 0 || !Array.isArray(result.rows)) throw new Error('工作台分区读取结果无有效数量或列表')
+      apply(result.rows); legacySectionState[key].total = result.total
+    } catch (cause) {
+      if (current()) legacySectionState[key].error = resolveWorkbenchErrorMessage(cause, 'DCC 工作台加载失败，请查看接口错误后重试。')
+    } finally { if (current()) { legacySectionState[key].loading = false; syncLegacyWorkbenchMetrics() } }
+  }
+  await Promise.all([
+    readSection('approval', canReadLegacyApprovalTodos.value, buildTaskRows, rows => { approvalTodoRows.value = rows }),
+    readSection('training', canReadLegacyTrainingTodos.value, loadTrainingTodos, rows => { trainingTodoRows.value = rows }),
+    readSection('finalization', canReadLegacyFinalizationFailed.value, () => loadFilePageByStatus('FINALIZATION_FAILED'), rows => { finalizationFailedRows.value = rows })
+  ])
+  if (current()) { loading.value = false; lastLoadedAt.value = formatDateTimeValue(new Date()) }
+  else if (token === legacyWorkbenchSequence) {
+    approvalTodoRows.value = []; trainingTodoRows.value = []; finalizationFailedRows.value = []
+    Object.values(legacySectionState).forEach(section => { section.loading = false; section.total = null; section.error = '' })
+    syncLegacyWorkbenchMetrics(); loading.value = false; lastLoadedAt.value = ''
+    loadErrorMessage.value = '工作台用户或租户上下文已变化，请刷新后重试。'
   }
 }
+watch(() => readLegacyWorkbenchContext(), () => { void loadWorkbench() }, { flush: 'sync' })
+onBeforeUnmount(() => { legacyWorkbenchSequence++ })
 
 const resolveImpactError = (error: unknown) => {
   const value = (error as any)?.response?.data?.msg || (error as any)?.message
