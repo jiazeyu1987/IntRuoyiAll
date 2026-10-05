@@ -232,6 +232,69 @@ public class DccControlledFileRelatedFileServiceImpl implements DccControlledFil
     }
 
     @Override
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void freezeCurrentRelationsForRevision(Long actorId, Long baselineId, Long candidateId) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                || actorId == null || actorId <= 0 || baselineId == null || candidateId == null
+                || baselineId <= 0 || candidateId <= 0 || baselineId.equals(candidateId))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationInputFailure("DCC_REVISION_RELATION_CONTEXT_REQUIRED");
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var target = controlledFileMapper.selectByIdAndTenantForUpdate(tenant, candidateId);
+        if (target == null) throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        target = requireWritableSnapshotTarget(target);
+        // RevisionService already holds project -> same Master -> source/body locks. Reenter the
+        // same Master, then lock its authoritative current tuple and members before freezing rows.
+        var master = controlledFileMasterMapper.selectByIdForUpdate(target.getMasterId());
+        var baseline = controlledFileMapper.selectByIdAndTenantForUpdate(tenant, baselineId);
+        if (master == null || baseline == null || !Objects.equals(master.getTenantId(), tenant)
+                || !Objects.equals(master.getId(), baseline.getMasterId())
+                || !Objects.equals(master.getLatestControlledFileId(), baselineId)
+                || !Objects.equals(target.getDccProjectCodeId(), master.getDccProjectCodeId())
+                || !Objects.equals(baseline.getDccProjectCodeId(), master.getDccProjectCodeId())
+                || !Objects.equals(target.getRevisionSourceControlledFileId(), baselineId)
+                || target.getSelectedIterationControlledFileId() == null || !"REVISION".equals(target.getChangeType())
+                || !"WORKING".equals(target.getStatus()) || baseline.getControlledTime() == null
+                || !DccControlledFileVersionPolicy.isCurrentControlledStatus(baseline.getStatus()))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REVISION_RELATION_SOURCE_INVALID");
+        relationAccessPolicy.assertNameVisible(actorId, baselineId);
+        var sets = relationStore.jdbc().query("SELECT controlled_file_id,row_version FROM dcc_current_file_relation_set "
+                        + "WHERE tenant_id=? AND source_master_id=? FOR UPDATE",
+                (rs,n)->new CurrentRelations(rs.getLong(1),rs.getLong(2),List.of()),tenant,master.getId());
+        if (sets.size() != 1 || !Objects.equals(sets.get(0).sourceControlledFileId(), baselineId)
+                || sets.get(0).rowVersion() < 0)
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REVISION_RELATION_CURRENT_TUPLE_INVALID");
+        if (!relatedFileMapper.selectListByControlledFileId(candidateId).isEmpty())
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REVISION_RELATION_SNAPSHOT_ALREADY_EXISTS");
+        var ids = relationStore.jdbc().queryForList("SELECT related_master_id FROM dcc_current_file_relation "
+                + "WHERE tenant_id=? AND source_master_id=? ORDER BY related_master_id FOR UPDATE",Long.class,tenant,master.getId());
+        if (ids.stream().anyMatch(id->id==null || id<=0 || id.equals(master.getId()))
+                || ids.stream().distinct().count()!=ids.size()) throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+        var chosen = new java.util.ArrayList<FileVersion>();
+        for (Long id : ids) {
+            var file = requireLatest(id);
+            relationAccessPolicy.assertNameVisible(actorId, file.controlledFileId());
+            if (!file.controlled() || file.fileName()==null || file.fileNumber()==null || file.versionNo()==null)
+                throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);
+            chosen.add(file);
+        }
+        // The source lock stays held until submission commits. Verify the exact consumed tuple,
+        // without a no-op UPDATE or changing the current set's version/history.
+        Long tuple = relationStore.jdbc().queryForObject("SELECT COUNT(*) FROM dcc_current_file_relation_set "
+                + "WHERE tenant_id=? AND source_master_id=? AND controlled_file_id=? AND row_version=?",
+                Long.class,tenant,master.getId(),baselineId,sets.get(0).rowVersion());
+        if (!Objects.equals(tuple,1L)) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REVISION_RELATION_CURRENT_TUPLE_INVALID");
+        for (var file : chosen) {
+            var row = DccControlledFileRelatedFileDO.builder().controlledFileId(candidateId)
+                    .relatedControlledFileId(file.controlledFileId()).projectCodeId(target.getDccProjectCodeId())
+                    .relatedMasterId(file.masterId()).relatedFileNumberSnapshot(file.fileNumber())
+                    .relatedFileNameSnapshot(file.fileName()).relatedVersionNoSnapshot(file.versionNo())
+                    .relationSource("REVISION_CURRENT").build();
+            row.setTenantId(tenant);
+            if (relatedFileMapper.insert(row)!=1) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REVISION_RELATION_SNAPSHOT_WRITE_FAILED");
+        }
+    }
+
+    @Override
     public List<Long> resolveCurrentActiveRelatedFileIds(Long controlledFileId, Long projectCodeId) {
         if (controlledFileId == null || projectCodeId == null) {
             throw exception(CONTROLLED_FILE_RELATED_FILE_INVALID);

@@ -1,0 +1,76 @@
+{
+  "status": "FROZEN_READY_FOR_ROOT_PACKAGE",
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileService.java",
+      "bytes": 2012,
+      "sha256": "e86ba953fa914835bd5a3d4930ec1dc53d0ef4d5f0af22e2ee7ad0e7aaa849d9"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+      "bytes": 28828,
+      "sha256": "fe3b60ee0bdba041da51326d99f27dac3d0fd8c9b3b5050fa75f4c090ca94aa0"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+      "bytes": 28378,
+      "sha256": "29549d1c5d771983e30e4bb98658591169692f4c0aa17b715798cb15fc8fb46f"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentRelationsRevisionFreezeDatabaseTest.java",
+      "bytes": 11553,
+      "sha256": "eee5b5fb26c9384a30ee506e7da13e8e16bee46a83ab2b584f88efa6f7ecefa6"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSelectedIterationDatabaseTest.java",
+      "bytes": 45733,
+      "sha256": "306a70bc69b843aa6f88ddf15335ee0c13a0feb6d118353d2eb348cd1c9b753e"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionDatabaseTest.java",
+      "bytes": 48328,
+      "sha256": "b079689f96a09366f223bb3298c2ca323c568432943271b713670f86c76ff0f1"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileService.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileService.class",
+      "bytes": 3317,
+      "sha256": "766817b15b8b0da5b87b75adcb50f757f4489b87e763cfd4c43eb51dbf2583a6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl$RelationCommand.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl$RelationCommand.class",
+      "bytes": 2068,
+      "sha256": "9635c55c4877891630e8b4f62f12542b83def02e35e85c7fc1a42996f246352a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.class",
+      "bytes": 26096,
+      "sha256": "8fa291246f940ab1224898623642cf59df9ad702ce1bd6426a36a40c5d87319b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.class",
+      "bytes": 30272,
+      "sha256": "ce25d19037d8b531044d6a566e054454349583d22d3c4a6a309cc61e5c49d6c2"
+    }
+  ],
+  "verificationReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-freeze-verification-receipt.json",
+    "bytes": 5423,
+    "sha256": "50faf3c247e67d5ac57bb556c51f0263a5772008abb5f4f8b746b4107da83047"
+  },
+  "productionFiles": 3,
+  "testFiles": 3,
+  "schemaChanges": 0,
+  "runtimeAcceptancePending": true
+}

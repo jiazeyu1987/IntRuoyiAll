@@ -1,0 +1,118 @@
+{
+  "status": "PASS_FINITE_ISOLATED_RUNTIME_REPROOF_PENDING",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T05:24:08+08:00",
+  "commandScope": "5new cases+4 selected-body branches+1 rejected-target+1 placement+whole RevisionDatabase",
+  "counts": {
+    "tests": 55,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccCurrentRelationsRevisionFreezeDatabaseTest.xml",
+      "bytes": 100738,
+      "sha256": "de352599310edb919d8239399405783a090b47de5e10f5c09b46b124c812480a",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest.xml",
+      "bytes": 97599,
+      "sha256": "eb01af53f8b389cb808af5f19272ba906522d52c9dc8a93cd1cfec52d86825ab",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "bytes": 96981,
+      "sha256": "42c32697b057c33d6f05088e0fd23915ef3cb9146acc13a480b2ed0a14d003c5",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest.xml",
+      "bytes": 98982,
+      "sha256": "cd7250200180f96e7ac236a3712edd8bbe51058c7597581d533f543fc3e3b87f",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest.xml",
+      "bytes": 104033,
+      "sha256": "4a60562b5f4c044b27baa2add8e442555451a8072b5de9cda115c991b633204b",
+      "tests": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileService.java",
+      "bytes": 2012,
+      "sha256": "e86ba953fa914835bd5a3d4930ec1dc53d0ef4d5f0af22e2ee7ad0e7aaa849d9"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+      "bytes": 28828,
+      "sha256": "fe3b60ee0bdba041da51326d99f27dac3d0fd8c9b3b5050fa75f4c090ca94aa0"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java",
+      "bytes": 28378,
+      "sha256": "29549d1c5d771983e30e4bb98658591169692f4c0aa17b715798cb15fc8fb46f"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentRelationsRevisionFreezeDatabaseTest.java",
+      "bytes": 11553,
+      "sha256": "eee5b5fb26c9384a30ee506e7da13e8e16bee46a83ab2b584f88efa6f7ecefa6"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSelectedIterationDatabaseTest.java",
+      "bytes": 45733,
+      "sha256": "306a70bc69b843aa6f88ddf15335ee0c13a0feb6d118353d2eb348cd1c9b753e"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionDatabaseTest.java",
+      "bytes": 48328,
+      "sha256": "b079689f96a09366f223bb3298c2ca323c568432943271b713670f86c76ff0f1"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-regression.log",
+    "sha256": "4dc8daf23414c80ddec0c312d6b4893d79945e5b81940432a9abfaa7549bb866"
+  },
+  "effectiveRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-effective-red-r4.xml",
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "expected": "new candidate snapshot1 actual0"
+  },
+  "priorAttempts": "getter compile errors/target fixture required submitter setup errors and one Mockito re-stub NPE are not business RED",
+  "schemaChanges": 0,
+  "actualDbWrites": 0,
+  "actualUiRuns": 0,
+  "sourceGuard": "authoritative exact latest-controlled baseline/currentset source+version, sameMaster/current tuple and member locks, no empty fallback/no lazy initialization",
+  "targets": "existing official latest resolver and name permission, no new cross-Master lock order",
+  "attributeAndHistoryWrites": "only new candidate relation rows; original draft/body/default/actual/approval history unchanged",
+  "testFixtureChanges": "legitimate controlled baseline currentset and real resolver/store only in test; existing late failure stub follows new formal caller",
+  "oldG64FourAssetPinsUnchanged": true,
+  "sourceFree": "MAVEN_FREE_FROZEN"
+}

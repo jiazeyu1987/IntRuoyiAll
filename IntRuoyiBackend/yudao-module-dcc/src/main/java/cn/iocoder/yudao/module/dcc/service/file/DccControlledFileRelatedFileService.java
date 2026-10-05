@@ -14,6 +14,9 @@ public interface DccControlledFileRelatedFileService {
 
     void inheritRelatedFiles(Long sourceControlledFileId, Long targetControlledFileId);
 
+    /** A newly allocated formal revision freezes its controlled baseline's current relations. */
+    void freezeCurrentRelationsForRevision(Long actorId, Long baselineControlledFileId, Long candidateControlledFileId);
+
     List<DccControlledFileRelatedFileRespVO> listRelatedFiles(Long controlledFileId);
 
     List<DccControlledFileRelatedFileDO> listForwardRelations(Long controlledFileId);

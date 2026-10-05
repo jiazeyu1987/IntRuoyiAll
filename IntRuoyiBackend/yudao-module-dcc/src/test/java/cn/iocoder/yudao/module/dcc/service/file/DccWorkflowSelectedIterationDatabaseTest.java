@@ -136,6 +136,14 @@ class DccWorkflowSelectedIterationDatabaseTest extends BaseDbUnitTest {
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
         scope=new DccControlledFileAssignmentScopeService();defaults(scope);wire(scope,"assignmentFileMapper",assignmentFiles,"distributionRecipientMapper",recipients);
         related=new DccControlledFileRelatedFileServiceImpl();defaults(related);wire(related,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"relatedFileMapper",relations);
+        jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation(tenant_id BIGINT NOT NULL,source_master_id BIGINT NOT NULL,related_master_id BIGINT NOT NULL,PRIMARY KEY(tenant_id,source_master_id,related_master_id))");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation_set(tenant_id BIGINT NOT NULL,source_master_id BIGINT NOT NULL,controlled_file_id BIGINT NOT NULL,row_version BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(tenant_id,source_master_id))");
+        jdbc.update("DELETE FROM dcc_current_file_relation");jdbc.update("DELETE FROM dcc_current_file_relation_set");
+        var relationResolver=new cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolverImpl();
+        wire(relationResolver,"fileMapper",files,"masterMapper",masters,"jdbc",jdbc);
+        wire(related,"latestFileResolver",relationResolver,
+                "relationStore",new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore(jdbc,mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)),
+                "relationAccessPolicy",mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicy.class));
         var names=new DccControlledFileNameClaimService();org.springframework.test.util.ReflectionTestUtils.setField(names,"reservationMapper",g25Reservations);wire(names,"claimMapper",claims,"masterMapper",masters,"fileMapper",files);
         query=new DccControlledFileQueryServiceImpl();defaults(query);
         wire(query,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"projectCodeMapper",projects,
@@ -206,7 +214,9 @@ class DccWorkflowSelectedIterationDatabaseTest extends BaseDbUnitTest {
         return tx().execute(s->query.checkinControlledFile(99L,id,req)).getId();
     }
     DccControlledFileSubmitIterationReqVO request(String intent){var r=new DccControlledFileSubmitIterationReqVO();r.setRevisionChangeType(intent);r.setIdempotencyKey("C-"+UUID.randomUUID());r.setChangeDescription("C selected actual body");r.setNeedTraining(false);r.setEffectiveDate(LocalDate.of(2099,12,20));r.setProjectAttributes(ce);r.setSelectedSignoffDepartmentIds(List.of(51L));return r;}
-    void controlled(String version){jdbc.update("UPDATE dcc_controlled_file SET version_no=?,status='ACTIVE',controlled_time=?,revision_change_type='INITIAL' WHERE id=20",version,LocalDateTime.of(2026,10,1,12,0));jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");}
+    void controlled(String version){jdbc.update("UPDATE dcc_controlled_file SET version_no=?,status='ACTIVE',controlled_time=?,revision_change_type='INITIAL' WHERE id=20",version,LocalDateTime.of(2026,10,1,12,0));jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");
+        // The newly controlled fixture baseline has its legitimate authoritative empty set.
+        jdbc.update("INSERT INTO dcc_current_file_relation_set(tenant_id,source_master_id,controlled_file_id,row_version) VALUES(1,10,20,0)");}
 
     @Test void actualInitializerProxyRequiresOuterTransaction(){assertThrows(IllegalTransactionStateException.class,()->initializer.initialize(99L,null,20L,ce));assertEquals(0,count("dcc_application_round_link"));}
     @Test void twoCheckinsThenOrdinarySaveKeepDirectSourceAndManualActual(){

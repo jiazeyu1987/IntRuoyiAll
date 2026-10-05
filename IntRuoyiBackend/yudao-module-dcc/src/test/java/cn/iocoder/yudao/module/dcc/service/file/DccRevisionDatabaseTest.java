@@ -82,7 +82,7 @@ class DccRevisionDatabaseTest extends BaseDbUnitTest {
         verify(sourceOwnershipService).cleanupPreparedSource(frozen);
     }
     @Test void childFailureActuallyRollsBackRootInsert() {
-        doThrow(new IllegalStateException("relationship failed")).when(relatedFileService).inheritRelatedFiles(eq(21L),anyLong());
+        doThrow(new IllegalStateException("relationship failed")).when(relatedFileService).freezeCurrentRelationsForRevision(eq(99L),eq(20L),anyLong());
         assertThrows(RuntimeException.class, () -> revisionService.createRevision(99L,20L,21L,request("PARTIAL","child")));
         assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_name_claim",Integer.class));

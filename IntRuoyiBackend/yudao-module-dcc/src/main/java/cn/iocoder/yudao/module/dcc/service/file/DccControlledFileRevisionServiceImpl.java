@@ -307,7 +307,8 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             if (fileMapper.insert(target) != 1 || target.getId() == null) throw new IllegalStateException("formal revision insert failed");
             publicUploadPlacementService.inherit(userId,selected.getId(),target.getId(),request.getChangeDescription());
             sourceOwnershipService.claimSubmissionSource(target.getId(), frozen, userId, initial ? "INITIAL" : "REVISION");
-            relatedFileService.inheritRelatedFiles(selected.getId(), target.getId());
+            if (initial) relatedFileService.inheritRelatedFiles(selected.getId(), target.getId());
+            else relatedFileService.freezeCurrentRelationsForRevision(userId, baseline.getId(), target.getId());
             DccControlledFileVersionSourceRollback.enlist(sourceOwnershipService, frozen, frozenPdf);
             return target;
         } catch (RuntimeException failure) {
