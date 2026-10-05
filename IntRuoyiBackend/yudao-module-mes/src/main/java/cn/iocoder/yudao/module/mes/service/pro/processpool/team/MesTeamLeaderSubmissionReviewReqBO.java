@@ -10,6 +10,7 @@ import lombok.experimental.Accessors;
 public class MesTeamLeaderSubmissionReviewReqBO {
 
     private Long eventId;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
     private Long leaderUserId;
     private String leaderType;
     private String reviewStatus;

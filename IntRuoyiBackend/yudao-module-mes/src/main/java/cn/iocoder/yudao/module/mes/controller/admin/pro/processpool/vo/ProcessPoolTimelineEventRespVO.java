@@ -186,6 +186,10 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "原始 payload")
     private String originalPayloadJson;
+    private Long displayedRevisionId;
+    private Long displayedReviewId;
+    private Integer displayedReviewRound;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
 
     @Schema(description = "PQC 结果", example = "PASS")
     private String pqcResult;

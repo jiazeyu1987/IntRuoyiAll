@@ -1049,6 +1049,40 @@ class MesTeamLeaderActiveOrderServiceTest {
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void actualOrderJoinAndHandoffAcceptMixedProfilesAndRejectBrokenFormalBinding(boolean brokenFormal) {
+        var work=confirmedWorkOrder();work.setTenantId(1L);stubWorkOrderExists(work);
+        stubFormalRouteQaContext(1001L,448L,activeRouteSnapshotJson(2),publishedRegulation(9902L,928609L,6001L));
+        var inserted=new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderDO>();
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class))).thenAnswer(call->{MesProcessPoolActiveOrderDO row=call.getArgument(0);row.setId(8101L);row.setTenantId(1L);inserted.set(row);return 1;});
+        when(processSnapshotMapper.insertBatch(any())).thenReturn(Boolean.TRUE);
+        when(activeOrderMapper.selectByIdForUpdate(8101L)).thenAnswer(call->inserted.get());
+        var owners=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver();
+        var profiles=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper.class);
+        var scopes=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamLeaderScopeMapper.class);
+        var users=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);var permissions=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        for(var entry:Map.of("profiles",profiles,"scopes",scopes,"users",users,"permissions",permissions).entrySet())org.springframework.test.util.ReflectionTestUtils.setField(owners,entry.getKey(),entry.getValue());
+        var formal=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO.builder().id(70L).leaderUserId(3001L).employeeType("FORMAL").systemUserId(brokenFormal?4002L:4001L).enabled(true).build();formal.setTenantId(1L);
+        var temp=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamEmployeeProfileDO.builder().id(71L).leaderUserId(3001L).employeeType("TEMPORARY").enabled(true).build();temp.setTenantId(1L);
+        when(profiles.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(formal,temp));
+        var f=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.builder().leaderUserId(3001L).leaderType("PRODUCTION").scopeType("EMPLOYEE").employeeUserId(4001L).enabled(true).build();f.setTenantId(1L);
+        var t=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO.builder().leaderUserId(3001L).leaderType("PRODUCTION").scopeType("EMPLOYEE").employeeUserId(71L).enabled(true).build();t.setTenantId(1L);
+        when(scopes.selectActiveScopesByLeader(3001L,"PRODUCTION")).thenReturn(List.of(f,t));
+        var handoff=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService();var tasks=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper.class);
+        for(var entry:Map.of("tasks",tasks,"orders",activeOrderMapper,"owners",owners,"workOrders",workOrderMapper,"audit",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffAudit.class),"delivery",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeliveryService.class)).entrySet())org.springframework.test.util.ReflectionTestUtils.setField(handoff,entry.getKey(),entry.getValue());
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"handoffService",handoff);
+        if(brokenFormal) {var failure=assertThrows(ServiceException.class,()->service.addActiveOrder(activeOrderReq()));assertTrue(failure.getMessage().contains("身份绑定"));verify(tasks,never()).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class));}
+        else {
+            when(workOrderMapper.selectById(9001L)).thenReturn(work);
+            var leader=cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder().id(3001L).status(0).nickname("原生产组长").build();leader.setTenantId(1L);when(users.selectById(3001L)).thenReturn(leader);
+            var employee=cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder().id(4001L).status(0).nickname("正式员工").build();employee.setTenantId(1L);when(users.selectById(4001L)).thenReturn(employee);when(permissions.hasAnyPermissions(4001L,"mes:pro-feedback:create")).thenReturn(true);
+            when(tasks.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class))).thenReturn(1);
+            assertEquals(8101L,service.addActiveOrder(activeOrderReq()).getActiveOrderId());
+            var task=ArgumentCaptor.forClass(cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(task.capture());assertEquals("4001",task.getValue().getCandidateUserSnapshot());assertEquals("PRODUCTION_HANDOFF",task.getValue().getTaskType());verify(users,never()).selectById(71L);
+        }
+    }
+
     @Test
     void shouldAppendUnifiedGxpAuditAfterSuccessfulActiveOrderAdd() {
         stubWorkOrderExists(confirmedWorkOrder());

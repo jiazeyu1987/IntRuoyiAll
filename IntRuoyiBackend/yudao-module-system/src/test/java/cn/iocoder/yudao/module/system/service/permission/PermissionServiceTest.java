@@ -70,6 +70,8 @@ public class PermissionServiceTest extends BaseDbUnitTest {
     private TemporaryRoleGrantService temporaryRoleGrantService;
     @MockitoBean
     private GxpAuditService gxpAuditService;
+    @MockitoBean
+    private PermissionCommandProtocol permissionCommandProtocol;
 
     @BeforeEach
     public void setUpTemporaryRoleGrantMock() {

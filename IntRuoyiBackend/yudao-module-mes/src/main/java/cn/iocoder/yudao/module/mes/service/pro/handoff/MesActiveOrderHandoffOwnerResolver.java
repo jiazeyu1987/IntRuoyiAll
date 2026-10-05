@@ -154,15 +154,24 @@ public class MesActiveOrderHandoffOwnerResolver {
 
     public String productionEmployees(MesProcessPoolActiveOrderDO order) {
         var rows=scopes.selectActiveScopesByLeader(order.getLeaderUserId(),"PRODUCTION");
+        var bindings=profiles.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
+                .eq(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId,order.getLeaderUserId())
+                .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled,true));
+        require(rows!=null&&bindings!=null,"生产人员责任查询失败");
         Set<Long> ids=new TreeSet<>();
         for(var row:rows) if("EMPLOYEE".equals(row.getScopeType())&&Objects.equals(tenant(),row.getTenantId())) {
-            var formal=profiles.selectList(new LambdaQueryWrapperX<MesProcessPoolTeamEmployeeProfileDO>()
-                    .eq(MesProcessPoolTeamEmployeeProfileDO::getLeaderUserId,order.getLeaderUserId())
-                    .eq(MesProcessPoolTeamEmployeeProfileDO::getSystemUserId,row.getEmployeeUserId())
-                    .eq(MesProcessPoolTeamEmployeeProfileDO::getEmployeeType,"FORMAL")
-                    .eq(MesProcessPoolTeamEmployeeProfileDO::getEnabled,true));
-            require(formal.size()==1,"生产接手人员缺少唯一启用的正式账号绑定");
-            user(row.getEmployeeUserId(),"mes:pro-feedback:create"); ids.add(row.getEmployeeUserId());
+            require(Boolean.TRUE.equals(row.getEnabled())&&"PRODUCTION".equals(row.getLeaderType())
+                    &&Objects.equals(order.getLeaderUserId(),row.getLeaderUserId()),"生产人员责任与班组不一致");
+            var matches=bindings.stream().filter(p->Objects.equals(tenant(),p.getTenantId())
+                    &&Objects.equals(order.getLeaderUserId(),p.getLeaderUserId())&&Boolean.TRUE.equals(p.getEnabled())
+                    &&(("FORMAL".equals(p.getEmployeeType())&&Objects.equals(row.getEmployeeUserId(),p.getSystemUserId()))
+                    ||("TEMPORARY".equals(p.getEmployeeType())&&p.getSystemUserId()==null
+                    &&Objects.equals(row.getEmployeeUserId(),p.getId())))).toList();
+            require(matches.size()==1,"生产人员责任缺少唯一启用的身份绑定，或正式账号与临时工身份发生冲突");
+            var binding=matches.get(0);
+            if("FORMAL".equals(binding.getEmployeeType())) {
+                user(binding.getSystemUserId(),"mes:pro-feedback:create");ids.add(binding.getSystemUserId());
+            }
         }
         require(!ids.isEmpty(),"生产接手缺少正式人员责任配置"); return snapshot(ids);
     }

@@ -490,6 +490,17 @@ public class PermissionServiceImpl implements PermissionService {
         return roles;
     }
 
+    @Override
+    public Set<Long> getTemporaryMenuListByUserId(Long userId) {
+        var roles=getEnableTemporaryRoleListByUserId(userId).stream()
+                .filter(role->Objects.equals(role.getTenantId(),
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId())).toList();
+        if (roles.isEmpty()) return Set.of();
+        // Use explicit role-menu grants, including TEMP roles carrying an admin code.
+        return roleMenuMapper.selectListByRoleId(roles.stream().map(RoleDO::getId).toList()).stream()
+                .map(RoleMenuDO::getMenuId).collect(java.util.stream.Collectors.toSet());
+    }
+
     private List<RoleDO> getEnableTemporaryRoleListByUserId(Long userId) {
         Set<Long> temporaryRoleIds = temporaryRoleGrantService.getActiveRoleIdsByUserId(userId, LocalDateTime.now());
         if (CollUtil.isEmpty(temporaryRoleIds)) {

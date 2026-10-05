@@ -121,6 +121,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffOwners", fixtureOwners);
         org.mockito.Mockito.lenient().when(fixtureOwners.submissionIdentity(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER", call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getActualEmployeeId(), call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getDeviceAccountId()));
+        ReflectionTestUtils.setField(service,"sharedReportGuard",MesSharedProductionReportCorrectionGuardTest.openFixture());
         initializeAuditFixture();
         lenient().when(feedbackMapper.selectListByIdsForUpdate(List.of(5101L))).thenReturn(List.of(formalFeedback()));
         lenient().when(feedbackMapper.updateCorrectedProductionReport(
@@ -133,6 +134,52 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 nullable(Long.class), nullable(BigDecimal.class), nullable(BigDecimal.class),
                 nullable(String.class), nullable(String.class), nullable(String.class)))
                 .thenReturn(1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
+    void actualCorrectionAndSharedGuardCheckFrozenCrossOrderConsumerBeforeSigning(boolean targetFrozen) {
+        var guard=new MesSharedProductionReportCorrectionGuard();
+        var allocations=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper.class);
+        var orders=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper.class);
+        var receipts=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper.class);
+        var releases=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesReportAllocationReleaseStateService.class);
+        var freezeReviews=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper.class);
+        var workOrders=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        var freeze=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(freeze,"reviewMapper",freezeReviews);ReflectionTestUtils.setField(freeze,"workOrderMapper",workOrders);
+        when(workOrders.selectByIdForUpdate(980008L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(980008L).temporaryFrozen(false).build());
+        when(workOrders.selectByIdForUpdate(980009L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(980009L).temporaryFrozen(targetFrozen).build());
+        var original=event();var before=original.getRawPayload();
+        var source=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(980008L).routeId(922119L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();source.setTenantId(1L);
+        var target=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO.builder().id(414L).workOrderId(980009L).routeId(922119L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();target.setTenantId(1L);
+        var allocation=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO.builder().id(5L).eventId(176L).activeOrderId(414L).workOrderId(980009L).routeProcessId(928611L).processId(922987L).allocatedQuantity(BigDecimal.ONE).lifecycleStatus("CURRENT").build();allocation.setTenantId(1L);
+        when(allocations.selectListByEventIdForUpdate(176L)).thenReturn(List.of(allocation));
+        when(orders.selectByIdForUpdate(413L)).thenReturn(source);when(orders.selectByIdForUpdate(414L)).thenReturn(target);
+        for(var entry:java.util.Map.of("allocations",allocations,"orders",orders,"receipts",receipts,"releases",releases,"freezes",freeze).entrySet())ReflectionTestUtils.setField(guard,entry.getKey(),entry.getValue());
+        ReflectionTestUtils.setField(service,"sharedReportGuard",guard);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        if(targetFrozen) {
+            assertThrows(ServiceException.class,()->service.correct(command()));
+            org.mockito.Mockito.verifyNoInteractions(signatureService,revisionService);
+            verify(eventMapper,never()).updateById(any(MesProProcessPoolEventDO.class));
+            verify(fragmentMapper,never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+            verify(feedbackMapper,never()).updateCorrectedProductionReport(any(),any(),any(),any(),any(),any(),any());
+            verify(feedbackMaterialMapper,never()).updateCorrectedMaterialFact(any(),any(),any(),any(),any(),any());
+            assertEquals(before,original.getRawPayload());
+        } else {
+            when(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(java.util.Set.of(413L,414L))).thenReturn(java.util.Set.of());
+            when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+            when(revisionService.updateProductionReportRecord(any())).thenReturn(709L);
+            when(fragmentMapper.updateById(any(MesProProcessPoolQuantityFragmentDO.class))).thenReturn(1);
+            assertEquals(709L,service.correct(command()));
+            var revision=ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);verify(revisionService).updateProductionReportRecord(revision.capture());
+            assertEquals(413L,JsonUtils.parseTree(revision.getValue().getAfterPayload()).path("activeOrderId").longValue());
+            assertEquals(6,JsonUtils.parseTree(revision.getValue().getAfterPayload()).path("outputQuantity").intValue());
+            verify(signatureService).recordFieldChangeSignature(any());verify(fragmentMapper).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+            verify(feedbackMapper).updateCorrectedProductionReport(any(),any(),any(),any(),any(),any(),any());
+        }
     }
 
     @Test
@@ -1008,7 +1055,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .actualEmployeeId(964L)
                 .feedbackSourceType("MES_PRO_FEEDBACK")
                 .feedbackSourceId(5101L)
-                .rawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+                .rawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                         + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
                         + "\"lossReasonDetails\":[],\"deviceParameterReadings\":[]}")
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 7, 8, 30))
@@ -1020,7 +1067,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO eventWithBusinessDetails() {
-        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":2,"
+        return event().setRawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":2,"
                 + "\"DEVICE_PARAMETERS\":{\"球囊成型机\":{\"pressure\":20}}},"
                 + "\"outputQuantity\":4,\"lossQuantity\":2,"
                 + "\"materialDetails\":[{\"materialId\":3401,\"materialCode\":\"A001.02.034.202\","
@@ -1038,7 +1085,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO eventWithDeviceReadingsButMissingParameterCopies() {
-        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+        return event().setRawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                 + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
                 + "\"lossReasonDetails\":[],"
                 + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
@@ -1047,7 +1094,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO eventWithMissingDeviceParameterValue() {
-        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+        return event().setRawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                 + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
                 + "\"lossReasonDetails\":[],"
                 + "\"deviceParameterReadings\":[{\"deviceId\":41,\"deviceName\":\"球囊成型机\","
@@ -1056,7 +1103,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO eventWithSelectDeviceParameterValue() {
-        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0,"
+        return event().setRawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0,"
                 + "\"DEVICE_PARAMETERS\":{\"球囊成型机\":{\"medium\":\"自来水\"}}},"
                 + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
                 + "\"lossReasonDetails\":[],"
@@ -1068,7 +1115,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     }
 
     private static MesProProcessPoolEventDO eventWithZeroLossMaterialFacts() {
-        return event().setRawPayload("{\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+        return event().setRawPayload("{\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                 + "\"outputQuantity\":4,\"lossQuantity\":0,"
                 + "\"materialDetails\":[{\"materialId\":3401,\"materialCode\":\"A001.02.034.202\","
                 + "\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":0,"

@@ -43,6 +43,7 @@ final class ProcessPoolTimelineTestSupport {
         Long routeProcessId = processId == null ? null : 5000L + processId;
         return new ProcessPoolTimelineEventReadDO()
                 .setId(id)
+                .setDisplayedReviewId(9000L+id).setDisplayedReviewRound(0).setDisplayedRevisionId(0L)
                 .setProcessPoolId(10L)
                 .setSubmittedAt(LocalDateTime.parse(submittedAt))
                 .setLoginUserId(100L)

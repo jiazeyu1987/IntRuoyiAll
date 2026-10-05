@@ -115,6 +115,7 @@
             WHEN review_copy_summary.review_copy_count IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_summary.field_count, 0), ' 个')
         END AS auditCopySummary,
+        <include refid="DisplayedReviewContextColumns"/>
         latest_submission_review.review_status AS submissionReviewStatus,
         latest_submission_review.review_remark AS submissionReviewRemark,
         latest_submission_review.leader_user_id AS submissionReviewLeaderUserId,
@@ -279,6 +280,19 @@
 
     <!-- A signed correction superseding the latest rejected decision makes that member reviewable again.
          The write command still verifies the formal signature and complete group before any mutation. -->
+    <sql id="DisplayedReviewContextColumns">
+        COALESCE((SELECT rr.id FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),0) AS displayedReviewId,
+        COALESCE((SELECT rr.review_round FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),0) AS displayedReviewRound,
+        COALESCE((SELECT rv.id FROM mes_pro_process_pool_event_revision rv
+          WHERE rv.event_id=pool_event.id AND rv.tenant_id=pool_event.tenant_id AND rv.deleted=0
+            AND rv.revision_status='EFFECTIVE'
+          ORDER BY rv.server_revision_time DESC, rv.id DESC LIMIT 1),0) AS displayedRevisionId,
+    </sql>
+
     <sql id="LatestSubmissionReviewRows">
             SELECT ranked_review.tenant_id,
                    ranked_review.event_id,
@@ -580,6 +594,7 @@
     <select id="selectPqcSubmissionGroupPayloadsByGroupIds"
             resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
         SELECT pool_event.id AS id,
+               <include refid="DisplayedReviewContextColumns"/>
                JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.pqcSubmissionGroupId')) AS pqcSubmissionGroupId,
                CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson
         FROM mes_pro_process_pool_event pool_event

@@ -109,6 +109,9 @@ public interface PermissionService {
      */
     Set<Long> getDynamicMenuListByUserId(Long userId);
 
+    /** 当前租户有效临时角色的显式菜单授权；不改变永久角色或管理员身份。 */
+    Set<Long> getTemporaryMenuListByUserId(Long userId);
+
     /**
      * 获得拥有指定菜单的角色编号数组，从缓存中获取
      *

@@ -265,6 +265,7 @@ public class MesProcessPoolTeamLeaderController {
                 .eventId(reqVO.getEventId())
                 .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
                 .leaderType(reqVO.getLeaderType())
+                .expectedReviews(reqVO.getExpectedReviews())
                 .reviewStatus(reqVO.getReviewStatus())
                 .reviewRemark(reqVO.getReviewRemark())
                 .signaturePassword(reqVO.getSignaturePassword())

@@ -95,4 +95,23 @@ class MesActiveOrderHandoffOwnerResolverTest {
   profile.setTenantId(1L);profile.setSystemUserId(342L);assertThrows(RuntimeException.class,()->service.profileProductionLeader(event));
  }
 
+
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"mixed","missingFormal","collision","foreignTemp","disabledTemp","wrongLeader"})
+ void actualProductionIdentityDomainsAreUnambiguousAndOnlyFormalUsersReceivePersonalTasks(String defect){
+  var profiles=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamEmployeeProfileMapper.class);
+  ReflectionTestUtils.setField(service,"profiles",profiles);
+  var order=MesProcessPoolActiveOrderDO.builder().id(413L).leaderUserId(341L).build();order.setTenantId(1L);
+  var formal=MesProcessPoolTeamEmployeeProfileDO.builder().id(70L).leaderUserId(341L).employeeType("FORMAL").systemUserId(342L).enabled(true).build();formal.setTenantId(1L);
+  var temporary=MesProcessPoolTeamEmployeeProfileDO.builder().id(71L).leaderUserId(341L).employeeType("TEMPORARY").enabled(true).build();temporary.setTenantId(1L);
+  var f=new MesProcessPoolTeamLeaderScopeDO().setLeaderUserId(341L).setLeaderType("PRODUCTION").setScopeType("EMPLOYEE").setEmployeeUserId(342L).setEnabled(true);f.setTenantId(1L);
+  var temp=new MesProcessPoolTeamLeaderScopeDO().setLeaderUserId(341L).setLeaderType("PRODUCTION").setScopeType("EMPLOYEE").setEmployeeUserId(71L).setEnabled(true);temp.setTenantId(1L);
+  switch(defect){case "missingFormal"->formal.setSystemUserId(343L);case "collision"->{temporary.setId(342L);temp.setEmployeeUserId(342L);}case "foreignTemp"->temporary.setTenantId(2L);case "disabledTemp"->temporary.setEnabled(false);case "wrongLeader"->temporary.setLeaderUserId(349L);case "mixed"->{}default->throw new IllegalArgumentException(defect);}
+  when(scopes.selectActiveScopesByLeader(341L,"PRODUCTION")).thenReturn(List.of(f,temp));
+  when(profiles.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(formal,temporary));
+  allowUser(342L,"mes:pro-feedback:create");
+  if("mixed".equals(defect)){assertEquals("342",service.productionEmployees(order));verify(users,never()).selectById(71L);}
+  else assertThrows(RuntimeException.class,()->service.productionEmployees(order));
+ }
+
 }

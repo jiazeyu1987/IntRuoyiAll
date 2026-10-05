@@ -157,6 +157,7 @@ public class AuthController {
         Set<Long> grantedMenuIds = new LinkedHashSet<>();
         grantedMenuIds.addAll(permissionService.getRoleMenuListByRoleId(convertSet(roles, RoleDO::getId)));
         grantedMenuIds.addAll(permissionService.getDynamicMenuListByUserId(loginUserId));
+        grantedMenuIds.addAll(permissionService.getTemporaryMenuListByUserId(loginUserId));
         List<MenuDO> permissionMenuList = getEnabledMenuList(grantedMenuIds);
         List<MenuDO> menuList = menuService.filterDisableMenus(getEnabledMenuList(
                 expandMenuIdsWithParents(permissionMenuList)));

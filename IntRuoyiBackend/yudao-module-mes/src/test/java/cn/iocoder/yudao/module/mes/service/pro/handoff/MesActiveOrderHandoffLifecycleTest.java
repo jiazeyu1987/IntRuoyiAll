@@ -269,4 +269,23 @@ class MesActiveOrderHandoffLifecycleTest {
   assertEquals("DONE",realTasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L).getStatus());
   assertEquals(176L,realTasks.selectById(returned.getId()).getCompletionSourceId());
  }
+
+ @org.junit.jupiter.params.ParameterizedTest
+ @org.junit.jupiter.params.provider.ValueSource(strings={"valid","wrongOldCompletion","wrongOldActor","previousRejected","roundGap","foreignApproval"})
+ void approvedProductionCanStartANewRejectedRoundWithoutRewritingOldCompletion(String defect){
+  when(owners.submissionIdentity(event)).thenReturn(new MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",342L,1L));
+  var approved=review(7000L).setReviewStatus("APPROVED").setReviewRound(0).setLeaderType("PRODUCTION");
+  var rejected=review(7001L).setReviewStatus("REJECTED").setReviewRound(1).setLeaderType("PRODUCTION").setSupersededReviewId(7000L);
+  var original=new MesActiveOrderHandoffTaskDO().setId(5L).setStatus("DONE").setCompletedBy(341L).setCompletionSourceId(7000L);original.setTenantId(1L);
+  switch(defect){case "wrongOldCompletion"->original.setCompletionSourceId(6999L);case "wrongOldActor"->original.setCompletedBy(999L);case "previousRejected"->approved.setReviewStatus("REJECTED");case "roundGap"->rejected.setReviewRound(2);case "foreignApproval"->approved.setTenantId(2L);case "valid"->{}default->throw new IllegalArgumentException(defect);}
+  when(reviews.selectById(7000L)).thenReturn(approved);when(reviews.selectById(7001L)).thenReturn(rejected);when(reviews.selectLatestByEventIdForUpdate(176L)).thenReturn(rejected);
+  when(tasks.byIdentity(413L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",176L,176L)).thenReturn(original);when(tasks.lock(5L)).thenReturn(original);
+  if("valid".equals(defect)){
+   service.reviewed(176L,7001L);assertEquals(7000L,original.getCompletionSourceId());
+   var captured=ArgumentCaptor.forClass(MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(captured.capture());
+   assertEquals("PRODUCTION_RETURN",captured.getValue().getTaskType());assertEquals(7001L,captured.getValue().getRoundId());
+   verify(tasks,never()).close(any(),eq(5L),any(),any(),any(),any(),any());
+  }else assertThrows(RuntimeException.class,()->service.reviewed(176L,7001L));
+ }
+
 }

@@ -71,6 +71,7 @@ class MesTeamLeaderReviewSignatureRoundTest {
     private GxpAuditService audit;
     private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver correctionDiscovery;
     private MesProProcessPoolEventDO event;
+    private final java.util.Map<Long, MesProProcessPoolEventDO> displayedMembers = new java.util.LinkedHashMap<>();
 
     @BeforeEach
     void fixture() throws Exception {
@@ -144,6 +145,8 @@ class MesTeamLeaderReviewSignatureRoundTest {
         ReflectionTestUtils.setField(target, "affectedStateCollector", mock(MesReleaseAffectedStateCollector.class));
         service = (MesTeamLeaderSubmissionReviewService) transactional(target);
         event = event(1001L, 5101L, "{\"outputQuantity\":10}");
+        displayedMembers.clear();
+        displayedMembers.put(event.getId(), event);
         when(events.selectByIdForUpdate(1001L)).thenReturn(event);
         TenantContextHolder.setTenantId(1L);
         var login = new LoginUser();
@@ -166,30 +169,34 @@ class MesTeamLeaderReviewSignatureRoundTest {
         Long rejected = service.reviewSubmission(request("REJECTED"));
         Long firstSignature = reviews.selectById(rejected).getReviewSignatureId();
         correct(event, rejected, 8001L);
-        Long approved = assertDoesNotThrow(() -> service.reviewSubmission(request("APPROVED")));
+        var approvedRequest = request("APPROVED");
+        Long approved = assertDoesNotThrow(() -> service.reviewSubmission(approvedRequest));
         assertNotEquals(firstSignature, reviews.selectById(approved).getReviewSignatureId());
         assertRound(approved, "APPROVED", 8001L, rejected);
-        assertEquals(approved, service.reviewSubmission(request("APPROVED")));
+        assertEquals(approved, service.reviewSubmission(approvedRequest));
         assertCounts(2, 2);
     }
 
     @Test
     void repeatedRejectionThenApprovalSignsEachExactRoundAndReplaysWithoutNewRows() {
-        Long first = service.reviewSubmission(request("REJECTED"));
+        var firstRequest = request("REJECTED");
+        Long first = service.reviewSubmission(firstRequest);
         Long firstSignature = reviews.selectById(first).getReviewSignatureId();
-        assertEquals(first, service.reviewSubmission(request("REJECTED")));
+        assertEquals(first, service.reviewSubmission(firstRequest));
         assertCounts(1, 1);
         correct(event, first, 8001L);
-        Long second = service.reviewSubmission(request("REJECTED"));
+        var secondRequest = request("REJECTED");
+        Long second = service.reviewSubmission(secondRequest);
         assertNotEquals(firstSignature, reviews.selectById(second).getReviewSignatureId(),
                 "A correction changes the signed content even when the decision stays REJECTED");
         assertRound(second, "REJECTED", 8001L, first);
-        assertEquals(second, service.reviewSubmission(request("REJECTED")));
+        assertEquals(second, service.reviewSubmission(secondRequest));
         assertCounts(2, 2);
         correct(event, second, 8002L);
-        Long third = service.reviewSubmission(request("APPROVED"));
+        var thirdRequest = request("APPROVED");
+        Long third = service.reviewSubmission(thirdRequest);
         assertRound(third, "APPROVED", 8002L, second);
-        assertEquals(third, service.reviewSubmission(request("APPROVED")));
+        assertEquals(third, service.reviewSubmission(thirdRequest));
         assertCounts(3, 3);
         assertEquals(3, jdbc.queryForObject("SELECT COUNT(DISTINCT content_hash) FROM system_electronic_signature", Integer.class));
         assertEquals(firstSignature, reviews.selectById(first).getReviewSignatureId());
@@ -199,6 +206,7 @@ class MesTeamLeaderReviewSignatureRoundTest {
     void secondCorrectedMembersFailureRollsBackActualUnifiedSignaturesAndReviews() {
         event.setRawPayload("{\"pqcSubmissionGroupId\":\"g\",\"outputQuantity\":10}");
         var sibling = event(1002L, 5102L, event.getRawPayload());
+        displayedMembers.put(sibling.getId(), sibling);
         when(events.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(event, sibling));
         service.reviewSubmission(request("REJECTED"));
         var originals = jdbc.queryForList("SELECT * FROM system_electronic_signature ORDER BY id");
@@ -255,6 +263,7 @@ class MesTeamLeaderReviewSignatureRoundTest {
                 .revisionSignatureId(signature.getSignatureId()).revisionSignatureUserId(2001L)
                 .revisionSignatureSnapshot(JsonUtils.toJsonString(signature)).build();
         correction.setTenantId(1L);
+        when(revisions.selectListByEventIdForUpdate(source.getId())).thenReturn(List.of(correction));
         var discovery=correctionDiscovery;
         org.mockito.Mockito.lenient().when(discovery.find(org.mockito.ArgumentMatchers.eq(source), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> {
@@ -274,6 +283,15 @@ class MesTeamLeaderReviewSignatureRoundTest {
     private MesTeamLeaderSubmissionReviewReqBO request(String status) {
         return MesTeamLeaderSubmissionReviewReqBO.builder().eventId(1001L).leaderUserId(3001L)
                 .leaderType("PQC").reviewStatus(status).reviewRemark("REJECTED".equals(status) ? "检测数据需补正" : "已核对")
+                .expectedReviews(displayedMembers.values().stream().map(member -> {
+                    var latestReview = reviews.selectLatestByEventIdForUpdate(member.getId());
+                    var effectiveRevisions = revisions.selectListByEventIdForUpdate(member.getId());
+                    return new MesSubmissionReviewExpectedContext().setEventId(member.getId())
+                            .setPayloadHash(MesProBatchRecordExecutionFieldAuditHasher.sha256(member.getRawPayload()))
+                            .setRevisionId(effectiveRevisions.isEmpty() ? 0L : effectiveRevisions.get(0).getId())
+                            .setReviewId(latestReview == null ? 0L : latestReview.getId())
+                            .setReviewRound(latestReview == null ? 0 : latestReview.getReviewRound());
+                }).toList())
                 .signaturePassword("fixture-credential").build();
     }
     private Object transactional(Object target) {

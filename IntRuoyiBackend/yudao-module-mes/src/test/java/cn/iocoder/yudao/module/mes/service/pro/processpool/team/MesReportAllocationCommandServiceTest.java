@@ -871,6 +871,62 @@ class MesReportAllocationCommandServiceTest {
     }
 
     @Test
+    void realRejectCommandAndRealHandoffPreserveApprovedRoundWhileRestoringQuantityAndCreatingReturn() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var event=event().setPoolId(71L).setRouteId(98L);event.setTenantId(1L);
+            var active=activeOrder(8101L,9001L).setRouteId(98L);active.setTenantId(1L);
+            var approved=signedApprovedReview();approved.setTenantId(1L);
+            var current=allocation(7101L,8101L,9001L,5001L,"100");current.setTenantId(1L);
+            var currentRows=new java.util.concurrent.atomic.AtomicReference<List<MesProcessPoolReportAllocationDO>>(List.of(current));
+            var latest=new java.util.concurrent.atomic.AtomicReference<MesProcessPoolSubmissionReviewDO>(approved);
+            var state=MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build();state.setTenantId(1L);
+            when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event);when(eventMapper.selectById(1001L)).thenReturn(event);
+            when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(active);
+            when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);when(stateMapper.updateById(state)).thenReturn(1);
+            when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenAnswer(call->currentRows.get());
+            when(allocationMapper.supersedeCurrentRows(List.of(7101L),2)).thenAnswer(call->{currentRows.set(List.of());current.setLifecycleStatus("SUPERSEDED");return 1;});
+            when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenAnswer(call->latest.get());
+            when(reviewMapper.selectById(7301L)).thenReturn(approved);
+            when(reviewMapper.selectById(7401L)).thenAnswer(call->latest.get());
+            when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(call->{MesProcessPoolSubmissionReviewDO review=call.getArgument(0);review.setId(7401L);review.setTenantId(1L);latest.set(review);return 1;});
+            when(releaseStateService.findReleasedActiveOrderIdsForUpdate(anyCollection())).thenReturn(Set.of());when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+            var fragments=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper.class);
+            var lines=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolFifoAllocationLineMapper.class);
+            var fragment=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO.builder().id(6001L).productionSubmitEventId(1001L).routeProcessId(5001L).processId(6001L).sourceQuantityType("OUTPUT").totalQuantity(new BigDecimal("300")).allocatedQuantity(new BigDecimal("100")).availableQuantity(new BigDecimal("200")).build();fragment.setTenantId(1L);
+            var line=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolFifoAllocationLineDO.builder().id(8001L).sourceEventId(1001L).sourceQuantityFragmentId(6001L).targetWorkOrderId(9001L).targetRouteProcessId(5001L).targetProcessId(6001L).allocatedQuantity(new BigDecimal("100")).build();
+            when(fragments.selectOutputListByProductionSubmitEventIdForUpdate(1001L)).thenReturn(List.of(fragment));when(fragments.updateById(fragment)).thenReturn(1);
+            when(lines.selectListBySourceEventIdForUpdate(1001L)).thenReturn(List.of(line));when(lines.supersedeCurrentRows(List.of(8001L),2)).thenReturn(1);
+            ReflectionTestUtils.setField(service,"quantityFragmentService",new MesReportAllocationQuantityFragmentService(fragments,lines,workOrderMapper));
+            var handoff=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService();
+            var tasks=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper.class);
+            var owners=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
+            var originalTask=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO().setId(5L).setStatus("DONE").setCompletedBy(3001L).setCompletionSourceId(7301L);originalTask.setTenantId(1L);
+            when(tasks.byIdentity(8101L,"PRODUCTION_REVIEW","PROCESS_POOL_EVENT",1001L,1001L)).thenReturn(originalTask);when(tasks.lock(5L)).thenReturn(originalTask);
+            when(tasks.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class))).thenReturn(1);
+            when(owners.submissionIdentity(event)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER",4001L,9001L));
+            when(owners.initiatorSnapshot(3001L,null)).thenReturn(java.util.Map.of("domain","SYSTEM_USER","id",3001L,"name","原生产组长"));
+            var work=workOrder(9001L,"WO-9001");work.setTenantId(1L);when(workOrderMapper.selectById(9001L)).thenReturn(work);
+            var routes=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper.class);when(routes.selectById(5001L)).thenReturn(MesProRouteProcessDO.builder().id(5001L).routeId(98L).processId(6001L).build());
+            var processes=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper.class);when(processes.selectById(6001L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO.builder().id(6001L).name("正式生产工序").build());
+            for(var entry:java.util.Map.of("tasks",tasks,"orders",activeOrderMapper,"events",eventMapper,"reviews",reviewMapper,"owners",owners,"workOrders",workOrderMapper,"routeProcesses",routes,"processes",processes,"audit",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffAudit.class),"delivery",org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffDeliveryService.class)).entrySet())ReflectionTestUtils.setField(handoff,entry.getKey(),entry.getValue());
+            ReflectionTestUtils.setField(service,"handoffService",handoff);
+            assertEquals(7401L,service.rejectProductionSubmission(1001L,3001L,"数量与现场不符","reject-pass"));
+            assertTrue(currentRows.get().isEmpty());assertEquals("SUPERSEDED",current.getLifecycleStatus());assertEquals(2,state.getCurrentVersion());
+            assertAmount("0",fragment.getAllocatedQuantity());assertAmount("300",fragment.getAvailableQuantity());verify(lines).supersedeCurrentRows(List.of(8001L),2);
+            assertEquals("APPROVED",approved.getReviewStatus());assertEquals("DONE",originalTask.getStatus());assertEquals(7301L,originalTask.getCompletionSourceId());
+            assertEquals(1,latest.get().getReviewRound());assertEquals(7301L,latest.get().getSupersededReviewId());assertEquals("REJECTED",latest.get().getReviewStatus());assertInitialReviewContentEvidence(latest.get(),event);
+            var returned=ArgumentCaptor.forClass(cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class);verify(tasks).insert(returned.capture());
+            assertEquals("PRODUCTION_RETURN",returned.getValue().getTaskType());assertEquals("4001",returned.getValue().getCandidateUserSnapshot());assertEquals(7401L,returned.getValue().getRoundId());
+            assertTrue(returned.getValue().getActionUrl().contains("rejectedReviewId=7401"));assertTrue(returned.getValue().getActionUrl().contains("returnTaskId="));
+            verify(tasks,never()).close(any(),any(),any(),any(),any(),any(),any());
+            var audit=ArgumentCaptor.forClass(GxpAuditCommand.class);verify(gxpAuditService).append(audit.capture());assertEquals("mes.production.reject",audit.getValue().getOperationId());assertEquals("2",audit.getValue().getAfterState().getObjectVersion());assertTrue(audit.getValue().getAfterState().getCanonicalJson().contains("\"allocations\":[]"));
+            assertEquals(7401L,service.rejectProductionSubmission(1001L,3001L,"数量与现场不符","reject-pass"));
+            verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));verify(signatureService).recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
+        } finally {cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
+    }
+
+    @Test
     void shouldRejectProductionSubmissionBeforeWritingWhenAnyAllocationWasReleased() {
         MesProProcessPoolEventDO event = event();
         when(activeOrderMapper.selectByIdForUpdate(8101L)).thenReturn(activeOrder(8101L, 9001L));

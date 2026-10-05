@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper;
@@ -98,7 +99,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
             return 1;
         });
 
-        Long reviewId = service.reviewSubmission(reviewReq());
+        Long reviewId = service.reviewSubmission(displayed(reviewReq()));
 
         assertEquals(7001L, reviewId);
         verify(scopeService).assertCanAccessEmployee(3001L,
@@ -134,7 +135,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
             return 1;
         });
 
-        Long reviewId = service.reviewSubmission(rejectedReviewReq());
+        Long reviewId = service.reviewSubmission(displayed(rejectedReviewReq()));
 
         assertEquals(7002L, reviewId);
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
@@ -150,7 +151,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void shouldRejectApprovedProductionSubmissionThroughGenericReview() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(productionEvent());
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_PRODUCTION_REVIEW_ALLOCATION_REQUIRED.getCode(),
                 ex.getCode());
@@ -177,7 +178,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
 
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> service.reviewSubmission(productionReviewReq()));
+                () -> service.reviewSubmission(displayed(productionReviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED.getCode(),
                 ex.getCode());
@@ -205,7 +206,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .when(scopeService).assertCanAccessEmployee(3001L,
                         MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
         assertEquals("班组长不在该员工的负责范围内", ex.getMessage());
@@ -217,7 +218,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS.getCode(), ex.getCode());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
@@ -229,7 +230,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingApprovedReview());
 
-        Long reviewId = service.reviewSubmission(reviewReq());
+        Long reviewId = service.reviewSubmission(displayed(reviewReq()));
 
         assertEquals(7004L, reviewId);
         verify(signatureService, never()).recordTeamLeaderReviewSignature(
@@ -250,7 +251,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
             return 1;
         });
 
-        assertEquals(7010L, service.reviewSubmission(reviewReq()));
+        assertEquals(7010L, service.reviewSubmission(displayed(reviewReq())));
 
         verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
@@ -276,12 +277,14 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         });
         bindRevision(corrected, 8001L);
 
-        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
-        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        var capturedRejection=displayed(rejectedReviewReq());
+        assertEquals(7001L, service.reviewSubmission(capturedRejection));
+        assertEquals(7001L, service.reviewSubmission(capturedRejection));
         corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7001}");
         bindRevision(corrected, 8002L);
-        assertEquals(7002L, service.reviewSubmission(reviewReq()));
-        assertEquals(7002L, service.reviewSubmission(reviewReq()));
+        var capturedApproval=displayed(reviewReq());
+        assertEquals(7002L, service.reviewSubmission(capturedApproval));
+        assertEquals(7002L, service.reviewSubmission(capturedApproval));
         assertEquals(3, reviews.size());
         assertEquals("REJECTED", first.getReviewStatus());
         verify(signatureService, org.mockito.Mockito.times(2))
@@ -315,7 +318,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 "{\"outputQuantity\":11,\"supersededReviewId\":7000}");
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(corrected);
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
-        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
 
@@ -327,7 +330,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
         bindRevision(corrected, 8001L);
         corrected.setRawPayload("{\"outputQuantity\":12,\"supersededReviewId\":7000}");
-        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
     }
@@ -340,6 +343,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                         + ",\"actorId\":2001,\"signedAt\":\"2026-09-28T10:30:00\"}")
                 .afterPayload(event.getRawPayload()).build();
         revision.setTenantId(event.getTenantId());
+        org.mockito.Mockito.lenient().when(revisionMapper.selectListByEventIdForUpdate(event.getId())).thenReturn(List.of(revision));
         var discovery=(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver) ReflectionTestUtils.getField(service, "returnCorrectionResolver");
         org.mockito.Mockito.lenient().when(discovery.find(org.mockito.ArgumentMatchers.eq(event), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> {
@@ -362,7 +366,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .when(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7005L);
 
         ServiceException ex = assertThrows(ServiceException.class,
-                () -> service.reviewSubmission(reviewReq()));
+                () -> service.reviewSubmission(displayed(reviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
         verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
@@ -377,7 +381,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
             return 1;
         });
 
-        Long reviewId = service.reviewSubmission(reviewReq());
+        Long reviewId = service.reviewSubmission(displayed(reviewReq()));
 
         assertEquals(7003L, reviewId);
         verify(scopeService).assertCanAccessEmployee(3001L,
@@ -394,7 +398,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7003L);
     }
 
-    private static MesTeamLeaderSubmissionReviewReqBO reviewReq() {
+    private MesTeamLeaderSubmissionReviewReqBO reviewReq() {
         return MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(1001L)
                 .leaderUserId(3001L)
@@ -411,7 +415,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldReviewEveryMemberOfPqcSubmissionGroup() {
         prepareSubmissionGroup(false);
-        assertEquals(7001L, service.reviewSubmission(reviewReq()));
+        assertEquals(7001L, service.reviewSubmission(displayed(reviewReq())));
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7001L);
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1002L, 7002L);
         verify(gxpAuditService, org.mockito.Mockito.times(2)).append(any(GxpAuditCommand.class));
@@ -421,7 +425,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void shouldFinishUnreviewedGroupMembersWithoutRewritingApprovedMember() {
         prepareSubmissionGroup(false);
         when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingApprovedReview());
-        assertEquals(7004L, service.reviewSubmission(reviewReq()));
+        assertEquals(7004L, service.reviewSubmission(displayed(reviewReq())));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(org.mockito.ArgumentMatchers.eq(1001L), any());
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1002L, 7002L);
         verify(reviewMapper, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolSubmissionReviewDO.class));
@@ -430,7 +434,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldRejectCrossOrderSubmissionGroupBeforeWritingAnyReview() {
         prepareSubmissionGroup(true);
-        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
     }
@@ -440,7 +444,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         prepareSubmissionGroup(false);
         lenient().when(reviewMapper.selectLatestByEventIdForUpdate(1002L)).thenReturn(existingApprovedReview()
                 .setEventId(1002L).setLeaderUserId(3002L).setReviewRemark("Original approval"));
-        assertEquals(7001L, service.reviewSubmission(reviewReq()));
+        assertEquals(7001L, service.reviewSubmission(displayed(reviewReq())));
         verify(reviewMapper, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(org.mockito.ArgumentMatchers.eq(1002L), any());
     }
@@ -448,7 +452,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldRejectEntireSubmissionGroupWithoutAggregating() {
         prepareSubmissionGroup(false);
-        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        assertEquals(7001L, service.reviewSubmission(displayed(rejectedReviewReq())));
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviews = ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper, org.mockito.Mockito.times(2)).insert(reviews.capture());
         assertTrue(reviews.getAllValues().stream().allMatch(review -> "REJECTED".equals(review.getReviewStatus())));
@@ -459,7 +463,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void shouldRejectCrossActiveOrderGroupBeforeAnySignature() {
         prepareSubmissionGroup(false);
         when(pqcTaskMapper.selectById(5102L)).thenReturn(MesPqcInspectionTaskDO.builder().id(5102L).activeOrderId(8102L).build());
-        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
@@ -469,7 +473,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         prepareSubmissionGroup(false);
         lenient().when(reviewMapper.selectLatestByEventIdForUpdate(1002L)).thenReturn(existingApprovedReview()
                 .setEventId(1002L).setLeaderUserId(3002L).setReviewRemark("Original approval"));
-        assertEquals(7001L, service.reviewSubmission(rejectedReviewReq()));
+        assertEquals(7001L, service.reviewSubmission(displayed(rejectedReviewReq())));
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviews = ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper).insert(reviews.capture());
         assertEquals(1001L, reviews.getValue().getEventId());
@@ -483,7 +487,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         prepareSubmissionGroup(false);
         lenient().when(reviewMapper.selectLatestByEventIdForUpdate(1002L)).thenReturn(existingApprovedReview()
                 .setEventId(1002L).setReviewStatus("REJECTED"));
-        assertThrows(ServiceException.class, () -> service.reviewSubmission(reviewReq()));
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
         verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }
@@ -512,19 +516,19 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         return event;
     }
 
-    private static MesTeamLeaderSubmissionReviewReqBO productionReviewReq() {
+    private MesTeamLeaderSubmissionReviewReqBO productionReviewReq() {
         return reviewReq()
                 .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
     }
 
-    private static MesTeamLeaderSubmissionReviewReqBO rejectedProductionReviewReq() {
+    private MesTeamLeaderSubmissionReviewReqBO rejectedProductionReviewReq() {
         return reviewReq()
                 .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .setReviewStatus(MesProcessPoolSubmissionReviewDO.STATUS_REJECTED)
                 .setReviewRemark("数量错误");
     }
 
-    private static MesTeamLeaderSubmissionReviewReqBO rejectedReviewReq() {
+    private MesTeamLeaderSubmissionReviewReqBO rejectedReviewReq() {
         return MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(1001L)
                 .leaderUserId(3001L)
@@ -588,4 +592,42 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                 .reviewedAt(LocalDateTime.of(2026, 8, 3, 10, 30))
                 .build();
     }
+
+    private MesTeamLeaderSubmissionReviewReqBO displayed(MesTeamLeaderSubmissionReviewReqBO request) {
+        var event=eventMapper.selectByIdForUpdate(request.getEventId());
+        if(event==null||!"PQC_INSPECTION".equals(event.getEventType()))return request;
+        java.util.List<MesProProcessPoolEventDO> members=List.of(event);
+        if(JsonUtils.parseTree(event.getRawPayload()).has("pqcSubmissionGroupId"))
+            members=eventMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProProcessPoolEventDO>());
+        return request.setExpectedReviews(members.stream().map(member->{
+            var review=reviewMapper.selectLatestByEventIdForUpdate(member.getId());
+            var versions=revisionMapper.selectListByEventIdForUpdate(member.getId());
+            return new MesSubmissionReviewExpectedContext().setEventId(member.getId())
+                    .setPayloadHash(MesProBatchRecordExecutionFieldAuditHasher.sha256(member.getRawPayload()))
+                    .setRevisionId(versions.isEmpty()?0L:versions.get(0).getId())
+                    .setReviewId(review==null?0L:review.getId()).setReviewRound(review==null?0:review.getReviewRound());
+        }).toList());
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"payload","round","revision","missing","duplicate","secondMember"})
+    void staleDisplayedPqcContextFailsBeforeAnySignatureReviewAggregateOrHandoff(String change) {
+        if("secondMember".equals(change))prepareSubmissionGroup(false);
+        else when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
+        var request=displayed(reviewReq());
+        switch(change){
+            case "payload"->when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event().setRawPayload("{\"outputQuantity\":11}"));
+            case "round"->when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(existingReview());
+            case "revision"->when(revisionMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of(new MesProProcessPoolEventRevisionDO().setId(55L)));
+            case "missing"->request.setExpectedReviews(null);
+            case "duplicate"->request.setExpectedReviews(List.of(request.getExpectedReviews().get(0),request.getExpectedReviews().get(0)));
+            case "secondMember"->request.getExpectedReviews().get(1).setPayloadHash("stale-other-member");
+            default->throw new IllegalArgumentException(change);
+        }
+        var failure=assertThrows(IllegalStateException.class,()->service.reviewSubmission(request));
+        assertTrue(failure.getMessage().contains("刷新"));
+        org.mockito.Mockito.verifyNoInteractions(signatureService,processInspectionAggregationService);
+        verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(eventMapper,never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
 }

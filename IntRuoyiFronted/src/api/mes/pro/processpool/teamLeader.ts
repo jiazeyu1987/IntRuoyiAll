@@ -22,6 +22,7 @@ export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageRe
 }
 
 export interface TeamLeaderSubmissionReviewReqVO {
+  expectedReviews?: import('@/api/mes/pro/processpool').SubmissionReviewExpectedContext[]
   eventId: number
   leaderType: TeamLeaderType
   reviewStatus: SubmissionReviewStatus

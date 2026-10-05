@@ -4107,7 +4107,7 @@
 
 <script setup lang="ts">
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
-import { watch } from 'vue'
+import { watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 import { resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
@@ -8834,8 +8834,14 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
     ElMessage.error('已完成复核的提交不能重复复核')
     return
   }
+  if (!isProductionLeader.value && (!event.expectedReviews?.length ||
+      event.expectedReviews.some((member) => !member.payloadHash || member.reviewId == null ||
+        member.reviewRound == null || member.revisionId == null))) {
+    ElMessage.error('PQC记录缺少审核上下文，请刷新后重新复核')
+    return
+  }
   reviewDialogMode.value = 'REVIEW'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
@@ -8968,6 +8974,7 @@ const submitReview = async () => {
         leaderType,
         eventId,
         reviewStatus: reviewForm.reviewStatus,
+        expectedReviews: reviewEvent.value?.expectedReviews,
         reviewRemark,
         ...reviewSignaturePayload
       })

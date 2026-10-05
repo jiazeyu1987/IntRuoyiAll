@@ -91,6 +91,11 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
+        if (revisionPolicy == RevisionPolicy.REJECTED_REVIEW_REQUIRED
+                && ("PRODUCTION_SUBMIT".equals(event.getEventType()) || "PQC_INSPECTION".equals(event.getEventType()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                    "正式生产报工或PQC检验记录必须通过对应业务补正入口修改");
+        }
         if (MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工版本更正");
         }

@@ -14,6 +14,7 @@ public class MesTeamLeaderSubmissionReviewReqVO {
     @Schema(description = "工序池提交事件编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
     @NotNull
     private Long eventId;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
 
     @Schema(description = "班组长类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "PQC")
     @NotBlank

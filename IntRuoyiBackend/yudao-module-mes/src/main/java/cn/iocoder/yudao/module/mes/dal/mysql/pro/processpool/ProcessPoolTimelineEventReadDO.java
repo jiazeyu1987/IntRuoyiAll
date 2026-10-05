@@ -68,6 +68,10 @@ public class ProcessPoolTimelineEventReadDO {
     private String reportReleaseStatus;
     private String submittedSummary;
     private String originalPayloadJson;
+    private Long displayedRevisionId;
+    private Long displayedReviewId;
+    private Integer displayedReviewRound;
+    private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
     private String pqcResult;
     private String pqcSummary;
     private String processInspectionAggregationStatus;

@@ -179,6 +179,22 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
         assertEquals("EXPIRING_SOON", temporaryRoleGrantService.getGrantPage(reqVO).getList().get(0).getReviewCategory());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"active","notYetEffective","expiredBeforeJob","revoked"})
+    void realGrantQueryDrivesTemporaryMenuProjectionWithoutPermanentRoleMembership(String state) {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(0L);
+        try {
+            insertRoleAndMenu();
+            var now=LocalDateTime.now();
+            insertActiveGrant(7200L,"notYetEffective".equals(state)?now.plusHours(1):now.minusHours(1),
+                    "expiredBeforeJob".equals(state)?now.minusSeconds(1):now.plusHours(2));
+            if("revoked".equals(state))temporaryRoleGrantMapper.updateById(new TemporaryRoleGrantDO().setId(7200L).setStatus("REVOKED"));
+            assertEquals("active".equals(state)?Set.of(ROLE_ID):Set.of(),temporaryRoleGrantService.getActiveRoleIdsByUserId(USER_ID,now));
+            assertEquals("active".equals(state)?Set.of(MENU_ID):Set.of(),permissionService.getTemporaryMenuListByUserId(USER_ID));
+            assertTrue(permissionService.getUserRoleIdListByUserId(USER_ID).isEmpty());
+        } finally {cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
+    }
+
     private TemporaryRoleGrantCreateCommand createCommand(LocalDateTime expireTime) {
         return TemporaryRoleGrantCreateCommand.builder()
                 .userId(USER_ID)
@@ -198,6 +214,7 @@ class TemporaryRoleGrantServiceImplTest extends BaseDbUnitTest {
                 .setSort(1)
                 .setStatus(CommonStatusEnum.ENABLE.getStatus())
                 .setType(RoleTypeEnum.CUSTOM.getType());
+        role.setTenantId(0L);
         roleMapper.insert(role);
         when(roleService.getRoleListFromCache(org.mockito.ArgumentMatchers.anyCollection())).thenAnswer(invocation -> {
             java.util.Collection<Long> roleIds = invocation.getArgument(0);

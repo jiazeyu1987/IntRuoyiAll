@@ -160,8 +160,29 @@ public class MesActiveOrderHandoffService {
         require(latest!=null&&Objects.equals(latest.getId(),reviewId),"旧复核轮次禁止关闭或创建新轮交接");
         Long routeProcessId=submissionRouteProcess(event,order);
         Long round=review.getSourceRevisionId()==null?eventId:review.getSourceRevisionId();
-        closeReviewRound(order.getId(),production?"PRODUCTION_REVIEW":"PQC_REVIEW",
-                review.getSourceRevisionId()==null?"PROCESS_POOL_EVENT":EVENT_SIGNED_REVISION,eventId,round,review.getLeaderUserId(),reviewId);
+        if(production && "REJECTED".equals(review.getReviewStatus()) && review.getSourceRevisionId()==null
+                && review.getSupersededReviewId()!=null) {
+            // A signed rejection revokes a previous approval. Its return round is reviewId;
+            // the previous review task must remain completed by the previous approval.
+            var approval=reviews.selectById(review.getSupersededReviewId());
+            require(approval!=null&&Objects.equals(tenant(),approval.getTenantId())
+                    &&Objects.equals(eventId,approval.getEventId())&&"APPROVED".equals(approval.getReviewStatus())
+                    &&Objects.equals(review.getLeaderUserId(),approval.getLeaderUserId())
+                    &&Objects.equals(review.getLeaderType(),approval.getLeaderType())
+                    &&approval.getReviewSignatureId()!=null&&approval.getReviewSignatureId()>0
+                    &&Objects.equals(approval.getLeaderUserId(),approval.getReviewSignatureUserId())
+                    &&approval.getReviewRound()!=null&&review.getReviewRound()!=null
+                    &&review.getReviewRound()==approval.getReviewRound()+1,"批准撤销必须来自上一正式批准并创建新的拒绝轮次");
+            Long approvalRound=approval.getSourceRevisionId()==null?eventId:approval.getSourceRevisionId();
+            var approvedTask=tasks.byIdentity(order.getId(),"PRODUCTION_REVIEW",
+                    approval.getSourceRevisionId()==null?"PROCESS_POOL_EVENT":EVENT_SIGNED_REVISION,eventId,approvalRound);
+            require(approvedTask!=null&&"DONE".equals(approvedTask.getStatus())
+                    &&Objects.equals(approvedTask.getCompletedBy(),approval.getLeaderUserId()),"批准撤销缺少已完成的原复核交接");
+            close(approvedTask,approval.getLeaderUserId(),approval.getId(),"DONE");
+        } else {
+            closeReviewRound(order.getId(),production?"PRODUCTION_REVIEW":"PQC_REVIEW",
+                    review.getSourceRevisionId()==null?"PROCESS_POOL_EVENT":EVENT_SIGNED_REVISION,eventId,round,review.getLeaderUserId(),reviewId);
+        }
         if("REJECTED".equals(review.getReviewStatus())) {
             require(review.getReviewRemark()!=null&&!review.getReviewRemark().isBlank(),"退回原因不能为空");
             var identity=owners.submissionIdentity(event);

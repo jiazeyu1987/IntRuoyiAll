@@ -70,6 +70,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper revisionMapper;
+    @Mock
     private MesProcessPoolSubmissionReviewMapper reviewMapper;
     @Mock
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -127,6 +129,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
+        ReflectionTestUtils.setField(submissionReviewService, "revisionMapper", revisionMapper);
         ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(submissionReviewService, "affectedStateCollector",
                 org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
@@ -166,6 +169,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     void reviewSubmissionShouldUseLeaderIdentityForServerSignature() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+        reqBO.setExpectedReviews(List.of(firstDisplayedPqcContext()));
         set(reqBO, "setReviewSignatureUserId", Long.class, 3999L);
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
@@ -221,6 +225,7 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
     void reviewSubmissionShouldPersistStructuredReviewSignature() {
         MesTeamLeaderSubmissionReviewReqBO reqBO = signedReviewReq();
         set(reqBO, "setLeaderType", String.class, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC);
+        reqBO.setExpectedReviews(List.of(firstDisplayedPqcContext()));
         when(eventMapper.selectByIdForUpdate(EVENT_ID)).thenReturn(pqcReviewEvent());
         when(reviewMapper.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, MesProcessPoolSubmissionReviewDO.class).setId(7001L);
@@ -421,6 +426,12 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .rawPayload("{\"inspectionResult\":\"SUCCESS\"}")
                 .serverSubmitTime(LocalDateTime.of(2026, 8, 3, 9, 5))
                 .build();
+    }
+
+    private static MesSubmissionReviewExpectedContext firstDisplayedPqcContext() {
+        return new MesSubmissionReviewExpectedContext().setEventId(EVENT_ID)
+                .setPayloadHash(MesProBatchRecordExecutionFieldAuditHasher.sha256(pqcReviewEvent().getRawPayload()))
+                .setRevisionId(0L).setReviewId(0L).setReviewRound(0);
     }
 
     private static MesProProcessPoolPqcRecordDO pqcRecord(String inspectionResult) {

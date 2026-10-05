@@ -120,6 +120,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 session.getMapper(MesProFeedbackMaterialMapper.class), (MesProcessPoolEventRevisionService) tx(revisionTarget, manager),
                 signer, mock(MesFrontlineLossReasonValidator.class), scope, summary);
         org.springframework.test.util.ReflectionTestUtils.setField(target, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        ReflectionTestUtils.setField(target,"sharedReportGuard",MesSharedProductionReportCorrectionGuardTest.openFixture(20L,30L));
         var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
         org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffOwners", fixtureOwners);
         org.mockito.Mockito.lenient().when(fixtureOwners.submissionIdentity(org.mockito.ArgumentMatchers.any())).thenAnswer(call -> new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity("SYSTEM_USER", call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getActualEmployeeId(), call.getArgument(0, cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class).getDeviceAccountId()));
@@ -153,7 +154,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 + " VALUES(1,'correction-test',?,'MES','MES_PROCESS_POOL_EVENT','UPDATE','USER_REQUIRED','REQUIRED',"
                 + "'PRESENT_TO_PRESENT','GXP',1)", OPERATION);
         String payload = "{\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],"
-                + "\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
+                + "\"activeOrderId\":413,\"fieldValues\":{\"OUTPUT_QUANTITY\":4,\"SCRAP_QUANTITY\":0},"
                 + "\"materialDetails\":[{\"materialId\":3401,\"materialCode\":\"M-1\",\"materialName\":\"original\","
                 + "\"outputQuantity\":4,\"lossQuantity\":0,\"lossDetails\":[],\"deviceParameterReadings\":[]}]}";
         jdbc.update("INSERT INTO " + EVENT + "(id,tenant_id,pool_id,event_type,work_order_id,route_id,route_process_id,"

@@ -183,6 +183,13 @@ class MesProcessPoolTeamLeaderControllerTest {
         MesTeamLeaderSubmissionReviewReqVO reqVO = new MesTeamLeaderSubmissionReviewReqVO()
                 .setEventId(1001L)
                 .setLeaderType("PQC")
+                .setExpectedReviews(List.of(
+                        new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext()
+                                .setEventId(1001L).setPayloadHash("displayed-member-one").setRevisionId(31L)
+                                .setReviewId(41L).setReviewRound(2),
+                        new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext()
+                                .setEventId(1002L).setPayloadHash("displayed-member-two").setRevisionId(32L)
+                                .setReviewId(42L).setReviewRound(3)))
                 .setReviewStatus("APPROVED")
                 .setReviewRemark("已复核")
                 .setSignaturePassword("review-pass");
@@ -202,6 +209,8 @@ class MesProcessPoolTeamLeaderControllerTest {
         assertEquals(1001L, captor.getValue().getEventId());
         assertEquals("APPROVED", captor.getValue().getReviewStatus());
         assertEquals("review-pass", captor.getValue().getSignaturePassword());
+        assertEquals(reqVO.getExpectedReviews(), captor.getValue().getExpectedReviews(),
+                "Controller must forward every displayed member without replacing its version or review round");
     }
 
     @Test

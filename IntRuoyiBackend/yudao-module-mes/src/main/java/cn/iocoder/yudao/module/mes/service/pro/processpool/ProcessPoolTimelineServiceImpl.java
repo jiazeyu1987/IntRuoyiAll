@@ -162,6 +162,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setReportReleaseStatus(event.getReportReleaseStatus())
                 .setSubmittedSummary(event.getSubmittedSummary())
                 .setOriginalPayloadJson(event.getOriginalPayloadJson())
+                .setDisplayedRevisionId(event.getDisplayedRevisionId())
+                .setDisplayedReviewId(event.getDisplayedReviewId())
+                .setDisplayedReviewRound(event.getDisplayedReviewRound())
                 .setPqcResult(event.getPqcResult())
                 .setPqcSummary(event.getPqcSummary())
                 .setProcessInspectionAggregationStatus(event.getProcessInspectionAggregationStatus())
@@ -177,7 +180,19 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSubmissionReviewLeaderUserName(event.getSubmissionReviewLeaderUserName())
                 .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            respVO.setExpectedReviews(List.of(displayedReviewContext(event)));
+        }
         fillProductionSubmissionPayload(event, respVO);
+    }
+
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext displayedReviewContext(ProcessPoolTimelineEventReadDO event) {
+        if(event.getOriginalPayloadJson()==null || event.getDisplayedReviewId()==null
+                || event.getDisplayedReviewRound()==null || event.getDisplayedRevisionId()==null)
+            throw new IllegalStateException("PQC展示记录缺少正式审核上下文，请刷新");
+        return new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext().setEventId(event.getId())
+                .setPayloadHash(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getOriginalPayloadJson()))
+                .setRevisionId(event.getDisplayedRevisionId()).setReviewId(event.getDisplayedReviewId()).setReviewRound(event.getDisplayedReviewRound());
     }
 
     private List<ProcessPoolTimelineEventRespVO> enrichPqcSubmissionGroupRows(ProcessPoolTimelinePageReqVO reqVO,
@@ -204,6 +219,9 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             List<ProcessPoolTimelineEventReadDO> groupedPayloads = StrUtil.isBlank(row.getPqcSubmissionGroupId())
                     ? List.of()
                     : eventPayloadsByGroupId.getOrDefault(row.getPqcSubmissionGroupId().trim(), List.of());
+            if (!groupedPayloads.isEmpty()) {
+                row.setExpectedReviews(groupedPayloads.stream().map(this::displayedReviewContext).toList());
+            }
             if (groupedPayloads.isEmpty()) {
                 accumulator.add(row.getId(), row.getOriginalPayloadJson());
             } else {

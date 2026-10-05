@@ -64,6 +64,9 @@ public class MesProcessPoolProductionReportCorrectionService {
     private static final String FIELD_SCRAP_QUANTITY = "SCRAP_QUANTITY";
     private static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
 
+    @jakarta.annotation.Resource
+    private MesSharedProductionReportCorrectionGuard sharedReportGuard;
+
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProProcessPoolQuantityFragmentMapper fragmentMapper;
     private final MesProFeedbackMapper feedbackMapper;
@@ -185,6 +188,8 @@ public class MesProcessPoolProductionReportCorrectionService {
         if (changes.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
         }
+
+        sharedReportGuard.assertEditable(event);
 
         // Freeze current persisted facts before signature/revision and in-place summary mutation.
         CorrectionAuditState before = correctionAuditState(event, outputFragment, null);

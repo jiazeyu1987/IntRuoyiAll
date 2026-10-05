@@ -80,7 +80,16 @@ export interface ProcessPoolTimelineReportAllocationVO {
   editable: boolean
 }
 
+export interface SubmissionReviewExpectedContext {
+  eventId: number
+  payloadHash: string
+  revisionId: number
+  reviewId: number
+  reviewRound: number
+}
+
 export interface ProcessPoolTimelineEventVO {
+  expectedReviews?: SubmissionReviewExpectedContext[]
   id: number
   processPoolEventId?: number
   processPoolId?: number

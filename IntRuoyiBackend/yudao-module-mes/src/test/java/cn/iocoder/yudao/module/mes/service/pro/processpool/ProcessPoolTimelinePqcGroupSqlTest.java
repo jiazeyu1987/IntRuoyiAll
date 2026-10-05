@@ -325,6 +325,43 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
         }
     }
 
+    @Test
+    void actualGroupPayloadQueryCarriesEachDisplayedVersionAndReviewRound() throws Exception {
+        try(Connection db=database()) {
+            event(db,1,101,"g");event(db,1,102,"g");
+            assertDisplayedContexts(db,List.of("101:0:0:0","102:0:0:0"));
+            review(db,1,201,101,"REJECTED");
+            review(db,2,999,101,"APPROVED");
+            try(var st=db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_submission_review SET review_round=3 WHERE id=201");
+            }
+            correction(db,1,301,101,201,901L);
+            correction(db,2,999,101,201,999L);
+            assertDisplayedContexts(db,List.of("101:301:201:3","102:0:0:0"));
+            try(var st=db.createStatement()) {
+                st.executeUpdate("UPDATE mes_pro_process_pool_event_revision SET revision_status='REVOKED' WHERE tenant_id=1 AND id=301");
+                st.executeUpdate("UPDATE mes_pro_process_pool_event SET deleted=1 WHERE id=102");
+            }
+            assertDisplayedContexts(db,List.of("101:0:201:3"));
+        }
+    }
+
+    private static void assertDisplayedContexts(Connection db,List<String> expected) throws Exception {
+        var parameters=Map.<String,Object>of("groupIds",List.of("g"));
+        var sql=configuration().getMappedStatement(NAMESPACE+".selectPqcSubmissionGroupPayloadsByGroupIds").getBoundSql(parameters);
+        var actual=new ArrayList<String>();
+        try(var statement=db.prepareStatement(sql.getSql())) {
+            bind(statement,sql,parameters);
+            try(var rows=statement.executeQuery()) {
+                while(rows.next()) {
+                    org.junit.jupiter.api.Assertions.assertEquals("g",JsonUtils.parseTree(rows.getString("originalPayloadJson")).path("pqcSubmissionGroupId").asText());
+                    actual.add(rows.getLong("id")+":"+rows.getLong("displayedRevisionId")+":"+rows.getLong("displayedReviewId")+":"+rows.getInt("displayedReviewRound"));
+                }
+            }
+        }
+        assertEquals(expected,actual);
+    }
+
     private static Configuration configuration() throws Exception {
         // Reuse the real projection join/filter fragments; no handwritten representative-selection SQL.
         String probe = """
@@ -376,7 +413,7 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             // Columns checked against existing event/review/revision migrations; only queried columns are needed here.
             statement.execute("CREATE TABLE mes_pro_process_pool_event(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,event_type VARCHAR(40),raw_payload VARCHAR(4000),work_order_id BIGINT,report_management_status VARCHAR(40))");
             statement.execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
-            statement.execute("CREATE TABLE mes_pro_process_pool_submission_review(id BIGINT,tenant_id BIGINT,event_id BIGINT,leader_user_id BIGINT,review_status VARCHAR(30),review_remark VARCHAR(50),reviewed_at TIMESTAMP,deleted INT DEFAULT 0)");
+            statement.execute("CREATE TABLE mes_pro_process_pool_submission_review(id BIGINT,tenant_id BIGINT,event_id BIGINT,leader_user_id BIGINT,review_round INT DEFAULT 0,review_status VARCHAR(30),review_remark VARCHAR(50),reviewed_at TIMESTAMP,deleted INT DEFAULT 0)");
             statement.execute("CREATE TABLE mes_pro_process_pool_event_revision(id BIGINT,tenant_id BIGINT,event_id BIGINT,revision_status VARCHAR(30),revision_signature_id BIGINT,revision_signature_user_id BIGINT,modified_by_user_id BIGINT,revision_signature_snapshot VARCHAR(2000),after_payload VARCHAR(4000),server_revision_time TIMESTAMP,deleted INT DEFAULT 0)");
             statement.execute("ALTER TABLE mes_pro_process_pool_event ADD route_process_id BIGINT");
             statement.execute("ALTER TABLE mes_pro_process_pool_event ADD actual_employee_id BIGINT");

@@ -104,6 +104,9 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
         List<MesProProcessPoolEventDO> members = resolveReviewMembers(event);
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            validateDisplayedContexts(reqBO, members);
+        }
         // Validate the whole group before creating any signature, review or aggregate.
         List<ReviewContext> contexts = new ArrayList<>();
         for (MesProProcessPoolEventDO member : members) {
@@ -117,6 +120,38 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
             }
         }
         return requestedReviewId;
+    }
+
+    private void validateDisplayedContexts(MesTeamLeaderSubmissionReviewReqBO request, List<MesProProcessPoolEventDO> members) {
+        var expected=request.getExpectedReviews();
+        if(expected==null || expected.size()!=members.size()) throw new IllegalStateException("PQC审核上下文缺失，请刷新后重新复核");
+        var indexed=new java.util.HashMap<Long,MesSubmissionReviewExpectedContext>();
+        for(var value:expected) {
+            if(value==null || value.getEventId()==null || value.getPayloadHash()==null
+                    ||value.getRevisionId()==null||value.getReviewId()==null||value.getReviewRound()==null
+                    ||indexed.put(value.getEventId(),value)!=null) throw new IllegalStateException("PQC审核上下文无效，请刷新后重新复核");
+        }
+        for(var event:members) {
+            var value=indexed.get(event.getId());
+            var review=reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+            var revisions=revisionMapper.selectListByEventIdForUpdate(event.getId());
+            Long revisionId=revisions.isEmpty()?0L:revisions.get(0).getId();
+            if(value==null ||!Objects.equals(value.getPayloadHash(),MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getRawPayload()))
+                    ||!Objects.equals(value.getRevisionId(),revisionId)
+                    ||(!isExactDisplayedReplay(request,review)
+                    &&(!Objects.equals(value.getReviewId(),review==null?0L:review.getId())
+                    ||!Objects.equals(value.getReviewRound(),review==null?0:review.getReviewRound()))))
+                throw new IllegalStateException("PQC提交正文或审核轮次已变化，请刷新后重新复核");
+        }
+    }
+
+    private boolean isExactDisplayedReplay(MesTeamLeaderSubmissionReviewReqBO request, MesProcessPoolSubmissionReviewDO review) {
+        if(review==null||!isIdempotentReplay(request,review)||review.getReviewSignatureId()==null
+                ||review.getReviewSignatureId()<=0||!Objects.equals(review.getLeaderUserId(),review.getReviewSignatureUserId())
+                ||StrUtil.isBlank(review.getReviewSignatureSnapshotJson()))return false;
+        var snapshot=JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
+        return snapshot.has("expectedReviews")&&snapshot.get("expectedReviews").equals(
+                JsonUtils.parseTree(JsonUtils.toJsonString(request.getExpectedReviews())));
     }
 
     private List<MesProProcessPoolEventDO> resolveReviewMembers(MesProProcessPoolEventDO event) {
@@ -417,6 +452,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
         payload.put("leaderType", reqBO.getLeaderType());
         payload.put("reviewStatus", reqBO.getReviewStatus());
         payload.put("payloadHash", MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()));
+        if("PQC_INSPECTION".equals(event.getEventType())) payload.put("expectedReviews",reqBO.getExpectedReviews());
         if (correction != null) {
             payload.put("revisionId", correction.getId());
             payload.put("revisionSignatureId", correction.getRevisionSignatureId());
