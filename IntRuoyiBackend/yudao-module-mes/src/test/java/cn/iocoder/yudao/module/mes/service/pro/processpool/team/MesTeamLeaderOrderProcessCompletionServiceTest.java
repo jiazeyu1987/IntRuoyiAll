@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolOrderProcessCompletionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
@@ -56,6 +58,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
+    @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     private MesTeamLeaderOrderProcessCompletionService service;
 
@@ -63,7 +66,7 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     void setUp() {
         service = new MesTeamLeaderOrderProcessCompletionService(allocationMapper, workOrderMapper,
                 completionMapper, orderProcessTargetService, scheduleOrderMapper, scheduleOrderProcessMapper,
-                processSnapshotMapper, eventMapper);
+                processSnapshotMapper, eventMapper, activeOrderMapper);
     }
 
     @Test
@@ -523,6 +526,9 @@ class MesTeamLeaderOrderProcessCompletionServiceTest {
     private void stubSingleOutputProgress(Long activeOrderId, Long workOrderId, Long routeProcessId,
                                           Long processId, MesProProcessPoolEventDO triggerEvent,
                                           List<MesProcessPoolReportAllocationDO> sourceAllocations) {
+        when(activeOrderMapper.selectAllByWorkOrderIdForUpdate(workOrderId)).thenReturn(List.of(
+                MesProcessPoolActiveOrderDO.builder().id(activeOrderId).workOrderId(workOrderId)
+                        .routeId(triggerEvent.getRouteId()).activeStatus("ACTIVE").build()));
         when(processSnapshotMapper.selectByActiveOrderAndProcess(activeOrderId, routeProcessId, processId))
                 .thenReturn(MesProcessPoolActiveOrderProcessSnapshotDO.builder()
                         .activeOrderId(activeOrderId)

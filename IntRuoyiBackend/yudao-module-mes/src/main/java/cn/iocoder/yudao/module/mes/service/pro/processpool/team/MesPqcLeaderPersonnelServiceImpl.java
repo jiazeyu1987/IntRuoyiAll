@@ -131,6 +131,9 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
         if (!isCurrentPqcEmployeeScope(scope, reqBO.getLeaderUserId())) {
             throw exception(PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_NOT_EXISTS, reqBO.getScopeId());
         }
+        if (Boolean.TRUE.equals(reqBO.getEnabled())) {
+            assertInspectorNotOccupiedByOtherPqcLeader(reqBO.getLeaderUserId(), scope.getEmployeeUserId());
+        }
         scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder()
                 .id(scope.getId())
                 .enabled(reqBO.getEnabled())

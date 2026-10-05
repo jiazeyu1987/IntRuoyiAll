@@ -394,8 +394,10 @@ public class MesReportAllocationCommandService {
         var latestReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
         ReviewEvidenceRequirement evidenceRequirement = before.equals(desired) ? reviewEvidenceRequirement(event, current)
                 : new ReviewEvidenceRequirement(latestReview == null || !hasApprovedReviewEvidence(latestReview), null);
-        if (evidenceRequirement.required()) {
+        if (evidenceRequirement.required() || !before.equals(desired)) {
             nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工复核");
+        }
+        if (evidenceRequirement.required()) {
             Set<Long> evidenceOrders = current.stream()
                     .filter(row -> row.getAllocatedQuantity() != null && row.getAllocatedQuantity().signum() > 0)
                     .filter(row -> evidenceRequirement.required() || !lockedIds.contains(row.getActiveOrderId()))
