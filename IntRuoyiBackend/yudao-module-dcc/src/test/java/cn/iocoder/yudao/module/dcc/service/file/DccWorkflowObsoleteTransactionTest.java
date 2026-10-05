@@ -51,8 +51,11 @@ class DccWorkflowObsoleteTransactionTest extends BaseDbUnitTest {
     private DccControlledFileObsoleteServiceImpl service;
     private DccWorkflowObsoleteEvidenceGuard evidence;
     private DccControlledContentAdapter platform;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean cn.iocoder.yudao.module.system.api.user.AdminUserApi officialCurrentAccounts;
 
     @BeforeEach void fixture() {
+        when(officialCurrentAccounts.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(99L).setTenantId(1L).setStatus(0).setUsername("obsolete-user").setNickname("正式文控"));
         TenantContextHolder.setTenantId(1L);
         jdbc=new JdbcTemplate(dataSource);
         assertNotNull(jdbc.queryForObject("SELECT H2VERSION()",String.class));
@@ -230,6 +233,7 @@ class DccWorkflowObsoleteTransactionTest extends BaseDbUnitTest {
     private DccControlledFileLifecycleService lifecycle() {
         var result=new DccControlledFileLifecycleService();var dates=new DccWorkflowDatePolicy();dates.setZoneId("Asia/Singapore");
         wire(result,"controlledFileMapper",files,"masterMapper",masters,"obsoleteAuditMapper",audits,"datePolicy",dates,
+                "platformAdapter",mock(DccControlledContentAdapter.class),
                 "versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),"jdbcTemplate",jdbc,
                 "eventPublisher",(org.springframework.context.ApplicationEventPublisher)event->{});
         wire(result,"fileStateAudit",stateAudit());

@@ -196,6 +196,9 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
             throw exception(CONTROLLED_FILE_OBSOLETE_NOT_ALLOWED);
 
         LocalDateTime now = LocalDateTime.now().withNano(0);
+        // Preserve the exact locked controlled state even if a downstream write mutates the local object.
+        var platformPreimage = new DccControlledFileDO();
+        org.springframework.beans.BeanUtils.copyProperties(file,platformPreimage);
         var beforeObsolete = fileStateAudit.capture(file, master);
         obsoleteArchiveRequestService.request(file.getId(),now);
         if (controlledFileMapper.updateById(DccControlledFileDO.builder()
@@ -237,7 +240,7 @@ public class DccControlledFileObsoleteServiceImpl implements DccControlledFileOb
             }
             messageDeliveryService.dispatchMessageJob(messageJob, buildObsoleteNotifyParams(file, reqVO.getReason()));
         }
-        platformAdapter.recordObsoleted(file, approvedBy, reqVO.getReason(), "dcc-obsolete:" + file.getId());
+        platformAdapter.recordObsoleted(platformPreimage, approvedBy, reqVO.getReason(), "dcc-obsolete:" + file.getId());
     }
 
     private void requireLockedObsoleteIdentity(Long id,DccControlledFileMasterDO master,DccControlledFileDO file) {

@@ -246,6 +246,19 @@ public class DccControlledContentAdapter {
 
     public void recordObsoleted(DccControlledFileDO file, Long actorId, String reason, String eventKey) {
         requireFile(file);
+        if("CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())
+                || DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())) {
+            requireNativeControlledFile(file);
+            ControlledContentCanonicalStatus from="ACTIVE".equals(file.getStatus())?ControlledContentCanonicalStatus.ACTIVE
+                    :"CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())?ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE:null;
+            if(from==null)throw new IllegalStateException("DCC obsolete projection requires its locked controlled preimage");
+            lifecycleCoreService.transitionDccControlledRef(dccKey(file),file.getId(),file.getVersionNo(),file.getProcessInstanceId(),
+                    from,ControlledContentCanonicalStatus.OBSOLETE,from==ControlledContentCanonicalStatus.ACTIVE
+                        ?ControlledContentTransitionAction.OBSOLETE_ACTIVE:ControlledContentTransitionAction.OBSOLETE_CONTROLLED,
+                    actorId,reason,requireEventKey(eventKey,"obsolete"),null);
+            return;
+        }
         lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
                 ControlledContentCanonicalStatus.ACTIVE, ControlledContentCanonicalStatus.OBSOLETE,
                 DccControlledFileStatusEnum.OBSOLETE.getStatus(), ControlledContentTransitionAction.OBSOLETE_ACTIVE,
