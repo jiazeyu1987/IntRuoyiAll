@@ -8,6 +8,11 @@
       </el-table>
       <el-pagination v-model:current-page="state.projectPage" :page-size="20" :total="state.projectsTotal" layout="total, prev, next" @current-change="state.loadProjects()" />
       <h4>{{ state.project ? state.project.projectName : '项目文件夹' }}</h4>
+      <div v-if="state.project" data-testid="dcc-project-folder-maintenance">
+        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('create')">新增文件夹</el-button>
+        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('update')">编辑文件夹</el-button>
+        <el-button v-hasPermi="['dcc:project-code:update']" :disabled="!state.folder || state.folderLoading || Boolean(state.folderError)" @click="openFolderMaintenance('delete')">删除文件夹</el-button>
+      </div>
       <el-alert v-if="state.folderError" :title="state.folderError" type="error" :closable="false" />
       <el-tree :key="state.project?.id" v-loading="state.folderLoading" :data="state.directories" node-key="key" :props="{ label: 'name', children: 'children' }" highlight-current default-expand-all @node-click="selectFolder" />
       <el-empty v-if="state.project && !state.folderLoading && !state.folderError && !state.directories.length" description="项目尚无文件夹" />
@@ -62,6 +67,7 @@
     <DccFileSelector v-if="state.folder" v-model="operationVisible" :source="selectorSource" purpose="operation" :directories="state.directories" :selected="[]" :load-page="loadPage" :open-preview="preview" :persist="openOperation" />
     <ProjectFileRelationsDialog v-if="relationsVisible && relationsSource" v-model="relationsVisible" :source="relationsSource" :context-key="listContextKey" />
     <DccReferenceUsageDialog v-if="usageVisible && usageSource" v-model="usageVisible" :source="usageSource" :context-key="listContextKey" :return-to="route.fullPath" />
+    <ProjectFolderEditor v-if="state.project" :key="state.project.id" ref="folderEditor" @saved="handleFolderMaintenanceSaved" @deleted="handleFolderMaintenanceSaved" />
   </section>
 </template>
 <script setup lang="ts">
@@ -69,6 +75,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { useUserStore } from '@/store/modules/user'
+import { checkPermi } from '@/utils/permission'
+import ProjectFolderEditor from '../basic-data/components/ProjectFolderEditor.vue'
 import DccFileSelector from '../relations/DccFileSelector.vue'
 import DccProjectReferences from '../relations/DccProjectReferences.vue'
 import DccReferenceBadge from '../relations/DccReferenceBadge.vue'
@@ -88,6 +96,20 @@ const versionViewGroups = [...new Set(PROJECT_BROWSER_VERSION_VIEWS.map(option =
   name, options: PROJECT_BROWSER_VERSION_VIEWS.filter(option => option.group === name)
 }))
 const operationVisible = ref(false)
+const folderEditor = ref<InstanceType<typeof ProjectFolderEditor>>()
+const openFolderMaintenance = async (mode: 'create' | 'update' | 'delete') => {
+  const project = state.project, folder = state.folder
+  if (!project || state.folderLoading || state.folderError || !checkPermi(['dcc:project-code:update'])) return
+  if (mode !== 'create' && (!folder?.folderId || folder.projectId !== project.id)) return
+  if (!folderEditor.value) { state.folderError = '项目文件夹维护组件尚未加载，请重新选择项目'; return }
+  if (mode === 'delete') await folderEditor.value.openDelete(project.id, folder!.folderId!)
+  else if (mode === 'update') await folderEditor.value.open(project.id, folder!.folderId!)
+  else await folderEditor.value.open(project.id)
+}
+const handleFolderMaintenanceSaved = async (projectId: number | string) => {
+  const current = state.project
+  if (current && current.id === String(projectId)) await state.selectProject(current.id)
+}
 const relationsVisible = ref(false), relationsSource = ref<FileCandidate>()
 const usageVisible = ref(false), usageSource = ref<ReferenceUsageSource>()
 const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.keyword, state.versionView, state.pageNo]))

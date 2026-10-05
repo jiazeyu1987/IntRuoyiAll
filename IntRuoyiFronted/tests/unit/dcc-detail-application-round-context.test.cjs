@@ -94,6 +94,7 @@ test('public detail feeds verified current approval context into the round panel
   assert.match(page, /applicationApprovalRead\.value = undefined/)
 })
 function approvalReader(transport) {
+  const nativeProgress = moduleFrom(read('src/views/dcc/controlled-file/detail/native-approval-progress.ts'))
   const { descriptor } = parse(read('src/views/dcc/controlled-file/detail/index.vue'))
   const source = ts.createSourceFile('detail.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const declaration = source.statements.find(statement => ts.isVariableStatement(statement) && statement.declarationList.declarations.some(d => d.name.getText(source) === 'loadApprovalDetail'))
@@ -102,9 +103,12 @@ function approvalReader(transport) {
   const env = { exports: {}, Error, String, Promise, route: { fullPath: '/detail/10?processInstanceId=obsolete-O&taskId=task-O', query: { processInstanceId: 'obsolete-O', taskId: 'task-O' } },
     detailLoadSequence: 1, controlledFileId: vue.ref('10'), fileDetail: vue.ref({ id: '10', processInstanceId: 'native-U' }),
     applicationApprovalRead: vue.ref({ contextKey: 'previous', processInstanceId: 'native-U', taskId: '' }),
+    approvalProgressScope: vue.ref(), approvalProgressError: vue.ref(''), stageProgressList: vue.ref([]),
     isBrowserTraceabilityPage: vue.ref(false), approvalLoading: vue.ref(false), approvalTodoTask: vue.ref(null), approvalTaskList: vue.ref([]),
     checkPermi: () => false, TaskApi: { getTaskListByProcessInstanceId: transport }, ProcessInstanceApi: { getApprovalDetail: async () => { throw Error('generic BPM read should be permission-gated') } },
     findCurrentUserTodoTask: rows => rows[0], syncStageProgress() {}, validateApplicationApprovalRead: helper.validateApplicationApprovalRead,
+    validateApplicationRoundMappings: helper.validateApplicationRoundMappings, resolveApprovalProgressScope: nativeProgress.resolveApprovalProgressScope,
+    getControlledFileApplicationRounds: async () => [{ controlledFileId: env.controlledFileId.value, applicationType: 'OBSOLETE', bpmRound: env.route.query.processInstanceId, attributeRound: 2 }],
     resolveReadSideErrorMessage: cause => cause.message }
   env.applicationRoundContextKey = { get value() { return JSON.stringify([env.controlledFileId.value, env.route.fullPath]) } }
   env.isCurrentDetailLoad = (sequence, id, route) => sequence === env.detailLoadSequence && id === env.controlledFileId.value && route === env.route.fullPath

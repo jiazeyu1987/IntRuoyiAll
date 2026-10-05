@@ -1111,14 +1111,17 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .requireReady();
         if (isThreeWorkflowUploadOrRevision(processDefinitionKey))
             workflowDatePolicy.requireReviewDate(reqVO.getEffectiveDate());
+        String pendingStatus = toPendingStatus(resolveTaskStage(resolvedRoute.nodes().get(0).stageCode()));
         DccControlledFileDO file = insertControlledFile(context, userId,
-                toPendingStatus(resolveTaskStage(resolvedRoute.nodes().get(0).stageCode())),
+                DccControlledFileStatusEnum.WORKING.getStatus(),
                 processDefinitionKey, true, "SUBMISSION");
         validateAndBindRelatedFiles(userId, file.getId(),
                 context.projectCode() == null ? null : context.projectCode().getId(),
                 reqVO.getRelatedControlledFileIds());
         bindSubmitTickets(context, userId, file.getId());
         bindSubmitAttachments(context, file.getId());
+
+        transitionNewCandidateStatus(file, pendingStatus);
 
         persistApprovalRouteSnapshots(file.getId(), resolvedRoute);
         persistDepartmentTaskAssigneeSnapshots(file.getId(), resolvedRoute);
@@ -1327,10 +1330,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         boolean splitRevisionApproval = normalizedProcessInstanceId != null
                 && context.changeType() == DccControlledFileChangeTypeEnum.REVISION;
-        DccControlledFileDO file = insertControlledFile(context, userId,
-                splitRevisionApproval
+        String finalizationStatus = splitRevisionApproval
                         ? DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus()
-                        : DccControlledFileStatusEnum.FINALIZING.getStatus(),
+                        : DccControlledFileStatusEnum.FINALIZING.getStatus();
+        DccControlledFileDO file = insertControlledFile(context, userId,
+                DccControlledFileStatusEnum.WORKING.getStatus(),
                 null, true, "SUBMISSION");
         validateAndBindRelatedFiles(userId, file.getId(),
                 context.projectCode() == null ? null : context.projectCode().getId(),
@@ -1344,6 +1348,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
         bindSubmitTickets(context, userId, file.getId());
         bindSubmitAttachments(context, file.getId());
+        transitionNewCandidateStatus(file, finalizationStatus);
         String normalizedEventKey = StrUtil.blankToDefault(platformEventKey,
                 "dcc-upload-without-approval:" + file.getId());
         if (splitRevisionApproval) {
@@ -2541,6 +2546,18 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             file.setStatus(status);
         }
         return file;
+    }
+
+    /** Freeze this transaction's new snapshot only after its selected links and upload bindings have succeeded. */
+    private void transitionNewCandidateStatus(DccControlledFileDO file, String status) {
+        if (!DccControlledFileStatusEnum.WORKING.getStatus().equals(file.getStatus())
+                || file.getControlledTime() != null || file.getActivatedTime() != null) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        if (controlledFileMapper.updateById(DccControlledFileDO.builder().id(file.getId()).status(status).build()) != 1) {
+            throw exception(CONTROLLED_FILE_ITERATION_SUBMIT_NOT_ALLOWED);
+        }
+        file.setStatus(status);
     }
 
     private static final class ControlledFileInsertConflict extends RuntimeException {

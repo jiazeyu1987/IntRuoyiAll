@@ -7,6 +7,7 @@
           返回
         </el-button>
         <el-tag type="info" effect="plain">只读预览态</el-tag>
+        <el-button data-testid="dcc-viewer-trace-entry" :disabled="!isWorkingBrowserDetailCurrent" @click="openViewerTraceability">查看只读档案 / 版本历史</el-button>
         <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
           当前受控版本 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
         </el-tag>
@@ -680,6 +681,8 @@ v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
     </ContentWrap>
 
     <ContentWrap v-if="!isBrowserTraceabilityPage" v-loading="approvalLoading" class="mt-16px">
+      <el-alert v-if="approvalProgressError" :title="approvalProgressError" type="error" :closable="false" />
+      <el-alert v-else-if="!approvalProgressScope" title="正在核验本轮审批流程身份；尚未读取的阶段不作推断。" type="info" :closable="false" />
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">审批阶段进度</div>
         <div class="text-13px text-[var(--el-text-color-secondary)]">
@@ -2859,7 +2862,9 @@ v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
 <script lang="ts" setup>
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
-import { resolveApplicationRoundSelection, validateApplicationApprovalRead, type ApplicationApprovalRead } from './application-round-context'
+import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, type ApplicationApprovalRead } from './application-round-context'
+import { getControlledFileApplicationRounds } from '@/api/dcc/controlledFile/applicationRead'
+import { resolveApprovalProgressScope, buildNativeApprovalProgress, resolveSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
 import DetailRelationsPanel from './DetailRelationsPanel.vue'
 import DetailApplicationPanel from './DetailApplicationPanel.vue'
 import ApprovalFileOwnerPicker from './ApprovalFileOwnerPicker.vue'
@@ -2983,6 +2988,7 @@ import ProtectedPdfViewer from '../view/index.vue'
 import { buildDccControlledFileAttachmentPreviewSource } from '@/api/common/filePreview'
 import {
   buildControlledFileViewerPath,
+  buildControlledFileTraceabilityPath,
   isControlledFileViewerMode,
   resolveControlledFileTraceabilityScope,
   resolveControlledFileViewerReturnTo
@@ -3096,7 +3102,9 @@ const signoffReadyForReview = computed(() => signoffAssignmentState.value?.assig
   && signoffAssignmentState.value.taskId === String(approvalTodoTask.value?.id || '')
   && signoffAssignmentState.value.fileId === String(fileDetail.value?.id || ''))
 const approvalTaskList = ref<DccTaskLike[]>([])
-const stageProgressList = ref<DccTaskStageProgress[]>([])
+const stageProgressList = ref<ApprovalProgressStage[]>([])
+const approvalProgressScope = ref<ApprovalProgressScope>()
+const approvalProgressError = ref('')
 const paperDistributionRecords = ref<ControlledFilePaperDistributionRecordVO[]>([])
 const dccSignatureEvidenceLoading = ref(false)
 const dccSignatureEvidenceList = ref<DccElectronicSignatureVO[]>([])
@@ -3277,7 +3285,7 @@ const {
 
 const signatureTraceDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'traceRole', label: '角色', minWidth: 120 },
-  { key: 'actorName', label: '上传人 / 四级审批人', minWidth: 220 },
+  { key: 'actorName', label: '操作人', minWidth: 220 },
   { key: 'approvalCommentText', label: '审批意见', minWidth: 220 },
   { key: 'signedAtText', label: '签名时间', width: 180 },
   { key: 'signatureModeText', label: '签名方式', width: 140 },
@@ -3790,6 +3798,8 @@ const buildEmptyOriginalReleaseStage = (
 })
 
 const displayStageProgressList = computed(() => {
+  if (!approvalProgressScope.value) return []
+  if (approvalProgressScope.value.applicationType !== 'LEGACY') return stageProgressList.value
   const progressMap = new Map(stageProgressList.value.map((item) => [item.stageCode, item]))
   return originalReleaseApprovalStages.map(
     (stage) => progressMap.get(stage.stageCode) || buildEmptyOriginalReleaseStage(stage)
@@ -3815,13 +3825,13 @@ const actionDialogSubmitFlowText = computed(() => {
   }
   return '提交后流转：上传、升版：会签→批准→培训（如需）→文控审核→受控→下发；按预设生效日期生效，新版生效时旧版自动作废。作废：会签→批准，批准通过即完成作废并结束流程。'
 })
-const getStageRouteSnapshot = (stage: DccTaskStageProgress) =>
+const getStageRouteSnapshot = (stage: ApprovalProgressStage) =>
   fileDetail.value?.routeSnapshots?.find(
     (snapshot) =>
       snapshot.stageCode === stage.stageCode ||
-      (snapshot.stageOrder ?? snapshot.stageNo) === stage.stageOrder
+      (approvalProgressScope.value?.applicationType === 'LEGACY' && (snapshot.stageOrder ?? snapshot.stageNo) === stage.stageOrder)
   )
-const getStageTasks = (stage: DccTaskStageProgress) =>
+const getStageTasks = (stage: ApprovalProgressStage) =>
   approvalTaskList.value.filter((task) => task.taskDefinitionKey === stage.stageCode)
 const readStageTaskField = (task: DccTaskLike, keys: string[]) => {
   const record = task as DccTaskLike & Record<string, unknown>
@@ -3833,7 +3843,7 @@ const readStageTaskField = (task: DccTaskLike, keys: string[]) => {
   }
   return undefined
 }
-const formatStageProgressActors = (stage: DccTaskStageProgress) => {
+const formatStageProgressActors = (stage: ApprovalProgressStage) => {
   const taskActorIds = getStageTasks(stage)
     .map((task) => Number(task.assigneeUserId ?? task.assignee ?? task.assigneeUser?.id ?? task.ownerUser?.id))
     .filter((id) => Number.isFinite(id) && id > 0)
@@ -3843,7 +3853,7 @@ const formatStageProgressActors = (stage: DccTaskStageProgress) => {
   }
   return resolveUserNames(getStageRouteSnapshot(stage)?.resolvedUserIds || [])
 }
-const formatStageProgressTime = (stage: DccTaskStageProgress) => {
+const formatStageProgressTime = (stage: ApprovalProgressStage) => {
   const timeValue = getStageTasks(stage)
     .map((task) =>
       readStageTaskField(task, ['endTime', 'finishTime', 'completeTime', 'updateTime', 'createTime'])
@@ -3851,11 +3861,13 @@ const formatStageProgressTime = (stage: DccTaskStageProgress) => {
     .find(Boolean)
   return formatControlledFileDateTime(timeValue as string | number | Date | undefined)
 }
-const getStageSignatures = (stage: DccTaskStageProgress) =>
+const getStageSignatures = (stage: ApprovalProgressStage) =>
   (fileDetail.value?.signatureSummaries || []).filter((signature) =>
-    String(signature.meaningCode || '').startsWith(stage.stageCode)
+    approvalProgressScope.value?.applicationType === 'LEGACY'
+      ? String(signature.meaningCode || '').startsWith(stage.stageCode)
+      : getStageTasks(stage).some(task => task.id === signature.taskId && task.processInstanceId === approvalProgressScope.value?.bpmRound)
   )
-const formatStageSignatureStatus = (stage: DccTaskStageProgress) => {
+const formatStageSignatureStatus = (stage: ApprovalProgressStage) => {
   const signatureCount = getStageSignatures(stage).length
   if (signatureCount > 0) {
     return `${signatureCount} 条签名证据`
@@ -3972,7 +3984,7 @@ const hasSignatureTraceFileEvidence = () =>
   Boolean(fileDetail.value?.publishedArtifactAvailable || fileDetail.value?.stampedArtifactAvailable)
 
 const buildSignatureTraceRow = (signature: ControlledFileSignatureSummaryVO): SignatureTraceRow => ({
-  traceRole: '四级审批人',
+  traceRole: resolveSignatureDuty(signature, approvalTaskList.value, approvalProgressScope.value),
   actorName: getSignatureActorSummary(signature, userNameMap.value),
   approvalCommentText: formatSignatureTraceComment(signature.comment),
   signedAtText: formatControlledFileDateTime(signature.signedAt),
@@ -4024,6 +4036,18 @@ const detailHandlingSummary = computed(() => {
       nextStep: '-',
       responsibilityHint: '-'
     }
+  }
+  if (approvalProgressScope.value && approvalProgressScope.value.applicationType !== 'LEGACY') {
+    const stage = currentStage.value
+    if (stage) {
+      const duties: Record<string, string> = { MATRIX_REVIEW: '部门负责人指派及实际会签人', MATRIX_APPROVAL: '矩阵批准人',
+        APPLICANT_TRAINING_RECORD: '文控上传线下培训记录', DOC_CONTROL_REVIEW: '文控审核人', CONTROLLED: '系统受控处理', DISTRIBUTED: '文控下发' }
+      return { nextStep: `等待${stage.stageName}`, responsibilityHint: `责任：${duties[stage.stageCode] || '本轮职责未记录'}` }
+    }
+    if (approvalProgressScope.value.applicationType === 'OBSOLETE' && displayStageProgressList.value.every(item => item.isCompleted)) {
+      return { nextStep: '本次作废流程已结束', responsibilityHint: '原申请及签名保留追溯' }
+    }
+    if (file.status === 'CONTROLLED_PENDING_EFFECTIVE') return { nextStep: '已受控，按预设生效日期生效', responsibilityHint: '生效前不得作为执行文件' }
   }
   return getControlledFileHandlingSummary({
     status: file.status,
@@ -4892,6 +4916,16 @@ const findCurrentUserTodoTask = (taskList: DccTaskLike[]) => {
 }
 
 const syncStageProgress = () => {
+  const scope = approvalProgressScope.value
+  if (!scope) { stageProgressList.value = []; return }
+  if (scope.applicationType !== 'LEGACY') {
+    stageProgressList.value = buildNativeApprovalProgress(scope, {
+      fileId: String(fileDetail.value?.id || ''), needTraining: fileDetail.value?.needTraining,
+      status: fileDetail.value?.status, controlledTime: fileDetail.value?.controlledTime, distributedTime: fileDetail.value?.distributedTime,
+      trainingRecordAvailable: fileDetail.value?.trainingRecordAvailable
+    }, approvalTaskList.value)
+    return
+  }
   stageProgressList.value = buildDccTaskStageProgress({
     routeSnapshots: fileDetail.value?.routeSnapshots,
     taskList: approvalTaskList.value,
@@ -4904,15 +4938,17 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   const roundContextKey = applicationRoundContextKey.value
   applicationApprovalRead.value = undefined
+  approvalProgressScope.value = undefined
+  approvalProgressError.value = ''
   const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
   const taskId = String(route.query.taskId || '')
-  if (isBrowserTraceabilityPage.value || !processInstanceId) {
+  if ((isBrowserTraceabilityPage.value && !checkPermi(['bpm:task:query'])) || !processInstanceId) {
     approvalTodoTask.value = null
     approvalTaskList.value = []
     syncStageProgress()
     return
   }
-  const canLoadApprovalDetail = Boolean(taskId) && checkPermi(['bpm:process-instance:query'])
+  const canLoadApprovalDetail = checkPermi(['bpm:process-instance:query'])
   approvalLoading.value = true
   try {
     const [taskList, detail] = await Promise.all([
@@ -4928,12 +4964,22 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
       (route.query.taskId != null && route.query.taskId !== '')
     const verifiedRound = hasRequestedRoundContext ? validateApplicationApprovalRead(processInstanceId, taskId, taskList) : undefined
     if (detail?.todoTask) validateApplicationApprovalRead(processInstanceId, String(detail.todoTask.id), [detail.todoTask])
+    validateApplicationApprovalRead(processInstanceId, taskId, taskList)
+    const rounds = validateApplicationRoundMappings(requestedId, await getControlledFileApplicationRounds(requestedId))
+    if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
+    approvalProgressScope.value = resolveApprovalProgressScope({ fileId: requestedId, bpmRound: processInstanceId,
+      nativeBpmRound: fileDetail.value?.processInstanceId, rounds, approvalDetail: detail })
     const normalizedTaskList = taskList as DccTaskLike[]
     approvalTaskList.value = normalizedTaskList
     approvalTodoTask.value = detail?.todoTask || findCurrentUserTodoTask(normalizedTaskList)
     if (verifiedRound) applicationApprovalRead.value = { contextKey: roundContextKey, ...verifiedRound }
     syncStageProgress()
   } catch (cause) {
+    if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
+      approvalProgressScope.value = undefined
+      approvalProgressError.value = resolveReadSideErrorMessage(cause, '审批进度身份核验失败')
+      stageProgressList.value = []
+    }
     if (isCurrentDetailLoad(sequence, requestedId, requestedRoute)) applicationApprovalRead.value = {
       contextKey: roundContextKey,
       error: resolveReadSideErrorMessage(cause, '实际办理轮次核验失败，未读取其他轮次属性')
@@ -4948,6 +4994,8 @@ const reloadAll = async () => {
   const sequence = ++detailLoadSequence
   workingBrowserLoadedContext.value = undefined
   applicationApprovalRead.value = undefined
+  approvalProgressScope.value = undefined
+  approvalProgressError.value = ''
   const requestedId = controlledFileId.value
   const requestedRoute = route.fullPath
   if (!isActiveControlledFileDetailRoute(requestedId, requestedRoute)) {
@@ -5114,6 +5162,12 @@ const openDccProjectCodeTrace = () => {
 
 const handleMetadataSaved = async () => {
   await reloadAll()
+}
+
+const openViewerTraceability = () => {
+  const file = fileDetail.value
+  if (!file || !isWorkingBrowserDetailCurrent.value || String(file.id) !== controlledFileId.value) return
+  return router.push(buildControlledFileTraceabilityPath(file.id, 'viewer', route.fullPath, 'trace'))
 }
 
 const openHistoryDetail = (id: number | string) => {

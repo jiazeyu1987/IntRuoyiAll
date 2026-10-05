@@ -10,6 +10,10 @@ const transpile = file => ts.transpileModule(fs.readFileSync(path.join(root, fil
 }).outputText
 const tree = {}
 vm.runInNewContext(transpile('src/views/dcc/controlled-file/basic-data/components/project-folder-tree.ts'), { exports: tree, Error })
+const projectConfiguration = {}
+vm.runInNewContext(transpile('src/views/dcc/controlled-file/basic-data/components/project-attribute-configuration.ts'), { exports: projectConfiguration, Error, BigInt, String, Number, Set })
+const attributes = {}
+vm.runInNewContext(transpile('src/views/dcc/controlled-file/project-attributes/state.ts'), { exports: attributes, Error })
 const setup = result => {
   const calls = []
   const api = {}
@@ -18,6 +22,8 @@ const setup = result => {
     exports: api, Error, require: id => {
       if (id === '@/config/axios') return { default: request }
       if (id.includes('project-folder-tree')) return tree
+      if (id.includes('project-attribute-configuration')) return projectConfiguration
+      if (id.endsWith('/project-attributes/state')) return attributes
       throw new Error('Unexpected module: ' + id)
     }
   })

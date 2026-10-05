@@ -4,6 +4,7 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-tabs v-if="selectedSource" v-model="tab">
       <el-tab-pane label="当前关联（最新受控版本）" name="current">
+        <el-alert v-if="currentSourceUnavailable" title="无可用受控版本；本次申请关联请查看本版本审批快照。" type="info" :closable="false" />
         <el-alert v-if="directoryError" :title="directoryError" type="error" :closable="false" />
         <p v-if="currentSource">当前关联来源：{{ currentSource.fileName }} · {{ currentSource.versionNo }} · 文件 #{{ currentSource.controlledFileId }}</p>
         <el-alert
@@ -49,6 +50,7 @@ const loading = ref(false), error = ref(''), directoryError = ref(''), tab = ref
 const current = ref<CurrentRelationContext>(), selectedSource = ref<SelectorSource>(), currentSource = ref<SelectorSource>()
 const directories = ref<DirectoryNode[]>([]), canEdit = ref(false), previewId = ref('')
 const autoEditorOpened = ref(false)
+const currentSourceUnavailable = ref(false)
 let generation = 0
 const previewVisible = computed({ get: () => Boolean(previewId.value), set: value => { if (!value) previewId.value = '' } })
 const tenant = () => detailIdentity(getVisitTenantId() ?? getTenantId())
@@ -80,12 +82,19 @@ const currentCandidate = async (row: CurrentRow): Promise<FileCandidate> => {
 const load = async () => {
   const token = ++generation, file = props.file, selectedId = detailIdentity(file.id)
   loading.value = true; error.value = ''; directoryError.value = ''; directories.value = []; current.value = undefined; currentSource.value = undefined; canEdit.value = false; selectedSource.value = undefined; previewId.value = ''
+  currentSourceUnavailable.value = false
   try {
     const selected = assertMetadata(await getControlledFileRelationPermissions(selectedId))
     assertRelationSource(file, identityFile(selected), selectedId)
     if (token !== generation) return
     // Establish historical context independently; current relation-set failure must not erase it.
     selectedSource.value = source(selected)
+    if (typeof selected.hasCurrentControlledSource !== 'boolean') throw new Error('当前受控关联来源事实缺失')
+    if (!selected.hasCurrentControlledSource) {
+      currentSourceUnavailable.value = true
+      tab.value = 'history'
+      return
+    }
     const result = await listCurrentRelations(selectedId) as { sourceControlledFileId: string; rowVersion: string; files: CurrentRow[] }
     if (!result || !Array.isArray(result.files) || !/^(0|[1-9][0-9]*)$/.test(result.rowVersion)) throw new Error('当前关联上下文缺失')
     const actualId = detailIdentity(result.sourceControlledFileId)

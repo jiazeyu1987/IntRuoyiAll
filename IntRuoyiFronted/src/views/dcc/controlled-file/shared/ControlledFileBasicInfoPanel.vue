@@ -94,7 +94,7 @@
         >
           {{ formatDccProjectCodeLink(file) }}
         </el-link>
-        <span v-else>-</span>
+        <span v-else>未绑定 DCC 项目代码</span>
       </el-descriptions-item>
       <el-descriptions-item label="文件类别 I">
         {{ file?.fileTypeLevel1 || '-' }}
@@ -114,7 +114,7 @@
       <el-descriptions-item label="培训要求">
         {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
-      <el-descriptions-item label="当前受控版本">
+      <el-descriptions-item label="当前执行受控版本">
         {{ file?.currentActiveVersionNo || '-' }}
       </el-descriptions-item>
       <el-descriptions-item label="流程实例">
@@ -196,7 +196,8 @@ const emit = defineEmits<{
 }>()
 
 const formatDccProjectCodeLink = (file: ControlledFileVO) => {
-  return [file.productName, file.productCode].filter(Boolean).join(' / ') || `基础条目 ${file.dccProjectCodeId}`
+  if (!file.dccProjectCodeId) return '未绑定 DCC 项目代码'
+  return [file.projectName?.trim(), file.projectCode?.trim()].filter(Boolean).join(' / ') || '项目名称及编码未记录'
 }
 </script>
 

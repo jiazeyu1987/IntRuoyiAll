@@ -175,7 +175,7 @@ test('detail exposes exact revision attempts and source identity, and reads actu
   assert.match(history, /getControlledFileApplicationRounds/); assert.match(history, /getControlledFileApplicationEvidence\(round\.controlledFileId, round\.applicationType, round\.bpmRound\)/)
   assert.match(history, /evidence\.signatures/)
 })
-const metadata = (id, patch = {}) => ({ controlledFileId: id, tenantId: '1', masterId: id === '10' || id === '11' ? '100' : '300', projectId: id === '10' || id === '11' ? '20' : '30', projectName: '正式项目', projectFolderId: '201', projectFolderName: '质量', fileNumber: 'F', fileName: '元数据.pdf', versionNo: 'B/1', status: 'ACTIVE', controlled: true, pendingEffect: false, executable: true, canEdit: false, canPreview: false, ...patch })
+const metadata = (id, patch = {}) => ({ controlledFileId: id, tenantId: '1', masterId: id === '10' || id === '11' ? '100' : '300', projectId: id === '10' || id === '11' ? '20' : '30', projectName: '正式项目', projectFolderId: '201', projectFolderName: '质量', fileNumber: 'F', fileName: '元数据.pdf', versionNo: 'B/1', status: 'ACTIVE', controlled: true, hasCurrentControlledSource: true, pendingEffect: false, executable: true, canEdit: false, canPreview: false, ...patch })
 test('relation projection wrapper validates exact tenant/Master/placement and lifecycle metadata without stronger detail calls', async () => {
   let result = metadata('9007199254740993'); const a = api(async () => result)
   assert.equal((await a.getControlledFileRelationPermissions('9007199254740993')).projectFolderId, '201')

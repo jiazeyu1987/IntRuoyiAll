@@ -22,6 +22,8 @@ export const DCC_BPM_TASK_STATUS = {
 export interface DccTaskLike {
   id?: string
   taskDefinitionKey?: string
+  processInstanceId?: string
+  children?: DccTaskLike[]
   status?: number
   assigneeUserId?: number | string
   assignee?: number | string

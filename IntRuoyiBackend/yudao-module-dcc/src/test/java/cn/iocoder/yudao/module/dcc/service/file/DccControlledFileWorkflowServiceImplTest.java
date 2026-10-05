@@ -2839,6 +2839,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         when(adminUserApi.getUserListByPostIds(List.of(500L))).thenReturn(List.of(new AdminUserRespDTO().setId(200L).setStatus(0)));
         doAnswer(invocation -> {
             DccControlledFileDO file = invocation.getArgument(0);
+            assertEquals(DccControlledFileStatusEnum.WORKING.getStatus(), file.getStatus());
+            assertNull(file.getProcessInstanceId());
             file.setId(901L);
             return 1;
         }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
@@ -2856,11 +2858,20 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertNull(insertCaptor.getValue().getProductCode());
         assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), insertCaptor.getValue().getStatus());
         ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper, org.mockito.Mockito.times(2)).updateById(updateCaptor.capture());
+        verify(controlledFileMapper, org.mockito.Mockito.times(3)).updateById(updateCaptor.capture());
         assertEquals(901L, updateCaptor.getAllValues().get(0).getId());
-        assertEquals("proc-new", updateCaptor.getAllValues().get(0).getProcessInstanceId());
-        assertEquals(900L, updateCaptor.getAllValues().get(1).getId());
-        assertEquals(901L, updateCaptor.getAllValues().get(1).getSupersededByFileId());
+        assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(),
+                updateCaptor.getAllValues().get(0).getStatus());
+        assertNull(updateCaptor.getAllValues().get(0).getProcessInstanceId());
+        assertEquals(901L, updateCaptor.getAllValues().get(1).getId());
+        assertEquals("proc-new", updateCaptor.getAllValues().get(1).getProcessInstanceId());
+        assertNull(updateCaptor.getAllValues().get(1).getStatus());
+        assertEquals(900L, updateCaptor.getAllValues().get(2).getId());
+        assertEquals(901L, updateCaptor.getAllValues().get(2).getSupersededByFileId());
+        assertNull(updateCaptor.getAllValues().get(2).getStatus());
+        assertNull(updateCaptor.getAllValues().get(2).getProcessInstanceId());
+        assertEquals(DccControlledFileStatusEnum.WITHDRAWN.getStatus(), withdrawn.getStatus());
+        assertEquals("proc-old", withdrawn.getProcessInstanceId());
         verify(controlledFileMapper, never()).deleteById(900L);
         verify(platformAdapter).recordResubmitted(withdrawn, 901L);
     }

@@ -20,6 +20,7 @@ export interface ControlledFileApplicationRound {
   attributeRound: number
 }
 export interface ControlledFileRelationPermissions {
+  hasCurrentControlledSource: boolean
   controlledFileId: string
   tenantId: string
   masterId: string
@@ -432,6 +433,7 @@ export const getControlledFileRelationPermissions = async (
     ignoreErrorMessage: true
   })
   if (!result || identity(result.controlledFileId) !== id ||
+      typeof result.hasCurrentControlledSource !== 'boolean' ||
       typeof result.canEdit !== 'boolean' || typeof result.canPreview !== 'boolean' ||
       typeof result.projectName !== 'string' || !result.projectName.trim() ||
       typeof result.fileNumber !== 'string' || !result.fileNumber.trim() ||

@@ -13,6 +13,7 @@ function host() {
     route:{path:'/dcc/controlled-file/detail/10',fullPath:'/dcc/controlled-file/detail/10',params:{id:'10'}},
     controlledFileId:vue.ref('10'),detailLoadSequence:0,dccSignatureEvidenceRequestSequence:0,
     workingBrowserLoadedContext:vue.ref(),applicationApprovalRead:vue.ref(),fileDetail:vue.ref({id:'old'}),
+    approvalProgressScope:vue.ref(),approvalProgressError:vue.ref(''),
     fileAccessExplanation:vue.ref(null),accessExplanationError:vue.ref(''),paperDistributionRecords:vue.ref(['old']),
     approvalTodoTask:vue.ref(),approvalTaskList:vue.ref([]),stageProgressList:vue.ref([]),approvalLoading:vue.ref(false),
     dccSignatureEvidenceList:vue.ref([]),dccSignatureEvidenceTotal:vue.ref(0),dccSignatureEvidenceLoading:vue.ref(false),dccSignatureEvidenceError:vue.ref(''),
