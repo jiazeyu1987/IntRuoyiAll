@@ -305,6 +305,10 @@ const readErrorField = (source: unknown, key: string): unknown => {
 }
 
 const resolveNestedUploadErrorText = (error: unknown): string => {
+  const responseMessage = readErrorField(readErrorField(readErrorField(error, 'response'), 'data'), 'msg')
+  if (typeof responseMessage === 'string' && responseMessage.trim() && responseMessage !== 'error') {
+    return responseMessage.trim()
+  }
   const candidates = [
     error,
     readErrorField(error, 'response'),
@@ -341,6 +345,11 @@ const appendUploadPreviewErrorDetail = (message: string, detail: string) => {
 
 export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: string) => {
   const rawMessage = resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback)
+  const businessCode = readErrorField(readErrorField(readErrorField(error, 'response'), 'data'), 'code')
+  if (businessCode === 1080000348 || businessCode === '1080000348'
+    || rawMessage === '文件名称已存在，请先走作废或者升版路线') {
+    return '文件名称已被占用：已作废文件在20年保留期内仍占用原名。请引用已有文件，或在既有文件链中办理升版。'
+  }
   const normalized = rawMessage.toLowerCase()
   if (
     /minio|object\s*storage|对象存储|文件存储|bucket|s3|oss|putobject|getobject|connection refused|econnrefused|9000/.test(

@@ -1,0 +1,11 @@
+# G64 — 上传HTTP错误优先正式业务消息
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root授权仅upload/submitter.ts helper，准确AxiosError自身HTTP泛message遮response.data.msg；实际400业务根因仍由Root页面自然响应诊断，不把本修复作为同名PASS。
+
+Given真实AxiosError实例有HTTP400泛message及正式response.data.msg非空，When现resolveUploadPreviewErrorMessage/buildSubmitFailureFeedback实际运行，Then正式msg优先，原knownerror转换仍按真实内容，不能先返回transportmessage。Given没有非空msg，Then保原Error准确message，既有nested形式规则保持，不默认成功、不猜400代表同名。
+
+只修readorder，不globalaxios/请求params/文件allow/文件名/后端claim。先actualAxiosError模块helper旧源RED→GREEN，finite原上传payload/正式type/regression及单文件lint；全typesbuild除Root另授不跑。历史泛exists误归编号另只读报，不在当前授权改。无API/UI/DB/Git/服务/Maven。
+
+实际源码RED3项=1PASS/2FAIL、exit1：require现axios的AxiosError真实实例带CommonResultHTTPbody，原helper先返泛HTTPmessage且storage/format正式内容转换也被遮；无payload原行为PASS。唯一生产新增4行读正式response.data.msg非空优先，余候选/转换原样。没有用HTTP400造业务原因，无msg仍原错误；plain Error、error.data.detail原nested合同保持。
+
+最终3文件15项PASS、0fail/skip、exit0，新增3实际AxiosError/modulehandler测试与原actualattributes4/filetype8回归（含真实type SFC renderer），不叠加旧批。ESLint单源--max-warnings0实际exit0、无输出。未全types/build（无新增类型/interface、Root未授，不借旧结果说新buildPASS），Parent/G63及其它当前资产保持。g64-upload-http-business-error-fingerprints.json封1prod/1test；Root实际UI自然响应重选附件与同名占用业务验仍待。
