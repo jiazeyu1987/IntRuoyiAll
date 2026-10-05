@@ -85,6 +85,7 @@ class MesProductionReleaseApplySp1Test {
     @Mock private MesProductionReleaseRequiredCandidateResolver candidateResolver;
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
     @Mock private MesProcessPoolActiveOrderPickListBindingMapper pickListBindingMapper;
+    @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService notificationService;
 
     @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper reviewMapper;
 
@@ -96,7 +97,9 @@ class MesProductionReleaseApplySp1Test {
         MesTeamLeaderActiveOrderReleaseApplicationPersistenceService persistenceService =
                 new MesTeamLeaderActiveOrderReleaseApplicationPersistenceService(
                         applicationMapper, workTaskMapper, auditRecorder);
+        org.springframework.test.util.ReflectionTestUtils.setField(persistenceService,"notificationService",notificationService);
         var freezeService = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "reviewMapper", reviewMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(freezeService, "workOrderMapper", workOrderMapper);
         generationService = new MesTeamLeaderActiveOrderReleaseGenerationService(
@@ -134,6 +137,12 @@ class MesProductionReleaseApplySp1Test {
             task.setId(WORK_TASK_ID);
             return 1;
         }).when(workTaskMapper).insert(any(MesProEdhrWorkTaskDO.class));
+        lenient().doAnswer(invocation -> {
+            MesProEdhrWorkTaskDO binding=invocation.getArgument(0);
+            assertEquals(WORK_TASK_ID,binding.getId());
+            assertTrue(binding.getActionUrl().endsWith("&workTaskId="+WORK_TASK_ID));
+            return 1;
+        }).when(workTaskMapper).updateById(any(MesProEdhrWorkTaskDO.class));
         lenient().when(applicationMapper.updateById(any(MesProcessPoolActiveOrderReleaseApplicationDO.class)))
                 .thenReturn(1);
     }
@@ -202,6 +211,7 @@ class MesProductionReleaseApplySp1Test {
 
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationCaptor.getValue();
         MesProEdhrWorkTaskDO task = taskCaptor.getValue();
+        verify(notificationService).scheduleAssigned(task,LEADER_USER_ID);
         String expectedBusinessKey = DigestUtil.sha256Hex(
                 "PQC_RELEASE|1|2001|3001|BATCH-001|4001|4002");
         assertAll(

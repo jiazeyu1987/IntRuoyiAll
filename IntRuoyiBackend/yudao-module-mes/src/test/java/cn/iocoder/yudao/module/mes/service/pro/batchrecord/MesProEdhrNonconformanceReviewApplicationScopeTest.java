@@ -112,6 +112,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     @BeforeEach
     void setUp() {
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         // Type-based optional injection keeps the pre-implementation RED at the missing behavior,
         // not at ReflectionTestUtils failing because the production dependency does not exist yet.
         org.springframework.util.ReflectionUtils.doWithFields(service.getClass(), field -> {

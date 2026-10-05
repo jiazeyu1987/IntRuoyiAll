@@ -54,11 +54,16 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private final MesProEdhrWorkTaskService workTaskService;
     private final MesProEdhrReleaseService releaseService;
+    private final MesManagerReleaseCompletedActorResolver completedActorResolver;
+    @jakarta.annotation.Resource
+    private MesActiveOrderHandoffApprovalProjection handoffProjection;
 
     public MesProEdhrApprovalTaskAdapter(MesProEdhrWorkTaskService workTaskService,
-                                         MesProEdhrReleaseService releaseService) {
+                                         MesProEdhrReleaseService releaseService,
+                                         MesManagerReleaseCompletedActorResolver completedActorResolver) {
         this.workTaskService = workTaskService;
         this.releaseService = releaseService;
+        this.completedActorResolver = completedActorResolver;
     }
 
     @Override
@@ -96,22 +101,22 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         if (context.getViewType() == ApprovalTaskViewType.TODO) {
             return pageTodo(context);
         }
-        MesProEdhrWorkTaskPageReqVO reqVO = toReqVO(context);
+        MesProEdhrWorkTaskPageReqVO reqVO = toMergedTodoReqVO(context);
         PageResult<MesProEdhrWorkTaskRespVO> page = switch (context.getViewType()) {
             case DONE -> workTaskService.getApprovalCenterDonePage(reqVO, context.isGlobalView());
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR does not support "
-                    + context.getViewType());
+            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR does not support " + context.getViewType());
         };
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR");
-        List<ApprovalTaskSummary> summaries = page.getList().stream()
-                .map(this::toSummary)
-                .toList();
-        return new PageResult<>(summaries, page.getTotal());
+        var handoffs=handoffProjection.list(context);
+        var summaries=new ArrayList<ApprovalTaskSummary>(page.getList().stream().map(this::toSummary).toList());
+        summaries.addAll(handoffs);sortSummaries(summaries);
+        return new PageResult<>(slicePageRows(summaries,context.getPageNo(),context.getPageSize()),safeTotal(page)+handoffs.size());
     }
 
     @Override
     public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
+        if(MesActiveOrderHandoffApprovalProjection.SOURCE_TASK_TYPE.equals(context.getSourceTaskType()))return handoffProjection.timeline(context);
         requireSourceTaskType(context.getSourceTaskType());
         Long workTaskId = parseRequiredLong(context.getSourceTaskId(),
                 "APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
@@ -175,12 +180,11 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         candidateSignaturePage.getList().stream().map(this::toSummary)
                 .forEach(summary -> summaryMap.putIfAbsent(summary.getId(), summary));
         List<ApprovalTaskSummary> summaries = new ArrayList<>(summaryMap.values());
-        summaries.sort(Comparator.comparing(MesProEdhrApprovalTaskAdapter::sortTime,
-                Comparator.nullsLast(Comparator.reverseOrder())));
+        var handoffs=handoffProjection.list(context);summaries.addAll(handoffs);sortSummaries(summaries);
         long duplicateTotal = workTaskService.countApprovalCenterTodoDuplicateTasks(reqVO, context.isGlobalView());
         return new PageResult<>(slicePageRows(summaries, context.getPageNo(), context.getPageSize()),
                 safeTotal(workTaskPage) + safeTotal(candidateSignaturePage)
-                        - Math.max(duplicateTotal, 0L));
+                        - Math.max(duplicateTotal, 0L)+handoffs.size());
     }
 
     private static MesProEdhrWorkTaskPageReqVO toReqVO(ApprovalTaskQueryContext context) {
@@ -232,7 +236,7 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .currentNodeName(task.getProcessName())
                 .initiatorUserId(task.getSourceUserId())
                 .initiatorUserName(task.getSourceUserName())
-                .assigneeUserId(task.getAssigneeUserId())
+                .assigneeUserId(resolveActor(task))
                 .processInstanceId(resolveProcessInstanceId(task))
                 .taskCreatedAt(task.getCreateTime())
                 .taskCompletedAt(task.getCompletedAt())
@@ -261,13 +265,42 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .nodeName(hasText(task.getProcessName()) ? task.getProcessName() : task.getTaskType())
                 .action(resolveAction(task))
                 .actionLabel(resolveActionLabel(task))
-                .actorUserId(task.getAssigneeUserId())
+                .actorUserId(resolveActor(task))
                 .actedAt(resolveActedAt(task))
                 .comment(resolveComment(task))
                 .status(task.getStatus())
                 .evidenceType("REAL_WORK_TASK")
                 .domainReferenceId(String.valueOf(task.getId()))
                 .build();
+    }
+
+    private Long resolveActor(MesProEdhrWorkTaskRespVO task) {
+        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus()) && "PQC_PRODUCTION_RELEASE".equals(task.getTaskType())) {
+            return completedActorResolver.resolvePqc(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
+                    task.getBatchExecutionId(), task.getWorkOrderId(), task.getReason(), task.getCompletedAt());
+        }
+        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
+                && isReleaseApprovalTask(task)
+                && "RELEASE_TRANSACTION".equals(task.getBusinessScopeType()) && !isReleaseRejected(task)) {
+            return completedActorResolver.resolve(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
+                    task.getBatchExecutionId(), task.getWorkOrderId());
+        }
+        return task.getAssigneeUserId();
+    }
+
+    private Long resolveActor(MesProEdhrWorkTaskDO task) {
+        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus()) && "PQC_PRODUCTION_RELEASE".equals(task.getTaskType())) {
+            return completedActorResolver.resolvePqc(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
+                    task.getBatchExecutionId(), task.getWorkOrderId(), task.getReason(), task.getCompletedAt());
+        }
+        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
+                && MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())
+                && "RELEASE_TRANSACTION".equals(task.getBusinessScopeType())
+                && !isReleaseRejected(task)) {
+            return completedActorResolver.resolve(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
+                    task.getBatchExecutionId(), task.getWorkOrderId());
+        }
+        return task.getAssigneeUserId();
     }
 
     private static String resolveTitle(MesProEdhrWorkTaskRespVO task) {
@@ -397,6 +430,10 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         return rows.subList(fromIndex, toIndex);
     }
 
+    private static void sortSummaries(List<ApprovalTaskSummary> rows) {
+        rows.sort(Comparator.comparing(MesProEdhrApprovalTaskAdapter::sortTime,Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ApprovalTaskSummary::getId,Comparator.reverseOrder()));
+    }
     private static LocalDateTime sortTime(ApprovalTaskSummary summary) {
         if (summary.getTaskCreatedAt() != null) {
             return summary.getTaskCreatedAt();
@@ -526,14 +563,15 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     private static boolean isReleaseRejected(MesProEdhrWorkTaskRespVO task) {
-        return isReleaseApprovalTask(task) && hasText(task.getReason()) && task.getReason().startsWith("REJECT:");
+        return task != null && (("PQC_PRODUCTION_RELEASE".equals(task.getTaskType()) && "REJECT".equals(task.getReason()))
+                || (isReleaseApprovalTask(task) && hasText(task.getReason()) && task.getReason().startsWith("REJECT:")));
     }
 
     private static boolean isReleaseRejected(MesProEdhrWorkTaskDO task) {
         return task != null
-                && MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())
-                && hasText(task.getReason())
-                && task.getReason().startsWith("REJECT:");
+                && (("PQC_PRODUCTION_RELEASE".equals(task.getTaskType()) && "REJECT".equals(task.getReason()))
+                || (MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())
+                    && hasText(task.getReason()) && task.getReason().startsWith("REJECT:")));
     }
 
     private static String stripReviewResultPrefix(String reason) {

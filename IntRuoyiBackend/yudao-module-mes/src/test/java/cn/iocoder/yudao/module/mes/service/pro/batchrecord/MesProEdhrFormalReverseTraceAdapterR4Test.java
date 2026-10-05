@@ -1,6 +1,5 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
-import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
@@ -20,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesPqcProcessInspectionAggregationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionReceiptHash;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewServiceImpl;
@@ -90,8 +90,10 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         when(events.selectByIdForUpdate(5101L)).thenReturn(event);
         when(records.selectByEventId(5101L)).thenReturn(record);
         var signatures = mock(MesProBatchRecordExecutionSignatureService.class);
+        var formalReviewContext = new MesTeamLeaderReviewSignatureContext(5101L, "APPROVED",
+                MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()), null, null, null);
         when(signatures.recordTeamLeaderReviewSignature(31L, "test-password", "组长复核:PQC:5101:APPROVED",
-                "PROCESS_POOL_EVENT", 5101L, "提交记录组长复核")).thenReturn(9101L);
+                formalReviewContext)).thenReturn(9101L);
         when(reviews.insert(any(MesProcessPoolSubmissionReviewDO.class))).thenAnswer(invocation -> {
             review = invocation.getArgument(0);
             review.setId(6101L);
@@ -101,7 +103,11 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         var aggregation = mock(MesPqcProcessInspectionAggregationService.class);
         var producer = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class),
                 events, reviews, aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(producer, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(producer, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(producer, "signatureService", signatures);
+        ReflectionTestUtils.setField(producer, "revisionMapper",
+                mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper.class));
         // Real review producer; only its audit and task persistence boundaries are test doubles.
         var audit = mock(GxpAuditService.class);
         var tasks = mock(MesPqcInspectionTaskMapper.class);
@@ -117,7 +123,15 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
         ReflectionTestUtils.setField(producer, "pqcTaskMapper", tasks);
         assertEquals(6101L, producer.reviewSubmission(MesTeamLeaderSubmissionReviewReqBO.builder()
                 .eventId(5101L).leaderUserId(31L).leaderType("PQC").reviewStatus("APPROVED")
+                .expectedReviews(List.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext()
+                        .setEventId(5101L).setPayloadHash(MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getRawPayload()))
+                        .setRevisionId(0L).setReviewId(0L).setReviewRound(0)))
                 .signaturePassword("test-password").build()));
+        verify(signatures).recordTeamLeaderReviewSignature(31L, "test-password", "组长复核:PQC:5101:APPROVED",
+                formalReviewContext);
+        verify(signatures, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(), any(), any());
+        assertEquals(1L, event.getTenantId());
+        assertEquals(event.getTenantId(), review.getTenantId());
         verify(aggregation).aggregateApprovedPqcSubmission(5101L, 6101L);
         var signatureSnapshot = JsonUtils.parseTree(review.getReviewSignatureSnapshotJson());
         assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),
@@ -164,7 +178,7 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
 
     @Test
     void extraReviewsAndLaterCorrectionCannotReplaceTheFrozenReviewId() {
-        var extra = new MesProcessPoolSubmissionReviewDO().setId(6102L).setEventId(5101L).setLeaderUserId(99L);
+        var extra = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(6102L).setEventId(5101L).setLeaderUserId(99L);
         when(reviews.selectListByEventId(5101L)).thenReturn(List.of(review, extra));
         when(reviews.selectLatestByEventIdForUpdate(5101L)).thenReturn(extra);
         // Correction changes payload/aggregate rows but reuses processInspectionReviewId; original receipt is unchanged.
@@ -341,7 +355,8 @@ class MesProEdhrFormalReverseTraceAdapterR4Test {
                 .setCompletionStatus("SUCCESS").setBatchRecordStatus("SUCCESS").setProcessInspectionStatus("SUCCESS")
                 .setBatchRecordId(8201L).setProcessInspectionId(8301L);
         receipt.setTenantId(1L);
-        receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(DigestUtil.sha256Hex(json) + "|[]"));
+        receipt.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                json, receipt.getLossConditionFactsJson()));
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         when(receipts.selectByIdAndTenantId(8101L, 1L)).thenReturn(receipt);
         when(origins.selectListByBatchExecutionId(9001L)).thenReturn(List.of(new MesProEdhrBatchExecutionOriginDO()

@@ -39,7 +39,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     default PageResult<MesProEdhrWorkTaskDO> selectDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                             Long assigneeUserId) {
-        return selectPage(reqVO, baseMyWrapper(reqVO, assigneeUserId, false)
+        return selectPage(reqVO, applyDoneTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -55,7 +55,9 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                           Long assigneeUserId) {
-        return selectPage(reqVO, baseApprovalCenterWrapper(reqVO, assigneeUserId)
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = baseMyFilterWrapper(reqVO);
+        wrapper.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE");
+        return selectPage(reqVO, applyDoneTaskVisibility(wrapper, assigneeUserId)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -64,8 +66,13 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default Long countMy(Long assigneeUserId, String taskType, String status) {
         boolean includeProcessFormCandidates = MesProEdhrWorkTaskStatus.TODO.equals(status)
                 || MesProEdhrWorkTaskStatus.OVERDUE.equals(status);
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = applyMyTaskVisibility(
-                new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = new LambdaQueryWrapperX<>();
+        if (MesProEdhrWorkTaskStatus.DONE.equals(status)) {
+            applyDoneTaskVisibility(wrapper, assigneeUserId);
+        } else {
+            applyMyTaskVisibility(wrapper, assigneeUserId, includeProcessFormCandidates);
+        }
+        wrapper
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, taskType)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
         if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
@@ -313,7 +320,11 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyWrapper(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                     Long assigneeUserId,
                                                                     boolean includeProcessFormCandidates) {
-        return applyMyTaskVisibility(new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
+        return applyMyTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId, includeProcessFormCandidates);
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyFilterWrapper(MesProEdhrWorkTaskPageReqVO reqVO) {
+        return new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .eqIfPresent(MesProEdhrWorkTaskDO::getBatchExecutionId, reqVO.getBatchExecutionId())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
@@ -376,6 +387,49 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                         .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
                                 "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
                                         + ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")")));
+        return wrapper;
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyDoneTaskVisibility(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper, Long userId) {
+        if (userId == null) {
+            return wrapper;
+        }
+        // Completed PQC decisions belong to their formal decider, never an unused assigned candidate.
+        wrapper.and(query -> query
+                .and(owner -> owner.ne(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId))
+                .or(pqc -> pqc.eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_APPLICATION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order_release_application pa"
+                                + " JOIN system_users pu ON pu.id = pa.pqc_decided_by AND pu.tenant_id = pa.tenant_id"
+                                + " AND pu.deleted = 0 AND pu.status = 0"
+                                + " WHERE pa.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
+                                + " AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND pa.tenant_id = mes_pro_edhr_work_task.tenant_id AND pa.deleted = 0"
+                                + " AND pa.active_order_id > 0 AND pa.batch_execution_id > 0"
+                                + " AND (mes_pro_edhr_work_task.batch_execution_id IS NULL"
+                                + " OR mes_pro_edhr_work_task.batch_execution_id = pa.batch_execution_id)"
+                                + " AND pa.pqc_decided_by = {0} AND pa.pqc_decided_by > 0"
+                                + " AND pa.pqc_decided_at = mes_pro_edhr_work_task.completed_at"
+                                + " AND CAST(pa.pqc_decision AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
+                                + " AND ((pa.pqc_decision = 'APPROVE' AND pa.application_status IN"
+                                + " ('REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED'))"
+                                + " OR (pa.pqc_decision = 'REJECT' AND pa.application_status = 'PQC_RELEASE_REJECTED'"
+                                + " AND pa.pqc_reject_reason IS NOT NULL AND TRIM(pa.pqc_reject_reason) <> '')))", userId))
+                .or(actor -> actor
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "RELEASE_APPROVE")
+                        .eq(MesProEdhrWorkTaskDO::getBusinessScopeType, "RELEASE_TRANSACTION")
+                        .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
+                        .apply("EXISTS (SELECT 1 FROM mes_pro_edhr_release_transaction rt"
+                                + " WHERE rt.id = mes_pro_edhr_work_task.business_scope_id"
+                                + " AND rt.batch_execution_id = mes_pro_edhr_work_task.batch_execution_id"
+                                + " AND rt.work_order_id = mes_pro_edhr_work_task.work_order_id"
+                                + " AND rt.tenant_id = mes_pro_edhr_work_task.tenant_id"
+                                + " AND rt.deleted = 0 AND rt.release_status = 'RELEASED'"
+                                + " AND rt.approved_by = {0})", userId)));
         return wrapper;
     }
 

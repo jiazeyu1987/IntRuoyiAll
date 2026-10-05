@@ -150,6 +150,7 @@ class MesNcrScopeAuditTransactionTest {
         when(signer.recordQaDispositionSignature(any(), any(), any(), any(), any())).thenAnswer(call ->
                 insertSignature(call.getArgument(0), call.getArgument(1), call.getArgument(3), call.getArgument(4)));
         var target = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         Map<String, Class<?>> dependencies = Map.ofEntries(
                 Map.entry("reviewMapper", MesProEdhrNonconformanceReviewMapper.class),
                 Map.entry("reviewCounterMapper", MesProEdhrNonconformanceReviewCounterMapper.class),
@@ -204,10 +205,17 @@ class MesNcrScopeAuditTransactionTest {
     }
 
     @AfterEach
-    void close() {
+    void close() throws SQLException {
         SecurityContextHolder.clearContext();
         TenantContextHolder.clear();
-        if (jdbc != null) jdbc.execute("SHUTDOWN");
+        if (jdbc != null) {
+            // SHUTDOWN closes its connection before JdbcTemplate's post-execute getWarnings.
+            // Native JDBC avoids querying that closed statement; shutdown errors still propagate.
+            try (Connection connection = Objects.requireNonNull(jdbc.getDataSource()).getConnection();
+                 var statement = connection.createStatement()) {
+                statement.execute("SHUTDOWN");
+            }
+        }
     }
 
     @Test

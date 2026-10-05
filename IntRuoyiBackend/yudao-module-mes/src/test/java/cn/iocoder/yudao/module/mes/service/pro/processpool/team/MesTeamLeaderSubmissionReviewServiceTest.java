@@ -343,7 +343,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                         + ",\"actorId\":2001,\"signedAt\":\"2026-09-28T10:30:00\"}")
                 .afterPayload(event.getRawPayload()).build();
         revision.setTenantId(event.getTenantId());
-        org.mockito.Mockito.lenient().when(revisionMapper.selectListByEventIdForUpdate(event.getId())).thenReturn(List.of(revision));
+        org.mockito.Mockito.when(revisionMapper.selectListByEventIdForUpdate(event.getId())).thenReturn(List.of(revision));
         var discovery=(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver) ReflectionTestUtils.getField(service, "returnCorrectionResolver");
         org.mockito.Mockito.lenient().when(discovery.find(org.mockito.ArgumentMatchers.eq(event), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> {

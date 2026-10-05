@@ -129,6 +129,8 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
     @Resource
     private MesProcessPoolActiveOrderMapper activeOrderMapper;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
     private MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     @Resource
     private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderReworkCycleService reworkCycleService;
@@ -242,6 +244,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
         recordReviewOperation("NONCONFORMANCE_REVIEW_CREATE", "创建不合格评审", review, activeOrderId,
                 null, now, signatureId, null, null, null, null, "电子签名#" + signatureId, null);
         appendCreationAudit(review, signatureId, false, createAggregateHash);
+        handoffService.qaCreated(review, activeOrderId, actorId);
         return toResp(review);
     }
 
@@ -303,6 +306,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 captureAffectedState(persisted, requireAuditRow(activeOrderMapper.selectByIdForUpdate(activeOrder.getId())), afterBatch, afterWorkOrder,
                         null, new DispositionAuditTargets(null, null, null, null), null));
         appendUnsignedCreationAudit(before, after, persisted);
+        handoffService.qaCreated(persisted, activeOrder.getId(), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 
@@ -434,6 +438,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 null, null, null, reason, "QA电子签名#" + signatureId, actorUserId);
         review.setQaCreateSignatureId(signatureId).setQaSignature("QA电子签名#" + signatureId)
                 .setQaUserId(actorUserId);
+        handoffService.qaCreated(review, activeOrderId, actorUserId);
         return toResp(review);
     }
 
@@ -505,6 +510,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 batch, SOURCE_TYPE_PQC_RELEASE, null, reason, "上市放行负责人电子签名#" + signatureId,
                 signatureId);
         appendCreationAudit(review, signatureId, true, aggregateHash);
+        handoffService.qaCreated(review, requireActiveOrderId(review.getActiveOrderId()), SecurityFrameworkUtils.getLoginUserId());
         return toResp(review);
     }
 
@@ -558,6 +564,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 : DISPOSITION_REWORK.equals(disposition)
                 ? MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED : review.getPreviousBatchStatus();
         Long qaUserId = SecurityFrameworkUtils.getLoginUserId();
+        handoffService.assertQaCanDispose(review.getId(), activeOrderId, qaUserId);
         DispositionAuditTargets auditTargets = resolveDispositionAuditTargets(application, review.getId(), disposition);
         GxpAuditStateEnvelope auditBefore = withAffectedState(dispositionAuditState(review,
                 batch == null ? null : batch.getStatus(), workOrder == null ? null : workOrder.getTemporaryFrozen(),
@@ -641,6 +648,7 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 afterApplication, auditTargets, reworkActiveOrderId));
         appendDispositionAudit(auditBefore, auditAfter, auditAfterReview, afterApplication,
                 reworkActiveOrderId, auditSignature);
+        handoffService.qaDisposed(auditAfterReview, activeOrderId, reworkActiveOrderId, qaUserId);
         return toResp(reviewMapper.selectById(review.getId()));
     }
 

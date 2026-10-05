@@ -101,6 +101,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 @Service
 @Validated
 public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContextService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     private static final String PQC_INSPECTION_TASK_SOURCE_TYPE = "MES_PQC_INSPECTION_TASK";
     private static final String GXP_PQC_SUBMIT_OPERATION = "mes.pqc.submit";
@@ -1411,6 +1413,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                 .setTaskStatus(PQC_TASK_STATUS_SUBMITTED);
         MesFrontlinePqcSubmitResult result = loadPqcSubmitResult(eventId, task.getId(), contentHash);
         appendPqcSubmitGxpAudit(task, eventId);
+        handoffService.pqcSubmitted(task.getId(), eventId, command.getActualEmployeeId());
         return result;
     }
 

@@ -183,6 +183,7 @@ class MesCompletionAggregationAuditTransactionTest {
                 sessions.getMapper(MesProcessPoolActiveOrderCompletionReceiptMapper.class), progress, sourceBoundary,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(completion, "gxpAuditService", audit);
         completionCollector = new MesReleaseAffectedStateCollector(source);
         completionTransactionManager = tx;
@@ -191,6 +192,8 @@ class MesCompletionAggregationAuditTransactionTest {
         var review = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class),
                 sessions.getMapper(MesProProcessPoolEventMapper.class),
                 sessions.getMapper(MesProcessPoolSubmissionReviewMapper.class), aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(review, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(review, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         var signatureBoundary = mock(MesProBatchRecordExecutionSignatureService.class);
         when(signatureBoundary.recordTeamLeaderReviewSignature(anyLong(), anyString(), anyString(),
                 any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext.class))).thenReturn(9101L);
@@ -244,7 +247,8 @@ class MesCompletionAggregationAuditTransactionTest {
     @Test
     void groupApprovalConfirmsBothTasksAndReplayPreservesAllRows() {
         seedReviewGroup();
-        Long reviewId = reviewService.reviewSubmission(reviewRequest("APPROVED"));
+        var displayedRequest = reviewRequest("APPROVED");
+        Long reviewId = reviewService.reviewSubmission(displayedRequest);
         assertEquals(List.of("CONFIRMED", "CONFIRMED"), jdbc.queryForList(
                 "SELECT task_status FROM " + TASK + " ORDER BY id", String.class));
         assertEquals(2, count(REVIEW));
@@ -252,7 +256,7 @@ class MesCompletionAggregationAuditTransactionTest {
         assertEquals(2, count("gxp_audit_event"));
         var completed = businessRows();
         var audit = jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id");
-        assertEquals(reviewId, reviewService.reviewSubmission(reviewRequest("APPROVED")));
+        assertEquals(reviewId, reviewService.reviewSubmission(displayedRequest));
         assertEquals(completed, businessRows());
         assertEquals(audit, jdbc.queryForList("SELECT * FROM gxp_audit_event ORDER BY id"));
     }
@@ -459,7 +463,16 @@ class MesCompletionAggregationAuditTransactionTest {
     }
 
     private MesTeamLeaderSubmissionReviewReqBO reviewRequest(String status) {
+        // These fixtures contain one exact submitted PQC group, with no persisted review/revision yet.
+        var displayed = jdbc.queryForList("SELECT id,raw_payload FROM mes_pro_process_pool_event "
+                + "WHERE tenant_id=1 AND deleted=FALSE AND event_type='PQC_INSPECTION' ORDER BY id").stream()
+                .map(member -> new MesSubmissionReviewExpectedContext()
+                        .setEventId(((Number) member.get("id")).longValue())
+                        .setPayloadHash(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
+                                .sha256((String) member.get("raw_payload")))
+                        .setRevisionId(0L).setReviewId(0L).setReviewRound(0)).toList();
         return MesTeamLeaderSubmissionReviewReqBO.builder().eventId(1001L).leaderUserId(20L).leaderType("PQC")
+                .expectedReviews(displayed)
                 .reviewStatus(status).reviewRemark("Current submission review").signaturePassword("BOUNDARY-TEST-ONLY").build();
     }
 

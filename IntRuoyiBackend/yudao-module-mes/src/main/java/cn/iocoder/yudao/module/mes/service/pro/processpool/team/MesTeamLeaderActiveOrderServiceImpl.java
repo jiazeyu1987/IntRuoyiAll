@@ -270,6 +270,8 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private MesTeamLeaderDataCleanupMapper dataCleanupMapper;
     @Resource
     private MesFixedTestOrderDownstreamCleanupService fixedTestOrderDownstreamCleanupService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     private static final String FIXED_TEST_WORK_ORDER_CODE =
             "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891";
@@ -1042,6 +1044,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         appendActiveOrderGxpAudit("mes.active-order.add",
                 "cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderServiceImpl#addActiveOrder",
                 "生产组长加入活跃订单", null, activeOrder, "JOIN");
+        handoffService.productionReady(activeOrder.getId(), reqBO.getLeaderUserId());
         return addResult(activeOrder.getId(), ACTION_ADD, reqBO.getWorkOrderId(), null);
     }
 
@@ -1186,6 +1189,10 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .setQuantityProduced(BigDecimal.ZERO);
         workOrderMapper.updateById(workOrder);
 
+        // Retain old-cycle handoff history, and close its pending actions before removing runtime facts.
+        for (Long oldActiveOrderId : activeOrderIds) {
+            handoffService.retireCycle(oldActiveOrderId, leaderUserId, workOrder.getId());
+        }
         fixedTestOrderDownstreamCleanupService.cleanup(tenantId, workOrder.getId(), activeOrderIds,
                 batchIds, executionIds, releaseApplicationIds);
         if (!activeOrderIds.isEmpty()) {
@@ -2005,16 +2012,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
             var piece = pieces.stream().filter(row -> Objects.equals(row.getId(), aggregate.getSourcePieceDetailId()))
                     .findFirst().orElse(null);
             var review = reviewsById.get(aggregate.getReviewId());
+            // A correction advances the record's current review while historical aggregates keep theirs.
+            var currentReview = reviewsById.get(record == null ? null : record.getProcessInspectionReviewId());
             var event = aggregate.getEventId() == null ? null
                     : processPoolEventMapper.selectByIdForUpdate(aggregate.getEventId());
             if (record == null || piece == null
-                    || review == null || event == null
+                    || review == null || currentReview == null || event == null
                     || !Objects.equals(aggregate.getActiveOrderId(), owner.getId())
                     || !Objects.equals(aggregate.getWorkOrderId(), owner.getWorkOrderId())
                     || !Objects.equals(aggregate.getEventId(), record.getEventId())
-                    || !Objects.equals(aggregate.getReviewId(), record.getProcessInspectionReviewId())
                     || !reviewIds.contains(aggregate.getReviewId())
                     || !Objects.equals(review.getEventId(), aggregate.getEventId())
+                    || !Objects.equals(currentReview.getEventId(), aggregate.getEventId())
                     || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getFeedbackSourceType())
                     || !Objects.equals(event.getFeedbackSourceId(), aggregate.getPqcTaskId())
                     || !PQC_INSPECTION_TASK_SOURCE_TYPE.equals(event.getRecordbookSourceType())

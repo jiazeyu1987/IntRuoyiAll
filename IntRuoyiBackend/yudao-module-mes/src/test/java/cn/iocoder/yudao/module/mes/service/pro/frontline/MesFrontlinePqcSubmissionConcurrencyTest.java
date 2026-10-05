@@ -309,6 +309,7 @@ class MesFrontlinePqcSubmissionConcurrencyTest {
                      eventService, recordMapper, signatureService,
                      mock(MesProEdhrNonconformanceReviewService.class),
                      gxpAuditService);
+            { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         }
 
         private Pair submitConcurrently(MesFrontlinePqcSubmitCommand firstCommand,

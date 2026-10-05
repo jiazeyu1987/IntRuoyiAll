@@ -1195,6 +1195,7 @@
 - Trigger: 业务 outbox 调用站内信 API、并发重试、消息已写入但领域 ACK 前进程中断、模板禁用返回空消息 ID、要求同一业务事件每个接收人最多一封。
 - Preflight check: 为平台消息提供租户内唯一的稳定业务键，幂等发送 API 必须在消息表唯一约束下“新建或返回同一 message ID”；领域 delivery 在调用前保存该键，并校验重放时接收人和模板一致。
 - Transaction boundary: 若要覆盖“平台消息已提交、领域 ACK 未提交”的真实故障窗口，领域发送协调器不能用一个外层事务包住平台发送和本地 ACK。应先用独立事务提交 attempt，再让平台幂等 API 自己提交，最后用另一个独立事务写 SENT/FAILED；本地 ACK 失败后必须保留可重放状态，并以同一业务键取回同一平台 message ID。事务注解必须通过独立 Bean 代理生效，禁止 self-invocation 假装 `REQUIRES_NEW`。
+- After-commit resource rule: Spring `afterCommit` 执行期间原事务资源可能仍绑定；调用 `REQUIRED` 发送方法不能证明新消息会再次提交。平台发送须经独立 Bean 的 `REQUIRES_NEW` 边界，回归使用真实数据库消息写入并在外层提交后独立回读，不能只 mock sender 返回正 ID。
 - Post-commit rule: 正式对象的消息分发只能在生效事务提交后触发；无活动事务时调度入口必须 fail fast。after-commit 回调异常不得反向把已提交正式对象改为失败，未完成 delivery 必须保留为可查询、可重试状态并输出脱敏可观测日志。
 - Blocker: 只有领域 delivery 唯一键、平台 API 不接收业务键、发送成功后才标本地 `SENT`、空 message ID 被视为成功、或重放可能再次插入消息时必须阻塞上线并先改平台契约。
 - Verification: 注入“平台消息落库后、领域 ACK 前崩溃”，重启重放后断言平台消息数仍为 1且返回同一 message ID；并覆盖 attempt/ACK 的真实事务提交边界、并发、模板禁用、同键不同接收人/模板冲突和跨租户同键隔离。批次汇总状态还必须先锁父批次，再以锁定当前读聚合子 delivery/任务，证明并发全成功或部分失败不会因重复读旧快照永久停在处理中。
@@ -1265,6 +1266,9 @@
 - GxP snapshot rule: 活跃订单分配审计必须由服务端生成真实 before/after 分配快照并绑定版本；纯无变化重算不得追加变化审计，只有实际证据补写或业务变化才写相应审计。
 - GxP coverage rule: 全量覆盖门禁必须逐候选登记或保存路径级 SHA-256 排除证据；覆盖门禁不得把未登记候选自动视为已批准排除。
 - Method boundary rule: 一个类中已有登记方法不能覆盖该类其他写入口；声明、重载和公开委托入口须分别核验，私有 helper 不能替调用方获得登记。词法扫描输出的是候选证据，必须区分确认漏项与保守误报；扫描器回归 PASS 不等于真实仓库覆盖 PASS，失效的排除 hash 不得自动续签。
+- Locator verification rule: 方法级登记须同时满足源码唯一声明和正式边界扫描可达；短委托重载应使用独立名称，真实写方法名称应表达写入动作，并同步 caller、登记和测试。不得放宽扫描器、添加假命中注释或登记不存在的方法来凑覆盖。
+- Audit version rule: 更新审计的 before/after envelope 分别使用各自冻结对象的正式版本，不能把 after 的版本同时写入 before；不存在的前态保持 ABSENT。回归应执行真实审计 helper 并捕获内核 command，验证对象正文、objectVersion 与 subjectVersion 一致，不能 mock helper 本体掩盖版本错配。
+- Source fingerprint rule: 复核审批指纹时使用正式门禁的同一字节解码和换行规范化算法；不得自行去除 BOM 或更换编码后把差异判为源码漂移。先分别核对原始字节、正式规范化指纹及实际源根目录，确有代码变更才追加具名待批准声明。Evidence: `doc/tasks/20260930-edhr-seven-test-accounts/root-formal-draft-1003-independent-validation.json`。
 - Identity replay rule: 认证账号和实际执行人分开记录，身份ID须明确所属域；首次正式提交冻结必要显示字段，幂等重放使用首次快照但仍执行当前授权和验签。不得用当前目录补造历史身份，也不得因目录改名改变重放载荷；旧记录缺少必需快照的处理必须在集成前明确。
 - Binding audit rule: 既有记录重放分支若补绑关联或改变版本，仍属于写操作；修改前先冻结快照，以独立UPDATE事件和版本化幂等键记录，不能伪记为CREATE。验证成功后重放零新写、并发版本冲突、审计失败及缺少已激活策略时业务回滚。策略草案与正式批准/激活分开，事务替身测试不得冒充完整数据库或页面验收。
 - GxP policy-activation rule: 策略激活必须消费结构化 YAML 节点，保存结构化 `signaturePolicy` 等字段；本地策略激活使用现有本地数据库，不等同于生产合规证明。

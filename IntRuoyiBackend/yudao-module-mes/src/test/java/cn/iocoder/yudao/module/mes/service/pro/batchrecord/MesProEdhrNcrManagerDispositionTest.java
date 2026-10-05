@@ -52,6 +52,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrNcrManagerDispositionTest {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
     @Mock
     private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService unifiedAudit;
 
