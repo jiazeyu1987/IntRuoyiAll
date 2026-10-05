@@ -1,0 +1,78 @@
+{
+  "status": "PASS_MANAGER_SEMANTIC_AND_INDEPENDENT_REGRESSION",
+  "observedAt": "2026-10-06T05:27:03.005240+08:00",
+  "mainHEAD": "81d69a63fa82e1f5ac600e62d446349181ec5874",
+  "workerHEAD": "b876124a822935161847e1a9266660f45675c9d8",
+  "issues": [
+    {
+      "id": "SA36",
+      "review": "PASS",
+      "rootCauseResolved": true,
+      "behavior": "Real allocation mutation checks source freeze independently of prior approval; exact readonly replay and unchanged frozen consumer retention remain. Corrected fixture distinguishes source C from consumer A.",
+      "tests": "approvedSourceFreezeControlsChangesToUnfrozenConsumerBeforeAnyFactWrite and frozenSharedAIsPreservedWhileLegalBChanges, plus adjacent allocation/freeze/correction contracts",
+      "boundary": "Actual NCR authority with isolated command test doubles; zero-write assertions do not claim a real MySQL transaction.",
+      "integrated": true
+    },
+    {
+      "id": "SA37",
+      "review": "PASS",
+      "rootCauseResolved": true,
+      "behavior": "Unique lifecycle current cycle determines completion sources. Real rework/reduce/remove/reallocate/apply/complete/backfill sequence uses B1, preserves B0 facts and rejects wrong source IDs.",
+      "tests": "MesSa37ReworkReleaseTransactionTest seven cases plus actual aggregation/progress/completion/backfill/rework/application adjacent contracts",
+      "boundary": "H2 real services/MyBatis/transactions; ERP, audit/notification and downstream batch-opening boundaries are explicit doubles. No MySQL concurrency or real ERP/E2E claim.",
+      "integrated": true
+    },
+    {
+      "id": "SA38",
+      "review": "PASS",
+      "rootCauseResolved": true,
+      "behavior": "Reenable checks authoritative occupancy before any scope change. A disable, B associate, rejected A enable leaves actual owner B and allows normal PQC submission qualification/assignment.",
+      "tests": "rejectedOldPersonnelEnableKeepsActualUniqueOwnerAndAllowsBSubmissionAndAssignment plus personnel/owner/PQC/handoff adjacent contracts",
+      "boundary": "Actual scope persistence, tenant interceptor, personnel/owner/assignment services; remaining submission/signature boundaries follow disclosed existing unit fixture.",
+      "integrated": true
+    }
+  ],
+  "managerBackend": {
+    "classes": 39,
+    "tests": 709,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "compilerSources": 7462,
+    "completeBuildInputs": 12120,
+    "evidence": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\manager-regression-evidence.json"
+  },
+  "workerBackend": {
+    "selectors": 126,
+    "actualXml": 127,
+    "tests": 2669,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "implementationAndTestFiles": 8,
+  "requiredMemoryDocumentFiles": 1,
+  "managerBusinessCodeAuthored": false,
+  "mainIntegrated": true,
+  "postIntegrationAuditPending": true,
+  "e2e": false,
+  "mainIntegrationCommit": "a1ff60b41adbb5dde8f87d442fd50e8bf8e71620",
+  "workerImplementationCommit": "d5ca77b3474b7e38bb88058c3e79a991f6a5f681",
+  "baselineCommit": "fb82e021d1e08c8ada4ad370ede0732addc25c29",
+  "localIntegrationEvidence": "sa36-sa38-local-integration-receipt.json",
+  "currentMainCombinationBackend": {
+    "status": "PASS_CURRENT_MAIN_COMBINATION",
+    "runDirectory": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1",
+    "sourceRebind": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\source-rebind.json",
+    "nonownedPaths": [
+      "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java",
+      "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseDoneVisibilityTest.java"
+    ],
+    "committedScopeUnchanged": true,
+    "regressionEvidence": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\regression-evidence.json",
+    "regressionSha256": "1F0921B367965C918FFA65117EA986BC11CCBC57D6A6897F310A8C6D3B4736BF",
+    "classes": 40,
+    "tests": 777,
+    "completeBuildInputs": 12120
+  }
+}

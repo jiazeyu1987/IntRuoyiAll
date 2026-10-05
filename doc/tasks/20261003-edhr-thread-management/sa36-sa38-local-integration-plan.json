@@ -1,0 +1,138 @@
+{
+  "status": "LOCALLY_INTEGRATED_FIVE_RECORDS_COMMIT_PENDING_FRESH_AUDIT_PENDING",
+  "observedAt": "2026-10-06T05:27:03.005240+08:00",
+  "mainHEAD": "81d69a63fa82e1f5ac600e62d446349181ec5874",
+  "workerHEAD": "b876124a822935161847e1a9266660f45675c9d8",
+  "reviewWorktreeHEAD": "d3f1793c8831cc4d070b786553e3a2c002e17ca9",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesPqcLeaderPersonnelServiceImpl.java",
+      "reviewedSha256": "A9ADF3FF56C0D76E0B697FC884C91DD50D3F003FE3118CEAE911BD036E57B6DD",
+      "mainBeforeSha256": "14E7642D8305CC0422AE755CA48C368BFCC5903EF4A0E3357E966906961BA3E0",
+      "workerBeforeSha256": "2EBF791ED640DAE7FD202C1A0DF9181E536D09DCD666CE86BA7F574D52E09B5B",
+      "gitBlob": "cfef7cf6ff67b1ccc320be9038ca677f266d6026",
+      "type": "modified"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandService.java",
+      "reviewedSha256": "3B6B122D3C1CE9D81B1903B5B3B156B444D2098E59233B3EB7F3DC0BAC1C77A8",
+      "mainBeforeSha256": "B988839FBB4719AE225D64C3E76EBA3F7986EFB96181CCED22B3DCBD6507228B",
+      "workerBeforeSha256": "B988839FBB4719AE225D64C3E76EBA3F7986EFB96181CCED22B3DCBD6507228B",
+      "gitBlob": "0ceb3ae04a840422bfca2a945d7a2b0ff761b1ac",
+      "type": "modified"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionService.java",
+      "reviewedSha256": "3EF5EAE5B9081E66F764AF110C200636D88C1E83FCACDCA752094AE07AC7CFC4",
+      "mainBeforeSha256": "B78F00127772E6F3AA8AC26CF66E5CFF76DEB7C1C6D797BBE030C4AFA7C80134",
+      "workerBeforeSha256": "B78F00127772E6F3AA8AC26CF66E5CFF76DEB7C1C6D797BBE030C4AFA7C80134",
+      "gitBlob": "ba68d7d48050d59c19eaa951f908a10b23cc2147",
+      "type": "modified"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/MesSa36Sa38MapperFixture.java",
+      "reviewedSha256": "BC084746A586C6CA419D8B22965B38F988CABA9798D28F50130F3AC1B6990F5B",
+      "mainBeforeSha256": null,
+      "workerBeforeSha256": null,
+      "gitBlob": "650998a746e55282e73ab148a156824274d9f35f",
+      "type": "added"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlinePqcContextServiceTest.java",
+      "reviewedSha256": "5807B33B66A99FA5110A43D3D2A36EF5E0B07FD4EF60089A92075105E59777F9",
+      "mainBeforeSha256": "D46443A6B6FB2BCBFD38491627159123F49EF8A0E4759293293A679A559602A8",
+      "workerBeforeSha256": "D46443A6B6FB2BCBFD38491627159123F49EF8A0E4759293293A679A559602A8",
+      "gitBlob": "d5cbcddef6049eaa3cfc9c17e77ea8f8c5232114",
+      "type": "modified"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesReportAllocationCommandServiceTest.java",
+      "reviewedSha256": "92E4D47FC068BFC479D1F14AC3F607BA47A327A039F0964BFDF68F5E7F33C8E6",
+      "mainBeforeSha256": "1E55876EDD2078F29E70B82D69D6D2220148BDF7871B71FEAF63D1F3597ED58A",
+      "workerBeforeSha256": "1E55876EDD2078F29E70B82D69D6D2220148BDF7871B71FEAF63D1F3597ED58A",
+      "gitBlob": "6fd9a8c21c08a24dd00a75134ce4a74c9abe8d30",
+      "type": "modified"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesSa37ReworkReleaseTransactionTest.java",
+      "reviewedSha256": "047BB7395FC0CBC51DBE18426CEB3F44EAAE4C03A2C5A746C1C44ED53D582EB1",
+      "mainBeforeSha256": null,
+      "workerBeforeSha256": null,
+      "gitBlob": "4078f999dc13dfc31b925061939e8cc1a406ccc7",
+      "type": "added"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/team/MesTeamLeaderOrderProcessCompletionServiceTest.java",
+      "reviewedSha256": "A888F00D58235793C1F5D5B9450249D209974B0E87734F2D000E9CE4829B718F",
+      "mainBeforeSha256": "0179603D6550D0F945A34F9DFDEB8DE58137EE8A486B0EDB9551FA609E0D74D6",
+      "workerBeforeSha256": "250A5FD5EF833A862600F3BF524D38D792BEAA52C3650C93F017E7CB3113BF10",
+      "gitBlob": "67b01867eb3bda7a525ed98097ba99f514a7cf0d",
+      "type": "modified"
+    },
+    {
+      "path": "docs/backend-development.md",
+      "reviewedSha256": "F86D7AA5350691DAACCFE63495D75C29ADB3A8120106231EFF125E6D3A1FA613",
+      "mainBeforeSha256": "C6A06057BEC939D6659CD32382FEC4D10BE6B5F9B327D1D98E82C79B3BF8BC1A",
+      "workerBeforeSha256": "061148210259F4B63F6DDA590A18021C167D502A57C7F736FF6202F7A221A96E",
+      "gitBlob": "d73b8e759bcb7831249305dd0679ddd16eb5ac25",
+      "type": "modified-memory"
+    }
+  ],
+  "taskDeltaCount": 9,
+  "baselineCount": 1,
+  "baselineFiles": [
+    {
+      "path": "docs/backend-development.md",
+      "headSha256": "0EF2616270A6A0E77179BD5C3BAFE14A76761681ABEA27856E18CE9CBD7EBDF2",
+      "currentSha256": "C6A06057BEC939D6659CD32382FEC4D10BE6B5F9B327D1D98E82C79B3BF8BC1A",
+      "reason": "Earlier task-owned source-freeze experience bullet is currently dirty on main; isolate this exact existing documentation baseline before the worker three-lesson update."
+    }
+  ],
+  "evidenceCommitScope": [
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-manager-verification-report.md",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-manager-review-result.json",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-plan.md",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-plan.json",
+    "doc/tasks/20261003-edhr-thread-management/sa36-sa38-local-integration-receipt.json"
+  ],
+  "evidenceRecordCount": 5,
+  "managerReviewResultSha256": "99242DA296EC627AE5CBF27F4479782BB31BCD76BDCC681F3E89D02BDB62279D",
+  "managerRegressionSha256": "F35E5CEA26E9B1C05A84974F4A0D845968CA3AB5F0574625E17542EDADFE372C",
+  "preflightEvidence": "sa36-sa38-isolated-index-preflight/result.json",
+  "baselineTree": "4327649b7b324a2ae06b207089d658f11d004b10",
+  "candidateTree": "22d72ce5098e86d04bf21b38c0dcda8e12b7590a",
+  "authorization": {
+    "status": "APPROVED",
+    "approvedBaselineCount": 1,
+    "approvedTaskDeltaCount": 9,
+    "approvedEvidenceRecordCount": 5,
+    "localOnly": true,
+    "push": false,
+    "databaseWrites": false,
+    "services": false,
+    "e2e": false,
+    "explicitUserAnswerEvidence": "sa36-sa38-explicit-local-integration-approval.json"
+  },
+  "mainIntegrated": true,
+  "loopGoalComplete": false,
+  "currentMainCombinationGate": {
+    "status": "PASS_CURRENT_MAIN_COMBINATION",
+    "runDirectory": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1",
+    "sourceRebind": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\source-rebind.json",
+    "nonownedPaths": [
+      "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java",
+      "IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesMarketReleaseDoneVisibilityTest.java"
+    ],
+    "committedScopeUnchanged": true,
+    "regressionEvidence": "C:\\Users\\BJB110\\.codex\\worktrees\\a37a\\IntRuoyi\\doc\\tasks\\20261006-sa36-sa38-combination-review\\current-main-collation-r1\\regression-evidence.json",
+    "regressionSha256": "1F0921B367965C918FFA65117EA986BC11CCBC57D6A6897F310A8C6D3B4736BF",
+    "classes": 40,
+    "tests": 777,
+    "completeBuildInputs": 12120
+  },
+  "mainIntegrationCommit": "a1ff60b41adbb5dde8f87d442fd50e8bf8e71620",
+  "workerImplementationCommit": "d5ca77b3474b7e38bb88058c3e79a991f6a5f681",
+  "baselineCommit": "fb82e021d1e08c8ada4ad370ede0732addc25c29",
+  "localIntegrationEvidence": "sa36-sa38-local-integration-receipt.json",
+  "localIntegrationAuthorizationConsumed": true
+}
