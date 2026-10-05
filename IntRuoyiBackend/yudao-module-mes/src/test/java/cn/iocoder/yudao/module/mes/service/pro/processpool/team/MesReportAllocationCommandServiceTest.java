@@ -1039,7 +1039,9 @@ class MesReportAllocationCommandServiceTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings={"completion","application","released","ncr"})
     void frozenSharedAIsPreservedWhileLegalBChanges(String freeze) {
-        var source=event();var a=allocation(7101L,8101L,9001L,5101L,"100");var b=allocation(7102L,8103L,9003L,5301L,"80");
+        var source=event().setWorkOrderId(9005L);var a=allocation(7101L,8101L,9001L,5101L,"100");var b=allocation(7102L,8103L,9003L,5301L,"80");
+        source.setRawPayload(source.getRawPayload().replace("\"workOrderId\":9001","\"workOrderId\":9005")
+                .replace("\"activeOrderId\":8101","\"activeOrderId\":8105"));
         String originalA=JsonUtils.toJsonString(a);
         var orderA=activeOrder(8101L,9001L);var orderB=activeOrder(8103L,9003L);
         if("released".equals(freeze))orderA.setActiveStatus("ARCHIVED");
@@ -1073,6 +1075,7 @@ class MesReportAllocationCommandServiceTest {
             var authorityReviews=(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper)ReflectionTestUtils.getField(authority,"reviewMapper");
             org.mockito.Mockito.doReturn(null).when(authorityReviews).selectFirstBlockingByWorkOrderId(9003L);
             when(authorityOrders.selectByIdForUpdate(9003L)).thenReturn(workOrder(9003L,"B"));
+            when(authorityOrders.selectByIdForUpdate(9005L)).thenReturn(workOrder(9005L,"C"));
             ReflectionTestUtils.setField(service,"nonconformanceReviewService",authority);
         }
         when(workOrderMapper.selectListByIdsForUpdate(List.of(9003L))).thenReturn(List.of(workOrder(9003L,"B")));
@@ -1093,6 +1096,7 @@ class MesReportAllocationCommandServiceTest {
             var reads=(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper)ReflectionTestUtils.getField(authority,"reviewMapper");
             verify(reads,org.mockito.Mockito.times(1)).selectFirstBlockingByWorkOrderId(9001L);
             verify(reads,org.mockito.Mockito.times(1)).selectFirstBlockingByWorkOrderId(9003L);
+            verify(reads,org.mockito.Mockito.times(1)).selectFirstBlockingByWorkOrderId(9005L);
         }
         assertEquals(originalA,JsonUtils.toJsonString(a));assertEquals(2,result.getVersion());assertAmount("220",result.getTotalAllocatedQuantity());assertAmount("80",result.getUnallocatedQuantity());
         assertEquals(7101L,result.getLines().get(0).getAllocationId());assertEquals("ncr".equals(freeze),result.getLines().get(0).getEditable());
@@ -1102,6 +1106,69 @@ class MesReportAllocationCommandServiceTest {
         ArgumentCaptor<Collection<MesProcessPoolReportAllocationDO>> affected=ArgumentCaptor.forClass(Collection.class);
         verify(completionService).reconcileAffectedAllocations(org.mockito.ArgumentMatchers.eq(source),affected.capture());
         assertTrue(affected.getValue().stream().allMatch(row->row.getActiveOrderId().equals(8103L)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"new,true","adjust,true","new,false","adjust,false"})
+    void approvedSourceFreezeControlsChangesToUnfrozenConsumerBeforeAnyFactWrite(String change,boolean frozen) {
+        var source = event();
+        var a = allocation(7101L,8101L,9001L,5101L,"50");
+        var b = allocation(7102L,8103L,9003L,5301L,"10");
+        var orderA = activeOrder(8101L,9001L);
+        var orderB = activeOrder(8103L,9003L);
+        when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(source);
+        when(poolQuantityService.requirePoolQuantity(source)).thenReturn(new BigDecimal("100"));
+        var state=MesProcessPoolReportAllocationStateDO.builder().id(7201L).eventId(1001L).currentVersion(1).build();
+        when(stateMapper.selectByEventIdForUpdate(1001L)).thenReturn(state);
+        when(allocationMapper.selectListByEventIdForUpdate(1001L))
+                .thenReturn("new".equals(change) ? List.of(a) : List.of(a,b));
+        when(activeOrderMapper.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(orderA,orderB));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L,9003L)))
+                .thenReturn(List.of(workOrder(9001L,"A"),workOrder(9003L,"B")));
+        when(allocationMapper.selectListByActiveOrderIdsAndProcessForUpdate(Set.of(8103L),6001L))
+                .thenReturn("new".equals(change) ? List.of() : List.of(b));
+        when(targetService.requireUniqueTargetForProcess(orderB,6001L)).thenReturn(
+                new MesTeamLeaderOrderProcessTarget(5301L,6001L,new BigDecimal("100"),BigDecimal.ONE,new BigDecimal("100")));
+        when(reviewMapper.selectLatestByEventIdForUpdate(1001L)).thenReturn(signedApprovedReview());
+        var authority = cn.iocoder.yudao.module.mes.service.pro.MesSa09Sa14FreezeFixture.authority(9001L,frozen?"pending_review":"open");
+        var authorityOrders = (MesProWorkOrderMapper)ReflectionTestUtils.getField(authority,"workOrderMapper");
+        org.mockito.Mockito.doReturn(workOrder(9003L,"B")).when(authorityOrders).selectByIdForUpdate(9003L);
+        var authorityReviews = (cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrNonconformanceReviewMapper)
+                ReflectionTestUtils.getField(authority,"reviewMapper");
+        org.mockito.Mockito.doReturn(null).when(authorityReviews).selectFirstBlockingByWorkOrderId(9003L);
+        if (!frozen) {
+            org.mockito.Mockito.doReturn(null).when(authorityReviews).selectFirstBlockingByWorkOrderId(9001L);
+            if ("adjust".equals(change)) when(allocationMapper.supersedeCurrentRows(List.of(7102L),2)).thenReturn(1);
+            when(allocationMapper.insertBatch(anyCollection())).thenReturn(true);
+            when(auditMapper.insertBatch(anyCollection())).thenReturn(true);
+            when(stateMapper.updateById(state)).thenReturn(1);
+        }
+        ReflectionTestUtils.setField(service,"nonconformanceReviewService",authority);
+        var command = saveCommand(1,List.of(
+                MesReportAllocationSaveLine.builder().activeOrderId(8101L).allocatedQuantity(new BigDecimal("50")).build(),
+                MesReportAllocationSaveLine.builder().activeOrderId(8103L).allocatedQuantity(new BigDecimal("20")).build()));
+        if (!frozen) {
+            String originalA=JsonUtils.toJsonString(a);
+            var result=MesProductionDisplayedContextFixture.save(service,command);
+            assertEquals(2,result.getVersion());assertAmount("70",result.getTotalAllocatedQuantity());
+            assertEquals(originalA,JsonUtils.toJsonString(a));
+            verify(allocationMapper).insertBatch(anyCollection());
+            verify(completionService).reconcileAffectedAllocations(org.mockito.ArgumentMatchers.eq(source),anyCollection());
+            verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+            return;
+        }
+        var ex = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service,command));
+        assertEquals(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants
+                .PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), ex.getCode());
+        verify(stateMapper,never()).insert(any(MesProcessPoolReportAllocationStateDO.class));
+        verify(stateMapper,never()).updateById(any(MesProcessPoolReportAllocationStateDO.class));
+        verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any());
+        verify(allocationMapper,never()).insertBatch(anyCollection());
+        verify(allocationMapper,never()).supersedeCurrentRows(anyCollection(),any());
+        org.mockito.Mockito.verifyNoInteractions(quantityFragmentService,completionService,reportManagementSummaryService,
+                ReflectionTestUtils.getField(service,"handoffService"));
+        verify(gxpAuditService,never()).append(any());
     }
 
     @org.junit.jupiter.params.ParameterizedTest

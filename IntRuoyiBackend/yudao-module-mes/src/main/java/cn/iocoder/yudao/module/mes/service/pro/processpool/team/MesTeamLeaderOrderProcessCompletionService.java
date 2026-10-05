@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolOrderProcessCompletionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
@@ -53,6 +54,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
     private final MesProScheduleOrderProcessMapper scheduleOrderProcessMapper;
     private final MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper;
     private final MesProProcessPoolEventMapper eventMapper;
+    private final MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     public MesTeamLeaderOrderProcessCompletionService(MesProcessPoolReportAllocationMapper allocationMapper,
                                                       MesProWorkOrderMapper workOrderMapper,
@@ -61,7 +63,8 @@ public class MesTeamLeaderOrderProcessCompletionService {
                                                       MesProScheduleOrderMapper scheduleOrderMapper,
                                                       MesProScheduleOrderProcessMapper scheduleOrderProcessMapper,
                                                       MesProcessPoolActiveOrderProcessSnapshotMapper processSnapshotMapper,
-                                                      MesProProcessPoolEventMapper eventMapper) {
+                                                      MesProProcessPoolEventMapper eventMapper,
+                                                      MesProcessPoolActiveOrderMapper activeOrderMapper) {
         this.allocationMapper = allocationMapper;
         this.workOrderMapper = workOrderMapper;
         this.completionMapper = completionMapper;
@@ -70,6 +73,7 @@ public class MesTeamLeaderOrderProcessCompletionService {
         this.scheduleOrderProcessMapper = scheduleOrderProcessMapper;
         this.processSnapshotMapper = processSnapshotMapper;
         this.eventMapper = eventMapper;
+        this.activeOrderMapper = activeOrderMapper;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -112,31 +116,37 @@ public class MesTeamLeaderOrderProcessCompletionService {
             TargetKey key = entry.getKey();
             Long workOrderId = key.workOrderId();
             requireWorkOrder(workOrderId, workOrderMap);
-            MesProcessPoolReportAllocationDO representativeAllocation = entry.getValue();
-            List<MesProcessPoolReportAllocationDO> sourceAllocations = ordered(allocationMapper
-                    .selectListByWorkOrderIdsAndProcessForUpdate(List.of(workOrderId), key.routeProcessId(),
-                            key.processId()));
-            MesProcessPoolReportAllocationDO currentRepresentative = sourceAllocations.isEmpty()
-                    ? representativeAllocation : sourceAllocations.get(sourceAllocations.size() - 1);
-            List<MesProcessPoolReportAllocationDO> activeOrderSourceAllocations = sourceAllocations.stream()
-                    .filter(allocation -> Objects.equals(currentRepresentative.getActiveOrderId(),
-                            allocation.getActiveOrderId()))
+            // A retained historical CURRENT allocation does not identify the current cycle.
+            // Pending version upgrades still own the process until their invalidation finishes.
+            List<MesProcessPoolActiveOrderDO> currentOrders = activeOrderMapper
+                    .selectAllByWorkOrderIdForUpdate(workOrderId).stream()
+                    .filter(order -> "ACTIVE".equals(order.getActiveStatus())
+                            || "VERSION_UPGRADE_PENDING".equals(order.getActiveStatus()))
+                    .filter(order -> processSnapshotMapper.selectByActiveOrderAndProcess(order.getId(),
+                            key.routeProcessId(), key.processId()) != null)
                     .toList();
+            if (currentOrders.size() != 1) {
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, workOrderId);
+            }
+            MesProcessPoolActiveOrderDO activeOrder = currentOrders.get(0);
+            List<MesProcessPoolReportAllocationDO> activeOrderSourceAllocations = ordered(allocationMapper
+                    .selectListByWorkOrderIdsAndProcessForUpdate(List.of(workOrderId), key.routeProcessId(),
+                            key.processId()).stream()
+                    .filter(allocation -> Objects.equals(activeOrder.getId(),
+                            allocation.getActiveOrderId()))
+                    .toList());
+            MesProcessPoolReportAllocationDO currentRepresentative = activeOrderSourceAllocations.isEmpty()
+                    ? null : activeOrderSourceAllocations.get(activeOrderSourceAllocations.size() - 1);
             MesTeamLeaderOrderProcessTarget target = orderProcessTargetService.requireTarget(
-                    currentRepresentative.getActiveOrderId(), workOrderId, key.routeProcessId(), key.processId());
+                    activeOrder.getId(), workOrderId, key.routeProcessId(), key.processId());
             MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshotMapper
-                    .selectByActiveOrderAndProcess(currentRepresentative.getActiveOrderId(), key.routeProcessId(),
+                    .selectByActiveOrderAndProcess(activeOrder.getId(), key.routeProcessId(),
                             key.processId());
             if (snapshot == null || !Objects.equals(workOrderId, snapshot.getWorkOrderId())) {
-                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, currentRepresentative.getActiveOrderId());
+                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
             }
-            MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
-                    .id(currentRepresentative.getActiveOrderId())
-                    .workOrderId(workOrderId)
-                    .routeId(event.getRouteId())
-                    .build();
             List<MesProProcessPoolEventDO> productionEvents = new ArrayList<>(
-                    eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, event.getRouteId()));
+                    eventMapper.selectProductionSubmitsByWorkOrderAndRouteForUpdate(workOrderId, activeOrder.getRouteId()));
             List<Long> sourceEventIds = activeOrderSourceAllocations.stream()
                     .map(MesProcessPoolReportAllocationDO::getEventId)
                     .filter(Objects::nonNull)
@@ -177,8 +187,8 @@ public class MesTeamLeaderOrderProcessCompletionService {
                     .setProcessId(key.processId())
                     .setTargetQuantity(target.plannedQuantity())
                     .setConfirmedQuantity(confirmedQuantity)
-                    .setLastEventId(currentRepresentative.getEventId())
-                    .setLastReviewId(currentRepresentative.getReviewId());
+                    .setLastEventId(currentRepresentative == null ? event.getId() : currentRepresentative.getEventId())
+                    .setLastReviewId(currentRepresentative == null ? null : currentRepresentative.getReviewId());
             if (confirmedQuantity.compareTo(target.plannedQuantity()) >= 0) {
                 requireSourceAllocations(activeOrderSourceAllocations);
                 applyPendingSourceTrace(key, completion, activeOrderSourceAllocations);
