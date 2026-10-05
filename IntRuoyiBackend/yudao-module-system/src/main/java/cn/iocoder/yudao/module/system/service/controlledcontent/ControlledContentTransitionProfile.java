@@ -40,7 +40,10 @@ public record ControlledContentTransitionProfile(
                     DCC_CONTROLLED_FILE,
                     EnumSet.of(REGISTER_ACTIVE, CREATE_CANDIDATE, SUBMIT, WITHDRAW, CANCEL, APPROVE, REQUEST_REWORK, REJECT,
                             START_FINALIZATION, RETRY_FINALIZATION, FINALIZE_SUCCESS, FINALIZE_FAILED,
-                            SUPERSEDE_ACTIVE, OBSOLETE_ACTIVE)),
+                            SUPERSEDE_ACTIVE, OBSOLETE_ACTIVE,
+                            ControlledContentTransitionAction.COMPLETE_CONTROL,
+                            ControlledContentTransitionAction.ACTIVATE_CONTROLLED,
+                            ControlledContentTransitionAction.OBSOLETE_CONTROLLED)),
             DCC_REGISTRATION_CERTIFICATE, new ControlledContentTransitionProfile(
                     DCC_REGISTRATION_CERTIFICATE,
                     EnumSet.of(REGISTER_ACTIVE, REGISTER_READY_CANDIDATE, PUBLISH, SUPERSEDE_ACTIVE)));

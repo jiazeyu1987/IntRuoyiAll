@@ -11,6 +11,7 @@ public enum ControlledContentCanonicalStatus {
     READY_TO_PUBLISH,
     FINALIZING,
     FINALIZATION_FAILED,
+    CONTROLLED_PENDING_EFFECTIVE,
     ACTIVE,
     SUPERSEDED,
     OBSOLETE,

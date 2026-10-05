@@ -47,17 +47,21 @@ class DccThreeControlledVersionActivationTest extends BaseDbUnitTest {
     @Resource DccControlledFileNameClaimMapper claims;
     @Resource DccWorkflowFileStateAudit stateAudit;
     @MockitoSpyBean GxpAuditServiceImpl ledger;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean cn.iocoder.yudao.module.system.api.user.AdminUserApi actualAccounts;
     @Resource GxpAuditEventMapper events;
     DccControlledFileLifecycleService lifecycle;DccControlledFileActivationJob job;FixedDates clock;
     final LocalDate day=LocalDate.of(2026,10,3);
     static class FixedDates extends DccWorkflowDatePolicy {LocalDateTime current;@Override public LocalDateTime now(){return current;}}
     static void wire(Object bean,Object...pairs){for(int i=0;i<pairs.length;i+=2)ReflectionTestUtils.setField(bean,(String)pairs[i],pairs[i+1]);}
     @BeforeEach void fixture() throws Exception {
+        org.mockito.Mockito.when(actualAccounts.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(99L).setTenantId(1L).setStatus(0).setUsername("actor99").setNickname("文控99"));
         TenantContextHolder.setTenantId(1L);try(var c=jdbc.getDataSource().getConnection()){assertTrue(c.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         clock=new FixedDates();clock.current=day.atTime(9,0);clock.setZoneId("Asia/Shanghai");
         var identities=new DccControlledFileNameClaimService();org.springframework.test.util.ReflectionTestUtils.setField(identities,"reservationMapper",g25Reservations);wire(identities,"masterMapper",masters,"claimMapper",claims,"fileMapper",files);
         var retention=new DccObsoleteRetentionService();wire(retention,"identities",identities);
         var service=new DccControlledFileLifecycleService();wire(service,"controlledFileMapper",files,"masterMapper",masters,"obsoleteAuditMapper",obsoleteAudits,
+            "platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class),
             "datePolicy",clock,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),"jdbcTemplate",jdbc,"obsoleteRetentionService",retention,"fileStateAudit",stateAudit,
             "eventPublisher",(org.springframework.context.ApplicationEventPublisher)event->{});
         var factory=new ProxyFactory(service);factory.setProxyTargetClass(true);factory.addAdvice(new TransactionInterceptor(manager,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));lifecycle=(DccControlledFileLifecycleService)factory.getProxy();job=new DccControlledFileActivationJob(lifecycle);

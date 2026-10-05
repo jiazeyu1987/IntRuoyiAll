@@ -8,6 +8,16 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface ControlledContentVersionRefMapper extends BaseMapperX<ControlledContentVersionRefDO> {
 
+    @org.apache.ibatis.annotations.Select("""
+            SELECT * FROM controlled_content_version_ref
+            WHERE tenant_id=#{tenant} AND content_type=#{type} AND content_key=#{key} AND deleted=0
+            ORDER BY native_version_id,id FOR UPDATE
+            """)
+    java.util.List<ControlledContentVersionRefDO> selectChainForUpdate(
+            @org.apache.ibatis.annotations.Param("tenant") Long tenant,
+            @org.apache.ibatis.annotations.Param("type") String type,
+            @org.apache.ibatis.annotations.Param("key") String key);
+
     default ControlledContentVersionRefDO selectActive(Long tenantId, String contentType, String contentKey) {
         return selectOne(new LambdaQueryWrapperX<ControlledContentVersionRefDO>()
                 .eq(ControlledContentVersionRefDO::getTenantId, tenantId)

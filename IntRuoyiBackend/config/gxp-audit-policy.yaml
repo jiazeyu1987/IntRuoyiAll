@@ -445,3 +445,17 @@ operations:
     testIds: [LEGACY-ACT-01, LEGACY-ACT-02, LEGACY-ACT-03]
     owner: dcc-owner
     applicability: GXP
+
+  - operationId: dcc.controlled-file.lifecycle-projection.repair
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairService#repair
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [G59-REPAIR-01, G59-REPAIR-02, G59-REPAIR-03]
+    owner: dcc-owner
+    applicability: GXP

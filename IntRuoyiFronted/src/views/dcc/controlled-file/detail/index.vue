@@ -141,6 +141,7 @@
                   <el-dropdown-item v-if="canEditMetadata && fileDetail" command="edit-metadata">
                     修改基础信息
                   </el-dropdown-item>
+                  <el-dropdown-item v-if="canInspectLifecycleProjection" command="inspect-lifecycle-projection">校验生命周期投影</el-dropdown-item>
                   <el-dropdown-item v-if="fileDetail" command="print-process">流程打印</el-dropdown-item>
                   <el-dropdown-item v-if="fileDetail" command="export-process-word">
                     流程导出 Word
@@ -2497,6 +2498,13 @@ v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
       v-if="fileDetail" v-model="obsoleteDialog.visible" :file="fileDetail"
       :allowed="canSubmitObsoleteAction" @submitted="reloadAll"
     />
+    <DetailLifecycleProjectionRepairDialog
+      v-if="canInspectLifecycleProjection && fileDetail"
+      v-model="lifecycleProjectionRepairVisible" :file-id="String(fileDetail.id)"
+      :allowed="canInspectLifecycleProjection" :context-key="lifecycleProjectionRepairContextKey"
+      :read-context-key="readLifecycleProjectionRepairContextKey"
+      @repaired="handleLifecycleProjectionRepaired"
+    />
 
     <el-dialog v-model="workflowDistributionVisible" title="受控文件下发" width="880px" destroy-on-close>
       <WorkflowDistributionPanel
@@ -2867,6 +2875,8 @@ import { getControlledFileApplicationRounds } from '@/api/dcc/controlledFile/app
 import { resolveApprovalProgressScope, buildNativeApprovalProgress, resolveSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
 import DetailRelationsPanel from './DetailRelationsPanel.vue'
 import DetailApplicationPanel from './DetailApplicationPanel.vue'
+import DetailLifecycleProjectionRepairDialog from './DetailLifecycleProjectionRepairDialog.vue'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import ApprovalFileOwnerPicker from './ApprovalFileOwnerPicker.vue'
 import DetailSignoffAssignment from './DetailSignoffAssignment.vue'
 import DetailObsoleteApplication from './DetailObsoleteApplication.vue'
@@ -3612,6 +3622,22 @@ const canEditMetadata = computed(
   () => !viewerMode.value && showDetailManagementActions.value
     && hasMetadataEditorRole(userStore.getRoles) && hasDccControlledFileActionProjection(fileDetail.value)
 )
+const lifecycleProjectionRepairVisible = ref(false)
+const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && Boolean(fileDetail.value)
+  && userStore.getRoles.includes(DOC_CONTROL_ROLE_CODE)
+  && ['dcc:controlled-file:query', 'dcc:controlled-file:update', 'dcc:controlled-file:category:manage'].every(permission => checkPermi([permission])))
+const readLifecycleProjectionRepairContextKey = () => JSON.stringify([route.fullPath, String(fileDetail.value?.id || ''), String(currentUserId.value), String(getVisitTenantId() || getTenantId() || '')])
+const lifecycleProjectionRepairContextKey = computed(readLifecycleProjectionRepairContextKey)
+const openLifecycleProjectionRepair = () => {
+  if (!canInspectLifecycleProjection.value) { message.warning('当前入口不允许校验生命周期投影'); return }
+  lifecycleProjectionRepairVisible.value = true
+}
+const handleLifecycleProjectionRepaired = async (context: { fileId: string; contextKey: string }) => {
+  if (context.fileId !== String(fileDetail.value?.id) || context.contextKey !== readLifecycleProjectionRepairContextKey()) return
+  message.success('共享生命周期投影已维护')
+  try { await reloadAll() }
+  catch (cause) { message.warning(`共享投影已维护，但详情刷新失败：${cause instanceof Error ? cause.message : String(cause)}`) }
+}
 const detailActionState = computed(() => getDetailActionState(fileDetail.value))
 const hasControlledPrintMenuPermission = computed(() => checkPermi(['dcc:controlled-file:print']))
 const controlledPrintAllowed = computed(
@@ -6786,6 +6812,9 @@ const handleDetailMoreCommand = (command: string) => {
       return
     case 'edit-metadata':
       openMetadataDialog()
+      return
+    case 'inspect-lifecycle-projection':
+      openLifecycleProjectionRepair()
       return
     case 'print-process':
       void handlePrintProcess()

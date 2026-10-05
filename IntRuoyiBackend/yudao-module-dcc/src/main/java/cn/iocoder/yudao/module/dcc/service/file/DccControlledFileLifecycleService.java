@@ -30,6 +30,7 @@ public class DccControlledFileLifecycleService {
     @Resource private JdbcTemplate jdbcTemplate;
     @Resource private DccObsoleteRetentionService obsoleteRetentionService;
     @Resource private DccWorkflowFileStateAudit fileStateAudit;
+    @Resource private DccControlledContentAdapter platformAdapter;
 
     public LocalDateTime currentTime() { return datePolicy.now(); }
 
@@ -71,6 +72,7 @@ public class DccControlledFileLifecycleService {
         file.setStatus("CONTROLLED_PENDING_EFFECTIVE");
         master.setLatestControlledFileId(file.getId());
         master.setStatus("ACTIVE_CHAIN");
+        platformAdapter.recordNativeControl(file,actorId,lifecycleEventKey("CONTROLLED",file));
         fileStateAudit.recordControl(beforeControl, file.getProcessInstanceId());
         emit("CONTROLLED", file, master.getCurrentActiveControlledFileId(), now);
         if (!file.getEffectiveDate().isAfter(now.toLocalDate())) activateLocked(file, master, now);
@@ -152,6 +154,7 @@ public class DccControlledFileLifecycleService {
         requireOne(masterMapper.updateById(DccControlledFileMasterDO.builder().id(master.getId())
                 .currentActiveControlledFileId(file.getId()).status("ACTIVE_CHAIN").build()));
         file.setActivatedTime(now);file.setStatus("ACTIVE");master.setCurrentActiveControlledFileId(file.getId());master.setStatus("ACTIVE_CHAIN");
+        platformAdapter.recordNativeActivation(file,SYSTEM_ACTOR_ID,lifecycleEventKey("ACTIVATED",file));
         for(var before:beforeObsolete)fileStateAudit.recordAutomaticObsolete(before,file.getProcessInstanceId());
         fileStateAudit.recordActivation(beforeActivation,file.getProcessInstanceId());
         emit("ACTIVATED",file,oldId,now);
@@ -185,6 +188,9 @@ public class DccControlledFileLifecycleService {
                     .obsoleteReason("新版生效自动作废").build()));
             requireOne(obsoleteAuditMapper.insert(DccControlledFileObsoleteAuditDO.builder().controlledFileId(row.getId())
                     .operatorId(SYSTEM_ACTOR_ID).obsoleteReason("新版生效自动作废").statusBefore(row.getStatus()).statusAfter("OBSOLETE").build()));
+            platformAdapter.recordNativeObsoleted(row,successor,SYSTEM_ACTOR_ID,
+                    "DCC:OBSOLETE:"+cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                            lifecycleEventKey("ACTIVATED",successor)+":"+row.getId()));
         }
         if(!lower.isEmpty())obsoleteRetentionService.retain(tenant,master.getId(),now);
         return before;
@@ -217,7 +223,7 @@ public class DccControlledFileLifecycleService {
 
     private void emit(String type, DccControlledFileDO file, Long oldId, LocalDateTime now) {
         Long tenant = TenantContextHolder.getRequiredTenantId();
-        String eventKey = "DCC:" + tenant + ":" + file.getId() + ":" + file.getProcessInstanceId() + ":" + type;
+        String eventKey = lifecycleEventKey(type,file);
         requireOne(jdbcTemplate.update("""
                 INSERT INTO dcc_workflow_lifecycle_event
                   (tenant_id,event_key,event_type,master_id,controlled_file_id,previous_active_file_id,
@@ -229,6 +235,10 @@ public class DccControlledFileLifecycleService {
                 eventKey,
                 type, tenant, file.getMasterId(), file.getId(), oldId, file.getVersionNo(),
                 file.getProcessInstanceId(), now));
+    }
+
+    private String lifecycleEventKey(String type,DccControlledFileDO file) {
+        return "DCC:"+TenantContextHolder.getRequiredTenantId()+":"+file.getId()+":"+file.getProcessInstanceId()+":"+type;
     }
 
     private void requireTransaction() {

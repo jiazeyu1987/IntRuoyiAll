@@ -92,6 +92,27 @@ public class ControlledContentLifecycleCoreService {
                                                            Long nativeVersionId, String versionNo,
                                                            String domainStatus, Long sourceVersionRefId,
                                                            Long sourceNativeVersionId, Long actorId, String reason) {
+        return createCandidateRef(key,nativeMasterId,nativeVersionId,versionNo,domainStatus,sourceVersionRefId,
+                sourceNativeVersionId,actorId,reason,false);
+    }
+
+    /** DCC revisions may originate from the exact latest controlled version before its execution date. */
+    @Transactional(rollbackFor = Exception.class)
+    public ControlledContentVersionRefDO createDccCandidateRef(ControlledContentKey key, Long nativeMasterId,
+            Long nativeVersionId,String versionNo,String domainStatus,Long sourceNativeVersionId,Long actorId,String reason) {
+        requireDccKey(key);
+        versionRefMapper.selectChainForUpdate(key.getTenantId(),key.getContentType().name(),key.getContentKey());
+        if(nativeMasterId==null || nativeMasterId<=0 || !nativeMasterId.toString().equals(key.getContentKey()))
+            throw new IllegalArgumentException("DCC candidate Master key must be exact");
+        var source=sourceNativeVersionId==null?null:requireRefByNativeVersion(key,sourceNativeVersionId);
+        if(source!=null)requireDccControlledTuple(source,nativeMasterId);
+        return createCandidateRef(key,nativeMasterId,nativeVersionId,versionNo,domainStatus,
+                source==null?null:source.getId(),sourceNativeVersionId,actorId,reason,true);
+    }
+
+    private ControlledContentVersionRefDO createCandidateRef(ControlledContentKey key,Long nativeMasterId,
+            Long nativeVersionId,String versionNo,String domainStatus,Long sourceVersionRefId,
+            Long sourceNativeVersionId,Long actorId,String reason,boolean controlledDccSource) {
         requireKey(key);
         rejectRegistrationMutationWithoutProjection(key);
         validateSupportedAction(key, CREATE_CANDIDATE);
@@ -101,7 +122,7 @@ public class ControlledContentLifecycleCoreService {
             throw new IllegalStateException("controlled content already has an open candidate: "
                     + existingOpenCandidate.getVersionNo() + "/" + existingOpenCandidate.getCanonicalStatus());
         }
-        validateSourceActiveRef(key, sourceVersionRefId, sourceNativeVersionId);
+        if(!controlledDccSource) validateSourceActiveRef(key, sourceVersionRefId, sourceNativeVersionId);
 
         LocalDateTime transitionTime = LocalDateTime.now();
         ControlledContentVersionRefDO ref = ControlledContentVersionRefDO.builder()
@@ -142,6 +163,79 @@ public class ControlledContentLifecycleCoreService {
                 .build();
         transitionAuditMapper.insert(audit);
         return ref;
+    }
+
+    /** Explicit DCC projection command with row locks, exact event replay and state CAS. */
+    @Transactional(rollbackFor = Exception.class)
+    public ControlledContentVersionRefDO transitionDccControlledRef(ControlledContentKey key,Long nativeVersion,
+            String version,String process,ControlledContentCanonicalStatus from,ControlledContentCanonicalStatus to,
+            ControlledContentTransitionAction action,Long actor,String reason,String eventKey,Long successor) {
+        requireDccKey(key);validateSupportedAction(key,action);stateMachine.validateTransition(from,to,action);
+        String event=requireEventKey(eventKey);
+        if(actor==null || reason==null || reason.isBlank() || process==null || process.isBlank())
+            throw new IllegalArgumentException("DCC controlled transition actor, reason and approval process are required");
+        var chain=versionRefMapper.selectChainForUpdate(key.getTenantId(),key.getContentType().name(),key.getContentKey());
+        var ref=chain.stream().filter(row->Objects.equals(row.getNativeVersionId(),nativeVersion)).reduce((a,b)->{
+            throw new IllegalStateException("duplicate DCC platform version identity");
+        }).orElseThrow(()->new IllegalStateException("DCC platform version ref missing"));
+        if(ref.getNativeMasterId()==null || !Objects.equals(ref.getNativeMasterId().toString(),key.getContentKey()) || !Objects.equals(version,ref.getVersionNo())
+                || !Objects.equals(process,ref.getApprovalProcessInstanceId()))
+            throw new IllegalStateException("DCC platform version identity drift");
+        var targetSuccessor=successor==null?null:chain.stream().filter(row->Objects.equals(row.getNativeVersionId(),successor))
+                .findFirst().orElseThrow(()->new IllegalStateException("DCC successor platform ref missing"));
+        if(targetSuccessor!=null && Objects.equals(targetSuccessor.getId(),ref.getId()))
+            throw new IllegalArgumentException("DCC successor cannot be itself");
+        if(targetSuccessor!=null)requireDccControlledTuple(targetSuccessor,ref.getNativeMasterId());
+        var audit=transitionAuditMapper.selectByVersionRefIdAndActionAndEventKey(ref.getId(),action.name(),event);
+        String domain=to.name();
+        if(audit!=null) {
+            if(!Objects.equals(audit.getTenantId(),key.getTenantId()) || !Objects.equals(audit.getContentType(),key.getContentType().name())
+                    || !Objects.equals(audit.getContentKey(),key.getContentKey()) || !Objects.equals(audit.getFromStatus(),from.name())
+                    || !Objects.equals(audit.getToStatus(),to.name()) || !Objects.equals(audit.getDomainToStatus(),domain)
+                    || !Objects.equals(audit.getActorId(),actor) || !Objects.equals(audit.getReason(),reason)
+                    || !Objects.equals(ref.getCanonicalStatus(),to.name()) || !Objects.equals(ref.getDomainStatus(),domain)
+                    || !Objects.equals(ref.getActiveUniqueFlag(),stateMachine.isActive(to)?1:null)
+                    || ref.getOpenCandidateUniqueFlag()!=null
+                    || !Objects.equals(ref.getSuccessorNativeVersionId(),successor)
+                    || !Objects.equals(ref.getSuccessorVersionRefId(),targetSuccessor==null?null:targetSuccessor.getId()))
+                throw new IllegalStateException("DCC controlled event replay conflicts with its saved facts");
+            return ref;
+        }
+        if(!from.name().equals(ref.getCanonicalStatus()) || !from.name().equals(ref.getDomainStatus()))
+            throw new IllegalStateException("DCC platform from state drift");
+        if(!Objects.equals(ref.getOpenCandidateUniqueFlag(),stateMachine.isOpenCandidate(from)?1:null)
+                || !Objects.equals(ref.getActiveUniqueFlag(),stateMachine.isActive(from)?1:null))
+            throw new IllegalStateException("DCC platform from state flags drift");
+        if(to==ControlledContentCanonicalStatus.ACTIVE && chain.stream().anyMatch(row->!Objects.equals(row.getId(),ref.getId())
+                && Objects.equals(row.getActiveUniqueFlag(),1)))throw new IllegalStateException("DCC active predecessor must be retired first");
+        LocalDateTime now=LocalDateTime.now();
+        var update=new UpdateWrapper<ControlledContentVersionRefDO>().eq("id",ref.getId()).eq("tenant_id",key.getTenantId())
+                .eq("content_type",key.getContentType().name()).eq("content_key",key.getContentKey())
+                .eq("canonical_status",from.name()).eq("approval_process_instance_id",process)
+                .eq("domain_status",from.name())
+                .set("canonical_status",to.name()).set("domain_status",domain)
+                .set("open_candidate_unique_flag",null).set("active_unique_flag",stateMachine.isActive(to)?1:null)
+                .set("last_transition_time",now);
+        if(ref.getOpenCandidateUniqueFlag()==null)update.isNull("open_candidate_unique_flag");else update.eq("open_candidate_unique_flag",ref.getOpenCandidateUniqueFlag());
+        if(ref.getActiveUniqueFlag()==null)update.isNull("active_unique_flag");else update.eq("active_unique_flag",ref.getActiveUniqueFlag());
+        if(successor!=null)update.set("successor_native_version_id",successor).set("successor_version_ref_id",targetSuccessor.getId());
+        if(versionRefMapper.update(null,update)!=1)throw new IllegalStateException("DCC platform projection CAS failed");
+        insertAudit(key,ref.getId(),from,to,ref.getDomainStatus(),domain,action,actor,reason,event,now);
+        return requireRefByNativeVersion(key,nativeVersion);
+    }
+
+    private void requireDccKey(ControlledContentKey key) {
+        requireKey(key);
+        if(key.getContentType()!=cn.iocoder.yudao.module.system.enums.controlledcontent.ControlledContentType.DCC_CONTROLLED_FILE)
+            throw new IllegalArgumentException("native controlled projection is DCC-only");
+    }
+
+    private void requireDccControlledTuple(ControlledContentVersionRefDO ref,Long master) {
+        if(!Objects.equals(ref.getNativeMasterId(),master) || ref.getVersionNo()==null || ref.getVersionNo().isBlank()
+                || !java.util.Set.of("ACTIVE","CONTROLLED_PENDING_EFFECTIVE").contains(ref.getCanonicalStatus())
+                || !Objects.equals(ref.getDomainStatus(),ref.getCanonicalStatus()) || ref.getOpenCandidateUniqueFlag()!=null
+                || !Objects.equals(ref.getActiveUniqueFlag(),"ACTIVE".equals(ref.getCanonicalStatus())?1:null))
+            throw new IllegalStateException("DCC controlled source/successor tuple is inconsistent");
     }
 
     private void validateSourceActiveRef(ControlledContentKey key, Long sourceVersionRefId,

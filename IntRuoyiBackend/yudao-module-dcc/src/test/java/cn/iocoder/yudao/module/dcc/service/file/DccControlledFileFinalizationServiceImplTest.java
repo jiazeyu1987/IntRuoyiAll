@@ -213,6 +213,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         var lifecycle = new DccControlledFileLifecycleService();
+        ReflectionTestUtils.setField(lifecycle,"platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class));
         ReflectionTestUtils.setField(lifecycle,"fileStateAudit",org.mockito.Mockito.mock(DccWorkflowFileStateAudit.class));
         ReflectionTestUtils.setField(lifecycle,"obsoleteRetentionService",org.mockito.Mockito.mock(DccObsoleteRetentionService.class));
         ReflectionTestUtils.setField(lifecycle,"controlledFileMapper",controlledFileMapper);

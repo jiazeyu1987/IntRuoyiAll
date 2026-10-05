@@ -48,6 +48,7 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(service, "eventPublisher", (ApplicationEventPublisher) event -> {});
         // Ledger persistence/failure is covered by the real CC2 composition; this suite isolates lifecycle rules.
         ReflectionTestUtils.setField(service, "fileStateAudit", org.mockito.Mockito.mock(DccWorkflowFileStateAudit.class));
+        ReflectionTestUtils.setField(service,"platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class));
         var identities=new DccControlledFileNameClaimService();org.springframework.test.util.ReflectionTestUtils.setField(identities,"reservationMapper",g25Reservations);
         ReflectionTestUtils.setField(identities,"masterMapper",masterMapper);
         ReflectionTestUtils.setField(identities,"claimMapper",claimMapper);
