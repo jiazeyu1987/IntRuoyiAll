@@ -100,13 +100,14 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
             WHERE tenant_id = #{tenantId}
               AND id = #{controlledFileId}
               AND process_instance_id = #{processInstanceId}
-              AND process_definition_key = 'dcc-controlled-file-approval'
+              AND process_definition_key = #{processDefinitionKey}
               AND status = #{expectedStatus}
               AND deleted = 0
             """)
     int markRejectedAfterApprovalEvent(@Param("tenantId") Long tenantId,
                                        @Param("controlledFileId") Long controlledFileId,
                                        @Param("processInstanceId") String processInstanceId,
+                                       @Param("processDefinitionKey") String processDefinitionKey,
                                        @Param("expectedStatus") String expectedStatus,
                                        @Param("rejectedTime") java.time.LocalDateTime rejectedTime,
                                        @Param("rejectReason") String rejectReason,

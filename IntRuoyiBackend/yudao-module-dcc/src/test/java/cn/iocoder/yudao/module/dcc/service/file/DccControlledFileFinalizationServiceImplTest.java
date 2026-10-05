@@ -721,7 +721,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         finalizationService.handleProcessInstanceStatusChanged(rejectEvent(914L));
 
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
-        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any());
+        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any(), any());
         verify(platformAdapter, never()).recordRejected(any(), any(), any(), any());
     }
 
@@ -748,7 +748,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
                 () -> finalizationService.handleProcessInstanceStatusChanged(rejectEvent(915L)));
 
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
-        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any());
+        verify(controlledFileMapper, never()).markRejectedAfterApprovalEvent(any(), any(), any(), any(), any(), any(), any(), any());
         verify(platformAdapter, never()).recordRejected(any(), any(), any(), any());
     }
 
@@ -757,12 +757,14 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         DccControlledFileDO file = buildRevisionApprovalCandidate(916L, 716L, 18L, 116L);
         when(controlledFileMapper.selectById(916L)).thenReturn(file);
         when(controlledFileMapper.markRejectedAfterApprovalEvent(any(), eq(916L), eq("process-916"),
+                eq(DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL),
                 eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()), any(), eq("资料不通过"),
                 eq(99L))).thenReturn(1);
 
         finalizationService.handleProcessInstanceStatusChanged(rejectEvent(916L));
 
         verify(controlledFileMapper).markRejectedAfterApprovalEvent(any(), eq(916L), eq("process-916"),
+                eq(DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL),
                 eq(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()), any(), eq("资料不通过"),
                 eq(99L));
         verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));

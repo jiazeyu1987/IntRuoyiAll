@@ -450,7 +450,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             }
             LocalDateTime rejectedTime = LocalDateTime.now();
             int updated = controlledFileMapper.markRejectedAfterApprovalEvent(tenantId, file.getId(), event.getId(),
-                    file.getStatus(), rejectedTime, event.getReason(), event.getActorUserId());
+                    file.getProcessDefinitionKey(), file.getStatus(), rejectedTime, event.getReason(), event.getActorUserId());
             if (updated != 1) {
                 throw new IllegalStateException("DCC reject lost its status CAS");
             }
