@@ -93,6 +93,8 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))if(!sql.isBlank())jdbc.execute(sql);
         for(String sql:new ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);
         cleanupOwnTables();queue.tasks.clear();dates.setZoneId("Asia/Singapore");dates.setReminderLeadDays(3);
+        when(users.getUser(7L)).thenReturn(new AdminUserRespDTO().setId(7L).setTenantId(1L).setStatus(0)
+                .setUsername("dcc-d-control").setNickname("文控").setDeptId(10L).setPostIds(Set.of(10L)));
         var login=new LoginUser();login.setId(7L);login.setTenantId(1L);login.setUserType(2);login.setInfo(Map.of("username","dcc-d-control",LoginUser.INFO_KEY_NICKNAME,"文控"));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login,null,List.of()));
         policy("dcc.relation.arrange");policy("dcc.relation.controlled");
@@ -253,7 +255,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
             String model="""
                     <?xml version="1.0" encoding="UTF-8"?>
                     <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="DCC-signed-control-combination">
-                      <process id="dcc-d-signed-control-combination" isExecutable="true">
+                      <process id="dcc-controlled-file-revision" isExecutable="true">
                         <startEvent id="start"/><sequenceFlow id="toSignoff" sourceRef="start" targetRef="MATRIX_REVIEW"/>
                         <userTask id="MATRIX_REVIEW" name="会签" flowable:assignee="7"/>
                         <sequenceFlow id="toEnd" sourceRef="MATRIX_REVIEW" targetRef="end"/><endEvent id="end"/>
@@ -261,7 +263,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                     </definitions>
                     """;
             engine.getRepositoryService().createDeployment().tenantId("1").addString("signed-control.bpmn20.xml",model).deploy();
-            round=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-d-signed-control-combination","2",Map.of("controlledFileId",2L),"1").getId();
+            round=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-revision","2",Map.of("controlledFileId",2L),"1").getId();
             var task=engine.getTaskService().createTaskQuery().processInstanceId(round).singleResult();
             engine.getTaskService().setVariableLocal(task.getId(),BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"signed-control-obligation");
             jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_REVIEW',process_instance_id=? WHERE id=2",round);
@@ -278,7 +280,10 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                 assertEquals(1,signatures.insert(record));
                 return DccUnifiedSignatureResult.builder().signatureId(record.getId()).evidenceStatus("VALID").build();
             });
+            var definitions=new cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServiceImpl();
+            wire(definitions,"repositoryService",engine.getRepositoryService());
             var assignment=new DccWorkflowSignoffAssignmentService();
+            wire(assignment,"definitions",definitions);
             wire(assignment,"fileMapper",files,"masterMapper",masters,"snapshotMapper",obligations,"bpmTaskService",bpm,
                     "taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"adminUserApi",users,
                     "readinessService",mock(DccControlledFileRouteReadinessService.class),"signatureService",signing,"remediationService",remediation);

@@ -1,7 +1,9 @@
 param(
     [Nullable[int]]$Slot = $null,
     [switch]$Build,
-    [string[]]$ExtraArgs = @()
+    [string[]]$ExtraArgs = @(),
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')]
+    [string]$SpringProfile = 'local'
 )
 
 Set-StrictMode -Version Latest
@@ -43,7 +45,7 @@ $javaArgs = @(
     '-jar',
     $jarPath,
     "--server.port=$($ports.BackendPort)",
-    '--spring.profiles.active=local'
+    "--spring.profiles.active=$SpringProfile"
 ) + $ExtraArgs
 
 Write-Host "Starting $($profile.Name) backend on $($ports.BackendPort)."

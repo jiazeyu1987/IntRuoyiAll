@@ -50,6 +50,7 @@ export interface SignoffAssignmentContext {
   controlledFileId: string
   processInstanceId: string
   taskId: string
+  processDefinitionKey: 'dcc-controlled-file-upload' | 'dcc-controlled-file-revision' | 'dcc-controlled-file-obsolete'
   obligationId: string
   departmentId: string
   departmentName: string | null
@@ -205,6 +206,7 @@ export const getSignoffAssignmentContext = async (
     identity(result.controlledFileId) !== id ||
     result.taskId !== taskId ||
     !result.processInstanceId ||
+    !['dcc-controlled-file-upload', 'dcc-controlled-file-revision', 'dcc-controlled-file-obsolete'].includes(result.processDefinitionKey) ||
     !result.obligationId ||
     typeof result.assigned !== 'boolean' ||
     typeof result.canAssign !== 'boolean' ||

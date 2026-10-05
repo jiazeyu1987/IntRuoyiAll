@@ -683,6 +683,8 @@ export interface ControlledFileVO extends ControlledFileOwnerFacts {
   registrationCertificateBusinessFileId?: number | string | null
   productMasterId?: number | null
   dccProjectCodeId?: number | null
+  projectName?: string | null
+  projectCode?: string | null
   projectFolderId?: number | string | null
   categoryId: number
   directoryId: number

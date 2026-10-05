@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Sql(scripts="/sql/dcc_b_gxp_audit_tables.sql",executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts="/sql/dcc_b_gxp_audit_clean.sql",executionPhase=Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class DccVersionPlacementDatabaseTest extends DccWorkflowSelectedIterationDatabaseTest {
+    @MockitoBean DccProjectFolderStorageService newUploadStorage;
+    @MockitoBean cn.iocoder.yudao.module.system.api.user.AdminUserApi currentAuditAccounts;
     @Resource DccPublicUploadPlacementService locations;
     @Resource DccProjectFilePlacementService placements;
     @Resource DccProjectFilePlacementMapper placementRows;
@@ -35,6 +37,8 @@ class DccVersionPlacementDatabaseTest extends DccWorkflowSelectedIterationDataba
     @MockitoBean PermissionApi permissionApi;
     Long folderId;
     @BeforeEach void placementFixture(){
+        org.mockito.Mockito.when(currentAuditAccounts.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(99L).setTenantId(1L).setStatus(0).setUsername("placement-test").setNickname("Placement test"));
         var login=new LoginUser();login.setId(99L);login.setTenantId(1L);login.setUserType(2);
         login.setInfo(Map.of("username","placement-test",LoginUser.INFO_KEY_NICKNAME,"Placement test"));SecurityFrameworkUtils.setLoginUser(login,new MockHttpServletRequest());
         jdbc.update("INSERT INTO dcc_file_directory(id,tenant_id,code,name,active,sort) VALUES(3,1,'NAS-3','Storage only',1,0)");
@@ -73,9 +77,12 @@ class DccVersionPlacementDatabaseTest extends DccWorkflowSelectedIterationDataba
         var users=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
         var leader=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(99L).setNickname("Leader").setStatus(0).setDeptId(51L).setPostIds(Set.of(1L));
         org.mockito.Mockito.when(users.getUser(99L)).thenReturn(leader);org.mockito.Mockito.when(users.getUserListByDeptIds(List.of(51L))).thenReturn(List.of(leader));
-        var assignment=new DccWorkflowSignoffAssignmentService();wire(assignment,"fileMapper",files,"snapshotMapper",obligations,"bpmTaskService",bpm,"adminUserApi",users);
+        var definitions=new cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServiceImpl();wire(definitions,"repositoryService",engine.getRepositoryService());
+        var assignment=new DccWorkflowSignoffAssignmentService();wire(assignment,"fileMapper",files,"snapshotMapper",obligations,"bpmTaskService",bpm,"adminUserApi",users,"definitions",definitions);
         var context=assignment.assignmentContext(99L,candidate,task.getId());
         assertEquals(51L,context.departmentId());assertEquals(task.getProcessInstanceId(),context.processInstanceId());
+        assertEquals(engine.getRepositoryService().getProcessDefinition(task.getProcessDefinitionId()).getKey(),context.processDefinitionKey());
+        org.mockito.Mockito.verifyNoInteractions(newUploadStorage);
         assertTrue(context.canAssign());assertFalse(context.assigned());assertEquals(1,context.assigneeOptions().size());
         assertEquals(task.getTaskLocalVariables().get(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID),context.obligationId());
     }

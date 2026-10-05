@@ -19,6 +19,7 @@ public class DccControlledFileRespVO {
     private Long projectFolderId;
     private String projectFolderName;
     private String projectName;
+    private String projectCode;
     private Boolean controlled;
     private Boolean pendingEffect;
     private Boolean executable;

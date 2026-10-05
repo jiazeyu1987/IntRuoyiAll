@@ -27,6 +27,7 @@ class DccSignedRelationAssignmentContractTest extends BaseMockitoUnitTest {
     @InjectMocks DccWorkflowSignoffAssignmentService service;
     @Mock DccControlledFileMapper fileMapper;@Mock DccControlledFileMasterMapper masterMapper;
     @Mock DccControlledFileTaskAssigneeSnapshotMapper snapshotMapper;@Mock BpmTaskService bpmTaskService;
+    @Mock cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService definitions;
     @Mock TaskService taskService;@Mock RuntimeService runtimeService;@Mock AdminUserApi adminUserApi;
     @Mock DccControlledFileRouteReadinessService readinessService;@Mock DccSignatureVerificationService signatureService;
     @Mock DccControlledFileSignatureBindingService signatureBindingService;
@@ -37,7 +38,10 @@ class DccSignedRelationAssignmentContractTest extends BaseMockitoUnitTest {
         var file=DccControlledFileDO.builder().id(10L).masterId(20L).tenantId(1L).processInstanceId("round-1").status("PENDING_MATRIX_REVIEW").build();
         when(fileMapper.selectById(10L)).thenReturn(file);when(fileMapper.selectByIdAndTenantForUpdate(1L,10L)).thenReturn(file);
         when(masterMapper.selectByIdForUpdate(20L)).thenReturn(DccControlledFileMasterDO.builder().id(20L).tenantId(1L).build());
-        var task=mock(Task.class);when(task.getId()).thenReturn("task-51");when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");when(task.getProcessInstanceId()).thenReturn("round-1");when(task.getTenantId()).thenReturn("1");
+        var definition=mock(org.flowable.engine.repository.ProcessDefinition.class);
+        when(definition.getId()).thenReturn("dcc-controlled-file-revision:4:test");when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.REVISION);when(definition.getTenantId()).thenReturn("1");
+        when(definitions.getProcessDefinition("dcc-controlled-file-revision:4:test")).thenReturn(definition);
+        var task=mock(Task.class);when(task.getProcessDefinitionId()).thenReturn("dcc-controlled-file-revision:4:test");when(task.getId()).thenReturn("task-51");when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");when(task.getProcessInstanceId()).thenReturn("round-1");when(task.getTenantId()).thenReturn("1");
         when(task.getTaskLocalVariables()).thenReturn(Map.of(BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"obligation-51"));
         when(bpmTaskService.getTask("task-51")).thenReturn(task);when(bpmTaskService.validateTask(7L,"task-51")).thenReturn(task);
         row=DccControlledFileTaskAssigneeSnapshotDO.builder().id(1L).controlledFileId(10L).stageCode("MATRIX_REVIEW").departmentId(51L).leaderUserId(7L).assigneeUserId(7L).build();

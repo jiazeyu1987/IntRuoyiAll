@@ -182,7 +182,7 @@ test('working date responses normalize a real Java date array and reject invalid
 test('ASSIGN submits validated remediation in the same signed command with the authoritative task context', async () => {
   const calls = [], ready = deferred()
   const panel = mount('DetailSignoffAssignment', { fileId: '10', processInstanceId: 'round-2', taskId: 'task-7' }, {
-    '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => ({ controlledFileId: '10', processInstanceId: 'round-2', taskId: 'task-7', obligationId: 'obligation-8', departmentId: '50', departmentName: '质量部', assigned: false, canAssign: true, assigneeOptions: [{ id: '60', name: '甲' }] }) },
+    '@/api/dcc/controlledFile/applicationRead': { getSignoffAssignmentContext: async () => ({ controlledFileId: '10', processInstanceId: 'round-2', taskId: 'task-7', processDefinitionKey: 'dcc-controlled-file-revision', obligationId: 'obligation-8', departmentId: '50', departmentName: '质量部', assigned: false, canAssign: true, assigneeOptions: [{ id: '60', name: '甲' }] }) },
     '@/api/dcc/controlledFile/workflowLifecycle': { assignWorkflowSignoff: async (id, request) => { calls.push({ id, request: clone(request) }); return true } },
     '@/api/dcc/controlledFile/relations': { listHistoricalRelations: async () => [{ masterId: '80', fileName: '关联文件.pdf', versionNo: 'A/1' }], listRelationArrangements: async () => { ready.resolve(); return [] } },
     '@/api/system/user': { getSimpleUserList: async () => [{ id: 60, nickname: '甲' }] },

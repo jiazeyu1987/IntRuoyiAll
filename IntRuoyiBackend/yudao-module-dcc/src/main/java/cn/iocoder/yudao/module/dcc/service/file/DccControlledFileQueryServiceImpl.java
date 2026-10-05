@@ -2877,6 +2877,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setProductCode(file.getProductCode());
         respVO.setProductName(file.getProductName());
         respVO.setDccProjectCodeId(file.getDccProjectCodeId());
+        if (includeRouteSnapshots) populateDetailProjectIdentity(respVO, file);
         respVO.setProjectCodeRecognitionType(file.getProjectCodeRecognitionType());
         respVO.setProjectCodeRecognitionText(file.getProjectCodeRecognitionText());
         respVO.setProjectCodeRecognizedBy(file.getProjectCodeRecognizedBy());
@@ -2981,6 +2982,20 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .map(snapshot -> toSnapshotRespVO(snapshot, taskAssigneeSnapshotDOs))
                 .toList());
         return respVO;
+    }
+
+    /** Current project facts come only from the authorized file's formal identity; frozen product facts stay separate. */
+    private void populateDetailProjectIdentity(DccControlledFileRespVO response, DccControlledFileDO file) {
+        if (file.getDccProjectCodeId() == null) return; // Explicit unbound history remains readable.
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var project = projectCodeMapper.selectById(file.getDccProjectCodeId());
+        if (!Objects.equals(file.getTenantId(), tenant) || project == null
+                || !Objects.equals(project.getId(), file.getDccProjectCodeId())
+                || !Objects.equals(project.getTenantId(), tenant) || Boolean.TRUE.equals(project.getDeleted())) {
+            throw exception(PROJECT_CODE_NOT_EXISTS);
+        }
+        response.setProjectName(project.getProjectName());
+        response.setProjectCode(project.getProjectCode());
     }
 
     private DccControlledFileRespVO toBrowserRespVO(Long userId, DccControlledFileDO file) {

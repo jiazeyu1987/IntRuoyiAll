@@ -313,6 +313,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                     .id(call.getArgument(0)).status("ENABLE").build();
             project.setTenantId(TenantContextHolder.getRequiredTenantId());return project;
         });
+        var detailProject = cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                .id(300L).projectName("正式测试项目").projectCode("P-300").status("ENABLE").build();
+        detailProject.setTenantId(31L);
+        lenient().when(projectCodeMapper.selectById(300L)).thenReturn(detailProject);
         lenient().when(checkoutMapper.selectActiveByMasterIdForRead(anyLong(), anyLong())).thenAnswer(i -> {
             var lock=checkoutMapper.selectActiveByMasterId(i.getArgument(0),i.getArgument(1));
             if (lock != null && lock.getCreateTime()==null) lock.setCreateTime(LocalDateTime.of(2026,10,1,10,12,30));
@@ -6646,6 +6650,56 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 digest is unavailable", ex);
         }
+    }
+
+    @Test void authorizedDetailUsesFormalProjectNameInsteadOfItsFrozenProductIdentity() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");file.setProductName("真实产品名称");file.setProductCode("PRODUCT-ONLY");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var project=cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                .id(300L).projectName("准确正式项目").projectCode("PROJECT-ONLY").status("DISABLE").build();
+        project.setTenantId(31L);
+        lenient().when(projectCodeMapper.selectById(300L)).thenReturn(project);
+        var result=queryService.getControlledFile(99L,900L);
+        assertEquals("准确正式项目",result.getProjectName());
+        assertEquals("PROJECT-ONLY",result.getProjectCode());
+        assertEquals("真实产品名称",result.getProductName());assertEquals("PRODUCT-ONLY",result.getProductCode());
+        assertEquals(300L,result.getDccProjectCodeId());
+        verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
+    }
+
+    @Test void unboundHistoricalDetailDoesNotBorrowItsProductAsAProject() {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");file.setDccProjectCodeId(null);
+        file.setProductName("旧产品事实");file.setProductCode("OLD-PRODUCT");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var result=queryService.getControlledFile(99L,900L);
+        assertNull(result.getProjectName());assertNull(result.getProjectCode());assertNull(result.getDccProjectCodeId());
+        assertEquals("旧产品事实",result.getProductName());assertEquals("OLD-PRODUCT",result.getProductCode());
+        verify(projectCodeMapper,never()).selectById(anyLong());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"missing","foreignTenant","wrongId","deleted"})
+    void boundDetailRejectsMissingOrForeignOfficialProjectWithoutAProductFallback(String problem) {
+        var file=lifecycleFile(900L,"A/1","ACTIVE");file.setProductName("不可替代项目的产品");file.setProductCode("PRODUCT-ONLY");
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(true);
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
+        when(directoryMapper.selectEnabledList()).thenReturn(List.of());
+        var project=cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
+                .id("wrongId".equals(problem)?301L:300L)
+                .projectName("实际行").projectCode("ACTUAL-ROW").build();
+        project.setTenantId("foreignTenant".equals(problem)?122L:31L);
+        if("deleted".equals(problem)) project.setDeleted(true);
+        when(projectCodeMapper.selectById(300L)).thenReturn("missing".equals(problem)?null:project);
+        var failure=assertThrows(ServiceException.class,()->queryService.getControlledFile(99L,900L));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS.getCode(),failure.getCode());
+        verify(controlledFileMapper,never()).updateById(any(DccControlledFileDO.class));
     }
 
     private void assertNoForbiddenProperties(Class<?> responseType) throws IntrospectionException {

@@ -16,6 +16,7 @@
     >
       <template #relation-arrangements="{ disabled }">
         <DetailRelationArrangements
+          v-if="context.processDefinitionKey === 'dcc-controlled-file-revision'"
           ref="arrangementsRef"
           :context-key="contextKey"
           :relations="relations"
@@ -74,12 +75,17 @@ watch(
     error.value = ''
     loading.value = true
     ready.value = false
+    relations.value = []
+    users.value = []
+    savedArrangements.value = []
     emit('state', { fileId: String(props.fileId), taskId: props.taskId, assigned: false })
     try {
       const result = await getSignoffAssignmentContext(props.fileId, props.taskId)
       if (token !== generation) return
       if (result.processInstanceId !== props.processInstanceId)
         throw new Error('会签任务不属于当前申请流程')
+      if (!['dcc-controlled-file-upload', 'dcc-controlled-file-revision', 'dcc-controlled-file-obsolete'].includes(result.processDefinitionKey))
+        throw new Error('会签任务缺少准确的当前流程类型')
       context.value = result
       emit('state', {
         fileId: result.controlledFileId,
@@ -87,6 +93,10 @@ watch(
         assigned: result.assigned
       })
       if (!result.assigned && !result.canAssign) throw new Error('当前任务不允许本账号指派')
+      if (result.processDefinitionKey !== 'dcc-controlled-file-revision') {
+        ready.value = true
+        return
+      }
       const [history, people, saved] = await Promise.all([
         listHistoricalRelations(result.controlledFileId),
         getSimpleUserList(),
@@ -123,14 +133,19 @@ const saveAssignment = async (request: SignoffAssignment) => {
     !current ||
     !ready.value ||
     !current.canAssign ||
-    !arrangementsRef.value ||
+    (current.processDefinitionKey === 'dcc-controlled-file-revision' && !arrangementsRef.value) ||
     current.taskId !== props.taskId ||
     current.controlledFileId !== String(props.fileId) ||
     current.processInstanceId !== props.processInstanceId
   )
     throw new Error('指派上下文已变化，请重新读取')
-  const relationArrangements = arrangementsRef.value.validate()
-  return assignWorkflowSignoff(current.controlledFileId, { ...request, relationArrangements })
+  if (current.processDefinitionKey === 'dcc-controlled-file-revision') {
+    const relationArrangements = arrangementsRef.value!.validate()
+    return assignWorkflowSignoff(current.controlledFileId, { ...request, relationArrangements })
+  }
+  const payload = { ...request }
+  delete payload.relationArrangements
+  return assignWorkflowSignoff(current.controlledFileId, payload)
 }
 const onSaved = (value: { fileId: number | string; processInstanceId: string; taskId: string }) => {
   if (

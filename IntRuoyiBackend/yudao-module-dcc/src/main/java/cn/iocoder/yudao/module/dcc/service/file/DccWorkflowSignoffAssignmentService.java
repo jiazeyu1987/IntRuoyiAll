@@ -27,6 +27,7 @@ public class DccWorkflowSignoffAssignmentService {
     @Resource private DccControlledFileMasterMapper masterMapper;
     @Resource private DccControlledFileTaskAssigneeSnapshotMapper snapshotMapper;
     @Resource private BpmTaskService bpmTaskService;
+    @Resource private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService definitions;
     @Resource private TaskService taskService;
     @Resource private RuntimeService runtimeService;
     @Resource private AdminUserApi adminUserApi;
@@ -42,6 +43,7 @@ public class DccWorkflowSignoffAssignmentService {
         var task=bpmTaskService.getTask(taskId);
         requireTaskTenant(task);
         if(!"MATRIX_REVIEW".equals(task.getTaskDefinitionKey())) denied();
+        String processDefinitionKey = requireCurrentProcessDefinitionKey(task);
         boolean nativeProcess=Objects.equals(task.getProcessInstanceId(),file.getProcessInstanceId());
         if(nativeProcess?!"PENDING_MATRIX_REVIEW".equals(file.getStatus()):!isObsoleteProcessForFile(task,fileId)) denied();
         var row=obligation(fileId,task);
@@ -66,7 +68,7 @@ public class DccWorkflowSignoffAssignmentService {
                 options.put(user.getId(),new DccSignoffAssignmentContext.AssigneeOption(user.getId(),user.getNickname()));
             }
         }
-        return new DccSignoffAssignmentContext(fileId,task.getProcessInstanceId(),taskId,row.getObligationId(),
+        return new DccSignoffAssignmentContext(fileId,task.getProcessInstanceId(),taskId,row.getObligationId(),processDefinitionKey,
                 row.getDepartmentId(),row.getDepartmentName(),row.getAssigneeUserId(),assigned,canAssign,java.util.List.copyOf(options.values()));
     }
 
@@ -97,6 +99,9 @@ public class DccWorkflowSignoffAssignmentService {
         Task task = bpmTaskService.getTask(request.getTaskId());
         if (task == null || !"MATRIX_REVIEW".equals(task.getTaskDefinitionKey())) denied();
         requireTaskTenant(task);
+        String processDefinitionKey = requireCurrentProcessDefinitionKey(task);
+        boolean revisionAssignment = DccControlledFileProcessDefinitionKeys.REVISION.equals(processDefinitionKey);
+        if (!revisionAssignment && !arrangements.isEmpty()) denied();
         boolean nativeProcess = Objects.equals(task.getProcessInstanceId(), file.getProcessInstanceId());
         if (nativeProcess ? !"PENDING_MATRIX_REVIEW".equals(file.getStatus())
                 : !isObsoleteProcessForFile(task, fileId)) denied();
@@ -128,7 +133,9 @@ public class DccWorkflowSignoffAssignmentService {
                 .assignmentSignatureId(signature.getSignatureId()).assignmentPayloadHash(payloadHash)
                 .assignedTime(LocalDateTime.now()).build()) != 1)
             throw new IllegalStateException("会签指派证据保存失败");
-        remediationService.saveArrangements(actorId,fileId,task.getProcessInstanceId(),arrangements,request.getReason().trim());
+        if (revisionAssignment) {
+            remediationService.saveArrangements(actorId,fileId,task.getProcessInstanceId(),arrangements,request.getReason().trim());
+        }
         taskService.setAssignee(task.getId(),String.valueOf(candidate.getId()));
         taskService.setVariableLocal(task.getId(),"dccAssignmentSignatureId",signature.getSignatureId());
     }
@@ -241,6 +248,19 @@ public class DccWorkflowSignoffAssignmentService {
     }
 
     private void denied() { throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED); }
+
+    /** The current task round, not the file's original upload process, defines this assignment's operation. */
+    private String requireCurrentProcessDefinitionKey(Task task) {
+        requireTaskTenant(task);
+        if (task.getProcessDefinitionId() == null || task.getProcessDefinitionId().isBlank()) denied();
+        var definition = definitions.getProcessDefinition(task.getProcessDefinitionId());
+        if (definition == null || !Objects.equals(definition.getId(), task.getProcessDefinitionId())
+                || !Objects.equals(definition.getTenantId(), task.getTenantId())
+                || !java.util.Set.of(DccControlledFileProcessDefinitionKeys.UPLOAD,
+                        DccControlledFileProcessDefinitionKeys.REVISION, DccControlledFileProcessDefinitionKeys.OBSOLETE)
+                        .contains(definition.getKey())) denied();
+        return definition.getKey();
+    }
 
     private void requireTaskTenant(Task task) {
         if(task==null || !String.valueOf(TenantContextHolder.getRequiredTenantId()).equals(task.getTenantId())) denied();

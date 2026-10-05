@@ -59,7 +59,7 @@ class DccWorkflowSignedArrangementTransactionTest extends BaseDbUnitTest {
         String model="""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="DCC-assignment-txn">
-                  <process id="dcc-controlled-file-upload" isExecutable="true">
+                  <process id="dcc-controlled-file-revision" isExecutable="true">
                     <startEvent id="start"/><sequenceFlow id="toSignoff" sourceRef="start" targetRef="MATRIX_REVIEW"/>
                     <userTask id="MATRIX_REVIEW" name="会签" flowable:assignee="99"/>
                     <sequenceFlow id="toTraining" sourceRef="MATRIX_REVIEW" targetRef="TRAINING"/>
@@ -70,14 +70,14 @@ class DccWorkflowSignedArrangementTransactionTest extends BaseDbUnitTest {
                 </definitions>
                 """;
         engine.getRepositoryService().createDeployment().tenantId("1").addString("assignment.bpmn20.xml",model).deploy();
-        processId=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-upload","42",Map.of("controlledFileId",42L),"1").getId();
+        processId=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-revision","42",Map.of("controlledFileId",42L),"1").getId();
         var task=engine.getTaskService().createTaskQuery().processInstanceId(processId).singleResult();taskId=task.getId();
         engine.getTaskService().setVariableLocal(taskId,BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"42:MATRIX_REVIEW:51");
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,deleted) VALUES(10,10,'SOP.pdf','N-1','ACTIVE_CHAIN',1,0),(20,10,'Related.pdf','N-2','ACTIVE_CHAIN',1,0)");
         jdbc.update("""
                 INSERT INTO dcc_controlled_file(id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,
                   file_number,version_no,status,submitter_id,requester_id,tenant_id,deleted,process_instance_id,process_definition_key)
-                VALUES(42,10,10,3,100,100,'SOP.pdf','SOP','N-1','A/1','PENDING_MATRIX_REVIEW',99,99,1,0,?,'dcc-controlled-file-upload')
+                VALUES(42,10,10,3,100,100,'SOP.pdf','SOP','N-1','A/1','PENDING_MATRIX_REVIEW',99,99,1,0,?,'dcc-controlled-file-revision')
                 """,processId);
         jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,relation_source,tenant_id,deleted) VALUES(42,20,9,20,'SUBMIT',1,0)");
         obligation=DccControlledFileTaskAssigneeSnapshotDO.builder().controlledFileId(42L).tenantId(1L).stageCode("MATRIX_REVIEW")
@@ -101,7 +101,10 @@ class DccWorkflowSignedArrangementTransactionTest extends BaseDbUnitTest {
             assertEquals(1,signatures.insert(signed));
             return DccUnifiedSignatureResult.builder().signatureId(signed.getId()).evidenceStatus("VALID").build();
         });
+        var definitions=new cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServiceImpl();
+        wire(definitions,"repositoryService",engine.getRepositoryService());
         assignment=new DccWorkflowSignoffAssignmentService();
+        wire(assignment,"definitions",definitions);
         wire(assignment,"fileMapper",files,"masterMapper",masters,"snapshotMapper",obligations,"bpmTaskService",bpm,
                 "taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"adminUserApi",users,
                 "readinessService",mock(DccControlledFileRouteReadinessService.class),"signatureService",signing,"remediationService",remediation);

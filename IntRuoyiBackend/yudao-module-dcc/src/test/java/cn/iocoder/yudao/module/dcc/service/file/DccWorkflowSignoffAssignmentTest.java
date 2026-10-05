@@ -28,6 +28,9 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileTaskAssigneeSnapshotMapper snapshotMapper;
     @Mock private BpmTaskService bpmTaskService;
     @Mock private TaskService taskService;
+    @Mock private org.flowable.engine.RuntimeService runtimeService;
+    @Mock private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService definitions;
+    @Mock private DccControlledFileSignatureBindingService signatureBindingService;
     @Mock private AdminUserApi adminUserApi;
     @Mock private DccControlledFileRouteReadinessService readinessService;
     @Mock private DccSignatureVerificationService signatureService;
@@ -35,10 +38,12 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
     @InjectMocks private DccWorkflowSignoffAssignmentService service;
     private Task task;
     private DccControlledFileTaskAssigneeSnapshotDO row;
+    private DccControlledFileDO file;
+    private org.flowable.engine.repository.ProcessDefinition definition;
 
     @BeforeEach void fixture() {
         TenantContextHolder.setTenantId(1L);
-        var file=DccControlledFileDO.builder().id(10L).masterId(20L).tenantId(1L)
+        file=DccControlledFileDO.builder().id(10L).masterId(20L).tenantId(1L)
                 .processInstanceId("round-1").status("PENDING_MATRIX_REVIEW").build();
         when(fileMapper.selectById(10L)).thenReturn(file);
         when(fileMapper.selectByIdAndTenantForUpdate(1L,10L)).thenReturn(file);
@@ -47,6 +52,11 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
         when(task.getId()).thenReturn("task-51"); when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
         when(task.getProcessInstanceId()).thenReturn("round-1");
         when(task.getTenantId()).thenReturn("1");
+        definition=mock(org.flowable.engine.repository.ProcessDefinition.class);
+        when(definition.getId()).thenReturn("dcc-controlled-file-revision:4:real-definition");
+        when(definition.getTenantId()).thenReturn("1");when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.REVISION);
+        when(task.getProcessDefinitionId()).thenReturn("dcc-controlled-file-revision:4:real-definition");
+        when(definitions.getProcessDefinition(anyString())).thenReturn(definition);
         when(task.getTaskLocalVariables()).thenReturn(Map.of(BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"10:MATRIX_REVIEW:51"));
         when(bpmTaskService.getTask("task-51")).thenReturn(task);
         when(bpmTaskService.validateTask(99L,"task-51")).thenReturn(task);
@@ -186,6 +196,57 @@ class DccWorkflowSignoffAssignmentTest extends BaseMockitoUnitTest {
         when(task.getTaskLocalVariables()).thenReturn(Map.of());
         assertThrows(RuntimeException.class,()->org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"assignmentContext",99L,10L,"task-51"));
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"dcc-controlled-file-upload","dcc-controlled-file-obsolete"})
+    void nonRevisionAssignmentSignsAndReassignsWithoutCallingRevisionRemediation(String key) {
+        currentDefinition(key);
+        service.assign(99L,10L,request(99L));
+        verify(signatureService).verifyPasswordAndCreateWorkflowSignature(eq(99L),eq(10L),eq("task-51"),eq("round-1"),
+                eq("MATRIX_REVIEW"),eq("ASSIGN"),eq("password"),anyString());
+        verify(taskService).setAssignee("task-51","99");verifyNoInteractions(remediationService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"dcc-controlled-file-upload","dcc-controlled-file-obsolete"})
+    void nonRevisionCallerCannotSendRemediationFactsBeforeTheActualSignature(String key) {
+        currentDefinition(key);
+        var request=request(99L);request.setRelationArrangements(java.util.List.of(
+                new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.Arrangement(
+                        30L,200L,LocalDateTime.of(2026,10,20,12,0))));
+        assertThrows(RuntimeException.class,()->service.assign(99L,10L,request));
+        verifyNoInteractions(signatureService,remediationService,taskService);
+        verify(snapshotMapper,never()).updateById(any(DccControlledFileTaskAssigneeSnapshotDO.class));
+    }
+
+    private void currentDefinition(String key) {
+        String id=key+":4:real-definition";
+        when(task.getProcessDefinitionId()).thenReturn(id);when(definition.getId()).thenReturn(id);when(definition.getKey()).thenReturn(key);
+        if(DccControlledFileProcessDefinitionKeys.OBSOLETE.equals(key)) {
+            file.setProcessInstanceId("original-upload-round");file.setStatus("ACTIVE");file.setPublishedFileId(501L);
+            when(runtimeService.getVariables("round-1")).thenReturn(Map.of("systemCode","DCC","objectType","CONTROLLED_FILE","actionCode","OBSOLETE","objectId","10"));
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"dcc-controlled-file-upload","dcc-controlled-file-revision","dcc-controlled-file-obsolete"})
+    void contextUsesTheExactCurrentTaskDefinitionEvenWhenTheFileRetainsAnOlderUploadRound(String key) {
+        currentDefinition(key);row.setObligationId("10:MATRIX_REVIEW:51");row.setDepartmentName("正式部门");
+        when(adminUserApi.getUserListByDeptIds(java.util.List.of(51L))).thenReturn(java.util.List.of());
+        var context=service.assignmentContext(99L,10L,"task-51");
+        assertEquals(key,context.processDefinitionKey());assertEquals("round-1",context.processInstanceId());
+        assertEquals("task-51",context.taskId());assertEquals("10:MATRIX_REVIEW:51",context.obligationId());
+        verifyNoInteractions(signatureService,remediationService,taskService);
+    }
+
+    @Test void foreignMissingOrUnexpectedDefinitionCannotAuthorizeTheTaskBeforeItsSignature() {
+        when(definition.getTenantId()).thenReturn("122");assertThrows(RuntimeException.class,()->service.assign(99L,10L,request(99L)));
+        when(definition.getTenantId()).thenReturn("1");when(definition.getKey()).thenReturn("unrelated-key");
+        assertThrows(RuntimeException.class,()->service.assign(99L,10L,request(99L)));
+        when(definitions.getProcessDefinition(anyString())).thenReturn(null);
+        assertThrows(RuntimeException.class,()->service.assign(99L,10L,request(99L)));
+        verifyNoInteractions(signatureService,remediationService,taskService);
+    }
+
     private DccSignoffAssignmentReqVO request(long assignee) {
         var req=new DccSignoffAssignmentReqVO(); req.setTaskId("task-51");req.setAssigneeUserId(assignee);
         req.setPassword("password");req.setReason("指派本人");return req;

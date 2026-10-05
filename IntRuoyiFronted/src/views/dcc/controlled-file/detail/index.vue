@@ -3813,7 +3813,7 @@ const actionDialogSubmitFlowText = computed(() => {
   if (actionDialog.mode === 'reject') {
     return '提交后流转：当前节点驳回，流程回到发起人或按后端路线规则处理。'
   }
-  return `提交后流转：${currentStageLabel.value}按审批路线完成后继续流转；末级文控批准后，系统校验盖章PDF和默认目录并直接生效。`
+  return '提交后流转：上传、升版：会签→批准→培训（如需）→文控审核→受控→下发；按预设生效日期生效，新版生效时旧版自动作废。作废：会签→批准，批准通过即完成作废并结束流程。'
 })
 const getStageRouteSnapshot = (stage: DccTaskStageProgress) =>
   fileDetail.value?.routeSnapshots?.find(
@@ -3873,7 +3873,7 @@ const formatDetailPath = (items: Array<string | null | undefined>) => {
   return parts.length ? parts.join(' / ') : '-'
 }
 const currentDccProjectCodeText = computed(() =>
-  formatDetailPath([fileDetail.value?.productName, fileDetail.value?.productCode])
+  formatDetailPath([fileDetail.value?.projectName, fileDetail.value?.projectCode])
 );
 const currentFileTypeTaxonomyText = computed(() =>
   formatDetailPath([
@@ -4713,12 +4713,19 @@ const isWorkingBrowserDetailCurrent = computed(() => Boolean(workingBrowserLoade
   && workingBrowserLoadedContext.value.route === route.fullPath
   && String(fileDetail.value?.id) === controlledFileId.value))
 
+const isActiveControlledFileDetailRoute = (fileId: string, fullPath: string) =>
+  /^[1-9][0-9]*$/.test(fileId) && BigInt(fileId) <= 9223372036854775807n &&
+  typeof route.params.id === 'string' && route.params.id === fileId &&
+  route.path === `/dcc/controlled-file/detail/${fileId}` && route.fullPath === fullPath
+
 const isCurrentDetailLoad = (sequence: number, requestedId: string, requestedRoute: string) =>
+  isActiveControlledFileDetailRoute(requestedId, requestedRoute) &&
   sequence === detailLoadSequence &&
   requestedId === controlledFileId.value &&
   requestedRoute === route.fullPath
 
 const loadData = async (sequence: number, requestedId: string, requestedRoute: string) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
   const canReadControlledFileAuxiliaries = checkPermi(['dcc:controlled-file:query'])
   const [
     detail,
@@ -4729,14 +4736,14 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
     paperRecords,
     approvalPrintTemplate
   ] = await Promise.all([
-    getControlledFile(controlledFileId.value),
+    getControlledFile(requestedId),
     canReadControlledFileAuxiliaries ? getFileCategoryList() : Promise.resolve([]),
     canReadControlledFileAuxiliaries ? getDirectoryTree() : Promise.resolve([]),
     canReadControlledFileAuxiliaries ? getSimpleUserList() : Promise.resolve([]),
     canReadControlledFileAuxiliaries ? getSimpleDeptList() : Promise.resolve([]),
     viewerMode.value || !showLifecycleTraceSections.value || !canReadControlledFileAuxiliaries
       ? Promise.resolve([])
-      : getPaperDistributionRecords(controlledFileId.value),
+      : getPaperDistributionRecords(requestedId),
     viewerMode.value || !showLifecycleTraceSections.value || !canReadControlledFileAuxiliaries
       ? Promise.resolve(null)
       : getActiveApprovalPrintTemplate()
@@ -4844,8 +4851,9 @@ const loadAccessExplanationOnly = async (
   requestedId = controlledFileId.value,
   requestedRoute = route.fullPath
 ) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   try {
-    const explanation = await getControlledFileAccessExplanation(controlledFileId.value)
+    const explanation = await getControlledFileAccessExplanation(requestedId)
     if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
     fileAccessExplanation.value = explanation
     accessExplanationError.value = ''
@@ -4893,6 +4901,7 @@ const syncStageProgress = () => {
 
 const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = controlledFileId.value,
                                   requestedRoute = route.fullPath) => {
+  if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
   const roundContextKey = applicationRoundContextKey.value
   applicationApprovalRead.value = undefined
   const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
@@ -4941,6 +4950,25 @@ const reloadAll = async () => {
   applicationApprovalRead.value = undefined
   const requestedId = controlledFileId.value
   const requestedRoute = route.fullPath
+  if (!isActiveControlledFileDetailRoute(requestedId, requestedRoute)) {
+    dccSignatureEvidenceRequestSequence++
+    fileDetail.value = undefined
+    fileAccessExplanation.value = null
+    accessExplanationError.value = ''
+    paperDistributionRecords.value = []
+    approvalTodoTask.value = null
+    approvalTaskList.value = []
+    stageProgressList.value = []
+    approvalLoading.value = false
+    dccSignatureEvidenceList.value = []
+    dccSignatureEvidenceTotal.value = 0
+    dccSignatureEvidenceLoading.value = false
+    dccSignatureEvidenceError.value = ''
+    controlledPrintRecords.value = []
+    controlledPrintRecordsLoading.value = false
+    controlledPrintRecordsError.value = ''
+    return
+  }
   try {
     accessExplanationError.value = ''
     if (!await loadData(sequence, requestedId, requestedRoute)) {
