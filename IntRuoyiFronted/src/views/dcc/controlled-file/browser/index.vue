@@ -1264,6 +1264,10 @@ const formatRecognitionStatus = (status?: string | null) => {
 }
 
 const resolveBrowserErrorMessage = (error: unknown, fallback: string) => {
+  const responseMessage = (error as { response?: { data?: { msg?: unknown } } })?.response?.data?.msg
+  if (typeof responseMessage === 'string' && responseMessage.trim() && responseMessage !== 'error') {
+    return responseMessage.trim()
+  }
   if (error instanceof Error && error.message && error.message !== 'error') {
     return error.message
   }

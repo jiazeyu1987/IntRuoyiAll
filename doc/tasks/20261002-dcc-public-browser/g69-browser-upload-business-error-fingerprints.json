@@ -1,0 +1,100 @@
+{
+  "status": "G69_BROWSER_CHECKIN_FORMAL_BUSINESS_ERROR_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "bytes": 161260,
+      "sha256": "037f68c665160aeacd91dd41e1b0f9c6726bd772b64282d45be2cdaeed99a102"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-upload-business-error.test.cjs",
+      "bytes": 3507,
+      "sha256": "5f376f773173f6d3abce6ec8c19fa74e89f39f23c673da5d0202fb0d3df46839"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-bdd.md",
+      "bytes": 2181,
+      "sha256": "6775ea1d7106940b3e8071cc326026a82343cdd0316ac206a53362ee51d2e8e0"
+    }
+  ],
+  "previousBrowserStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json",
+    "bytes": 3976,
+    "sha256": "0b4e2a415c802ced3496adc6aac180133a21d9caeb74a96916a1e0c3f8d6fdf5"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 2,
+      "pass": 0,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 20,
+      "pass": 20,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "2new+18existingcheckin/display,notadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    "typesBuild": {
+      "status": "Not repeated per Root no API/interface/signature changes;no previous build reused as current"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-red.log",
+      "bytes": 2509,
+      "sha256": "6701eb82699ceec6cb2f10a0eedca1b02963f5bf55e3e1b95e23c33d29cc1630"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-final.log",
+      "bytes": 2381,
+      "sha256": "faddc5a291abedc47730ebc647e3f9ad1c19d02f3951329b034e77bc612719e4"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "protectedOtherStages": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-fingerprints-r2.json",
+      "bytes": 2718,
+      "sha256": "25091b10bd348d7ea0759c0f448c344bbff3b1a8f7ad3f72925da3d770c7d714"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json",
+      "bytes": 5053,
+      "sha256": "810f2d66ad1c8cfd85f943c518e3cfbc499bb1679752cdd783b1eee9834383c0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints-r2.json",
+      "bytes": 2926,
+      "sha256": "71955979cffe4a9f23506ee05727f0ee58317fa853a072aa7d89013836f3d92d"
+    }
+  ],
+  "exactContract": [
+    "Nonemptyformal response.data.msg takespriority beforeAxiosgenericmessage;originalmissingmsg Error/string/fallbackunchanged",
+    "CHECKIN same actualtarget/category/clientSession/SOURCE file,no status/project/raw-name parameters injected",
+    "Actual sourceupload failure remainsfailed/notticketready,onErrorcalled/nosuccess; no unknownbusiness->success mapping",
+    "Local4linecontract no export/APIchange to privateG64helper, no NEWuploadbusinessmapping applied checkout/cleanup"
+  ],
+  "supersedes": "Only browserindex error resolver bytes supersede previous G58browser stage; oldmanifest preserved,ParentG68r2/G67notify/G64submitter unchanged",
+  "limitations": [
+    "Offline actualAxiosError and originalhandler with explicitfixture message,no real400API/UIclaim",
+    "RootnewBEwithdrawn sourcecontext+ticket+sameB1bodyretry actualpage pending",
+    "No globaltypes/build/Git/API/UI/DB/service/Maven by agent;sharedtaskin_progress"
+  ]
+}
