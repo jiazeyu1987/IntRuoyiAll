@@ -428,8 +428,9 @@
                 {{ fileDetail?.remark || '-' }}
               </el-descriptions-item>
               <el-descriptions-item label="培训要求">
-                {{ fileDetail?.needTraining ? '需要培训' : '无需培训' }}
+                {{ approvalHandlingTrainingText }}
               </el-descriptions-item>
+              <el-descriptions-item label="本次申请流程">{{ approvalHandlingProcessText }}</el-descriptions-item>
             </el-descriptions>
           </el-col>
           <el-col :span="12">
@@ -547,7 +548,7 @@
       :key="String(fileDetail.id)" :file="fileDetail" @submitted="handleApplicationSubmitted"
     />
     <DetailSignoffAssignment
-      v-if="fileDetail && showDetailManagementActions && isSignoffTask && approvalProcessInstanceId"
+      v-if="fileDetail && approvalTodoTask && canShowSignoffAssignment"
       :file-id="fileDetail.id" :process-instance-id="approvalProcessInstanceId" :task-id="String(approvalTodoTask.id)"
       @state="signoffAssignmentState = $event" @saved="reloadAll"
     />
@@ -3622,6 +3623,31 @@ const canEditMetadata = computed(
   () => !viewerMode.value && showDetailManagementActions.value
     && hasMetadataEditorRole(userStore.getRoles) && hasDccControlledFileActionProjection(fileDetail.value)
 )
+const currentApprovalApplicationType = computed(() => {
+  const scope = approvalProgressScope.value
+  if (!scope || scope.fileId !== String(fileDetail.value?.id || '') || scope.bpmRound !== approvalProcessInstanceId.value) return undefined
+  return ['UPLOAD', 'REVISION', 'OBSOLETE'].includes(scope.applicationType) ? scope.applicationType : undefined
+})
+const canShowSignoffAssignment = computed(() => {
+  if (viewerMode.value || isBrowserTraceabilityPage.value || !fileDetail.value || !isSignoffTask.value
+    || !checkPermi(['dcc:controlled-file:review']) || !currentApprovalApplicationType.value) return false
+  const task = approvalTodoTask.value
+  const assignee = task?.assigneeUser?.id ?? task?.assigneeUserId ?? task?.assignee
+  if (!task?.id || task.taskDefinitionKey !== 'MATRIX_REVIEW' || task.processInstanceId !== approvalProcessInstanceId.value
+    || String(assignee || '') !== String(currentUserId.value || '')) return false
+  if (showDetailManagementActions.value) return true
+  const read = applicationApprovalRead.value
+  return isApprovalUploadHandlingPage.value && read?.contextKey === applicationRoundContextKey.value && !read.error
+    && read.processInstanceId === task.processInstanceId && (!read.taskId || read.taskId === String(task.id))
+    && !applicationRoundSelection.value.blockedReason
+    && applicationRoundSelection.value.primaryBpmRound === approvalProcessInstanceId.value
+})
+const approvalHandlingTrainingText = computed(() => currentApprovalApplicationType.value === 'OBSOLETE'
+  ? '无需培训（作废流程批准后结束）' : currentApprovalApplicationType.value
+    ? fileDetail.value?.needTraining ? '需要培训' : '无需培训' : '本次申请身份尚未核验')
+const approvalHandlingProcessText = computed(() => currentApprovalApplicationType.value === 'OBSOLETE'
+  ? '会签 → 批准，批准后作废并结束流程。' : currentApprovalApplicationType.value
+    ? '会签 → 批准 → 培训（如需） → 文控审核 → 受控 → 下发。' : '本次申请身份尚未核验')
 const lifecycleProjectionRepairVisible = ref(false)
 const canInspectLifecycleProjection = computed(() => !viewerMode.value && showDetailManagementActions.value && Boolean(fileDetail.value)
   && userStore.getRoles.includes(DOC_CONTROL_ROLE_CODE)
