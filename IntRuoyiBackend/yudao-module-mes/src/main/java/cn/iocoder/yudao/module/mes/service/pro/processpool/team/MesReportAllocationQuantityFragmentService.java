@@ -71,19 +71,19 @@ public class MesReportAllocationQuantityFragmentService {
         }
 
         Map<Target, BigDecimal> retained = retainedAllocations.stream().collect(Collectors.groupingBy(
-                a -> new Target(a.getWorkOrderId(), a.getRouteProcessId(), a.getProcessId()),
+                a -> new Target(a.getId(), a.getActiveOrderId(), a.getWorkOrderId(), a.getRouteProcessId(), a.getProcessId()),
                 Collectors.reducing(BigDecimal.ZERO, MesProcessPoolReportAllocationDO::getAllocatedQuantity, BigDecimal::add)));
         for (var line : previousLines) {
-            if (retained.containsKey(new Target(line.getTargetWorkOrderId(), line.getTargetRouteProcessId(), line.getTargetProcessId()))
+            if (retained.containsKey(target(line))
                     && (line.getAllocatedQuantity() == null || line.getSourceQuantityFragmentId() == null)) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "retainedAllocation.fragmentIdentity");
             }
         }
         List<MesProcessPoolFifoAllocationLineDO> retainedLines = previousLines.stream()
-                .filter(l -> retained.containsKey(new Target(l.getTargetWorkOrderId(), l.getTargetRouteProcessId(), l.getTargetProcessId())))
+                .filter(l -> retained.containsKey(target(l)))
                 .toList();
         Map<Target, BigDecimal> actual = retainedLines.stream().collect(Collectors.groupingBy(
-                l -> new Target(l.getTargetWorkOrderId(), l.getTargetRouteProcessId(), l.getTargetProcessId()),
+                MesReportAllocationQuantityFragmentService::target,
                 Collectors.reducing(BigDecimal.ZERO, MesProcessPoolFifoAllocationLineDO::getAllocatedQuantity, BigDecimal::add)));
         retained.forEach((target, quantity) -> {
             if (!actual.containsKey(target) || quantity.compareTo(actual.get(target)) != 0) {
@@ -121,7 +121,11 @@ public class MesReportAllocationQuantityFragmentService {
         persistFragmentBalances(fragments, next);
     }
 
-    private record Target(Long workOrderId, Long routeProcessId, Long processId) { }
+    private record Target(Long allocationId, Long activeOrderId, Long workOrderId, Long routeProcessId, Long processId) { }
+    private static Target target(MesProcessPoolFifoAllocationLineDO line) {
+        return new Target(line.getReportAllocationId(), line.getTargetActiveOrderId(), line.getTargetWorkOrderId(),
+                line.getTargetRouteProcessId(), line.getTargetProcessId());
+    }
 
     private List<MesProcessPoolFifoAllocationLineDO> buildLines(
             MesProProcessPoolEventDO event, Integer version,
@@ -150,6 +154,7 @@ public class MesReportAllocationQuantityFragmentService {
                         .sourceRouteProcessId(fragment.getRouteProcessId()).sourceProcessId(fragment.getProcessId())
                         .sourceFragmentQuantity(fragment.getTotalQuantity())
                         .targetWorkOrderId(allocation.getWorkOrderId()).targetWorkOrderCode(workOrder.getCode())
+                        .reportAllocationId(allocation.getId()).targetActiveOrderId(allocation.getActiveOrderId())
                         .targetRouteProcessId(allocation.getRouteProcessId()).targetProcessId(allocation.getProcessId())
                         .allocatedQuantity(quantity).allocationStatus(MesProcessPoolFifoAllocationLineDO.STATUS_ALLOCATED)
                         .lifecycleStatus(MesProcessPoolFifoAllocationLineMapper.LIFECYCLE_CURRENT).build());
@@ -205,7 +210,8 @@ public class MesReportAllocationQuantityFragmentService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "reportAllocationFragments");
         }
         for (MesProcessPoolReportAllocationDO allocation : allocations) {
-            if (allocation == null || allocation.getWorkOrderId() == null || allocation.getRouteProcessId() == null
+            if (allocation == null || allocation.getId() == null || allocation.getActiveOrderId() == null
+                    || allocation.getWorkOrderId() == null || allocation.getRouteProcessId() == null
                     || allocation.getProcessId() == null || allocation.getAllocatedQuantity() == null
                     || allocation.getAllocatedQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED, event.getId());

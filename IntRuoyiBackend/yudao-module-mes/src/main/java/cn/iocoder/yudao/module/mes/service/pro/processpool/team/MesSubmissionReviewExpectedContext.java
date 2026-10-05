@@ -12,4 +12,6 @@ public class MesSubmissionReviewExpectedContext {
     private Long revisionId;
     private Long reviewId;
     private Integer reviewRound;
+    private String reviewStatus;
+    private Integer allocationVersion;
 }

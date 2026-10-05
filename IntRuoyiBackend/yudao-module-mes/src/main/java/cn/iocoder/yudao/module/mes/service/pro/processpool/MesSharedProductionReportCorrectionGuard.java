@@ -20,6 +20,7 @@ public class MesSharedProductionReportCorrectionGuard {
     @Resource private MesProcessPoolActiveOrderCompletionReceiptMapper receipts;
     @Resource private MesReportAllocationReleaseStateService releases;
     @Resource private MesProEdhrNonconformanceReviewService freezes;
+    @Resource private MesProcessPoolActiveOrderProcessSnapshotMapper snapshots;
 
     public void assertEditable(MesProProcessPoolEventDO event) {
         Long tenant=TenantContextHolder.getTenantId();
@@ -53,14 +54,25 @@ public class MesSharedProductionReportCorrectionGuard {
         var source=locked.get(sourceId.asLong());
         require(Objects.equals(event.getWorkOrderId(),source.getWorkOrderId())&&Objects.equals(event.getRouteId(),source.getRouteId()),
                 "共享报工来源工单或路线不一致");
+        requireSnapshot(source, event.getRouteProcessId(), event.getProcessId(), tenant);
         for(var allocation:positive) {
             var target=locked.get(allocation.getActiveOrderId());
             require(Objects.equals(target.getWorkOrderId(),allocation.getWorkOrderId())
-                    &&Objects.equals(event.getRouteId(),target.getRouteId())
-                    &&Objects.equals(event.getRouteProcessId(),allocation.getRouteProcessId())
                     &&Objects.equals(event.getProcessId(),allocation.getProcessId()),"共享报工目标分配身份不一致");
+            requireSnapshot(target, allocation.getRouteProcessId(), allocation.getProcessId(), tenant);
         }
         require(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(ids).isEmpty(),"共享报工已有生产放行申请，不能修改正文");
+    }
+    private void requireSnapshot(MesProcessPoolActiveOrderDO order, Long routeProcessId, Long processId, Long tenant) {
+        var snapshot = snapshots.selectByActiveOrderAndProcess(order.getId(), routeProcessId, processId);
+        require(snapshot != null && order.getRouteVersionId() != null
+                && Objects.equals(tenant, snapshot.getTenantId())
+                && Objects.equals(order.getId(), snapshot.getActiveOrderId())
+                && Objects.equals(order.getWorkOrderId(), snapshot.getWorkOrderId())
+                && Objects.equals(order.getRouteId(), snapshot.getRouteId())
+                && Objects.equals(order.getRouteVersionId(), snapshot.getRouteVersionId())
+                && Objects.equals(routeProcessId, snapshot.getRouteProcessId())
+                && Objects.equals(processId, snapshot.getProcessId()), "共享报工冻结工序快照身份不一致");
     }
     private static void require(boolean valid,String message){if(!valid)throw new IllegalStateException(message);}
 }

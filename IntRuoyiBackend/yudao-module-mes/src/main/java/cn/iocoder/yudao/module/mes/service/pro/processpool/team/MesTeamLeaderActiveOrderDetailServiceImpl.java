@@ -78,6 +78,10 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper recordChangeEventMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
 
     private static final Function<MesTeamLeaderActiveOrderDetailReadDO, BigDecimal> READ_ROW_REQUIRED_QUANTITY =
             MesTeamLeaderActiveOrderDetailReadDO::getRequiredQuantity;
@@ -239,6 +243,37 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     .setStatusLabel("未申请");
         }
         String status = application.getApplicationStatus();
+        if ("NONCONFORMANCE_VOID".equals(status) || "NONCONFORMANCE_REWORK".equals(status)) {
+            var review = application.getQaClosureReviewId() == null ? null
+                    : nonconformanceReviewMapper.selectById(application.getQaClosureReviewId());
+            String disposition = "NONCONFORMANCE_VOID".equals(status) ? "void" : "rework";
+            if (review == null || !Objects.equals(review.getTenantId(), application.getTenantId())
+                    || !Objects.equals(application.getActiveOrderId(), review.getActiveOrderId())
+                    || !Objects.equals(application.getWorkOrderId(), review.getWorkOrderId())
+                    || !"closed".equals(review.getReviewStatus()) || !disposition.equals(review.getDisposition())
+                    || review.getClosedAt() == null || review.getFrozenAt() == null || application.getAppliedAt() == null
+                    || application.getAppliedAt().isAfter(review.getFrozenAt())
+                    || review.getClosedAt().isBefore(review.getFrozenAt())
+                    || (review.getBatchExecutionId() != null && !Objects.equals(review.getBatchExecutionId(), application.getBatchExecutionId()))
+                    || !matchesQaClosureSource(review, application)) {
+                throw new IllegalStateException("ACTIVE_ORDER_QA_CLOSURE_EVIDENCE_INVALID");
+            }
+            return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary().setStatus(status)
+                    .setStatusLabel("void".equals(disposition) ? "已作废" : "已返工关闭");
+        }
+        if ("BATCH_VOIDED".equals(status)) {
+            var id = JsonUtils.parseTree(application.getDossierSummaryJson()).path("batchVoid").path("changeEventId");
+            var change = id.isIntegralNumber() && id.canConvertToLong() && id.longValue() > 0
+                    ? recordChangeEventMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO>()
+                            .eq("id", id.longValue()).eq("tenant_id", application.getTenantId())) : null;
+            if (change == null || application.getBatchExecutionId() == null
+                    || !Objects.equals(application.getBatchExecutionId(), change.getBatchExecutionId())
+                    || !"VOID".equals(change.getChangeType()) || !"BATCH".equals(change.getTargetScope())
+                    || !"EFFECTIVE".equals(change.getChangeStatus()) || change.getEffectiveAt() == null) {
+                throw new IllegalStateException("ACTIVE_ORDER_BATCH_VOID_EVIDENCE_INVALID");
+            }
+            return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary().setStatus(status).setStatusLabel("已作废");
+        }
         if (MesReleaseFlowStatus.PQC_RELEASE_REJECTED.equals(status)) {
             MesProEdhrNonconformanceReviewDO review =
                     nonconformanceReviewMapper.selectLatestBySource("PQC_RELEASE", application.getId());
@@ -260,6 +295,33 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return new MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary()
                 .setStatus(status)
                 .setStatusLabel(label);
+    }
+
+    private boolean matchesQaClosureSource(MesProEdhrNonconformanceReviewDO review,
+            MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        if (review.getSourceId() == null || review.getSourceId() <= 0 || review.getSourceType() == null) return false;
+        return switch (review.getSourceType()) {
+            case "PQC_RELEASE" -> Objects.equals(application.getId(), review.getSourceId());
+            case "ACTIVE_ORDER" -> Objects.equals(application.getActiveOrderId(), review.getSourceId());
+            case "PQC_SUBMISSION" -> {
+                var event = eventMapper.selectById(review.getSourceId());
+                var task = pqcTaskMapper.selectBySubmittedEventId(review.getSourceId());
+                yield event != null && task != null && "PQC_INSPECTION".equals(event.getEventType())
+                        && Objects.equals(application.getTenantId(), event.getTenantId())
+                        && Objects.equals(application.getTenantId(), task.getTenantId())
+                        && Objects.equals(application.getWorkOrderId(), event.getWorkOrderId())
+                        && Objects.equals(application.getWorkOrderId(), task.getWorkOrderId())
+                        && Objects.equals(application.getActiveOrderId(), task.getActiveOrderId());
+            }
+            case "DEVIATION" -> {
+                var batch = batchExecutionMapper.selectById(review.getSourceId());
+                yield batch != null && Objects.equals(review.getSourceId(), review.getBatchExecutionId())
+                        && Objects.equals(application.getBatchExecutionId(), batch.getId())
+                        && Objects.equals(application.getWorkOrderId(), batch.getWorkOrderId())
+                        && Objects.equals(application.getTenantId(), batch.getTenantId());
+            }
+            default -> false;
+        };
     }
 
     private List<MesTeamLeaderActiveOrderDetail.OperationFact> resolveOperationFacts(Long activeOrderId) {

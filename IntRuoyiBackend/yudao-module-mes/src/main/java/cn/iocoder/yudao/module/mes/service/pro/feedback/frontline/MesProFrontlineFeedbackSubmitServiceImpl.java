@@ -162,6 +162,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             return toSubmitResp(existing.get());
         }
 
+        submitAuthorizationService.authorizeNewSubmission(reqVO.getSignatureEmployeeId(), reqVO.getSignatureIdentityDomain());
         authorizeSelectedActiveOrder(reqVO, loginUserId);
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);

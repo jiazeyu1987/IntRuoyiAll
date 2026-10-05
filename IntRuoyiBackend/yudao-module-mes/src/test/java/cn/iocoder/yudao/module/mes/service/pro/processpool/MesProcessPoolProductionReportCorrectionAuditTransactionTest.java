@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 /** Real H2/MyBatis writes, revision/summary, signature query and GxP writer in one Spring transaction.
@@ -74,9 +75,18 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
     private ElectronicSignatureRecordMapper signatures;
     private ElectronicSignatureQueryServiceImpl signatureQuery;
     private String signatureDefect = "valid";
+    private SqlSessionTemplate session;
+    private DataSourceTransactionManager manager;
+    private boolean roundTrip;
+    private org.springframework.context.support.GenericApplicationContext batchContext;
+    private Object previousBeans;
+    private Object previousContext;
 
     @BeforeEach
     void fixture() throws Exception {
+        previousBeans = ReflectionTestUtils.getField(cn.hutool.extra.spring.SpringUtil.class, "beanFactory");
+        previousContext = ReflectionTestUtils.getField(com.baomidou.mybatisplus.extension.spi.CompatibleHelper.getCompatibleSet().getClass(), "applicationContext");
+        batchContext = new org.springframework.context.support.GenericApplicationContext();
         var dataSource = new DriverManagerDataSource("jdbc:h2:mem:production_correction_" + UUID.randomUUID()
                 + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1", "sa", "");
         jdbc = new JdbcTemplate(dataSource);
@@ -85,20 +95,31 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 MesProProcessPoolEventRevisionDiffDO.class, ElectronicSignatureRecordDO.class, GxpAuditEventDO.class,
                 GxpAuditEventRelationDO.class, GxpAuditLedgerSequenceDO.class, GxpAuditPolicyActivationDO.class,
                 GxpAuditPolicyOperationDO.class)) createTable(row);
+        jdbc.execute("ALTER TABLE mes_pro_feedback ADD COLUMN tenant_id BIGINT");
         assertEquals(SIGNATURE, ElectronicSignatureRecordDO.class.getAnnotation(TableName.class).value());
         var configuration = new MybatisConfiguration();
         configuration.setMapUnderscoreToCamelCase(true);
         configuration.addInterceptor(new MysqlBitsForH2());
+        var tenantPlugin=new com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor();
+        new cn.iocoder.yudao.framework.tenant.config.YudaoTenantAutoConfiguration().tenantLineInnerInterceptor(
+                new cn.iocoder.yudao.framework.tenant.config.TenantProperties(),tenantPlugin);
+        configuration.addInterceptor(tenantPlugin);
+        var factory = new MybatisSqlSessionFactoryBean();
+        factory.setDataSource(dataSource);
+        factory.setConfiguration(configuration);
+        factory.setApplicationContext(batchContext);
+        factory.setGlobalConfig(new com.baomidou.mybatisplus.core.config.GlobalConfig().setMetaObjectHandler(new cn.iocoder.yudao.framework.mybatis.core.handler.DefaultDBFieldHandler()));
+        session = new SqlSessionTemplate(Objects.requireNonNull(factory.getObject()));
+        batchContext.getBeanFactory().registerSingleton("dataSource", dataSource);
+        batchContext.getBeanFactory().registerSingleton("sqlSessionFactory", session.getSqlSessionFactory());
+        batchContext.refresh();
+        new cn.hutool.extra.spring.SpringUtil().postProcessBeanFactory(batchContext.getBeanFactory());
         List.of(MesProProcessPoolEventMapper.class, MesProProcessPoolQuantityFragmentMapper.class,
                 MesProFeedbackMapper.class, MesProFeedbackMaterialMapper.class, MesProProcessPoolEventRevisionMapper.class,
                 MesProProcessPoolEventRevisionDiffMapper.class, ElectronicSignatureRecordMapper.class,
                 GxpAuditEventMapper.class, GxpAuditEventRelationMapper.class, GxpAuditLedgerSequenceMapper.class,
                 GxpAuditPolicyActivationMapper.class, GxpAuditPolicyOperationMapper.class).forEach(configuration::addMapper);
-        var factory = new MybatisSqlSessionFactoryBean();
-        factory.setDataSource(dataSource);
-        factory.setConfiguration(configuration);
-        var session = new SqlSessionTemplate(Objects.requireNonNull(factory.getObject()));
-        var manager = new DataSourceTransactionManager(dataSource);
+        manager = new DataSourceTransactionManager(dataSource);
         var events = session.getMapper(MesProProcessPoolEventMapper.class);
         var revisions = session.getMapper(MesProProcessPoolEventRevisionMapper.class);
         var diffs = session.getMapper(MesProProcessPoolEventRevisionDiffMapper.class);
@@ -164,8 +185,8 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 + " VALUES(176,1,100, 'PRODUCTION_SUBMIT',20,30,31,40,2001,'MES_PRO_FEEDBACK',5101,?,8001,4,0,4)", payload);
         jdbc.update("INSERT INTO " + FRAGMENT + "(id,tenant_id,event_id,source_quantity_type,total_quantity,"
                 + "allocated_quantity,available_quantity) VALUES(6001,1,176,'OUTPUT',4,0,4)");
-        jdbc.update("INSERT INTO mes_pro_feedback(id,work_order_id,route_id,process_id,feedback_quantity,"
-                + "qualified_quantity,unqualified_quantity) VALUES(5101,20,30,40,4,4,0)");
+        jdbc.update("INSERT INTO mes_pro_feedback(id,tenant_id,work_order_id,route_id,process_id,feedback_quantity,"
+                + "qualified_quantity,unqualified_quantity) VALUES(5101,1,20,30,40,4,4,0)");
         jdbc.update("INSERT INTO mes_pro_feedback_material(id,tenant_id,feedback_id,active_order_id,work_order_id,"
                 + "material_id,material_code,material_name,output_quantity,loss_quantity,loss_details_json,"
                 + "device_parameter_readings_json) VALUES(6101,1,5101,101,20,3401,'M-1','original',4,0,'[]','[]')");
@@ -174,6 +195,9 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
 
     @AfterEach
     void close() throws SQLException {
+        if (batchContext != null) batchContext.close();
+        ReflectionTestUtils.setField(cn.hutool.extra.spring.SpringUtil.class, "beanFactory", previousBeans);
+        com.baomidou.mybatisplus.extension.spi.CompatibleHelper.getCompatibleSet().setContext(previousContext);
         SecurityContextHolder.clearContext();
         TenantContextHolder.clear();
         if (jdbc != null) {
@@ -209,6 +233,139 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         assertEquals(9102L,jdbc.queryForObject("SELECT revision_signature_id FROM "+REVISION+" WHERE id=?",Long.class,revisionId));
         assertEquals(1,count(SIGNATURE));assertEquals(1,count("gxp_audit_event"));assertTrue(count(DIFF)>0);
         verify(handoff).completeProfileLeaderCorrection(176L,176L,revisionId,3001L);verifyNoInteractions(scope);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"SYSTEM_USER,APPROVED","SYSTEM_USER,REJECTED","MES_EMPLOYEE_PROFILE,APPROVED","MES_EMPLOYEE_PROFILE,REJECTED"})
+    void rejectionSignedCorrectionTimelineAndNextDecisionUseSameFormalContext(String domain, String nextDecision) throws Exception {
+        roundTrip=true;
+        var target=org.springframework.test.util.AopTestUtils.getUltimateTargetObject(service);
+        var config=session.getConfiguration();
+        for(var row:List.of(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO.class,
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationStateDO.class,
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO.class,
+                cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO.class))createTable(row);
+        List.of(MesProcessPoolSubmissionReviewMapper.class,MesProcessPoolReportAllocationStateMapper.class,
+                MesProcessPoolReportAllocationMapper.class,cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper.class).forEach(config::addMapper);
+        var reviews=session.getMapper(MesProcessPoolSubmissionReviewMapper.class);
+        var events=session.getMapper(MesProProcessPoolEventMapper.class);
+        var revisions=session.getMapper(MesProProcessPoolEventRevisionMapper.class);
+        var state=session.getMapper(MesProcessPoolReportAllocationStateMapper.class);
+        var allocations=session.getMapper(MesProcessPoolReportAllocationMapper.class);
+        var tasks=session.getMapper(cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper.class);
+        var original=JsonUtils.parseTree(events.selectById(176L).getRawPayload());
+        long submitter="SYSTEM_USER".equals(domain)?3001L:2001L;
+        ((ObjectNode)original).put("signatureIdentityDomain",domain).put("actualEmployeeIdentityDomain",domain);
+        jdbc.update("UPDATE "+EVENT+" SET actual_employee_id=?,signature_user_id=?,raw_payload=? WHERE id=176",submitter,submitter,original.toString());
+        // The original signature is an established fixture boundary, while correction signature+audit are actual persisted evidence.
+        jdbc.update("INSERT INTO "+SIGNATURE+"(id,tenant_id,module_code,action_code,actor_id,verification_status,canonical_content_json) VALUES(8001,1,'MES','PRODUCTION_SUBMIT',?,'VALID',?)",
+                submitter,JsonUtils.toJsonString(Map.of("signatureIdentity",Map.of("domain",domain,"signerId",submitter,"tenantId",1))));
+        var owners=(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver)ReflectionTestUtils.getField(target,"handoffOwners");
+        doReturn(new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity(domain,submitter,1L)).when(owners).submissionIdentity(any());
+        when(owners.profileProductionLeader(any())).thenReturn(3001L);when(owners.originalActor(any())).thenReturn(3001L);
+        var evidence=new MesCorrectionSignatureEvidenceReader(session.getMapper(MesProProcessPoolEventRevisionDiffMapper.class),signatureQuery,session.getMapper(GxpAuditEventMapper.class));
+        var resolver=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver();
+        ReflectionTestUtils.setField(resolver,"revisions",revisions);ReflectionTestUtils.setField(resolver,"tasks",tasks);
+        ReflectionTestUtils.setField(resolver,"owners",owners);ReflectionTestUtils.setField(resolver,"correctionEvidence",evidence);
+        var commandTarget=roundCommand(events,reviews,state,allocations,resolver);
+        var command=(MesReportAllocationCommandService)tx(commandTarget,manager);
+        var opened=roundTimeline().getExpectedReviews().get(0);
+        Long rejected=command.rejectProductionSubmission(176L,3001L,"correct the measured report","fixture-password",opened);
+        assertEquals("REJECTED",reviews.selectById(rejected).getReviewStatus());
+        var stale=roundTimeline().getExpectedReviews().get(0);
+        ReflectionTestUtils.setField(target,"submissionReviews",reviews);
+        var handoff=mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+        ReflectionTestUtils.setField(target,"handoffService",handoff);
+        org.mockito.stubbing.Answer<Object> schedule=call->{
+            Long revisionId=call.getArgument(2);
+            var task=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO()
+                    .setId(501L).setActiveOrderId(413L).setWorkOrderId(20L).setRouteProcessId(31L).setTaskType("PRODUCTION_REVIEW")
+                    .setSourceType("PROCESS_POOL_EVENT_SIGNED_REVISION").setSourceId(176L).setRoundId(revisionId).setStatus("TODO")
+                    .setInitiatedBy(3001L).setCandidateUserSnapshot("3001").setResponsibilitySnapshotJson(JsonUtils.toJsonString(Map.of("correctionOrigin",
+                            "SYSTEM_USER".equals(domain)?"OWN_RETURN_CORRECTION":"LEADER_PROFILE_CORRECTION")));
+            task.setTenantId(1L);tasks.insert(task);return null;
+        };
+        doAnswer(schedule).when(handoff).completeProfileLeaderCorrection(any(),any(),any(),any());
+        doAnswer(schedule).when(handoff).completeReturnAndScheduleReview(any(),any(),any(),any());
+        var own=mock(MesFrontlineReturnCorrectionService.class);
+        var context=new MesFrontlineReturnCorrectionService.ReturnContext(events.selectById(176L),reviews.selectById(rejected),413L,0L,"return-task");
+        when(own.requireOwnReturned(176L,413L,rejected,0L,3001L,"PRODUCTION")).thenReturn(context);
+        doAnswer(call->{Long revisionId=call.getArgument(1);handoff.completeReturnAndScheduleReview(176L,rejected,revisionId,3001L);return new MesFrontlineReturnCorrectionService.CorrectionResult(176L,revisionId,List.of());})
+                .when(own).complete(any(),any(),any());
+        ReflectionTestUtils.setField(target,"ownReturnService",own);
+        Long revisionId="SYSTEM_USER".equals(domain)?service.correctOwnReturned(command(),413L,rejected,0L).revisionId():service.correct(command());
+        assertEquals(1L,revisions.selectById(revisionId).getTenantId(),"Persisted revision tenant");
+        evidence.require(events.selectById(176L),revisions.selectById(revisionId));
+        var refreshed=roundTimeline();
+        assertEquals("PENDING",refreshed.getSubmissionReviewStatus());
+        assertEquals("REJECTED",refreshed.getExpectedReviews().get(0).getReviewStatus());
+        assertEquals(rejected,refreshed.getExpectedReviews().get(0).getReviewId());
+        assertEquals(revisionId,refreshed.getExpectedReviews().get(0).getRevisionId());
+        int before=jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_submission_review",Integer.class);
+        assertThrows(IllegalStateException.class,()->command.rejectProductionSubmission(176L,3001L,"stale","fixture-password",stale));
+        assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_submission_review",Integer.class));
+        var current=refreshed.getExpectedReviews().get(0);
+        if("REJECTED".equals(nextDecision))command.rejectProductionSubmission(176L,3001L,"checked corrected content","fixture-password",current);
+        else command.save(MesReportAllocationSaveCommand.builder().eventId(176L).leaderUserId(3001L).leaderType("PRODUCTION")
+                .expectedVersion(current.getAllocationVersion()).expectedReview(current).allocationMode("MANUAL").signaturePassword("fixture-password")
+                .reason("approve corrected content").allocations(List.of(MesReportAllocationSaveLine.builder().activeOrderId(413L).allocatedQuantity(BigDecimal.ONE).build())).build());
+        assertEquals(nextDecision,reviews.selectLatestByEventIdForUpdate(176L).getReviewStatus());
+        assertEquals("REJECTED",reviews.selectById(rejected).getReviewStatus());
+        assertEquals(1,reviews.selectLatestByEventIdForUpdate(176L).getReviewRound());
+    }
+
+    private MesReportAllocationCommandService roundCommand(MesProProcessPoolEventMapper events,MesProcessPoolSubmissionReviewMapper reviews,
+            MesProcessPoolReportAllocationStateMapper state,MesProcessPoolReportAllocationMapper allocations,
+            cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver resolver) throws Exception {
+        var constructor=MesReportAllocationCommandService.class.getConstructors()[0];
+        var target=(MesReportAllocationCommandService)constructor.newInstance(Arrays.stream(constructor.getParameterTypes()).map(org.mockito.Mockito::mock).toArray());
+        for(var f:target.getClass().getDeclaredFields())if(!Modifier.isStatic(f.getModifiers())&&ReflectionTestUtils.getField(target,f.getName())==null)ReflectionTestUtils.setField(target,f.getName(),mock(f.getType()));
+        ReflectionTestUtils.setField(target,"eventMapper",events);ReflectionTestUtils.setField(target,"reviewMapper",reviews);
+        ReflectionTestUtils.setField(target,"stateMapper",state);ReflectionTestUtils.setField(target,"allocationMapper",allocations);
+        ReflectionTestUtils.setField(target,"revisionMapper",session.getMapper(MesProProcessPoolEventRevisionMapper.class));
+        ReflectionTestUtils.setField(target,"returnCorrectionResolver",resolver);
+        ReflectionTestUtils.setField(target,"poolQuantityService",new MesReportAllocationPoolQuantityService());
+        var authorizer=(MesRouteStartProductionLeaderAuthorizationService)ReflectionTestUtils.getField(target,"routeStartAuthorizationService");
+        when(authorizer.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO.builder().id(31L).processId(40L).build()));
+        var signature=(MesProBatchRecordExecutionSignatureService)ReflectionTestUtils.getField(target,"signatureService");
+        when(signature.recordTeamLeaderReviewSignature(any(),any(),any(),any(),any(),any())).thenReturn(9901L);
+        var active=(MesProcessPoolActiveOrderMapper)ReflectionTestUtils.getField(target,"activeOrderMapper");
+        var order=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO.builder()
+                .id(413L).leaderUserId(3001L).workOrderId(20L).routeId(30L).routeVersionId(100L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();order.setTenantId(1L);
+        when(active.selectActiveListByLeaderForUpdate(3001L)).thenReturn(List.of(order));when(active.selectByIdForUpdate(413L)).thenReturn(order);when(active.selectById(413L)).thenReturn(order);
+        var work=(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper)ReflectionTestUtils.getField(target,"workOrderMapper");
+        var workRow=cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(20L).code("WORK-20").quantity(BigDecimal.TEN).build();
+        when(work.selectListByIdsForUpdate(any())).thenReturn(List.of(workRow));when(work.selectListByIds(any())).thenReturn(List.of(workRow));
+        var targets=(MesTeamLeaderOrderProcessTargetService)ReflectionTestUtils.getField(target,"targetService");
+        when(targets.requireUniqueTargetForProcess(any(),any())).thenReturn(new MesTeamLeaderOrderProcessTarget(31L,40L,BigDecimal.TEN,BigDecimal.ONE,BigDecimal.TEN));
+        var snapshots=(MesProcessPoolActiveOrderProcessSnapshotMapper)ReflectionTestUtils.getField(target,"activeOrderProcessSnapshotMapper");
+        var frozen=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                .activeOrderId(413L).workOrderId(20L).routeId(30L).routeVersionId(100L).routeProcessId(31L).processId(40L)
+                .overagePercentSnapshot(BigDecimal.ZERO).productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build();
+        when(snapshots.selectListByActiveOrderAndProcessForUpdate(any(),any())).thenReturn(List.of(frozen));when(snapshots.selectByActiveOrderAndProcess(any(),any(),any())).thenReturn(frozen);
+        var audits=(MesProcessPoolReportAllocationAdjustmentAuditMapper)ReflectionTestUtils.getField(target,"auditMapper");when(audits.insertBatch(anyCollection())).thenReturn(true);
+        return target;
+    }
+
+    private cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO roundTimeline() throws Exception {
+        String xml=java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml"));
+        String probe="<select id='roundProbe' resultType='map'>SELECT pool_event.id, pool_event.event_type AS eventType, pool_event.raw_payload AS originalPayloadJson, <include refid='DisplayedReviewContextColumns'/> COALESCE(latest_submission_review.review_status,'PENDING') AS submissionReviewStatus FROM mes_pro_process_pool_event pool_event <include refid='LatestSubmissionReviewJoin'/> WHERE pool_event.id=176</select>";
+        var configuration=new org.apache.ibatis.session.Configuration();
+        xml=xml.replace(" AS CHAR)"," AS VARCHAR)").replace(" AS BINARY)"," AS VARBINARY)").replace("</mapper>",probe+"</mapper>");
+        new org.apache.ibatis.builder.xml.XMLMapperBuilder(new java.io.StringReader(xml),configuration,"round.xml",configuration.getSqlFragments()).parse();
+        String type=ProcessPoolTimelinePqcGroupSqlTest.class.getName();
+        for(String function:List.of("JSON_VALID","JSON_EXTRACT","JSON_UNQUOTE","JSON_TYPE")) {
+            String method=switch(function){case "JSON_VALID"->"jsonValid";case "JSON_EXTRACT"->"jsonExtract";case "JSON_UNQUOTE"->"jsonUnquote";default->"jsonType";};
+            jdbc.execute("CREATE ALIAS IF NOT EXISTS "+function+" FOR '"+type+"."+method+"'");
+        }
+        var sql=configuration.getMappedStatement("cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper.roundProbe").getBoundSql(null).getSql();
+        var row=jdbc.queryForObject(sql,(r,n)->new ProcessPoolTimelineEventReadDO().setId(r.getLong("id")).setEventType(r.getString("eventType"))
+                .setOriginalPayloadJson(r.getString("originalPayloadJson")).setDisplayedReviewId(r.getLong("displayedReviewId"))
+                .setDisplayedReviewRound(r.getInt("displayedReviewRound")).setDisplayedRevisionId(r.getLong("displayedRevisionId"))
+                .setDisplayedAllocationVersion(r.getInt("displayedAllocationVersion")).setDisplayedReviewStatus(r.getString("displayedReviewStatus"))
+                .setSubmissionReviewStatus(r.getString("submissionReviewStatus")));
+        var timeline=new ProcessPoolTimelineServiceImpl(mock(MesProProcessPoolTimelineReadMapper.class));
+        return ReflectionTestUtils.invokeMethod(timeline,"toEventRespVO",row);
     }
 
     @Test
@@ -295,7 +452,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 "MES_BATCH_RECORD", subject, version, input.getReasonText()));
         String canonical = JsonUtils.toJsonString(sorted(JsonUtils.parseTree(snapshot.canonicalContentJson())));
         var definition = adapter.supportedActions().stream().filter(a -> action.equals(a.actionCode())).findFirst().orElseThrow();
-        var time = LocalDateTime.of(2026, 9, 29, 7, 0);
+        var time = roundTrip ? LocalDateTime.now() : LocalDateTime.of(2026, 9, 29, 7, 0);
         var record = ElectronicSignatureRecordDO.builder().id(9102L).moduleCode("MES").actionCode(action)
                 .subjectType("MES_BATCH_RECORD").subjectId(subject).subjectVersion(version).actorId(actor)
                 .meaningCode(definition.meaningCode()).meaningLabel(definition.meaningLabel()).reason(input.getReasonText())
@@ -312,7 +469,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         if ("evidence".equals(signatureDefect)) record.setEvidenceHash("0".repeat(64));
         if (!"missing".equals(signatureDefect)) signatures.insert(record);
         if ("valid".equals(signatureDefect)) assertEquals("VALID", signatureQuery.verifyEvidence(9102L).verificationStatus());
-        return new MesProBatchRecordExecutionFieldAuditSignatureResult().setSignatureId(9102L).setActorId(3001L).setSignedAt(time);
+        return new MesProBatchRecordExecutionFieldAuditSignatureResult().setSignatureId(9102L).setActorId(3001L).setActorName("correction-test").setSignedAt(time);
     }
 
     private static JsonNode sorted(JsonNode node) {

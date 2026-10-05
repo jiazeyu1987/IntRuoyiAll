@@ -64,6 +64,7 @@ class MesReportAllocationConcurrencyTest {
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        MesProductionDisplayedContextFixture.attach(service);
         when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));
     }
@@ -79,7 +80,7 @@ class MesReportAllocationConcurrencyTest {
                         .currentVersion(2).build());
         when(allocationMapper.selectListByEventIdForUpdate(1001L)).thenReturn(List.of());
 
-        ServiceException ex = assertThrows(ServiceException.class, () -> service.save(
+        ServiceException ex = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service,
                 MesReportAllocationSaveCommand.builder().eventId(1001L).leaderUserId(3001L)
                         .leaderType("PRODUCTION").expectedVersion(1).idempotencyKey("stale-request")
                         .allocationMode("MANUAL").reason("stale").allocations(List.of()).build()));

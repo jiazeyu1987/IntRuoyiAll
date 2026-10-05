@@ -44,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -187,6 +188,15 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
             verify(feedbackMaterialMapper,never()).updateCorrectedMaterialFact(any(),any(),any(),any(),any(),any());
             assertEquals(before,original.getRawPayload());
         } else {
+            source.setRouteVersionId(100L);target.setRouteVersionId(100L);
+            var snapshots=org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotMapper.class);
+            ReflectionTestUtils.setField(guard,"snapshots",snapshots);
+            when(snapshots.selectByActiveOrderAndProcess(anyLong(),anyLong(),anyLong())).thenAnswer(call->{
+                var order=call.getArgument(0,Long.class).equals(413L)?source:target;
+                var row=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO.builder()
+                        .activeOrderId(order.getId()).workOrderId(order.getWorkOrderId()).routeId(order.getRouteId()).routeVersionId(order.getRouteVersionId())
+                        .routeProcessId(call.getArgument(1)).processId(call.getArgument(2)).build();row.setTenantId(1L);return row;
+            });
             when(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(java.util.Set.of(413L,414L))).thenReturn(java.util.Set.of());
             when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
             when(revisionService.updateProductionReportRecord(any())).thenReturn(709L);

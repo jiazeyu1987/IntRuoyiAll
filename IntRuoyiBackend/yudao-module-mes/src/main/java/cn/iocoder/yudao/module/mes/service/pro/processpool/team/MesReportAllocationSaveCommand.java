@@ -9,6 +9,7 @@ import java.util.List;
 @Builder
 public class MesReportAllocationSaveCommand {
     private Long eventId;
+    private MesSubmissionReviewExpectedContext expectedReview;
     private Long leaderUserId;
     private String leaderType;
     private Integer expectedVersion;

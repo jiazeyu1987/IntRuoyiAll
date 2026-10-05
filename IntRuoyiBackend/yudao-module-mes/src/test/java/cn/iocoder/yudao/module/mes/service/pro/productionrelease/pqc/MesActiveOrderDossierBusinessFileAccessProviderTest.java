@@ -30,6 +30,7 @@ class MesActiveOrderDossierBusinessFileAccessProviderTest {
             context.getBeanFactory().registerSingleton("gxpAuditService", mock(GxpAuditService.class));
             context.getBeanFactory().registerSingleton("lifecycleGuard", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
             context.getBeanFactory().registerSingleton("dossierReadScopeService", mock(MesActiveOrderDossierReadScopeService.class));
+            context.getBeanFactory().registerSingleton("nonconformanceReviewService", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
             context.registerBean(MesProcessPoolActiveOrderDossierFileMapper.class, () -> mapper);
             context.registerBean(MesActiveOrderDossierBusinessFileAccessProvider.class);
             context.registerBean(MesActiveOrderDossierFileService.class, () -> {

@@ -86,6 +86,8 @@ export interface SubmissionReviewExpectedContext {
   revisionId: number
   reviewId: number
   reviewRound: number
+  reviewStatus?: string
+  allocationVersion?: number
 }
 
 export interface ProcessPoolTimelineEventVO {

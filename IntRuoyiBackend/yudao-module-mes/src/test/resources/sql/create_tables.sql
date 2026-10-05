@@ -879,6 +879,8 @@ CREATE TABLE IF NOT EXISTS "mes_pro_process_pool_fifo_allocation_line" (
     "source_route_process_id" bigint NOT NULL,
     "source_process_id" bigint NOT NULL,
     "source_fragment_quantity" decimal(24,6) NOT NULL,
+    "report_allocation_id" bigint DEFAULT NULL,
+    "target_active_order_id" bigint DEFAULT NULL,
     "target_work_order_id" bigint NOT NULL,
     "target_work_order_code" varchar(64) NOT NULL,
     "target_route_process_id" bigint NOT NULL,

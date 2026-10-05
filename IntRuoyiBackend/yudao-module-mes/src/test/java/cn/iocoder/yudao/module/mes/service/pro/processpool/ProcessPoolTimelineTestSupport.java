@@ -44,6 +44,7 @@ final class ProcessPoolTimelineTestSupport {
         return new ProcessPoolTimelineEventReadDO()
                 .setId(id)
                 .setDisplayedReviewId(9000L+id).setDisplayedReviewRound(0).setDisplayedRevisionId(0L)
+                .setDisplayedAllocationVersion(0).setDisplayedReviewStatus("REJECTED")
                 .setProcessPoolId(10L)
                 .setSubmittedAt(LocalDateTime.parse(submittedAt))
                 .setLoginUserId(100L)

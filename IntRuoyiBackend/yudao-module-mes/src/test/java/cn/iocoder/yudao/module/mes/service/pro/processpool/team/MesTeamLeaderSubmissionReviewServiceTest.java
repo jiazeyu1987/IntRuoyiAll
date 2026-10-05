@@ -164,13 +164,13 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     @Test
     void shouldDelegateProductionRejectionToAllocationRollbackService() {
         when(reportAllocationCommandService.rejectProductionSubmission(1001L, 3001L,
-                "数量错误", "review-pass")).thenReturn(7401L);
+                "数量错误", "review-pass", null)).thenReturn(7401L);
 
         Long reviewId = service.reviewSubmission(rejectedProductionReviewReq());
 
         assertEquals(7401L, reviewId);
         verify(reportAllocationCommandService).rejectProductionSubmission(1001L, 3001L,
-                "数量错误", "review-pass");
+                "数量错误", "review-pass", null);
         verify(eventMapper, never()).selectByIdForUpdate(any());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
     }

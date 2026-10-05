@@ -69,6 +69,8 @@ public class MesActiveOrderDossierFileService {
     @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
     @Resource
     private MesActiveOrderDossierReadScopeService dossierReadScopeService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService nonconformanceReviewService;
 
     @Transactional(readOnly = true)
     public Result list(Long actorUserId, Query query) {
@@ -260,6 +262,7 @@ public class MesActiveOrderDossierFileService {
     }
 
     private void assertMutable(MesProcessPoolActiveOrderDO activeOrder) {
+        nonconformanceReviewService.ensureWorkOrderNotFrozen(activeOrder.getWorkOrderId(), "活跃订单资料维护");
         Long pendingReviews = nonconformanceReviewMapper.selectPendingCountByWorkOrderId(activeOrder.getWorkOrderId());
         if (pendingReviews == null || pendingReviews > 0 || Set.of("FROZEN", "VOIDED", "CLOSED").contains(
                 activeOrder.getBusinessStatus() == null ? "" : activeOrder.getBusinessStatus())) {

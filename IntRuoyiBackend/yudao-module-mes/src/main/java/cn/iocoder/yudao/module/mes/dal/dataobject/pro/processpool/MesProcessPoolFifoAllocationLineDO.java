@@ -32,6 +32,8 @@ public class MesProcessPoolFifoAllocationLineDO extends TenantBaseDO {
     private Long processPoolId;
     private Long sourceEventId;
     private Integer reportAllocationVersion;
+    private Long reportAllocationId;
+    private Long targetActiveOrderId;
     private Long sourceQuantityFragmentId;
     private Long sourceRouteProcessId;
     private Long sourceProcessId;

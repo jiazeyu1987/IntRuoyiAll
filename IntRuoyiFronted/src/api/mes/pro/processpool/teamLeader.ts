@@ -22,6 +22,7 @@ export interface TeamLeaderSubmissionPageReqVO extends ProcessPoolTimelinePageRe
 }
 
 export interface TeamLeaderSubmissionReviewReqVO {
+  expectedReview?: import('@/api/mes/pro/processpool').SubmissionReviewExpectedContext
   expectedReviews?: import('@/api/mes/pro/processpool').SubmissionReviewExpectedContext[]
   eventId: number
   leaderType: TeamLeaderType
@@ -973,6 +974,7 @@ export interface TeamLeaderReportAllocationAuditRespVO {
 }
 
 export interface TeamLeaderReportAllocationConfirmReqVO {
+  expectedReview: import('@/api/mes/pro/processpool').SubmissionReviewExpectedContext
   eventId: number
   leaderType: TeamLeaderType
   allocationMode: 'FIFO' | 'MANUAL'

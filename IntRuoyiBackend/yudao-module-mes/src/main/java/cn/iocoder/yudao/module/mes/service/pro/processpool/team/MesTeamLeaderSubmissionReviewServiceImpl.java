@@ -99,7 +99,7 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
                 && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(reqBO.getReviewStatus())) {
             return reportAllocationCommandService.rejectProductionSubmission(
                     reqBO.getEventId(), reqBO.getLeaderUserId(), reqBO.getReviewRemark(),
-                    reqBO.getSignaturePassword());
+                    reqBO.getSignaturePassword(), reqBO.getExpectedReview());
         }
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(reqBO.getEventId());
         if (event == null) {

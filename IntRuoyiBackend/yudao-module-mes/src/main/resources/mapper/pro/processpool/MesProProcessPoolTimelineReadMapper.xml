@@ -281,6 +281,11 @@
     <!-- A signed correction superseding the latest rejected decision makes that member reviewable again.
          The write command still verifies the formal signature and complete group before any mutation. -->
     <sql id="DisplayedReviewContextColumns">
+        COALESCE((SELECT rr.review_status FROM mes_pro_process_pool_submission_review rr
+          WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
+          ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),'PENDING') AS displayedReviewStatus,
+        COALESCE((SELECT a.current_version FROM mes_pro_process_pool_report_allocation_state a
+          WHERE a.event_id=pool_event.id AND a.tenant_id=pool_event.tenant_id AND a.deleted=0),0) AS displayedAllocationVersion,
         COALESCE((SELECT rr.id FROM mes_pro_process_pool_submission_review rr
           WHERE rr.event_id=pool_event.id AND rr.tenant_id=pool_event.tenant_id AND rr.deleted=0
           ORDER BY rr.reviewed_at DESC, rr.id DESC LIMIT 1),0) AS displayedReviewId,

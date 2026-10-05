@@ -65,6 +65,7 @@ class MesReportAllocationFlowCycleRegressionTest {
                 eq("PROCESS_POOL_EVENT"), eq(10L), eq("生产报工组长复核"))).thenReturn(99L);
         ReflectionTestUtils.setField(service, "signatureService", signature);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        MesProductionDisplayedContextFixture.attach(service);
         submitted = event(10L, 502L, "100");
         order = order(81L, 91L);
         snapshot = snapshot(order, "[501,502]");
@@ -94,7 +95,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     void unrelatedCompletedOrderMustNotBlockConfirmation() {
         when(orders.selectActiveListByLeaderForUpdate(30L)).thenReturn(List.of(
                 order(82L, 92L).setBusinessStatus("COMPLETED"), order));
-        MesReportAllocationSnapshot result = service.save(command("100"));
+        MesReportAllocationSnapshot result = MesProductionDisplayedContextFixture.save(service, command("100"));
         assertAmount("100", result.getTotalAllocatedQuantity());
         verify(releases).findReleaseApplicationLockedActiveOrderIdsForUpdate(Set.of(81L));
         verify(completion).reconcileAffectedAllocations(eq(submitted), anyCollection());
@@ -113,7 +114,7 @@ class MesReportAllocationFlowCycleRegressionTest {
         when(orders.selectActiveListByLeaderForUpdate(30L)).thenReturn(List.of(order(82L, 92L), order));
         when(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(anyCollection())).thenAnswer(invocation ->
                 invocation.<Collection<Long>>getArgument(0).contains(82L) ? Set.of(82L) : Set.of());
-        assertAmount("100", service.save(command("100")).getTotalAllocatedQuantity());
+        assertAmount("100", MesProductionDisplayedContextFixture.save(service, command("100")).getTotalAllocatedQuantity());
     }
 
     @Test
@@ -123,7 +124,7 @@ class MesReportAllocationFlowCycleRegressionTest {
         var existing = allocation(10L, old, "100");
         String before = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing);
         when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(existing));
-        ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
+        ServiceException error = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command("100")));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), error.getCode());
         assertEquals(before, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing));
         verify(allocations, never()).supersedeCurrentRows(anyCollection(), anyInt());
@@ -134,7 +135,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     void separateOutputMaterialReportsCanBothBeConfirmedWithoutFalseOverage() {
         MesProProcessPoolEventDO previous = event(11L, 501L, "100");
         stubOtherAllocation(previous, "100");
-        MesReportAllocationSnapshot result = service.save(command("100"));
+        MesReportAllocationSnapshot result = MesProductionDisplayedContextFixture.save(service, command("100"));
         assertAmount("0", result.getLines().get(0).getOverageQuantity());
         assertFalse(result.getLines().get(0).getNeedsAdjustment());
         assertAmount("100", MesOutputMaterialProgressCalculator.calculateConservativeProcessProgress(order,
@@ -149,7 +150,7 @@ class MesReportAllocationFlowCycleRegressionTest {
         var existing = allocation(10L, previousCycle, "100");
         String before = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing);
         when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(existing));
-        ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
+        ServiceException error = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command("100")));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH.getCode(), error.getCode());
         assertEquals(before, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(existing));
         verify(allocations, never()).insertBatch(anyCollection());
@@ -161,7 +162,7 @@ class MesReportAllocationFlowCycleRegressionTest {
         when(orders.selectByIdForUpdate(81L)).thenReturn(order.setBusinessStatus("COMPLETED"));
         when(allocations.selectListByEventIdForUpdate(10L)).thenReturn(List.of(allocation(10L, order, "100")));
         ServiceException error = assertThrows(ServiceException.class,
-                () -> service.rejectProductionSubmission(10L, 30L, "录入不正确", "unit-test"));
+                () -> service.rejectProductionSubmission(10L, 30L, "录入不正确", "unit-test", MesProductionDisplayedContextFixture.displayed(service, 10L)));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_RELEASED_LOCKED.getCode(), error.getCode());
         verify(allocations, never()).supersedeCurrentRows(anyCollection(), anyInt());
     }
@@ -178,7 +179,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     @Test
     void unequalCombinedMaterialsMustNotHideActualOverage() {
         submitted.setRawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":150},{\"materialId\":502,\"outputQuantity\":100}]}");
-        ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
+        ServiceException error = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command("100")));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED.getCode(), error.getCode());
         verify(allocations, never()).insertBatch(anyCollection());
     }
@@ -187,7 +188,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     void partialAllocationUsesProportionOfUnequalMaterials() {
         submitted.setRawPayload("{\"materialDetails\":[{\"materialId\":501,\"outputQuantity\":150},{\"materialId\":502,\"outputQuantity\":100}]}");
         stubOtherAllocation(event(11L, 501L, "30"), "30");
-        ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("50")));
+        ServiceException error = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command("50")));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED.getCode(), error.getCode());
         // 甲 30 + 150 * (50 / 100) = 105; 不能错误地算成 80。
     }
@@ -195,7 +196,7 @@ class MesReportAllocationFlowCycleRegressionTest {
     @Test
     void actualSameMaterialOverageMustRemainRejected() {
         stubOtherAllocation(event(11L, 502L, "100"), "100");
-        ServiceException error = assertThrows(ServiceException.class, () -> service.save(command("100")));
+        ServiceException error = assertThrows(ServiceException.class, () -> MesProductionDisplayedContextFixture.save(service, command("100")));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_OVERAGE_LIMIT_EXCEEDED.getCode(), error.getCode());
     }
 
