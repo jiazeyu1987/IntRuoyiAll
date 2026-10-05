@@ -1,0 +1,17 @@
+# G58 文控培训记录与内容批准职责分离
+
+状态：ready_for_closeout。Root实际文控角色和类别908710证明APPROVE唯一USER1且正式permission UI/BE禁止手配该矩阵动作。用户培训由文控上传线下文件，不要求成为内容批准签名人。Root批准新增现类别框架独立TRAINING_RECORD操作；此owner唯一BE/Maven，FE另owner，仅配置UI由Root实际执行。
+
+- Given真实启用同tenant Doc88为doc_control，有现dccquery/approve菜单、合法hardfile/project，类别真实H2规则只有TRAINING_RECORD/USER88及APPROVE/USER1，When查询当前真实批准File/TRAINING ReceiveTask待办、metadata、controller培训preview/POST，ThenDoc正常上传并推进文控审核，不获得内容APPROVE或MATRIX_APPROVAL签名身份。先用rawvarchar新规则构造真实现permission matcher有效RED，不用缺enum编译错或mockcategorytrue。
+- GivenDoc只有旧APPROVE且无TRAINING_RECORD，Then培训记录操作/待办/通知拒；内容APPROVE不能冒充新职责。非doc_control、菜单/类别/硬范围/等待身份缺失仍拒、正文权限不扩大。
+- Given正式类别管理permissionRules保存TRAINING_RECORD，Then允许新增该独立规则，原REVIEW/APPROVE matrix-only保护不变，不新表/SQL/rolegrant/矩阵名单/历史签核或文件修改。
+- Given批准进入培训与通知异常，Then沿G57真实HMAC双签名/Flowable/官方消息同事务全部回滚；本修共用资格读取专用业务动作，不改legacy nullkey/600秒培训。
+
+有限生产：DccFileCategoryPermissionActionEnum、DccOfflineTrainingRecordService及Workflow native preview/upload前置。共用服务保enabled角色+既有dccquery/approve入口+专用类别TRAINING_RECORD+hard scopes+准确等待；Workflow native不再提前检查categoryAPPROVE，直接共用资格，非native旧路径仍保旧APPROVE。无schema/SQL、新API或正文规则变更。FE union/options同拼写TRAINING_RECORD、中文“上传线下培训记录”。
+
+
+## 最终验证
+
+有效RED r4真实H2专用TRAINING_RECORD/USER88而原APPROVE/USER1：3case 1failure（共用资格false）/2正式businessErrors1080000024（公共preview与POST），不是缺枚举编译或mock类别允许。原XML永久归档。r1泛型重载编译/r2缺UserAgent/r3类别lifecycle夹具错误明确单列；首GREEN物理preview事务与cleanup端口未wire属于夹具前置，修正只测试显式端口/事务，不改生产。
+
+最终当前树reactor7组260全0fail/error/skip CLI0 2026-10-05 19:44:28：专属实际rule/公共preview和POST/旧APPROVE-only拒/正式permissionRules管理6，实际双签名/Flowable/官方消息同事务3，旧wait/资格14，Workflow170，provider27，权限管理保护5，uploadApi35。七原XMLbyte归档，源3/test2与编译manifest固定。部署/真实不同账号配置与页面由Root处理；未实际DB/API/browser/service/package/Git，不整体HTML完成。

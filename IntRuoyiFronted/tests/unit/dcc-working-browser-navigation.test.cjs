@@ -39,6 +39,7 @@ test('working navigation preserves the actual selected file/Master and formal st
 test('project-folder navigation never uses internal placement as physical tree directory', () => {
   const route = loadHelper().buildWorkingBrowserRoute(file({ hasProjectStorageMapping: true, dccProjectCodeId: '271', projectFolderId: '2', directoryId: 913876 }))
   assert.equal(route.query.directoryId, undefined)
+  assert.equal(route.query.scope, 'global', 'a logical project selection must not require a physical directory before reading the exact version')
   assert.equal(route.query.browserMode, 'storage')
   assert.equal(route.query.workingFileId, FILE)
   assert.equal(route.query.workingMasterId, MASTER)

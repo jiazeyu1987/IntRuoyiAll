@@ -28,7 +28,7 @@ export const buildWorkingBrowserRoute = (file: {
   }
   if (typeof file.fileNumber !== 'string' || !file.fileNumber.trim()) throw new Error('文件缺少正式编号，无法定位检出/检入入口')
   return { name: 'DccControlledFileBrowser', query: {
-    browserMode: 'storage', ...directoryQuery, scope: 'current',
+    browserMode: 'storage', ...directoryQuery, scope: projectFolderLocation ? 'global' : 'current',
     keyword: file.fileNumber.trim(), workingFileId: id, workingMasterId: master
   } }
 }

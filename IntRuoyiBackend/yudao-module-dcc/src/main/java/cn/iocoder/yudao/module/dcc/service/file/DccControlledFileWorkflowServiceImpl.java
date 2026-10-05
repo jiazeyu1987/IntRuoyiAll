@@ -1495,8 +1495,9 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        if (!permissionApi.hasAnyRoles(userId,"doc_control")
-                || !categoryPermissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.APPROVE)
+        boolean nativeTraining = isThreeWorkflowUploadOrRevision(file);
+        if ((!nativeTraining && (!permissionApi.hasAnyRoles(userId,"doc_control")
+                    || !categoryPermissionSupport.hasCategoryPermission(file.getCategoryId(),userId,DccFileCategoryPermissionActionEnum.APPROVE)))
                 || !Boolean.TRUE.equals(file.getNeedTraining())
                 || file.getTrainingRecordFileId() != null
                 || file.getPublishedFileId() != null
@@ -1506,7 +1507,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         if (reqVO == null) {
             throw exception(CONTROLLED_FILE_TRAINING_RECORD_REQUIRED);
         }
-        if(isThreeWorkflowUploadOrRevision(file)) requireNativeTrainingContext(userId,file,reqVO.getSessionId());
+        if(nativeTraining) requireNativeTrainingContext(userId,file,reqVO.getSessionId());
         DccUploadTicketBoundFile trainingRecord = uploadTicketService.resolveForBinding(
                 new DccUploadTicketResolveCommand(reqVO.getTrainingRecordUploadTicket(), userId, file.getCategoryId(),
                         reqVO.getSessionId(),
@@ -1538,8 +1539,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || !Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
                 || !Objects.equals(file.getCategoryId(),categoryId) || !Boolean.TRUE.equals(file.getNeedTraining())
                 || !"PENDING_APPLICANT_TRAINING_RECORD".equals(file.getStatus()) || file.getTrainingRecordFileId()!=null
-                || file.getPublishedFileId()!=null || !permissionApi.hasAnyRoles(userId,"doc_control")
-                || !categoryPermissionSupport.hasCategoryPermission(categoryId,userId,DccFileCategoryPermissionActionEnum.APPROVE))
+                || file.getPublishedFileId()!=null)
             throw exception(CONTROLLED_FILE_TASK_ACTION_NOT_ALLOWED);
         requireNativeTrainingContext(userId,file,sessionId);
     }

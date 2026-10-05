@@ -41,14 +41,10 @@ export const getBrowserStampedFileStatusText = (file?: BrowserVersionSummarySour
 
 export const getBrowserCurrentVersionSourceText = (file?: BrowserVersionSummarySource | null) => {
   const currentActiveVersionNo = String(file?.currentActiveVersionNo || '').trim()
-  const versionNo = String(file?.versionNo || '').trim()
-  if (file?.status === 'ACTIVE' && currentActiveVersionNo && currentActiveVersionNo === versionNo) {
-    return `当前受控版本来源：master 当前执行版本 ${versionNo}`
+  if (currentActiveVersionNo) {
+    return `当前执行受控版本：master 当前执行版本 ${currentActiveVersionNo}`
   }
-  if (file?.status === 'ACTIVE' && !currentActiveVersionNo) {
-    return `当前受控版本来源：当前列表 ACTIVE 版本 ${versionNo || '-'}`
-  }
-  return '当前受控版本来源：非当前受控版本'
+  return '当前执行受控版本：未记录'
 }
 
 export const getBrowserStatusLabel = (status: string | undefined) =>
@@ -64,12 +60,41 @@ export const isBrowserHistoryVisible = (status: string | undefined) => {
 
 export const getBrowserVersionSummary = (
   version: BrowserVersionSummarySource,
-  isLatestVersionSelected: boolean,
-  isSelectedVersionModifying: boolean
+  isSelectedVersionModifying: boolean,
+  masterCurrentActiveVersionNo?: string | null
 ) => {
-  const isCurrentActiveVersion = isLatestVersionSelected && version.status === 'ACTIVE'
-  const versionKindText = isCurrentActiveVersion ? '当前受控版本' : isLatestVersionSelected ? '最新版本' : '历史版'
-  const versionKindTagType: DccControlledFileTagType = isLatestVersionSelected ? 'success' : 'info'
+  const currentActiveVersionNo = String(masterCurrentActiveVersionNo || '').trim()
+  const isCurrentActiveVersion = version.status === 'ACTIVE' && Boolean(currentActiveVersionNo) &&
+    currentActiveVersionNo === String(version.versionNo || '').trim()
+  let versionKindText = '版本属性未记录'
+  let versionKindTagType: DccControlledFileTagType = 'info'
+  if (version.status === 'WORKING') {
+    versionKindText = '工作小版本'
+    versionKindTagType = 'warning'
+  } else if (version.status === 'CONTROLLED_PENDING_EFFECTIVE') {
+    versionKindText = '受控（待生效）'
+    versionKindTagType = 'primary'
+  } else if (version.status === 'ACTIVE') {
+    versionKindText = isCurrentActiveVersion ? '当前执行受控版本' : currentActiveVersionNo
+      ? '受控版本（非当前执行）' : '受控版本（执行身份未记录）'
+    versionKindTagType = isCurrentActiveVersion ? 'success' : 'info'
+  } else if (version.status === 'OBSOLETE') {
+    versionKindText = '历史已作废'
+  } else if (version.status === 'SUPERSEDED') {
+    versionKindText = '历史已替换'
+  } else if (version.status === 'REJECTED' || version.status === 'WITHDRAWN') {
+    versionKindText = '历史申请'
+  } else if (version.status === 'DRAFT') {
+    versionKindText = '草稿版本'
+  } else if ([
+    'PENDING_DOC_CONTROL_REVIEW', 'PENDING_MATRIX_REVIEW', 'PENDING_MATRIX_APPROVAL',
+    'PENDING_DOC_CONTROL_APPROVAL', 'PENDING_APPLICANT_REWORK', 'PENDING_APPLICANT_TRAINING_RECORD',
+    'READY_TO_PUBLISH', 'FINALIZING', 'TRAINING_IN_PROGRESS', 'PENDING_MANUAL_DISTRIBUTION',
+    'FINALIZATION_FAILED'
+  ].includes(version.status || '')) {
+    versionKindText = '在途版本'
+    versionKindTagType = 'warning'
+  }
 
   return {
     versionText: version.versionNo || '-',
@@ -83,7 +108,7 @@ export const getBrowserVersionSummary = (
     publishedText: `发布：${formatDateTimeValue(version.publishedTime, '-')}`,
     publishedFileStatusText: getBrowserPublishedFileStatusText(version),
     stampedFileStatusText: getBrowserStampedFileStatusText(version),
-    currentVersionSourceText: getBrowserCurrentVersionSourceText(version)
+    currentVersionSourceText: getBrowserCurrentVersionSourceText({ ...version, currentActiveVersionNo: masterCurrentActiveVersionNo })
   }
 }
 

@@ -40,6 +40,7 @@ export const DCC_CATEGORY_PERMISSIONS = [
   'OBSOLETE',
   'REVIEW',
   'APPROVE',
+  'TRAINING_RECORD',
   'DISTRIBUTE'
 ] as const
 
@@ -151,6 +152,7 @@ export const DCC_CATEGORY_PERMISSION_OPTIONS: ReadonlyArray<DccOption<DccCategor
   { label: '作废', value: 'OBSOLETE' },
   { label: '审核', value: 'REVIEW' },
   { label: '批准', value: 'APPROVE' },
+  { label: '上传线下培训记录', value: 'TRAINING_RECORD' },
   { label: '分发', value: 'DISTRIBUTE' }
 ]
 

@@ -271,7 +271,7 @@
                 class="browser-current-active-row-summary"
                 data-testid="dcc-browser-current-active-row-summary"
               >
-                <el-tag size="small" type="success" effect="dark">当前执行受控版本</el-tag>
+                <el-tag size="small" :type="metadata.versionKindTagType" effect="dark">{{ metadata.versionKindText }}</el-tag>
                 <span>版本号：{{ metadata.versionNo }}</span>
                 <span>目录路径：{{ metadata.directoryPath }}</span>
                 <span>发布文件：{{ metadata.publishedFileStatus }}</span>
@@ -315,7 +315,7 @@
                   class="browser-current-active-row-summary browser-current-active-row-summary--file-number"
                   data-testid="dcc-browser-file-number-current-active-summary"
                 >
-                  <el-tag size="small" type="success" effect="dark">当前执行受控版本</el-tag>
+                  <el-tag size="small" :type="metadata.versionKindTagType" effect="dark">{{ metadata.versionKindText }}</el-tag>
                   <span>版本号：{{ metadata.versionNo }}</span>
                   <span>目录路径：{{ metadata.directoryPath }}</span>
                   <span>发布文件：{{ metadata.publishedFileStatus }}</span>
@@ -360,8 +360,8 @@
                 v-for="summary in [
                   getBrowserVersionSummary(
                     getSelectedVersion(row),
-                    isLatestVersionSelected(row),
-                    isSelectedVersionModifying(row)
+                    isSelectedVersionModifying(row),
+                    row.currentActiveVersionNo
                   )
                 ]"
                 :key="`${summary.versionText}-${summary.statusLabel}`"
@@ -1189,8 +1189,7 @@ import {
   getBrowserVersionSummary,
   getBrowserRowActionState,
   getBrowserPublishedFileStatusText,
-  getBrowserStampedFileStatusText,
-  getBrowserCurrentVersionSourceText
+  getBrowserStampedFileStatusText
 } from './presentation'
 
 defineOptions({ name: 'DccControlledFileBrowser' })
@@ -1750,12 +1749,19 @@ const getBrowserFileNameTooltip = (row: ControlledFileBrowserRow) => {
 
 const getBrowserCurrentActiveRowSummary = (row: ControlledFileBrowserRow) => {
   const selectedVersion = getSelectedVersion(row)
+  const summary = getBrowserVersionSummary(
+    selectedVersion,
+    isSelectedVersionModifying(row),
+    row.currentActiveVersionNo
+  )
   return {
-    versionNo: selectedVersion.versionNo || row.versionNo || '-',
+    versionNo: summary.versionText,
+    versionKindText: summary.versionKindText,
+    versionKindTagType: summary.versionKindTagType,
     directoryPath: getBrowserDirectoryPath(row.directoryId),
     publishedFileStatus: getBrowserPublishedFileStatusText(selectedVersion),
     stampedFileStatus: getBrowserStampedFileStatusText(selectedVersion),
-    currentVersionSource: getBrowserCurrentVersionSourceText(selectedVersion)
+    currentVersionSource: summary.currentVersionSourceText
   }
 }
 

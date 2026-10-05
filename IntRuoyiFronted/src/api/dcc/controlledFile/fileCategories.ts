@@ -42,6 +42,7 @@ export type ControlledFileCategoryPermissionAction =
   | 'OBSOLETE'
   | 'REVIEW'
   | 'APPROVE'
+  | 'TRAINING_RECORD'
   | 'DISTRIBUTE'
 
 export type ControlledFileCategoryPermissionSubjectType = 'USER' | 'DEPT' | 'ROLE' | 'POSITION'
