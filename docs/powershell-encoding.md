@@ -25,6 +25,7 @@
 
 - 在 Windows 工作区运行 `git diff --check` 时保留仓库的 `core.autocrlf` 和属性规则；临时关闭换行规范化会把 CRLF 文件误判为整文件改动及尾随空白，不应据此重写源码。
 - 命令异常输出可能包含既有凭据或超长全文；脚本应捕获输出并仅报告文件路径、退出码与必要摘要，确认脱敏后再写入任务记录。真实空白问题仍按正常 `git diff --check` 和 `git diff --cached --check` 判断。
+- 历史 blob 混用 LF/CRLF 时，先检查 `git ls-files --eol` 与实际字节；确认只是换行差异后，使用 `git add --renormalize` 规范化暂存内容，并逐文件核对 blob 与工作区正文一致，避免为提交核验重写正在运行的业务源码。`CRCRLF` 是重复回车异常，不能当作正常 CRLF 忽略；修正后验证正文不变，再执行 staged 和 unstaged 两项差异检查。
 
 ## 禁止做法
 
