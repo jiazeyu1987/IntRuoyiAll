@@ -69,7 +69,10 @@ class DccProjectReferenceFormalAuthorityIntegrationTest extends BaseDbUnitTest {
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))if(!sql.isBlank())jdbc.execute(sql);
         jdbc.update("DELETE FROM dcc_project_file_reference");
         policy("dcc.project-reference.create");policy("dcc.project-reference.cancel");
-        for(long user:new long[]{1,7,8,9,99})when(users.getUser(user)).thenReturn(new AdminUserRespDTO().setId(user).setStatus(0));
+        for (long user : new long[]{1, 7, 8, 9, 99}) {
+            when(users.getUser(user)).thenReturn(new AdminUserRespDTO().setId(user).setTenantId(1L)
+                    .setStatus(0).setUsername("dcc-d-" + user).setNickname("正式账号"));
+        }
         jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,project_leader_user_id,status,tenant_id) VALUES(1,'源项目','P1',99,'ENABLE',1),(2,'目标项目','P2',7,'ENABLE',1),(3,'第二引用项目','P3',9,'ENABLE',1)");
         jdbc.update("INSERT INTO dcc_project_folder(id,project_code_id,parent_id,name,sort_order,active,source_template_id,source_node_key,tenant_id) VALUES(21,2,0,'质量',0,TRUE,1,'quality',1),(22,2,0,'工程',1,TRUE,1,'engineering',1),(31,3,0,'质量',0,TRUE,1,'quality',1)");
         jdbc.update("INSERT INTO dcc_file_directory(id,parent_id,code,name,active,tenant_id) VALUES(99,0,'NAS-99','旧NAS目录',1,1)");
@@ -167,7 +170,8 @@ class DccProjectReferenceFormalAuthorityIntegrationTest extends BaseDbUnitTest {
         var authorityRead=new CountDownLatch(1);var resume=new CountDownLatch(1);var updateStarted=new CountDownLatch(1);
         when(users.getUser(7L)).thenAnswer(call->{
             authorityRead.countDown();if(!resume.await(10,TimeUnit.SECONDS))throw new AssertionError("formal account query did not resume");
-            return new AdminUserRespDTO().setId(7L).setStatus(0);
+            return new AdminUserRespDTO().setId(7L).setTenantId(1L).setStatus(0)
+                    .setUsername("dcc-d-7").setNickname("正式账号");
         });
         var pool=Executors.newFixedThreadPool(2);
         try{
