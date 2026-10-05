@@ -76,6 +76,7 @@
             查看项目及产品申请
           </el-button>
           <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
+          <el-button v-if="dccRelationRemediationNavigation" type="primary" data-testid="dcc-relation-remediation-notification-open" @click="navigateToDccRelationRemediation">查看来源受控申请</el-button>
         </div>
       </section>
     </div>
@@ -96,6 +97,7 @@ import {
   type DccPublicationNotifyTarget,
   type DccProjectProductNotifyTarget,
   type DccOfflineTrainingNotifyTarget,
+  type DccRelationRemediationNotifyTarget,
   type ShowroomProductNotifyTarget
 } from '@/utils/notifyMessageNavigation'
 
@@ -151,6 +153,9 @@ const hiddenTemplateParamKeys = NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS
 const dccOfflineTrainingNavigation = computed(() => notifyMessageTargets.value.find(
   (target): target is DccOfflineTrainingNotifyTarget => target.type === 'dccOfflineTraining'
 ) ?? null)
+const dccRelationRemediationNavigation = computed(() => notifyMessageTargets.value.find(
+  (target): target is DccRelationRemediationNotifyTarget => target.type === 'dccRelationRemediation'
+) ?? null)
 const dccProjectProductNavigation = computed(
   () => notifyMessageTargets.value.find(
     (target): target is DccProjectProductNotifyTarget => target.type === 'dccProjectProduct'
@@ -168,7 +173,10 @@ const templateParamLabels: Record<string, string> = {
   result: '处理结果',
   fileNumber: '文件编号',
   versionNo: '发布版本',
-  reasonSummaries: '通知原因'
+  reasonSummaries: '通知原因',
+  sourceControlledFileId: '来源受控文件身份',
+  relatedMasterId: '关联文件 Master 身份',
+  dueAt: '整改期限'
 }
 
 const formatTemplateParamValue = (value: unknown): string => {
@@ -273,6 +281,13 @@ const navigateToDccOfflineTraining = async () => {
   const navigation = dccOfflineTrainingNavigation.value
   if (!navigation) return
   await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => { resetDialogState(); await nextTick() }
+  })
+}
+const navigateToDccRelationRemediation = async () => {
+  const target = dccRelationRemediationNavigation.value
+  if (!target) return
+  await navigateToNotifyMessageTarget(router, target, {
     beforeNavigate: async () => { resetDialogState(); await nextTick() }
   })
 }

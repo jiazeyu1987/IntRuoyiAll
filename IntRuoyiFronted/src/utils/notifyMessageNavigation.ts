@@ -25,7 +25,7 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'notifyProcessInstanceId'
 ])
 
-type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'>
+type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'> & Partial<Pick<NotifyMessageVO, 'templateCode'>>
 
 export type ShowroomProductNotifyTarget = {
   type: 'showroomProduct'
@@ -66,6 +66,13 @@ export type DccOfflineTrainingNotifyTarget = {
   label: '上传线下培训记录'
   location: OfflineTrainingRecordLocation
 }
+export type DccRelationRemediationNotifyTarget = {
+  type: 'dccRelationRemediation'
+  label: '查看来源受控申请'
+  targetId: string
+  relatedMasterId: string
+  dueAt: string
+}
 
 export type NotifyMessageTarget =
   | ShowroomProductNotifyTarget
@@ -74,6 +81,7 @@ export type NotifyMessageTarget =
   | DccPublicationNotifyTarget
   | DccProjectProductNotifyTarget
   | DccOfflineTrainingNotifyTarget
+  | DccRelationRemediationNotifyTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -220,10 +228,37 @@ const resolveDccProjectProductTarget = (
   }
 }
 
+const resolveDccRelationRemediationTarget = (params: Record<string, unknown>): DccRelationRemediationNotifyTarget | null => {
+  const identity = (value: unknown): value is string => typeof value === 'string' && /^[1-9]\d*$/.test(value)
+    && BigInt(value) <= 9223372036854775807n
+  if (!identity(params.sourceControlledFileId) || !identity(params.relatedMasterId)
+    || typeof params.fileNumber !== 'string' || !params.fileNumber.trim()
+    || typeof params.versionNo !== 'string' || !params.versionNo.trim()
+    || typeof params.dueAt !== 'string' || typeof params.detailUrl !== 'string') return null
+  const dateParts = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(params.dueAt)
+  if (!dateParts) return null
+  const [year, month, day, hour, minute, second] = dateParts.slice(1).map(Number)
+  if (year < 1 || month < 1 || month > 12 || day < 1 || hour > 23 || minute > 59 || second > 59) return null
+  const date = new Date(0); date.setUTCFullYear(year, month - 1, day); date.setUTCHours(hour, minute, second, 0)
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
+  let url: URL
+  try { url = new URL(params.detailUrl, window.location.origin) } catch { return null }
+  if (url.origin !== window.location.origin || url.username || url.password || url.hash
+    || url.pathname !== `/dcc/controlled-file/detail/${params.sourceControlledFileId}`
+    || Array.from(url.searchParams.keys()).some(key => !['viewer', 'from'].includes(key))
+    || url.searchParams.getAll('viewer').length !== 1 || url.searchParams.get('viewer') !== '1'
+    || url.searchParams.getAll('from').length !== 1 || url.searchParams.get('from') !== 'notification') return null
+  return { type: 'dccRelationRemediation', label: '查看来源受控申请', targetId: params.sourceControlledFileId,
+    relatedMasterId: params.relatedMasterId, dueAt: params.dueAt }
+}
 export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): NotifyMessageTarget[] => {
   const templateParams = normalizeTemplateParams(message?.templateParams)
   if (!templateParams) {
     return []
+  }
+  if (message?.templateCode === 'dcc_relation_remediation') {
+    const target = resolveDccRelationRemediationTarget(templateParams)
+    return target ? [target] : []
   }
   if (templateParams.notifyTargetType === DCC_OFFLINE_TRAINING_RECORD) {
     try {
@@ -301,7 +336,7 @@ export const navigateToNotifyMessageTarget = async (
     })
     return
   }
-  if (target.type === 'dccPublication') {
+  if (target.type === 'dccPublication' || target.type === 'dccRelationRemediation') {
     await router.push({
       name: 'DccControlledFileDetail',
       params: { id: target.targetId },

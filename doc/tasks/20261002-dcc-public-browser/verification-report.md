@@ -230,3 +230,7 @@ Root授单submitterhelper准确优先formalresponse.data.msg，actualaxiosAxiosE
 ## G64 r2 准确NameClaim指引
 
 Root真实r12/025code1080000348/nameMsg，026误编号建议，授权同helper有限精确分支。actualAxios NameClaim/knownmsg原RED5=4P/1F→末3files17全PASS0fail/skip/exit0+单lint0；仅code1080000348(number/string)或已核完整nameMsg，不broadexists猜name。显示原名占用/作废20年仍占用+引用/既有文件链升版，无改编号/先作废释放旧建议；后端历史msg不写。原number/unknown/无payload/storageformat合同保，1prod同test扩2assetfreeze新r2seal旧不盖，ParentG63/其它原pin同。无types/build(明确Rootscope)/Maven/DB/API/UI/服务/Git；Root新自然UI提示待，原negativecode不外推全E2E。
+
+## G67 通知精确来源入口最终冻结
+
+2生产+1test sourcefreeze17finite/2lint，Root准singlefulltypes75657实际0、singleVite84592实际0/Buildsuccessful，仅既有2warning无依赖/config改。原code+6tuple/sameorigin/唯一viewerfrom/LongMAX/deadline，existing NotifyMessageVOtemplateCode可靠非新增marker，badrelation不泛BPMtarget；原消息详情button中文身份/期限只读来源，readonly权限后端保，no relatedMaster->file猜。没mytasks/DTO/workbench/provider/审批/角色扩，BErelay与原sender契约同。ParentG63/submitterG64/workbenchG59 protected全部旧raw同，旧notifyseal此2file有明确supersedes。finalmanifest/Keep/pin/log验证齐ready_for_closeout_for_Root_review，sharedtaskin_progress。Rootactual新B1消息接收/来源button/10月13 inclusive7天提醒待，Agent无实际API/UI/DB/Git/service/Maven；taskbuild临时output由Rootcleanup、不发布。

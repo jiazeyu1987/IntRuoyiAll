@@ -136,6 +136,8 @@ ready_for_closeout for Root review of this display-only increment; shared task r
 
 ## Cleanup Keep
 
+- doc/tasks/20261002-dcc-public-browser/g67-notification-reminder-ui-path.md
+- doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json
 - doc/tasks/20261002-dcc-public-browser/g66-frontend-completion-proof-audit.md
 - doc/tasks/20261002-dcc-public-browser/g65-checkout-entry-branch-readonly-diagnostic.md
 - doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-bdd.md

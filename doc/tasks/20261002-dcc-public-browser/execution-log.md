@@ -253,3 +253,11 @@ Root纠正HTTP200业务拒绝非checkoutsuccess，无ACTIVE锁，4032有另4034W
 ## G66 有限前端完成证明审计
 
 g66-frontend-completion-proof-audit.md最多3页压缩表完成，literal流程01/02/07/08/09/10/11/12 handler+state/gate+具体behaviorassert+Root真实receipts，AC08/27更新三拒/第四同A3受控下发，不沿旧g61NOT_RUN。只读currentG63/G64r2/G58manifest8assets0mismatch，原Node23/17/20SHA、NameRef13和control16XMLhash/count0failerrorSkip核，不相加、不Maven。AC03–05已有source/unit断言但专项实际UI receipt缺、新default/draft变更/OTHERNAtransfer有限补证路径给Root；AC22rollover/replacement/二actorlock定向非全UI；newnameRoot仍复验不提前PASS。D08/Zafter/ref最新/纸细则待定标签明示，不扩。只docs/Keep，无source/test/编译/HTTP/UI/DB/Git/服务操作，共享任务Root完成审查后定状态。
+
+## G67 关联整改通知精确安全入口
+
+Root将原readonlyplan收敛授权两FE源，不mytasks新队列/DTO/marker。现正式templatecode+sender6tuple/LongMAX/合法秒date，同源sourceexactpath/唯一viewer1fromnotification，typedsource只读；中文身份/期限+原详情专用button/内容click先close再navigate，不relatedMaster当File或grant权限。oldpayloadresolver/handleractualRED3=1P/2F→末3files17全PASS0fail/skip/exit0+2lint0（new3/offline6/project8不加历史）。Root准single全types75657已0/build84592仍running taskoutDir保共享dist，sourcefreeze。ParentG63/submitterG64/workbenchG59保护pins全同，BE无变。提醒10/6+7 inclusive10/13UPCOMING、全列表排序/提醒排FUTURE/已下发不入，不改时钟或数据。Rootrealnotify/UI待，Agent无API/DB/UI/Git/Maven/服务。
+
+## G67 通知精确来源入口最终冻结
+
+2生产+1test sourcefreeze17finite/2lint，Root准singlefulltypes75657实际0、singleVite84592实际0/Buildsuccessful，仅既有2warning无依赖/config改。原code+6tuple/sameorigin/唯一viewerfrom/LongMAX/deadline，existing NotifyMessageVOtemplateCode可靠非新增marker，badrelation不泛BPMtarget；原消息详情button中文身份/期限只读来源，readonly权限后端保，no relatedMaster->file猜。没mytasks/DTO/workbench/provider/审批/角色扩，BErelay与原sender契约同。ParentG63/submitterG64/workbenchG59 protected全部旧raw同，旧notifyseal此2file有明确supersedes。finalmanifest/Keep/pin/log验证齐ready_for_closeout_for_Root_review，sharedtaskin_progress。Rootactual新B1消息接收/来源button/10月13 inclusive7天提醒待，Agent无实际API/UI/DB/Git/service/Maven；taskbuild临时output由Rootcleanup、不发布。
