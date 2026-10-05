@@ -284,7 +284,7 @@
                    ranked_review.event_id,
                    ranked_review.leader_user_id,
                    CASE WHEN ranked_review.review_status = 'REJECTED'
-                        AND review_event.event_type = 'PQC_INSPECTION'
+                        AND review_event.event_type IN ('PQC_INSPECTION', 'PRODUCTION_SUBMIT')
                         AND EXISTS (
                             SELECT 1 FROM mes_pro_process_pool_event_revision correction
                             WHERE correction.tenant_id = ranked_review.tenant_id
@@ -315,6 +315,59 @@
                               AND JSON_UNQUOTE(JSON_EXTRACT(correction.after_payload, '$.supersededReviewId')) =
                                   CAST(ranked_review.id AS CHAR)
                               AND JSON_EXTRACT(correction.after_payload, '$') = JSON_EXTRACT(review_event.raw_payload, '$')
+                              AND (review_event.event_type = 'PQC_INSPECTION' OR (
+                                  ranked_review.leader_type = 'PRODUCTION'
+                                  AND correction.server_revision_time <![CDATA[>=]]> ranked_review.reviewed_at
+                                  AND correction.modified_by_user_id = review_event.actual_employee_id
+                                  AND review_event.actual_employee_id = review_event.signature_user_id
+                                  AND JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.signatureIdentityDomain')) = 'SYSTEM_USER'
+                                  AND JSON_VALID(correction.before_payload)
+                                  AND JSON_EXTRACT(correction.before_payload, '$') <![CDATA[<>]]> JSON_EXTRACT(correction.after_payload, '$')
+                                  AND EXISTS (
+                                      SELECT 1 FROM system_electronic_signature original_signature
+                                      WHERE original_signature.id = review_event.signature_id
+                                        AND original_signature.tenant_id = review_event.tenant_id
+                                        AND original_signature.deleted = 0
+                                        AND original_signature.module_code = 'MES'
+                                        AND original_signature.action_code = 'PRODUCTION_SUBMIT'
+                                        AND original_signature.verification_status = 'VALID'
+                                        AND original_signature.actor_id = review_event.actual_employee_id
+                                        AND JSON_VALID(original_signature.canonical_content_json)
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.domain')) = 'SYSTEM_USER'
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.signerId')) = CAST(review_event.actual_employee_id AS CHAR)
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(original_signature.canonical_content_json, '$.signatureIdentity.tenantId')) = CAST(review_event.tenant_id AS CHAR)
+                                  )
+                                  AND EXISTS (
+                                      SELECT 1 FROM system_electronic_signature correction_signature
+                                      WHERE correction_signature.id = correction.revision_signature_id
+                                        AND correction_signature.tenant_id = correction.tenant_id
+                                        AND correction_signature.deleted = 0
+                                        AND correction_signature.module_code = 'MES'
+                                        AND correction_signature.action_code = 'FIELD_CHANGE'
+                                        AND correction_signature.subject_type = 'MES_BATCH_RECORD'
+                                        AND correction_signature.verification_status = 'VALID'
+                                        AND correction_signature.actor_id = review_event.actual_employee_id
+                                        AND correction_signature.signed_at <![CDATA[>=]]> ranked_review.reviewed_at
+                                  )
+                                  AND 1 = (
+                                      SELECT COUNT(*) FROM mes_active_order_handoff_task correction_task
+                                      WHERE correction_task.tenant_id = correction.tenant_id
+                                        AND correction_task.deleted = 0
+                                        AND correction_task.task_type = 'PRODUCTION_REVIEW'
+                                        AND correction_task.source_type = 'PROCESS_POOL_EVENT'
+                                        AND correction_task.source_id = review_event.id
+                                        AND correction_task.round_id = correction.id
+                                        AND correction_task.status = 'TODO'
+                                        AND correction_task.initiated_by = review_event.actual_employee_id
+                                        AND correction_task.work_order_id = review_event.work_order_id
+                                        AND correction_task.route_process_id = review_event.route_process_id
+                                        AND JSON_TYPE(JSON_EXTRACT(review_event.raw_payload, '$.activeOrderId')) = 'INTEGER'
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(review_event.raw_payload, '$.activeOrderId')) = CAST(correction_task.active_order_id AS CHAR)
+                                        AND JSON_VALID(correction_task.responsibility_snapshot_json)
+                                        AND JSON_UNQUOTE(JSON_EXTRACT(correction_task.responsibility_snapshot_json, '$.correctionOrigin')) = 'OWN_RETURN_CORRECTION'
+                                        AND CAST(correction_task.candidate_user_snapshot AS BINARY) = CAST(CAST(ranked_review.leader_user_id AS CHAR) AS BINARY)
+                                  )
+                              ))
                         ) THEN 'PENDING' ELSE ranked_review.review_status END AS review_status,
                    ranked_review.review_remark,
                    ranked_review.reviewed_at
@@ -323,6 +376,7 @@
                        review_log.tenant_id,
                        review_log.event_id,
                        review_log.leader_user_id,
+                       review_log.leader_type,
                        review_log.review_status,
                        review_log.review_remark,
                        review_log.reviewed_at,

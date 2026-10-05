@@ -4109,6 +4109,8 @@
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { handoffNavigationContext } from '@/api/mes/pro/handoff'
+import { resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -4913,10 +4915,12 @@ const pagedProductionPersonnelRows = computed(() => {
 const normalizedActiveOrderWorkOrderKeyword = computed(() =>
   activeOrderWorkOrderKeyword.value.trim().toLowerCase()
 )
+const handoffActiveOrderAnchor = ref<string>()
 const filteredActiveOrderRows = computed(() => {
+  const anchored = handoffActiveOrderAnchor.value ? activeOrderOptions.value.filter(order => String(order.id) === handoffActiveOrderAnchor.value) : activeOrderOptions.value
   const keyword = normalizedActiveOrderWorkOrderKeyword.value
-  if (!keyword) return activeOrderOptions.value
-  return activeOrderOptions.value.filter((order) =>
+  if (!keyword) return anchored
+  return anchored.filter((order) =>
     String(order.workOrderCode || '').toLowerCase().includes(keyword)
   )
 })
@@ -8826,7 +8830,7 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
 
 const openReview = async (event: ProcessPoolTimelineEventVO) => {
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
-  if (!canReviewSubmission(event)) {
+  if (route.query.handoffReadOnly === '1' || !canReviewSubmission(event)) {
     ElMessage.error('已完成复核的提交不能重复复核')
     return
   }
@@ -10383,11 +10387,104 @@ const navigateToProductionEvent = async (value: unknown) => {
   }
 }
 
+const requireProductionHandoffDetail = (
+  selected: ProcessPoolTimelineDetailVO,
+  task: Awaited<ReturnType<typeof handoffNavigationContext>>['task']
+) => {
+  const positiveIdentity = (value: unknown): boolean =>
+    (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ||
+    (typeof value === 'string' && /^[1-9][0-9]*$/.test(value))
+  const sameIdentity = (value: unknown, expected: unknown): boolean =>
+    positiveIdentity(value) && positiveIdentity(expected) && String(value) === String(expected)
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+
+  // Production belongs to the shared report pool. Its top-level cycle is a PQC-only projection.
+  // The original production source is frozen in the payload, independently of FIFO target orders.
+  if (typeof selected.originalPayloadJson !== 'string' || !selected.originalPayloadJson.trim()) {
+    throw new Error('生产正式提交载荷缺失，禁止推断原周期')
+  }
+  const payload: unknown = JSON.parse(selected.originalPayloadJson)
+  if (!isRecord(payload) || !isRecord(payload.activeOrderProcess)) {
+    throw new Error('生产正式提交载荷缺少原周期工序身份')
+  }
+  const source = payload.activeOrderProcess
+  if (!sameIdentity(payload.activeOrderId, task.activeOrderId) ||
+    !sameIdentity(source.activeOrderId, task.activeOrderId) ||
+    !sameIdentity(payload.workOrderId, task.workOrderId) ||
+    !sameIdentity(selected.workOrderId, task.workOrderId) ||
+    !sameIdentity(payload.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(source.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(selected.routeProcessId, task.routeProcessId) ||
+    !sameIdentity(payload.processId, selected.processId) ||
+    !sameIdentity(source.processId, selected.processId) ||
+    !sameIdentity(payload.routeId, selected.routeId) ||
+    (selected.activeOrderId != null && !sameIdentity(selected.activeOrderId, task.activeOrderId))) {
+    throw new Error('生产正式提交载荷与原周期、原工序、原工单不一致')
+  }
+  if (!Array.isArray(selected.reportAllocations)) throw new Error('生产正式分配关联缺失')
+  const allocationIds = new Set<string>()
+  const originalAllocations = selected.reportAllocations.filter(allocation => {
+    if (!isRecord(allocation) || !positiveIdentity(allocation.allocationId) ||
+      !positiveIdentity(allocation.activeOrderId) || !positiveIdentity(allocation.workOrderId) ||
+      allocationIds.has(String(allocation.allocationId))) throw new Error('生产正式分配关联身份无效或重复')
+    allocationIds.add(String(allocation.allocationId))
+    if (!sameIdentity(allocation.activeOrderId, task.activeOrderId)) return false
+    if (!sameIdentity(allocation.workOrderId, task.workOrderId)) throw new Error('原周期生产分配与原工单不一致')
+    return true
+  })
+  if (originalAllocations.length > 1) throw new Error('原周期生产分配关联不唯一')
+  // Rejection retires CURRENT allocations; a signed correction creates a new PENDING round before FIFO.
+  const awaitingReallocation = selected.submissionReviewStatus === 'REJECTED' ||
+    (!sameIdentity(task.roundId, task.sourceId) && selected.submissionReviewStatus === 'PENDING')
+  if (!originalAllocations.length && !awaitingReallocation) throw new Error('原周期正式生产分配不存在')
+}
+
+let handoffNavigationEpoch = 0
+const navigateToLeaderHandoff = async () => {
+  const epoch = ++handoffNavigationEpoch
+  handoffActiveOrderAnchor.value = undefined
+  if (route.query.handoffTaskId === undefined) return
+  detailVisible.value = false; detail.value = undefined
+  try {
+    const id = route.query.handoffTaskId
+    if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务编号无效')
+    const context = await handoffNavigationContext(id)
+    if (epoch !== handoffNavigationEpoch) return
+    const target = resolveActiveOrderHandoffTarget({ actionUrl: context.task.actionUrl, handoffTaskId: context.task.id, handoffType: context.task.taskType, activeOrderId: context.task.activeOrderId })
+    if (!target || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
+      || Object.keys(route.query).some(key => !(key in target.query) && key !== 'handoffReadOnly')) throw new Error('页面参数与原交接任务不一致')
+    if (!context.current || context.task.status === 'CANCELED') throw new Error('旧周期交接已失效，禁止办理新周期')
+    if (!context.processable && route.query.handoffReadOnly !== '1') throw new Error('该交接已完成，仅允许查看原结果')
+    if (context.task.taskType === 'QA_DECISION_HANDOFF') {
+      if (!isProductionLeader.value) throw new Error('该交接仅供原生产组长接手')
+      await loadActiveOrders()
+      if (epoch !== handoffNavigationEpoch) return
+      if (!activeOrderOptions.value.some(order => String(order.id) === String(context.task.activeOrderId))) throw new Error('原周期活跃订单不可办理')
+      handoffActiveOrderAnchor.value = String(context.task.activeOrderId); activeOrderQuery.pageNo = 1
+      activeProductionModuleTab.value = 'activeOrder'
+      return
+    }
+    const leader = context.task.taskType === 'PRODUCTION_REVIEW' ? 'PRODUCTION' : context.task.taskType === 'PQC_REVIEW' ? 'PQC' : undefined
+    if (!leader || resolveCurrentLeaderType() !== leader) throw new Error('交接类型与当前岗位页面不一致')
+    if (context.task.sourceType !== 'PROCESS_POOL_EVENT' ||
+      String(context.task.sourceId) !== target.query.eventId ||
+      String(context.task.roundId) !== target.query.roundId) throw new Error('交接任务与原提交事件、原轮次不一致')
+    const eventId = parseProductionEventQuery(target.query.eventId)!
+    const selected = await getTeamLeaderSubmissionDetail(eventId, leader)
+    if (epoch !== handoffNavigationEpoch) return
+    if (String(selected.id) !== target.query.eventId) throw new Error('正式提交详情与原事件不一致')
+    if (leader === 'PRODUCTION') requireProductionHandoffDetail(selected, context.task)
+    else if (String(selected.activeOrderId) !== target.query.activeOrderId) throw new Error('正式提交详情与原周期、原事件不一致')
+    detail.value = selected; pqcDetailQuery.pageNo = 1
+    if (leader === 'PQC') activePqcModuleTab.value = 'detail'
+    else { activeProductionModuleTab.value = ['APPROVED', 'REJECTED'].includes(selected.submissionReviewStatus || '') ? 'reportHistory' : 'report'; detailVisible.value = true }
+  } catch (error) { if (epoch === handoffNavigationEpoch) { loadError.value = resolveErrorMessage(error, '原周期交接加载失败'); ElMessage.error(loadError.value) } }
+}
+watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.eventId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], () => { void navigateToLeaderHandoff() }, { immediate: true })
 watch(
   () => route.query.eventId,
-  (value) => {
-    void navigateToProductionEvent(value)
-  },
+  (value) => { if (route.query.handoffTaskId === undefined) void navigateToProductionEvent(value) },
   { immediate: true }
 )
 

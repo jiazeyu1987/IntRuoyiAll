@@ -59,6 +59,8 @@ class MesReportAllocationConcurrencyTest {
                 allocationMapper, stateMapper, auditMapper, reviewMapper, poolQuantityService, releaseStateService,
                 targetService, fifoService, routeStartAuthorizationService, quantityFragmentService,
                 completionService, reportManagementSummaryService, activeOrderProcessSnapshotMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         when(routeStartAuthorizationService.listAuthorizedRouteProcesses(3001L)).thenReturn(List.of(
                 MesProRouteProcessDO.builder().id(5001L).processId(6001L).build()));

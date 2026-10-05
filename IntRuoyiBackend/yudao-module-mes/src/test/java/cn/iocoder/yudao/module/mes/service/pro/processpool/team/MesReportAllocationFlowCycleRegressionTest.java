@@ -56,6 +56,8 @@ class MesReportAllocationFlowCycleRegressionTest {
                 releases, targets, mock(MesTeamLeaderFifoAllocationService.class), authority,
                 mock(MesReportAllocationQuantityFragmentService.class), completion,
                 mock(MesProductionReportManagementSummaryService.class), snapshots);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         MesProBatchRecordExecutionSignatureService signature = mock(MesProBatchRecordExecutionSignatureService.class);
         when(signature.recordTeamLeaderReviewSignature(any(), any(), any(),
                 eq("PROCESS_POOL_EVENT"), eq(10L), eq("生产报工组长复核"))).thenReturn(99L);

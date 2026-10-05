@@ -81,6 +81,8 @@ public class MesProcessPoolProductionReportCorrectionService {
     private MesProProcessPoolEventRevisionMapper revisionMapper;
     @Resource
     private MesProProcessPoolEventRevisionDiffMapper revisionDiffMapper;
+    @Resource
+    private MesFrontlineReturnCorrectionService ownReturnService;
 
     public MesProcessPoolProductionReportCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
@@ -105,6 +107,22 @@ public class MesProcessPoolProductionReportCorrectionService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long correct(MesProcessPoolProductionReportCorrectionCommand command) {
+        return correctInternal(command, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesFrontlineReturnCorrectionService.CorrectionResult correctOwnReturned(MesProcessPoolProductionReportCorrectionCommand command,
+                                   Long activeOrderId, Long rejectedReviewId, Long expectedRevisionId) {
+        validateCommand(command);
+        gxpAuditService.acquireLedgerLock();
+        var context = ownReturnService.requireOwnReturned(command.getEventId(), activeOrderId,
+                rejectedReviewId, expectedRevisionId, command.getActorUserId(), "PRODUCTION");
+        Long revisionId = correctInternal(command, context);
+        return ownReturnService.complete(context, revisionId, command.getActorUserId());
+    }
+
+    private Long correctInternal(MesProcessPoolProductionReportCorrectionCommand command,
+                                 MesFrontlineReturnCorrectionService.ReturnContext ownReturn) {
         validateCommand(command);
         gxpAuditService.acquireLedgerLock();
         MesProProcessPoolEventDO event = eventMapper.selectByIdForUpdate(command.getEventId());
@@ -114,9 +132,16 @@ public class MesProcessPoolProductionReportCorrectionService {
         if (!MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
         }
-        scopeService.assertCanAccessEmployee(command.getActorUserId(), "PRODUCTION", event.getActualEmployeeId());
+        if (ownReturn == null) {
+            scopeService.assertCanAccessEmployee(command.getActorUserId(), "PRODUCTION", event.getActualEmployeeId());
+        } else if (!Objects.equals(ownReturn.event().getId(), event.getId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.eventChanged");
+        }
 
         ObjectNode afterPayload = requireObject(event.getRawPayload(), "rawPayload").deepCopy();
+        if (ownReturn != null) {
+            afterPayload.put("supersededReviewId", ownReturn.review().getId());
+        }
         ObjectNode fieldValues = requireObject(afterPayload.get("fieldValues"), "rawPayload.fieldValues");
         BigDecimal beforeOutput = requireDecimal(afterPayload.get("outputQuantity"), "rawPayload.outputQuantity");
         BigDecimal beforeLoss = requireDecimal(afterPayload.get("lossQuantity"), "rawPayload.lossQuantity");
@@ -138,7 +163,8 @@ public class MesProcessPoolProductionReportCorrectionService {
         CorrectionAuditState before = correctionAuditState(event, outputFragment, null);
         String afterPayloadJson = JsonUtils.toJsonString(afterPayload);
         String challengeHash = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + afterPayloadJson + "|" + command.getChangeReason().trim());
+                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(afterPayloadJson)
+                        + "|" + command.getChangeReason().trim());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
                 signatureService.recordFieldChangeSignature(
                         new MesProBatchRecordExecutionFieldAuditSignatureCommand()
@@ -179,7 +205,8 @@ public class MesProcessPoolProductionReportCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionCorrection.revisionId");
         }
         MesProProcessPoolEventDO persisted = eventMapper.selectByIdForUpdate(event.getId());
-        if (persisted == null || !Objects.equals(afterPayloadJson, persisted.getRawPayload())) {
+        if (persisted == null || !requireObject(afterPayloadJson, "productionCorrection.persistedPayload")
+                .equals(requireObject(persisted.getRawPayload(), "productionCorrection.persistedPayload"))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionCorrection.persistedPayload");
         }
         CorrectionAuditState after = correctionAuditState(persisted, requireOutputFragment(event.getId()), revisionId);
@@ -261,7 +288,8 @@ public class MesProcessPoolProductionReportCorrectionService {
                             .eq(MesProProcessPoolEventRevisionDiffDO::getRevisionId, revisionId)
                             .orderByAsc(MesProProcessPoolEventRevisionDiffDO::getId).last("FOR UPDATE"));
             if (revision == null || !Objects.equals(revision.getEventId(), event.getId())
-                    || !Objects.equals(revision.getAfterPayload(), event.getRawPayload())
+                    || !requireObject(revision.getAfterPayload(), "productionCorrection.persistedRevision")
+                        .equals(requireObject(event.getRawPayload(), "productionCorrection.persistedRevision"))
                     || diffs == null || diffs.isEmpty() || diffs.stream().anyMatch(diff -> diff == null
                     || !Objects.equals(diff.getRevisionId(), revisionId) || !Objects.equals(diff.getEventId(), event.getId()))) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionCorrection.persistedRevision");
@@ -678,13 +706,44 @@ public class MesProcessPoolProductionReportCorrectionService {
                         .collect(Collectors.toMap(
                         item -> parameterKey(item.getDeviceId(), item.getParameterCode()),
                         item -> item,
-                        (left, right) -> right,
+                        (left, right) -> {
+                            if (!sameParameterValue(requestedParameterValue(left), requestedParameterValue(right))) {
+                                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED,
+                                        "deviceParameterReadings.requestValue");
+                            }
+                            return left;
+                        },
                         LinkedHashMap::new));
         if (byKey.isEmpty() || original == null) {
             return;
         }
 
+        Map<String, Object> originalValues = new LinkedHashMap<>();
+        for (JsonNode node : original) {
+            if (!(node instanceof ObjectNode reading)) {
+                continue;
+            }
+            Long deviceId = longOrNull(reading.get("deviceId"));
+            String parameterCode = text(reading, "parameterCode");
+            if (deviceId == null || deviceId <= 0 || StrUtil.isBlank(parameterCode)) {
+                continue;
+            }
+            String key = parameterKey(deviceId, parameterCode);
+            var change = byKey.get(key);
+            if (change == null) {
+                continue;
+            }
+            Object before = StrUtil.isNotBlank(change.getTextValue())
+                    ? StrUtil.blankToDefault(text(reading, "textValue"), text(reading, "value"))
+                    : decimalOrNull(reading.get("value"));
+            if (originalValues.containsKey(key) && !sameParameterValue(originalValues.get(key), before)) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterReadings.originalValue");
+            }
+            originalValues.put(key, before);
+        }
+
         ArrayNode updated = original.deepCopy();
+        Set<String> changedKeys = new LinkedHashSet<>();
         for (JsonNode node : updated) {
             if (!(node instanceof ObjectNode reading)) {
                 continue;
@@ -694,8 +753,8 @@ public class MesProcessPoolProductionReportCorrectionService {
             if (deviceId == null || deviceId <= 0 || StrUtil.isBlank(parameterCode)) {
                 continue;
             }
-            MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand change =
-                    byKey.remove(parameterKey(deviceId, parameterCode));
+            String key = parameterKey(deviceId, parameterCode);
+            MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand change = byKey.get(key);
             if (change == null) {
                 continue;
             }
@@ -712,9 +771,11 @@ public class MesProcessPoolProductionReportCorrectionService {
                 String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
                 String unit = text(reading, "unit");
                 String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
-                changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
-                        before, after, false, null,
-                        MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
+                if (changedKeys.add(key)) {
+                    changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
+                            before, after, false, null,
+                            MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
+                }
             } else {
                 BigDecimal before = decimalOrNull(reading.get("value"));
                 if (before != null && before.compareTo(change.getValue()) == 0) {
@@ -728,12 +789,26 @@ public class MesProcessPoolProductionReportCorrectionService {
                 String parameterName = StrUtil.blankToDefault(text(reading, "parameterName"), parameterCode);
                 String unit = text(reading, "unit");
                 String displayName = StrUtil.isBlank(unit) ? parameterName : parameterName + "（" + unit + "）";
-                changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
-                        before, change.getValue(), false, null,
-                        MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
+                if (changedKeys.add(key)) {
+                    changes.add(fieldChange("DEVICE_PARAMETERS." + parameterCode, displayName,
+                            before, change.getValue(), false, null,
+                            MesProcessPoolFragmentOriginalField.DEVICE_PARAMETERS));
+                }
             }
         }
         payload.set("deviceParameterReadings", updated);
+    }
+
+    private Object requestedParameterValue(
+            MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand requested) {
+        return StrUtil.isNotBlank(requested.getTextValue()) ? requested.getTextValue().trim() : requested.getValue();
+    }
+
+    private boolean sameParameterValue(Object left, Object right) {
+        if (left instanceof BigDecimal first && right instanceof BigDecimal second) {
+            return first.compareTo(second) == 0;
+        }
+        return Objects.equals(left, right);
     }
 
     private void updateParameterCopies(ObjectNode payload, ObjectNode fieldValues, ObjectNode reading,

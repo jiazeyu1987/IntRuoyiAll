@@ -87,6 +87,10 @@ public class MesReportAllocationCommandService {
     private MesProBatchRecordExecutionSignatureService signatureService;
     @Resource
     private GxpAuditService gxpAuditService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
 
     public MesReportAllocationCommandService(
             MesTeamLeaderScopeService scopeService,
@@ -413,6 +417,7 @@ public class MesReportAllocationCommandService {
             if (!current.isEmpty()) {
                 completionService.reconcileAffectedAllocations(event, current);
             }
+            if (auditReview != null) handoffService.reviewed(event.getId(), auditReview.getId());
             return buildSnapshot(event, pool, state.getCurrentVersion(), current,
                     validation.overageByActiveOrderId());
         }
@@ -464,6 +469,7 @@ public class MesReportAllocationCommandService {
                 beforeAllocationSnapshot, newVersion,
                 next, allocationAuditActiveOrderIds,
                 review.getReviewSignatureId(), "分配保存", null);
+        handoffService.reviewed(event.getId(), review.getId());
         return buildSnapshot(event, pool, newVersion, next, validation.overageByActiveOrderId());
     }
 
@@ -488,11 +494,13 @@ public class MesReportAllocationCommandService {
         int currentVersion = state.getCurrentVersion() == null ? 0 : state.getCurrentVersion();
         List<Map<String, Object>> beforeAllocationSnapshot = allocationAuditSnapshot(current);
         MesProcessPoolSubmissionReviewDO existingReview = reviewMapper.selectLatestByEventIdForUpdate(eventId);
+        var returnedCorrection = returnCorrectionResolver.find(event, existingReview);
         boolean sameRejectedRequest = existingReview != null
                 && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())
                 && isSameRejection(existingReview, leaderUserId, rejectReason);
         if (existingReview != null
-                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())) {
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())
+                && returnedCorrection == null) {
             if (sameRejectedRequest && current.isEmpty()) {
                 return existingReview.getId();
             }
@@ -503,7 +511,7 @@ public class MesReportAllocationCommandService {
         }
         if (existingReview != null
                 && !MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existingReview.getReviewStatus())
-                && !sameRejectedRequest) {
+                && !sameRejectedRequest && returnedCorrection == null) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     eventId, existingReview.getReviewStatus());
         }
@@ -539,11 +547,6 @@ public class MesReportAllocationCommandService {
         }
 
         ReviewSignaturePayload signature = recordRejectionSignature(event, leaderUserId, signaturePassword);
-        if (existingReview != null) {
-            if (reviewMapper.deleteById(existingReview.getId()) != 1) {
-                throw new IllegalStateException("Failed to preserve previous production review history: " + eventId);
-            }
-        }
         MesProcessPoolSubmissionReviewDO rejectedReview = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(eventId)
                 .leaderUserId(leaderUserId)
@@ -554,6 +557,9 @@ public class MesReportAllocationCommandService {
                 .reviewSignatureId(signature.reviewSignatureId())
                 .reviewSignatureUserId(signature.reviewSignatureUserId())
                 .reviewSignatureSnapshotJson(signature.reviewSignatureSnapshotJson())
+                .reviewRound(existingReview == null ? 0 : requiredReviewRound(existingReview) + 1)
+                .sourceRevisionId(returnedCorrection == null ? null : returnedCorrection.getId())
+                .supersededReviewId(existingReview == null ? null : existingReview.getId())
                 .build();
         if (reviewMapper.insert(rejectedReview) != 1) {
             throw new IllegalStateException("Failed to insert production rejection review: " + eventId);
@@ -572,6 +578,7 @@ public class MesReportAllocationCommandService {
         appendAllocationGxpAudit("mes.production.reject", event, currentVersion,
                 beforeAllocationSnapshot, rejectedVersion, List.of(),
                 activeOrderIds, signature.reviewSignatureId(), rejectReason, null);
+        handoffService.reviewed(eventId, rejectedReview.getId());
         return rejectedReview.getId();
     }
 
@@ -795,6 +802,14 @@ public class MesReportAllocationCommandService {
         }
         MesProcessPoolSubmissionReviewDO review = reviewToBackfill == null
                 ? reviewMapper.selectLatestByEventIdForUpdate(event.getId()) : reviewToBackfill;
+        MesProcessPoolSubmissionReviewDO superseded = null;
+        cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO correction = null;
+        if (review != null && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
+            correction = returnCorrectionResolver.find(event, review);
+            if (correction == null) throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS, event.getId(), review.getReviewStatus());
+            superseded = review;
+            review = null;
+        }
         if (review != null) {
             if (MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
                 throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
@@ -833,7 +848,10 @@ public class MesReportAllocationCommandService {
                 .reviewRemark(command.getReason()).reviewedAt(reviewedAt)
                 .reviewSignatureId(signature.reviewSignatureId())
                 .reviewSignatureUserId(signature.reviewSignatureUserId())
-                .reviewSignatureSnapshotJson(signature.reviewSignatureSnapshotJson()).build();
+                .reviewSignatureSnapshotJson(signature.reviewSignatureSnapshotJson())
+                .reviewRound(superseded == null ? 0 : requiredReviewRound(superseded) + 1)
+                .sourceRevisionId(correction == null ? null : correction.getId())
+                .supersededReviewId(superseded == null ? null : superseded.getId()).build();
         if (reviewMapper.insert(review) != 1) {
             throw exception(PRO_PROCESS_POOL_REPORT_ALLOCATION_VERSION_CONFLICT,
                     event.getId(), command.getExpectedVersion(), null);
@@ -1111,10 +1129,16 @@ public class MesReportAllocationCommandService {
 
     private void assertSubmissionNotRejected(Long eventId) {
         MesProcessPoolSubmissionReviewDO review = reviewMapper.selectLatestByEventIdForUpdate(eventId);
-        if (review != null && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())) {
+        if (review != null && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(review.getReviewStatus())
+                && returnCorrectionResolver.find(requireEvent(eventId, true), review) == null) {
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_TERMINAL_EXISTS,
                     eventId, review.getReviewStatus());
         }
+    }
+    private int requiredReviewRound(MesProcessPoolSubmissionReviewDO review) {
+        cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffContract.require(
+                review.getReviewRound() != null && review.getReviewRound() >= 0, "正式复核轮次缺失，请核对迁移");
+        return review.getReviewRound();
     }
 
     private void validateRejectCommand(Long eventId, Long leaderUserId,
@@ -1171,9 +1195,12 @@ public class MesReportAllocationCommandService {
     private ReviewSignaturePayload recordRejectionSignature(MesProProcessPoolEventDO event,
                                                                Long leaderUserId,
                                                                String signaturePassword) {
-        Long signatureId = signatureService.recordTeamLeaderReviewSignature(
+        var correction = returnCorrectionResolver.find(event, reviewMapper.selectLatestByEventIdForUpdate(event.getId()));
+        Long signatureId = correction == null ? signatureService.recordTeamLeaderReviewSignature(
                 leaderUserId, signaturePassword, "组长驳回生产报工:PRODUCTION:" + event.getId(),
-                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长驳回");
+                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长驳回")
+                : signatureService.recordTeamLeaderReviewSignature(leaderUserId, signaturePassword,
+                    "组长驳回本人更正报工:PRODUCTION:" + event.getId(), reviewSignatureContext(event, "REJECTED", correction));
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("signatureId", signatureId);
         snapshot.put("actorId", leaderUserId);
@@ -1182,15 +1209,19 @@ public class MesReportAllocationCommandService {
         snapshot.put("eventType", event.getEventType());
         snapshot.put("leaderType", MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
         snapshot.put("reviewStatus", MesProcessPoolSubmissionReviewDO.STATUS_REJECTED);
+        addCorrectionEvidence(snapshot, event, correction);
         return new ReviewSignaturePayload(signatureId, leaderUserId, JsonUtils.toJsonString(snapshot));
     }
 
     private ReviewSignaturePayload recordApprovedReviewSignature(MesProProcessPoolEventDO event,
                                                                   MesReportAllocationSaveCommand command,
                                                                   LocalDateTime reviewedAt) {
-        Long signatureId = signatureService.recordTeamLeaderReviewSignature(command.getLeaderUserId(),
+        var correction = returnCorrectionResolver.find(event, reviewMapper.selectLatestByEventIdForUpdate(event.getId()));
+        Long signatureId = correction == null ? signatureService.recordTeamLeaderReviewSignature(command.getLeaderUserId(),
                 command.getSignaturePassword(), "组长报工分配确认:PRODUCTION:" + event.getId(),
-                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长复核");
+                "PROCESS_POOL_EVENT", event.getId(), "生产报工组长复核")
+                : signatureService.recordTeamLeaderReviewSignature(command.getLeaderUserId(), command.getSignaturePassword(),
+                    "组长复核本人更正报工:PRODUCTION:" + event.getId(), reviewSignatureContext(event, "APPROVED", correction));
         return new ReviewSignaturePayload(signatureId, command.getLeaderUserId(),
                 buildApprovedReviewSignatureSnapshot(event, command, signatureId, reviewedAt));
     }
@@ -1208,7 +1239,24 @@ public class MesReportAllocationCommandService {
         snapshot.put("leaderType", command.getLeaderType());
         snapshot.put("reviewStatus", MesProcessPoolSubmissionReviewDO.STATUS_APPROVED);
         snapshot.put("reviewedAt", reviewedAt);
+        addCorrectionEvidence(snapshot, event, returnCorrectionResolver.find(event, reviewMapper.selectLatestByEventIdForUpdate(event.getId())));
         return JsonUtils.toJsonString(snapshot);
+    }
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext reviewSignatureContext(
+            MesProProcessPoolEventDO event, String decision,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO correction) {
+        return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext(event.getId(), decision,
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),
+                correction.getId(), correction.getRevisionSignatureId(), JsonUtils.parseTree(correction.getAfterPayload()).path("supersededReviewId").longValue());
+    }
+    private void addCorrectionEvidence(Map<String,Object> snapshot, MesProProcessPoolEventDO event,
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO correction) {
+        snapshot.put("payloadHash", cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()));
+        snapshot.put("originalSubmissionSignatureId", event.getSignatureId());
+        if (correction != null) {
+            snapshot.put("revisionId", correction.getId()); snapshot.put("revisionSignatureId", correction.getRevisionSignatureId());
+            snapshot.put("supersededReviewId", JsonUtils.parseTree(correction.getAfterPayload()).path("supersededReviewId").longValue());
+        }
     }
 
     private void assertScope(MesProProcessPoolEventDO event, Long leaderUserId, String leaderType) {
