@@ -1,0 +1,17 @@
+# G62 — 原生上传升版完成结果使用真实旧版作废事实
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root真实自然生效job将A/2置ACTIVE、旧A/1置OBSOLETE，detail4032 r9/311却显示固定“旧版SUPERSEDED”。Root授权仅当前ACTIVE完成面板展示，不新增pending面板/操作。
+
+Given正式file processDefinitionKey是nativeUP/REV且有其真实BPM、statusACTIVE，When实际completion summaryhelper和原模板执行，Then原生文案说明受控/按日期生效、旧版生效时作废；旧版卡仅从OBSOLETE且supersededByFileId指当前file的正式history显示，不把SUPERSEDED当本链实际证据。Master当前执行版本来自currentActiveVersionNo，缺字段不猜ACTIVE当前。
+
+Givenexplicit旧approval或EXTERNAL_REVIEW完成版本，Then保原发布完成/SUPERSEDED证据，不强改历史状态。未知key或没有BPM不套legacy，也不新显示待生效面板。原变更类型、日期、操作/查询、角色/签名、后端mutation不改。
+
+唯一生产Parent/detail index显示getter/纯helper与template。先实际旧summary情景RED→GREEN，相关原native/closure/r2有限回归和Parentlint；Root统一完整types/build/真实验，无Maven/API/UI/DB/Git/服务。
+
+已实施：仅正式file key UP/REV和非空原BPM识别native完成版本；外部评审及旧approval显式legacy保原card/text，UNKNOWN不冒legacy。保持面板仅ACTIVE不新增pending入口。native标题“受控与生效结果”，显示实际controlled/effective/activated事实；旧版card只读OBSOLETE且后继当前file的原history，Master当前执行版本缺失时未记录，不借ACTIVE状态确认。其他查询/操作/流程不改。
+
+有效RED原实际summarycomputed及模板renderer3项均FAIL/exit1：旧nativeSUPERSEDED误显示、缺Master仍确认、原真实模板硬编码。正式新增helper/分支后最终5文件32项PASS、0fail/skip、exit0，Parentlint0warning/exit0。包含新3和既有29native/closure/readonly回归，不累加历史。没有宿主setup失败或测试重建旧getter；实际原源码直接RED。
+
+Root随后授权此Agent单次完整验证，等效正式ts:check：8192heap/vue-tsc --noEmit -p tsconfig.relaxed.json，session78607实际exit0；build env.local mode用已安装Vite并独立task临时outDir，session61132实际exit0、Build successful。仅既有Browserslist数据过期提示，无更新依赖或配置。验证阶段source/test冻结不写，未运行Maven或真实UI/API/DB/Git/服务。
+
+最终g62-native-completion-summary-fingerprints.json记录1生产/1test、有效RED/32final/lint/全types/build原日志。Parent本阶段raw86039af7b173dd0513f715aa44b4041d19ca3daa25c46b36446762dd0fc47ca8，其余G58/G59资产原raw保持；新seal仅替代Parent展示字节，不覆盖旧收据。task临时构建目录由Root最终cleanup处理，不发布到运行服务。

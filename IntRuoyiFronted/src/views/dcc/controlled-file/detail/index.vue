@@ -652,9 +652,9 @@ v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
     >
       <div class="detail-table-header mb-12px">
         <div>
-          <div class="text-15px font-600">发布完成结果</div>
+          <div class="text-15px font-600">{{ publishCompletionSummaryTitle }}</div>
           <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位 · 可见范围说明
+            {{ publishCompletionSummaryDescription }}
           </div>
         </div>
         <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
@@ -4183,9 +4183,44 @@ const supersededPredecessorVersions = computed(() => {
       String(version.supersededByFileId || '').trim() === currentId
   )
 })
+const publishCompletionSummaryMode = computed(() => {
+  const file = fileDetail.value
+  if (!file?.processInstanceId?.trim()) return 'UNKNOWN'
+  if (['dcc-controlled-file-upload', 'dcc-controlled-file-revision'].includes(file.processDefinitionKey || '')) return 'NATIVE'
+  if (['dcc-controlled-file-approval', 'dcc-external-file-review'].includes(file.processDefinitionKey || '')) return 'LEGACY'
+  return 'UNKNOWN'
+})
+const publishCompletionSummaryTitle = computed(() => publishCompletionSummaryMode.value === 'NATIVE' ? '受控与生效结果' : '发布完成结果')
+const publishCompletionSummaryDescription = computed(() => publishCompletionSummaryMode.value === 'NATIVE'
+  ? '受控与生效分别记录 · 新版生效时旧版自动作废 · master 当前执行受控版本 · 受控浏览落位 · 可见范围说明'
+  : '新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位 · 可见范围说明')
+const buildNativePublishCompletionSummary = (file: ControlledFileVO) => {
+  const currentVersionNo = String(file.versionNo || '').trim()
+  const activeVersionNo = String(file.currentActiveVersionNo || '').trim()
+  const predecessors = (file.versionHistory || []).filter(version => version.status === 'OBSOLETE'
+    && String(version.supersededByFileId || '') === String(file.id))
+  return [
+    { key: 'new-active', label: '查看版本已生效', value: `${currentVersionNo || '-'} / ${getDetailStatusLabel(file.status)}`,
+      description: `受控：${file.controlledTime || '未记录'}；预设生效日期：${file.effectiveDate || '未记录'}；实际生效：${file.activatedTime || '未记录'}`,
+      ok: file.status === 'ACTIVE' && Boolean(file.controlledTime && file.activatedTime) },
+    { key: 'old-obsolete', label: '旧版自动作废',
+      value: predecessors.length ? predecessors.map(getVersionHistoryIdentityText).join('；') : '未记录由本版本生效而作废的旧版',
+      description: '新版生效时，旧版自动作废；新版提前受控时旧执行版本保持可执行。', ok: predecessors.length > 0 },
+    { key: 'master-current', label: 'master 当前执行受控版本',
+      value: activeVersionNo ? `已指向 ${activeVersionNo}` : '详情未返回 master 当前执行版本号',
+      description: '仅按正式 master 当前执行版本号核对，不由查看版本 ACTIVE 状态推断。',
+      ok: file.status === 'ACTIVE' && Boolean(activeVersionNo) && activeVersionNo === currentVersionNo },
+    { key: 'controlled-browser-landed', label: '受控浏览落位',
+      value: `目录：${controlledBrowserDirectoryPath.value}；发布件：${file.publishedArtifactAvailable ? '可用' : '缺失'}；盖章件：${file.stampedArtifactAvailable ? '可用' : '缺失'}`,
+      description: '受控目录、发布文件和盖章文件的可用性来自正式详情事实。',
+      ok: Boolean(file.publishedArtifactAvailable && file.stampedArtifactAvailable) },
+    { key: 'visibility-scope', label: '可见范围说明', value: publishVisibilityScopeText.value,
+      description: '按分类、目录、项目和 VIEW 权限矩阵决定可见范围。', ok: true }
+  ]
+}
 const isPublishCompletionSummaryVisible = computed(() => {
   const file = fileDetail.value
-  if (!file || file.status !== 'ACTIVE') {
+  if (!file || file.status !== 'ACTIVE' || publishCompletionSummaryMode.value === 'UNKNOWN') {
     return false
   }
   return Boolean(
@@ -4200,6 +4235,8 @@ const publishCompletionSummaryItems = computed(() => {
   if (!file) {
     return []
   }
+  if (publishCompletionSummaryMode.value === 'NATIVE') return buildNativePublishCompletionSummary(file)
+  if (publishCompletionSummaryMode.value !== 'LEGACY') return []
   const activeVersionNo = String(file.currentActiveVersionNo || '').trim()
   const currentVersionNo = String(file.versionNo || '').trim()
   const masterPointsToCurrent = Boolean(
