@@ -3,13 +3,23 @@
     <div class="edhr-ncr" data-edhr-ncr-page>
       <EdhrBatchRecordTabs active-tab="nonconformanceReview" />
 
+      <div v-if="canConfigureQaAssignment" class="edhr-ncr__assignments">
+        <QaHandoffAssignmentConfig v-if="canConfigureQaAssignment" />
+        <PqcHandoffAssignmentConfig v-if="canConfigurePqcAssignment" />
+      </div>
+
       <div class="edhr-ncr__header">
         <div>
           <div class="edhr-ncr__title">不合格评审</div>
           <div class="edhr-ncr__subtitle">冻结后禁止报工、PQC提交、PQC放行</div>
         </div>
         <div class="edhr-ncr__header-actions">
-          <el-button type="primary" data-edhr-ncr-open-create @click="openCreateDialog">
+          <el-button
+            v-if="canCreateReview"
+            type="primary"
+            data-edhr-ncr-open-create
+            @click="openCreateDialog"
+          >
             新建
           </el-button>
           <el-button data-edhr-ncr-refresh @click="loadReviews">刷新</el-button>
@@ -166,7 +176,8 @@
           <div><span class="edhr-ncr__label">冻结时间</span><span>{{ formatDateTime(selectedReview.frozenAt) }}</span></div>
         </div>
 
-        <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW">
+        <el-alert v-if="selectedReviewReadOnly" title="此交接仅供查看原轮次结果，不能再次处置。" type="info" :closable="false" />
+        <template v-if="selectedReview.reviewStatus === REVIEW_STATUS_PENDING_REVIEW && !selectedReviewReadOnly">
           <el-form label-width="110px" :model="disposeForm" class="edhr-ncr__dispose-form">
             <el-form-item label="评审材料" required data-edhr-ncr-review-material>
               <div>
@@ -253,12 +264,15 @@
 <script setup lang="ts">
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
+import QaHandoffAssignmentConfig from '../handoff/QaHandoffAssignmentConfig.vue'
+import PqcHandoffAssignmentConfig from '../handoff/PqcHandoffAssignmentConfig.vue'
 import {
   DISPOSITION_CONCESSION_RELEASE,
   DISPOSITION_REWORK,
   DISPOSITION_VOID,
   REVIEW_STATUS_PENDING_REVIEW,
   SOURCE_TYPE_ACTIVE_ORDER,
+  SOURCE_TYPE_DEVIATION,
   SOURCE_TYPE_PQC_RELEASE,
   SOURCE_TYPE_PQC_SUBMISSION,
   createNonconformanceReview,
@@ -266,6 +280,7 @@ import {
   uploadNonconformanceReviewMaterial,
   getNonconformanceReviewActiveOrderList,
   getNonconformanceReviewPage,
+  getNonconformanceReview,
   type EdhrNonconformanceReviewActiveOrderRespVO,
   type EdhrNonconformanceReviewDisposition,
   type EdhrNonconformanceReviewMaterial,
@@ -274,13 +289,16 @@ import {
   type EdhrNonconformanceReviewRespVO
 } from '@/api/mes/pro/edhr/nonconformanceReview'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { hasPermission } from '@/directives/permission/hasPermi'
 import { resolveUrlPathFileName } from '@/utils/fileName'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
+import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 
 defineOptions({ name: 'MesProFeedbackEdhrNonconformanceReview' })
 
 const route = useRoute()
 const message = useMessage()
+const selectedReviewReadOnly = ref(false)
 
 const listLoading = ref(false)
 const createLoading = ref(false)
@@ -306,6 +324,9 @@ const entryActiveOrderId = computed<number | undefined>(() => {
   return routeId ? Number(routeId) : undefined
 })
 const autoCreate = computed(() => route.query.autoCreate === '1')
+const canCreateReview = computed(() => hasPermission(['mes:pro-edhr-nonconformance-review:create']))
+const canConfigureQaAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
+const canConfigurePqcAssignment = computed(() => hasPermission(['mes:pro-edhr-work-task-rule:query']))
 const entryForm = reactive({ nonconformanceReason: '' })
 
 const selectedActiveOrder = computed(() =>
@@ -339,6 +360,7 @@ const invalidateCreateContext = () => {
   activeOrderCandidatesLoading.value = false
 }
 const invalidateReviewContext = () => {
+  selectedReviewReadOnly.value = false
   invalidateCreateContext()
   reviewContextGeneration++
   materialContextGeneration++
@@ -364,6 +386,7 @@ const resolveSourceTypeLabel = (sourceType?: string) => {
   if (sourceType === SOURCE_TYPE_ACTIVE_ORDER) return '活跃订单'
   if (sourceType === SOURCE_TYPE_PQC_RELEASE) return 'PQC生产放行'
   if (sourceType === SOURCE_TYPE_PQC_SUBMISSION) return 'PQC提交记录'
+  if (sourceType === SOURCE_TYPE_DEVIATION) return '偏差'
   return '未知来源'
 }
 
@@ -437,7 +460,7 @@ const handleMaterialUpload = async (event: Event) => {
   const files = Array.from(input.files || [])
   input.value = ''
   const reviewId = selectedReview.value?.id
-  if (!reviewId || !reviewDialogVisible.value || disposeLoading.value) return
+  if (!reviewId || !reviewDialogVisible.value || disposeLoading.value || selectedReviewReadOnly.value) return
   if (disposeForm.reviewMaterialUrls.length + materialUploadsPending.value + files.length > 5) {
     message.error('最多上传 5 份评审材料。')
     return
@@ -468,7 +491,7 @@ const handleMaterialUpload = async (event: Event) => {
 }
 
 const removeReviewMaterial = (url: string) => {
-  if (disposeLoading.value) return
+  if (disposeLoading.value || selectedReviewReadOnly.value) return
   disposeForm.reviewMaterialUrls = disposeForm.reviewMaterialUrls.filter((value) => value !== url)
   delete disposeForm.reviewMaterialIds[url]
   delete disposeForm.reviewMaterialNames[url]
@@ -513,7 +536,7 @@ const loadReviews = async () => {
     if (!isCurrent()) return
     reviews.value = data.list || []
     total.value = data.total || 0
-    if (selectedReview.value?.id) {
+    if (selectedReview.value?.id && route.query.reviewId === undefined) {
       const refreshed = reviews.value.find((review) => review.id === selectedReview.value?.id)
       if (refreshed) selectedReview.value = refreshed
     }
@@ -533,6 +556,13 @@ const handleTabChange = () => {
 }
 
 const openCreateDialog = async () => {
+  if (!canCreateReview.value) {
+    errorText.value = '没有创建不合格评审的权限。'
+    return
+  }
+  reviewDialogVisible.value = false
+  selectedReview.value = undefined
+  invalidateReviewContext()
   invalidateCreateContext()
   const generation = createContextGeneration
   const reviewGeneration = reviewContextGeneration
@@ -612,6 +642,10 @@ const submitCreateReview = async () => {
 
 const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) => {
   if (disposeLoading.value || !reviewDialogVisible.value) return
+  if (selectedReviewReadOnly.value) {
+    message.error('原轮次交接只允许查看，不能再次处置。')
+    return
+  }
   const reviewId = selectedReview.value?.id
   const generation = reviewContextGeneration
   const isCurrent = () =>
@@ -715,26 +749,149 @@ onBeforeUnmount(() => {
   invalidateCreateContext()
 })
 
-watch(
-  () => [route.name, route.query.activeOrderId, route.query.autoCreate] as const,
-  ([routeName]) => {
-    if (routeName !== 'MesProFeedbackEdhrNonconformanceReview') return
+const requireReviewIdentity = (value: unknown): string => {
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) return value
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return String(value)
+  throw new Error('关联不合格评审身份无效，请从正式偏差详情重新进入。')
+}
+
+const loadReviewEntry = async () => {
+  reviewDialogVisible.value = false
+  closeCreateDialog()
+  invalidateReviewContext()
+  selectedReview.value = undefined
+  errorText.value = ''
+  if (route.name !== 'MesProFeedbackEdhrNonconformanceReview') return
+  const query = { ...route.query }
+  const handoffEntry = ['handoffTaskId', 'handoffType', 'roundId', 'handoffReadOnly']
+    .some(key => query[key] !== undefined)
+  const exactEntry = query.reviewId !== undefined || query.from === 'deviation' ||
+    query.deviationId !== undefined || handoffEntry
+  if (!exactEntry) {
     void loadReviews()
-    if (autoCreate.value && entryActiveOrderId.value) {
-      void openCreateDialog()
-    }
+    if (autoCreate.value && entryActiveOrderId.value) void openCreateDialog()
+    return
   }
+  const generation = reviewContextGeneration
+  const isCurrent = () => generation === reviewContextGeneration
+  reviews.value = []
+  total.value = 0
+  listLoading.value = true
+  try {
+    if (!hasPermission(['mes:pro-edhr-nonconformance-review:query'])) {
+      throw new Error('没有查询关联不合格评审的权限。')
+    }
+    const reviewId = requireReviewIdentity(query.reviewId)
+    let readOnly = false
+    let handoffActiveOrderId: string | undefined
+    if (handoffEntry) {
+      const keys = ['reviewId', 'activeOrderId', 'handoffTaskId', 'roundId', 'handoffType']
+      if (Object.keys(query).some(key => !keys.includes(key) && key !== 'handoffReadOnly') ||
+        (query.handoffReadOnly !== undefined && query.handoffReadOnly !== '1')) {
+        throw new Error('交接评审入口参数不完整或混入其他业务入口。')
+      }
+      const taskId = requireReviewIdentity(query.handoffTaskId)
+      const roundId = requireReviewIdentity(query.roundId)
+      handoffActiveOrderId = requireReviewIdentity(query.activeOrderId)
+      if (query.handoffType !== 'QA_REVIEW' && query.handoffType !== 'QA_DECISION_HANDOFF') {
+        throw new Error('交接类型不属于不合格评审。')
+      }
+      const context = await handoffNavigationContext(taskId)
+      if (!isCurrent()) return
+      const task = context?.task
+      if (!task || requireReviewIdentity(task.id) !== taskId ||
+        requireReviewIdentity(task.activeOrderId) !== handoffActiveOrderId ||
+        requireReviewIdentity(task.roundId) !== roundId ||
+        requireReviewIdentity(task.sourceId) !== reviewId || task.taskType !== query.handoffType) {
+        throw new Error('交接与正式评审任务不一致，请重新进入。')
+      }
+      const url = new URL(task.actionUrl, 'http://handoff.invalid')
+      const urlKeys = Array.from(url.searchParams.keys())
+      if (url.origin !== 'http://handoff.invalid' || url.hash ||
+        url.pathname !== '/mes/pro/feedback/edhr-nonconformance-review' ||
+        urlKeys.length !== keys.length || new Set(urlKeys).size !== keys.length ||
+        keys.some(key => url.searchParams.get(key) !== query[key])) {
+        throw new Error('交接链接与冻结的原轮次不一致。')
+      }
+      const voidResult = task.taskType === 'QA_DECISION_HANDOFF' &&
+        task.status === 'DONE' && task.reason.startsWith('void：')
+      if (task.status === 'CANCELED' || (!context.current && !voidResult) ||
+        (context.processable && (task.status !== 'TODO' || task.taskType !== 'QA_REVIEW')) ||
+        (query.handoffReadOnly === '1' && context.processable)) {
+        throw new Error('原轮次交接已失效，不能办理当前工单。')
+      }
+      readOnly = !context.processable
+    }
+    if (query.from !== undefined && query.from !== 'deviation') {
+      throw new Error('关联不合格评审入口来源无效。')
+    }
+    if (query.autoCreate !== undefined || (!handoffEntry && query.activeOrderId !== undefined)) {
+      throw new Error('关联评审详情不能同时发起新的评审。')
+    }
+    const fromDeviation = query.from === 'deviation'
+    if (!fromDeviation && (query.deviationId !== undefined || query.batchExecutionId !== undefined)) {
+      throw new Error('关联评审的偏差来源参数不完整。')
+    }
+    const deviationId = fromDeviation ? requireReviewIdentity(query.deviationId) : undefined
+    const batchId = fromDeviation ? requireReviewIdentity(query.batchExecutionId) : undefined
+    const review = await getNonconformanceReview(reviewId)
+    if (!isCurrent()) return
+    if (!review || requireReviewIdentity(review.id) !== reviewId) {
+      throw new Error('关联评审单据身份不一致，不能打开。')
+    }
+    if (handoffEntry && (requireReviewIdentity(review.activeOrderId) !== handoffActiveOrderId ||
+      (!readOnly && review.reviewStatus !== REVIEW_STATUS_PENDING_REVIEW))) {
+      throw new Error('评审不属于原交接工单或已完成处置。')
+    }
+    if (fromDeviation) {
+      if (review.sourceType !== SOURCE_TYPE_DEVIATION ||
+        requireReviewIdentity(review.batchExecutionId) !== batchId ||
+        requireReviewIdentity(review.sourceId) !== batchId) {
+        throw new Error('关联评审的正式偏差来源或批次不一致，不能打开。')
+      }
+      if (!review.deviationIdsJson) throw new Error('关联评审缺少正式偏差成员记录。')
+      const deviationIds = parseExactIntegerJson(review.deviationIdsJson)
+      if (!Array.isArray(deviationIds) || !deviationIds.map(requireReviewIdentity).some(id => id === deviationId)) {
+        throw new Error('当前偏差不属于该关联评审，不能打开。')
+      }
+    }
+    // Prepare materials before selecting the object: malformed data must not leave a writable dialog.
+    fillDisposeForm(review)
+    selectedReviewReadOnly.value = readOnly
+    selectedReview.value = review
+    reviewDialogVisible.value = true
+    void loadReviews()
+  } catch (error) {
+    if (isCurrent()) errorText.value = resolveErrorMessage(error, '关联不合格评审加载失败。')
+  } finally {
+    if (isCurrent()) listLoading.value = false
+  }
+}
+
+watch(
+  () => [route.name, route.query.activeOrderId, route.query.autoCreate, route.query.reviewId,
+    route.query.from, route.query.deviationId, route.query.batchExecutionId,
+    route.query.handoffTaskId, route.query.handoffType, route.query.roundId, route.query.handoffReadOnly] as const,
+  () => { void loadReviewEntry() },
+  { flush: 'sync' }
 )
 
-onMounted(() => {
-  void loadReviews()
-  if (autoCreate.value && entryActiveOrderId.value) {
-    void openCreateDialog()
-  }
-})
+onMounted(() => { void loadReviewEntry() })
 </script>
 
 <style scoped>
+.edhr-ncr__assignments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1050px) {
+  .edhr-ncr__assignments {
+    grid-template-columns: 1fr;
+  }
+}
+
 .edhr-ncr {
   display: flex;
   flex-direction: column;

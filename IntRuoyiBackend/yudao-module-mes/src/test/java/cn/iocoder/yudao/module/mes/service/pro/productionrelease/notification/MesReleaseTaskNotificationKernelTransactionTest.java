@@ -419,7 +419,7 @@ class MesReleaseTaskNotificationKernelTransactionTest {
     private static String sourceLocator(String action) {
         return "created".equals(action) ? MesReleaseTaskNotificationService.class.getName() + "#scheduleAssigned"
                 : MesReleaseTaskNotificationTransactionService.class.getName() + "#"
-                + switch (action) { case "attempted" -> "beginAttempt"; case "sent" -> "markSent"; case "failed" -> "markFailed";
+                + switch (action) { case "attempted" -> "recordAttempt"; case "sent" -> "recordSent"; case "failed" -> "recordFailed";
                     default -> throw new AssertionError("unexpected action " + action); };
     }
 

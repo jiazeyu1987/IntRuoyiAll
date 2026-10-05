@@ -10,6 +10,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProces
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
@@ -48,6 +50,7 @@ class MesProductionSignatureEvidenceServiceTest {
     @Mock private GxpAuditEventMapper audits;
     @Mock private MesProcessPoolActiveOrderMapper activeOrders;
     @Mock private MesProProcessPoolEventMapper events;
+    @Mock private MesProWorkOrderMapper workOrders;
     private MesProductionSignatureEvidenceService service;
     private MesProProcessPoolEventDO event;
     private GxpAuditEventDO productionAudit;
@@ -56,7 +59,7 @@ class MesProductionSignatureEvidenceServiceTest {
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
-        service = new MesProductionSignatureEvidenceService(signatures, projections, audits, activeOrders, events);
+        service = new MesProductionSignatureEvidenceService(signatures, projections, audits, activeOrders, events, workOrders);
         event = MesProProcessPoolEventDO.builder().id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(CONTEXT.submissionIdempotencyKey())
@@ -72,6 +75,122 @@ class MesProductionSignatureEvidenceServiceTest {
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
+
+    @Test void p1UsesItsPersistedNonFormalSimulationEvidenceWithoutCreatingFormalEvidence() {
+        simulationFixture();
+        clearInvocations(signatures, audits, events);
+        assertTrue(service.isValidForEvent(event));
+        verifyNoInteractions(signatures, audits);
+        verify(events, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test void formalPayloadMayExplicitlyDisableSimulationWithoutChangingFormalValidation() {
+        event.setRawPayload("{\"activeOrderId\":10,\"simulated\":false,\"simulationStage\":\"\",\"simulationRunId\":\"\"}");
+        assertTrue(service.isValidForEvent(event));
+        verify(signatures).verifyEvidence(1101L);
+    }
+
+    @Test void simulationOnAnotherWorkOrderIsRejected() {
+        simulationFixture();
+        var workOrder = new MesProWorkOrderDO(); workOrder.setTenantId(1L); workOrder.setCode("REAL-WO");
+        when(workOrders.selectById(30L)).thenReturn(workOrder);
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void crossTenantSimulationIsRejected() {
+        simulationFixture(); event.setTenantId(2L);
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void wrongSimulationOwnerIsRejected() {
+        simulationFixture(); event.setActualEmployeeId(2102L); event.setSignatureUserId(2102L);
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void incompleteEventSimulationMarkerIsRejected() {
+        simulationFixture(); event.setSimulated(false);
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void projectionFromAnotherSimulationRunIsRejected() {
+        var projection = simulationFixture(); projection.setReviewSourceName("Stage1模拟[stage=STAGE1][run=OTHER]");
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void forgedPasswordSimulationProjectionIsRejected() {
+        var projection = simulationFixture(); projection.setPasswordVerified(true);
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void mismatchedPayloadSimulationRunIsRejected() {
+        simulationFixture(); event.setRawPayload(event.getRawPayload().replace("STAGE1-RUN", "OTHER-RUN"));
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void mismatchedSimulationSignatureCacheIsRejected() {
+        simulationFixture(); event.setSignatureSnapshot(event.getSignatureSnapshot().replace("STAGE1-RUN", "OTHER-RUN"));
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void duplicatedSimulationSignatureIsRejected() {
+        simulationFixture(); when(events.selectList(any())).thenReturn(List.of(event, event));
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void simulationSnapshotUsesTheDatabaseSecondPrecision() {
+        simulationFixture(); event.setServerSubmitTime(SIGNED_AT);
+        assertTrue(service.isValidForEvent(event));
+    }
+
+    @Test void simulationSnapshotAfterThePersistedEventIsRejected() {
+        simulationFixture();
+        Map<String, Object> snapshot = JsonUtils.parseObject(event.getSignatureSnapshot(), Map.class);
+        snapshot.put("occurredAt", SIGNED_AT.plusSeconds(2));
+        event.setSignatureSnapshot(JsonUtils.toJsonString(snapshot));
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void validSimulationCacheMustStillBeTheExactPersistedEventCache() {
+        simulationFixture();
+        var persisted = JsonUtils.parseObject(JsonUtils.toJsonString(event), MesProProcessPoolEventDO.class);
+        when(events.selectList(any())).thenReturn(List.of(persisted));
+        event.setSignatureSnapshot(event.getSignatureSnapshot() + " ");
+        assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
+    }
+
+    @Test void nonFormalSimulationSignatureCannotAuthenticateAFormalSubmission() {
+        simulationFixture();
+        assertThrows(ServiceException.class, () -> service.snapshotForSubmission(2101L, 1101L, CONTEXT));
+    }
+
+    private MesProBatchRecordExecutionSignatureDO simulationFixture() {
+        String run = "STAGE1-RUN";
+        var active = MesProcessPoolActiveOrderDO.builder().id(10L).workOrderId(30L).routeId(40L)
+                .leaderUserId(2101L).simulated(true).simulationStage("STAGE1").simulationRunId(run).build();
+        active.setTenantId(1L); when(activeOrders.selectById(10L)).thenReturn(active);
+        var workOrder = new MesProWorkOrderDO(); workOrder.setTenantId(1L);
+        workOrder.setCode("SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891");
+        when(workOrders.selectById(30L)).thenReturn(workOrder);
+        event.setTenantId(1L); event.setSimulated(true); event.setSimulationStage("STAGE1"); event.setSimulationRunId(run);
+        event.setTemplateType("SIMULATED_PRODUCTION_SUBMIT");
+        event.setEventIdempotencyKey("SIM-AO-PROD-10-101-1-" + run);
+        event.setRawPayload(JsonUtils.toJsonString(Map.of("activeOrderId", 10L, "routeProcessId", 101L,
+                "processId", 1L, "simulated", true, "simulationStage", "STAGE1", "simulationRunId", run,
+                "source", "active-order-simulate-completion")));
+        event.setSignatureSnapshot(JsonUtils.toJsonString(Map.of("simulated", true, "signatureId", 1101L,
+                "actorId", 2101L, "actionType", "PRODUCTION_SUBMIT", "objectId", 10L,
+                "occurredAt", SIGNED_AT.plusNanos(278000000), "simulationStage", "STAGE1", "simulationRunId", run)));
+        String sourceName = "Stage1模拟[stage=STAGE1][run=" + run + "]";
+        var projection = MesProBatchRecordExecutionSignatureDO.builder().id(1101L).executionId(0L).actorId(2101L)
+                .actionType("PRODUCTION_SUBMIT").signedAt(SIGNED_AT).passwordVerified(false)
+                .signatureMode("SIMULATION_SESSION").authenticationMethod("SIMULATION_SESSION")
+                .authorizationBasis("Stage1模拟使用当前登录会话生成非正式模拟审计记录；未执行密码校验")
+                .reviewSourceType("MES_ACTIVE_ORDER_SIMULATION").reviewSourceId(10L)
+                .reviewSourceName(sourceName).comment(sourceName).actorUsernameSnapshot("TEST-2101")
+                .actorNicknameSnapshot("模拟员工").signaturePurpose("一线生产报工提交").build();
+        when(projections.selectById(1101L)).thenReturn(projection); when(signatures.getById(1101L)).thenReturn(null);
+        return projection;
+    }
 
     @Test void exactAuthenticatedSignatureAndOriginalAuditAcceptMissingEventCache() {
         assertTrue(service.isValidForEvent(event));

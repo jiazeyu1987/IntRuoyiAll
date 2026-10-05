@@ -138,7 +138,7 @@ test('normal batch retains the existing formal market-release entry', () => {
 function releaseHarness(rows) {
   const writes = [], queries = [], navigation = []
   const context = {
-    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
+    selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
     releaseForm: vue.reactive({ password: '', idempotencyKey: '' }), releaseDialogVisible: vue.ref(false), releaseContextLoading: vue.ref(false), releaseLoading: vue.ref(false),
     message: { error() {}, success() {} }, generateUUID: () => 'unique-key',
     getEdhrReleasePage: async query => { queries.push(query); return { list: rows } },

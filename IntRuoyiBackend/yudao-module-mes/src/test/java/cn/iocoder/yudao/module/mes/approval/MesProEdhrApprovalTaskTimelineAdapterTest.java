@@ -23,6 +23,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrApprovalTaskTimelineAdapterTest {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
+
 
     @Mock
     private MesProEdhrWorkTaskService workTaskService;

@@ -106,8 +106,9 @@ const applyRouteMetaOverrides = (
     routePath === 'pro/feedback/edhr-nonconformance-review' ||
     componentPath === 'mes/pro/edhr-nonconformance/NonconformanceReviewPage'
   ) {
-    meta.hidden = true
-    meta.activeMenu = '/mes/pro/feedback/edhr-batch-execution'
+    if (meta.hidden) {
+      meta.activeMenu = '/mes/pro/feedback/edhr-batch-execution'
+    }
   }
   if (
     DCC_UPLOAD_BROWSER_CACHE_ROUTE_PATHS.has(routePath) ||

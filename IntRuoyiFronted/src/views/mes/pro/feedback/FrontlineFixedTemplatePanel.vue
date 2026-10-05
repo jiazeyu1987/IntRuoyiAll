@@ -9,8 +9,12 @@
       'is-production-fullscreen': isProductionFullscreen
     }"
   >
+    <FrontlineReturnCorrectionPanel ref="returnCorrectionPanel" :mode="props.mode" />
+    <p v-if="hasReturnNotification" role="status" data-own-return-only-entry>
+      当前通知仅用于原退回任务更正，请在本人退回更正面板核对原记录。
+    </p>
     <div
-      v-if="isPqcMode"
+      v-if="isPqcMode && !hasReturnNotification"
       class="frontline-operator-screen is-pqc"
       data-frontline-pqc-operator
     >
@@ -88,6 +92,12 @@
           <span>员工</span>
           <strong>{{ selectedEmployeeLabel }}</strong>
         </button>
+        <div class="frontline-return-actions">
+        <button
+          v-hasPermi="['mes:pro-feedback:query']"
+          type="button" data-frontline-own-return-entry
+          class="frontline-return-button" @click="returnCorrectionPanel?.open()"
+        >退回待修改</button>
         <button
           class="frontline-home-button frontline-pqc-fullscreen-toggle"
           type="button"
@@ -98,6 +108,7 @@
         >
           {{ pqcFullscreenActionText }}
         </button>
+        </div>
       </header>
 
       <div
@@ -582,7 +593,7 @@
     </div>
 
     <div
-      v-else
+      v-else-if="!hasReturnNotification"
       class="frontline-production-stage"
       data-frontline-production-stage
       :style="productionStageStyle"
@@ -675,6 +686,12 @@
             <div class="top-label">员工</div>
             <div class="top-value">{{ selectedEmployeeLabel }}</div>
           </button>
+          <div class="frontline-return-actions">
+          <button
+            v-hasPermi="['mes:pro-feedback:query']"
+            type="button" data-frontline-own-return-entry
+            class="frontline-return-button" @click="returnCorrectionPanel?.open()"
+          >退回待修改</button>
           <button
             class="frontline-home-button home-btn frontline-production-fullscreen-toggle"
             type="button"
@@ -685,6 +702,7 @@
           >
             {{ productionFullscreenActionText }}
           </button>
+          </div>
         </header>
 
         <section
@@ -1416,6 +1434,8 @@
 </template>
 
 <script setup lang="ts">
+import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
+const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
 import { isAxiosError } from 'axios'
 import {
   FRONTLINE_FIELD_CODES,
@@ -1455,6 +1475,8 @@ import {
   type ProFrontlineSelectedDeviceReqVO
 } from '@/api/mes/pro/feedback'
 import { useUserStore } from '@/store/modules/user'
+import { handoffNavigationContext, type HandoffTask } from '@/api/mes/pro/handoff'
+import { resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import {
   buildFrontlineTemplatePayload,
   createFrontlineDefaultValues,
@@ -1714,7 +1736,29 @@ const showParameterAuditWarning = (submitResult: ProFrontlineFeedbackSubmitRespV
   message.warning(`报工已成功，设备参数需复核：${[...new Set(warnings)].join('；')}`)
 }
 const route = useRoute()
+watch(
+  [() => returnCorrectionPanel.value, () => JSON.stringify(route.query)],
+  async ([panel]) => {
+    if (panel && route.query.returnTaskId !== undefined) {
+      await (panel as InstanceType<typeof FrontlineReturnCorrectionPanel>).openTask(route.query)
+    }
+  },
+  { immediate: true, flush: 'post' }
+)
 const userStore = useUserStore()
+const hasReturnNotification = computed(() => route.query.returnTaskId !== undefined)
+// Initial handoffs and own-return tasks have separate formal navigation contracts.
+const initialHandoffTask = ref<HandoffTask>()
+const initialHandoffLoading = ref(false)
+const initialHandoffInvalid = ref(false)
+let initialHandoffEpoch = 0
+let initialHandoffPageMounted = false
+const hasInitialHandoffQuery = computed(() => route.query.handoffTaskId !== undefined && route.query.returnTaskId === undefined)
+const isInitialHandoffBlocked = computed(() => hasInitialHandoffQuery.value && (
+  initialHandoffLoading.value || initialHandoffInvalid.value || !initialHandoffTask.value ||
+  String(deviceState.selectedActiveOrder?.activeOrderId) !== String(initialHandoffTask.value.activeOrderId) ||
+  (isPqcMode.value && String(activePqcTaskOptionId.value) !== String(initialHandoffTask.value.sourceId))
+))
 
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
 const payloadLoading = ref(false)
@@ -1877,6 +1921,7 @@ const productionStageStyle = computed(() => {
   return {
     '--frontline-production-scale': String(scale),
     '--frontline-production-top-action-font-size': `${42 / scale}px`,
+    '--frontline-production-return-action-font-size': `${18 / scale}px`,
     '--frontline-production-footer-action-font-size': `${54 / scale}px`,
     width: `${PRODUCTION_CANVAS_WIDTH * scale}px`,
     height: `${PRODUCTION_CANVAS_HEIGHT * scale}px`
@@ -2271,6 +2316,8 @@ const templateBindingMissing = computed(() =>
 
 const isSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  hasReturnNotification.value ||
+  isInitialHandoffBlocked.value ||
   submitConfirmationOpen.value ||
   productionSubmitSuccessOpen.value ||
   templateModeMismatch.value ||
@@ -2283,6 +2330,8 @@ const isSubmitBlocked = computed(() =>
 
 const isPqcSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  hasReturnNotification.value ||
+  isInitialHandoffBlocked.value ||
   pqcSubmitResultUncertain.value ||
   deviceState.loadingEmployees ||
   deviceState.loadingTemplate
@@ -4549,6 +4598,14 @@ const handleSelectActiveOrder = async (
   activeOrder: FrontlineActiveOrderVO,
   requestedProcessIdentity?: ProductionInitialProcessIdentity
 ) => {
+  if (hasReturnNotification.value) {
+    showFrontlineError('退回通知仅允许更正原任务，禁止选择普通填写订单。')
+    return
+  }
+  if (hasInitialHandoffQuery.value && (!initialHandoffTask.value || String(activeOrder.activeOrderId) !== String(initialHandoffTask.value.activeOrderId))) {
+    showFrontlineError('交接只允许选择原活跃周期，禁止切换其他订单。')
+    return
+  }
   if (activeOrder.readBlocked) {
     message.error(activeOrder.readBlockReason || '订单数据异常，暂不可填写')
     return
@@ -4974,6 +5031,10 @@ const refreshProductionSelectedProcessSubmittedQuantity = async () => {
 }
 
 const handleProductionFormalSubmit = async () => {
+  if (hasReturnNotification.value) {
+    showFrontlineError('退回通知仅允许更正原任务，禁止普通生产提交。')
+    return
+  }
   if (
     payloadLoading.value ||
     submitConfirmationOpen.value ||
@@ -4992,6 +5053,7 @@ const handleProductionFormalSubmit = async () => {
     if (!confirmed) {
       return
     }
+    assertFormalPayloadContext()
     const formalPayload = (() => {
       try {
         return buildFrontlineFormalSubmitPayload(templatePayload, materialDetails)
@@ -5059,6 +5121,14 @@ const assertPqcFormalSubmissionReady = () => {
 }
 
 const handleValidate = async () => {
+  if (hasReturnNotification.value) {
+    showFrontlineError('退回通知仅允许更正原任务，禁止普通填写提交。')
+    return
+  }
+  if (isInitialHandoffBlocked.value) {
+    showFrontlineError('交接任务已失效或与当前活跃周期不一致，请从本人通知或待办重新进入。')
+    return
+  }
   clearFrontlineError()
   if (pqcSubmitResultUncertain.value) {
     showFrontlineError('PQC正式提交结果不确定，请刷新页面或联系组长核对后再操作。')
@@ -5137,6 +5207,14 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (
 }
 
 const handleConfirmPqcSubmit = async () => {
+  if (hasReturnNotification.value) {
+    showFrontlineError('退回通知仅允许更正原任务，禁止普通PQC提交。')
+    return
+  }
+  if (isInitialHandoffBlocked.value) {
+    showFrontlineError('交接任务已失效或与当前活跃周期不一致，请从本人通知或待办重新进入。')
+    return
+  }
   if (payloadLoading.value || pqcSubmitResultUncertain.value) {
     return
   }
@@ -5194,6 +5272,8 @@ const handleConfirmPqcSubmit = async () => {
 }
 
 const assertFormalPayloadContext = () => {
+  if (hasReturnNotification.value) throw new Error('退回通知禁止普通填写提交，请通过本人原退回任务更正。')
+  if (isInitialHandoffBlocked.value) throw new Error('交接入口未通过原任务、周期或检验任务核验，禁止提交。')
   const missingFields: string[] = []
   if (isPqcMode.value && !context.workOrderId) {
     missingFields.push('订单上下文')
@@ -6252,6 +6332,7 @@ const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
 }
 
 const initializeProductionSelection = async () => {
+  if (hasReturnNotification.value) return
   const activeOrders = await loadFrontlineProductionActiveOrders(deviceState)
   const initialActiveOrder = activeOrders.find((order) => !order.readBlocked)
   if (initialActiveOrder) {
@@ -6265,6 +6346,7 @@ const initializeProductionSelection = async () => {
 }
 
 const refreshPqcActiveOrdersAndEnsureSelection = async () => {
+  if (hasReturnNotification.value) return
   if (!isPqcMode.value) {
     return
   }
@@ -6272,6 +6354,7 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
     return pqcActiveOrderRefreshPromise
   }
   pqcActiveOrderRefreshPromise = (async () => {
+    if (hasInitialHandoffQuery.value) { await initializeInitialHandoffSelection(); return }
     const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
     if (!deviceState.selectedActiveOrder) {
       const initialActiveOrder = activeOrders[0]
@@ -6286,6 +6369,108 @@ const refreshPqcActiveOrdersAndEnsureSelection = async () => {
     pqcActiveOrderRefreshPromise = undefined
   }
 }
+
+const isolateOwnReturnNotification = () => {
+  ++initialHandoffEpoch
+  ++activeOrderSelectionRequestId
+  ++processSelectionRequestId
+  ++productionEmployeeSelectionRequestId
+  deviceState.productionActiveOrderSelectionRequestToken += 1
+  deviceState.pqcActiveOrderSelectionRequestToken += 1
+  deviceState.processSelectionRequestToken += 1
+  deviceState.employeeSwitchRequestToken += 1
+  deviceState.selectedActiveOrder = undefined
+  deviceState.selectedProcess = undefined
+  deviceState.selectedEmployee = undefined
+  deviceState.processOptions = []
+  deviceState.productionProcessOptions = []
+  deviceState.activeOrderOptions = []
+  deviceState.employeeOptions = []
+  deviceState.runtimeConfig = undefined
+  deviceState.template = undefined
+  context.workOrderId = undefined
+  context.routeId = undefined
+  context.routeProcessId = undefined
+  context.processId = undefined
+  context.actualEmployeeId = undefined
+  payloadPreview.value = undefined
+  initialHandoffTask.value = undefined
+  initialHandoffLoading.value = false
+  initialHandoffInvalid.value = true
+  clearPqcExecutionSelection()
+  closePicker()
+  cancelProductionFormalSubmitConfirmation()
+  productionSignaturePassword.value = ''
+  pqcSignaturePassword.value = ''
+  pqcSignatureDialogVisible.value = false
+  productionSubmitSuccessOpen.value = false
+}
+
+const initializeInitialHandoffSelection = async () => {
+  const epoch = ++initialHandoffEpoch
+  initialHandoffTask.value = undefined; initialHandoffLoading.value = true; initialHandoffInvalid.value = true
+  deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
+  payloadPreview.value = undefined
+  try {
+    const id = route.query.handoffTaskId
+    if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务身份无效。')
+    const contextResult = await handoffNavigationContext(id)
+    if (epoch !== initialHandoffEpoch) return
+    const task = contextResult.task
+    const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
+    const expectedType = isPqcMode.value ? 'PQC_HANDOFF' : 'PRODUCTION_HANDOFF'
+    if (!target || task.taskType !== expectedType || String(task.id) !== id || !contextResult.current
+      || !contextResult.processable || task.status !== 'TODO' || route.query.handoffReadOnly !== undefined
+      || Object.entries(target.query).some(([key,value]) => route.query[key] !== value)
+      || Object.keys(route.query).some(key => !Object.hasOwn(target.query,key))
+      || (isPqcMode.value ? task.sourceType !== 'PQC_INSPECTION_TASK' || !task.routeProcessId : task.sourceType !== 'ACTIVE_ORDER' || String(task.sourceId) !== String(task.activeOrderId)))
+      throw new Error('交接入口已失效或与原任务、周期、来源和类型不一致，禁止打开其他工单。')
+    const activeOrders = await (isPqcMode.value ? loadFrontlinePqcActiveOrders(deviceState) : loadFrontlineProductionActiveOrders(deviceState))
+    if (epoch !== initialHandoffEpoch) return
+    const matches = activeOrders.filter(order => String(order.activeOrderId) === String(task.activeOrderId) && String(order.workOrderId) === String(task.workOrderId))
+    if (matches.length !== 1 || matches[0].readBlocked) throw new Error('原交接活跃周期不在本人正式可填写订单中。')
+    initialHandoffTask.value = task
+    const activeOrder = matches[0]
+    applyActiveOrderToContext(activeOrder); employeeTemplateCode.value = undefined
+    if (!isPqcMode.value) {
+      const processes = await selectFrontlineProductionActiveOrder(deviceState,activeOrder)
+      if (epoch !== initialHandoffEpoch) return
+      // A production-ready handoff belongs to the whole cycle. Start at its formal route's first step.
+      if (!processes.length || processes.some(process => String(process.activeOrderId) !== String(task.activeOrderId))) throw new Error('原交接周期缺少准确正式工序。')
+      await handleSelectProcess(processes[0])
+    } else {
+      clearPqcExecutionSelection()
+      const processes = await selectFrontlinePqcActiveOrder(deviceState,activeOrder,currentLoginUserId.value)
+      if (epoch !== initialHandoffEpoch) return
+      const exact = processes.flatMap(process => getPqcTaskOptions(process).filter(option => String(option.pqcTaskId) === String(task.sourceId)).map(option => ({process,option})))
+      if (exact.length !== 1 || String(exact[0].process.activeOrderId) !== String(task.activeOrderId)) throw new Error('原交接PQC任务不在该周期正式可执行工序中。')
+      const {process,option} = exact[0]
+      selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
+      await selectFrontlinePqcProcess(deviceState,process)
+      if (epoch !== initialHandoffEpoch) return
+      applyProcessToContext(process); applyPqcTaskOptionToDraft(option)
+      const employee = findCurrentLoginEmployee()
+      if (!employee) throw new Error('原交接PQC任务缺少本人正式填写人员。')
+      await handleSelectEmployee(employee)
+    }
+    if (epoch !== initialHandoffEpoch) return
+    if (String(deviceState.selectedActiveOrder?.activeOrderId) !== String(task.activeOrderId)
+      || !deviceState.selectedProcess || !deviceState.selectedEmployee
+      || (isPqcMode.value && String(activePqcTaskOptionId.value) !== String(task.sourceId))) throw new Error('原交接定位未完成，禁止提交。')
+    initialHandoffInvalid.value = false
+  } catch (error) {
+    if (epoch === initialHandoffEpoch) {
+      initialHandoffTask.value = undefined; deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
+      showFrontlineError(error)
+    }
+  } finally { if (epoch === initialHandoffEpoch) initialHandoffLoading.value = false }
+}
+watch(() => JSON.stringify(route.query), async () => {
+  if (!initialHandoffPageMounted) return
+  if (hasReturnNotification.value) { isolateOwnReturnNotification(); return }
+  if (hasInitialHandoffQuery.value) await initializeInitialHandoffSelection()
+  else { ++initialHandoffEpoch; initialHandoffTask.value = undefined; initialHandoffLoading.value = false; initialHandoffInvalid.value = false }
+})
 
 const handlePqcForegroundRefresh = () => {
   if (!isPqcMode.value || (document.visibilityState && document.visibilityState !== 'visible')) {
@@ -6310,8 +6495,20 @@ onMounted(async () => {
       }
     }
     syncPqcFullscreenState()
-    hydrateContextFromRoute()
+    initialHandoffPageMounted = true
+    if (!hasInitialHandoffQuery.value && !hasReturnNotification.value) hydrateContextFromRoute()
     const catalogRequest = FrontlineTemplateApi.getCatalog()
+    if (hasReturnNotification.value) {
+      isolateOwnReturnNotification()
+      catalog.value = await catalogRequest
+      return
+    }
+    if (hasInitialHandoffQuery.value) {
+      catalog.value = await catalogRequest
+      await initializeInitialHandoffSelection()
+      Object.assign(draft.fieldValues,isPqcMode.value ? buildPqcFieldValues() : buildProductionFieldValues())
+      return
+    }
     if (isPqcMode.value) {
       catalog.value = await catalogRequest
       await refreshPqcActiveOrdersAndEnsureSelection()
@@ -6330,6 +6527,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  ++initialHandoffEpoch; initialHandoffPageMounted = false
   resolveProductionFormalSubmitConfirmation(false)
   closeProductionSubmitSuccessDialog()
   document.removeEventListener('fullscreenchange', syncPqcFullscreenState)
@@ -6348,6 +6546,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+.frontline-return-actions { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.frontline-return-actions > button { flex: 1; min-height: 40px; width: 100%; }
+.frontline-return-button { border: 1px solid #334155; border-radius: 8px; background: #fff; color: #1e293b; font-size: 18px; font-weight: 600; cursor: pointer; }
+.frontline-production-stage .frontline-return-actions > button {
+  font-size: var(--frontline-production-return-action-font-size);
+  line-height: 1.2;
+  white-space: nowrap;
+}
 .frontline-operator-panel {
   --frontline-bg: #eef3ef;
   --frontline-panel: #ffffff;

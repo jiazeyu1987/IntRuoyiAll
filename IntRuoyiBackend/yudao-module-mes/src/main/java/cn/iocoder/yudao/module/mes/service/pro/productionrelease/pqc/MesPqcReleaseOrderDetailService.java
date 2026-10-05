@@ -48,12 +48,12 @@ public class MesPqcReleaseOrderDetailService {
         if (application == null || application.getActiveOrderId() == null) {
             throw new IllegalStateException("PQC_RELEASE_ACTIVE_ORDER_SOURCE_MISSING");
         }
-        var order = orderMapper.selectById(application.getActiveOrderId());
+        var order = orderMapper.selectByIdIgnoreDeleted(application.getActiveOrderId());
         if (order == null || order.getLeaderUserId() == null
                 || !Objects.equals(order.getWorkOrderId(), application.getWorkOrderId())) {
             throw new IllegalStateException("PQC_RELEASE_ACTIVE_ORDER_SOURCE_INVALID");
         }
-        var detail = detailService.getFormalDetail(application.getActiveOrderId());
+        var detail = detailService.getArchivedFormalDetail(application.getActiveOrderId());
         if (detail == null || detail.getWorkOrderCode() == null || detail.getWorkOrderCode().isBlank()) {
             throw new IllegalStateException("PQC_RELEASE_WORK_ORDER_CODE_MISSING");
         }

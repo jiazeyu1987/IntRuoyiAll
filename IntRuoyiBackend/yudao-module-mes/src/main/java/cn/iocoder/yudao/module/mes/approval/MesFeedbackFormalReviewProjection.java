@@ -25,6 +25,8 @@ public class MesFeedbackFormalReviewProjection {
     public static final String FEEDBACK_SOURCE_TYPE = "MES_PRO_FEEDBACK";
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProcessPoolSubmissionReviewMapper reviewMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver correctionResolver;
 
     public MesFeedbackFormalReviewProjection(MesProProcessPoolEventMapper eventMapper,
                                             MesProcessPoolSubmissionReviewMapper reviewMapper) {
@@ -73,11 +75,21 @@ public class MesFeedbackFormalReviewProjection {
             MesProProcessPoolEventDO event = eventsById.get(review.getEventId());
             Long id = event == null ? null : event.getFeedbackSourceId();
             require(event != null && Objects.equals(tenantId, review.getTenantId()), id, "复核事件或租户不一致");
-            require(byEvent.putIfAbsent(review.getEventId(), review) == null, id, "同一正式事件存在多个复核");
             validateReview(id, event, review);
+            MesProcessPoolSubmissionReviewDO previous=byEvent.get(review.getEventId());
+            if(previous==null)byEvent.put(review.getEventId(),review);
+            else {
+                require(previous.getReviewRound()!=null&&review.getReviewRound()!=null
+                        &&!Objects.equals(previous.getReviewRound(),review.getReviewRound()),id,"同一正式事件复核轮次重复或缺失");
+                if(review.getReviewRound()>previous.getReviewRound())byEvent.put(review.getEventId(),review);
+            }
         }
         Map<Long, Fact> result = new LinkedHashMap<>();
-        byFeedback.forEach((id, event) -> result.put(id, new Fact(event, byEvent.get(event.getId()))));
+        byFeedback.forEach((id, event) -> {
+            var latest=byEvent.get(event.getId());
+            boolean pending=latest!=null&&"REJECTED".equals(latest.getReviewStatus())&&correctionResolver.find(event,latest)!=null;
+            result.put(id,new Fact(event,pending?null:latest));
+        });
         return result;
     }
 

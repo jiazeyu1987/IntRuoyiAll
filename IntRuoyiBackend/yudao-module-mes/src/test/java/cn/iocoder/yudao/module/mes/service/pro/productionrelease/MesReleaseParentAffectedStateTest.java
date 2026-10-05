@@ -56,6 +56,8 @@ import static org.mockito.Mockito.*;
 @org.springframework.test.context.TestPropertySource(properties =
         "spring.datasource.url=jdbc:h2:mem:release_parent_affected_state;MODE=MYSQL;DATABASE_TO_UPPER=false;NON_KEYWORDS=value,day")
 class MesReleaseParentAffectedStateTest extends BaseDbUnitTest {
+    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
     @org.springframework.test.context.bean.override.mockito.MockitoBean private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
 
     private static final LocalDateTime PRIOR_PRECHECK_AT = LocalDateTime.of(2026, 9, 28, 8, 10);

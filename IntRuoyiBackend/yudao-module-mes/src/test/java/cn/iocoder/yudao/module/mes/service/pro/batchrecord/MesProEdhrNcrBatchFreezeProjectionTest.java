@@ -22,6 +22,7 @@ class MesProEdhrNcrBatchFreezeProjectionTest {
     @Test
     void batchDetailFrozenProjectionIncludesActiveOrderReviewWithoutDirectBatchLink() {
         var service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var reviewMapper = mock(MesProEdhrNonconformanceReviewMapper.class);
         var originMapper = mock(MesProEdhrBatchExecutionOriginMapper.class);
         var batchMapper = mock(MesProEdhrBatchExecutionMapper.class);
@@ -44,6 +45,7 @@ class MesProEdhrNcrBatchFreezeProjectionTest {
     @Test
     void ensureBatchNotFrozenBlocksIndirectActiveOrderReview() {
         var service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var reviewMapper = mock(MesProEdhrNonconformanceReviewMapper.class);
         var originMapper = mock(MesProEdhrBatchExecutionOriginMapper.class);
         var batchMapper = mock(MesProEdhrBatchExecutionMapper.class);

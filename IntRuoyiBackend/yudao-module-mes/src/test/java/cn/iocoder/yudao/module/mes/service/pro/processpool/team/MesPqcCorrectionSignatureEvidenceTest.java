@@ -119,7 +119,8 @@ class MesPqcCorrectionSignatureEvidenceTest {
                 .setRevisionSignatureUserId(344L).setModifiedByUserId(344L)
                 .setRevisionSignatureSnapshot(JsonUtils.toJsonString(signature)).setRevisionStatus("EFFECTIVE");
         revision.setTenantId(1L);
-        String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(EVENT + "|" + SIGNED_PAYLOAD + "|" + REASON);
+        String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(EVENT + "|"
+                + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(SIGNED_PAYLOAD) + "|" + REASON);
         evidence = signatureEvidence(SIGNATURE, 344L, "FIELD_CHANGE", null, null, challenge, REASON);
         var task = new MesPqcInspectionTaskDO().setId(140L).setActiveOrderId(ACTIVE_ORDER).setWorkOrderId(990L);
         var state = GxpAuditStateEnvelope.builder().state("CORRECTED").objectVersion("version")
@@ -162,6 +163,9 @@ class MesPqcCorrectionSignatureEvidenceTest {
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test void approvedPqcCorrectionReadsFieldChangeThroughFormalRevisionAndAudit() {
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.sha256(EVENT + "|"
+                        + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(STORED_PAYLOAD) + "|" + REASON),
+                com.alibaba.fastjson.JSON.parseObject(evidence.canonicalContentJson()).getString("signatureChallengeHash"));
         assertNotEquals(MesProBatchRecordExecutionFieldAuditHasher.sha256(EVENT + "|" + STORED_PAYLOAD + "|" + REASON),
                 com.alibaba.fastjson.JSON.parseObject(evidence.canonicalContentJson()).getString("signatureChallengeHash"));
         assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(SIGNED_PAYLOAD),

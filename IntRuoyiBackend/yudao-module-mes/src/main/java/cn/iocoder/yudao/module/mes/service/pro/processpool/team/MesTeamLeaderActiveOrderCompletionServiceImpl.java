@@ -50,6 +50,8 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
 
     @Resource
     private MesReleaseAffectedStateCollector affectedStateCollector;
+    @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     public MesTeamLeaderActiveOrderCompletionServiceImpl(
             MesProcessPoolActiveOrderMapper activeOrderMapper,
@@ -223,6 +225,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
         appendCompletionGxpAudit(activeOrder, receipt, affectedRowsBefore);
+        handoffService.productionLeaderContinued(activeOrder.getId(), leaderUserId, receipt.getId());
         return toResult(receipt);
     }
 

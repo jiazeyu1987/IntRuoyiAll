@@ -36,6 +36,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReverseTraceModels.Category;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReverseTraceModels.Condition;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionReceiptHash;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -320,7 +321,9 @@ class MesProEdhrFormalReverseTraceAdapterTest {
                         .setRawPayload("{\"materialDetails\":["
                                 + "{\"materialId\":601,\"deviceParameterReadings\":[{\"deviceId\":77,\"parameterCode\":\"TEMP\",\"value\":32,\"unit\":\"C\",\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"ABOVE_UPPER\"}]},"
                                 + "{\"materialId\":602,\"deviceParameterReadings\":[{\"deviceId\":78,\"parameterCode\":\"TEMP\",\"value\":25,\"unit\":\"C\",\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"NORMAL\"}]}],"
-                                + "\"deviceParameterReadings\":[]}")));
+                                + "\"deviceParameterReadings\":["
+                                + "{\"deviceId\":77,\"parameterCode\":\"TEMP\",\"value\":32,\"unit\":\"C\",\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"ABOVE_UPPER\"},"
+                                + "{\"deviceId\":78,\"parameterCode\":\"TEMP\",\"value\":25,\"unit\":\"C\",\"lowerLimit\":10,\"upperLimit\":30,\"parameterStatus\":\"NORMAL\"}]}")));
 
         MesProEdhrFormalReverseTraceAdapter adapter = adapter(Category.PARAMETER);
         bindStubbedEvents(List.of(5501L));
@@ -1189,8 +1192,8 @@ class MesProEdhrFormalReverseTraceAdapterTest {
                 .setProcessInspectionStatus(MesProcessPoolActiveOrderCompletionReceiptDO.BACKFILL_STATUS_SUCCESS)
                 .setCompletedVersion(1).setBatchRecordId(8201L).setProcessInspectionId(8301L);
         receipt.setTenantId(1L);
-        receipt.setSourceSnapshotHash(DigestUtil.sha256Hex(
-                DigestUtil.sha256Hex(snapshot) + "|" + receipt.getLossConditionFactsJson()));
+        receipt.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                snapshot, receipt.getLossConditionFactsJson()));
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
         return receipt;
     }

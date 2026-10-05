@@ -55,6 +55,7 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, backfillPort, pickListCompletionSourceService, activeOrderTransferTraceService,
                 processInspectionAggregationService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         // Unit boundary only; the real collector/transaction proof is in MesCompletionAggregationAuditTransactionTest.
         ReflectionTestUtils.setField(service, "affectedStateCollector", affectedStateCollector);

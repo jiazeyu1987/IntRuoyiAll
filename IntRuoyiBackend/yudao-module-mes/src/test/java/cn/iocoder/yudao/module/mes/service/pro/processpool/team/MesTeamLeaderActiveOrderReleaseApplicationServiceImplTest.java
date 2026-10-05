@@ -50,6 +50,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationServiceImplTest {
         service = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
                 generationService, completionService, receiptMapper, batchMapper, applicationMapper,
                 completionBatchExecutionService, originMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
     }

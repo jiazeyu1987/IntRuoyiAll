@@ -2,16 +2,16 @@
   <el-drawer
     :model-value="visible"
     title="反查关联批次"
-    size="min(100vw, 960px)"
+    :size="drawerWidth"
     destroy-on-close
     data-edhr-reverse-trace-panel
     @close="close"
     @opened="restoreScroll"
     @scroll.capture="rememberScroll"
   >
-    <div ref="panelBody" v-loading="loadingCatalog || querying" class="batch-reverse-trace-panel">
+    <div ref="panelBody" class="batch-reverse-trace-panel">
       <el-alert v-if="catalogError" :title="catalogError" type="error" :closable="false" show-icon />
-      <el-button v-if="catalogError || (!catalog && !loadingCatalog)" @click="loadCatalog()">重新加载目录</el-button>
+      <el-button v-if="catalogError" @click="loadCatalog()">重新加载目录</el-button>
       <el-alert v-if="blockedReason" :title="blockedReason" type="warning" :closable="false" show-icon />
 
       <div class="batch-reverse-trace-panel__anchor">
@@ -41,6 +41,9 @@
             :label="categoryLabels[category]"
             :name="category"
           >
+            <div v-loading="categoryLoading[category]" class="batch-reverse-trace-panel__category" :data-edhr-reverse-trace-catalog-category="category">
+            <el-alert v-if="categoryErrors[category]" :title="categoryErrors[category]" type="error" :closable="false" show-icon />
+            <el-button v-if="categoryErrors[category] || (!categoryCatalogs[category] && !categoryLoading[category])" @click="loadCategory(category)">重新加载本类别</el-button>
             <el-alert
               v-if="categoryStatus(category) && categoryStatus(category)?.status !== 'AVAILABLE'"
               :title="categoryStatus(category)?.reason || '该类别来源暂不可用'"
@@ -55,7 +58,7 @@
                 text
                 class="batch-reverse-trace-panel__catalog-item"
                 :data-edhr-reverse-trace-catalog-item="item.evidenceKey"
-                :disabled="conditions.length >= 10 || loadingCatalog"
+                :disabled="conditions.length >= 10 || categoryLoading[category] || !!catalogError"
                 @click="addConditionFromItem(item)"
               >
                 <span>{{ item.label || item.evidenceKey }}<small class="batch-reverse-trace-panel__context">{{ itemContext(item) }}</small></span>
@@ -64,7 +67,8 @@
                 </span>
               </el-button>
             </div>
-            <el-empty v-else description="当前批次暂无可用记录" :image-size="60" />
+            <el-empty v-else :description="categoryLoading[category] ? '正在读取本类别完整目录，可切换其他类别' : categoryErrors[category] ? '本类别目录加载失败' : categoryCatalogs[category] ? '当前批次暂无可用记录' : '尚未加载本类别目录'" :image-size="60" />
+            </div>
           </el-tab-pane>
         </el-tabs>
       </div>
@@ -75,7 +79,7 @@
           <el-button
             type="primary"
             link
-            :disabled="conditions.length >= 10"
+            :disabled="conditions.length >= 10 || !!catalogError || !categoryCatalogs[activeCategory] || categoryLoading[activeCategory]"
             data-edhr-reverse-trace-add-condition
             @click="addCondition"
           >
@@ -143,12 +147,13 @@
 
       <div class="batch-reverse-trace-panel__actions">
         <el-button data-edhr-reverse-trace-reset @click="resetConditions">重置</el-button>
-        <el-button type="primary" :disabled="!conditions.length || querying || loadingCatalog || !catalog?.catalogVersion || !!catalogError || conditionErrors.some(Boolean) || !authorized" data-edhr-reverse-trace-query @click="runQuery()">
+        <el-button type="primary" :disabled="!conditions.length || querying || !catalog?.catalogVersion || !!catalogError || conditionErrors.some(Boolean) || !authorized" data-edhr-reverse-trace-query @click="runQuery()">
           查询
         </el-button>
       </div>
 
-      <div v-if="queryResponse" class="batch-reverse-trace-panel__results" data-edhr-reverse-trace-results>
+      <div v-if="queryResponse || querying" v-loading="querying" class="batch-reverse-trace-panel__results" data-edhr-reverse-trace-results>
+        <template v-if="queryResponse">
         <div class="batch-reverse-trace-panel__results-header">
           <span class="batch-reverse-trace-panel__section-title">查询结果</span>
           <el-tag :type="statusTagType(queryResponse.queryStatus)">
@@ -188,6 +193,7 @@
           :disabled="querying" aria-label="反查批次分页"
           @current-change="changeResultPage" @size-change="changeResultPageSize"
         />
+        </template>
       </div>
 
       <el-collapse v-if="evidenceResponse || loadingEvidence" v-model="evidenceOpen" v-loading="loadingEvidence" class="batch-reverse-trace-panel__evidence">
@@ -240,6 +246,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useWindowSize } from '@vueuse/core'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import type { EdhrBatchExecutionPageReqVO } from '@/api/mes/pro/edhr/batchExecution'
@@ -272,6 +279,8 @@ const emit = defineEmits<{ (event: 'update:visible', visible: boolean): void }>(
 const router = useRouter()
 const route = useRoute()
 const authorized = computed(canReverseTrace)
+const { width: viewportWidth } = useWindowSize()
+const drawerWidth = computed(() => Math.min(viewportWidth.value, 960))
 
 const categories: ReverseTraceCategory[] = ['FIELD', 'PARAMETER', 'EQUIPMENT', 'PERSON', 'INSPECTION', 'MATERIAL']
 const categoryLabels: Record<ReverseTraceCategory, string> = {
@@ -283,13 +292,24 @@ const categoryLabels: Record<ReverseTraceCategory, string> = {
   MATERIAL: '物料批次'
 }
 
-const loadingCatalog = ref(false)
+type CatalogResponse = Awaited<ReturnType<typeof getReverseTraceCatalog>>
+const categoryCatalogs = ref<Partial<Record<ReverseTraceCategory, CatalogResponse>>>({})
+const categoryLoading = ref<Partial<Record<ReverseTraceCategory, boolean>>>({})
+const categoryErrors = ref<Partial<Record<ReverseTraceCategory, string>>>({})
+const loadingCatalog = computed(() => Object.values(categoryLoading.value).some(Boolean))
+const catalogVersion = ref('')
 const querying = ref(false)
 const loadingEvidence = ref(false)
 const catalogError = ref('')
 const blockedReason = ref('')
 const activeCategory = ref<ReverseTraceCategory>('FIELD')
-const catalog = ref<Awaited<ReturnType<typeof getReverseTraceCatalog>> | undefined>()
+// Only complete category responses enter this projection; it is not a full six-category catalog.
+const catalog = computed(() => {
+  const loaded = Object.values(categoryCatalogs.value)
+  if (!loaded.length) return undefined
+  return { ...loaded[0], catalogVersion: catalogVersion.value,
+    items: loaded.flatMap(page => page.items), categories: loaded.flatMap(page => page.categories) }
+})
 const conditions = ref<ConditionRow[]>([])
 const releaseApprovedTime = ref<string[] | undefined>()
 const queryResponse = ref<ReverseTraceQueryResponse>()
@@ -310,6 +330,8 @@ let querySequence = 0
 let evidenceSequence = 0
 let settingConditions = false
 let rememberedKey: string | undefined
+let catalogGeneration = 0
+const categoryRequests = new Map<ReverseTraceCategory, Promise<boolean>>()
 const drawerBody = () => panelBody.value?.closest<HTMLElement>('.el-drawer__body')
 const rememberScroll = () => { scrollTop.value = drawerBody()?.scrollTop ?? 0 }
 const restoreScroll = () => { const body = drawerBody(); if (body) body.scrollTop = scrollTop.value }
@@ -321,10 +343,10 @@ const targetScope = computed<ReverseTraceTargetScope>(() => ({
 }))
 
 const categoryItems = (category: ReverseTraceCategory) =>
-  (catalog.value?.items || []).filter((item) => item.category === category)
+  categoryCatalogs.value[category]?.items || []
 
 const categoryStatus = (category: ReverseTraceCategory) =>
-  catalog.value?.categories?.find((item) => item.category === category)
+  categoryCatalogs.value[category]?.categories.find((item) => item.category === category)
 
 const operatorLabel = (operator: string) =>
   ({ EQ: '等于', NE: '不等于', GT: '大于', GE: '大于等于', LT: '小于', LE: '小于等于', BETWEEN: '范围内', OUT_OF_LIMIT: '超出当时标准', JUDGEMENT_EQ: '判定等于' })[operator] || operator
@@ -418,7 +440,9 @@ const invalidateResults = () => {
 }
 const invalidate = () => {
   requestSequence.value++
-  loadingCatalog.value = false
+  catalogGeneration++
+  categoryLoading.value = {}
+  categoryRequests.clear()
   invalidateResults()
 }
 const current = (sequence: number, owner: string) => sequence === requestSequence.value && !!owner && owner === reverseTraceIdentity()
@@ -494,7 +518,10 @@ const sameConditionIdentity = (row: ConditionRow, item: ReverseTraceCatalogItem)
 const currentConditionItem = (row: ConditionRow) => catalog.value?.items.find(item => sameConditionIdentity(row, item))
 const conditionErrors = computed(() => conditions.value.map(row => {
   const item = currentConditionItem(row)
-  if (!catalog.value?.catalogVersion) return `条件 ${row.conditionId} 等待目录校验，请重新加载目录。`
+  if (catalogError.value) return `条件 ${row.conditionId} 等待统一目录版本校验，请重新加载目录。`
+  if (!categoryCatalogs.value[row.category] || categoryLoading.value[row.category]
+    || categoryCatalogs.value[row.category]?.catalogVersion !== catalogVersion.value
+    || !catalogVersion.value) return `条件 ${row.conditionId} 等待本类别完整目录校验，请重新加载本类别。`
   if (categoryStatus(row.category)?.status !== 'AVAILABLE' || !item) return `条件 ${row.conditionId} 的正式来源已失效，请删除后重新选择。`
   if (!item.allowedOperators?.includes(row.operator)) return `条件 ${row.conditionId} 的比较方式已失效，请修改或删除。`
   if (row.operator !== 'OUT_OF_LIMIT' && item.allowedValues?.length && !item.allowedValues.includes(row.value)) return `条件 ${row.conditionId} 的比较值已失效，请修改或删除。`
@@ -507,88 +534,120 @@ const revalidateConditions = () => {
   settingConditions = previous
 }
 
+const loadCategory = (category: ReverseTraceCategory): Promise<boolean> => {
+  if (categoryRequests.has(category)) return categoryRequests.get(category)!
+  if (categoryCatalogs.value[category]) return Promise.resolve(true)
+  const generation = catalogGeneration
+  const owner = reverseTraceIdentity()
+  const anchor = props.anchorBatchExecutionId
+  const scope = copyReverseTraceState(targetScope.value)
+  const isCurrent = () => generation === catalogGeneration && !!owner && owner === reverseTraceIdentity()
+    && anchor === props.anchorBatchExecutionId
+  const needed = () => activeCategory.value === category || conditions.value.some(row => row.category === category)
+  if (!owner || !anchor || !categories.includes(category)) return Promise.resolve(false)
+  categoryLoading.value[category] = true
+  delete categoryErrors.value[category]
+  const running = (async () => {
+    try {
+      let firstPage: CatalogResponse | undefined
+      const items: ReverseTraceCatalogItem[] = []
+      const seen = new Set<string>()
+      for (let pageNo = 1; ; pageNo++) {
+        const page = await getReverseTraceCatalog({ anchorBatchExecutionId: anchor, targetScope: scope, category, pageNo, pageSize: 100 })
+        if (!isCurrent()) return false
+        if (page.anchorBatchExecutionId !== anchor || !Array.isArray(page.items) || !Array.isArray(page.categories)
+          || page.categories.length !== 1 || page.categories[0].category !== category
+          || page.items.some(item => item.category !== category)) throw new Error('反查目录缺少完整身份或本类别信息。')
+        const status = page.categories[0]
+        if (!['AVAILABLE', 'BLOCKED', 'NO_RECORDED_FACT', 'NOT_APPLICABLE'].includes(status.status)) throw new Error('反查目录类别状态无效。')
+        if (page.catalogVersion) {
+          if (catalogVersion.value && catalogVersion.value !== page.catalogVersion) {
+            catalogError.value = '反查目录跨类别版本已变化，请重新加载全部所选类别。'
+            invalidateResults()
+            throw new Error(catalogError.value)
+          }
+          catalogVersion.value = page.catalogVersion
+        }
+        if (page.total == null && page.items.length === 0 && status.status === 'BLOCKED'
+          && status.reasonCode?.trim() && status.reason?.trim()) {
+          if (firstPage) throw new Error('反查目录分页来源已阻断，请重新加载本类别。')
+          categoryCatalogs.value[category] = page
+          revalidateConditions()
+          return true
+        }
+        if (!page.catalogVersion || !Number.isSafeInteger(page.total) || page.total! < 0) throw new Error('反查目录缺少完整版本、身份或总数。')
+        if (status.status !== 'AVAILABLE' && (page.items.length || page.total !== 0)) throw new Error('反查目录来源状态与记录不一致。')
+        if (firstPage && (firstPage.catalogVersion !== page.catalogVersion || firstPage.total !== page.total
+          || JSON.stringify(firstPage.categories) !== JSON.stringify(page.categories))) throw new Error('反查目录版本、状态或总数已变化，请重新加载本类别。')
+        firstPage ||= page
+        if (page.items.length !== Math.min(100, page.total! - items.length)) throw new Error('反查目录分页不完整，请重新加载本类别。')
+        for (const item of page.items) {
+          const key = itemKey(item)
+          if (seen.has(key)) throw new Error('反查目录分页包含重复记录，请重新加载本类别。')
+          seen.add(key)
+        }
+        items.push(...page.items)
+        // Switching away stops unused pagination after its current natural response.
+        // Partial pages are discarded; revisiting starts a fresh complete read.
+        if (!needed()) return false
+        if (items.length === page.total) {
+          categoryCatalogs.value[category] = { ...firstPage, items }
+          revalidateConditions()
+          return true
+        }
+      }
+    } catch (errorValue) {
+      if (!isCurrent()) return false
+      delete categoryCatalogs.value[category]
+      categoryErrors.value[category] = errorValue instanceof Error ? errorValue.message : '反查目录加载失败，请检查接口和权限。'
+      if (needed() || catalogError.value) invalidateResults()
+      return false
+    } finally {
+      if (isCurrent()) { categoryLoading.value[category] = false; categoryRequests.delete(category) }
+    }
+  })()
+  categoryRequests.set(category, running)
+  return running
+}
+
 const loadCatalog = async (saved?: ReverseTraceSavedState, preserve = true) => {
   if (!props.anchorBatchExecutionId) return
   invalidate()
-  const sequence = ++requestSequence.value
+  const generation = catalogGeneration
   settingConditions = true
   if (saved?.anchorBatchExecutionId === props.anchorBatchExecutionId) conditions.value = copyReverseTraceState(saved.conditions)
   else if (!preserve) conditions.value = []
   settingConditions = false
+  if (saved?.anchorBatchExecutionId === props.anchorBatchExecutionId) activeCategory.value = saved.activeCategory
   const draftRevision = conditionRevision
   const owner = reverseTraceIdentity()
-  if (!owner) { blockedReason.value = '当前身份或权限不可用，请重新查询。'; catalog.value = undefined; return }
+  categoryCatalogs.value = {}
+  categoryErrors.value = {}
+  catalogVersion.value = ''
+  catalogError.value = ''
+  if (!owner) { blockedReason.value = '当前身份或权限不可用，请重新查询。'; return }
   const anchor = props.anchorBatchExecutionId
-  const scope = copyReverseTraceState(targetScope.value)
-  loadingCatalog.value = true
   querying.value = false
   catalogError.value = ''
   blockedReason.value = ''
-  catalog.value = undefined
   clearResults()
   dirty.value = preserve || !!saved
-  try {
-    let pageNo = 1
-    let firstPage: Awaited<ReturnType<typeof getReverseTraceCatalog>> | undefined
-    const items: ReverseTraceCatalogItem[] = []
-    const seen = new Set<string>()
-    do {
-      const page = await getReverseTraceCatalog({
-        anchorBatchExecutionId: anchor,
-        targetScope: scope,
-        pageNo,
-        pageSize: 100
-      })
-      if (!current(sequence, owner)) return
-      if (page.anchorBatchExecutionId !== anchor || !Array.isArray(page.items) || !Array.isArray(page.categories)) {
-        throw new Error('反查目录缺少完整身份或类别信息。')
-      }
-      if (page.total == null && page.items.length === 0 && page.categories.length === categories.length
-        && categories.every((category) => page.categories.some((status) => status.category === category
-          && status.status === 'BLOCKED' && status.reasonCode?.trim() && status.reason?.trim()))) {
-        catalog.value = page
-        blockedReason.value = conditionErrors.value.filter(Boolean).join('；')
-        return
-      }
-      if (!page.catalogVersion || !Number.isSafeInteger(page.total) || page.total! < 0) {
-        throw new Error('反查目录缺少完整版本、身份或总数。')
-      }
-      if (firstPage && (firstPage.catalogVersion !== page.catalogVersion || firstPage.total !== page.total)) {
-        throw new Error('反查目录版本或总数已变化，请重新加载。')
-      }
-      firstPage ||= page
-      if (page.items.length !== Math.min(100, page.total! - items.length)) throw new Error('反查目录分页不完整，请重新加载。')
-      for (const item of page.items) {
-        const key = itemKey(item)
-        if (seen.has(key)) throw new Error('反查目录分页包含重复记录，请重新加载。')
-        seen.add(key)
-      }
-      items.push(...page.items)
-      if (items.length === page.total) break
-      pageNo += 1
-    } while (true)
-    if (!firstPage) return
-    catalog.value = { ...firstPage, items }
-    if (saved?.anchorBatchExecutionId === anchor && draftRevision === conditionRevision) {
+  const required = [...new Set([activeCategory.value, ...conditions.value.map(row => row.category)])]
+  const complete = await Promise.all(required.map(loadCategory))
+  if (generation !== catalogGeneration || owner !== reverseTraceIdentity()) return
+    if (saved?.anchorBatchExecutionId === anchor && draftRevision === conditionRevision && complete.every(Boolean) && !catalogError.value) {
       await restoreState(saved)
     } else if (preserve || draftRevision !== conditionRevision) {
       revalidateConditions()
       blockedReason.value = conditionErrors.value.filter(Boolean).join('；')
     } else {
       settingConditions = true
-      const firstAvailable = items[0]
+      const firstAvailable = categoryItems(activeCategory.value)[0]
       if (firstAvailable) addConditionFromItem(firstAvailable)
       settingConditions = false
       dirty.value = false
       if (saved || props.restoreKey) blockedReason.value = '原反查状态已失效或目录发生变化，请重新查询。'
     }
-  } catch (errorValue) {
-    if (!current(sequence, owner)) return
-    catalog.value = undefined
-    catalogError.value = errorValue instanceof Error ? errorValue.message : '反查目录加载失败，请检查接口和权限。'
-  } finally {
-    if (sequence === requestSequence.value) loadingCatalog.value = false
-  }
 }
 
 const addConditionFromItem = (item: ReverseTraceCatalogItem) => {
@@ -628,13 +687,13 @@ const resetConditions = () => {
   conditions.value = []
   clearResults()
   dirty.value = false
-  const firstAvailable = catalog.value?.items?.[0]
+  const firstAvailable = categoryItems(activeCategory.value)[0]
   if (firstAvailable) addConditionFromItem(firstAvailable)
   dirty.value = false
 }
 
 const runQuery = async (page = 1, reuse = false) => {
-  if (loadingCatalog.value || catalogError.value || !catalog.value?.catalogVersion || !conditions.value.length || !reverseTraceIdentity()) return
+  if (catalogError.value || !catalog.value?.catalogVersion || !conditions.value.length || !reverseTraceIdentity()) return
   if (!validateConditions()) return
   const snapshot = successfulQuery.value
   const previousHash = queryResponse.value?.queryHash
@@ -750,7 +809,7 @@ const openTargetDetail = async (targetBatchExecutionId: string) => {
   })
 }
 
-const handleCategoryChange = () => undefined
+const handleCategoryChange = (category: ReverseTraceCategory) => loadCategory(category)
 const close = () => {
   rememberedKey = saveState()
   invalidate()
@@ -760,8 +819,7 @@ const close = () => {
 watch(conditions, () => {
   if (settingConditions) return
   conditionRevision++
-  if (loadingCatalog.value) invalidateResults()
-  else invalidate()
+  invalidateResults()
   dirty.value = true
 }, { deep: true, flush: 'sync' })
 
@@ -795,6 +853,7 @@ onBeforeUnmount(invalidate)
 .batch-reverse-trace-panel__conditions-header,
 .batch-reverse-trace-panel__results-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .batch-reverse-trace-panel__section-title { color: #1f2d3d; font-weight: 600; }
+.batch-reverse-trace-panel__category { min-height: 120px; }
 .batch-reverse-trace-panel__items { display: grid; gap: 6px; }
 .batch-reverse-trace-panel__catalog-item { display: flex; justify-content: space-between; width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
 .batch-reverse-trace-panel__catalog-value { color: #64748b; }

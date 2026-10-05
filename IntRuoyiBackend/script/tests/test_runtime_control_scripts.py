@@ -127,6 +127,27 @@ def test_local_restart_backend_uses_java_argument_array_instead_of_powershell_li
     assert "--spring.datasource.dynamic.datasource.master.url=jdbc:mysql://${LocalDockerRuntimeHost}:23306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true" in script
 
 
+def test_local_restart_backend_passes_required_dcc_configuration_as_explicit_java_arguments():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    args_start = backend_block.index("`$backendArgs = @(")
+    args_end = backend_block.index("& java @backendArgs", args_start)
+    backend_args = backend_block[args_start:args_end]
+    configuration = (
+        ("yudao.dcc.preview.onlyoffice.base-url", "DCC_ONLYOFFICE_BASE_URL", "OnlyOfficeBaseUrl"),
+        ("yudao.dcc.preview.onlyoffice.public-file-base-url", "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL", "OnlyOfficePublicFileBaseUrl"),
+        ("dcc.signature.evidence.hmac-secret", "DCC_SIGNATURE_EVIDENCE_HMAC_SECRET", "DccSignatureEvidenceHmacSecret"),
+        ("dcc.signature.evidence.key-version", "DCC_SIGNATURE_EVIDENCE_KEY_VERSION", "DccSignatureEvidenceKeyVersion"),
+    )
+    for property_name, environment_name, source_name in configuration:
+        # Preserve the child environment reference through the outer here-string.
+        # The generated Java argument expands it once, without reparsing secret values.
+        expected_argument = f'"--{property_name}=`$env:{environment_name}"'
+        assert backend_args.count(expected_argument) == 1, f"Missing explicit child Java argument: {property_name}"
+        assignment = f"`$env:{environment_name} = '${source_name}'"
+        assert assignment in backend_block[:args_start], f"Missing existing child configuration mapping: {environment_name}"
+
+
 def test_local_restart_backend_does_not_pass_dcc_download_encryption_to_java():
     script = read_script("restart-int-ruoyi-local.ps1")
     backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]

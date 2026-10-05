@@ -70,7 +70,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
                 .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}");
         event.setTenantId(1L);
-        var review = new MesProcessPoolSubmissionReviewDO().setId(601L).setEventId(401L).setLeaderUserId(20L)
+        var review = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(601L).setEventId(401L).setLeaderUserId(20L)
                 .setLeaderType("PRODUCTION").setReviewStatus("APPROVED").setReviewedAt(java.time.LocalDateTime.of(2026, 9, 24, 9, 0))
                 .setReviewSignatureId(602L).setReviewSignatureUserId(20L)
                 .setReviewSignatureSnapshotJson("{\"signatureId\":602,\"actorId\":20,\"processPoolEventId\":401,"
@@ -128,12 +128,25 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var aggregation = org.mockito.Mockito.mock(MesPqcProcessInspectionAggregationService.class);
         var service = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrders, receipts, progress,
                 port, pickLists, trace, aggregation);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService",
-                org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector",
-                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        var audits = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
+        List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand> auditCommands = new ArrayList<>();
+        List<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult> auditBindings = new ArrayList<>();
+        when(audits.append(any())).thenAnswer(call -> {
+            var command = call.<cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand>getArgument(0);
+            assertEquals("mes.active-order.complete", command.getOperationId());
+            long sequence = auditCommands.size() + 1L;
+            var binding = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                    8000L + sequence, sequence, cn.hutool.crypto.digest.DigestUtil.sha256Hex(JsonUtils.toJsonString(command)), false);
+            auditCommands.add(command); auditBindings.add(binding); return binding;
+        });
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", audits);
+        var affected = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
         var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
+        when(affected.captureCompletion(10L, 30L)).thenAnswer(call -> java.util.Map.of(
+                "completionReceipts", stored.get() == null ? List.of() : List.of(stored.get())));
         when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
         when(receipts.selectByActiveOrderIdForUpdate(10L)).thenAnswer(call -> stored.get());
         when(receipts.selectByIdempotencyKeyForUpdate(any())).thenAnswer(call -> stored.get());
@@ -149,6 +162,12 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         });
         var first = service.completeForRelease(20L, 10L, "release-round-1", true);
         String receiptHash = stored.get().getReceiptHash();
+        assertEquals(2, auditCommands.size());
+        var part = JsonUtils.parseTree(auditCommands.get(1).getAfterState().getCanonicalJson())
+                .path("affectedRowAuditManifest").path("parts").path(0);
+        assertEquals(auditBindings.get(0).eventId().longValue(), part.path("eventId").asLong());
+        assertEquals(auditBindings.get(0).ledgerSequence().longValue(), part.path("ledgerSequence").asLong());
+        assertEquals(auditBindings.get(0).eventHash(), part.path("eventHash").asText());
         // Models MyBatis audit-field writeback when Tx-A updates the completion rows.
         var completion = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
         completion.setUpdateTime(java.time.LocalDateTime.of(2026, 9, 22, 13, 41));
@@ -156,6 +175,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         var second = service.completeForRelease(20L, 10L, "release-round-2", null);
         assertEquals(first.getCompletionReceiptId(), second.getCompletionReceiptId());
         assertEquals(receiptHash, second.getReceiptHash());
+        verify(audits, org.mockito.Mockito.times(2)).append(any());
         verify(receipts, org.mockito.Mockito.times(1)).insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class));
         verify(activeOrders, org.mockito.Mockito.times(1)).markCompleted(10L, 2, 20L);
         verify(backfillMapper, org.mockito.Mockito.times(2)).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
@@ -433,7 +453,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                                         new MesTeamLeaderActiveOrderReleaseLossSourceReadResult.ReplenishmentSource()
                                                 .setHeaderId(91L).setItemId(9101L).setSourceBillNo("BL-91")
                                                 .setMaterialCode("MAT-1").setMaterialName("材料一").setActualQuantity(loss)))
-                                .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder()
+                                .setAllocation(allocation()).setReview(MesProcessPoolSubmissionReviewDO.builder().reviewRound(0)
                                         .id(601L).build()).setLossDetails(List.of())).toList());
     }
 

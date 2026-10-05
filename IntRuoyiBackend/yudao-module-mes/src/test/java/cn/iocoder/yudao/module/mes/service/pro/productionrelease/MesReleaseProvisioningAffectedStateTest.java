@@ -48,6 +48,8 @@ import static org.mockito.Mockito.*;
         MesTeamLeaderActiveOrderReleaseApplicationPersistenceService.class, MesReleaseAffectedStateCollector.class})
 @TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:release_provisioning_affected_state;MODE=MYSQL;DATABASE_TO_UPPER=false;NON_KEYWORDS=value,day")
 class MesReleaseProvisioningAffectedStateTest extends BaseDbUnitTest {
+    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
     private static final String KEY = "release-provisioning-scope";
     private static final LocalDateTime SUBMITTED = LocalDateTime.of(2026, 9, 29, 9, 10);
     private static final LocalDateTime APPROVED = LocalDateTime.of(2026, 9, 29, 9, 20);
@@ -60,6 +62,7 @@ class MesReleaseProvisioningAffectedStateTest extends BaseDbUnitTest {
     @MockitoBean private MesProcessPoolActiveOrderCompletionReceiptMapper receipts;
     @MockitoBean private MesReleaseFlowAuditRecorder specializedAudit;
     @MockitoBean private GxpAuditService audit;
+    @MockitoBean private cn.iocoder.yudao.module.mes.service.pro.productionrelease.notification.MesReleaseTaskNotificationService notificationService;
     private JdbcTemplate jdbc;
 
     @BeforeEach

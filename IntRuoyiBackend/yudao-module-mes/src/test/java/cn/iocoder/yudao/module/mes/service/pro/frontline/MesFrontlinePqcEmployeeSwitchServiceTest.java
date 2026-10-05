@@ -125,6 +125,7 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
                  mock(MesProBatchRecordExecutionSignatureService.class),
                  mock(MesProEdhrNonconformanceReviewService.class),
                  mock(GxpAuditService.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
     }
 
     @Test

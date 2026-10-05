@@ -35,6 +35,7 @@ import static org.mockito.Mockito.*;
 class MesProEdhrNcrReleaseGateTest {
     private final MesProEdhrReleaseServiceImpl release = new MesProEdhrReleaseServiceImpl();
     private final MesProEdhrNonconformanceReviewServiceImpl reviews = new MesProEdhrNonconformanceReviewServiceImpl();
+    { org.springframework.test.util.ReflectionTestUtils.setField(reviews, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
     private final MesProEdhrReleaseTransactionMapper transactions = mock(MesProEdhrReleaseTransactionMapper.class);
     private final MesProEdhrBatchExecutionMapper batches = mock(MesProEdhrBatchExecutionMapper.class);
     private final MesProEdhrBatchExecutionOriginMapper origins = mock(MesProEdhrBatchExecutionOriginMapper.class);

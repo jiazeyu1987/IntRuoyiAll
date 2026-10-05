@@ -139,7 +139,8 @@ class MesM9SimulationHistoryProtectionTest {
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> aggregateSourceCases() {
         return java.util.stream.Stream.of("reset", "cleanup").flatMap(entry ->
                 java.util.stream.Stream.of("legal", "sourcePqcRecordId", "sourcePieceDetailId", "eventId",
-                                "reviewId", "productionSubmitEventId", "pqcTaskId")
+                                "reviewId", "productionSubmitEventId", "pqcTaskId", "historicalReview",
+                                "currentReviewCrossEvent", "currentReviewMissing")
                         .map(source -> org.junit.jupiter.params.provider.Arguments.of(entry, source)));
     }
 
@@ -184,8 +185,24 @@ class MesM9SimulationHistoryProtectionTest {
             ReflectionTestUtils.setField(row, "simulationRunId", "M9-owned");
             ReflectionTestUtils.setField(row, "simulationStage", "LATEST_VERSION_COPY");
         }
-        if (!source.equals("legal")) ReflectionTestUtils.setField(aggregate, source, 999L);
-        when(mapper.selectCleanupReviewsForUpdate(eq(92820L), anyCollection())).thenReturn(List.of(review));
+        var reviews = new ArrayList<>(List.of(review));
+        if (source.equals("historicalReview") || source.equals("currentReviewCrossEvent")) {
+            var currentReview = MesProcessPoolSubmissionReviewDO.builder().id(702L)
+                    .eventId(source.equals("historicalReview") ? 501L : 502L)
+                    .reviewStatus("APPROVED").leaderUserId(3001L).simulated(true)
+                    .simulationStage("LATEST_VERSION_COPY").simulationRunId("M9-owned").build();
+            currentReview.setTenantId(92820L);
+            reviews.add(currentReview);
+            record.setProcessInspectionReviewId(702L);
+            if (source.equals("historicalReview")) {
+                aggregate.setDeleted(true);
+                mapper.selectCleanupPiecesForUpdate(92820L, List.of(301L)).get(0).setDeleted(true);
+                clearInvocations(mapper); // The fixture lookup is not a cleanup invocation.
+            }
+        } else if (source.equals("currentReviewMissing")) {
+            record.setProcessInspectionReviewId(999L);
+        } else if (!source.equals("legal")) ReflectionTestUtils.setField(aggregate, source, 999L);
+        when(mapper.selectCleanupReviewsForUpdate(eq(92820L), anyCollection())).thenReturn(reviews);
         when(mapper.selectSimulationPqcRecordsForUpdate(eq(92820L), anyCollection())).thenReturn(List.of(record));
         when(mapper.selectCleanupAggregatesForUpdate(92820L, 101L)).thenReturn(List.of(aggregate));
         var target = spy(service);
@@ -197,7 +214,7 @@ class MesM9SimulationHistoryProtectionTest {
             if (entry.equals("reset")) target.resetFixedSimulationActiveOrder(3001L);
             else target.cleanupLatestSimulationActiveOrder(3001L, 101L);
         };
-        if (source.equals("legal")) {
+        if (source.equals("legal") || source.equals("historicalReview")) {
             assertDoesNotThrow(action);
             verify(mapper).selectCleanupAggregatesForUpdate(92820L, 101L);
             verify(mapper).selectSimulationPqcRecordsForUpdate(eq(92820L), anyCollection());
@@ -874,6 +891,28 @@ class MesM9SimulationHistoryProtectionTest {
         verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(102L));
         verify(target, times(2)).addActiveOrder(argThat(request -> request.getWorkOrderId().equals(201L)));
         verify(dependency(MesProWorkOrderMapper.class), never()).insert(any(MesProWorkOrderDO.class));
+        var handoff = dependency(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+        var sequence = inOrder(handoff, dependency(MesTeamLeaderDataCleanupMapper.class));
+        sequence.verify(handoff).retireCycle(101L, 3001L, 201L);
+        sequence.verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(101L));
+        sequence.verify(handoff).retireCycle(102L, 3001L, 201L);
+        sequence.verify(dependency(MesTeamLeaderDataCleanupMapper.class)).deleteActiveOrders(92820L, List.of(102L));
+    }
+
+    @Test
+    void fixedResetMustNotRemoveRuntimeFactsWhenOldHandoffsCannotBeRetired() {
+        stubFixedResetOwner();
+        var handoff = dependency(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+        var failure = new IllegalStateException("handoff retirement version conflict");
+        doThrow(failure).when(handoff).retireCycle(101L, 3001L, 201L);
+        var target = resetTargetWithSuccessfulReadd();
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> target.resetFixedSimulationActiveOrder(3001L)));
+
+        verify(dependency(MesTeamLeaderDataCleanupMapper.class), never()).deleteActiveOrders(anyLong(), any());
+        verify(dependency(MesFixedTestOrderDownstreamCleanupService.class), never()).cleanup(anyLong(), anyLong(), any(), any(), any(), any());
+        verify(target, never()).addActiveOrder(any());
     }
 
     @Test

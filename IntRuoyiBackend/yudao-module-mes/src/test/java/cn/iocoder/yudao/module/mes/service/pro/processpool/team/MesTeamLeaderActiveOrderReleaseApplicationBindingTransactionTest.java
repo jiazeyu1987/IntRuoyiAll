@@ -173,6 +173,7 @@ class MesTeamLeaderActiveOrderReleaseApplicationBindingTransactionTest {
             var target = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(generation,
                     mock(MesTeamLeaderActiveOrderCompletionService.class), receipts, batches, applications,
                     mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class), origins);
+            { org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
             ReflectionTestUtils.setField(target, "gxpAuditService", audit);
             if (missingPolicy) {
                 var realAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();

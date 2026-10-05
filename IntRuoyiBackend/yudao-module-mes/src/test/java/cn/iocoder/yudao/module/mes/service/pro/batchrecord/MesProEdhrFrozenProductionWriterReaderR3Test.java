@@ -21,6 +21,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReverseTrac
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.*;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.*;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -46,6 +48,8 @@ import static org.mockito.Mockito.*;
 /** Real completion/backfill/receipt hashing/reader; only persistence and other domain ports are doubles.
  * The transaction flag is a unit-test boundary, not evidence of MySQL locks or database rollback. */
 class MesProEdhrFrozenProductionWriterReaderR3Test {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
     private static final LocalDateTime AT = LocalDateTime.of(2026, 9, 24, 9, 0);
     @Mock private MesProcessPoolActiveOrderProcessSnapshotMapper snapshotMapper;
     @Mock private MesProcessPoolReportAllocationMapper allocationMapper;
@@ -84,6 +88,9 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
     private MesProcessPoolActiveOrderCompletionReceiptDO persisted;
     private Long forcedFirstBackfillId;
     private final List<MesProcessPoolActiveOrderCompletionBackfillDO> materializations = new ArrayList<>();
+    // Explicit audit persistence port double; this is not a GxpAuditService/database integration proof.
+    private final List<GxpAuditCommand> auditCommands = new ArrayList<>();
+    private final List<GxpAuditAppendResult> auditBindings = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -91,9 +98,22 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         completionService = new MesTeamLeaderActiveOrderCompletionServiceImpl(activeOrderMapper, receiptMapper,
                 progressPort, writer, pickListSource, transferTrace, aggregation);
+        { org.springframework.test.util.ReflectionTestUtils.setField(completionService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(completionService, "gxpAuditService", gxpAuditService);
-        ReflectionTestUtils.setField(completionService, "affectedStateCollector",
-                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class));
+        var affected = mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class);
+        ReflectionTestUtils.setField(completionService, "affectedStateCollector", affected);
+        when(affected.captureCompletion(anyLong(), anyLong())).thenAnswer(call -> Map.of(
+                "completionReceipts", persisted == null ? List.of() : List.of(persisted),
+                "completionBackfills", List.copyOf(materializations)));
+        when(gxpAuditService.append(any(GxpAuditCommand.class))).thenAnswer(call -> {
+            GxpAuditCommand command = call.getArgument(0);
+            assertEquals("mes.active-order.complete", command.getOperationId());
+            long sequence = auditCommands.size() + 1L;
+            var binding = new GxpAuditAppendResult(8000L + sequence, sequence,
+                    DigestUtil.sha256Hex(JsonUtils.toJsonString(command)), false);
+            auditCommands.add(command); auditBindings.add(binding);
+            return binding;
+        });
         order = MesProcessPoolActiveOrderDO.builder().id(10L).leaderUserId(20L).workOrderId(30L)
                 .routeId(40L).routeVersionId(41L).activeStatus("ACTIVE").version(2).build();
         order.setTenantId(1L);
@@ -103,7 +123,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
                 .setSignatureSnapshot(JsonUtils.toJsonString(Map.of("signatureId", 52L, "actorId", 51L)))
                 .setRawPayload(payload(32, 77)).setServerSubmitTime(AT);
         event.setTenantId(1L);
-        review = new MesProcessPoolSubmissionReviewDO().setId(601L).setEventId(401L)
+        review = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(601L).setEventId(401L)
                 .setLeaderUserId(20L).setLeaderType("PRODUCTION").setReviewStatus("APPROVED")
                 .setReviewedAt(AT.plusHours(1)).setReviewSignatureId(602L).setReviewSignatureUserId(20L)
                 .setReviewSignatureSnapshotJson(reviewSignature(601L, 20L));
@@ -161,6 +181,22 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         assertTrue(keys(batch, Category.EQUIPMENT).contains("EQUIPMENT:PRODUCTION:deviceId:77"));
         assertTrue(keys(batch, Category.PERSON).contains("PERSON:EMPLOYEE:actualEmployeeId:51"));
         assertTrue(keys(batch, Category.PERSON).contains("PERSON:SYSTEM_USER:PRODUCTION_REVIEW:20"));
+        assertEquals(2, auditCommands.size());
+        var part = JsonUtils.parseTree(auditCommands.get(1).getAfterState().getCanonicalJson())
+                .path("affectedRowAuditManifest").path("parts").path(0);
+        assertEquals(auditBindings.get(0).eventId().longValue(), part.path("eventId").asLong());
+        assertEquals(auditBindings.get(0).ledgerSequence().longValue(), part.path("ledgerSequence").asLong());
+        assertEquals(auditBindings.get(0).eventHash(), part.path("eventHash").asText());
+        assertEquals(DigestUtil.sha256Hex(JsonUtils.toJsonString(auditCommands.get(0))), part.path("eventHash").asText());
+    }
+
+    @Test
+    void missingPersistedAuditBindingCannotReturnCompletionSuccess() {
+        when(gxpAuditService.append(any(GxpAuditCommand.class))).thenReturn(null);
+        var error = assertThrows(IllegalStateException.class, () -> completionService.complete(20L, command()));
+        assertTrue(error.getMessage().contains("persisted event binding"));
+        verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        // This unit test only proves rejection; it does not claim database rollback of earlier writes.
     }
 
     @Test
@@ -366,7 +402,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
         completeAndBind();
         productionFacts(persisted);
         Long receiptId = persisted.getId();
-        var extra = new MesProcessPoolSubmissionReviewDO().setId(999L).setEventId(401L).setLeaderUserId(999L);
+        var extra = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(999L).setEventId(401L).setLeaderUserId(999L);
         doReturn(List.of(review, extra)).when(reviewMapper).selectListByEventId(401L);
         event.setReportManagementStatus("ARCHIVED");
         var completed = completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)).get(0);
@@ -713,7 +749,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
                 .setRouteId(40L).setQaProcessId(71L).setActualEmployeeId(61L).setSignatureUserId(61L).setServerSubmitTime(AT);
         pqcRecord.setTenantId(1L);
         when(pqcRecords.selectByEventId(402L)).thenReturn(pqcRecord);
-        var pqcReview = new MesProcessPoolSubmissionReviewDO().setId(603L).setEventId(402L)
+        var pqcReview = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(603L).setEventId(402L)
                 .setLeaderUserId(63L).setLeaderType("PQC").setReviewStatus("APPROVED")
                 .setReviewedAt(AT.plusHours(1)).setReviewSignatureId(604L).setReviewSignatureUserId(63L)
                 .setReviewSignatureSnapshotJson(JsonUtils.toJsonString(Map.of("signatureId", 604L,
@@ -742,7 +778,7 @@ class MesProEdhrFrozenProductionWriterReaderR3Test {
                 .setFormalLossQuantity(BigDecimal.ZERO).setHasActualLoss(false).setZeroLossConfirmed(true)
                 .setLossDecision("NO_LOSS").setReplenishmentSources(List.of()).setLossDetails(List.of())
                 .setAllocation(MesProcessPoolReportAllocationDO.builder().id(201L).build())
-                .setReview(MesProcessPoolSubmissionReviewDO.builder().id(601L).build());
+                .setReview(MesProcessPoolSubmissionReviewDO.builder().reviewRound(0).id(601L).build());
         when(lossSourceReader.read(any())).thenReturn(new MesTeamLeaderActiveOrderReleaseLossSourceReadResult()
                 .setBlockers(List.of()).setProcessSources(List.of(loss)));
     }

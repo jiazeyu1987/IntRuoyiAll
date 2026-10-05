@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -544,7 +545,7 @@ public class MesProductionReleaseManagerApprovalServiceImpl
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now(clock);
+        return LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
     }
 
     private MesReleaseFlowBlockerException reportChanged(

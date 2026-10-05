@@ -84,6 +84,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 signatureService,
                 activeOrderSnapshotResolver,
                 gxpAuditService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
@@ -361,6 +362,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
                 new BigDecimal("200").compareTo(payload.getOutputQuantity()) == 0
                         && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+        verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, new BigDecimal("200"));
     }
 
     @Test

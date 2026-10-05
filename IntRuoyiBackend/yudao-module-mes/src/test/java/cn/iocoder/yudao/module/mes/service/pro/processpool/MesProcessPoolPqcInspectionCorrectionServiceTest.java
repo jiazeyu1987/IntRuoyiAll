@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSignatureResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
@@ -56,6 +57,206 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class MesProcessPoolPqcInspectionCorrectionServiceTest {
+
+    @Test
+    void formalLeaderCorrectionOfRejectedPqcSchedulesExactRoundOnlyAfterSignedRevisionAndAudit() {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var rejected = rejectedLeaderReview();
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var source = f.eventMapper.selectById(Fixture.EVENT_ID);
+        source.setSignatureId(9001L).setDeviceAccountId(344L);
+        var audit = (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService)
+                ReflectionTestUtils.getField(f.service, "gxpAuditService");
+
+        assertEquals(701L, f.service.correct(f.command("2.5")));
+
+        var revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        var ordered = org.mockito.Mockito.inOrder(f.signatureService, f.revisionService, audit, f.handoffService);
+        ordered.verify(f.signatureService).recordFieldChangeSignature(any());
+        ordered.verify(f.revisionService).updatePqcInspectionRecord(revision.capture());
+        ordered.verify(audit).append(any());
+        ordered.verify(f.handoffService).completeLeaderPqcCorrectionAndScheduleReview(
+                Fixture.EVENT_ID, 91L, 701L, Fixture.ACTOR_ID);
+        assertEquals(91L, JsonUtils.parseTree(revision.getValue().getAfterPayload())
+                .path("supersededReviewId").longValue());
+        assertEquals(Fixture.ACTOR_ID, revision.getValue().getModifiedByUserId());
+        assertEquals(Fixture.ACTOR_ID, revision.getValue().getRevisionSignatureUserId());
+        assertEquals(9001L, source.getSignatureId());
+        assertEquals(4001L, rejected.getLeaderUserId());
+        assertEquals("REJECTED", rejected.getReviewStatus());
+        verify(f.reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verifyNoInteractions(f.aggregationService);
+        verify((MesTeamLeaderScopeService) ReflectionTestUtils.getField(f.service, "scopeService"),
+                org.mockito.Mockito.times(2)).assertCanAccessEmployee(Fixture.ACTOR_ID, "PQC", 101L);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NONE", "APPROVED"})
+    void leaderCorrectionOutsideRejectedRoundNeverSchedulesReturnedReview(String status) {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        if (!"NONE".equals(status)) {
+            var previous = rejectedLeaderReview().setReviewStatus(status);
+            when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(previous);
+        }
+        assertEquals(701L, f.service.correct(f.command("2.5")));
+        verifyNoInteractions(f.handoffService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"event", "tenant", "leaderType", "reviewId"})
+    void leaderReturnedCorrectionRejectsBrokenReviewIdentityBeforeSigning(String defect) {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var rejected = rejectedLeaderReview();
+        switch (defect) {
+            case "event" -> rejected.setEventId(Fixture.EVENT_ID + 1);
+            case "tenant" -> rejected.setTenantId(2L);
+            case "leaderType" -> rejected.setLeaderType("PRODUCTION");
+            case "reviewId" -> rejected.setId(null);
+            default -> throw new IllegalArgumentException(defect);
+        }
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var error = assertThrows(ServiceException.class, () -> f.service.correct(f.command("2.5")));
+        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        verifyNoInteractions(f.signatureService, f.revisionService, f.handoffService);
+    }
+
+    @Test
+    void rejectedLeaderCorrectionDoesNotScheduleReviewWhenItsBusinessAuditFails() {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejectedLeaderReview());
+        var audit = (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService)
+                ReflectionTestUtils.getField(f.service, "gxpAuditService");
+        doThrow(new IllegalStateException("business audit unavailable")).when(audit).append(any());
+        assertThrows(IllegalStateException.class, () -> f.service.correct(f.command("2.5")));
+        verifyNoInteractions(f.handoffService);
+    }
+
+    @Test
+    void rejectedLeaderCorrectionPropagatesHandoffFailureInsteadOfReturningRevisionSuccess() {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejectedLeaderReview());
+        doThrow(new IllegalStateException("exact correction review task unavailable"))
+                .when(f.handoffService).completeLeaderPqcCorrectionAndScheduleReview(
+                        Fixture.EVENT_ID, 91L, 701L, Fixture.ACTOR_ID);
+        assertThrows(IllegalStateException.class, () -> f.service.correct(f.command("2.5")));
+        verify(f.revisionService).updatePqcInspectionRecord(any());
+    }
+
+    private static MesProcessPoolSubmissionReviewDO rejectedLeaderReview() {
+        var review = MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").leaderUserId(4001L).reviewStatus("REJECTED")
+                .reviewedAt(LocalDateTime.of(2026, 8, 13, 10, 0))
+                .reviewSignatureId(9000L).reviewSignatureUserId(4001L).build();
+        review.setTenantId(1L);
+        return review;
+    }
+
+    /** Real JDBC rollback at signed correction/handoff boundaries; collaborators are test doubles. */
+    @Test
+    void leaderHandoffFailureRollsBackSignedRevisionAuditAndReturnBoundaryWrites() {
+        Fixture f = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejectedLeaderReview());
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:leader_correction_handoff_" + java.util.UUID.randomUUID(), "sa", "");
+        try (var connection = dataSource.getConnection()) {
+            var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+            jdbc.execute("CREATE TABLE correction_handoff_fact (kind VARCHAR(40) PRIMARY KEY, fact VARCHAR(200))");
+            jdbc.update("INSERT INTO correction_handoff_fact VALUES ('event', 'before'), ('returnTask', 'TODO')");
+            org.mockito.Mockito.doAnswer(call -> {
+                jdbc.update("INSERT INTO correction_handoff_fact VALUES ('signature', '9102')");
+                return f.formalSignatures.prepare(call.getArgument(0), Fixture.signature());
+            }).when(f.signatureService).recordFieldChangeSignature(any());
+            when(f.revisionService.updatePqcInspectionRecord(any())).thenAnswer(call -> {
+                jdbc.update("INSERT INTO correction_handoff_fact VALUES ('revision', '701'), ('diff', 'changed')");
+                jdbc.update("UPDATE correction_handoff_fact SET fact='after' WHERE kind='event'");
+                return 701L;
+            });
+            var audit = mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
+            when(audit.append(any())).thenAnswer(call -> {
+                jdbc.update("INSERT INTO correction_handoff_fact VALUES ('businessAudit', 'written')");
+                return null;
+            });
+            var failure = new IllegalStateException("exact review delivery write failed");
+            AtomicBoolean reachedHandoff = new AtomicBoolean();
+            org.mockito.Mockito.doAnswer(call -> {
+                assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager
+                        .isActualTransactionActive());
+                assertEquals("after", jdbc.queryForObject(
+                        "SELECT fact FROM correction_handoff_fact WHERE kind='event'", String.class));
+                for (String kind : List.of("signature", "revision", "diff", "businessAudit")) {
+                    assertEquals(1, jdbc.queryForObject(
+                            "SELECT COUNT(*) FROM correction_handoff_fact WHERE kind=?", Integer.class, kind));
+                }
+                jdbc.update("UPDATE correction_handoff_fact SET fact='DONE' WHERE kind='returnTask'");
+                jdbc.update("INSERT INTO correction_handoff_fact VALUES ('newReviewTask', 'TODO'), ('delivery', 'PENDING')");
+                reachedHandoff.set(true);
+                throw failure;
+            }).when(f.handoffService).completeLeaderPqcCorrectionAndScheduleReview(
+                    Fixture.EVENT_ID, 91L, 701L, Fixture.ACTOR_ID);
+            try (var context = correctionAuditContext(f, audit)) {
+                var factory = new org.springframework.aop.framework.ProxyFactory(f.service);
+                factory.setProxyTargetClass(true);
+                factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(
+                        new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource),
+                        new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+                var transactional = (MesProcessPoolPqcInspectionCorrectionService) factory.getProxy();
+                assertEquals(failure, assertThrows(IllegalStateException.class,
+                        () -> transactional.correct(f.command("2.5"))));
+                assertTrue(reachedHandoff.get(), "Must reach handoff after actual signature/revision/audit writes");
+                assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM correction_handoff_fact", Integer.class));
+                assertEquals("before", jdbc.queryForObject(
+                        "SELECT fact FROM correction_handoff_fact WHERE kind='event'", String.class));
+                assertEquals("TODO", jdbc.queryForObject(
+                        "SELECT fact FROM correction_handoff_fact WHERE kind='returnTask'", String.class));
+                assertTrue(!org.springframework.transaction.support.TransactionSynchronizationManager
+                        .isActualTransactionActive());
+            }
+        } catch (java.sql.SQLException exception) {
+            throw new AssertionError("H2 leader correction/handoff rollback fixture could not connect", exception);
+        }
+    }
+
+    @Test
+    void ownReturnedPqcChangesFormalMeasurementWithoutApprovingOrAggregatingItself() {
+        Fixture f=new Fixture("NUMERIC",decimal("1"),decimal("5"),1);
+        var rejected=MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();rejected.setTenantId(1L);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context=new MesFrontlineReturnCorrectionService.ReturnContext(f.eventMapper.selectById(Fixture.EVENT_ID),rejected,5001L,0L,"1900000000000000001");
+        var own=mock(MesFrontlineReturnCorrectionService.class);ReflectionTestUtils.setField(f.service,"ownReturnService",own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID,5001L,91L,0L,Fixture.ACTOR_ID,"PQC")).thenReturn(context);
+        var result=new MesFrontlineReturnCorrectionService.CorrectionResult(Fixture.EVENT_ID,701L,List.of(
+                new MesFrontlineReturnCorrectionService.ChangedField("PQC项目","原值","2.5")));
+        when(own.complete(context,701L,Fixture.ACTOR_ID)).thenReturn(result);
+        assertEquals(result,f.service.correctOwnReturned(f.command("2.5"),5001L,91L,0L));
+        var change=ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(f.revisionService).updatePqcInspectionRecord(change.capture());
+        assertEquals(91L,JsonUtils.parseTree(change.getValue().getAfterPayload()).path("supersededReviewId").longValue());
+        verify(f.reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verifyNoInteractions(f.aggregationService,(MesTeamLeaderScopeService)ReflectionTestUtils.getField(f.service,"scopeService"));
+        verify(own).complete(context,701L,Fixture.ACTOR_ID);
+        verifyNoInteractions(f.handoffService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"sampleQuantity","equipment","aggregated"})
+    void ownReturnedPqcCannotChangeFrozenSampleOrEquipmentOrAnAlreadyApprovedRound(String defect) {
+        Fixture f=new Fixture("NUMERIC",decimal("1"),decimal("5"),1);
+        var rejected=MesProcessPoolSubmissionReviewDO.builder().id(91L).eventId(Fixture.EVENT_ID)
+                .leaderType("PQC").reviewStatus("REJECTED").build();rejected.setTenantId(1L);
+        when(f.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID)).thenReturn(rejected);
+        var context=new MesFrontlineReturnCorrectionService.ReturnContext(f.eventMapper.selectById(Fixture.EVENT_ID),rejected,5001L,0L,"1900000000000000001");
+        var own=mock(MesFrontlineReturnCorrectionService.class);ReflectionTestUtils.setField(f.service,"ownReturnService",own);
+        when(own.requireOwnReturned(Fixture.EVENT_ID,5001L,91L,0L,Fixture.ACTOR_ID,"PQC")).thenReturn(context);
+        var command=f.command("2.5");
+        if("sampleQuantity".equals(defect))command.setActualInspectionQuantity(2);
+        if("equipment".equals(defect))command.getItemResults().get(0).setSelectedEquipmentId(999L);
+        if("aggregated".equals(defect))f.pqcRecordMapper.selectByEventId(Fixture.EVENT_ID)
+                .setProcessInspectionAggregationStatus(MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED);
+        assertThrows(ServiceException.class,()->f.service.correctOwnReturned(command,5001L,91L,0L));
+        verifyNoInteractions(f.signatureService,f.revisionService);
+        verify(own,never()).complete(any(),any(),any());
+    }
 
     @Test
     void correctsQaSubmissionWhoseProductionIdentityBelongsToTheBoundTask() {
@@ -118,6 +319,89 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             verifyNoInteractions(fixture.aggregationService);
             verify(audit, never()).append(any());
         }
+    }
+
+    /** Simulates JSON-column text rendering at the Mapper boundary; no MySQL execution. */
+    @Test
+    void correctionCanonicalChallengeMatchesSigningAuditAndReformattedJson() throws Exception {
+        Fixture fixture = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var command = fixture.command(List.of("2.5", "3.5"), 0).setChangeReason("  纠正检验值  ");
+        assertEquals(701L, fixture.service.correct(command));
+        var revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(fixture.revisionService).updatePqcInspectionRecord(revision.capture());
+        String payload = revision.getValue().getAfterPayload();
+        String rendered = JsonUtils.getObjectMapper().writerWithDefaultPrettyPrinter()
+                .writeValueAsString(sortSnapshotKeys(JsonUtils.parseTree(payload)));
+        org.junit.jupiter.api.Assertions.assertNotEquals(payload, rendered);
+        assertEquals(JsonUtils.parseTree(payload), JsonUtils.parseTree(rendered));
+        String expected = MesProBatchRecordExecutionFieldAuditHasher.sha256(Fixture.EVENT_ID + "|"
+                + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(rendered)
+                + "|" + command.getChangeReason().trim());
+        var signed = ArgumentCaptor.forClass(cn.iocoder.yudao.module.mes.service.pro.batchrecord
+                .MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
+        verify(fixture.signatureService).recordFieldChangeSignature(signed.capture());
+        assertEquals(expected, signed.getValue().getSignatureChallengeHash());
+        var audit = (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService)
+                ReflectionTestUtils.getField(fixture.service, "gxpAuditService");
+        var appended = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(audit).append(appended.capture());
+        var challenge = appended.getValue().getEvidences().stream()
+                .filter(e -> "SIGNATURE_CHALLENGE".equals(e.evidenceType())).findFirst().orElseThrow();
+        assertEquals(expected, challenge.sha256());
+        assertEquals("9102", challenge.sourceId());
+        assertEquals(fixture.formalSignatures.record.getContentHash(), appended.getValue().getSignatureContentHash());
+        String verified = ReflectionTestUtils.invokeMethod(fixture.service, "verifyCorrectionSignature", command,
+                fixture.eventMapper.selectById(Fixture.EVENT_ID), rendered, Fixture.signature());
+        assertEquals(fixture.formalSignatures.record.getContentHash(), verified);
+        assertEquals("VALID", fixture.formalSignatures.query.verifyEvidence(9102L).verificationStatus());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "value", "type", "arrayOrder", "missing", "nullToMissing", "cycle"})
+    void canonicalCorrectionChallengeRejectsRealPayloadChangesBeforeBusinessWrites(String defect) {
+        Fixture fixture = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        var command = fixture.command(List.of("2.5", "3.5"), 0);
+        var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
+        var task = fixture.taskMapper.selectById(Fixture.TASK_ID);
+        List<MesPqcInspectionPieceDetailDO> details = ReflectionTestUtils.invokeMethod(fixture.service,
+                "buildUpdatedDetails", command, task, fixture.pieceDetailMapper.selectListByTaskId(Fixture.TASK_ID));
+        com.fasterxml.jackson.databind.node.ObjectNode payload = ReflectionTestUtils.invokeMethod(fixture.service,
+                "buildAfterPayload", event, task, command, details, "SUCCESS");
+        MesProBatchRecordExecutionFieldAuditSignatureResult signature = ReflectionTestUtils.invokeMethod(fixture.service,
+                "recordCorrectionSignature", command, Fixture.EVENT_ID, JsonUtils.toJsonString(payload));
+        assertEquals("VALID", fixture.formalSignatures.query.verifyEvidence(signature.getSignatureId()).verificationStatus());
+        var item = (com.fasterxml.jackson.databind.node.ObjectNode) payload.path("pqcItemDetails").get(0);
+        switch (defect) {
+            case "value" -> item.put("standardUpperLimit", 6);
+            case "type" -> payload.put("actualInspectionQuantity", "2");
+            case "arrayOrder" -> {
+                var samples = (com.fasterxml.jackson.databind.node.ArrayNode) item.get("sampleValues");
+                var first = samples.get(0);
+                samples.set(0, samples.get(1));
+                samples.set(1, first);
+            }
+            case "missing" -> payload.remove("pqcTaskId");
+            case "nullToMissing" -> {
+                assertTrue(item.get("selectedEquipmentId").isNull());
+                item.remove("selectedEquipmentId");
+            }
+            case "cycle" -> payload.put("activeOrderId", 5002L);
+            default -> throw new IllegalArgumentException(defect);
+        }
+        var failure = assertThrows(ServiceException.class, () -> ReflectionTestUtils.invokeMethod(fixture.service,
+                "verifyCorrectionSignature", command, event, JsonUtils.toJsonString(payload), signature));
+        assertEquals(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), failure.getCode());
+        assertEquals("VALID", fixture.formalSignatures.query.verifyEvidence(signature.getSignatureId()).verificationStatus());
+        verifyNoInteractions(fixture.revisionService, fixture.aggregationService, fixture.handoffService);
+        verify(fixture.taskMapper, never()).updateById(any(MesPqcInspectionTaskDO.class));
+        verify(fixture.pqcRecordMapper, never()).updateById(any(MesProProcessPoolPqcRecordDO.class));
+        verify(fixture.pieceDetailMapper, never()).deleteByTaskId(Fixture.TASK_ID);
+        verify(fixture.pieceDetailMapper, never()).insertBatch(any());
+        verify(fixture.reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        var audit = (cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService)
+                ReflectionTestUtils.getField(fixture.service, "gxpAuditService");
+        verify(audit, never()).append(any());
     }
 
     /** Real query/adapter verification over a Mapper boundary; not a MySQL persistence test. */
@@ -433,6 +717,9 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         context.registerBean("reviewMapper", MesProcessPoolSubmissionReviewMapper.class, () -> fixture.reviewMapper);
         context.registerBean("aggregateDetailMapper", MesPqcProcessInspectionAggregateDetailMapper.class,
                 () -> fixture.auditAggregateMapper);
+        // Collaborator mocks are completed fixture instances; do not lifecycle-autowire their own internals.
+        context.getBeanFactory().registerSingleton("ownReturnService", mock(MesFrontlineReturnCorrectionService.class));
+        context.getBeanFactory().registerSingleton("handoffService", fixture.handoffService);
         context.refresh();
         // Normal @Resource injection, including future production audit dependency; no reflective field-exists skip.
         context.getAutowireCapableBeanFactory().autowireBean(fixture.service);
@@ -848,9 +1135,9 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
         fixture.eventMapper.selectById(Fixture.EVENT_ID).setRawPayload(
                 "{\"inspectionResult\":\"SUCCESS\",\"scrapQuantity\":0,\"supersededReviewId\":6999}");
+        var rejected = rejectedLeaderReview().setId(7000L);
         when(fixture.reviewMapper.selectLatestByEventIdForUpdate(Fixture.EVENT_ID))
-                .thenReturn(MesProcessPoolSubmissionReviewDO.builder().id(7000L).eventId(Fixture.EVENT_ID)
-                        .leaderType("PQC").reviewStatus("REJECTED").build());
+                .thenReturn(rejected);
 
         assertEquals(701L, fixture.service.correct(fixture.command("合格")));
 
@@ -859,6 +1146,10 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         verify(fixture.revisionService).updatePqcInspectionRecord(revision.capture());
         assertTrue(revision.getValue().getAfterPayload().contains("\"supersededReviewId\":7000"));
         assertEquals(9102L, revision.getValue().getRevisionSignatureId());
+        verify(fixture.handoffService).completeLeaderPqcCorrectionAndScheduleReview(
+                Fixture.EVENT_ID, 7000L, 701L, Fixture.ACTOR_ID);
+        assertEquals("REJECTED", rejected.getReviewStatus());
+        assertEquals(9000L, rejected.getReviewSignatureId());
         verify(fixture.reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verifyNoInteractions(fixture.aggregationService);
     }
@@ -1074,6 +1365,8 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 mock(MesPqcProcessInspectionAggregationService.class);
         private final MesProcessPoolActiveOrderMapper activeOrderMapper = mock(MesProcessPoolActiveOrderMapper.class);
         private final MesProcessPoolSubmissionReviewMapper reviewMapper = mock(MesProcessPoolSubmissionReviewMapper.class);
+        private final cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService =
+                mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
         private final MesPqcProcessInspectionAggregateDetailMapper auditAggregateMapper =
                 mock(MesPqcProcessInspectionAggregateDetailMapper.class);
         private final MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
@@ -1112,6 +1405,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                     releaseStateService, aggregationService, nonconformanceReviewService);
             ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
             ReflectionTestUtils.setField(service, "reviewMapper", reviewMapper);
+            ReflectionTestUtils.setField(service, "handoffService", handoffService);
             ReflectionTestUtils.setField(service, "gxpAuditService",
                     mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
             ReflectionTestUtils.setField(service, "aggregateDetailMapper", auditAggregateMapper);

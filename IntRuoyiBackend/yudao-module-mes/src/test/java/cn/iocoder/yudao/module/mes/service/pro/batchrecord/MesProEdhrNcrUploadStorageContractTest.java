@@ -57,6 +57,7 @@ class MesProEdhrNcrUploadStorageContractTest {
                 });
         when(files.getFile(70001L)).thenReturn(record);
         var service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "reviewMapper", reviews);
         ReflectionTestUtils.setField(service, "fileService", files);
         ReflectionTestUtils.setField(service, "fileUploadSecurityPolicy", new FileUploadSecurityPolicy());
@@ -94,6 +95,7 @@ class MesProEdhrNcrUploadStorageContractTest {
         when(reviews.selectById(1001L)).thenReturn(new MesProEdhrNonconformanceReviewDO()
                 .setId(1001L).setReviewStatus("pending_review"));
         MesProEdhrNonconformanceReviewServiceImpl service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "reviewMapper", reviews);
         ReflectionTestUtils.setField(service, "fileService", files);
         ReflectionTestUtils.setField(service, "fileUploadSecurityPolicy", new FileUploadSecurityPolicy());

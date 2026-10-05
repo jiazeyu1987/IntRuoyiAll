@@ -106,6 +106,7 @@ public class MesActiveOrderReworkCycleTransactionTest {
         completion = new MesTeamLeaderActiveOrderCompletionServiceImpl(orders, receipts, progress, backfill,
                 mock(MesTeamLeaderActiveOrderPickListCompletionSourceService.class),
                 mock(MesActiveOrderTransferTraceService.class), mock(MesPqcProcessInspectionAggregationService.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         // This fixture tests rework/completion transactions. The dedicated audit transaction
         // test uses the real GxP writer; here its boundary must return distinct event bindings.
         var audit = mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);

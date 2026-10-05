@@ -1,5 +1,9 @@
 # 项目经验索引
 
+- Keywords: afterCommit仍绑定原事务, REQUIRED消息未提交, 独立REQUIRES_NEW平台发送, 真实消息数据库回读 -> `docs/backend-development.md#站内信领域幂等必须延伸到平台消息门禁`
+- Keywords: GxP beforeObjectVersion, before-after各自版本, 真实审计helper command, 方法重载locator唯一, 真实写方法扫描可达 -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
+- Keywords: 通知深链原周期, RETURN父页隔离, 禁止默认最新订单, 父页普通提交guard, 迟到配置响应世代, 保存责任人姓名选项 -> `docs/frontend-development.md#编辑表单与签署对象的一致性`
+
 - Keywords: CDP自然响应, Playwright正文读取失败, inspector cache evicted, requestId唯一对应, 大响应原始字节hash, 重复响应歧义, 禁止重发API补证 -> `docs/e2e-rules.md#长流程响应证据与覆盖层诊断经验`
 - Keywords: 资料只读授权, preview权限, readOnly不禁止写入, blocked详情旁路, 纯可见性守卫, 正式批次来源, 不触发任务恢复 -> `docs/backend-development.md#只读追溯结果完整性门禁`
 - Keywords: Winmgmt, WMI超时, Get-CimInstance超时, Get-NetTCPConnection超时, Windows服务权限拒绝, 标准启动归属查询 -> `docs/local-runtime.md#windows-管理查询阻断标准启动`
@@ -666,6 +670,9 @@
 - Keywords: 活跃订单PQC提交双层Tab, 原始提交, 过程检验记录, submittedItems, processInspectionItems, PQC首次提交快照, revision beforePayload, event rawPayload, pqcItemDetails, itemResults, 原始提交多样本聚合一行, 检测数量13只显示一条检验项目, 禁止用聚合明细兜底原始提交 -> `docs/backend-development.md#pqc-过程检验汇集必须形成最终确认明细` and `docs/frontend-development.md#前端选择弹框即时反馈门禁`
 
 - 一对一关联扩展为一对多时的调用点审计、并发幂等与全量清理：`backend-development.md` 的“关联从一对一扩展为一对多门禁”。
+- DDL 与模板配置混合迁移、隐式提交、部分失败后重核及真实 MySQL 重跑证据：`database-rules.md` 的“数据迁移多语句原子性门禁”。
+- 预构建 Jar 重启仍可能自动执行 schema 探针迁移、服务授权与数据库授权边界：`database-rules.md` 的“数据迁移多语句原子性门禁”。
+- 审批源码指纹、BOM 与正式换行归一化一致：`backend-development.md` 的“GxP 业务写入统一审计接入门禁”。
 - Keywords: GxP审计追踪, 统一审计内核, signature.gxp, GxpAuditTrailService.append, append-only, 只追加账本, 审计失败业务回滚, before/after, 状态信封, 变更原因, 电子签名绑定, 非签名业务不得伪造signatureRecordId, DCC发布审批发起, 业务审批发起证据边界, 对象hash链, 每日清单, 自包含法规归档包, 仅归档包恢复, 周期审查实际执行, 全写边界覆盖, sourceLocator 精确到类方法, 登记悬空失败, 运行时策略与打包资源一致, schema自校验, 逐候选路径与SHA-256排除证据, 数据库特权审计外送, 未封存水位, WORM回执, API访问日志不能替代审计, 新写入口CI门禁, 统一内部审计接口不是统一远程业务接口, PASS FOR DESIGN, PASS FOR SOFTWARE, PASS FOR OPERATIONAL COMPLIANCE -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
 - Keywords: 历史详情审计元数据缺少正式事务ID, releaseTransactionId 未序列化, batchExecutionId 唯一正式事务关系, 审计快照ID与领域记录交叉校验, 禁止按签名/时间/文本猜关联 -> `docs/backend-development.md#电子签名身份与业务详情一致性门禁`
 - Keywords: 可信时间, 审计追踪时间戳, chrony, Last offset, RMS offset, Leap status, 系统签名时间, 业务发生时间, selectedSignedAt, signatureDisplayAt, inspection-runs.json, 时间戳证据 ZIP, 审查摘要, SHA256SUMS, 审查服 -> `docs/backend-development.md#可信时间与正式签名时间边界门禁`、`docs/frontend-development.md#可信时间证据与业务发生时间展示门禁`

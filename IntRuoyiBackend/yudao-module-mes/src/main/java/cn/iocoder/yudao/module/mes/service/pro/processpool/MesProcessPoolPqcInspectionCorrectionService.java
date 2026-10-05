@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.PqcResultValueValidator;
+import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcProcessInspectionAggregateDetailMapper;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
@@ -83,6 +84,10 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private MesPqcProcessInspectionAggregateDetailMapper aggregateDetailMapper;
     @Resource
     private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService electronicSignatureQueryService;
+    @Resource
+    private MesFrontlineReturnCorrectionService ownReturnService;
+    @Resource
+    private MesActiveOrderHandoffService handoffService;
 
     public MesProcessPoolPqcInspectionCorrectionService(
             MesProProcessPoolEventMapper eventMapper,
@@ -109,6 +114,22 @@ public class MesProcessPoolPqcInspectionCorrectionService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long correct(MesProcessPoolPqcInspectionCorrectionCommand command) {
+        return correctInternal(command, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesFrontlineReturnCorrectionService.CorrectionResult correctOwnReturned(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                   Long activeOrderId, Long rejectedReviewId, Long expectedRevisionId) {
+        validateCommand(command);
+        gxpAuditService.acquireLedgerLock();
+        var context = ownReturnService.requireOwnReturned(command.getEventId(), activeOrderId,
+                rejectedReviewId, expectedRevisionId, command.getActorUserId(), "PQC");
+        Long revisionId = correctInternal(command, context);
+        return ownReturnService.complete(context, revisionId, command.getActorUserId());
+    }
+
+    private Long correctInternal(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                 MesFrontlineReturnCorrectionService.ReturnContext ownReturn) {
         validateCommand(command);
         gxpAuditService.acquireLedgerLock();
         MesProProcessPoolEventDO source = eventMapper.selectById(command.getEventId());
@@ -118,8 +139,10 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         validatePqcEvent(source);
         MesPqcInspectionTaskDO sourceTask = pqcTaskMapper.selectById(source.getFeedbackSourceId());
         validateTask(source, sourceTask);
-        scopeService.assertCanAccessEmployee(command.getActorUserId(),
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, source.getActualEmployeeId());
+        if (ownReturn == null) {
+            scopeService.assertCanAccessEmployee(command.getActorUserId(),
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, source.getActualEmployeeId());
+        }
         MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdForUpdate(sourceTask.getActiveOrderId());
         if (activeOrder == null || !Objects.equals(activeOrder.getTenantId(), sourceTask.getTenantId())
                 || !Objects.equals(activeOrder.getWorkOrderId(), sourceTask.getWorkOrderId())
@@ -133,8 +156,12 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, command.getEventId());
         }
         validatePqcEvent(event);
-        scopeService.assertCanAccessEmployee(command.getActorUserId(),
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
+        if (ownReturn == null) {
+            scopeService.assertCanAccessEmployee(command.getActorUserId(),
+                    MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
+        } else if (!Objects.equals(ownReturn.event().getId(), event.getId())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.eventChanged");
+        }
         MesPqcInspectionTaskDO task = pqcTaskMapper.selectByIdForUpdate(event.getFeedbackSourceId());
         validateTask(event, task);
         if (!Objects.equals(task.getActiveOrderId(), activeOrder.getId())
@@ -155,11 +182,22 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
         List<MesPqcInspectionPieceDetailDO> existingDetails = pieceDetailMapper.selectListByTaskIdForUpdate(task.getId());
         validateExistingDetails(task, existingDetails);
+        if (ownReturn != null) {
+            validateOwnReturnedFrozenFields(command, task, existingDetails);
+        }
         List<MesPqcInspectionPieceDetailDO> updatedDetails = buildUpdatedDetails(command, task, existingDetails);
         validateScrapQuantityAgainstPieceDetails(command, updatedDetails);
         String inspectionResult = resolveInspectionResult(command.getScrapQuantity(), updatedDetails);
         ObjectNode afterPayload = buildAfterPayload(event, task, command, updatedDetails, inspectionResult);
         MesProcessPoolSubmissionReviewDO previousReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        boolean leaderReturnedCorrection = ownReturn == null && previousReview != null
+                && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(previousReview.getReviewStatus());
+        if (leaderReturnedCorrection && (previousReview.getId() == null || previousReview.getId() <= 0
+                || !Objects.equals(previousReview.getEventId(), event.getId())
+                || !Objects.equals(previousReview.getTenantId(), event.getTenantId())
+                || !MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(previousReview.getLeaderType()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.rejectedLeaderRound");
+        }
         // Never inherit an earlier correction's review link from the previous payload.
         afterPayload.remove("supersededReviewId");
         if (previousReview != null) {
@@ -167,6 +205,10 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
         boolean alreadyAggregated = MesProProcessPoolPqcRecordDO.PROCESS_INSPECTION_AGGREGATION_STATUS_AGGREGATED
                 .equals(record.getProcessInspectionAggregationStatus());
+        if (ownReturn != null && (alreadyAggregated || previousReview == null
+                || !Objects.equals(previousReview.getId(), ownReturn.review().getId()))) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.rejectedPqcRoundChanged");
+        }
         if (alreadyAggregated && (previousReview == null
                 || !Objects.equals(record.getProcessInspectionReviewId(), previousReview.getId())
                 || !MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(previousReview.getReviewStatus())
@@ -210,6 +252,10 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 pieceDetailMapper.selectListByTaskIdForUpdate(task.getId()), finalReview);
         appendCorrectionAudit(command, event, task, revisionId, signature, previousReview, finalReview,
                 before, after, afterPayloadJson, signatureContentHash);
+        if (leaderReturnedCorrection) {
+            handoffService.completeLeaderPqcCorrectionAndScheduleReview(event.getId(), previousReview.getId(),
+                    revisionId, command.getActorUserId());
+        }
         return revisionId;
     }
 
@@ -238,7 +284,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         ObjectNode identity = auditObject("tenantId", event.getTenantId(), "operationId", operation,
                 "identity", List.of(event.getId().toString(), revisionId.toString()));
         String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + signedPayload + "|" + command.getChangeReason().trim());
+                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(signedPayload)
+                + "|" + command.getChangeReason().trim());
         gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId(operation)
                 .subjectId("MES_PROCESS_POOL_EVENT:" + event.getId()).subjectVersion(after.getObjectVersion())
                 .beforeState(before).afterState(after).reasonSource("USER")
@@ -266,7 +313,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
         var evidence = electronicSignatureQueryService.getById(signature.getSignatureId());
         String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + payload + "|" + command.getChangeReason().trim());
+                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(payload)
+                + "|" + command.getChangeReason().trim());
         String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
                 .encodeSubjectId(0L, MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE,
                         null, null, null, null, null, null, null, null, null, null, null, null, null, null, challenge);
@@ -488,6 +536,22 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         }
     }
 
+    private void validateOwnReturnedFrozenFields(MesProcessPoolPqcInspectionCorrectionCommand command,
+                                                MesPqcInspectionTaskDO task,
+                                                List<MesPqcInspectionPieceDetailDO> details) {
+        if (!Objects.equals(command.getActualInspectionQuantity(), task.getActualInspectionQuantity())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenInspectionQuantity");
+        }
+        for (var requested : command.getItemResults()) {
+            var original = details.stream().filter(d -> Objects.equals(d.getItemCode(), requested.getItemCode()))
+                    .findFirst().orElseThrow(() -> exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode"));
+            if (!Objects.equals(original.getSelectedEquipmentId(), requested.getSelectedEquipmentId())
+                    || !Objects.equals(original.getSelectedEquipmentNumber(), requested.getSelectedEquipmentNumber())) {
+                throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "ownReturn.frozenEquipment");
+            }
+        }
+    }
+
     private List<MesPqcInspectionPieceDetailDO> buildUpdatedDetails(
             MesProcessPoolPqcInspectionCorrectionCommand command,
             MesPqcInspectionTaskDO task,
@@ -666,7 +730,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     private MesProBatchRecordExecutionFieldAuditSignatureResult recordCorrectionSignature(
             MesProcessPoolPqcInspectionCorrectionCommand command, Long eventId, String afterPayloadJson) {
         String challengeHash = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                eventId + "|" + afterPayloadJson + "|" + command.getChangeReason().trim());
+                eventId + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(afterPayloadJson)
+                + "|" + command.getChangeReason().trim());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
                 signatureService.recordFieldChangeSignature(
                         new MesProBatchRecordExecutionFieldAuditSignatureCommand()

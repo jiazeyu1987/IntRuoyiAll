@@ -37,6 +37,8 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
     @Resource
     private GxpAuditService gxpAuditService;
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Resource
     private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     public MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(
@@ -67,12 +69,13 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         if (existing != null && existing.getBatchExecutionId() != null) return existing;
         Long batchExecutionId = requirePersistedP2BatchExecutionId(leaderUserId, command);
         if (existing != null) {
-            return bindExistingWithAudit(command.getActiveOrderId(), existing, batchExecutionId, "applyGenerated");
+            return bindExistingWithAudit(leaderUserId, command.getActiveOrderId(), existing, batchExecutionId, "applyGenerated");
         }
         Map<String, Object> affectedBefore = affectedStates.capture(batchExecutionId, null, null, null, true);
         var generated = generationService.generate(leaderUserId, command);
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(generated, batchExecutionId);
         appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "applyGenerated", affectedBefore);
+        handoffService.productionLeaderContinued(command.getActiveOrderId(), leaderUserId, bound.getApplicationId());
         return bound;
     }
 
@@ -142,7 +145,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
                 return existing;
             }
             Long batchExecutionId = requirePersistedP2BatchExecutionId(leaderUserId, command);
-            return bindExistingWithAudit(command.getActiveOrderId(), existing, batchExecutionId, "apply");
+            return bindExistingWithAudit(leaderUserId, command.getActiveOrderId(), existing, batchExecutionId, "apply");
         }
         MesTeamLeaderActiveOrderCompletionResult completion = completionService.completeForRelease(
                 leaderUserId, command.getActiveOrderId(), releaseIdempotencyKey, command.getConfirmNoReplenishmentInfo());
@@ -153,11 +156,12 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
         MesTeamLeaderActiveOrderReleaseApplicationResult generated = generationService.generate(leaderUserId, command);
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(generated, batchExecutionId);
         appendReleaseApplyGxpAudit(command.getActiveOrderId(), bound, null, "apply", affectedBefore);
+        handoffService.productionLeaderContinued(command.getActiveOrderId(), leaderUserId, bound.getApplicationId());
         return bound;
     }
 
     private MesTeamLeaderActiveOrderReleaseApplicationResult bindExistingWithAudit(
-            Long activeOrderId, MesTeamLeaderActiveOrderReleaseApplicationResult existing,
+            Long leaderUserId, Long activeOrderId, MesTeamLeaderActiveOrderReleaseApplicationResult existing,
             Long batchExecutionId, String sourceMethod) {
         // Serialize before binding: bindBatchExecution mutates the same receipt instance.
         GxpAuditStateEnvelope before = GxpAuditStateEnvelope.builder()
@@ -167,6 +171,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationServiceImpl
                 .build();
         MesTeamLeaderActiveOrderReleaseApplicationResult bound = bindBatchExecution(existing, batchExecutionId);
         appendReleaseApplyGxpAudit(activeOrderId, bound, before, sourceMethod, null);
+        handoffService.productionLeaderContinued(activeOrderId, leaderUserId, bound.getApplicationId());
         return bound;
     }
 

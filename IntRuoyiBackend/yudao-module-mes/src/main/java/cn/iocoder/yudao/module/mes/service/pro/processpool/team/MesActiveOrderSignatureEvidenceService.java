@@ -36,6 +36,7 @@ import com.alibaba.fastjson.JSONObject;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.annotation.Resource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderSignatureEvidenceService {
+    @Resource private MesActiveOrderCorrectionEvidenceService correctionEvidence;
     private static final ErrorCode IDENTITY_INVALID = new ErrorCode(1_040_760_450, "签名证据查询身份无效");
     private static final ErrorCode NOT_RELATED = new ErrorCode(1_040_760_451, "签名不属于当前订单正式记录");
     private static final ErrorCode EVIDENCE_INVALID = new ErrorCode(1_040_760_452, "签名证据与正式记录不一致");
@@ -134,7 +136,16 @@ public class MesActiveOrderSignatureEvidenceService {
                     actions, null, List.of(), List.of(), false, List.of()));
         }
         var related = bindings.stream().filter(b -> Objects.equals(b.id(), signatureId)).toList();
-        if (related.isEmpty()) throw exception(NOT_RELATED);
+        if (related.isEmpty()) {
+            List<MesProProcessPoolEventRevisionDO> correctionMatches = new ArrayList<>();
+            for (Long eventId : MesActiveOrderCorrectionEvidenceService.eventNames(detail).keySet()) {
+                correctionMatches.addAll(revisionMapper.selectListByEventId(eventId).stream()
+                        .filter(r -> Objects.equals(signatureId, r.getRevisionSignatureId())).toList());
+            }
+            if (correctionMatches.size() != 1) throw exception(NOT_RELATED);
+            var correction = correctionEvidence.verifyRelated(detail, correctionMatches.get(0));
+            return new Result(detail.getActiveOrderId(), correction.signerName(), correction.evidence(), correction.verification());
+        }
         ElectronicSignatureEvidenceDTO evidence = signatureQueryService.getById(signatureId);
         if (evidence != null && Objects.equals(evidence.id(), signatureId) && "BPM".equals(evidence.moduleCode())) {
             return readBpmMarketRelease(detail, related, evidence);

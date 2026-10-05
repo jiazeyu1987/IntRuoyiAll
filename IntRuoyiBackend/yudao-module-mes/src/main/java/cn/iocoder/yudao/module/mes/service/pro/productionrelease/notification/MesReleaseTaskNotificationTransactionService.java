@@ -17,7 +17,7 @@ public class MesReleaseTaskNotificationTransactionService {
     @Resource private MesReleaseTaskNotificationAudit audit;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public MesReleaseTaskNotifyDeliveryDO beginAttempt(Long tenantId, Long deliveryId, Integer expectedVersion,
+    public MesReleaseTaskNotifyDeliveryDO recordAttempt(Long tenantId, Long deliveryId, Integer expectedVersion,
                                                        Long actorId, String reason, boolean retry) {
         validate(tenantId, actorId, reason);
         audit.lock();
@@ -31,7 +31,7 @@ public class MesReleaseTaskNotificationTransactionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void markSent(Long tenantId, Long deliveryId, Integer expectedVersion, Long messageId,
+    public void recordSent(Long tenantId, Long deliveryId, Integer expectedVersion, Long messageId,
                          Long actorId, String reason, boolean retry) {
         validate(tenantId, actorId, reason);
         if (messageId == null || messageId <= 0) { throw new IllegalArgumentException("平台消息正式回执缺失"); }
@@ -44,7 +44,7 @@ public class MesReleaseTaskNotificationTransactionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void markFailed(Long tenantId, Long deliveryId, Integer expectedVersion, Long actorId,
+    public void recordFailed(Long tenantId, Long deliveryId, Integer expectedVersion, Long actorId,
                            String reason, String errorSummary, boolean retry) {
         validate(tenantId, actorId, reason);
         if (MesReleaseTaskNotificationContract.blank(errorSummary) || errorSummary.length() > 512) {

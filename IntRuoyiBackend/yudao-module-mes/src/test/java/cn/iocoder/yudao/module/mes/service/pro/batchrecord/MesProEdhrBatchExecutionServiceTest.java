@@ -223,6 +223,8 @@ import static org.mockito.Mockito.mock;
         MesProBatchRecordRuntimeSnapshotSupport.class
 })
 class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
+    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+
 
     @Resource
     private MesProEdhrBatchExecutionService batchExecutionService;
@@ -553,6 +555,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 mock(MesTeamLeaderActiveOrderCompletionService.class), cycle.receiptMapper(), batchExecutionMapper,
                 reworkApplicationMapper, mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class),
                 batchExecutionOriginMapper);
+        { org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         org.springframework.test.util.ReflectionTestUtils.setField(applicationService, "gxpAuditService",
                 mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
         // This test covers cycle/batch binding; persisted release audit content has its own H2 regression.

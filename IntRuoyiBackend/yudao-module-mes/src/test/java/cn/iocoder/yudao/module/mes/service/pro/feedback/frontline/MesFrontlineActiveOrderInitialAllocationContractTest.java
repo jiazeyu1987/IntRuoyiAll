@@ -58,8 +58,13 @@ class MesFrontlineActiveOrderInitialAllocationContractTest {
                 Math.min(source.length(), initialAllocation + 600));
         assertTrue(allocationCall.contains("context.getActiveOrderId()"),
                 "initial allocation must target the exact active order selected by frontline production");
-        assertTrue(allocationCall.contains("getOutputQuantity()"),
-                "initial allocation must persist the complete submitted output quantity without a capacity cap");
+        int quantityDeclaration = source.indexOf("BigDecimal allocationQuantity =", eventCreation);
+        assertTrue(quantityDeclaration > eventCreation && quantityDeclaration < initialAllocation,
+                "formal process/material quantity must be resolved before initial allocation");
+        String quantitySource = source.substring(quantityDeclaration, initialAllocation);
+        assertTrue(quantitySource.contains("getOutputQuantity()") && quantitySource.contains("materialSubmission.progressQuantity()")
+                        && allocationCall.contains("allocationQuantity"),
+                "initial allocation must use complete process output or formal material progress without a capacity cap");
     }
 
     @Test

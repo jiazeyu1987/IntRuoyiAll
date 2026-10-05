@@ -32,10 +32,8 @@
   },
   "blockers": [],
   "pending": [
-    "precise_local_integration",
     "task_owned_cleanup"
   ],
-  "commit_push_merge_archive_executed": false,
   "combination_status": "manager_revision1_PASS_30_classes_412_tests; original_testCompile_failure_retained",
   "integration_fixture_verification": {
     "runtime": "Microsoft OpenJDK 17.0.20+8-LTS",
@@ -58,5 +56,22 @@
     "evidence": "integration-manager-combination-evidence.json",
     "real_e2e_executed": false
   },
-  "manager_review": "PASS_30_CLASSES_412_TESTS_JDK17_ACTUAL_MAIN_COMBINATION"
+  "manager_review": "PASS_30_CLASSES_412_TESTS_JDK17_ACTUAL_MAIN_COMBINATION",
+  "local_integration": {
+    "status": "PASS",
+    "commit": "21816247f89d32f10adf04a679bb33308485aa7f",
+    "main": "int_main",
+    "precise_files": 31,
+    "unrelated_preserved": 47,
+    "combination_outputs_matched": 42,
+    "remote_push": false,
+    "managed_worktree_archive": false
+  },
+  "commit_push_merge_archive_executed_at_worker_handoff": false,
+  "manager_git_actions": {
+    "commit": true,
+    "local_merge": true,
+    "remote_push": false,
+    "worktree_archive": false
+  }
 }

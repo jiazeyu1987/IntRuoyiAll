@@ -26,11 +26,16 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MesFeedbackFormalReviewProjectionTest {
+    @Mock cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver correctionResolver;
     @Mock MesProProcessPoolEventMapper eventMapper;
     @Mock MesProcessPoolSubmissionReviewMapper reviewMapper;
     @InjectMocks MesFeedbackFormalReviewProjection projection;
 
-    @BeforeEach void tenant() { TenantContextHolder.setTenantId(1L); }
+    @BeforeEach void tenant() {
+        TenantContextHolder.setTenantId(1L);
+        // Mockito constructor injection does not subsequently inject this mandatory @Resource.
+        org.springframework.test.util.ReflectionTestUtils.setField(projection,"correctionResolver",correctionResolver);
+    }
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test void batchMatchesFormalEvidenceAndLeavesOriginalFeedbackApproving() {
@@ -188,7 +193,7 @@ class MesFeedbackFormalReviewProjectionTest {
         value.setTenantId(1L); return value;
     }
     static MesProcessPoolSubmissionReviewDO review(Long eventId, String status) {
-        MesProcessPoolSubmissionReviewDO value = MesProcessPoolSubmissionReviewDO.builder().id(281240L).eventId(eventId)
+        MesProcessPoolSubmissionReviewDO value = MesProcessPoolSubmissionReviewDO.builder().reviewRound(0).id(281240L).eventId(eventId)
                 .leaderUserId(341L).leaderType("PRODUCTION").reviewStatus(status).reviewRemark("旧冻结事件正式复核")
                 .reviewedAt(LocalDateTime.of(2026, 10, 1, 20, 35)).reviewSignatureId(12743L)
                 .reviewSignatureUserId(341L).reviewSignatureSnapshotJson(snapshot(eventId, status)).build();

@@ -340,6 +340,27 @@
         show-icon
         class="mt-12px"
       />
+      <template v-else-if="releaseCompletedReadOnly && releaseContext">
+        <el-alert
+          title="该正式任务已完成上市放行。"
+          description="当前为已完成信息，只可查看历史批记录，无需重复签批。"
+          type="success"
+          :closable="false"
+          show-icon
+          class="mt-12px"
+        />
+        <el-descriptions :column="1" border class="mt-12px">
+          <el-descriptions-item label="正式放行事务">
+            {{ releaseContext.releaseCode || releaseContext.releaseTransactionId }}
+          </el-descriptions-item>
+          <el-descriptions-item label="完成时间">
+            {{ releaseContext.approvedAt }}
+          </el-descriptions-item>
+          <el-descriptions-item label="放行意见">
+            {{ releaseContext.approvalOpinion }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </template>
       <el-form
         v-else-if="releaseContext?.releaseTransactionId"
         label-width="120px"
@@ -364,7 +385,15 @@
       <template #footer>
         <el-button @click="releaseDialogVisible = false">取 消</el-button>
         <el-button
-          v-if="releaseContext?.releaseTransactionId"
+          v-if="releaseCompletedReadOnly"
+          type="primary"
+          data-edhr-batch-action="completed-release-history"
+          @click="openCompletedReleaseHistory"
+        >
+          查看历史批记录
+        </el-button>
+        <el-button
+          v-else-if="releaseContext?.releaseTransactionId"
           type="primary"
           :loading="releaseLoading"
           :disabled="releaseContextLoading"
@@ -928,6 +957,7 @@ const selectedVoidBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedReleaseBatch = ref<EdhrBatchExecutionRespVO>()
 const selectedRejectBatch = ref<EdhrBatchExecutionRespVO>()
 const releaseContext = ref<EdhrReleaseRowVO>()
+const releaseCompletedReadOnly = ref(false)
 const releaseTransactionMissing = ref(false)
 const batchFlowTraceTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const readinessResult = ref<EdhrRehearsalReadinessResult>()
@@ -1552,6 +1582,7 @@ const resetMarketReleaseDialog = () => {
   marketReleaseRouteGeneration++
   selectedReleaseBatch.value = undefined
   releaseContext.value = undefined
+  releaseCompletedReadOnly.value = false
   releaseTransactionMissing.value = false
   releaseContextLoading.value = false
   releaseLoading.value = false
@@ -1615,7 +1646,9 @@ const openReleaseDialog = async (
   releaseTransactionMissing.value = false
   releaseError.value = ''
   releaseForm.password = ''
-  releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+  if (!taskContext) {
+    releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+  }
   releaseDialogVisible.value = true
   releaseContextLoading.value = true
   try {
@@ -1626,9 +1659,15 @@ const openReleaseDialog = async (
       if (String(row.id) !== taskContext.batchExecutionId ||
         String(context.batchExecutionId) !== taskContext.batchExecutionId ||
         String(context.releaseTransactionId) !== taskContext.releaseTransactionId ||
-        String(context.releaseApprovalWorkTaskId) !== taskContext.workTaskId ||
-        context.releaseStatus !== 'PENDING_APPROVAL') {
-        throw new Error('上市放行事务、批次或工作任务与当前待办不一致。')
+        String(context.releaseApprovalWorkTaskId) !== taskContext.workTaskId) {
+        throw new Error('上市放行事务、批次或工作任务与通知中的正式身份不一致。')
+      }
+      if (context.releaseStatus === 'RELEASED') {
+        releaseCompletedReadOnly.value = true
+      } else if (context.releaseStatus === 'PENDING_APPROVAL') {
+        releaseForm.idempotencyKey = `EDHR-MARKET-RELEASE-${row.id}-${generateUUID()}`
+      } else {
+        throw new Error('通知对应的正式上市放行状态不支持签批或已完成查询。')
       }
     } else {
       const params: EdhrReleasePageReqVO = {
@@ -1658,6 +1697,20 @@ const openReleaseDialog = async (
   }
 }
 
+const openCompletedReleaseHistory = async () => {
+  const batch = selectedReleaseBatch.value
+  const context = releaseContext.value
+  if (!releaseCompletedReadOnly.value || context?.releaseStatus !== 'RELEASED' ||
+    !batch?.id || String(context.batchExecutionId) !== String(batch.id)) {
+    releaseError.value = '当前入口缺少已完成的精确上市放行信息。'
+    return
+  }
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/active-order-detail',
+    query: { batchExecutionId: String(batch.id), from: '/mes/pro/feedback/edhr-batch-history' }
+  })
+}
+
 const openPqcReleasePending = async () => {
   const batch = selectedReleaseBatch.value
   const workOrderCode = batch?.workOrderCode?.trim()
@@ -1676,6 +1729,10 @@ const openPqcReleasePending = async () => {
 }
 
 const submitRelease = async () => {
+  if (releaseCompletedReadOnly.value || releaseContext.value?.releaseStatus === 'RELEASED') {
+    releaseError.value = '该正式任务已完成上市放行，请查看历史批记录。'
+    return
+  }
   if (!releaseForm.password.trim()) {
     releaseError.value = '请输入电子签名密码。'
     return

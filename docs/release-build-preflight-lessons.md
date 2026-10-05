@@ -881,3 +881,9 @@
 - Verification: 记录标准重启失败证据、手动打包 PASS、生成 jar 路径、启动命令、健康检查和后续真实前端 E2E PASS；最终报告必须说明完整标准重启/发布构建仍受无关测试源码阻塞。
 - Forbidden action: 不得吞掉 `testCompile` 失败、删除或绕开无关测试后宣称标准构建通过、让旧 jar 冒充新代码、把本地 `maven.test.skip` 经验推广到正式发布链路，或用 API/DB 动作替代真实前端 E2E。
 - Evidence: `doc/tasks/20260909-common-qa-frontline-pqc-fix/execution-log.md`；本地 `int_main` 通用检验规程 E2E 中标准重启被 DCC 测试缺类阻塞，随后以定向 compile、显式跳过 testCompile 的本地 jar 和 Playwright 真实页面完成验证。
+
+## 回归负例输入独立性
+
+- 校验嵌套明细与汇总是否矛盾时，测试夹具必须独立构造两份对象。JSON库可能保留共享对象引用；只改汇总也会改明细，造成并未矛盾的无效负例。先断言两对象不同，再执行正式拒绝断言。
+- 构造带来源哈希的正式回执时，采用生产端相同的规范化算法。夹具哈希错误导致的前置拒绝不能作为目标逻辑RED；保留原失败并修正夹具后重新验证。
+- 编译JDK、测试JVM与实际服务JVM分别核对。标准启动脚本使用PATH时，在调用脚本的同一进程显式设置预期Java环境，并从新进程可执行文件确认，不能只凭class版本判定运行JDK。

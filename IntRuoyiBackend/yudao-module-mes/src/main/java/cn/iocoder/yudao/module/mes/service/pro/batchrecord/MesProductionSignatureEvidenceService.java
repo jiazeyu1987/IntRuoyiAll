@@ -8,9 +8,11 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
@@ -54,6 +57,7 @@ public class MesProductionSignatureEvidenceService {
     private final GxpAuditEventMapper auditMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
     private final MesProProcessPoolEventMapper eventMapper;
+    private final MesProWorkOrderMapper workOrderMapper;
 
     /** Called inside the existing submit transaction, after signing and before event creation. */
     public String snapshotForSubmission(Long actorId, Long signatureId, MesProductionSubmitSignatureContext context) {
@@ -78,6 +82,15 @@ public class MesProductionSignatureEvidenceService {
         var active = activeOrderMapper.selectById(activeOrderId);
         require(active != null && Objects.equals(active.getWorkOrderId(), event.getWorkOrderId())
                 && Objects.equals(active.getRouteId(), event.getRouteId()));
+        // P1 persists explicitly non-formal session evidence. Validate that separate test-data
+        // contract before formal resolution; a failed formal signature never enters this branch.
+        if (Boolean.TRUE.equals(event.getSimulated()) || StrUtil.isNotBlank(event.getSimulationStage())
+                || StrUtil.isNotBlank(event.getSimulationRunId()) || Boolean.TRUE.equals(payload.getBoolean("simulated"))
+                || StrUtil.isNotBlank(payload.getString("simulationStage")) || StrUtil.isNotBlank(payload.getString("simulationRunId"))
+                || "active-order-simulate-completion".equals(payload.getString("source"))) {
+            requireStage1SimulationEvidence(event, active, payload);
+            return true;
+        }
         var context = new MesProductionSubmitSignatureContext(activeOrderId, event.getRouteProcessId(),
                 event.getProcessId(), event.getEventIdempotencyKey());
         Snapshot evidence = resolve(event.getActualEmployeeId(), event.getSignatureId(), context, false);
@@ -100,6 +113,68 @@ public class MesProductionSignatureEvidenceService {
         }
         return true;
     }
+
+    private void requireStage1SimulationEvidence(MesProProcessPoolEventDO event,
+                                                MesProcessPoolActiveOrderDO active, JSONObject payload) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        String run = event.getSimulationRunId();
+        require(Boolean.TRUE.equals(event.getSimulated()) && Boolean.TRUE.equals(active.getSimulated())
+                && "STAGE1".equals(event.getSimulationStage()) && "STAGE1".equals(active.getSimulationStage())
+                && StrUtil.isNotBlank(run) && run.equals(active.getSimulationRunId())
+                && Objects.equals(tenantId, event.getTenantId()) && Objects.equals(tenantId, active.getTenantId())
+                && Objects.equals(event.getActualEmployeeId(), active.getLeaderUserId())
+                && "SIMULATED_PRODUCTION_SUBMIT".equals(event.getTemplateType()));
+        var workOrder = workOrderMapper.selectById(event.getWorkOrderId());
+        require(workOrder != null && Objects.equals(tenantId, workOrder.getTenantId())
+                && "SIM-COPY-CODX-PQC-20260807-SP-WO-05-OPYAO451788352161891".equals(workOrder.getCode()));
+        require(Boolean.TRUE.equals(payload.getBoolean("simulated"))
+                && "STAGE1".equals(payload.getString("simulationStage"))
+                && run.equals(payload.getString("simulationRunId"))
+                && "active-order-simulate-completion".equals(payload.getString("source"))
+                && Objects.equals(event.getRouteProcessId(), payload.getLong("routeProcessId"))
+                && Objects.equals(event.getProcessId(), payload.getLong("processId"))
+                && Objects.equals("SIM-AO-PROD-" + active.getId() + "-" + event.getRouteProcessId()
+                + "-" + event.getProcessId() + "-" + run, event.getEventIdempotencyKey()));
+        var projection = projectionMapper.selectById(event.getSignatureId());
+        String sourceName = "Stage1模拟[stage=STAGE1][run=" + run + "]";
+        require(projection != null && Objects.equals(projection.getId(), event.getSignatureId())
+                && Objects.equals(projection.getActorId(), event.getActualEmployeeId())
+                && Objects.equals(projection.getExecutionId(), 0L) && ACTION.equals(projection.getActionType())
+                && "SIMULATION_SESSION".equals(projection.getSignatureMode())
+                && "SIMULATION_SESSION".equals(projection.getAuthenticationMethod())
+                && Boolean.FALSE.equals(projection.getPasswordVerified())
+                && "Stage1模拟使用当前登录会话生成非正式模拟审计记录；未执行密码校验".equals(projection.getAuthorizationBasis())
+                && "MES_ACTIVE_ORDER_SIMULATION".equals(projection.getReviewSourceType())
+                && Objects.equals(active.getId(), projection.getReviewSourceId())
+                && sourceName.equals(projection.getReviewSourceName()) && sourceName.equals(projection.getComment())
+                && "一线生产报工提交".equals(projection.getSignaturePurpose())
+                && !StrUtil.hasBlank(projection.getActorUsernameSnapshot(), projection.getActorNicknameSnapshot())
+                && projection.getSignedAt() != null && !projection.getSignedAt().isAfter(event.getServerSubmitTime()));
+        require(StrUtil.isNotBlank(event.getSignatureSnapshot()));
+        var snapshot = JsonUtils.parseObject(event.getSignatureSnapshot(), Stage1SignatureSnapshot.class);
+        require(snapshot != null && Boolean.TRUE.equals(snapshot.simulated())
+                && Objects.equals(snapshot.actorId(), event.getActualEmployeeId())
+                && Objects.equals(snapshot.signatureId(), event.getSignatureId())
+                && Objects.equals(snapshot.objectId(), active.getId()) && ACTION.equals(snapshot.actionType())
+                && "STAGE1".equals(snapshot.simulationStage()) && run.equals(snapshot.simulationRunId())
+                && snapshot.occurredAt() != null
+                && !snapshot.occurredAt().truncatedTo(ChronoUnit.SECONDS).isAfter(event.getServerSubmitTime()));
+        var events = eventMapper.selectList(new LambdaQueryWrapperX<MesProProcessPoolEventDO>()
+                .eq(MesProProcessPoolEventDO::getEventType, MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
+                .eq(MesProProcessPoolEventDO::getSignatureId, event.getSignatureId())
+                .eq(MesProProcessPoolEventDO::getSignatureUserId, event.getSignatureUserId()));
+        require(events != null && events.size() == 1 && sameEvent(events.get(0), event)
+                && Objects.equals(events.get(0).getTenantId(), tenantId)
+                && Objects.equals(events.get(0).getSimulated(), event.getSimulated())
+                && Objects.equals(events.get(0).getSimulationStage(), event.getSimulationStage())
+                && Objects.equals(events.get(0).getSimulationRunId(), run)
+                && Objects.equals(events.get(0).getTemplateType(), event.getTemplateType())
+                && Objects.equals(events.get(0).getSignatureSnapshot(), event.getSignatureSnapshot()));
+    }
+
+    private record Stage1SignatureSnapshot(Boolean simulated, Long signatureId, Long actorId, String actionType,
+                                           Long objectId, LocalDateTime occurredAt, String simulationStage,
+                                           String simulationRunId) {}
 
     private Snapshot resolve(Long actorId, Long signatureId, MesProductionSubmitSignatureContext context,
                              boolean requireSignedContext) {

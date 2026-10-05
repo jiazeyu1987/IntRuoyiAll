@@ -138,6 +138,7 @@ export interface EdhrNonconformanceReviewRespVO {
   voidedAt?: string
   disposition?: EdhrNonconformanceReviewDisposition
   traceSnapshotJson?: string
+  deviationIdsJson?: string
   remark?: string
   createTime?: string
   updateTime?: string

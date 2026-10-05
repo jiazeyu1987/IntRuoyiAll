@@ -19,7 +19,7 @@ const copy = (value) => JSON.parse(JSON.stringify(value))
 const flush = async () => { for (let i = 0; i < 12; i++) await vue.nextTick() }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const item = (n = 1) => ({ category: 'FIELD', evidenceKey: `FIELD:v1:${n}`, sourceView: 'SAVED_RECORD', sourceRef: `row:${n}`, savedValue: '10', valueType: 'number', allowedOperators: ['EQ', 'GT'] })
-const catalog = (items = [item()], extras = {}) => ({ anchorBatchExecutionId: '100', catalogVersion: 'v1', categories: [{ category: 'FIELD', status: 'AVAILABLE' }], items, total: items.length, ...extras })
+const catalog = (items = [item()], extras = {}) => ({ anchorBatchExecutionId: '100', catalogVersion: 'v1', categories: [{ category: items[0]?.category || 'FIELD', status: 'AVAILABLE' }], items, total: items.length, ...extras })
 const result = (request, extras = {}) => ({ catalogVersion: 'v1', queryHash: 'hash1', normalizedQuery: copy(request), queryStatus: 'MATCHED', coverageStatus: 'COMPLETE', total: 25, list: [{ batchExecutionId: '200', releaseStatus: 'RELEASED' }], ...extras })
 
 // Execute compiled application setup with Vue's actual renderer, reactivity and lifecycle.
@@ -29,7 +29,17 @@ function environment(overrides = {}) {
   const identity = vue.reactive({ userId: 7, tenantId: 1, visitTenantId: undefined, permissions: new Set(['mes:pro-edhr-batch-execution:query']) })
   const route = vue.reactive({ path: historyPath, query: {}, ...overrides.route })
   const api = {
-    getReverseTraceCatalog: async (request) => { calls.catalog.push(copy(request)); return (overrides.catalog || (() => catalog()))(request) },
+    getReverseTraceCatalog: async (request) => {
+      calls.catalog.push(copy(request))
+      const response = await (overrides.catalog || (() => catalog()))(request)
+      // Formal category requests return one category, including global BLOCKED guards.
+      if (response.categories?.length > 1 && request.category) {
+        const categories = response.categories.filter(c => c.category === request.category)
+        const items = response.items.filter(i => i.category === request.category)
+        return { ...response, categories, items, total: categories.every(c => c.status === 'BLOCKED') ? null : items.length }
+      }
+      return response
+    },
     queryReverseTrace: async (request) => { calls.query.push(copy(request)); return (overrides.query || result)(request) },
     getReverseTraceEvidence: async (request) => { calls.evidence.push(copy(request)); return (overrides.evidence || (() => ({ catalogVersion: 'v1', queryHash: 'hash1', targetBatchExecutionId: request.targetBatchExecutionId, evidenceStatus: 'MATCHED', total: 150, items: [{ conditionId: 'C1', actualValue: '10' }] })))(request) }
   }
@@ -37,11 +47,12 @@ function environment(overrides = {}) {
   const user = { get getUser() { return { id: identity.userId } }, get getPermissions() { return identity.permissions } }
   const router = { push: async (target) => { calls.push.push(copy(target)); Object.assign(route, target) }, replace: async (target) => { Object.assign(route, target) } }
   const dependencies = {
-    vue, 'vue-router': { useRoute: () => route, useRouter: () => router },
+    vue, '@vueuse/core': { useWindowSize: () => ({ width: vue.ref(1280), height: vue.ref(720) }) }, 'vue-router': { useRoute: () => route, useRouter: () => router },
     'element-plus': { ElMessage: Object.fromEntries(['warning', 'error', 'info'].map((k) => [k, (v) => calls.messages.push(v)])) },
     '@/api/mes/pro/edhr/reverseTrace': api,
     '@/utils/auth': { getTenantId: () => identity.tenantId, getVisitTenantId: () => identity.visitTenantId },
     '@/store/modules/user': { useUserStore: () => user },
+    '@/api/mes/pro/edhr/deviation': { getDeviationBatchOptionsByActiveOrder: async () => [] },
     '@/api/mes/pro/edhr/batchExecution': {
       getEdhrBatchActiveOrderDetail: async (params) => {
         calls.detail.push(copy(params))
@@ -105,8 +116,9 @@ function environment(overrides = {}) {
   return { mount, calls, route, identity, api }
 }
 
-async function ready(env = environment()) {
+async function ready(env = environment(), category = 'FIELD') {
   const mounted = env.mount()
+  mounted.state.activeCategory.value = category
   mounted.props.visible = true
   await flush()
   assert.equal(mounted.state.conditions.value.length, 1, 'catalog loaded into actual setup')
@@ -244,7 +256,7 @@ for (const defect of ['version', 'total', 'missing-total', 'missing-page', 'dupl
   const first = Array.from({ length: 100 }, (_, i) => item(i))
   const e = environment({ catalog: (r) => r.pageNo === 1 ? catalog(first, { total: 101 }) : catalog(defect === 'missing-page' ? [] : [defect === 'duplicate' ? item(0) : item(100)], { total: defect === 'missing-total' ? undefined : defect === 'total' ? 102 : 101, catalogVersion: defect === 'version' ? 'v2' : 'v1' }) })
   const m = e.mount(); m.props.visible = true; await flush()
-  assert.equal(m.state.catalog.value, undefined); assert.ok(m.state.catalogError.value); m.unmount()
+  assert.equal(m.state.catalog.value, undefined); assert.ok(m.state.catalogError.value || m.state.categoryErrors.value.FIELD); m.unmount()
 })
 test('catalog reads beyond one hundred pages without silently truncating', async () => {
   const e = environment({ catalog: (r) => catalog(Array.from({ length: r.pageNo === 101 ? 1 : 100 }, (_, i) => item((r.pageNo - 1) * 100 + i)), { total: 10001 }) })
@@ -283,7 +295,7 @@ test('equipment condition uses namespaced equipment identity and retains PQC con
     sourceRef: 'pqc-aggregate-snapshot:7001', savedValue: '8801',
     qualifiers: { regulationVersionId: '7101', routeProcessId: '3001', sampleNo: '1', itemCode: 'APPEARANCE', selectedEquipmentId: '8801', selectedEquipmentCode: 'PQC-01', selectedEquipmentNumber: 'EQ-8801' }
   }
-  const e = await ready(environment({ catalog: () => catalog([pqcEquipment]) }))
+  const e = await ready(environment({ catalog: () => catalog([pqcEquipment]) }), 'EQUIPMENT')
   const condition = e.state.conditions.value[0]
   assert.equal(condition.item.evidenceKey, 'EQUIPMENT:PQC:selectedEquipmentId:8801')
   assert.equal(e.state.toCondition(condition).qualifiers, undefined, 'inspection context must not become an implicit equipment filter')
@@ -297,7 +309,7 @@ test('equipment condition uses namespaced equipment identity and retains PQC con
 })
 test('OUT_OF_LIMIT query and evidence preserve a null operand', async () => {
   const outOfLimitItem = { ...item(), category: 'PARAMETER', allowedOperators: ['OUT_OF_LIMIT'], savedValue: '' }
-  const e = await ready(environment({ catalog: () => catalog([outOfLimitItem], { categories: [{ category: 'PARAMETER', status: 'AVAILABLE' }] }) }))
+  const e = await ready(environment({ catalog: () => catalog([outOfLimitItem], { categories: [{ category: 'PARAMETER', status: 'AVAILABLE' }] }) }), 'PARAMETER')
   await e.state.runQuery()
   assert.equal(e.calls.query[0].conditions[0].operator, 'OUT_OF_LIMIT')
   assert.equal(e.calls.query[0].conditions[0].value, null)
@@ -449,14 +461,15 @@ test('query page hash drift rejects changed results and late API errors remain v
   e.api.queryReverseTrace = async () => { throw new Error('真实查询失败') }; await e.state.runQuery()
   assert.equal(e.state.blockedReason.value, '真实查询失败'); assert.equal(e.state.querying.value, false); e.unmount()
 })
-test('one blocked category preserves all category reasons and available category queries', async () => {
-  const categories = ['FIELD', 'PARAMETER', 'EQUIPMENT', 'PERSON', 'INSPECTION', 'MATERIAL'].map((category) => ({ category, status: category === 'INSPECTION' ? 'BLOCKED' : 'AVAILABLE', reason: category === 'INSPECTION' ? '检验正式来源缺失' : undefined }))
+test('a requested blocked category preserves its reason and another available category remains queryable', async () => {
+  const categories = ['FIELD', 'PARAMETER', 'EQUIPMENT', 'PERSON', 'INSPECTION', 'MATERIAL'].map((category) => ({ category, status: category === 'INSPECTION' ? 'BLOCKED' : 'AVAILABLE', reasonCode: category === 'INSPECTION' ? 'SOURCE_MISSING' : undefined, reason: category === 'INSPECTION' ? '检验正式来源缺失' : undefined }))
   const e = environment({ catalog: () => catalog([item()], { categories }) }); const m = e.mount(panelFile, { visible: true }); await flush()
-  assert.equal(m.state.catalog.value?.categories.length, 6)
+  m.state.activeCategory.value = 'INSPECTION'; await m.state.handleCategoryChange('INSPECTION')
+  assert.equal(m.state.catalog.value?.categories.length, 2)
   assert.equal(m.state.categoryStatus('INSPECTION').reason, '检验正式来源缺失')
   await m.state.runQuery(); assert.equal(e.calls.query.length, 1); assert.equal(m.state.queryResponse.value.queryStatus, 'MATCHED'); m.unmount()
 })
-for (const source of ['non-released', 'missing-chain', 'missing-adapter']) test(`formal blocked catalog preserves six reasons without a count for ${source}`, async () => {
+for (const source of ['non-released', 'missing-chain', 'missing-adapter']) test(`formal requested category preserves its reason without a count for ${source}`, async () => {
   // Exact getCatalog shapes: blockedCatalog omits version; the other global guards retain it.
   const reasonCode = source === 'non-released' ? 'BATCH_SCOPE_INVALID' : 'SOURCE_MISSING'
   const reason = source === 'non-released' ? '当前批次尚未进入上市放行历史，不能进行历史反查' : '六类正式来源适配器未完整接入'
@@ -465,8 +478,8 @@ for (const source of ['non-released', 'missing-chain', 'missing-adapter']) test(
   if (source !== 'non-released') response.catalogVersion = 'v1'
   const e = environment({ catalog: () => response }); const m = e.mount(panelFile, { visible: true }, true); await flush()
   assert.equal(m.state.catalogError.value, '')
-  assert.deepEqual(copy(m.state.catalog.value), response)
-  assert.equal(m.nodes.filter((n) => n.attrs.title === reason).length, 6, 'all six reasons reach rendered category alerts')
+  assert.deepEqual(copy(m.state.categoryCatalogs.value.FIELD), { ...response, categories: [categories[0]] })
+  assert.equal(m.nodes.filter((n) => n.attrs.title === reason).length, 1, 'requested category reason reaches its rendered alert')
   assert.equal(m.state.conditions.value.length, 0); assert.equal(m.state.loadingCatalog.value, false)
   await m.state.runQuery(); assert.equal(e.calls.query.length, 0)
   assert.equal(m.state.queryResponse.value, undefined); assert.equal(m.state.evidenceResponse.value, undefined)
@@ -475,7 +488,7 @@ for (const source of ['non-released', 'missing-chain', 'missing-adapter']) test(
 })
 test('null catalog total without formal blocked semantics remains an error', async () => {
   const e = environment({ catalog: () => catalog([], { total: null }) }); const m = e.mount(panelFile, { visible: true }); await flush()
-  assert.equal(m.state.catalog.value, undefined); assert.match(m.state.catalogError.value, /总数/)
+  assert.equal(m.state.catalog.value, undefined); assert.match(m.state.categoryErrors.value.FIELD, /总数/)
   assert.equal(m.state.conditions.value.length, 0); m.unmount()
 })
 test('compiled drawer template captures actual parent body scroll events', async () => {

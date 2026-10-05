@@ -1,4 +1,6 @@
 import type { Router } from 'vue-router'
+import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
+import type { ActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import type { NotifyMessageVO } from '@/api/system/notify/message'
 import {
   EDHR_WORK_TASK_NOTIFY_PATHS,
@@ -20,7 +22,9 @@ export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
   'changeRequestId',
   'notifyOpen',
   'workTaskId',
-  'followupUrl'
+  'followupUrl',
+  'handoffTaskId',
+  'handoffType'
 ])
 
 type NotifyMessageLike = Pick<NotifyMessageVO, 'templateParams'>
@@ -58,6 +62,7 @@ export type NotifyMessageTarget =
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
   | DccPublicationNotifyTarget
+  | ActiveOrderHandoffTarget
 
 const normalizeTemplateParams = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -184,6 +189,10 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
   if (!templateParams) {
     return []
   }
+  if (templateParams.handoffTaskId !== undefined) {
+    const target = resolveActiveOrderHandoffTarget(templateParams)
+    return target ? [target] : []
+  }
   return [resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
     (target): target is NotifyMessageTarget => Boolean(target)
   )
@@ -226,6 +235,10 @@ export const navigateToNotifyMessageTarget = async (
       }
     })
     window.location.assign(targetRoute.href)
+    return
+  }
+  if (target.type === 'activeOrderHandoff') {
+    await navigateToActiveOrderHandoff(router, target)
     return
   }
   if (target.type === 'edhrWorkTask') {

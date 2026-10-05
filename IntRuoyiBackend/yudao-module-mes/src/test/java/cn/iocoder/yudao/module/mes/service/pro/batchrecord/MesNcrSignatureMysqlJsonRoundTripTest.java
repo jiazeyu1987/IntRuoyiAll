@@ -55,10 +55,12 @@ class MesNcrSignatureMysqlJsonRoundTripTest {
     static void openDedicatedFixture() throws Exception {
         assertEquals("gxp-integration-dalton-m9-round2",
                 docker("inspect", "--format", "{{.Config.Labels.owner}}", CONTAINER));
-        assertEquals("127.0.0.1:59241", docker("port", CONTAINER, "3306/tcp"));
+        String fixtureEndpoint = docker("port", CONTAINER, "3306/tcp");
+        assertTrue(fixtureEndpoint.matches("127\\.0\\.0\\.1:[1-9][0-9]{3,4}"),
+                "The verified fixture container must expose exactly one loopback IPv4 endpoint");
         String credential = docker("exec", CONTAINER, "cat", "/run/m9/root-password");
         DataSource dataSource = new DriverManagerDataSource(
-                "jdbc:mysql://127.0.0.1:59241/gxp_writer_snapshot"
+                "jdbc:mysql://" + fixtureEndpoint + "/gxp_writer_snapshot"
                         + "?useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=15000",
                 "root", credential);
         jdbc = new JdbcTemplate(dataSource);
@@ -158,6 +160,7 @@ class MesNcrSignatureMysqlJsonRoundTripTest {
                 if (checkNcrConsumer) {
                     // Invoke the frozen production boundary itself; do not duplicate its hash algorithm in a test.
                     var ncr = new MesProEdhrNonconformanceReviewServiceImpl();
+                    { org.springframework.test.util.ReflectionTestUtils.setField(ncr, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
                     ReflectionTestUtils.setField(ncr, "signatureRecordMapper", mapper);
                     ReflectionTestUtils.setField(ncr, "signatureQueryService", query);
                     ElectronicSignatureRecordDO accepted = assertDoesNotThrow(() ->

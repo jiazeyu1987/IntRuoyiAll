@@ -6,6 +6,8 @@ import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReque
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +20,35 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MesActiveOrderDossierBusinessFileAccessProviderTest {
+
+    @Test
+    void registersWithDossierServiceDependingOnFileAccessProvider() {
+        var mapper = mock(MesProcessPoolActiveOrderDossierFileMapper.class);
+        var row = dossierFile();
+        when(mapper.selectListByFileId(7001L)).thenReturn(List.of(row));
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.getBeanFactory().registerSingleton("gxpAuditService", mock(GxpAuditService.class));
+            context.getBeanFactory().registerSingleton("lifecycleGuard", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+            context.getBeanFactory().registerSingleton("dossierReadScopeService", mock(MesActiveOrderDossierReadScopeService.class));
+            context.registerBean(MesProcessPoolActiveOrderDossierFileMapper.class, () -> mapper);
+            context.registerBean(MesActiveOrderDossierBusinessFileAccessProvider.class);
+            context.registerBean(MesActiveOrderDossierFileService.class, () -> {
+                // Models the real dossier -> file-access -> provider startup dependency.
+                context.getBean(MesActiveOrderDossierBusinessFileAccessProvider.class);
+                var service = mock(MesActiveOrderDossierFileService.class);
+                when(service.requireReadableFile(7L, 7001L)).thenReturn(row);
+                return service;
+            });
+            context.refresh();
+            var provider = context.getBean(MesActiveOrderDossierBusinessFileAccessProvider.class);
+            var reference = provider.resolve(7001L).orElseThrow();
+            provider.assertAllowed(new BusinessFileAccessRequest(
+                    BusinessFileAccessOperation.PREVIEW, 7001L, 31L, 7L,
+                    null, "REQ-DOSSIER-STARTUP", null, "127.0.0.1", "Playwright"), reference);
+            verify(context.getBean(MesActiveOrderDossierFileService.class)).requireReadableFile(7L, 7001L);
+        }
+    }
+
 
     @Test
     void resolveReturnsActiveOrderDossierReference() {

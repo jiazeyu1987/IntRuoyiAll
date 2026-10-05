@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.report;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.databind.TimestampLocalDateTimeSerializer;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
@@ -10,6 +11,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskM
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowStatus;
@@ -22,13 +24,22 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.TimeZone;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,6 +54,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@ResourceLock("java.util.TimeZone.default")
 class MesProductionReleaseReportServiceTest {
 
     private static final Long TENANT_ID = 1L;
@@ -63,9 +75,12 @@ class MesProductionReleaseReportServiceTest {
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
 
     private MesProductionReleaseReportService service;
+    private TimeZone originalTimeZone;
 
     @BeforeEach
     void setUp() {
+        originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesProductionReleaseReportServiceImpl(
                 applicationMapper, workTaskMapper, batchTaskMapper, nonconformanceReviewService, reportNodePort,
@@ -81,11 +96,14 @@ class MesProductionReleaseReportServiceTest {
 
     @AfterEach
     void tearDown() {
+        TimeZone.setDefault(originalTimeZone);
         TenantContextHolder.clear();
     }
 
-    @Test
-    void completingOneOfFirstThreeReportsKeepsUploadStageAndAdvancesVersion() {
+    @ParameterizedTest
+    @ValueSource(strings = {"Asia/Shanghai", "UTC"})
+    void completingOneOfFirstThreeReportsKeepsUploadStageAndAdvancesVersion(String systemZone) {
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(systemZone)));
         when(reportNodePort.complete(any())).thenReturn(currentEvidence());
         when(workTaskMapper.completeReleaseReportTask(eq(WORK_TASK_ID), any())).thenReturn(1);
         when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID)).thenReturn(List.of(
@@ -102,6 +120,26 @@ class MesProductionReleaseReportServiceTest {
         assertEquals(WORK_TASK_ID, result.getWorkTaskId());
         verify(managerStageInitializer, never()).initializeManagerReleaseStage(any());
         verify(applicationMapper, never()).handoffReportsToManager(any(), any(), any(), any(), any(), any());
+
+        Instant instant = Instant.parse("2026-08-16T00:00:00Z");
+        LocalDateTime expected = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+        ArgumentCaptor<MesReleaseFlowAuditCommand> audit =
+                ArgumentCaptor.forClass(MesReleaseFlowAuditCommand.class);
+        verify(auditRecorder).record(audit.capture());
+        ObjectMapper mapper = new ObjectMapper().registerModule(new SimpleModule()
+                .addSerializer(LocalDateTime.class, TimestampLocalDateTimeSerializer.INSTANCE));
+        assertEquals(instant.toEpochMilli(),
+                mapper.valueToTree(audit.getValue()).get("occurredAt").longValue(),
+                "the report attachment completion audit must serialize the injected instant");
+        assertEquals(expected, audit.getValue().getOccurredAt());
+        verify(workTaskMapper).completeReleaseReportTask(WORK_TASK_ID, expected);
+        assertEquals(List.of(101L), result.getAttachmentIds());
+        assertEquals(List.of("a".repeat(64)), result.getAttachmentHashes());
+        ArgumentCaptor<MesProductionReleaseReportNodePortCommand> node =
+                ArgumentCaptor.forClass(MesProductionReleaseReportNodePortCommand.class);
+        verify(reportNodePort).complete(node.capture());
+        assertEquals(101L, node.getValue().getAttachments().get(0).getFileId());
+        assertEquals("a".repeat(64), node.getValue().getAttachments().get(0).getSha256());
     }
 
     @Test

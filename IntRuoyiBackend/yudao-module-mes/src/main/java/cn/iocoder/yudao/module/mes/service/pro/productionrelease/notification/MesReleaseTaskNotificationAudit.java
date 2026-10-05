@@ -33,19 +33,19 @@ public class MesReleaseTaskNotificationAudit {
 
     public void attempted(MesReleaseTaskNotifyDeliveryDO before, MesReleaseTaskNotifyDeliveryDO after,
                           String reason, boolean retry) {
-        append("attempted", MesReleaseTaskNotificationTransactionService.class.getName() + "#beginAttempt",
+        append("attempted", MesReleaseTaskNotificationTransactionService.class.getName() + "#recordAttempt",
                 before, after, reason, retry);
     }
 
     public void sent(MesReleaseTaskNotifyDeliveryDO before, MesReleaseTaskNotifyDeliveryDO after,
                      String reason, boolean retry) {
-        append("sent", MesReleaseTaskNotificationTransactionService.class.getName() + "#markSent",
+        append("sent", MesReleaseTaskNotificationTransactionService.class.getName() + "#recordSent",
                 before, after, reason, retry);
     }
 
     public void failed(MesReleaseTaskNotifyDeliveryDO before, MesReleaseTaskNotifyDeliveryDO after,
                        String reason, boolean retry) {
-        append("failed", MesReleaseTaskNotificationTransactionService.class.getName() + "#markFailed",
+        append("failed", MesReleaseTaskNotificationTransactionService.class.getName() + "#recordFailed",
                 before, after, reason, retry);
     }
 

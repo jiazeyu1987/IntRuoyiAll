@@ -126,6 +126,9 @@
 - Blocker: 目标表不支持事务、目标业务组零行却允许迁移成功、目标组参数数量不完整、脚本在关联 DML 之间执行隐式提交 DDL、无法提供迁移前精确范围快照，或失败后不能证明连接关闭会回滚未提交事务时必须停止。
 - Verification: 先用缺少事务或缺少目标零行拦截的脚本得到 RED，再补事务与 fail-fast 预检得到 GREEN；执行后按迁移前冻结主键逐行核对全部关联字段，并通过真实页面或正式读接口证明运行态没有半迁移或零行假成功。
 - Forbidden action: 禁止依赖“通常不会失败”拆开提交关联 DML，禁止第一条成功后用第二条重试脚本补数据，禁止以页面只显示其中一部分字段掩盖迁移不完整。
+- DDL 与配置混合脚本：包含建表、辅助过程和模板 INSERT 的迁移须逐项披露写入范围，不能称为仅结构迁移。MySQL 的隐式提交可能保留已成功的 DDL 或配置；执行失败后先只读核对实际已提交对象，再确定后续操作，不能假定整文件已回滚并盲目重跑。`CREATE TABLE IF NOT EXISTS` 不校验已有结构，重跑前须验证字段、默认值、完整索引和例程归属；字符串或 H2 合同测试不代替真实 MySQL 首次及重复执行。Evidence: `doc/tasks/20260930-edhr-seven-test-accounts/astra-b-notify01-migration-review.md`。
+- 只读 preflight 边界：元数据空集合须另核账号可见性，不能直接证明对象不存在；模板参数正确也不能证明正文、昵称、类型和存储容量正确。保留已有模板全行基线，额外唯一索引、普通文本被改为 JSON 列及生成列也须明确审查。离线夹具通过不代表当前库或实际迁移通过。Evidence: `doc/tasks/20260930-edhr-seven-test-accounts/astra-b-notify-schema-preflight-runbook.md`。
+- 启动脚本副作用：预构建 Jar 只绕过编译，不保证启动过程无数据库写入。标准本机重启入口仍会探测并自动执行缺失的既有迁移；执行前须只读确认全部探针满足，或逐项取得对应迁移授权。服务启动或重启授权不能扩大为任意数据库迁移授权，静态迁移依赖检查通过也不能代替现场授权和实际执行证据。
 - Evidence: `doc/tasks/20260811-fine-wash-cleaning-params/execution-log.md`；`doc/tasks/20260811-cleaning-process-medium-temperature/execution-log.md`。
 
 ### 旧表单模板绑定切换表单中心门禁

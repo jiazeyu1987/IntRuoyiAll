@@ -307,7 +307,15 @@ const openBatch = () => {
 }
 const openReview = () => {
   if (detail.value?.nonconformanceReviewId) {
-    void router.push({ path: '/mes/pro/feedback/edhr-nonconformance-review', query: { reviewId: String(detail.value.nonconformanceReviewId), from: 'deviation' } })
+    void router.push({
+      path: '/mes/pro/feedback/edhr-nonconformance-review',
+      query: {
+        reviewId: String(detail.value.nonconformanceReviewId),
+        from: 'deviation',
+        deviationId: String(detail.value.id),
+        batchExecutionId: String(detail.value.batchExecutionId)
+      }
+    })
   }
 }
 const refreshTransferEligibility = async () => {

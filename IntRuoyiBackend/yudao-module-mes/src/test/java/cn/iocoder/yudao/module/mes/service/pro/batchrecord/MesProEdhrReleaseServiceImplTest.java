@@ -108,6 +108,8 @@ import static org.mockito.Mockito.when;
         cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureH2DialectConfiguration.class,
         cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
+    @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
+
 
     @Resource private cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper actualSignatures;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper actualApplications;

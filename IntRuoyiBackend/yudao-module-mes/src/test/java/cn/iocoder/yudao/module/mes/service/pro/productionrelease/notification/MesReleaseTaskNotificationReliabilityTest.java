@@ -221,7 +221,7 @@ class MesReleaseTaskNotificationReliabilityTest {
         f.pending(10L, 1L, 346L, KEY);
         f.retry(346L, 10L, 0, "首次合法发送");
         int sentVersion = f.version(10L);
-        assertThrows(RuntimeException.class, () -> invoke(f.transactions, "markFailed",
+        assertThrows(RuntimeException.class, () -> invoke(f.transactions, "recordFailed",
                 1L, 10L, 1, 346L, "旧尝试", "OLD_ATTEMPT", true));
         assertThrows(RuntimeException.class, () -> f.retry(346L, 10L, sentVersion, "已成功不重复发送"));
         assertEquals("SENT", f.status(10L));
@@ -522,7 +522,7 @@ class MesReleaseTaskNotificationReliabilityTest {
 
         void schedule(MesProEdhrWorkTaskDO assigned) { invoke(service, "scheduleAssigned", assigned, 341L); }
         void begin(Long id, Integer version, boolean retry) {
-            invoke(transactions, "beginAttempt", 1L, id, version, 346L, "合法发送尝试", retry);
+            invoke(transactions, "recordAttempt", 1L, id, version, 346L, "合法发送尝试", retry);
         }
         void retry(Long actor, Long id, Integer version, String reason) {
             invoke(dispatch, "retryDelivery", 1L, actor, id, version, reason);

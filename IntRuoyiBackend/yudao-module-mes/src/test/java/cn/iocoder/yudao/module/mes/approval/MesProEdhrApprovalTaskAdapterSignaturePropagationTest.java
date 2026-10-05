@@ -21,6 +21,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProEdhrApprovalTaskAdapterSignaturePropagationTest {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
+
 
     @Mock
     private MesProEdhrWorkTaskService workTaskService;

@@ -57,7 +57,7 @@ public class MesReleaseTaskNotificationDispatchService {
     }
 
     private void dispatch(MesReleaseTaskNotifyDeliveryDO frozen, Long actor, String reason, boolean retry) {
-        MesReleaseTaskNotifyDeliveryDO attempt = transactionService.beginAttempt(
+        MesReleaseTaskNotifyDeliveryDO attempt = transactionService.recordAttempt(
                 frozen.getTenantId(), frozen.getId(), frozen.getRowVersion(), actor, reason, retry);
         try {
             NotifySendSingleToUserIdempotentReqDTO request = new NotifySendSingleToUserIdempotentReqDTO();
@@ -70,12 +70,12 @@ public class MesReleaseTaskNotificationDispatchService {
             }
             request.setTemplateParams(parameters);
             Long messageId = platformSender.send(request);
-            transactionService.markSent(attempt.getTenantId(), attempt.getId(), attempt.getRowVersion(),
+            transactionService.recordSent(attempt.getTenantId(), attempt.getId(), attempt.getRowVersion(),
                     messageId, actor, reason, retry);
         } catch (RuntimeException failure) {
             String summary = MesReleaseTaskNotificationContract.safeError(failure);
             try {
-                transactionService.markFailed(attempt.getTenantId(), attempt.getId(), attempt.getRowVersion(),
+                transactionService.recordFailed(attempt.getTenantId(), attempt.getId(), attempt.getRowVersion(),
                         actor, reason, summary, retry);
             } catch (RuntimeException ackFailure) {
                 // A failed CAS/audit cannot overwrite a newer SENT. Existing attempt remains queryable/retryable.

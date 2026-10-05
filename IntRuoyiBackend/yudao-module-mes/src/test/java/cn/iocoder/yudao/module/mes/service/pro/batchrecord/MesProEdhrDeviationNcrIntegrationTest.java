@@ -70,6 +70,7 @@ class MesProEdhrDeviationNcrIntegrationTest {
     void setUp() {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(71L);
         service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "reviewCounterMapper", reviewCounterMapper);
         lenient().when(reviewCounterMapper.selectByTenantIdForUpdate(71L)).thenReturn(
                 new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewCounterDO()

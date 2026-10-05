@@ -558,32 +558,56 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
                 if (event.getSignatureUserId() != null) facts.add(fact("PERSON:SYSTEM_USER:signatureUserId:" + event.getSignatureUserId(), "提交签名人", event.getSignatureUserId(), "FLOW-04", "PRODUCTION_SIGNATURE", "event:" + event.getId(), event.getServerSubmitTime()));
             } else if (category == Category.PARAMETER && StrUtil.isNotBlank(event.getRawPayload())) {
                 JSONObject raw = parseJsonObject(event.getRawPayload(), "生产提交参数JSON");
-                Object materialDetails = raw.get("materialDetails");
-                if (materialDetails != null && !(materialDetails instanceof Collection<?>)) throw sourceConflict("生产物料明细不是正式数组");
-                if (materialDetails instanceof Collection<?> materials) {
+                if (raw.containsKey("materialDetails")) {
+                    if (!(raw.get("materialDetails") instanceof Collection<?> materials)) {
+                        throw sourceConflict("生产物料明细不是正式数组");
+                    }
+                    if (materials.isEmpty()) {
+                        // The formal writer uses an empty material array for a process with no output material.
+                        // Its device readings belong to the event itself, not to a material summary.
+                        if (raw.containsKey("deviceParameterReadings")) {
+                            appendAtomicParameters(facts, event,
+                                    readParameterArray(raw.get("deviceParameterReadings"), "生产参数明细"),
+                                    null, routeVersionId, targetProcesses);
+                        }
+                        continue;
+                    }
+                    List<JSONObject> flattened = new ArrayList<>();
+                    Set<Long> materialIds = new java.util.HashSet<>();
                     for (Object material : materials) {
                         JSONObject materialObject = parseJsonObject(JSON.toJSONString(material), "生产物料明细");
-                        Object readings = materialObject.get("deviceParameterReadings");
-                        if (readings instanceof Collection<?> collection) {
-                            for (Object value : collection) {
-                                for (JSONObject allocation : targetProcesses.values()) {
-                                    addParameterFact(facts, event, value, materialObject.getString("materialId"),
-                                            routeVersionId, allocation.getLong("routeProcessId"), allocation.getLong("processId"));
-                                }
-                            }
-                        } else if (readings != null) throw sourceConflict("物料参数明细不是正式数组");
+                        if (materialObject == null || StrUtil.isBlank(materialObject.getString("materialId"))) {
+                            throw sourceMissing("生产参数物料身份缺失");
+                        }
+                        Long materialId;
+                        try {
+                            materialId = materialObject.getLong("materialId");
+                        } catch (RuntimeException exception) {
+                            throw new IllegalStateException("SOURCE_CONFLICT:生产参数物料身份无法解析", exception);
+                        }
+                        if (materialId == null || materialId <= 0 || !materialIds.add(materialId)) {
+                            throw sourceConflict("生产参数物料身份无效或重复");
+                        }
+                        List<JSONObject> readings = materialObject.containsKey("deviceParameterReadings")
+                                ? readParameterArray(materialObject.get("deviceParameterReadings"), "物料参数明细")
+                                : List.of();
+                        appendAtomicParameters(facts, event, readings, String.valueOf(materialId), routeVersionId, targetProcesses);
+                        flattened.addAll(readings);
                     }
-                }
-                Object readings = raw.get("deviceParameterReadings");
-                if (readings instanceof Collection<?> collection) {
-                    for (Object value : collection) {
-                        for (JSONObject allocation : targetProcesses.values()) {
-                            addParameterFact(facts, event, value, null, routeVersionId,
-                                    allocation.getLong("routeProcessId"), allocation.getLong("processId"));
+                    // The formal material writer stores this ordered flatten for audit display.
+                    // Its full content must agree, but it is not a second set of measurements.
+                    if (raw.containsKey("deviceParameterReadings")) {
+                        List<JSONObject> summary = readParameterArray(raw.get("deviceParameterReadings"), "生产参数汇总");
+                        if (!flattened.equals(summary)) {
+                            throw sourceConflict("生产参数汇总与正式物料参数明细不一致");
                         }
                     }
+                } else if (raw.containsKey("deviceParameterReadings")) {
+                    // An event-level source is explicit only when no material source is present.
+                    appendAtomicParameters(facts, event,
+                            readParameterArray(raw.get("deviceParameterReadings"), "生产参数明细"),
+                            null, routeVersionId, targetProcesses);
                 }
-                else if (readings != null) throw sourceConflict("生产参数明细不是正式数组");
             }
         }
         if (category == Category.PERSON) {
@@ -594,6 +618,32 @@ final class MesProEdhrFormalReverseTraceAdapter implements MesProEdhrReverseTrac
         if (category == Category.PERSON) facts.addAll(readReviewAndReleasePersonFacts(batch, frozenReviews));
         if (category == Category.EQUIPMENT) facts.addAll(readPqcEquipmentFacts(batch));
         return facts;
+    }
+
+    private List<JSONObject> readParameterArray(Object raw, String sourceName) {
+        if (!(raw instanceof Collection<?> values)) throw sourceConflict(sourceName + "不是正式数组");
+        List<JSONObject> readings = new ArrayList<>();
+        for (Object value : values) {
+            JSONObject reading = parseJsonObject(JSON.toJSONString(value), sourceName);
+            if (reading == null) throw sourceConflict(sourceName + "不是正式对象");
+            readings.add(reading);
+        }
+        return readings;
+    }
+
+    private void appendAtomicParameters(List<Fact> facts, MesProProcessPoolEventDO event, List<JSONObject> readings,
+                                        String materialId, Long routeVersionId, Map<String, JSONObject> targetProcesses) {
+        Set<String> identities = new java.util.HashSet<>();
+        for (JSONObject reading : readings) {
+            String code = StrUtil.blankToDefault(reading.getString("parameterCode"), reading.getString("code"));
+            if (StrUtil.isBlank(code)) throw sourceMissing("正式参数编码缺失");
+            String identity = JSON.toJSONString(java.util.Arrays.asList(reading.getString("deviceId"), code));
+            if (!identities.add(identity)) throw sourceConflict("同一正式参数来源的设备参数身份重复");
+            for (JSONObject allocation : targetProcesses.values()) {
+                addParameterFact(facts, event, reading, materialId, routeVersionId,
+                        allocation.getLong("routeProcessId"), allocation.getLong("processId"));
+            }
+        }
     }
 
     private List<MesProcessPoolSubmissionReviewDO> readFrozenReviews(JSONObject productionFacts,

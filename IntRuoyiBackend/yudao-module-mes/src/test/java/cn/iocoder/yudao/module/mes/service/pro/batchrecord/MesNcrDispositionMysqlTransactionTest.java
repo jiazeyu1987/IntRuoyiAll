@@ -86,8 +86,10 @@ class MesNcrDispositionMysqlTransactionTest {
     @BeforeAll
     static void assembleRealServices() throws Exception {
         assertEquals("gxp-integration-dalton-m9-round2", docker("inspect", "--format", "{{.Config.Labels.owner}}", CONTAINER));
-        assertEquals("127.0.0.1:59241", docker("port", CONTAINER, "3306/tcp"));
-        dataSource = new DriverManagerDataSource("jdbc:mysql://127.0.0.1:59241/gxp_writer_snapshot"
+        String fixtureEndpoint = docker("port", CONTAINER, "3306/tcp");
+        assertTrue(fixtureEndpoint.matches("127\\.0\\.0\\.1:[1-9][0-9]{3,4}"),
+                "The verified fixture container must expose exactly one loopback IPv4 endpoint");
+        dataSource = new DriverManagerDataSource("jdbc:mysql://" + fixtureEndpoint + "/gxp_writer_snapshot"
                 + "?useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=15000",
                 "root", docker("exec", CONTAINER, "cat", "/run/m9/root-password"));
         jdbc = new JdbcTemplate(dataSource);
@@ -167,6 +169,7 @@ class MesNcrDispositionMysqlTransactionTest {
         var specialized = new MesProEdhrOperationAuditServiceImpl();
         inject(specialized, "auditEventMapper", mapper(MesProEdhrOperationAuditEventMapper.class));
         var ncr = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(ncr, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(ncr, "reviewMapper", mapper(MesProEdhrNonconformanceReviewMapper.class));
         inject(ncr, "workOrderMapper", mapper(MesProWorkOrderMapper.class));
         inject(ncr, "activeOrderMapper", mapper(MesProcessPoolActiveOrderMapper.class));

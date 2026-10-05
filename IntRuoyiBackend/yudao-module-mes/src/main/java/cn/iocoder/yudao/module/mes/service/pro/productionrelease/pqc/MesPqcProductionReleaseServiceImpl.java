@@ -44,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -172,7 +173,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 batchExecutionId, application.getId(), application.getReleaseTransactionId(), null, false);
         Long signatureId = signatureService.recordPqcReleaseSignature(
                 actorUserId, batchExecutionId, application.getId(), command.getSignaturePassword(), opinion);
-        LocalDateTime decidedAt = LocalDateTime.now(clock);
+        LocalDateTime decidedAt = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
         String activeOrderFactsSnapshotHash = MesProductionReleaseFormalFactSnapshots.activeOrderFactsSnapshotHash(
                 application, "APPROVE", actorUserId, decidedAt);
         MesPqcProductionReleaseDecisionResult result = baseResult(application, workTask)
@@ -248,7 +249,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
         Long batchExecutionId = requireExistingBatchExecutionId(application);
         nonconformanceReviewService.ensureBatchNotFrozen(batchExecutionId, "PQC放行");
-        LocalDateTime decidedAt = LocalDateTime.now(clock);
+        LocalDateTime decidedAt = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
         MesPqcProductionReleaseDecisionResult result = baseResult(application, workTask)
                 .setDecision("REJECT")
                 .setStatus(MesReleaseFlowStatus.PQC_RELEASE_REJECTED)

@@ -428,6 +428,8 @@
 - Preflight check: 只读扫描目标 worktree 的 `target/surefire-reports/TEST-*.xml`，先用 suite 聚合核对 tests/failures/errors/skipped，再保留每条 testcase 的 class、method、原始 F/E 和最短错误摘要；将流程 gate、相邻流程、并行模块和环境/fixture 作为互斥 primary 分类，环境问题仅作二次标记。
 - Blocker: XML 工件缺失、聚合数与报告基线不一致、无法取得逐条 class/method、Maven 尚未进入 Surefire、或失败根因只能靠猜测时必须停在分类/阻断，不能把 skipped、fixture、PowerShell ParserError、JVM native memory failure 写成业务 RED，也不能以局部定向绿证替代全量回归。
 - Verification: 记录只读工件路径、suite/test/failure/error/skip 聚合、逐条清单与 owner 矩阵；对每个 failure/error 提供原命令的 `-Dtest=Class#method` 最小复现和后续动作；重新运行时必须使用真实 fixture/JUnit，保留原始退出码和工具错误。
+- 多轮报告绑定：target/surefire-reports 会保留未重跑类的旧 XML，也会被下一轮覆盖。逐类报告必须核对本次命令开始/结束时间、完成日志中的类名及计数和当前 XML 的时间、计数；其中任一不匹配，只能记录为未绑定证据，不能宣布该场景通过。编译失败或尚在运行时，不得拿目录里的 XML 作为本次运行结果。
+- 证据封存：稳定交付后先绑定源码、选择器及运行命令，再在下一次重跑前保存完成日志和报告摘要、SHA256。日志与 XML 相互印证后才汇总通过数；中间单类通过、整批通过、独立验收通过与已融合须分别记录。
 - Forbidden action: 禁止让流程 gate owner 修复跨模块失败，禁止 API-only、mock、默认成功或跳过测试掩盖缺口，禁止把合法 runtime slot 当业务失败，禁止覆盖并行 worktree 或修改其它任务代码来“清零”分类。
 
 ### 发布 worktree 与控制台身份一致性门禁
@@ -501,3 +503,10 @@
 - 触发：测试引用 doc/tasks 下被忽略的策略草案、样例或快照，源工作区通过而新 checkout 缺文件。
 - 规则：将测试必需且不含敏感信息的原始夹具归入对应模块 src/test/resources，并更新测试读取路径；生产策略与未批准测试草案必须保持隔离。不得用编造内容或跳过断言掩盖缺文件。
 - 验证：以 Git 跟踪清单确认夹具随实现提交，重新执行实际消费夹具的测试；不要把源工作区忽略文件存在当作合并后可复现的证据。
+
+
+## 交付清单与完整构建来源分开封存
+
+- 修复交付同时核对任务差异清单与实际完整构建输入清单；后者应覆盖被忽略但真实参与编译的源码、根构建配置及二进制资源，并关联编译器输入。两份清单不能互相代替。
+- 发现调用方已交付而Mapper、状态消费者或测试依赖漏入清单时，退回原修复线程完整盘点并重新封存；整改后按最终源码重新运行回归，不沿用整改前日志或旧XML。
+- 隔离索引核对基线和修复差异各自的精确路径及内容；临时索引预演不等于实际提交或主干融合通过。

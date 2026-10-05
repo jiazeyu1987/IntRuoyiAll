@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReque
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,7 +29,7 @@ public class MesActiveOrderDossierBusinessFileAccessProvider implements Business
 
     public MesActiveOrderDossierBusinessFileAccessProvider(
             MesProcessPoolActiveOrderDossierFileMapper dossierFileMapper,
-            MesActiveOrderDossierFileService dossierFileService) {
+            @Lazy MesActiveOrderDossierFileService dossierFileService) {
         this.dossierFileMapper = Objects.requireNonNull(dossierFileMapper, "dossierFileMapper");
         this.dossierFileService = Objects.requireNonNull(dossierFileService, "dossierFileService");
     }

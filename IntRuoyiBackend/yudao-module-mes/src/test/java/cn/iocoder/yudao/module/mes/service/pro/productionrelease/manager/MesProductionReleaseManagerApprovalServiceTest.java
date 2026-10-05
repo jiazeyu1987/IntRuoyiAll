@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.databind.TimestampLocalDateTimeSerializer;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
@@ -32,6 +33,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,20 +43,26 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@ResourceLock("java.util.TimeZone.default")
 class MesProductionReleaseManagerApprovalServiceTest {
 
     private static final Long ACTOR_USER_ID = 8101L;
@@ -70,9 +80,12 @@ class MesProductionReleaseManagerApprovalServiceTest {
     @Mock private MesReleaseFlowAuditRecorder auditRecorder;
 
     private MesProductionReleaseManagerApprovalServiceImpl service;
+    private TimeZone originalTimeZone;
 
     @BeforeEach
     void setUp() {
+        originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         TenantContextHolder.setTenantId(1L);
         service = new MesProductionReleaseManagerApprovalServiceImpl(
                 applicationMapper, releaseTransactionMapper, releaseEventMapper, workTaskMapper,
@@ -82,7 +95,45 @@ class MesProductionReleaseManagerApprovalServiceTest {
 
     @AfterEach
     void tearDown() {
+        TimeZone.setDefault(originalTimeZone);
         TenantContextHolder.clear();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Asia/Shanghai", "UTC"})
+    void managerApprovalDtoWorkTaskAndAuditPreserveUtcClockInstant(String systemZone) {
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(systemZone)));
+        Fixture fixture = fixture();
+        stubApproval(fixture);
+        when(applicationMapper.releaseFromManager(
+                701L, 5, fixture.reportSnapshotHash(), 1001L, 2001L)).thenReturn(1);
+        when(workTaskMapper.completeManagerReleaseTask(eq(2001L), any(), eq("approved"))).thenReturn(1);
+        MesProductionReleaseManagerApprovalResult prepared = service.prepareForFinalization(
+                ACTOR_USER_ID, fixture.command());
+        MesProductionReleaseManagerApprovalResult result = service.completeAfterFinalization(
+                ACTOR_USER_ID, fixture.command(), prepared, fixture.releasedTransaction());
+
+        Instant instant = Instant.parse("2026-08-16T00:00:00Z");
+        LocalDateTime expected = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+        ObjectMapper mapper = new ObjectMapper().registerModule(new SimpleModule()
+                .addSerializer(LocalDateTime.class, TimestampLocalDateTimeSerializer.INSTANCE));
+        assertEquals(instant.toEpochMilli(), mapper.valueToTree(result).get("occurredAt").longValue(),
+                "the actual manager approval DTO must serialize the injected instant");
+        assertEquals(expected, prepared.getOccurredAt());
+        assertEquals(expected, result.getOccurredAt());
+        verify(workTaskMapper).completeManagerReleaseTask(2001L, expected, "approved");
+        ArgumentCaptor<MesReleaseFlowAuditCommand> audit =
+                ArgumentCaptor.forClass(MesReleaseFlowAuditCommand.class);
+        verify(auditRecorder).record(audit.capture());
+        assertEquals(expected, audit.getValue().getOccurredAt());
+        assertEquals(instant.toEpochMilli(),
+                mapper.valueToTree(audit.getValue()).get("occurredAt").longValue());
+        ArgumentCaptor<MesProEdhrReleaseTransactionEventDO> event =
+                ArgumentCaptor.forClass(MesProEdhrReleaseTransactionEventDO.class);
+        verify(releaseEventMapper).insert(event.capture());
+        assertEquals(expected, event.getValue().getOccurredAt());
+        assertEquals(instant.toEpochMilli(),
+                mapper.valueToTree(event.getValue()).get("occurredAt").longValue());
     }
 
     @Test
@@ -463,7 +514,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         }
 
         java.time.LocalDateTime now() {
-            return java.time.LocalDateTime.ofInstant(Instant.parse("2026-08-16T00:00:00Z"), ZoneOffset.UTC);
+            return java.time.LocalDateTime.ofInstant(Instant.parse("2026-08-16T00:00:00Z"), ZoneId.systemDefault());
         }
     }
 }

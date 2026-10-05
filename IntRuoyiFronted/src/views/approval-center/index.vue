@@ -493,6 +493,7 @@ const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   BPM_PROCESS_INSTANCE: '流程实例',
   BPM_PROCESS_INSTANCE_COPY: '流程抄送实例',
   DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
+  EDHR_WORK_TASK: '电子批记录工作任务',
   MES_PRO_FEEDBACK: '生产报工复核任务'
 }
 

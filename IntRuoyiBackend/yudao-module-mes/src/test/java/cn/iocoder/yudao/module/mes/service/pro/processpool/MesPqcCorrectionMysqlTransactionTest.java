@@ -102,10 +102,12 @@ class MesPqcCorrectionMysqlTransactionTest {
         // No assumptions/disabled tests: missing prerequisites are hard setup failures, never behavior RED.
         assertEquals("gxp-integration-dalton-m9-round2",
                 docker("inspect", "--format", "{{.Config.Labels.owner}}", CONTAINER));
-        assertEquals("127.0.0.1:59241", docker("port", CONTAINER, "3306/tcp"));
+        String fixtureEndpoint = docker("port", CONTAINER, "3306/tcp");
+        assertTrue(fixtureEndpoint.matches("127\\.0\\.0\\.1:[1-9][0-9]{3,4}"),
+                "The verified fixture container must expose exactly one loopback IPv4 endpoint");
         String credential = docker("exec", CONTAINER, "cat", "/run/m9/root-password");
         DataSource source = new DriverManagerDataSource(
-                "jdbc:mysql://127.0.0.1:59241/gxp_writer_snapshot"
+                "jdbc:mysql://" + fixtureEndpoint + "/gxp_writer_snapshot"
                         + "?useSSL=false&allowPublicKeyRetrieval=true&connectTimeout=5000&socketTimeout=15000",
                 "root", credential);
         jdbc = new JdbcTemplate(source);
@@ -322,6 +324,7 @@ class MesPqcCorrectionMysqlTransactionTest {
         inject(revisionTarget, "pqcTaskMapper", task);
         MesProcessPoolEventRevisionService revision = transactional(revisionTarget, null);
         MesProEdhrNonconformanceReviewServiceImpl freezeGuard = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(freezeGuard, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(freezeGuard, "reviewMapper", mapper(MesProEdhrNonconformanceReviewMapper.class));
         inject(freezeGuard, "workOrderMapper", mapper(MesProWorkOrderMapper.class));
         MesPqcProcessInspectionAggregationService aggregation = transactional(
@@ -335,6 +338,7 @@ class MesPqcCorrectionMysqlTransactionTest {
         inject(correction, "aggregateDetailMapper", aggregate);
         inject(correction, "gxpAuditService", audited);
         inject(correction, "electronicSignatureQueryService", query);
+        inject(correction, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class));
         return transactional(correction, invocation -> {
             Object result = invocation.proceed();
             if ("correct".equals(invocation.getMethod().getName())) {

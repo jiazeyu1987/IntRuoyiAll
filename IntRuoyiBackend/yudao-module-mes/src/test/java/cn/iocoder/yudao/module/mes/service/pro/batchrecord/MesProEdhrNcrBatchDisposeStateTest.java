@@ -13,6 +13,7 @@ class MesProEdhrNcrBatchDisposeStateTest {
     @Test
     void pendingReviewCanBeDisposedWhenBatchHasAdvancedToNonTerminalStatus() {
         var service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var review = pendingReview().setPreviousBatchStatus(
                 MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS);
         var batch = new MesProEdhrBatchExecutionDO().setStatus(
@@ -25,6 +26,7 @@ class MesProEdhrNcrBatchDisposeStateTest {
     @Test
     void terminalBatchCannotBeDisposed() {
         var service = new MesProEdhrNonconformanceReviewServiceImpl();
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         var review = pendingReview().setPreviousBatchStatus(
                 MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS);
         var batch = new MesProEdhrBatchExecutionDO().setStatus(

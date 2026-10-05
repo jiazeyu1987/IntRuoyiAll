@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.common.util.json.databind.TimestampLocalDateTimeSerializer;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
@@ -14,6 +15,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditRecorder;
+import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowAuditCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlocker;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerType;
@@ -31,6 +33,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,12 +44,16 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.alibaba.fastjson.JSON;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,6 +68,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@ResourceLock("java.util.TimeZone.default")
 class MesPqcReleaseBatchExecutionServiceTest {
 
     private static final Long TENANT_ID = 1L;
@@ -84,9 +94,12 @@ class MesPqcReleaseBatchExecutionServiceTest {
     @Mock private cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector affectedStates;
 
     private MesPqcProductionReleaseService service;
+    private TimeZone originalTimeZone;
 
     @BeforeEach
     void setUp() {
+        originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
         TenantContextHolder.setTenantId(TENANT_ID);
         service = new MesPqcProductionReleaseServiceImpl(
                 applicationMapper, activeOrderMapper, workOrderMapper, workTaskMapper, dossierPort,
@@ -115,6 +128,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
 
     @AfterEach
     void tearDown() {
+        TimeZone.setDefault(originalTimeZone);
         TenantContextHolder.clear();
     }
 
@@ -277,8 +291,10 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(lossWriter, never()).write(any(), any());
     }
 
-    @Test
-    void pqcApproveCreatesBatchExecutionOnlyAfterPqcRelease() {
+    @ParameterizedTest
+    @ValueSource(strings = {"Asia/Shanghai", "UTC"})
+    void pqcApproveCreatesBatchExecutionOnlyAfterPqcRelease(String systemZone) {
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(systemZone)));
         MesPqcReleaseDossierPlan dossierPlan = new MesPqcReleaseDossierPlan()
                 .setSourceSnapshotHash("source-hash");
         MesPqcReleaseDossierWriteResult dossierWrite = new MesPqcReleaseDossierWriteResult()
@@ -337,6 +353,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals(result.getUdiControlDocumentNo(),
                 JSON.parseObject(auditCaptor.getValue().getAfterState().getCanonicalJson())
                         .getString("udiControlDocumentNo"));
+        assertDecisionTimeMatchesClockInstant(result, "APPROVE");
     }
 
     @Test
@@ -375,8 +392,10 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals(MesReleaseFlowStatus.MANAGER_RELEASE_PENDING, result.getStatus());
     }
 
-    @Test
-    void pqcRejectDoesNotCreateBatchExecutionOrDownstreamDocuments() {
+    @ParameterizedTest
+    @ValueSource(strings = {"Asia/Shanghai", "UTC"})
+    void pqcRejectDoesNotCreateBatchExecutionOrDownstreamDocuments(String systemZone) {
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of(systemZone)));
         when(applicationMapper.rejectFromPending(eq(APPLICATION_ID), eq(VERSION), eq(PQC_USER_ID),
                 any(), eq("检验结论不通过"), any())).thenReturn(1);
         when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("REJECT"))).thenReturn(1);
@@ -405,6 +424,32 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(gxpAuditService).append(rejectAuditCaptor.capture());
         assertEquals("mes.pqc.production-release.reject", rejectAuditCaptor.getValue().getOperationId());
         assertEquals("PQC_RELEASE_REJECTED", rejectAuditCaptor.getValue().getAfterState().getState());
+        assertDecisionTimeMatchesClockInstant(result, "REJECT");
+    }
+
+    private void assertDecisionTimeMatchesClockInstant(
+            MesPqcProductionReleaseDecisionResult result, String decision) {
+        Instant instant = Instant.parse("2026-08-15T12:00:00Z");
+        LocalDateTime expected = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+        ObjectMapper mapper = new ObjectMapper().registerModule(new SimpleModule()
+                .addSerializer(LocalDateTime.class, TimestampLocalDateTimeSerializer.INSTANCE));
+        assertEquals(instant.toEpochMilli(), mapper.valueToTree(result).get("decidedAt").longValue(),
+                "the actual decision DTO must serialize the injected instant without an eight-hour shift");
+        assertEquals(expected, result.getDecidedAt());
+        verify(workTaskMapper).completePqcDecisionTask(PQC_WORK_TASK_ID, expected, decision);
+        if ("APPROVE".equals(decision)) {
+            verify(applicationMapper).approveFromPending(eq(APPLICATION_ID), eq(VERSION),
+                    eq(BATCH_EXECUTION_ID), eq(PQC_USER_ID), eq(expected), any(String.class), any());
+        } else {
+            verify(applicationMapper).rejectFromPending(eq(APPLICATION_ID), eq(VERSION),
+                    eq(PQC_USER_ID), eq(expected), eq("检验结论不通过"), any());
+        }
+        ArgumentCaptor<MesReleaseFlowAuditCommand> audit =
+                ArgumentCaptor.forClass(MesReleaseFlowAuditCommand.class);
+        verify(auditRecorder).record(audit.capture());
+        assertEquals(expected, audit.getValue().getOccurredAt());
+        assertEquals(instant.toEpochMilli(),
+                mapper.valueToTree(audit.getValue()).get("occurredAt").longValue());
     }
 
     @Test

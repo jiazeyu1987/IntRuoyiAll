@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS mes_pro_process_pool_team_employee_profile (
  id bigint PRIMARY KEY, tenant_id bigint, display_name varchar(128), employee_name varchar(128), deleted boolean DEFAULT false
 );
 CREATE TABLE IF NOT EXISTS mes_pro_process_pool_submission_review (
+  review_round INT NOT NULL DEFAULT 0, source_revision_id BIGINT, superseded_review_id BIGINT,
  id bigint PRIMARY KEY, tenant_id bigint, event_id bigint, leader_user_id bigint, review_signature_id bigint,
  reviewed_at timestamp, deleted boolean DEFAULT false
 );
