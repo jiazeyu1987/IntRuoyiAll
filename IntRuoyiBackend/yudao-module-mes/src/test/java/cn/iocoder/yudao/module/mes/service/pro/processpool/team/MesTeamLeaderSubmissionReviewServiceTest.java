@@ -73,6 +73,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void setUp() {
         service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "reportAllocationCommandService", reportAllocationCommandService);
         // The current review API binds the signature to its business object using its complete formal round context.
@@ -333,12 +335,19 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private void bindRevision(MesProProcessPoolEventDO event, Long id) {
         MesProProcessPoolEventRevisionDO revision = MesProProcessPoolEventRevisionDO.builder()
                 .id(id).eventId(event.getId()).revisionStatus("EFFECTIVE")
-                .revisionSignatureId(9500L + id).revisionSignatureUserId(3001L).modifiedByUserId(3001L)
+                .revisionSignatureId(9500L + id).revisionSignatureUserId(2001L).modifiedByUserId(2001L)
                 .revisionSignatureSnapshot("{\"signatureId\":" + (9500L + id)
-                        + ",\"actorId\":3001,\"signedAt\":\"2026-09-28T10:30:00\"}")
+                        + ",\"actorId\":2001,\"signedAt\":\"2026-09-28T10:30:00\"}")
                 .afterPayload(event.getRawPayload()).build();
         revision.setTenantId(event.getTenantId());
-        when(revisionMapper.selectListByEventId(event.getId())).thenReturn(List.of(revision));
+        var discovery=(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver) ReflectionTestUtils.getField(service, "returnCorrectionResolver");
+        org.mockito.Mockito.lenient().when(discovery.find(org.mockito.ArgumentMatchers.eq(event), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> {
+                    MesProcessPoolSubmissionReviewDO previous=invocation.getArgument(1);
+                    return previous!=null&&"REJECTED".equals(previous.getReviewStatus())
+                        &&java.util.Objects.equals(previous.getId(),cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(revision.getAfterPayload()).path("supersededReviewId").longValue())
+                        &&java.util.Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()),MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(revision.getAfterPayload())) ? revision : null;
+                });
     }
 
     @Test
@@ -558,7 +567,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     private static MesProcessPoolSubmissionReviewDO existingReview() {
-        return MesProcessPoolSubmissionReviewDO.builder()
+        return MesProcessPoolSubmissionReviewDO.builder().reviewRound(0)
                 .id(7000L)
                 .eventId(1001L)
                 .leaderUserId(3002L)
@@ -569,7 +578,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     private static MesProcessPoolSubmissionReviewDO existingApprovedReview() {
-        return MesProcessPoolSubmissionReviewDO.builder()
+        return MesProcessPoolSubmissionReviewDO.builder().reviewRound(0)
                 .id(7004L)
                 .eventId(1001L)
                 .leaderUserId(3001L)

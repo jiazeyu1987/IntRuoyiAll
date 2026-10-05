@@ -122,6 +122,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProcessPoolTeamLeaderControllerTest {
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @org.mockito.Mock private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver returnCorrectionResolver;
+
 
     @Mock
     private MesTeamLeaderWorkbenchService workbenchService;

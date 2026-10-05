@@ -54,6 +54,43 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProcessPoolProductionReportCorrectionServiceTest {
 
+    @Test
+    void ownReturnReusesSignedBusinessCorrectionAndSchedulesASeparateLeaderReview() {
+        var original=event();
+        var rejected=cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
+        var context=new MesFrontlineReturnCorrectionService.ReturnContext(original,rejected,413L,0L,"1900000000000000001");
+        var own=org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service,"ownReturnService",own);
+        when(own.requireOwnReturned(176L,413L,91L,0L,3001L,"PRODUCTION")).thenReturn(context);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(701L);
+        when(fragmentMapper.updateById(any(MesProProcessPoolQuantityFragmentDO.class))).thenReturn(1);
+        var result=new MesFrontlineReturnCorrectionService.CorrectionResult(176L,701L,List.of(
+                new MesFrontlineReturnCorrectionService.ChangedField("完成数量","4","6")));
+        when(own.complete(context,701L,3001L)).thenReturn(result);
+        assertEquals(result,service.correctOwnReturned(command(),413L,91L,0L));
+        var captured=ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(captured.capture());
+        assertEquals(91L,JsonUtils.parseTree(captured.getValue().getAfterPayload()).path("supersededReviewId").longValue());
+        assertEquals(3001L,captured.getValue().getRevisionSignatureUserId());
+        org.mockito.Mockito.verifyNoInteractions(scopeService);
+        verify(own).complete(context,701L,3001L);
+    }
+
+    @Test
+    void rejectedOwnContextFailsBeforeAnyBusinessWriteOrSignature() {
+        var own=org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service,"ownReturnService",own);
+        when(own.requireOwnReturned(176L,413L,91L,0L,3001L,"PRODUCTION"))
+                .thenThrow(new IllegalStateException("not original system signer"));
+        assertThrows(IllegalStateException.class,()->service.correctOwnReturned(command(),413L,91L,0L));
+        org.mockito.Mockito.verifyNoInteractions(eventMapper,signatureService,revisionService,scopeService);
+        verify(own,never()).complete(any(),any(),any());
+    }
+
     @Mock
     private MesProProcessPoolEventMapper eventMapper;
     @Mock
@@ -547,6 +584,331 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         verify(revisionService, never()).updateProductionReportRecord(any());
         verify(feedbackMapper, never()).updateCorrectedProductionReport(
                 any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void ownReturnCorrectsBothMaterialAndAggregateParameterCopiesWithOneSignedDiff() {
+        var original = eventWithDuplicateParameterCopies(false);
+        String originalPayload = original.getRawPayload();
+        var rejected = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(original, rejected, 413L, 0L,
+                "1900000000000000001");
+        var own = org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service, "ownReturnService", own);
+        when(own.requireOwnReturned(176L, 413L, 91L, 0L, 3001L, "PRODUCTION")).thenReturn(context);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenAnswer(invocation -> {
+            assertEquals(originalPayload, original.getRawPayload(), "Original facts survive until signed revision capture");
+            return 701L;
+        });
+        var result = new MesFrontlineReturnCorrectionService.CorrectionResult(176L, 701L, List.of(
+                new MesFrontlineReturnCorrectionService.ChangedField("清洗次数", "2", "3")));
+        when(own.complete(context, 701L, 3001L)).thenReturn(result);
+        var request = duplicateParameterCommand(false);
+
+        assertEquals(result, service.correctOwnReturned(request, 413L, 91L, 0L));
+
+        var captured = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(captured.capture());
+        var revision = captured.getValue();
+        var after = JsonUtils.parseTree(revision.getAfterPayload());
+        assertEquals(2, after.path("deviceParameterReadings").size());
+        for (var reading : after.path("deviceParameterReadings")) {
+            assertEquals(0, new BigDecimal("3").compareTo(reading.path("value").decimalValue()));
+            assertEquals("NORMAL", reading.path("parameterStatus").textValue());
+        }
+        for (var material : after.path("materialDetails")) {
+            assertEquals(2, material.path("outputQuantity").intValue());
+            assertEquals(0, material.path("lossQuantity").intValue());
+            assertEquals(3, material.path("deviceParameterReadings").get(0).path("value").intValue());
+        }
+        assertEquals(3, after.path("equipmentParameters").path("清洗机").path("cleaningCount").intValue());
+        assertEquals(3, after.path("fieldValues").path("DEVICE_PARAMETERS").path("清洗机")
+                .path("cleaningCount").intValue());
+        assertEquals(4, after.path("outputQuantity").intValue());
+        assertEquals(91L, after.path("supersededReviewId").longValue());
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("DEVICE_PARAMETERS.cleaningCount", revision.getChangedFields().get(0).getFieldCode());
+        assertEquals("2", revision.getChangedFields().get(0).getBeforeValue());
+        assertEquals("3", revision.getChangedFields().get(0).getAfterValue());
+        assertEquals(9102L, revision.getRevisionSignatureId());
+        assertEquals(3001L, revision.getRevisionSignatureUserId());
+        assertEquals(9001L, original.getSignatureId());
+        assertEquals(964L, original.getSignatureUserId());
+        assertEquals(2, JsonUtils.parseTree(originalPayload).path("deviceParameterReadings").get(1).path("value").intValue());
+        assertEquals(revision.getAfterPayload(), original.getRawPayload(), "Current reader must expose the signed correction");
+        var signed = ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
+        verify(signatureService).recordFieldChangeSignature(signed.capture());
+        assertEquals(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
+                .sha256("176|" + cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
+                        .canonicalizeJsonString(revision.getAfterPayload()) + "|" + request.getChangeReason().trim()),
+                signed.getValue().getSignatureChallengeHash());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+        org.mockito.Mockito.verifyNoInteractions(scopeService);
+        verify(own).complete(context, 701L, 3001L);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void ownReturnAcceptsEquivalentPersistedJsonAndKeepsCanonicalSignedChallenge(boolean pretty) throws Exception {
+        var original = eventWithDuplicateParameterCopies(false);
+        var rejected = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(original, rejected, 413L, 0L,
+                "1900000000000000001");
+        var own = org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service, "ownReturnService", own);
+        when(own.requireOwnReturned(176L, 413L, 91L, 0L, 3001L, "PRODUCTION")).thenReturn(context);
+        String[] persistedJson = new String[1];
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original).thenAnswer(invocation -> {
+            var reordered = reverseObjectKeys(JsonUtils.parseTree(original.getRawPayload()));
+            persistedJson[0] = pretty ? JsonUtils.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(reordered)
+                    : reordered.toString();
+            return event().setRawPayload(persistedJson[0]).setReportOutputQuantity(original.getReportOutputQuantity());
+        });
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(701L);
+        var result = new MesFrontlineReturnCorrectionService.CorrectionResult(176L, 701L, List.of(
+                new MesFrontlineReturnCorrectionService.ChangedField("清洗次数", "2", "3")));
+        when(own.complete(context, 701L, 3001L)).thenReturn(result);
+        var request = duplicateParameterCommand(false);
+
+        assertEquals(result, service.correctOwnReturned(request, 413L, 91L, 0L));
+
+        MesProcessPoolEventRevisionUpdateReqBO revision = lastArgument(revisionService, "updateProductionReportRecord");
+        org.junit.jupiter.api.Assertions.assertNotEquals(revision.getAfterPayload(), persistedJson[0]);
+        assertEquals(JsonUtils.parseTree(revision.getAfterPayload()), JsonUtils.parseTree(persistedJson[0]));
+        var signed = ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
+        verify(signatureService).recordFieldChangeSignature(signed.capture());
+        String challenge = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(
+                "176|" + cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
+                        .canonicalizeJsonString(persistedJson[0]) + "|" + request.getChangeReason().trim());
+        assertEquals(challenge, signed.getValue().getSignatureChallengeHash());
+        var audit = (GxpAuditService) ReflectionTestUtils.getField(service, "gxpAuditService");
+        var command = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+        verify(audit).append(command.capture());
+        assertEquals(challenge, command.getValue().getEvidences().stream()
+                .filter(e -> "SIGNATURE_CHALLENGE".equals(e.evidenceType())).findFirst().orElseThrow().sha256());
+        assertEquals(9001L, original.getSignatureId());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+        verify(own).complete(context, 701L, 3001L);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"VALUE", "TYPE", "MISSING_FIELD", "ADDED_FIELD",
+            "ARRAY_ORDER", "NULL_FIELD", "NON_OBJECT", "INVALID_JSON"})
+    void ownReturnRejectsPersistedJsonFactChangesBeforeAuditAndTaskCompletion(String change) {
+        var original = eventWithDuplicateParameterCopies(false);
+        var rejected = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(original, rejected, 413L, 0L,
+                "1900000000000000001");
+        var own = org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service, "ownReturnService", own);
+        when(own.requireOwnReturned(176L, 413L, 91L, 0L, 3001L, "PRODUCTION")).thenReturn(context);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original).thenAnswer(invocation -> {
+            var tree = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(original.getRawPayload());
+            var reading = (com.fasterxml.jackson.databind.node.ObjectNode) tree.path("deviceParameterReadings").get(0);
+            switch (change) {
+                case "VALUE" -> reading.put("value", 4);
+                case "TYPE" -> reading.put("value", "3");
+                case "MISSING_FIELD" -> tree.remove("supersededReviewId");
+                case "ADDED_FIELD" -> tree.put("unrequestedFact", true);
+                case "ARRAY_ORDER" -> {
+                    var materials = (com.fasterxml.jackson.databind.node.ArrayNode) tree.path("materialDetails");
+                    var first = materials.remove(0); materials.add(first);
+                }
+                case "NULL_FIELD" -> tree.putNull("supersededReviewId");
+                case "NON_OBJECT", "INVALID_JSON" -> { }
+                default -> throw new AssertionError(change);
+            }
+            String json = "NON_OBJECT".equals(change) ? "[]" : "INVALID_JSON".equals(change) ? "{" : tree.toString();
+            return event().setRawPayload(json).setReportOutputQuantity(original.getReportOutputQuantity());
+        });
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(701L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.correctOwnReturned(duplicateParameterCommand(false), 413L, 91L, 0L));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("productionCorrection.persistedPayload"));
+        verify((GxpAuditService) ReflectionTestUtils.getField(service, "gxpAuditService"), never()).append(any());
+        verify(own, never()).complete(any(), any(), any());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @Test
+    void ownReturnRejectsDifferentPersistedRevisionBeforeAuditAndTaskCompletion() {
+        var original = eventWithDuplicateParameterCopies(false);
+        var rejected = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
+                .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
+        var context = new MesFrontlineReturnCorrectionService.ReturnContext(original, rejected, 413L, 0L,
+                "1900000000000000001");
+        var own = org.mockito.Mockito.mock(MesFrontlineReturnCorrectionService.class);
+        ReflectionTestUtils.setField(service, "ownReturnService", own);
+        when(own.requireOwnReturned(176L, 413L, 91L, 0L, 3001L, "PRODUCTION")).thenReturn(context);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(701L);
+        var revisions = (MesProProcessPoolEventRevisionMapper) ReflectionTestUtils.getField(service, "revisionMapper");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            MesProcessPoolEventRevisionUpdateReqBO input = lastArgument(revisionService, "updateProductionReportRecord");
+            var changed = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(input.getAfterPayload());
+            changed.put("supersededReviewId", 92L);
+            return MesProProcessPoolEventRevisionDO.builder().id(701L).eventId(176L)
+                    .afterPayload(changed.toString()).build();
+        }).when(revisions).selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.correctOwnReturned(duplicateParameterCommand(false), 413L, 91L, 0L));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("productionCorrection.persistedRevision"));
+        verify((GxpAuditService) ReflectionTestUtils.getField(service, "gxpAuditService"), never()).append(any());
+        verify(own, never()).complete(any(), any(), any());
+    }
+
+    private static com.fasterxml.jackson.databind.JsonNode reverseObjectKeys(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node.isObject()) {
+            var object = JsonUtils.getObjectMapper().createObjectNode();
+            var keys = new java.util.ArrayList<String>();
+            node.fieldNames().forEachRemaining(keys::add);
+            keys.sort(java.util.Comparator.reverseOrder());
+            keys.forEach(key -> object.set(key, reverseObjectKeys(node.get(key))));
+            return object;
+        }
+        if (node.isArray()) {
+            var array = JsonUtils.getObjectMapper().createArrayNode();
+            node.forEach(value -> array.add(reverseObjectKeys(value)));
+            return array;
+        }
+        return node.deepCopy();
+    }
+
+    @Test
+    void correctsEquivalentDuplicateTextRequestsAndEveryAggregateCopyWithOneDiff() {
+        var original = eventWithDuplicateParameterCopies(true);
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+        when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
+        when(revisionService.updateProductionReportRecord(any())).thenReturn(701L);
+
+        assertEquals(701L, service.correct(duplicateParameterCommand(true)));
+
+        var captured = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
+        verify(revisionService).updateProductionReportRecord(captured.capture());
+        var revision = captured.getValue();
+        for (var reading : JsonUtils.parseTree(revision.getAfterPayload()).path("deviceParameterReadings")) {
+            assertEquals("纯化水", reading.path("value").textValue());
+            assertEquals("纯化水", reading.path("textValue").textValue());
+        }
+        assertEquals(1, revision.getChangedFields().size());
+        assertEquals("自来水", revision.getChangedFields().get(0).getBeforeValue());
+        assertEquals("纯化水", revision.getChangedFields().get(0).getAfterValue());
+        assertEquals(9001L, original.getSignatureId());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NUMERIC", "TEXT", "MIXED"})
+    void rejectsContradictoryDuplicateParameterRequestsBeforeSignatureAndBusinessWrites(String conflict) {
+        var original = eventWithDuplicateParameterCopies("TEXT".equals(conflict));
+        var request = duplicateParameterCommand("TEXT".equals(conflict));
+        var second = request.getDeviceParameterReadings().get(1);
+        if ("NUMERIC".equals(conflict)) {
+            second.setValue(new BigDecimal("4"));
+        } else {
+            second.setTextValue("冲突值");
+        }
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.correct(request));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("deviceParameterReadings.requestValue"));
+        verifyNoParameterCorrectionWrites();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void rejectsContradictoryOriginalAggregateParameterValuesBeforeSigning(boolean text) {
+        var original = eventWithDuplicateParameterCopies(text);
+        var payload = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(original.getRawPayload());
+        var second = (com.fasterxml.jackson.databind.node.ObjectNode) payload.path("deviceParameterReadings").get(1);
+        if (text) {
+            second.put("value", "其他介质").put("textValue", "其他介质");
+        } else {
+            second.put("value", 5);
+        }
+        original.setRawPayload(payload.toString());
+        when(eventMapper.selectByIdForUpdate(176L)).thenReturn(original);
+        when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
+
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.correct(duplicateParameterCommand(text)));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), error.getCode());
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("deviceParameterReadings.originalValue"));
+        verifyNoParameterCorrectionWrites();
+    }
+
+    private void verifyNoParameterCorrectionWrites() {
+        verify(signatureService, never()).recordFieldChangeSignature(any());
+        verify(revisionService, never()).updateProductionReportRecord(any());
+        verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+        verify(feedbackMapper, never()).updateCorrectedProductionReport(any(), any(), any(), any(), any(), any(), any());
+        verify(feedbackMaterialMapper, never()).updateCorrectedMaterialFact(any(), any(), any(), any(), any(), any());
+        verify(reportManagementSummaryService, never()).refreshProductionEvent(any());
+    }
+
+    private static MesProProcessPoolEventDO eventWithDuplicateParameterCopies(boolean text) {
+        var payload = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(event().getRawPayload());
+        var reading = JsonUtils.getObjectMapper().createObjectNode().put("deviceId", 41L).put("deviceName", "清洗机")
+                .put("parameterCode", text ? "medium" : "cleaningCount").put("parameterName", text ? "清洗介质" : "清洗次数")
+                .put("parameterStatus", "NORMAL");
+        if (text) {
+            reading.put("value", "自来水").put("textValue", "自来水");
+        } else {
+            reading.put("value", 2).put("lowerLimit", 1);
+        }
+        payload.set("deviceParameterReadings", JsonUtils.getObjectMapper().createArrayNode()
+                .add(reading.deepCopy()).add(reading.deepCopy()));
+        var materials = payload.putArray("materialDetails");
+        for (Long materialId : List.of(3401L, 4801L)) {
+            var material = materials.addObject().put("materialId", materialId).put("outputQuantity", 2).put("lossQuantity", 0);
+            material.putArray("lossDetails");
+            material.putArray("deviceParameterReadings").add(reading.deepCopy());
+        }
+        return event().setRawPayload(payload.toString());
+    }
+
+    private static MesProcessPoolProductionReportCorrectionCommand duplicateParameterCommand(boolean text) {
+        var first = new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                .setDeviceId(41L).setParameterCode(text ? "medium" : "cleaningCount");
+        var second = new MesProcessPoolProductionReportCorrectionCommand.DeviceParameterReadingCommand()
+                .setDeviceId(41L).setParameterCode(text ? "medium" : "cleaningCount");
+        if (text) {
+            first.setTextValue("纯化水");
+            second.setTextValue(" 纯化水 ");
+        } else {
+            first.setValue(new BigDecimal("3"));
+            second.setValue(new BigDecimal("3.0"));
+        }
+        return command().setOutputQuantity(new BigDecimal("4")).setDeviceParameterReadings(List.of(first, second))
+                .setMaterialDetails(List.of(
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand().setMaterialId(3401L)
+                                .setOutputQuantity(new BigDecimal("2")).setLossQuantity(BigDecimal.ZERO)
+                                .setLossDetails(List.of()).setDeviceParameterReadings(List.of(first)),
+                        new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand().setMaterialId(4801L)
+                                .setOutputQuantity(new BigDecimal("2")).setLossQuantity(BigDecimal.ZERO)
+                                .setLossDetails(List.of()).setDeviceParameterReadings(List.of(first))));
     }
 
     @org.junit.jupiter.api.AfterEach

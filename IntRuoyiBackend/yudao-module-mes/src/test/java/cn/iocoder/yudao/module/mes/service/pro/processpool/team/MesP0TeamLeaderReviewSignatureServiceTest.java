@@ -23,6 +23,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesTeamLeaderReviewSignatureContext;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolFifoAllocationService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -121,6 +124,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                         .productionConfigSnapshotJson("{\"outputMaterialIds\":[]}").build());
         submissionReviewService = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        { org.springframework.test.util.ReflectionTestUtils.setField(submissionReviewService, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(submissionReviewService, "signatureService", signatureService);
         ReflectionTestUtils.setField(submissionReviewService, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(submissionReviewService, "affectedStateCollector",
@@ -143,6 +148,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
                 .thenReturn(REVIEW_SIGNATURE_ID);
         lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(), any(), any(), any()))
                 .thenReturn(REVIEW_SIGNATURE_ID);
+        lenient().when(signatureService.recordTeamLeaderReviewSignature(anyLong(), any(), any(),
+                any(MesTeamLeaderReviewSignatureContext.class))).thenReturn(REVIEW_SIGNATURE_ID);
     }
 
     @Test
@@ -169,8 +176,19 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         Long reviewId = submissionReviewService.reviewSubmission(reqBO);
 
         assertEquals(7001L, reviewId);
+        ArgumentCaptor<MesTeamLeaderReviewSignatureContext> context =
+                ArgumentCaptor.forClass(MesTeamLeaderReviewSignatureContext.class);
         verify(signatureService).recordTeamLeaderReviewSignature(eq(LEADER_USER_ID),
-                eq(SIGNATURE_PASSWORD), any(), eq("PROCESS_POOL_EVENT"), eq(1001L), eq("提交记录组长复核"));
+                eq(SIGNATURE_PASSWORD), eq("组长复核:PQC:1001:APPROVED"), context.capture());
+        assertEquals(EVENT_ID, context.getValue().eventId());
+        assertEquals(MesProcessPoolSubmissionReviewDO.STATUS_APPROVED, context.getValue().reviewStatus());
+        assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(pqcReviewEvent().getRawPayload()),
+                context.getValue().payloadHash());
+        assertNull(context.getValue().revisionId());
+        assertNull(context.getValue().revisionSignatureId());
+        assertNull(context.getValue().supersededReviewId());
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(
+                anyLong(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -221,6 +239,8 @@ class MesP0TeamLeaderReviewSignatureServiceTest {
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"signatureId\":" + REVIEW_SIGNATURE_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actorId\":" + LEADER_USER_ID));
         assertTrue(review.getReviewSignatureSnapshotJson().contains("\"actionType\":\"TEAM_LEADER_REVIEW\""));
+        assertTrue(review.getReviewSignatureSnapshotJson().contains("\"payloadHash\":\""
+                + MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(pqcReviewEvent().getRawPayload()) + "\""));
     }
 
     @Test

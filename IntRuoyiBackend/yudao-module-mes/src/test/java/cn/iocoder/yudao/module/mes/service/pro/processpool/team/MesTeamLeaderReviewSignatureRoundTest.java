@@ -69,6 +69,7 @@ class MesTeamLeaderReviewSignatureRoundTest {
     private MesProProcessPoolEventMapper events;
     private MesProProcessPoolEventRevisionMapper revisions;
     private GxpAuditService audit;
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver correctionDiscovery;
     private MesProProcessPoolEventDO event;
 
     @BeforeEach
@@ -83,6 +84,7 @@ class MesTeamLeaderReviewSignatureRoundTest {
         jdbc.execute("""
                 CREATE TABLE mes_pro_process_pool_submission_review (
                   id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL DEFAULT 1,
+                  review_round INT NOT NULL DEFAULT 0, source_revision_id BIGINT, superseded_review_id BIGINT,
                   event_id BIGINT NOT NULL, leader_user_id BIGINT NOT NULL, leader_type VARCHAR(32),
                   review_status VARCHAR(32) NOT NULL, review_remark VARCHAR(1000), reviewed_at TIMESTAMP,
                   review_signature_id BIGINT, review_signature_user_id BIGINT, review_signature_snapshot_json VARCHAR(4000),
@@ -129,6 +131,9 @@ class MesTeamLeaderReviewSignatureRoundTest {
         revisions = mock(MesProProcessPoolEventRevisionMapper.class);
         var target = new MesTeamLeaderSubmissionReviewServiceImpl(mock(MesTeamLeaderScopeService.class), events,
                 reviews, mock(MesPqcProcessInspectionAggregationService.class));
+        { org.springframework.test.util.ReflectionTestUtils.setField(target, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        correctionDiscovery=mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class);
+        ReflectionTestUtils.setField(target,"returnCorrectionResolver",correctionDiscovery);
         var tasks = mock(MesPqcInspectionTaskMapper.class);
         when(tasks.selectById(5101L)).thenReturn(MesPqcInspectionTaskDO.builder().id(5101L).activeOrderId(8101L).build());
         when(tasks.selectById(5102L)).thenReturn(MesPqcInspectionTaskDO.builder().id(5102L).activeOrderId(8101L).build());
@@ -250,7 +255,14 @@ class MesTeamLeaderReviewSignatureRoundTest {
                 .revisionSignatureId(signature.getSignatureId()).revisionSignatureUserId(2001L)
                 .revisionSignatureSnapshot(JsonUtils.toJsonString(signature)).build();
         correction.setTenantId(1L);
-        when(revisions.selectListByEventId(source.getId())).thenReturn(List.of(correction));
+        var discovery=correctionDiscovery;
+        org.mockito.Mockito.lenient().when(discovery.find(org.mockito.ArgumentMatchers.eq(source), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> {
+                    MesProcessPoolSubmissionReviewDO previousReview=invocation.getArgument(1);
+                    return previousReview!=null&&"REJECTED".equals(previousReview.getReviewStatus())
+                        &&java.util.Objects.equals(previousReview.getId(),cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(correction.getAfterPayload()).path("supersededReviewId").longValue())
+                        &&java.util.Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(source.getRawPayload()),MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(correction.getAfterPayload())) ? correction : null;
+                });
     }
 
     private MesProProcessPoolEventDO event(Long id, Long taskId, String payload) {

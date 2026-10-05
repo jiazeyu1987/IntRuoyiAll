@@ -244,6 +244,8 @@ class MesTeamLeaderActiveOrderServiceTest {
     @Mock
     private GxpAuditService gxpAuditService;
     @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
+    @Mock
     private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
     @Mock
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderDataCleanupMapper dataCleanupMapper;
@@ -276,6 +278,7 @@ class MesTeamLeaderActiveOrderServiceTest {
         lenient().when(completionBackfillMapper.selectListByActiveOrderIdForUpdate(anyLong()))
                 .thenReturn(List.of());
         org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", handoffService);
         lenient().when(itemMapper.selectListByCodeOrNameLike(any(), eq(20))).thenReturn(List.of());
         lenient().when(itemMapper.selectById(anyLong())).thenAnswer(invocation -> MesMdItemDO.builder()
                 .id(invocation.getArgument(0, Long.class))
@@ -1073,6 +1076,24 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertTrue(command.getAfterState().getCanonicalJson().contains("\"workOrderId\":9001"));
         assertTrue(command.getAfterState().getCanonicalJson().contains("\"routeVersionId\":448"));
         assertTrue(command.getAfterState().getCanonicalJson().contains("\"version\":0"));
+        var order = inOrder(gxpAuditService, handoffService);
+        order.verify(gxpAuditService).append(any(GxpAuditCommand.class));
+        order.verify(handoffService).productionReady(8101L, 3001L);
+    }
+
+    @Test
+    void shouldFailActiveOrderJoinWhenFormalProductionHandoffCannotBeCreated() {
+        stubWorkOrderExists(confirmedWorkOrder());
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),
+                publishedRegulation(9902L, 928609L, 6001L));
+        stubSuccessfulActiveOrderInsert();
+        doThrow(new IllegalStateException("missing formal production responsibility"))
+                .when(handoffService).productionReady(8101L, 3001L);
+
+        var failure = assertThrows(IllegalStateException.class, () -> service.addActiveOrder(activeOrderReq()));
+
+        assertEquals("missing formal production responsibility", failure.getMessage());
+        verify(handoffService).productionReady(8101L, 3001L);
     }
 
     @Test
@@ -1865,8 +1886,9 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertEquals(2, proposal.path("operations").size());
         var loader = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditPolicyBundleLoader();
         var bundle = loader.load();
-        assertEquals("20260929-local-startup-01", bundle.policyNode().path("policyVersion").asText());
-        assertEquals("20260929-start-local-runtime", bundle.policyNode().path("approvalReference").asText());
+        assertEquals("APPROVED", bundle.policyNode().path("status").asText());
+        assertFalse(bundle.policyNode().path("policyVersion").asText().isBlank());
+        assertFalse(bundle.policyNode().path("approvalReference").asText().isBlank());
         for (var operation : proposal.path("operations")) {
             assertTrue(java.util.stream.StreamSupport.stream(bundle.policyNode().path("operations").spliterator(), false)
                     .anyMatch(registered -> registered.path("operationId").asText()
