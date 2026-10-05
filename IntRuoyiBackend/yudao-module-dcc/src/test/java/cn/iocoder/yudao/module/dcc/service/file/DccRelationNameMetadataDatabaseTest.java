@@ -48,6 +48,85 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
+
+    @Test void publicDetailExposesObsoleteForARealControlledPendingVersion() throws Exception {
+        prepareFormalControlledPending();
+        var before=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(jdbc.queryForMap("SELECT * FROM dcc_controlled_file WHERE id=9007199254740993"));
+        var controller=new DccControlledFileController();ReflectionTestUtils.setField(controller,"queryService",query);
+        try(var login=mockStatic(SecurityFrameworkUtils.class)) {
+            login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            var response=MockMvcBuilders.standaloneSetup(controller).build()
+                    .perform(get("/dcc/controlled-files/9007199254740993")).andReturn();
+            var data=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(response.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8),com.fasterxml.jackson.databind.JsonNode.class).get("data");
+            assertTrue(data.get("canObsolete").booleanValue(),"A genuine controlled future version must expose the authorized obsolete action");
+            assertTrue(data.get("actionProjection").get("allowedActions").toString().contains("OBSOLETE"));
+            assertEquals("9007199254740993",data.get("id").textValue());
+        }
+        var file=files.selectById(9007199254740993L);
+        var browser=(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO)
+                ReflectionTestUtils.invokeMethod(query,"toBrowserRespVO",99L,file,false,List.of(),null,Map.of());
+        assertTrue(browser.getCanObsolete());assertTrue(browser.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+        var history=browser.getVersionHistory().stream().filter(row->row.getId().equals(file.getId())).findFirst().orElseThrow();
+        assertTrue(history.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+        assertEquals(before,cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(jdbc.queryForMap("SELECT * FROM dcc_controlled_file WHERE id=9007199254740993")));
+    }
+
+    private void prepareFormalControlledPending() {
+        jdbc.update("UPDATE dcc_controlled_file SET status='CONTROLLED_PENDING_EFFECTIVE',published_file_id=200,stamped_file_id=200,"
+                +"published_time=controlled_time,approved_time=controlled_time,activated_time=NULL,effective_date=?,"
+                +"process_instance_id='formal-upload-round',process_definition_key='dcc-controlled-file-upload',file_type_taxonomy_id=6 WHERE id=9007199254740993",java.time.LocalDate.now().plusDays(1));
+        jdbc.update("UPDATE dcc_controlled_file_master SET file_type_taxonomy_leaf_id=6,normalized_file_number='N-1',latest_controlled_file_id=9007199254740993 WHERE id=10");
+        var detail=mock(DccControlledFileDetailAuthorizationGuard.class);
+        when(detail.isAllowed(any(),any(),anyBoolean(),any())).thenReturn(true);
+        ReflectionTestUtils.setField(query,"detailAuthorizationGuard",detail);
+        ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
+        var permission=(DccControlledFileCategoryPermissionSupport)ReflectionTestUtils.getField(query,"permissionSupport");
+        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+    }
+
+    @ParameterizedTest @ValueSource(strings={"CONTROL_TIME","PUBLISHED","STAMPED","WORKING_VERSION","MASTER_TYPE"})
+    void pendingWithoutActualFormalControlledFactsNeverReceivesTheObsoleteAction(String missing) {
+        prepareFormalControlledPending();
+        switch(missing) {
+            case "CONTROL_TIME"->jdbc.update("UPDATE dcc_controlled_file SET controlled_time=NULL WHERE id=9007199254740993");
+            case "PUBLISHED"->jdbc.update("UPDATE dcc_controlled_file SET published_file_id=NULL WHERE id=9007199254740993");
+            case "STAMPED"->jdbc.update("UPDATE dcc_controlled_file SET stamped_file_id=NULL WHERE id=9007199254740993");
+            case "WORKING_VERSION"->jdbc.update("UPDATE dcc_controlled_file SET version_no='A/1-1' WHERE id=9007199254740993");
+            case "MASTER_TYPE"->jdbc.update("UPDATE dcc_controlled_file_master SET file_type_taxonomy_leaf_id=777 WHERE id=10");
+            default->fail("Unknown explicit field");
+        }
+        var response=query.getControlledFile(99L,9007199254740993L);
+        assertFalse(response.getCanObsolete());assertFalse(response.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+    }
+
+    @Test void pendingFormLockBlocksAnotherObsoleteRequestAndPreservesExistingApplicantWithdrawal() {
+        prepareFormalControlledPending();
+        var form=new cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO();
+        form.setId(9007199254740997L);form.setApplicantUserId(99L);form.setTenantId(1L);form.setObjectId("9007199254740993");
+        form.setObjectVersion("A/1");form.setStatus("IN_APPROVAL");form.setActionCode("OBSOLETE");
+        var pending=(DccControlledFileFormActionPendingService)ReflectionTestUtils.getField(query,"formActionPendingService");
+        when(pending.findOpenObsoleteAction(9007199254740993L)).thenReturn(form);
+        var response=query.getControlledFile(99L,9007199254740993L);
+        assertTrue(response.getCanObsolete());assertFalse(response.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+        assertEquals("OBSOLETE_APPROVAL_PENDING",response.getActionProjection().getActionLockReason());
+        assertEquals(9007199254740997L,response.getActionProjection().getPendingRequestId());assertTrue(response.getActionProjection().getCanWithdraw());
+    }
+
+    @Test void pendingPermissionAndMetadataOnlyReadsDoNotGrantObsoletePrintOrMajorRevision() {
+        prepareFormalControlledPending();
+        var permission=(DccControlledFileCategoryPermissionSupport)ReflectionTestUtils.getField(query,"permissionSupport");
+        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(false);
+        var response=query.getControlledFile(99L,9007199254740993L);assertFalse(response.getCanObsolete());
+        assertFalse(response.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+        assertFalse(response.getActionProjection().getAllowedActions().contains("PRINT"));
+        assertFalse(response.getActionProjection().getAllowedActions().contains("MAJOR_REVISION"));
+        assertFalse(response.getActionProjection().getAllowedActions().contains("MANUAL_RELEASE"));
+        when(permission.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE)).thenReturn(true);
+        var readOnly=ReflectionTestUtils.invokeMethod(query,"toNameOnlyResponseWithHistory",99L,files.selectById(9007199254740993L),
+                false,List.of(),null);
+        var nameOnly=(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO)readOnly;
+        assertFalse(nameOnly.getCanObsolete());assertFalse(nameOnly.getActionProjection().getAllowedActions().contains("OBSOLETE"));
+    }
     @Test void authorizedDetailProjectsCurrentRegisteredFolderFromItsOwnFileLocation() {
         var before=jdbc.queryForMap("SELECT * FROM dcc_project_file_placement WHERE id=1");
         var response=authorizedDetail();

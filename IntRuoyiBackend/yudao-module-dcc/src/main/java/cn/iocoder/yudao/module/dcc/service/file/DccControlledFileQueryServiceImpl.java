@@ -2978,7 +2978,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 : controlledFileMapper.selectListByMasterId(file.getMasterId());
         respVO.setCurrentActiveVersionNo(resolveCurrentActiveVersionNo(file, chainFiles));
         respVO.setModifying(isActiveFileBeingModified(file, chainFiles));
-        respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+        respVO.setCanObsolete(isObsoleteControlledStage(file)
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
         respVO.setCanPublish(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType())
@@ -3164,7 +3164,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 .toList();
         respVO.setCurrentActiveVersionNo(resolveCurrentActiveVersionNo(file, chainFiles));
         respVO.setModifying(isActiveFileBeingModified(file, chainFiles));
-        respVO.setCanObsolete(DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+        respVO.setCanObsolete(isObsoleteControlledStage(file)
                 && permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.OBSOLETE));
         respVO.setCanPublish(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType())
@@ -3262,12 +3262,13 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         String status = file.getStatus();
         boolean requester = userId != null && userId.equals(file.getRequesterId());
         boolean active = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(status);
+        boolean obsoleteControlled = isObsoleteControlledStage(file);
         boolean superseded = DccControlledFileStatusEnum.SUPERSEDED.getStatus().equals(status);
         boolean working = DccControlledFileStatusEnum.WORKING.getStatus().equals(status);
         boolean readyToPublish = DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(status);
         boolean pendingWithdrawable = isWithdrawableWorkflowStatus(status);
         boolean pendingOpenCandidate = isOpenCandidateActionStatus(status);
-        FormActionInstanceDO obsoleteFormPending = active ? formActionPendingService.findOpenObsoleteAction(file.getId()) : null;
+        FormActionInstanceDO obsoleteFormPending = obsoleteControlled ? formActionPendingService.findOpenObsoleteAction(file.getId()) : null;
         boolean obsoleteApprovalPending = obsoleteFormPending != null;
         requirePendingRequestIdentity(file, pendingOpenCandidate);
 
@@ -3275,7 +3276,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (active && Boolean.TRUE.equals(canPrint)) {
             allowedActions.add(ACTION_PRINT);
         }
-        if (active && Boolean.TRUE.equals(canObsolete) && !obsoleteApprovalPending) {
+        if (obsoleteControlled && Boolean.TRUE.equals(canObsolete) && !obsoleteApprovalPending) {
             allowedActions.add(ACTION_OBSOLETE);
         }
         if ((active || superseded) && canCreateMajorRevision(userId, file)) {
@@ -3309,9 +3310,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
         DccControlledFileActionProjectionRespVO projection = new DccControlledFileActionProjectionRespVO();
         projection.setActionLocked(!active || obsoleteApprovalPending);
-        projection.setActionLockReason(active
-                ? (obsoleteApprovalPending ? "OBSOLETE_APPROVAL_PENDING" : null)
-                : resolveActionLockReason(status));
+        projection.setActionLockReason(obsoleteApprovalPending ? "OBSOLETE_APPROVAL_PENDING"
+                : active ? null : resolveActionLockReason(status));
         projection.setAllowedActions(allowedActions);
         projection.setCanWithdraw((pendingWithdrawable && requester)
                 || (obsoleteApprovalPending && userId != null && userId.equals(obsoleteFormPending.getApplicantUserId())));
@@ -3328,6 +3328,22 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 && file.getMasterId() != null
                 && file.getDccProjectCodeId() != null
                 && projectAccessService.hasProjectOwner(userId, file.getDccProjectCodeId());
+    }
+
+    /** Only the obsolete action accepts a genuinely controlled version before its execution date. */
+    private boolean isObsoleteControlledStage(DccControlledFileDO file) {
+        if (file == null) return false;
+        if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) return true;
+        if (!DccControlledFileStatusEnum.CONTROLLED_PENDING_EFFECTIVE.getStatus().equals(file.getStatus())
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || Boolean.TRUE.equals(file.getDeleted()) || !isThreeWorkflowUploadOrRevision(file)
+                || file.getControlledTime() == null || file.getPublishedFileId() == null || file.getPublishedFileId() <= 0
+                || file.getStampedFileId() == null || file.getStampedFileId() <= 0
+                || StrUtil.isBlank(file.getProcessInstanceId()) || file.getMasterId() == null) return false;
+        var version = versionPolicy.parseStored(file);
+        if (version == null || version.isWorkingIteration()) return false;
+        var master = controlledFileMasterMapper.selectById(file.getMasterId());
+        return matchesLockedFormalIdentity(file, master) && !Boolean.TRUE.equals(master.getDeleted());
     }
 
     private void requireActionProjectionIdentity(DccControlledFileDO file) {
@@ -3667,7 +3683,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                             hasDirectoryManagementPermission));
                     fillCheckoutProjection(respVO, logicalCheckout);
                     respVO.setCanPrint(canPrintControlledFile(userId, history));
-                    boolean canObsolete = DccControlledFileStatusEnum.ACTIVE.getStatus().equals(history.getStatus())
+                    boolean canObsolete = isObsoleteControlledStage(history)
                             && permissionSupport.hasCategoryPermission(history.getCategoryId(), userId,
                             DccFileCategoryPermissionActionEnum.OBSOLETE);
                     boolean canPublish = DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(history.getProcessType())
