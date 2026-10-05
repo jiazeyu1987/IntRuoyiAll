@@ -1,0 +1,13 @@
+{
+  "status": "G54_REAL_NEW_SIGNOFF_BLOCKER_FRONTEND_PIN_REVIEW_PASS_NOT_POST",
+  "manifestSha256": "faaada06f22d6ae0938304cc045be63aa19a98c72dde61a0ddf17c818eda0d50",
+  "filesVerified": 16,
+  "tests": 50,
+  "initialUploadAndObsoleteRemediation": "EXPLICIT_NOT_APPLICABLE",
+  "revisionRemediation": "REAL_LOAD_REQUIRED",
+  "currentTaskDefinitionKey": "EXACT_SERVER_CONTEXT_REQUIRED",
+  "newPayloadArrangementProperty": "OMITTED",
+  "types": "PASS_ACTUAL_83534_EXIT_0",
+  "build": "PASS_ACTUAL_15404_EXIT_0",
+  "actualFixedSignoffPost": false
+}

@@ -1,0 +1,12 @@
+{
+  "status": "G54_SCOPE_AND_TASK_CONTEXT_SOURCE_EMBEDDED_PACKAGE_PASS",
+  "jarSha256": "8048280bc1fcc56c12638d910501d37e8d0a278ffd6f842672d533a32ac05e45",
+  "exitCode": 0,
+  "packageSession": 87821,
+  "classes": [
+    "cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.class",
+    "cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext.class",
+    "cn/iocoder/yudao/module/dcc/service/file/DccSignoffAssignmentContext$AssigneeOption.class"
+  ],
+  "signaturePostStillPending": true
+}

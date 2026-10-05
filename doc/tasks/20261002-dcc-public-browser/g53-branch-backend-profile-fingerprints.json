@@ -1,0 +1,77 @@
+{
+  "status": "G53_OFFICIAL_BRANCH_LAUNCHER_SINGLE_PROFILE_FROZEN_FOR_ROOT",
+  "productionFiles": 1,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "scripts/runtime/start-branch-backend.ps1",
+      "bytes": 1776,
+      "sha256": "d186ea2be5de2b97c22c8c97242613abcabd0e58fd093b894838d016531d9602"
+    },
+    {
+      "path": "scripts/tests/start-branch-backend-spring-profile-contract.spec.ps1",
+      "bytes": 5355,
+      "sha256": "136f0013b8a1d5baca9caed441652b9f93f7e76d27ab910aa47e6056c013c9f6"
+    },
+    {
+      "path": "scripts/tests/start-branch-backend-dcc-encryption-static.spec.cjs",
+      "bytes": 3616,
+      "sha256": "eb0b68ebc3a3dfa2e14fa263a32cfc3cd513f7035b4e083f41c5766c177dbe58"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-bdd.md",
+      "bytes": 2646,
+      "sha256": "cd8bf3bf56d843b262a66d756ed35d43981373f638dc0ca33271903980335c8f"
+    }
+  ],
+  "actualBDD": "Current branch runtime context continues to choose port; optional final SpringProfile defaults local and accepts only a single nonblank token; Root removes duplicate ExtraArgs profile",
+  "RED": {
+    "command": "PowerShell production launcher AST param/body with explicit offline authority hosts",
+    "exitCode": 1,
+    "reason": "Explicit dcc-local-development still constructed local"
+  },
+  "GREEN": {
+    "exitCode": 0,
+    "checks": [
+      "Default local and current branch authority port",
+      "Explicit single development profile and unchanged Slot/ExtraArgs",
+      "Four other original branch context ports and local defaults",
+      "Actual PowerShell parameter binder rejects blank/multiple profile values"
+    ],
+    "scope": "Production AST param and body, excludes only dot-source/java/exit external endpoints; no actual runtime"
+  },
+  "existingScriptContract": {
+    "exitCode": 0,
+    "scope": "Existing DCC download startup safety and direct javaArgs; only local-default assertion updated"
+  },
+  "initialGreenFixtureError": "Nonexistent exception type in test catch; corrected to actual ParameterBindingException plus FQID, final PASS; original failed log retained",
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-red.log",
+      "bytes": 116,
+      "sha256": "798d29b15fa5c62f9aa98d1bd704bfa34f45a8f7ab6ca14e6908642aca080e57"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-green.log",
+      "bytes": 399,
+      "sha256": "67d678994f29a282cdfb4452c156aa7a082a072d4c3a6b36227c897a1092c913"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-final.log",
+      "bytes": 566,
+      "sha256": "30320c930a526340c0700af212cd387919391c558a13c5d246d72e66d004cd7b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-static.log",
+      "bytes": 65,
+      "sha256": "27b9aa75a8728cb799ca4d9ab8805b39f9691632ac0bd256720cacd8744efc27"
+    }
+  ],
+  "limitations": [
+    "No actual Git/Java/Maven/network/listener/DB/browser/services/env operations by agent",
+    "Test Starting output is retained production Write-Host only, not real service startup",
+    "Root alone adapts task launcher/new parameter and runs actual int_qms48061 service"
+  ]
+}

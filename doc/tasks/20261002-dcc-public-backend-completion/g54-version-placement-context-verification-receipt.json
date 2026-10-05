@@ -1,0 +1,36 @@
+{
+  "status": "ACTUAL_NECESSARY_CURRENT_TASK_CONTEXT_CASE_PASS",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T11:22:13+08:00",
+  "class": "cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest",
+  "method": "publicPlacementRealFlowableTaskSuppliesTheExactAssignmentObligation",
+  "tests": 1,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "xml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-junit.xml",
+    "bytes": 99122,
+    "sha256": "b4737f7f84328b2ec2c1baef8fb9a7682fe051df543764dce7d82c175475adba"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-final-r3.log",
+    "bytes": 64980,
+    "sha256": "3426ab6a0a7a18a8347f8d03ae32b4051c7a769689f55092a38fa6e2c011c973"
+  },
+  "priorScopeReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-verification-receipt.json",
+    "bytes": 4623,
+    "sha256": "8a067cde17a1462c57ceee96ab25f91d479623f734d5273b72e6ef969fc24d67"
+  },
+  "prior69XmlUnchanged": true,
+  "production2FrozenUnchanged": true,
+  "fixtureCorrections": [
+    "Current real engine Repository -> official DefinitionService wiring plus exact taskkey assertion",
+    "Old version inheritance fixture lacks G48 StorageService bean: explicit unused NEW-only port with verifyNoInteractions",
+    "Current official Gxp requires actual AdminUserApi bean: exact enabled tenant99 account matches existing LoginUser username/nickname"
+  ],
+  "initialFailures": "r1 missing StorageService Bean; r2 missing current AdminUserApi Bean; both isolated fixture setup, no business RED or runtime failure claim",
+  "actualBrowser": 0,
+  "actualBusinessDb": 0
+}

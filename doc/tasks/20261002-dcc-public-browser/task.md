@@ -14,7 +14,7 @@ Connect the public browser to authorized project discovery, logical folders, con
 - Root owns full type/build/backend verification. No Maven, E2E, services, real DB or Git commit/push here.
 
 ## Current Status
-in_progress
+ready_for_closeout — G53–G55 前端及启动修复已由 Root 核对并提交 ee4d9b4e0；完整 types/build 和真实主流程/详情/正文复验通过。与主管理任务一并正式收尾，未独立推送。
 
 ## BDD
 - Given authorized projects including empty projects, when opening project browsing and a logical folder, then getProjectDiscoveryPage and getProjectFolders/buildProjectFolderTree supply identities; the browser uses projectFolderId and keeps server total.
@@ -135,6 +135,20 @@ G16 milestone: ready_for_closeout for Root Review. Current checkin-directed 24 P
 ready_for_closeout for Root review of this display-only increment; shared task remains in_progress. Given two formal blockers have the same message but different stages/people, When the actual upload readiness subtree renders, Then each displays returned stage number/name, actual person/name and exact account ID plus unchanged reason; missing facts are explicitly未记录. No guard, API, role or fallback changes. Effective RED3/4→GREEN4; affectedupload threefiles27PASS andowned eslint exit0. Root owns types/realHMR/mainline acceptance and finalGit/cleanup; oldG20seal retained, thissingleassetnewseal in g44-route-blocker-display-fingerprints.json.
 
 ## Cleanup Keep
+
+- doc/tasks/20261002-dcc-public-browser/g53-real-ui-entry-plan.md
+
+- doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g55-detail-project-facts-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g55-detail-fingerprints-r3.json
+
+- doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-scope-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-fingerprints.json
 
 - doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-bdd.md
 - doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints.json

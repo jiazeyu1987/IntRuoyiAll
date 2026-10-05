@@ -1,0 +1,16 @@
+{
+  "status": "CANONICAL_SINGLE_PROFILE_FIX_PIN_AND_ACTUAL_MAIN_START_PASS",
+  "profile": "dcc-local-development",
+  "slot": 0,
+  "backendPort": 48061,
+  "backendJavaPid": 36316,
+  "launcherPid": 8052,
+  "frontendPid": 50712,
+  "frontendPort": 8061,
+  "health": "UP",
+  "jarSha256": "8a88e65c69f5c088ab4916cf73ee455b2abd3656e379634b8c85cb2fb8a67b62",
+  "productionLauncherSha256": "d186ea2be5de2b97c22c8c97242613abcabd0e58fd093b894838d016531d9602",
+  "schemaUpgrade": "PASS",
+  "actualBusinessAcceptance": "IN_PROGRESS",
+  "credentialValuesPersisted": false
+}

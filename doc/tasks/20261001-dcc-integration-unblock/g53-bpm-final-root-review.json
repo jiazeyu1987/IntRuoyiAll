@@ -1,0 +1,12 @@
+{
+  "status": "ROOT_LATEST_BPM_PIN_AND_ACTUAL_XML9_REVIEW_PASS_WITH_REAL_UPLOAD_SUCCESS",
+  "tests": 9,
+  "classes": 3,
+  "sourceSha256": "3cd440c87e5fe8ac21f7ce841233afaf6d696fcc9351524bf5396042569732f1",
+  "databaseDefinitionsUnmodified": true,
+  "actualPostRetest": "G53_REAL_UI_r3_089",
+  "actualFileCreated": "2054545668044084026",
+  "actualBpmCreated": "e8479810-c062-11f1-bf90-b082e25ec548",
+  "definitionUsed": "dcc-controlled-file-upload:4:dcc-three-workflow-tenant-1",
+  "newFailureScope": "SIGNOFF_NEW_REMEDIATION_FE_BLOCKER_SEPARATE_G54"
+}

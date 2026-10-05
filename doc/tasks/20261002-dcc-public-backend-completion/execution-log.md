@@ -197,3 +197,18 @@ Only projectcreate/native delegate/uniqueDCC adapter/controller/VO/mapper and ne
 Formal migration policy RED rejected dependency .sql extension; corrected stem, complete2entry closure PASS. Template INSERT-only exact payload/no-op/conflict static contract receipt explicitly actualMySqlRuns0. Root must independently review/apply only the new seed after its specific execution scope; prior dependency is not silently replay-authorized.
 
 No actual business DB/API/browser/services/package/Git by this owner. Source/test writing and Maven stopped after final handoff freeze. Main goal/runtime/actualUI remain Root scope.
+
+
+## G54 2026-10-05 finite assignment scope handoff
+
+Root actual failure was arrangement pre-load round mismatch and zero assignment POST; no claim a nonexistent REVISION guard caused NEW POST403. Native current task exact definition lookup/context key and revision-only arrangement save implemented in two production files, five necessary explicit fixture/test changes. Pure old-source RED4/4fail0error supersedes initial mock-injected port failure evidence.
+
+Currentreactor final69/6 PASS0fail/error/skip exit0 11:11:22; six original XML byte-archived, source/test/compiled fingerprints g54-signoff-fingerprints.json. Earlier control-event fixture15current-account errors fixed by actual enabled same-tenant DTO matching its login, not a production guard relaxation. SignatureBody/task/department/actor/round/payload replay remain. No actual DB/API/browser/service/package/Git. Owner ceased source editing/Maven and released Root.
+
+
+### G54 r2 necessary existing placement context test
+Root explicitly authorized exactly publicPlacementRealFlowableTaskSuppliesTheExactAssignmentObligation. Added actual engine Repository/DefinitionService port and currentkey assertion. Prior fixture required explicit unused NEW storage bean and actual auditAdmin port matching LoginUser99; setup errors retained and not claimed effectiveRED. Singlecase currentreactorPASS1/1 exit0 2026-10-05 11:22:13; independent XML/receipt/manifest-r2. Production2 and previous69 six XML/oldseal untouched. No other case/production/format changes; Maven released Root immediately.
+
+
+## G55 project identity detail projection 2026-10-05
+Effective old-sourceRED1 formalprojectname expected but actualnull. Limited Query includeRouteSnapshots authorizeddetail+RespVO String projectCode and necessary fixture/test; actualproduct/list/name-only/permission data unchanged, nullproject history readable, boundproject missing/foreign/id/deleted explicitPROJECT_CODE_NOT_EXISTS, disabled project still displays formalfacts. JUnit annotation/tenant builder compile issues not businessRED. Currentreactor13 selected executionsPASSall0 exit0 12:33:20, originalXML and manifest/receipt archived. Production2 and test1 frozen, Maven released. No actualDB/browser/runtime/package/Git; Root owns final UI.

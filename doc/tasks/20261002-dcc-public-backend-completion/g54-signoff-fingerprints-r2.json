@@ -1,0 +1,25 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW_R2",
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-fingerprints.json",
+    "bytes": 3845,
+    "sha256": "d595597800804270aaf6d964398023e340d31d5476222df15be4cce063715577"
+  },
+  "unchangedOldAssets": 7,
+  "productionFiles": 2,
+  "modifiedTestFiles": 6,
+  "newTestAsset": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccVersionPlacementDatabaseTest.java",
+    "bytes": 10719,
+    "sha256": "ba466ef6b3d226b10eb224dec08e056fab13a1f2379be6554225a33c372dedd9"
+  },
+  "additionalCaseVerification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-verification-receipt.json",
+    "bytes": 1755,
+    "sha256": "4ba6b8dd8bae9c7a8d6d34bca0e2fd6f922dfdb0c7cd89a7f0306f9d01998f1a"
+  },
+  "semanticsUnchanged": "production2 and prior six-class69 XML remain exact. Independent one necessary existing placement/context case completed, not a new full-suite70 result",
+  "actualDb": 0,
+  "package": 0,
+  "Git": 0
+}

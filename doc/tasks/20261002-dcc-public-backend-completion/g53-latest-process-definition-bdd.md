@@ -1,0 +1,16 @@
+# G53 — 稳定流程 key 的最新可发起版本
+
+状态：ready_for_closeout_for_Root_review。Root真实UI上传HTTP200业务失败，实际Flowable query命中同tenant/key两个合法active版本导致singleResult异常；无File/mapping/BPM提交。只修正式定义选择方法与自有隔离测试，不改DCC冻结源/DB/FE/部署历史/Git/runtime；源/测试冻结，Maven已释放Root。
+
+- Given同tenant稳定key已有两次合法部署且都active，When正式key查询/业务DTO创建，Then选择最高部署version，准确该tenant，无任意first或重写旧定义；原实例与其definitionId保持。
+- Given最高部署version挂起而旧版仍active，Whenkey新发起，Then不能退回旧版。现状态接口注明挂起禁止新发起、旧实例继续；Flowable7.2本机正式XML latestVersion按同key/tenant全部version取max，再在外层active过滤，所以无可用最新值触发现正式缺定义错误。显式definitionId入口及其既有suspended错误仍保留，不改变caller合同。
+- Given另tenant有更高version或当前tenant缺key，When查询，Then准确隔离/返回null，不跨tenantfallback。
+- Given真实旧instance位于旧definition，When新查询与新发起，Then旧instance仍绑定旧definition、不迁移或停用旧部署。
+
+先真实isolatedFlowable/H2执行effectiveRED，旧query实际2结果异常；GREEN只新增latestVersion约束，再现BpmProcessInstanceService DTO/显式id邻接回归。模型/账号预测端口若mock则明确，不当实际UI/BPM部署证明。无本owner实际DB/runtime动作。
+
+## 实际验证
+
+本树-am有效RED2026-10-05 09:48:08 exit1，4项中1pass/1fail/2error：真实两个active定义导致query2 Runtime/Flowable错误；最新挂起仍退回旧版导致assertfailure。原XML/raw日志封存。新增latestVersion一约束后首GREEN只剩既有executeAuthenticatedUserId包装RuntimeException的test期望错误；按真实cause ServiceException/code1009003002调整，不改生产边界。
+
+最后2026-10-05 09:51:38 currentreactor exit0，3类9项fail/error/skip均0。新4项真实Flowable/H2部署/query/instance-start＋邻接ProcessInstance4/registrationcontract1，不测试生产数据和真实浏览器。XMLbyte封存g53-latest-definition-junit，receipt/2源manifest含原始hash。最新挂起不fallback仍用原缺定义错误，caller显式旧definitionId可按旧合同继续发起其有效定义，既有实例绑定未修改。

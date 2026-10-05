@@ -1,0 +1,60 @@
+{
+  "status": "ACTUAL_SCOPED_CURRENT_REACTOR_PASS",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T12:33:20+08:00",
+  "classes": 1,
+  "tests": 13,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "cases": [
+    "detailAndHistoryDisplayRealCheckoutActor",
+    "authorizedDetailUsesFormalProjectNameInsteadOfItsFrozenProductIdentity",
+    "synchronizedLifecycleFactsProjectActualDatesAndDocControlDistributionEligibility",
+    "detailAndHistoryProjectActualRevisionFacts(String, String, String)[1]",
+    "detailAndHistoryProjectActualRevisionFacts(String, String, String)[2]",
+    "detailAndHistoryProjectActualRevisionFacts(String, String, String)[3]",
+    "boundDetailRejectsMissingOrForeignOfficialProjectWithoutAProductFallback(String)[1]",
+    "boundDetailRejectsMissingOrForeignOfficialProjectWithoutAProductFallback(String)[2]",
+    "boundDetailRejectsMissingOrForeignOfficialProjectWithoutAProductFallback(String)[3]",
+    "boundDetailRejectsMissingOrForeignOfficialProjectWithoutAProductFallback(String)[4]",
+    "nameOnlyDirectoryUserCanFindFileButCannotReadItsDetailOrContent",
+    "unboundHistoricalDetailDoesNotBorrowItsProductAsAProject",
+    "obsoleteHistoryReadsItsOwnRetainedBodyAndActualRevisionFacts"
+  ],
+  "xml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final-junit.xml",
+    "bytes": 96167,
+    "sha256": "67a8f0b325711c8ba9cd07de91c12bf5d7ba69bbc82eb63bd98e6d06b947c7ff"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final-r3.log",
+    "bytes": 59622,
+    "sha256": "d62911aa1e7cf1cd96811c7887a3096b7db604a833bb3f8ea8ec1b2168587a98"
+  },
+  "effectiveRed": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "cliExitCode": 1,
+    "reason": "Old actual authorized detail projectName null despite formal boundproject versus different frozenproduct",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-effective-red.xml",
+      "bytes": 94572,
+      "sha256": "f16757db79c466a835c4878647d5654f27b18b2d2949b0147dca593e0f255b90"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-red.log",
+      "bytes": 61917,
+      "sha256": "7ab8957402bc835a00a3d551daa25f7a77dc5723bffe50548804bb4784cd2934"
+    }
+  },
+  "fixtureCompileFailures": "Unqualified JUnit param annotations and inheritedtenant builder use corrected; not businessRED, no productionguard change",
+  "fullQueryClassRun": false,
+  "scope": "13 executions from 8 selected method groups:6newproject cases +existingdetail/name-only/history/checkout/obsolete/date projection",
+  "actualDb": 0,
+  "actualBrowser": 0,
+  "runtimeActions": 0,
+  "GitMutations": 0,
+  "packageRuns": 0
+}

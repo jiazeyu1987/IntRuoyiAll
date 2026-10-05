@@ -1,5 +1,17 @@
 # Verification report
 
+## G55 detail wording, route reads and formal project facts
+
+Root三实际证据顺派有限同源修正。签名流转提示分列上传升版完整顺序/预设生效与独立作废、reject原样；离开detail准确route/LongID/捕获fullPath守卫、0invalid请求/清读状态/晚响应不补blankaccess；项目文字只正式projectName/Code且API VO补字段，产品栏/真实ID导航/未绑定提示保。各独立BDD/effectiveRED保留，最后5files31执行全PASS/0skip/exit0，2prod lint0warning/exit0；copy旧seal独立保，route初fixture挂住及跨realm误差日志如实记录非业务RED。G54资产和upload实源保持，workflowAPI两新增VO字段明确supersedes旧pin。Root types/build/BE正式投影及真实路由文案验收待续，本Agent无实际环境/DB/API/Git动作，不冒E2E。
+
+## G54 signoff remediation only applicable to revision
+
+Root真实NEW会签指派被不适用GET403挡住，有限FE修child和正式contextDTO。当前taskkey三正式值准确验证，NEW/obsolete无需整改且finalpayload无relationArrangements；revision仍realdata/ref/validate失败阻断。实际handler/Panel/helper/wrapper effectiveRED5=2P/3F→GREEN5、受影响6files50执行全PASS/0skip/exit0，2prod lint exit0。旧integrationfixture只加当前revisionkey、原断言保持，未改父index/upload或BE权限。离线component/transport宿主明确，Root后端真实key/save及types/build/E2E待验，不冒真实POST成功。
+
+## G53 official launcher single Spring profile
+
+唯一正式runtime源start-branch-backend.ps1可选SpringProfile默认local、严格单profile并由该参数生成activeprofile；当前branchauthority仍决定端口且原Slot/Build/ExtraArgs顺序保留。生产AST参数体PowerShell有效RED→最终GREEN，默认/explicit和其他4context/invalid binder全部PASS/exit0；原DCC启动安全staticexit0。一次测试Exceptiontype宿主错误日志保留，不作为业务RED。没有实际Java/Git/listener/服务/DB操作，Root真实启动与页面独立验证。
+
 ## LD04/G49 exact project application entry
 
 r3 native关键字段修正：仅中心resolveDccKeyFields对两项目sourceType显示“项目代码/当前审批节点”，真实businessCode/node，不造文件版本/类型。实际resolver及原Vue子树有效RED3/4→GREEN4；原22+新增4的9files26执行PASS/0skip/exit0，单源lint exit0/0warning；文件分支四字段保原来源。其他前端源与旧seal精确保持，r3统一types/build由Root另验，非新真实页面PASS。

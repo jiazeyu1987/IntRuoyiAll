@@ -1,0 +1,10 @@
+{
+  "status": "BACKEND_START_FAILED_BEFORE_LISTENER_DUPLICATE_PROFILE_QUARTZ_CONFLICT",
+  "attemptLauncherPid": 7780,
+  "backendPort": 48061,
+  "failure": "RAMJobStore has no isClustered setter",
+  "source": "canonical start-branch-backend hardcoded local plus task ExtraArgs profile dcc-local-development",
+  "schemaUpgrade": "CLONE_AND_SOURCE_THREE_MIGRATIONS_FIRST_REPEAT_VERIFIED",
+  "businessAcceptance": false,
+  "applicationStarted": false
+}

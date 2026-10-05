@@ -1,0 +1,90 @@
+{
+  "status": "G55_SIGNATURE_FLOW_COPY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 306743,
+      "sha256": "04c5f1584c110672f81262239d8d91f9ffd894665882a728c4231eb91424b367"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-publish-transition-static.spec.cjs",
+      "bytes": 3516,
+      "sha256": "82ba1b1eaa55f818466cd3ef97de482b82d604cd7be97eec2db2b9f103f7dea2"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-bdd.md",
+      "bytes": 1627,
+      "sha256": "2f4c5e9a32604626d0c84f6dce80ab77571c1d557b02de77a81a73f35f4e2726"
+    }
+  ],
+  "unchangedG54Assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21498,
+      "sha256": "6fa4714ac2d023ec70ff7cdc4689f9d883c386a5cbbb815310ccb557465f507e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    }
+  ],
+  "exactChange": "Only approve actionDialogSubmitFlowText literal: separate upload/revision full lifecycle and independent obsolete completion; original reject wording and actual routing/write logic unchanged",
+  "verification": {
+    "RED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "GREEN": {
+      "files": 2,
+      "tests": 14,
+      "pass": 14,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "ownedLint": {
+      "files": 1,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-red.log",
+      "bytes": 4173,
+      "sha256": "15e16c4f885f65c7e936eddf16a99d4762e77ece51937c82ac8ba6d2a019abea"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-green.log",
+      "bytes": 1625,
+      "sha256": "d6c70c9f6fbe63907cd43fdbbda7f30e826a993d706a2fa6090b4cdce342762c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual computed+actual template AST Vue renderer and nearby context Node tests, not actual browser E2E",
+    "Root new full types/build/real visible copy verify pending",
+    "No actual DB/API/browser/runtime/Git by agent; next empty-ID navigation bug separate scope/seal"
+  ]
+}

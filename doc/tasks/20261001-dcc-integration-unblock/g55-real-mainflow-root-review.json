@@ -1,0 +1,77 @@
+{
+  "status": "FOUR_DIRECTION_LOCAL_MAINFLOW_AND_BOUNDED_DETAIL_REAL_UI_PASS",
+  "sourceCommit": "ee4d9b4e0136885deb28ac9e9ca83bf68b0026a9",
+  "backendPid": 6604,
+  "frontendPid": 50712,
+  "ports": [
+    8061,
+    48061
+  ],
+  "reviewedJarSha256": "381754e50a21922e3c106b3dd6e69cec663b9ff9a52ae4cdae2e00f43b1b706c",
+  "projectRequest7": "COMPLETED",
+  "fileId": "2054545668044084026",
+  "fileState": "ACTIVE",
+  "controlledAndEffective": "2026-10-05 11:51:36",
+  "distributed": "2026-10-05 12:11:29",
+  "signatureCount": 6,
+  "ownerSelectedByApprover": "1",
+  "rejectedRequestsRetained": [
+    "8",
+    "9"
+  ],
+  "resubmittedRequest": "10",
+  "resubmissionPreviousId": "9",
+  "newReviewTodoVisible": true,
+  "formalProjectVisible": true,
+  "blankIdReadRequestsOnLeavingDetail": 0,
+  "evidence": {
+    "008.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\008.json",
+      "sha256": "e2ce7e0c17f0c8464147789b1e9ffd35b9ce792ec4a8c096394251cb32ccc8c2",
+      "visibleRoute": "/mdm/product-catalog"
+    },
+    "010.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\010.json",
+      "sha256": "4865c42a77b7354406503cc0274a59334cfa8e4ed115acf58906847df0bb0dbc",
+      "visibleRoute": "/approval-center/todo"
+    },
+    "013.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\013.json",
+      "sha256": "20d2d841618da74734740c5c9e8fed08fb04c8385167c77a8cbe98063242103f",
+      "visibleRoute": "/dcc/controlled-file/detail/2054545668044084026"
+    },
+    "015.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\015.json",
+      "sha256": "d1deae36faa12487b6fc277929304ab1fb0d87943e09ea0e37609ad0d8b5bf4d",
+      "visibleRoute": "/dcc/controlled-file/browser"
+    },
+    "016.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\016.json",
+      "sha256": "225ad434530452436a5e52496c3f4080e1ba6955cec8e3bd2f2703729c5d89ee",
+      "visibleRoute": "/dcc/controlled-file/browser"
+    },
+    "018.json": {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\018.json",
+      "sha256": "0ac124276f0e3283395218a0b56e8e00ad040ddb3bb8a64a29b6c7c6aa7ffdda",
+      "visibleRoute": "/dcc/controlled-file/detail/2054545668044084026"
+    }
+  },
+  "readOnlyReceiptSha256": "736308c45bc122581560d85a9c9c478ed8c74e5f707b762ef70a24f219ac0637",
+  "distinctActorsTested": false,
+  "trainingSelected": false,
+  "completeHtmlE2EClaim": false,
+  "remotePush": false,
+  "canvas": {
+    "status": "ACTUAL_FRONTEND_CANVAS_NONEMPTY",
+    "width": 685,
+    "height": 969,
+    "sampled": 26578,
+    "nonWhite": 2208
+  },
+  "canvasEvidenceSha256": "8ca4aeb7adafe44ef91ef524f535256e1bcfd0fb3bbdbb307083781aad1d1e80",
+  "protectedPdfScreenshot": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g53-real-ui-r6\\019.png",
+  "screenshotSha256": "b042cad3af5931d3b37016d96c818f923477b7d146d80cc2d7c2697252892308",
+  "fullTypesExitCode": 0,
+  "fullBuildExitCode": 0,
+  "fullPackageExitCode": 0
+}

@@ -1,0 +1,137 @@
+{
+  "status": "G54_SIGNOFF_REMEDIATION_SCOPE_FRONTEND_FROZEN_FOR_ROOT",
+  "productionFiles": 2,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21498,
+      "sha256": "6fa4714ac2d023ec70ff7cdc4689f9d883c386a5cbbb815310ccb557465f507e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-scope-bdd.md",
+      "bytes": 3105,
+      "sha256": "f35a3e9e1177890a41efe92368b49fd90ff982724cd45cc0daa16a65a276b9d2"
+    }
+  ],
+  "unchangedFrozenUploadAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86222,
+      "sha256": "6e3079a4df6f335b90ce12de0ea0aa2b101151e96b5bf4dfaa946f033f88a8da"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "contracts": [
+    "Authoritative signoff context processDefinitionKey from exact current actual task definition; only upload/revision/obsolete accepted, missing/unknown refused",
+    "NEW/obsolete assignment does not read/render/require inapplicable remediation history/directory/arrangements",
+    "NEW/obsolete final assign payload omits relationArrangements own property; no fake empty array/null",
+    "Revision preserves exact historical relations/users/saved arrangements reads, ready/error/ref validation and same signed command payload",
+    "Existing file/task/BPM/canAssign/department/signature identity guards preserved; no backend permissions widened"
+  ],
+  "verification": {
+    "RED": {
+      "tests": 5,
+      "pass": 2,
+      "failures": 3,
+      "exitCode": 1,
+      "expected": "Old nonrevision GET, missing scope accepted and API scope guard absent; two revision preservation cases pass",
+      "earlierFour": "2PASS/2FAIL same overlapping source scenarios"
+    },
+    "GREEN": {
+      "tests": 5,
+      "pass": 5,
+      "failures": 0,
+      "exitCode": 0
+    },
+    "finalRegression": {
+      "files": 6,
+      "tests": 50,
+      "pass": 50,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Existing detail/workflow cases included, not additive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-red.log",
+      "bytes": 2155,
+      "sha256": "4694b97e96bffccac43b26da63530b36768088622c4189213c7a084554d61dbb"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-contract-red.log",
+      "bytes": 2944,
+      "sha256": "a6034b5cf793018b448fcdcc1715e06f2e7dda6d90723477e1a7de2017d37e6d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-green.log",
+      "bytes": 675,
+      "sha256": "1cd936b302300908881fdf4154bd57aecc37aa03084c1a53a19d7158cd8cb492"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-final.log",
+      "bytes": 5506,
+      "sha256": "96efa453d932a00003fc9f62d0033b24f39938b7be3c49376b119b8598949d51"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual child SFC watch/save and actual SignoffAssignmentPanel.submit->workflow helper->childsave->actual API wrapper executed via explicit Vue/network hosts; not actual HTTP or browser E2E",
+    "Root backend Owner supplies current task processDefinitionKey and independently fixes backend unconditional arrangement-save applicability",
+    "Root unified full types/build and real page assignment POST pending; local PASS is not backend/runtime PASS",
+    "Parent detail/index, workflow Panel/helper/APIwriter and running upload source not changed by this agent",
+    "No actual Git/runtime/services/DB/API/browser/Maven operations by this agent"
+  ]
+}

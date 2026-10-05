@@ -354,3 +354,12 @@ Implementation/tests enter ready_for_closeout, then task remains blocked for fin
 ## LD03 / G48 只选择项目文件夹
 
 服务器正式tenant/folder/category→唯一base→DBleaf映射，非NASmkdir/ACL。正常NEW公开service/controller仅内部context，caller目录presence拒；真实mapping/leaf/File/placement/Gxp同事务与历史inherit隔离。有效RED1真实0mapping→219/6final全部0，5H2主事务/权限/维护case +Workflow170/HTTP2/Dir20/Category17/权限5，6actualXML永久归档。manualBoundleaf不投base、base撤权同步、当前category锁后active/type核、目录先base/dir后mapping以及配置/folder占用保留。17prod/6tests/4schema27asset rawSHA详g48fingerprints/receipt；工具/fixture错误原log保留不冒业务RED。new1table12列/9closure仅准备，无actualDDL/historyDML/DB/token/service/package/Git/E2E；Maven已移交4，RootReview/执行。
+# G53–G55 最新主管理验收补充
+
+后续证据以 `../20261001-dcc-integration-unblock/g55-final-business-delivery.md` 和 `g55-real-mainflow-root-review.json` 为准，旧 prepared/blocked 记录保留为历史。
+
+BPM最新定义9项、会签范围六组69项及另外一个必要已有上下文用例、正式项目详情13项均实际通过，不将重叠轮次相加。Root完整后端源码包通过，G55五个关键编译类与运行包逐字节一致；正式项目字段只来自同租户所属项目，历史未绑定保持可读，产品字段保留。
+
+真实页面已完成项目产品批准生成、正常新上传、两部门指派/会签、批准选择负责人、文控审核、受控和下发；审核驳回8→9及批准驳回9→10保留原申请历史，新10统一待办可见。当前源码本地提交 ee4d9b4e0136885deb28ac9e9ca83bf68b0026a9，源码/迁移/前端验收分层证据在主报告中列明。
+
+本轮使用一个真实admin账号兼任不同角色、未选培训，不冒称独立多账号及全部HTML生命周期重跑。主任务 ready_for_closeout，未推送远端，未将缺失正式cleanup工具写成PASS。

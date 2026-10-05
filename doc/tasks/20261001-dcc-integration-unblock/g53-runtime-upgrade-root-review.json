@@ -1,0 +1,12 @@
+{
+  "status": "CLONE_AND_SOURCE_THREE_MIGRATIONS_FIRST_REPEAT_VERIFIED",
+  "databases": 2,
+  "actualMysqlExecutions": 12,
+  "sourceNewColumns": 4,
+  "sourceNewMappingTable": 1,
+  "sourceNewNotifyTemplate": 1,
+  "newLedgerRowsPerDatabase": 3,
+  "oldBusinessHistoryChanged": false,
+  "protectedReceipt": "C:/IntRuoyiBackups/20261005-dcc-four-direction-authorized-upgrade/combined-upgrade-receipt.json",
+  "protectedReceiptSha256": "0bfc44bc4ea38deedb245d49495ac686f08cc38b3d629326e5f9570bd2e8b517"
+}
