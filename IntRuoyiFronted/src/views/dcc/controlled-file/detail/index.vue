@@ -168,10 +168,10 @@
                   <el-dropdown-item v-if="canSubmitObsoleteAction" command="obsolete">
                     作废当前版本
                   </el-dropdown-item>
-                  <el-dropdown-item v-if="canHandleWithdrawnFlow" command="delete-withdrawn-flow" divided>
+                  <el-dropdown-item v-if="canDeleteWithdrawnFlow" command="delete-withdrawn-flow" divided>
                     删除流程
                   </el-dropdown-item>
-                  <el-dropdown-item v-if="canHandleWithdrawnFlow" command="resubmit-withdrawn-flow">
+                  <el-dropdown-item v-if="canResubmitWithdrawnFlow" command="resubmit-withdrawn-flow">
                     重新提交
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -3794,8 +3794,14 @@ const canHandleWithdrawnFlow = computed(
   () =>
     fileStatus.value === 'WITHDRAWN' &&
     fileDetail.value?.requesterId === currentUserId.value &&
-    !fileDetail.value?.supersededByFileId
+    !fileDetail.value?.supersededByFileId &&
+    (isDccControlledFileActionAllowed(fileDetail.value, 'DELETE_WITHDRAWN_FLOW')
+      || isDccControlledFileActionAllowed(fileDetail.value, 'RESUBMIT_WITHDRAWN_FLOW'))
 )
+const canDeleteWithdrawnFlow = computed(() => canHandleWithdrawnFlow.value
+  && isDccControlledFileActionAllowed(fileDetail.value, 'DELETE_WITHDRAWN_FLOW'))
+const canResubmitWithdrawnFlow = computed(() => canHandleWithdrawnFlow.value
+  && isDccControlledFileActionAllowed(fileDetail.value, 'RESUBMIT_WITHDRAWN_FLOW'))
 const canOpenBpmDetail = computed(
   () =>
     Boolean(route.query.taskId) ||
@@ -4101,6 +4107,11 @@ const detailHandlingSummary = computed(() => {
       nextStep: '-',
       responsibilityHint: '-'
     }
+  }
+  if (file.status === 'WITHDRAWN' && file.processDefinitionKey === 'dcc-controlled-file-revision'
+    && file.processInstanceId?.trim() && !file.supersededByFileId) {
+    return { nextStep: '已撤回，请通过检出 / 检入修正正文后重新提交',
+      responsibilityHint: '责任：原申请人；重提目标由正式服务保持，原撤回记录及签名历史保留' }
   }
   if (approvalProgressScope.value && approvalProgressScope.value.applicationType !== 'LEGACY') {
     const stage = currentStage.value
