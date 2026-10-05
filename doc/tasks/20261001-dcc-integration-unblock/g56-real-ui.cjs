@@ -8,7 +8,7 @@ const { createRequire } = require('node:module')
 const repo = 'C:/IntRuoyiAll-int_main'
 const load = createRequire(path.join(repo, 'IntRuoyiFronted/package.json'))
 const { chromium } = load('playwright')
-const output = 'C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r10'
+const output = 'C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r13'
 let browser, page, authenticated = false, step = 0, chain = Promise.resolve()
 const observed = []
 const pageErrors = []
@@ -44,7 +44,7 @@ async function snapshot() {
   for (let i = 0; i < Math.min(await all.count(), 80); i++) {
     const el = all.nth(i)
     const type = await el.getAttribute('type')
-    controls.push({ tag: await el.getAttribute('role'), element: await el.evaluate(node => node.tagName.toLowerCase()), testId: await el.getAttribute('data-testid'), type, placeholder: await el.getAttribute('placeholder'), name: await el.getAttribute('aria-label'), text: type === 'password' ? '[redacted]' : redact(await el.innerText()).slice(0, 120) })
+    controls.push({ tag: await el.getAttribute('role'), element: await el.evaluate(node => node.tagName.toLowerCase()), testId: await el.getAttribute('data-testid'), type, value: type === 'password' ? '[redacted]' : ['input', 'textarea'].includes(await el.evaluate(node => node.tagName.toLowerCase())) ? redact(await el.inputValue()) : undefined, checked: ['checkbox', 'radio'].includes(type) ? await el.isChecked() : undefined, placeholder: await el.getAttribute('placeholder'), name: await el.getAttribute('aria-label'), text: type === 'password' ? '[redacted]' : redact(await el.innerText()).slice(0, 120) })
   }
   const capture = path.join(output, String(++step).padStart(3, '0') + '.png')
   await page.screenshot({ path: capture, fullPage: false, mask: [page.locator('input[type=password]'),page.locator('.el-message:visible'),page.locator('.el-message-box:visible input')] })
@@ -101,7 +101,17 @@ async function command(c) {
     const popupUrl = new URL(popup.url())
     if (popupUrl.origin !== 'http://127.0.0.1:8061' || !/^\/dcc\/controlled-file\/detail\/[1-9][0-9]*$/.test(popupUrl.pathname)) throw new Error('unexpected-actual-popup-route')
     page = popup
-    page.on('response', response => { const u = new URL(response.url()); if (u.pathname.startsWith('/admin-api/')) observed.push({ method: response.request().method(), pathname: u.pathname, status: response.status() }) })
+    page.on('response', async response => {
+    const u = new URL(response.url())
+    if (u.pathname.startsWith('/admin-api/')) observed.push({ method: response.request().method(), pathname: u.pathname, status: response.status() })
+    if (u.pathname === '/admin-api/dcc/controlled-files/upload-preview' && response.status() === 400) {
+      const body = await response.json()
+      if (body.code !== 1080000348 || typeof body.msg !== 'string') return
+      const diagnostic = { status: 'NATURAL_FAILED_UPLOAD_RESPONSE_DIAGNOSTIC_ONLY_NOT_E2E_ORACLE', code: body.code, message: body.msg, pathname: u.pathname }
+      fs.writeFileSync(path.join(output, 'observed-failed-upload-diagnostic.json'), JSON.stringify(diagnostic, null, 2), 'utf8')
+      console.log(JSON.stringify(diagnostic))
+    }
+  })
     return snapshot()
   }
   if (c.action === 'canvasProof') {
@@ -198,7 +208,17 @@ async function command(c) {
   browser = await chromium.launch({ headless: true })
   page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, timezoneId: 'Asia/Shanghai' })
   page.on('pageerror', error => { pageErrors.push({ type: error.name, safeMessage: /^(文档目录表单组件加载失败|.* is not (a function|iterable)|Cannot read properties of (undefined|null).*)$/.test(error.message) ? error.message.slice(0, 300) : 'frontend-exception-message-withheld' }) })
-  page.on('response', response => { const u = new URL(response.url()); if (u.pathname.startsWith('/admin-api/')) observed.push({ method: response.request().method(), pathname: u.pathname, status: response.status() }) })
+  page.on('response', async response => {
+    const u = new URL(response.url())
+    if (u.pathname.startsWith('/admin-api/')) observed.push({ method: response.request().method(), pathname: u.pathname, status: response.status() })
+    if (u.pathname === '/admin-api/dcc/controlled-files/upload-preview' && response.status() === 400) {
+      const body = await response.json()
+      if (body.code !== 1080000348 || typeof body.msg !== 'string') return
+      const diagnostic = { status: 'NATURAL_FAILED_UPLOAD_RESPONSE_DIAGNOSTIC_ONLY_NOT_E2E_ORACLE', code: body.code, message: body.msg, pathname: u.pathname }
+      fs.writeFileSync(path.join(output, 'observed-failed-upload-diagnostic.json'), JSON.stringify(diagnostic, null, 2), 'utf8')
+      console.log(JSON.stringify(diagnostic))
+    }
+  })
   console.log('{"status":"REGISTERED_REAL_UI_SESSION_READY"}')
   readline.createInterface({ input: process.stdin }).on('line', line => {
     chain = chain.then(() => command(JSON.parse(line))).catch(error => console.log(JSON.stringify({ status: 'ACTUAL_UI_COMMAND_FAILED', errorType: error.name, safeMessage: ['unsafe-command', 'login-required', 'credential-command-forbidden', 'unsupported-action'].includes(error.message) ? error.message : 'inspect-observed-visible-state' })))

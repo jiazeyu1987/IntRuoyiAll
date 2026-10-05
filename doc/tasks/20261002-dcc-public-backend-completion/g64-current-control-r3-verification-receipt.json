@@ -1,0 +1,113 @@
+{
+  "status": "PASS_CURRENT_ISOLATED_NATIVE_CONTROL_REMEDIATION",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T02:29:27+08:00",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am -Dtest=DccRelationControlledEventIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+  "counts": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "testSource": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+    "sha256": "fff56a7e41318422c448ca174806b1292958ea542b45d5d856ab8762d6a398ee",
+    "previousFrozenSha256": "e58100f503f02cbc49034fa59e04f90f7992cb03c1010c7e214dedbcdfe51b5f"
+  },
+  "rawXml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+    "sha256": "e76d984cf90507a2808bfca68d2e187f4c5d458c7ec1de4edfe9776743e1f423"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-green-r3.log",
+    "sha256": "979dd362082b64f1ae49a08c54b51f9583d6ad552dce822b347711df8a7a935d"
+  },
+  "sourceProductionChanged": 0,
+  "priorG64ProductionTestSourceSealsUnchanged": true,
+  "originalCasesPreserved": 15,
+  "addedLateControlCase": 1,
+  "actualComponents": [
+    "DCC Lifecycle",
+    "Shared Adapter/Core/StateMachine and mappers",
+    "Flowable signed-assignment task/process identity",
+    "Relation arrangement/event/task/outbox/current projection SQL",
+    "Gxp append service and DB",
+    "NotifyMessageSendApi/NotifySendService/NotifyMessageService and DB",
+    "afterCommit scheduler and REQUIRES_NEW dispatcher"
+  ],
+  "isolatedPorts": [
+    "account/template/permission query",
+    "signature authentication/HMAC",
+    "upstream approval/finalization readiness"
+  ],
+  "proofBoundaries": [
+    "Typed REVISION+CONTROLLED_FILE source with exact current Flowable round",
+    "Two related masters, only selected recipient/task/outbox at control",
+    "Shared CONTROLLED_PENDING_EFFECTIVE closes only open flag; original ACTIVE remains",
+    "Late outer control failure rolls DCC/shared/event/task/outbox/audit facts back and schedules no message",
+    "Real official notification DB only after commit; repeated event does not duplicate",
+    "Existing source-store/finalization readiness fixtures are explicit preconditions; not complete native v4 route or real frontend signature proof"
+  ],
+  "fixtureAttempts": [
+    {
+      "path": "g64-current-control-fixture-red.xml",
+      "errors": 3,
+      "cause": "missing mandatory Adapter"
+    },
+    {
+      "path": "g64-current-control-green-attempt1.xml",
+      "errors": 16,
+      "cause": "missing current unbound-read BpmTaskService/Definition dependency ports"
+    }
+  ],
+  "runtimeE2eComplete": false,
+  "mavenOwnership": "FREE_FROZEN_NO_MORE_SOURCE_OR_TARGET_CHANGES",
+  "isolatedActualSelectEvidence": {
+    "query": "File300 INNER JOIN Master30 ON same Master and tenant",
+    "assertion": "File.file_number equals Master.file_number equals UNSELECTED",
+    "recordedRounds": 4,
+    "rows": [
+      {
+        "file_id": "300",
+        "master_id": "30",
+        "file_number": "UNSELECTED",
+        "master_number": "UNSELECTED",
+        "tenant_id": "1",
+        "project_id": "2",
+        "status": "ACTIVE",
+        "version_no": "A/1"
+      },
+      {
+        "file_id": "300",
+        "master_id": "30",
+        "file_number": "UNSELECTED",
+        "master_number": "UNSELECTED",
+        "tenant_id": "1",
+        "project_id": "2",
+        "status": "ACTIVE",
+        "version_no": "A/1"
+      },
+      {
+        "file_id": "300",
+        "master_id": "30",
+        "file_number": "UNSELECTED",
+        "master_number": "UNSELECTED",
+        "tenant_id": "1",
+        "project_id": "2",
+        "status": "ACTIVE",
+        "version_no": "A/1"
+      },
+      {
+        "file_id": "300",
+        "master_id": "30",
+        "file_number": "UNSELECTED",
+        "master_number": "UNSELECTED",
+        "tenant_id": "1",
+        "project_id": "2",
+        "status": "ACTIVE",
+        "version_no": "A/1"
+      }
+    ]
+  },
+  "supersedesPriorSnapshotOnly": "g64-current-control-verification-receipt.json; prior16/0 remains historical actual; not added to current16/0"
+}

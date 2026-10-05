@@ -1,0 +1,72 @@
+{
+  "status": "PASS_ISOLATED_REGRESSION_RUNTIME_E2E_PENDING",
+  "cliExitCode": 0,
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am -Dtest=DccNativeRejectionTransactionTest,DccControlledFileFinalizationServiceImplTest,DccRejectedRevisionRetryDatabaseTest,DccWorkflowNativeCompletionEvidenceTest -Dsurefire.failIfNoSpecifiedTests=false test",
+  "finishedAt": "2026-10-06T01:34:21+08:00",
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-native-reject-regression.log",
+    "sha256": "c5214358387c89bc1dd1a6102630803569d7bd0f840ab949bca24297791f4f06"
+  },
+  "counts": {
+    "tests": 120,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativeRejectionTransactionTest.xml",
+      "sha256": "f0078321a17746dbec02fbad8437438f9f13fca9c1053a79f52cb50a0b6c5be5",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "sha256": "e6620787e9197a60cf58885cb72d3c65171eaba59e1eda6a91d73a8e81b2af7b",
+      "tests": 59,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "sha256": "718bb73d2c978b76080bb0b2d8b3e5fc8a6629ed4e82b34f660b01c2f0e4641a",
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowNativeCompletionEvidenceTest.xml",
+      "sha256": "742bbb41456ee754c19e5744768c1f97318e6bf5b1881a0d69dba9acdfc0ccf8",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "effectiveRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red-r2.xml",
+    "sha256": "070f45e918556ba9f512523102ecc66533661673d0e4384fa7599952af7eddd9",
+    "tests": 5,
+    "errors": 4,
+    "failures": 0,
+    "legacyPass": 1,
+    "error": "DCC reject lost its status CAS"
+  },
+  "fixtureOnlyRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red.xml",
+    "tests": 5,
+    "errors": 5,
+    "reason": "Flowable schema dialect setup; not business RED"
+  },
+  "productionFiles": 2,
+  "testFiles": 2,
+  "actualDbWrites": 0,
+  "actualBrowserRuns": 0,
+  "packageRuns": 0,
+  "authenticationEvidence": "explicit isolated guard/signature projection ports, not live HMAC/password evidence",
+  "mavenOwnership": "FREE_FROZEN_NO_MORE_SOURCE_OR_TARGET_CHANGES"
+}

@@ -1,0 +1,162 @@
+{
+  "status": "FINAL_G64_REVIEWED_SOURCE_AND_NESTED_PACKAGE_PASS",
+  "exitCode": 0,
+  "packageSession": 57932,
+  "sourceCommit": "72361974907088f3ea67eca2e6ab5a3d350edfff",
+  "jarSha256": "b5deaba71fb6f1f6ea53124311b126441f32766ace83854d60de1fe026d0f581",
+  "sourcePins": 36,
+  "classes": [
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.class",
+      "sha256": "9792dfc82170dfb8186f2b84523c5ea80b3be522faaaa8718b7d713822bddb8c"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairPreviewRespVO.class",
+      "sha256": "ffe3a4485318a041b069ff925ee5216eff0997de0d98834fb525f24b4d48ad68"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairReqVO.class",
+      "sha256": "5d28c446f46b73b05d3e2cd99673a09f647542bb02f91a4015bfedac815ce5a1"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairRespVO.class",
+      "sha256": "340ece08e3fca7eb2639ca86af1353581309fd411092073153888aaaf2aa1d2a"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.class",
+      "sha256": "de5b2185bd55130d1c8239f2885bf1abd4c80bffb9ac99db686e1a1a55aa0111"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.class",
+      "sha256": "7d7e5d7bec1c169f53b5a90be0678f83418712c04e777e207570b309673b1b84"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.class",
+      "sha256": "fb0bb202d648af92927c197a7649de319399ee5c9c454a0f37cbc09ceabd1203"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService$Proof.class",
+      "sha256": "89516ff340122c4c2cce1f72e4f5c70287f46ead91f1181736187cc291bbfe71"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.class",
+      "sha256": "c825be46904f5b78cb857d0d9408cba74bd7ea1cc957a314a3b27c4f2d6dd571"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.class",
+      "sha256": "8ac4fdce073ffa70e6018ea9392aac93c5565362cbd396ec0c8ffadaa6a6b4de"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$1.class",
+      "sha256": "3d48a74700022d9b8611706b5099e1d7863c59eaba31faf8c7e59dcee786f975"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$AccessReason.class",
+      "sha256": "d7343aaf36a1e7f60872aaf8d2a1c9f5debee02a05b39817bec42b23d851df33"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinReplayPayload.class",
+      "sha256": "5aeb9417c7134183bb78a037cc7363f6ffbb6833fcb40f3199648e760959121f"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$CheckinVersionSelection.class",
+      "sha256": "21353fc9d2cb8e9cdd0372f7b46b222f8611519a3f0e596a768d53b105bfe964"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$LocalDateTimeComparator.class",
+      "sha256": "0f7e9cbb8456b933e65440b14d343286fc50a7b4c0abb791e9b73e153f974db6"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl$PreviewArtifactProjection.class",
+      "sha256": "9831a533e7314d6d57b021b79ef75ad249ec7c249713abccb10ff928542e3b5e"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.class",
+      "sha256": "895fd33057d6f9777c6b1c8d7866a3c8906a52bb3805b3b1ab9ea9c1e0470adf"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$GlobalSourceReference.class",
+      "sha256": "200b915c8d84eeda4a4ee62e8d380e2f915222f119b123beb45b238da08d5b26"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper$ProjectCodeFileCount.class",
+      "sha256": "5c1fca604715081ce80b8ba85eb7663df1d8ece442490022cab921852f2d97f4"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.class",
+      "sha256": "e58126cce33905a6cefb55e17543f0bee4e01d84924560cfb43c0dabad13f86d"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$1.class",
+      "sha256": "3841247450508d317626584a31da3a7f3be8973a0704f3b9540bb4a16ec5c51a"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$PublishedArtifact.class",
+      "sha256": "3738cf10ecf5f0c625458c1299c4bce12d336d7895969ddff9c357fb34d2c714"
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$ResolvedDistributionPlan.class",
+      "sha256": "e87e763225b786a1e548608153fce87eb1a4c9cc9bf98f72d0a9ce50bf84bab6"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/controlledcontent/ControlledContentVersionRefMapper.class",
+      "sha256": "db9ad21eb7a624dccc4288981146dfa64dc84923e21f063a231625f06e126a8a"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentCanonicalStatus.class",
+      "sha256": "8237bd287cc9d3aeb2762bb87c61022bc9392e55b6a82282a821218d515e618b"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentTransitionAction.class",
+      "sha256": "7c6086b4232f1e3ab2dd5da05f35fb44fc58a63e6871c54245d6eef9e31a5a1a"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentLifecycleCoreService.class",
+      "sha256": "4b4b1cd1d150e225c91fdfcb85a7d6e6428eb540b63553a3bca1847213c18abb"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine.class",
+      "sha256": "982c54d2d25b6819f566d6c8001c922a237bc968c794ab1494d730bf429bb3b5"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine$TransitionRule.class",
+      "sha256": "a33d906c7c1e61c198bc72c36e9989dd0bf2b6774c789f048e62f3f59529c410"
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentTransitionProfile.class",
+      "sha256": "de1103ce86e83669e1d40c71f1e9621f411dd31a8759668bc3e0410d4e8c4f88"
+    }
+  ],
+  "actualUI": "PENDING_FINAL_OBSOLETE_ACCEPTANCE",
+  "credentialsPersisted": false
+}

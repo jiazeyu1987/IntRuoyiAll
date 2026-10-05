@@ -55,7 +55,7 @@ def main():
     directory.mkdir(parents=True)
     if arguments.mode == 'backend':
         jar = REPO / 'IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar'
-        reviewed_package = json.loads((TASK / 'g62-package-root-review.json').read_text(encoding='utf-8-sig'))
+        reviewed_package = json.loads((TASK / 'g64-package-root-review.json').read_text(encoding='utf-8-sig'))
         if reviewed_package['exitCode'] != 0 or hashlib.sha256(jar.read_bytes()).hexdigest() != reviewed_package['jarSha256']:
             raise ValueError('Reviewed executable package differs')
         overrides = [value for value in json.loads((TASK / 'g21-runtime-plan.json').read_text(encoding='utf-8-sig'))['backendOverrides']

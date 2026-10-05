@@ -23,7 +23,7 @@ Isolated H2 and in-memory Flowable only; Maven reactor targeted tests, main appl
 
 ## Current Status
 
-ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
+ready_for_closeout — G64 rejection120/4 and current control/remediation final16/1 independently all0, source/XML seals retained; Maven/source/target frozen, Root owns actual UI/runtime/Git/goal closeout.
 
 Preserved G53 latestdefinition finite receipt9/3 PASS and G49 projectapplication broad102/7 plus later43/2 PASS are independent prior deliveries, not additive totals or replacements for RootactualUI.
 
@@ -74,6 +74,78 @@ Root resumes this existing record for a bounded obsolete readiness repair. Curre
 - No child agents, services, real DB, E2E or Git writes by this subtask. Root retains final authorized integration/closeout; historical no-authorization wording does not block this implementation.
 
 ## Cleanup Keep
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-reviewer-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReviewerConfigurationTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesServiceTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSelectedWorkingAttributesDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-reviewer-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-current-proof-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-backend-completion-proof-audit.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g66-config-authority-completion-proof-audit.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-green-attempt1.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-fixture-red.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-remediation-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-delivery-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-runtime-tests.md
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-preflight.json
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-final-receipt.json
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-reference-r2-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-reference-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowNativeCompletionEvidenceTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativeRejectionTransactionTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-backend-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-backend-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-key-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-name-reference-config-proof-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g64-be-rejection-remediation-review.md
 
 - doc/tasks/20261002-dcc-public-backend-completion/g63-native-obsolete-current-round-readonly-review.md
 
@@ -519,6 +591,12 @@ G33 candidate is ready_for_closeout with final101/7 isolated PASS; master status
 - doc/tasks/20261002-dcc-public-backend-completion/g59-core-direction-independent-source-review.md
 
 - doc/tasks/20261002-dcc-public-backend-completion/g59-shared-state-and-reconcile-independent-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/execution-log.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/task.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/verification-report.md
 
 ## P05/P06/P07 verification and handoff
 

@@ -1,6 +1,6 @@
 {
   "htmlSha256": "53e9afc74cafd1539cd48d9f2384d364511dd4802c4d686431b444b549930222",
-  "status": "CONFIRMED_HTML_SOURCE_DIRECTION_REVIEW_AND_KNOWN_GAPS_FIXED_KEY_REAL_UI_PASS_NOT_ALL_NEGATIVE_E2E",
+  "status": "G64_CURRENT_REJECTION_RETRY_NAME_NOTICE_PROOF_EXPANDED_FULL_COMPLETION_AUDIT_PENDING",
   "items": [
     {
       "id": "AC-01",
@@ -63,7 +63,7 @@
       "operation": "会签、批准及文控审核分别驳回；文控审核尝试未签名提交。",
       "expectedBusinessResult": "均不提前受控，按规则修正重提；文控审核驳回回到申请节点，签名必需，新轮次重新会签。",
       "implementationEvidence": "native rejection cancels current round/rework predecessor and full new round, no inherited signature result; R01 initial revision read repaired",
-      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "realPageStatus": "G64三次真实原生A/3分别会签、批准、文控签名驳回，签名/旧A2不提前作废；文控空密码页面明确阻止；第4轮重新完整会签并受控下发。",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
     {
@@ -102,7 +102,7 @@
       "id": "AC-13",
       "operation": "会签中选择部分关联文件的责任人和期限。",
       "expectedBusinessResult": "只在主文件受控后通知所选人员；未选择的不产生本次整改任务；审批中断不通知。",
-      "implementationEvidence": "R01 exact first REVISION arrangement read repaired; signed arrangements + CONTROLLED event + exact outbox after commit",
+      "implementationEvidence": "G64当前真实Flowable轮次+SharedCore+正式消息DB16项证明所选1/未选0、受控前0、晚失败0、重放1；密码签名内核及批准就绪为明确隔离前置，不代替全页面整改通知。",
       "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
@@ -126,7 +126,7 @@
       "id": "AC-16",
       "operation": "各目标项目负责人分别引用同一文件到自己的项目及文件夹，并由非负责人尝试引用。",
       "expectedBusinessResult": "仅目标项目负责人可成功；非负责人前后端均不可操作；引用入口橙色且有文字标识，按项目去重计数。",
-      "implementationEvidence": "project references exact official leader front+back, pinned chosen body, count distinct project",
+      "implementationEvidence": "project references exact official leader front+back, pinned chosen body, count distinct project；G64当前名称/历史占用/正式引用controller事务三组74/0证据，非leader/admin和并发leader变更、去重计数、exactcase/ext均已检查具体断言。",
       "realPageStatus": "G56项目负责人实际引用至另一项目目录，引用数0→1且引用行标识正确；非负责人负向由正式权限测试证明。",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
@@ -134,7 +134,7 @@
       "id": "AC-17",
       "operation": "当前项目负责人取消单个、项目最后一个及全局最后一个引用，并由非负责人尝试取消。",
       "expectedBusinessResult": "只有当前项目负责人能取消；只移除相应入口，计数正确；最后一个引用解除后源文件颜色恢复。",
-      "implementationEvidence": "exact same target-project leader, second confirmation and only targeted reference removal/global color count",
+      "implementationEvidence": "exact same target-project leader, second confirmation and only targeted reference removal/global color count；G64当前名称/历史占用/正式引用controller事务三组74/0证据，非leader/admin和并发leader变更、去重计数、exactcase/ext均已检查具体断言。",
       "realPageStatus": "G56负责人二次确认取消引用，入口移除、计数1→0、源样式恢复；未把同账号证据外推不同负责人竞争。",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
@@ -166,7 +166,7 @@
       "id": "AC-21",
       "operation": "另一项目上传SOP.pdf、sop.pdf、SOP.PDF和SOP.docx；已有文件为SOP.pdf。",
       "expectedBusinessResult": "仅完整名称SOP.pdf为同名且新建被阻止；其他三者按大小写或后缀差异视为不同文件。改变目录或编号不能绕过完全同名判定。",
-      "implementationEvidence": "exact full original filename binary/case-sensitive name claim, extensions distinct and cross-project new chain conflict",
+      "implementationEvidence": "exact full original filename binary/case-sensitive name claim, extensions distinct and cross-project new chain conflict；G64当前名称/历史占用/正式引用controller事务三组74/0证据，非leader/admin和并发leader变更、去重计数、exactcase/ext均已检查具体断言。",
       "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
@@ -190,7 +190,7 @@
       "id": "AC-24",
       "operation": "文件作废后，在其保留期限内用原编号、原完整名称发起另一条文件链上传。",
       "expectedBusinessResult": "编号和名称都仍被占用，不能因作废绕过；同一逻辑文件自己的后续版本不受历史占用阻断。",
-      "implementationEvidence": "name/number identity ownMaster exception plus 20year retention claims from actual obsolete time",
+      "implementationEvidence": "name/number identity ownMaster exception plus 20year retention claims from actual obsolete time；G64当前名称/历史占用/正式引用controller事务三组74/0证据，非leader/admin和并发leader变更、去重计数、exactcase/ext均已检查具体断言。",
       "realPageStatus": "G63真实作废NameClaim原完整name/number保留至2046-10-06；保留期NEW冲突拒绝由正式binary命名/NameClaim测试证明，未称实库另一次上传冲突通过。",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     },
@@ -215,7 +215,7 @@
       "operation": "A/1申请升到A/2被驳回，修改正文后连续重新提交，并逐次打开失败申请与新申请。",
       "expectedBusinessResult": "正式目标仍为A/2；各次申请拥有独立文件身份、正文来源、BPM、默认来源、实际属性及签名历史。失败历史不删除、不改号、不被新申请覆盖；新版生效之前A/1仍为当前执行受控版本。",
       "implementationEvidence": "retry formal target reservation sameA2, new independent file/BPM/source/snapshot/signature history and old active preserved",
-      "realPageStatus": "NOT_RUN_THIS_ACCEPTANCE_BRANCH; do not equate code/test evidence with real-page PASS",
+      "realPageStatus": "G64修正三次后每次仍A/3，attempt1/2/3失败File4035/4037/4039及其BPM/签名独立保；第4次File4041A3受控下发、oldA2自动作废，正确未跳号。",
       "codeReviewStatus": "已确认业务源码接线已核对；本轮发现的明确差异已修复并经相应定向验证"
     }
   ],

@@ -136,6 +136,14 @@ ready_for_closeout for Root review of this display-only increment; shared task r
 
 ## Cleanup Keep
 
+- doc/tasks/20261002-dcc-public-browser/g66-frontend-completion-proof-audit.md
+- doc/tasks/20261002-dcc-public-browser/g65-checkout-entry-branch-readonly-diagnostic.md
+- doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g64-upload-preview-400-source-diagnostic.md
+- doc/tasks/20261002-dcc-public-browser/g64-fe-attributes-rework-review.md
 - doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-bdd.md
 - doc/tasks/20261002-dcc-public-browser/g63-approval-center-signoff-entry-fingerprints.json
 - doc/tasks/20261002-dcc-public-browser/g62-native-completion-summary-bdd.md
@@ -231,6 +239,12 @@ ready_for_closeout for Root review of this display-only increment; shared task r
 - doc/tasks/20261002-dcc-public-browser/g22-formal-policy-source-coverage.txt
 
 G15 preparation milestone: ready_for_closeout for Root review. All 12 current flow mappings, source anchors and bounded actual-UI scopes are documented; Node syntax and AST safety/dependency/cleanup-keep checks PASS. Actual E2E remains not run; shared task stays in_progress.
+
+- doc/tasks/20261002-dcc-public-browser/execution-log.md
+
+- doc/tasks/20261002-dcc-public-browser/task.md
+
+- doc/tasks/20261002-dcc-public-browser/verification-report.md
 
 ## G19 reviewer configuration actual-role guard
 

@@ -268,7 +268,7 @@ H09主管理公共上传接线：四Owner交付与H08反馈无新变化，不重
 
 ## Current Status
 
-ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
+in_progress — 持续目标要求完整HTML满足证明。原G63关键主线结果保留；本轮G64补足文件驳回重提、关联整改、精确名称等未验场景，逐项审查证据强度，未定规则保持待讨论。
 
 ## BDD
 
@@ -1060,6 +1060,48 @@ Root按8项A冻结源接收已实现增量，但X-01真实未送审来源FAIL仍
 - doc/tasks/20261001-dcc-integration-unblock/g63-frontend-root-review.json
 
 - doc/tasks/20261001-dcc-integration-unblock/g63-independent-obsolete-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-backend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-completion-proof-plan.md
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-current-control-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-final-package-stage-pins.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-final-retry-distribution-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-first-rejection-retry-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-fourth-same-target-control-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-frontend-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-name-occupancy-final-ui-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-name-ref-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-owned-backend-stop.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-package-root-review.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-raw-evidence-archive.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-rejection-real-failure.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-runtime-business-checkpoint.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-three-rejection-rounds-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g64-verify-final-package.py
+
+- doc/tasks/20261001-dcc-integration-unblock/g66-current-attributes-reviewer-root-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g66-project-attributes-real-progress.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g66-project-default-before-real-proof.json
+
+- doc/tasks/20261001-dcc-integration-unblock/g66-protected-evidence-archive.json
 
 ## G44 真实主流程验证
 

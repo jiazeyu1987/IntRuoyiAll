@@ -1,0 +1,13 @@
+{
+  "status": "REAL_CROSS_PROJECT_OBSOLETE_ORIGINAL_FILENAME_REJECT_AND_CORRECT_HINT_PASS",
+  "step": "268.json",
+  "sha256": "daa02fe001a278d429eefae1427b5f8a4209b05fc22c8e2eb73b633bc83dae00",
+  "targetProject": "272",
+  "sourceFile4033Project": "271",
+  "fullName": "20261005-dcc-full-html-g61-independent-training.pdf",
+  "visibleHint": "附件上传\n受控文件\n选择文件\n仅支持 doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw 等源文件；图纸源文件需同步上传 PDF。\n20261005-dcc-full-html-g61-independent-training.pdf\n文件名称已被占用：已作废文件在20年保留期内仍占用原名。请引用已有文件，或在既有文件链中办理升版。\n图纸 PDF\n选择 PDF\n源文件为 DWG、SLDPRT、SLDASM、SLDDRW 时必填。\n普通附件\n选择附件\n可一次选择多个普通附件，附件随本次受控文件一并提交，查看详情时可在线预览 PDF、图片等文件。\n创建受控文件\nCopyright ©2026 瑛泰管理系统",
+  "actualAction": "real file chooser selected originalfilename;正式preview拒绝未造newfile",
+  "diagnostic": "naturalresponsecode1080000348 usedonlyrootcause; passoraclevisiblehint",
+  "nameVariantsEvidence": "74currentformalcontrollertransactiontests exactcase/extensions distinct",
+  "noBusinessSQLwrites": true
+}

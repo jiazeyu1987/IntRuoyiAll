@@ -1,0 +1,39 @@
+{
+  "status": "EXACT_FORMAL_ERROR_NAMECLAIM_MAPPING17PASS",
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19759,
+      "sha256": "feeca48b2c736ef22d86558e2568387b0adcdf50607dd424bf753ba6de3f1562"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-http-business-error.test.cjs",
+      "bytes": 3326,
+      "sha256": "7ebf05911f06e5d1c45b16388876db3c1305cf08812d4be869803243a58cb850"
+    }
+  ],
+  "verification": {
+    "effectiveRED": {
+      "tests": 5,
+      "pass": 4,
+      "failures": 1,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 17,
+      "pass": 17,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "5current+12existinguploadactual/type,notadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "naturalDiagnostic": "r12code1080000348 formalpayload; noAPIbusinesscalls",
+  "actualFinalUi": "NEXT_AFTER_RUNTIME_RESTART"
+}

@@ -1,0 +1,174 @@
+{
+  "status": "ACTUAL_THREE_SUITE_RUN_FAILED_NOT_PASS",
+  "actualCliExitCode": 1,
+  "session": 17610,
+  "finishedAt": "2026-10-06T01:49:23+08:00",
+  "xmlCount": 3,
+  "suites": [
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest.xml",
+      "bytes": 99097,
+      "sha256": "fd6164d5e75f1d89f312221e1f9d7c2d8fa9c3516d040fc2274e873dd6506e74",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "problems": []
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.xml",
+      "bytes": 104352,
+      "sha256": "1f6d3978554d14349e2985776f8dd728245d9e0b384b377f8e936e05d482e781",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "problems": []
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml",
+      "bytes": 138364,
+      "sha256": "5e01e87970bb9620644f7dcd97186cc5aa07501beb89d60b2a5eee4263103f97",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+      "tests": 13,
+      "failures": 7,
+      "errors": 2,
+      "skipped": 0,
+      "problems": [
+        {
+          "name": "formalLeaderChangeBlocksOldOwnerAndLastExactCancellationRestoresDistinctProjectCount",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "genuineBLeaderFolderAndDAtomicBatchSaveProduceRealAuditAndKeepPinnedVersion",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[1]",
+          "kind": "error",
+          "type": "java.util.concurrent.ExecutionException",
+          "message": "ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: GxP 审计操作人上下文缺失或不一致：current-account, code=1002032004, message=GxP 审计操作人上下文缺失或不一致：current-account)",
+          "trace": [
+            "java.util.concurrent.ExecutionException: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: GxP 审计操作人上下文缺失或不一致：current-account, code=1002032004, message=GxP 审计操作人上下文缺失或不一致：current-account)",
+            "\tat java.base/java.util.concurrent.FutureTask.report(FutureTask.java:122)",
+            "\tat java.base/java.util.concurrent.FutureTask.get(FutureTask.java:205)",
+            "\tat cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(DccProjectReferenceFormalAuthorityIntegrationTest.java:188)",
+            "\tat java.base/java.lang.reflect.Method.invoke(Method.java:569)",
+            "\tat java.base/java.util.Optional.ifPresent(Optional.java:178)"
+          ]
+        },
+        {
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[2]",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[3]",
+          "kind": "error",
+          "type": "java.util.concurrent.ExecutionException",
+          "message": "ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: GxP 审计操作人上下文缺失或不一致：current-account, code=1002032004, message=GxP 审计操作人上下文缺失或不一致：current-account)",
+          "trace": [
+            "java.util.concurrent.ExecutionException: ServiceException(super=cn.iocoder.yudao.framework.common.exception.ServiceException: GxP 审计操作人上下文缺失或不一致：current-account, code=1002032004, message=GxP 审计操作人上下文缺失或不一致：current-account)",
+            "\tat java.base/java.util.concurrent.FutureTask.report(FutureTask.java:122)",
+            "\tat java.base/java.util.concurrent.FutureTask.get(FutureTask.java:205)",
+            "\tat cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(DccProjectReferenceFormalAuthorityIntegrationTest.java:188)",
+            "\tat java.base/java.lang.reflect.Method.invoke(Method.java:569)",
+            "\tat java.base/java.util.Optional.ifPresent(Optional.java:178)"
+          ]
+        },
+        {
+          "name": "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[4]",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "otherProjectLeaderMemberAndNonLeaderAdminCannotCreateOrCancelEvenWithMenuPermission",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "obsoletePinnedSourceIsTraceableAndFinalCancellationPreservesBothFileRelationKinds",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        },
+        {
+          "name": "exactReferenceReplayReturnsCurrentObsoleteProjectionDespiteEarlierCachedActiveRead",
+          "kind": "failure",
+          "type": "java.lang.AssertionError",
+          "message": "JSON path \"$.code\" expected:<0> but was:<1002032004>",
+          "trace": [
+            "java.lang.AssertionError: JSON path \"$.code\" expected:<0> but was:<1002032004>",
+            "\tat org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)",
+            "\tat org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)",
+            "\tat org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)",
+            "\tat org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)",
+            "\tat org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)"
+          ]
+        }
+      ]
+    }
+  ],
+  "log": {
+    "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1.log",
+    "bytes": 84296,
+    "sha256": "6adefd328c52adc15d89dbe0627789172c30a7dd3d4b44b6125a667a7b68c324"
+  }
+}

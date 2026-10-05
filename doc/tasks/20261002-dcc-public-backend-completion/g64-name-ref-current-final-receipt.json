@@ -1,0 +1,138 @@
+{
+  "status": "CURRENT_THREE_SUITE_EVIDENCE_GREEN_MAVEN_FREE",
+  "finishedAt": "2026-10-06T01:57:59+08:00",
+  "finalActualCliExit": 0,
+  "finalSession": 60368,
+  "commands": {
+    "first": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccUploadNamePreflightDatabaseTest,DccLegacySourceNameOccupancyTest,DccProjectReferenceFormalAuthorityIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+    "reruns": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccProjectReferenceFormalAuthorityIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test"
+  },
+  "currentSelectedTests": 74,
+  "currentSelectedGroups": 3,
+  "countsExplanation": "15+46 from initial real XML with unchanged source; final13 from reference-only rerun. Earlier13 failures/rerun13 overlap and are not added.",
+  "suites": [
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest.xml",
+      "bytes": 99097,
+      "sha256": "fd6164d5e75f1d89f312221e1f9d7c2d8fa9c3516d040fc2274e873dd6506e74",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "problems": []
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.xml",
+      "bytes": 104352,
+      "sha256": "1f6d3978554d14349e2985776f8dd728245d9e0b384b377f8e936e05d482e781",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "problems": []
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-reference-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml",
+      "bytes": 109193,
+      "sha256": "4b3f68459ec6673d50ffb8d1f2f783f01b6859c227dd681b96ea0e60b0f673f7",
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "executedCases": [
+        "formalLeaderChangeBlocksOldOwnerAndLastExactCancellationRestoresDistinctProjectCount",
+        "authoritativeSelectedLockReadRequiresAnExistingCallerTransaction",
+        "genuineBLeaderFolderAndDAtomicBatchSaveProduceRealAuditAndKeepPinnedVersion",
+        "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[1]",
+        "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[2]",
+        "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[3]",
+        "formalAuthorityFactsRemainLockedUntilReferenceMutationCommits(String)[4]",
+        "otherProjectLeaderMemberAndNonLeaderAdminCannotCreateOrCancelEvenWithMenuPermission",
+        "obsoletePinnedSourceIsTraceableAndFinalCancellationPreservesBothFileRelationKinds",
+        "formalAuditFailureRollsBackEntireHttpBatchAndWrongTenantHasZeroWrites",
+        "committedObsoletionCannotBeHiddenByTheReferenceTransactionsEarlierMybatisRead",
+        "oldNasDirectoryAndForeignProjectFolderNeverSubstituteTheBFolderIdentity",
+        "exactReferenceReplayReturnsCurrentObsoleteProjectionDespiteEarlierCachedActiveRead"
+      ]
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUploadNamePreflightDatabaseTest.java",
+      "bytes": 17689,
+      "sha256": "94e749f926592b6e635b02738a27339f522710ebf45a933884d6de19b8bab6fd",
+      "preimageChanged": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacySourceNameOccupancyTest.java",
+      "bytes": 29112,
+      "sha256": "5fd6c688b2de0e1d72cd6ab6bfab7f037ac2a91f6f29db3151a977e4e12a6c35",
+      "preimageChanged": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+      "bytes": 23067,
+      "sha256": "5e46e7e908c438d345980cbc90d0b9b43d1f75b98b0e804104de61293c3d3309",
+      "preimageChanged": true
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+      "bytes": 22929,
+      "sha256": "909e6a7f6086f61c8aa98c5928ff660d519eca484a9fb6b01d997169a559fa99",
+      "preimageChanged": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+      "bytes": 11942,
+      "sha256": "37668a9af33bb69d2525b2f64b705a6b51027833f1780205c46d066965b2a7a3",
+      "preimageChanged": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectLeaderService.java",
+      "bytes": 1739,
+      "sha256": "534c51ec04a11fde06ca34263eb1b04a0a5ce300328b8022ea21824f67ee8f91",
+      "preimageChanged": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadServiceImpl.java",
+      "bytes": 26344,
+      "sha256": "07f3b1769847b6c1dfae742ae25ff971c62804f6fea697181e6be9c4ea147d5d",
+      "preimageChanged": false
+    }
+  ],
+  "changedTestOnly": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+    "bytes": 23067,
+    "sha256": "5e46e7e908c438d345980cbc90d0b9b43d1f75b98b0e804104de61293c3d3309",
+    "preimageChanged": true
+  },
+  "compiledTest": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/target/test-classes/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.class",
+    "bytes": 32162,
+    "sha256": "ceb278ae966e36884f061271ed600ca84debc5f03e6efbf4f86b1a8c2567bf75"
+  },
+  "finalLog": {
+    "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-reference-r3.log",
+    "bytes": 79368,
+    "sha256": "4ce8a2f0b34be80be2992c3c1328e50c620633325cbdd59357a36c5fb46ef94a"
+  },
+  "earlierFailuresPreserved": {
+    "r1": "g64-name-ref-current-r1-receipt.json",
+    "r1Xml": "g64-name-ref-current-r1-junit",
+    "r2ActualExit": 1,
+    "r2Totals": "13/0fail/4error",
+    "r2Xml": "g64-name-ref-current-reference-r2-junit",
+    "r2Log": "g64-name-ref-current-reference-r2.log",
+    "cause": "authorized fixture AdminUserApi DTO current identity missing, including concurrent override; not product RED"
+  },
+  "actualRawXmlArchives": 5,
+  "productionGuardPermissionAssertionChange": false,
+  "productionSourceChanged": 0,
+  "newTestCases": 0,
+  "runtimeJarPackaged": false,
+  "actualDbApiBrowserServiceGit": false,
+  "mavenOwnership": "FREE_FROZEN"
+}

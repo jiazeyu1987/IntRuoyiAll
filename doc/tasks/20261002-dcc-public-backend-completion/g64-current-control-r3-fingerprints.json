@@ -1,0 +1,25 @@
+{
+  "status": "FROZEN_TEST_ONLY",
+  "productionChanged": 0,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "sha256": "fff56a7e41318422c448ca174806b1292958ea542b45d5d856ab8762d6a398ee",
+      "previousFrozenSha256": "e58100f503f02cbc49034fa59e04f90f7992cb03c1010c7e214dedbcdfe51b5f"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+      "sha256": "e76d984cf90507a2808bfca68d2e187f4c5d458c7ec1de4edfe9776743e1f423"
+    }
+  ],
+  "receipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-r3-verification-receipt.json",
+    "sha256": "c83131771ff89676e796d665a25c0237cea783d99439f853f9a89ff06fd23e78"
+  },
+  "priorCurrentControlManifestPreserved": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-fingerprints.json",
+    "sha256": "119095e1452b2ca86893f24cfca1dcaf581452d25a28d452c32a2107823aa414"
+  },
+  "oldG64ManifestUnchanged": "5c535a2c21bcef341876dfe846a3a80587ee6f2b3ad6daeaceab0961c8227ec6",
+  "mavenOwnership": "FREE_FROZEN"
+}

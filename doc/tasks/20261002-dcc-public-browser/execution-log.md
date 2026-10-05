@@ -229,3 +229,27 @@ Root真实00:00A2ACTIVE/旧A1OBSOLETE却显示SUPERSEDED，授权唯一Parent展
 Root真实OBSOLETE todo受原managementonly隐藏child，Parent一源新增精确写panelgate，原global管理/metadata不放；actualnativefile+BPM/type/任务MATRIXREVIEW/currentassignee/reviewmenu&&!viewertrace+actualreadcontext/taskID/round匹配，防同BPM另一部门。旧管理合格指派保，child原canAssign/部门/签名writer不动。不猜status新枚举。当前OBSOLETE卡用正式scope无需training/会签批准结束，UPREV原needTraining主flow保。权威actual旧template单字段RED=2P/1F exit1→最终5files23PASS0fail/skip/exit0，Parentlint81722actual0、单fulltypes52767actual0；no build(按Root避免重复5min)、旧G62build仅旧源。初helper缺失test3fail含hostfalse默认不作旧sourceRED，后已去；viewer夹具新computed缺、首childtest路径选错18不称完整，末correctexistingchild5组合23。Source/testfreeze Parentf54e+newtest47392+viewer7653，旧seals保，G58/G59其它/child原pin保。ready_for_closeout_for_Root_review/sharedtaskin_progress，RootnormalUI实际签名待，Agent无API/UI/DB/Git/服务/Maven。
 
 G63最终实际：普通审批center会签处理页已准确显示指派原child，元数据等全管理仍false；r9/333无需培训本轮作废二节点说明、345ASSIGN424、350APPROVE425，r10/006审批center正式签名APPROVE426。独立BPMd7c17fa8只MATRIX_REVIEW/MATRIX_APPROVAL且00:43:40.162结束，无runtime任务；原File4033/shared65595OBSOLETE，名称编号保留到2046-10-06 00:43:39，原受控23:09:37/实际生效00:00/上传BPM四签名420–423和record9198354931289保。G63 finite23/lint/types52767实际0，finalsource1+tests2+BDD commit33ad8350a正常push。UIr10/011最终A2完成面板已显示真实旧A1自动作废，不再套SUPERSEDED。27AC正式源码核对/明确差异修复完成，源码与定向测试及真实页面分别记录，不称全部负向排列E2E。源码已push0/0，文档即将单独commit/push。正式cleanup工具不可用，仅精准永久清单/结构验证/原证据私有归档已完成，不冒cleanupPASS/completed，主任务ready_for_closeout。
+
+## G64 AC03/04/05/08/27属性与重提前端只读核对
+
+g64-fe-attributes-rework-review.md有限具体source/meaningfultestreview完成，新controlled首revision currentprojectdefaults、savedbody/failedfork保原default/actual、新obsoletecurrentdefaults，saved/inflight/history不调用today覆盖；OTHER/NA/transfer条件guard/实际Fields接线。signature拒passwordreason、正常rework/failed管理详情exactbrowser检入→新working→baseline服务器samepartialtarget，不本地增号，按独立file/type/BPM/attempt历史证据。现source无确定FE缺口未改源/跑TDD或全typesbuild；提供Root实际合并属性变化/三节点拒绝/连续A2retry步骤，不冒过去offline或static当E2E。Agent仅docs/Keep，无API/DB/UI/Git/service/Maven/test执行。
+
+## G64 previewHTTP400 source只读诊断
+
+g64-upload-preview-400-source-diagnostic.md确认preview无number/version/date必填、actualrawname请求前赋值/FormDatafields齐；动态map或binder不得猜。正式NameClaimpreflight beforeobject对占用名报1080000348CommonResult，HTTP400only不证同名。确定FEhelper候选先error自身Axios泛message遮response.data.msg，建议唯一submitter错误优先formalpayload+meaningfulHTTPvariantTDD，待Rootactualresponse事实后才授权生产。未读取真实JSON/API/UI/DB/测试/源码/Git/服务/build，旧pins保持，不改名绕验。
+
+## G64 上传Axios业务错误不被HTTP泛信息遮蔽
+
+Root授单submitterhelper准确优先formalresponse.data.msg，actualaxiosAxiosError原sourceRED3=1P/2F→末3files15PASS0fail/skip/exit0、单prodlint0warn/exit0。仅4lineguard，原其他nested/knownstorageformat/errornoPayload保；无globalaxios/params/fileallow/name/sourceclaim改，不HTTP400猜name原因。Source/testfreeze，1prod/1testseal和Keep齐，Parent/G63与其它assets保。simplehelper未全typesbuild/newinterface，旧build不说newPASS；Root自然附件clear/reselect观察currentmsg/真实业务拒待，actual400非namePASS。泛exists→编号次级误类另已报本次没扩。Agent无HTTP/UI/DB/Git/服务/Maven。
+
+## G64 r2 准确NameClaim指引
+
+Root真实r12/025code1080000348/nameMsg，026误编号建议，授权同helper有限精确分支。actualAxios NameClaim/knownmsg原RED5=4P/1F→末3files17全PASS0fail/skip/exit0+单lint0；仅code1080000348(number/string)或已核完整nameMsg，不broadexists猜name。显示原名占用/作废20年仍占用+引用/既有文件链升版，无改编号/先作废释放旧建议；后端历史msg不写。原number/unknown/无payload/storageformat合同保，1prod同test扩2assetfreeze新r2seal旧不盖，ParentG63/其它原pin同。无types/build(明确Rootscope)/Maven/DB/API/UI/服务/Git；Root新自然UI提示待，原negativecode不外推全E2E。
+
+## G65 检出操作分支只读诊断（非P1）
+
+Root纠正HTTP200业务拒绝非checkoutsuccess，无ACTIVE锁，4032有另4034WORKINGguard拒合理；source不自动锁4034/no失actor。原版本摘要dropdown绑定selectedVersionID可以正常选actualhistory4034WORKING或4035REJECTED，mutableselectedrow操作检出/检入消费exactID；trace按钮才readonly。失败4035作为前驱fork属性/target retry更适合AC27，sameChainEditablePredecessors正式豁免自链working非放wide。g65-checkout-entry-branch-readonly-diagnostic.md记录撤回猜P1、实际rootproof与sourcecaller/正常步骤。无source/test/API/UI/DB/Git/service/Maven/build或query绕验。
+
+## G66 有限前端完成证明审计
+
+g66-frontend-completion-proof-audit.md最多3页压缩表完成，literal流程01/02/07/08/09/10/11/12 handler+state/gate+具体behaviorassert+Root真实receipts，AC08/27更新三拒/第四同A3受控下发，不沿旧g61NOT_RUN。只读currentG63/G64r2/G58manifest8assets0mismatch，原Node23/17/20SHA、NameRef13和control16XMLhash/count0failerrorSkip核，不相加、不Maven。AC03–05已有source/unit断言但专项实际UI receipt缺、新default/draft变更/OTHERNAtransfer有限补证路径给Root；AC22rollover/replacement/二actorlock定向非全UI；newnameRoot仍复验不提前PASS。D08/Zafter/ref最新/纸细则待定标签明示，不扩。只docs/Keep，无source/test/编译/HTTP/UI/DB/Git/服务操作，共享任务Root完成审查后定状态。

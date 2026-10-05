@@ -1,0 +1,24 @@
+{
+  "status": "REAL_MATRIX_REVIEW_REJECTION_CAS_TRANSACTION_FAILURE",
+  "sampleFileId": "2054545668044084035",
+  "expected": "A3 signedreject→failedhistory→sameA3rework, originalA2ACTIVE",
+  "actual": "HTTP500 DCCrejectloststatusCAS wholetransactionrolledback",
+  "ui": "r11/035confirmation targetA3 defaultCE;043normalassignment;052actualreject HTTP500",
+  "before": "4034A2-1 truecheckin newCE defaults;4035A3newBPM",
+  "readonly": [
+    {
+      "query": "SELECT id,status,version_no,revision_attempt_no,process_instance_id,controlled_time FROM dcc_controlled_file WHERE tenant_id=1 AND id IN (2054545668044084032,2054545668044084034,2054545668044084035);",
+      "result": "2054545668044084032\tACTIVE\tA/2\t1\t174b9f6e-c0c8-11f1-a5ae-b082e25ec548\t2026-10-05 22:40:36\n2054545668044084034\tWORKING\tA/2-1\tNULL\tNULL\tNULL\n2054545668044084035\tPENDING_MATRIX_REVIEW\tA/3\t1\t7ebdc840-c0e0-11f1-8698-b082e25ec548\tNULL\n"
+    },
+    {
+      "query": "SELECT ID_,PROC_INST_ID_,TASK_DEF_KEY_,ASSIGNEE_ FROM ACT_RU_TASK WHERE PROC_INST_ID_=\"7ebdc840-c0e0-11f1-8698-b082e25ec548\";",
+      "result": "7ebe3d90-c0e0-11f1-8698-b082e25ec548\t7ebdc840-c0e0-11f1-8698-b082e25ec548\tMATRIX_REVIEW\t1\n"
+    },
+    {
+      "query": "SELECT id,task_id,action_type,process_instance_id,signed_at FROM dcc_controlled_file_signature WHERE tenant_id=1 AND controlled_file_id=2054545668044084035 ORDER BY id;",
+      "result": "427\t7ebe3d90-c0e0-11f1-8698-b082e25ec548\tASSIGN\t7ebdc840-c0e0-11f1-8698-b082e25ec548\t2026-10-06 01:16:41\n"
+    }
+  ],
+  "rootUiMutationsOnly": true,
+  "next": "backendownerG64realFlowableRedGreen; nofakeCASsuccess"
+}
