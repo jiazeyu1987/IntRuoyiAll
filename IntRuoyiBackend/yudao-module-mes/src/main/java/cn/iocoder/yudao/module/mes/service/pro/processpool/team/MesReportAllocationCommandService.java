@@ -64,6 +64,8 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 
 @Service
 public class MesReportAllocationCommandService {
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventRevisionMapper revisionMapper;
 
     private final MesTeamLeaderScopeService scopeService;
     private final MesProProcessPoolEventMapper eventMapper;
@@ -315,7 +317,7 @@ public class MesReportAllocationCommandService {
         assertScope(event, command.getLeaderUserId(), command.getLeaderType());
         assertSubmissionNotRejected(event.getId());
         BigDecimal pool = poolQuantityService.requirePoolQuantity(event);
-        MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, command.getLeaderUserId());
+        MesProcessPoolReportAllocationStateDO state = readStateForReview(event);
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(event.getId());
         int currentVersion = state.getCurrentVersion() == null ? 0 : state.getCurrentVersion();
         List<Map<String, Object>> beforeAllocationSnapshot = allocationAuditSnapshot(current);
@@ -334,6 +336,7 @@ public class MesReportAllocationCommandService {
                     event.getId(), command.getExpectedVersion(), state.getCurrentVersion());
         }
 
+        validateDisplayedProductionContext(event, state, command.getExpectedReview());
         List<MesProcessPoolActiveOrderDO> activeOrders = activeOrderMapper
                 .selectActiveListByLeaderForUpdate(command.getLeaderUserId()).stream()
                 .filter(order -> "ACTIVE".equals(order.getActiveStatus())).toList();
@@ -388,8 +391,26 @@ public class MesReportAllocationCommandService {
         }
 
         Map<Long, BigDecimal> before = aggregateRows(editableOld);
+        var latestReview = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        ReviewEvidenceRequirement evidenceRequirement = before.equals(desired) ? reviewEvidenceRequirement(event, current)
+                : new ReviewEvidenceRequirement(latestReview == null || !hasApprovedReviewEvidence(latestReview), null);
+        if (evidenceRequirement.required()) {
+            nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工复核");
+            Set<Long> evidenceOrders = current.stream()
+                    .filter(row -> row.getAllocatedQuantity() != null && row.getAllocatedQuantity().signum() > 0)
+                    .filter(row -> evidenceRequirement.required() || !lockedIds.contains(row.getActiveOrderId()))
+                    .map(MesProcessPoolReportAllocationDO::getActiveOrderId)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            for (Long id : evidenceOrders) {
+                nonconformanceReviewService.ensureWorkOrderNotFrozen(activeById.get(id).getWorkOrderId(), "生产报工复核");
+            }
+        }
+        if (state.getId() == null && (evidenceRequirement.required() || !before.equals(desired))) {
+            state.setLastChangedBy(command.getLeaderUserId()).setLastChangedAt(LocalDateTime.now());
+            if (stateMapper.insert(state) != 1) throw new IllegalStateException("生产分配状态写入失败");
+        }
         if (before.equals(desired)) {
-            ReviewEvidenceRequirement reviewRequirement = reviewEvidenceRequirement(event, current);
+            ReviewEvidenceRequirement reviewRequirement = evidenceRequirement;
             MesProcessPoolSubmissionReviewDO auditReview = null;
             if (reviewRequirement.required()) {
                 if (locked.stream().anyMatch(row -> lockedIds.contains(row.getActiveOrderId())) &&
@@ -515,7 +536,7 @@ public class MesReportAllocationCommandService {
      */
     @Transactional(rollbackFor = Exception.class)
     public Long rejectProductionSubmission(Long eventId, Long leaderUserId,
-                                           String rejectReason, String signaturePassword) {
+                                           String rejectReason, String signaturePassword, MesSubmissionReviewExpectedContext expectedReview) {
         validateRejectCommand(eventId, leaderUserId, rejectReason, signaturePassword);
         gxpAuditService.acquireLedgerLock();
         MesProProcessPoolEventDO event = requireEvent(eventId, true);
@@ -523,7 +544,7 @@ public class MesReportAllocationCommandService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
         }
         assertScope(event, leaderUserId, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
-        MesProcessPoolReportAllocationStateDO state = requireStateForUpdate(event, leaderUserId);
+        MesProcessPoolReportAllocationStateDO state = readStateForReview(event);
         List<MesProcessPoolReportAllocationDO> current = allocationMapper.selectListByEventIdForUpdate(eventId);
         int currentVersion = state.getCurrentVersion() == null ? 0 : state.getCurrentVersion();
         List<Map<String, Object>> beforeAllocationSnapshot = allocationAuditSnapshot(current);
@@ -536,6 +557,10 @@ public class MesReportAllocationCommandService {
                 && MesProcessPoolSubmissionReviewDO.STATUS_REJECTED.equals(existingReview.getReviewStatus())
                 && returnedCorrection == null) {
             if (sameRejectedRequest && current.isEmpty()) {
+                var signed = JsonUtils.parseTree(existingReview.getReviewSignatureSnapshotJson()).path("expectedReview");
+                if (expectedReview == null || !signed.equals(JsonUtils.parseTree(JsonUtils.toJsonString(expectedReview)))) {
+                    throw new IllegalStateException("生产退回重放上下文不一致");
+                }
                 return existingReview.getId();
             }
             if (!sameRejectedRequest) {
@@ -550,6 +575,7 @@ public class MesReportAllocationCommandService {
                     eventId, existingReview.getReviewStatus());
         }
 
+        validateDisplayedProductionContext(event, state, expectedReview);
         nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工退回");
         Set<Long> activeOrderIds = current.stream()
                 .filter(line -> line.getAllocatedQuantity() != null && line.getAllocatedQuantity().signum() > 0)
@@ -571,6 +597,10 @@ public class MesReportAllocationCommandService {
                     releasedActiveOrderIds.iterator().next());
         }
 
+        if (state.getId() == null) {
+            state.setLastChangedBy(leaderUserId).setLastChangedAt(LocalDateTime.now());
+            if (stateMapper.insert(state) != 1) throw new IllegalStateException("生产分配状态写入失败");
+        }
         int rejectedVersion = Math.max(currentVersion + 1, 1);
         List<Long> currentAllocationIds = current.stream()
                 .map(MesProcessPoolReportAllocationDO::getId)
@@ -590,7 +620,7 @@ public class MesReportAllocationCommandService {
             insertRejectionAudits(event, leaderUserId, rejectReason, rejectedVersion, current);
         }
 
-        ReviewSignaturePayload signature = recordRejectionSignature(event, leaderUserId, signaturePassword);
+        ReviewSignaturePayload signature = recordRejectionSignature(event, leaderUserId, signaturePassword, expectedReview);
         MesProcessPoolSubmissionReviewDO rejectedReview = MesProcessPoolSubmissionReviewDO.builder()
                 .eventId(eventId)
                 .leaderUserId(leaderUserId)
@@ -933,6 +963,11 @@ public class MesReportAllocationCommandService {
         return state;
     }
 
+    private MesProcessPoolReportAllocationStateDO readStateForReview(MesProProcessPoolEventDO event) {
+        var state = stateMapper.selectByEventIdForUpdate(event.getId());
+        return state == null ? MesProcessPoolReportAllocationStateDO.builder().eventId(event.getId()).currentVersion(0).build() : state;
+    }
+
     private MesReportAllocationSnapshot buildCurrentSnapshot(MesProProcessPoolEventDO event, BigDecimal pool,
                                                               List<MesProcessPoolReportAllocationDO> current) {
         return buildSnapshot(event, pool, currentVersion(event.getId()), current);
@@ -1259,7 +1294,7 @@ public class MesReportAllocationCommandService {
 
     private ReviewSignaturePayload recordRejectionSignature(MesProProcessPoolEventDO event,
                                                                Long leaderUserId,
-                                                               String signaturePassword) {
+                                                               String signaturePassword, MesSubmissionReviewExpectedContext expectedReview) {
         var correction = returnCorrectionResolver.find(event, reviewMapper.selectLatestByEventIdForUpdate(event.getId()));
         Long signatureId = correction == null ? signatureService.recordTeamLeaderReviewSignature(
                 leaderUserId, signaturePassword, "组长驳回生产报工:PRODUCTION:" + event.getId(),
@@ -1274,6 +1309,7 @@ public class MesReportAllocationCommandService {
         snapshot.put("eventType", event.getEventType());
         snapshot.put("leaderType", MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
         snapshot.put("reviewStatus", MesProcessPoolSubmissionReviewDO.STATUS_REJECTED);
+        snapshot.put("expectedReview", expectedReview);
         addCorrectionEvidence(snapshot, event, correction);
         return new ReviewSignaturePayload(signatureId, leaderUserId, JsonUtils.toJsonString(snapshot));
     }
@@ -1298,6 +1334,7 @@ public class MesReportAllocationCommandService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("signatureId", signatureId);
         snapshot.put("actorId", command.getLeaderUserId());
+        snapshot.put("expectedReview", command.getExpectedReview());
         snapshot.put("actionType", MesProBatchRecordExecutionSignatureService.ACTION_TEAM_LEADER_REVIEW);
         snapshot.put("processPoolEventId", event.getId());
         snapshot.put("eventType", event.getEventType());
@@ -1349,8 +1386,26 @@ public class MesReportAllocationCommandService {
         }
     }
 
+    private void validateDisplayedProductionContext(MesProProcessPoolEventDO event,
+            MesProcessPoolReportAllocationStateDO state, MesSubmissionReviewExpectedContext expected) {
+        var review = reviewMapper.selectLatestByEventIdForUpdate(event.getId());
+        var revisions = revisionMapper.selectListByEventIdForUpdate(event.getId());
+        if (revisions == null) throw new IllegalStateException("生产更正版本读取失败");
+        Long revisionId = revisions.isEmpty() ? 0L : revisions.get(0).getId();
+        if (expected == null || !Objects.equals(event.getId(), expected.getEventId())
+                || !Objects.equals(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getRawPayload()), expected.getPayloadHash())
+                || !Objects.equals(revisionId, expected.getRevisionId())
+                || !Objects.equals(review == null ? 0L : review.getId(), expected.getReviewId())
+                || !Objects.equals(review == null ? 0 : review.getReviewRound(), expected.getReviewRound())
+                || !Objects.equals(review == null ? "PENDING" : review.getReviewStatus(), expected.getReviewStatus())
+                || !Objects.equals(state.getCurrentVersion(), expected.getAllocationVersion())) {
+            throw new IllegalStateException("生产正文、修订或复核轮次已变化，请刷新后重新复核");
+        }
+    }
+
     private String requestHash(MesReportAllocationSaveCommand command) {
         String canonical = command.getAllocationMode() + "\n" + Objects.toString(command.getReason(), "") + "\n"
+                + JsonUtils.toJsonString(command.getExpectedReview()) + "\n"
                 + (command.getAllocations() == null ? List.<MesReportAllocationSaveLine>of() : command.getAllocations())
                 .stream().sorted(Comparator.comparing(MesReportAllocationSaveLine::getActiveOrderId,
                                 Comparator.nullsFirst(Long::compareTo)))

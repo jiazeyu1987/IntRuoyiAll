@@ -55,6 +55,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProF
 @Service
 @Validated
 public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontlineFeedbackSubmitService {
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService handoffService;
 
     private static final String GXP_PRODUCTION_SUBMIT_OPERATION = "mes.production.submit";
     private static final String GXP_SOURCE_LOCATOR =
@@ -160,6 +162,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
             return toSubmitResp(existing.get());
         }
 
+        submitAuthorizationService.authorizeNewSubmission(reqVO.getSignatureEmployeeId(), reqVO.getSignatureIdentityDomain());
         authorizeSelectedActiveOrder(reqVO, loginUserId);
         ActiveOrderSnapshotResolver.ActiveOrderSnapshot activeOrderSnapshot =
                 requireActiveOrderSnapshot(reqVO);
@@ -203,6 +206,7 @@ public class MesProFrontlineFeedbackSubmitServiceImpl implements MesProFrontline
         }
 
         appendProductionSubmitGxpAudit(eventPayload, processPoolEventId, identityTrace, parameterAuditResult, performedBy);
+        handoffService.productionSubmitted(context.getActiveOrderId(), processPoolEventId, reqVO.getSignatureEmployeeId());
 
         MesProFrontlineFeedbackSubmitRespVO response = new MesProFrontlineFeedbackSubmitRespVO()
                 .setFeedbackId(feedbackId)

@@ -26,6 +26,12 @@ class MesSharedProductionReportCorrectionGuardTest {
         receipts=mock(MesProcessPoolActiveOrderCompletionReceiptMapper.class);releases=mock(MesReportAllocationReleaseStateService.class);
         freezes=mock(MesProEdhrNonconformanceReviewService.class);
         for(var e:Map.of("allocations",allocations,"orders",orders,"receipts",receipts,"releases",releases,"freezes",freezes).entrySet())ReflectionTestUtils.setField(guard,e.getKey(),e.getValue());
+        var snapshots=mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
+        ReflectionTestUtils.setField(guard,"snapshots",snapshots);
+        when(snapshots.selectByActiveOrderAndProcess(anyLong(),anyLong(),anyLong())).thenAnswer(call->{
+            Long id=call.getArgument(0);var order=orders.selectByIdForUpdate(id);
+            return snapshot(order,call.getArgument(1),call.getArgument(2));
+        });
         event=MesProProcessPoolEventDO.builder().id(176L).workOrderId(274L).routeId(98L).routeProcessId(91L).processId(15L).rawPayload("{\"activeOrderId\":413,\"pressure\":20}").build();event.setTenantId(1L);
         source=order(413L,274L);target=order(414L,275L);
         when(orders.selectByIdForUpdate(413L)).thenReturn(source);when(orders.selectByIdForUpdate(414L)).thenReturn(target);
@@ -33,8 +39,21 @@ class MesSharedProductionReportCorrectionGuardTest {
         when(allocations.selectListByEventIdForUpdate(176L)).thenReturn(List.of(allocation));
         when(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(any())).thenReturn(Set.of());
     }
-    static MesProcessPoolActiveOrderDO order(long id,long work){var o=MesProcessPoolActiveOrderDO.builder().id(id).workOrderId(work).routeId(98L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();o.setTenantId(1L);return o;}
+    static MesProcessPoolActiveOrderDO order(long id,long work){var o=MesProcessPoolActiveOrderDO.builder().id(id).workOrderId(work).routeId(98L).routeVersionId(100L).activeStatus("ACTIVE").businessStatus("ACTIVE").build();o.setTenantId(1L);return o;}
+    static MesProcessPoolActiveOrderProcessSnapshotDO snapshot(MesProcessPoolActiveOrderDO order,Long routeProcess,Long process){
+        var row=MesProcessPoolActiveOrderProcessSnapshotDO.builder().activeOrderId(order.getId()).workOrderId(order.getWorkOrderId())
+            .routeId(order.getRouteId()).routeVersionId(order.getRouteVersionId()).routeProcessId(routeProcess).processId(process).build();row.setTenantId(1L);return row;
+    }
     @AfterEach void clear(){TenantContextHolder.clear();}
+    @Test void eachConsumerUsesItsOwnFrozenRouteAndProcessIdentity(){
+        target.setRouteId(199L).setRouteVersionId(200L);allocation.setRouteProcessId(192L);
+        assertDoesNotThrow(()->guard.assertEditable(event));
+    }
+    @Test void consumerSnapshotOfAnotherCycleCannotAuthorizeCorrection(){
+        var snapshots=(MesProcessPoolActiveOrderProcessSnapshotMapper)ReflectionTestUtils.getField(guard,"snapshots");
+        when(snapshots.selectByActiveOrderAndProcess(414L,91L,15L)).thenReturn(snapshot(source,91L,15L));
+        assertThrows(IllegalStateException.class,()->guard.assertEditable(event));
+    }
     @Test void crossOrderSharedParameterCanChangeOnlyWhileBothOrdersAreEditable(){assertDoesNotThrow(()->guard.assertEditable(event));verify(freezes).ensureWorkOrderNotFrozen(274L,"共享报工正文更正");verify(freezes).ensureWorkOrderNotFrozen(275L,"共享报工正文更正");}
     @org.junit.jupiter.params.ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"sourceFreeze","targetFreeze","completed","receipt","release","foreignTenant","wrongProcess","wrongWorkOrder"})
     void sharedNonQuantityChangeCannotBypassAnyCurrentConsumer(String defect){
@@ -61,6 +80,9 @@ class MesSharedProductionReportCorrectionGuardTest {
         org.mockito.Mockito.lenient().when(allocations.selectListByEventIdForUpdate(anyLong())).thenReturn(List.of());
         var source=order(413L,workOrderId).setRouteId(routeId);org.mockito.Mockito.lenient().when(orders.selectByIdForUpdate(413L)).thenReturn(source);
         org.mockito.Mockito.lenient().when(releases.findReleaseApplicationLockedActiveOrderIdsForUpdate(any())).thenReturn(Set.of());
-        for(var e:Map.of("allocations",allocations,"orders",orders,"receipts",receipts,"releases",releases,"freezes",freezes).entrySet())ReflectionTestUtils.setField(guard,e.getKey(),e.getValue());return guard;
+        for(var e:Map.of("allocations",allocations,"orders",orders,"receipts",receipts,"releases",releases,"freezes",freezes).entrySet())ReflectionTestUtils.setField(guard,e.getKey(),e.getValue());var snapshots=mock(MesProcessPoolActiveOrderProcessSnapshotMapper.class);
+        ReflectionTestUtils.setField(guard,"snapshots",snapshots);
+        lenient().when(snapshots.selectByActiveOrderAndProcess(anyLong(),anyLong(),anyLong())).thenAnswer(call->snapshot(source,call.getArgument(1),call.getArgument(2)));
+        return guard;
     }
 }

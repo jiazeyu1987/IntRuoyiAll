@@ -38,6 +38,29 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 class MesActiveOrderDossierFileServiceTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,closed","true,closed","false,pending_review","true,pending_review"})
+    void authoritativeClosedVoidWithoutApplicationBlocksUploadAndDeleteBeforeAnyFileOrFact(boolean delete,String status) {
+        var f=fixture();
+        when(f.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(10L).leaderUserId(7L).workOrderId(20L).activeStatus("ACTIVE").businessStatus("ACTIVE").build());
+        var authority=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(authority,"reviewMapper",f.nonconformanceReviewMapper);
+        var work=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        ReflectionTestUtils.setField(authority,"workOrderMapper",work);
+        ReflectionTestUtils.setField(f.service,"nonconformanceReviewService",authority);
+        when(f.nonconformanceReviewMapper.selectFirstBlockingByWorkOrderId(20L)).thenReturn(new MesProEdhrNonconformanceReviewDO()
+                .setId(99L).setWorkOrderId(20L).setReviewStatus(status).setDisposition("void").setBatchExecutionId(null));
+        assertThrows(ServiceException.class,()->{
+            if(delete)f.service.delete(7L,new MesActiveOrderDossierFileService.DeleteCommand(10L,null,"OTHER_FILE",8001L));
+            else f.service.upload(7L,new MesActiveOrderDossierFileService.UploadCommand(10L,null,"OTHER_FILE","void.txt","text/plain",new byte[]{1}));
+        });
+        org.mockito.Mockito.verifyNoInteractions(f.fileService,f.dossierFileMapper,f.operationAuditService);
+        verify(f.gxpAuditService,never()).append(any());
+        var evidence=dossierFile(8001L,10L,null,"OTHER_FILE",7001L,"evidence.txt");
+        when(f.dossierFileMapper.selectListByFileId(7001L)).thenReturn(List.of(evidence));
+        assertEquals(evidence,f.service.requireReadableFile(7L,7001L));
+    }
 
     @Test
     void repeatedNamesReceiveDifferentStorageLocations() {
@@ -171,11 +194,20 @@ class MesActiveOrderDossierFileServiceTest {
         verify(fixture.activeOrderMapper, never()).selectById(any());
     }
 
-    @Test
-    void uploadStoresActiveOrderDossierBeforeP2WithRealMetadata() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"normal","pqcApproved"})
+    void uploadStoresActiveOrderDossierBeforeP2WithRealMetadata(String state) {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
+        var authority=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewServiceImpl();
+        ReflectionTestUtils.setField(authority,"reviewMapper",fixture.nonconformanceReviewMapper);
+        var work=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper.class);
+        when(work.selectByIdForUpdate(20L)).thenReturn(cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO.builder().id(20L).temporaryFrozen(false).build());
+        ReflectionTestUtils.setField(authority,"workOrderMapper",work);ReflectionTestUtils.setField(fixture.service,"nonconformanceReviewService",authority);
+        if("pqcApproved".equals(state))when(fixture.applicationMapper.selectLatestByActiveOrderId(10L)).thenReturn(
+                MesProcessPoolActiveOrderReleaseApplicationDO.builder().id(55L).activeOrderId(10L).applicationStatus("MANAGER_RELEASE_PENDING").pqcDecision("APPROVE").build());
+
         when(fixture.adminUserApi.getUser(7L)).thenReturn(user(7L, "生产组长"));
         byte[] content = "pdf-content".getBytes(StandardCharsets.UTF_8);
         when(fixture.fileService.createFileAndReturnId(eq(content), eq("incoming.pdf"),
@@ -205,7 +237,7 @@ class MesActiveOrderDossierFileServiceTest {
         verify(fixture.dossierFileMapper).insert(captor.capture());
         MesProcessPoolActiveOrderDossierFileDO row = captor.getValue();
         assertEquals(10L, row.getActiveOrderId());
-        assertNull(row.getApplicationId());
+        assertEquals("pqcApproved".equals(state)?55L:null, row.getApplicationId());
         assertEquals("INCOMING_INSPECTION_FILE", row.getCategoryKey());
         assertEquals(7001L, row.getFileId());
         assertEquals("生产组长", row.getOperatorName());
@@ -413,6 +445,7 @@ class MesActiveOrderDossierFileServiceTest {
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "nonconformanceReviewService", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         ReflectionTestUtils.setField(service, "dossierReadScopeService", readScope);
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         when(readScope.requireMutation(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean())).thenAnswer(call -> {

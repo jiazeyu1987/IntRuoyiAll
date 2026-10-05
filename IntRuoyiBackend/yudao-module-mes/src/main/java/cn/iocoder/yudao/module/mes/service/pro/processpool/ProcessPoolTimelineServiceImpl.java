@@ -180,7 +180,8 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSubmissionReviewLeaderUserName(event.getSubmissionReviewLeaderUserName())
                 .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
-        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
+                || MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
             respVO.setExpectedReviews(List.of(displayedReviewContext(event)));
         }
         fillProductionSubmissionPayload(event, respVO);
@@ -190,9 +191,16 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
         if(event.getOriginalPayloadJson()==null || event.getDisplayedReviewId()==null
                 || event.getDisplayedReviewRound()==null || event.getDisplayedRevisionId()==null)
             throw new IllegalStateException("PQC展示记录缺少正式审核上下文，请刷新");
-        return new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext().setEventId(event.getId())
+        var context = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext().setEventId(event.getId())
                 .setPayloadHash(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getOriginalPayloadJson()))
                 .setRevisionId(event.getDisplayedRevisionId()).setReviewId(event.getDisplayedReviewId()).setReviewRound(event.getDisplayedReviewRound());
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            if (event.getDisplayedAllocationVersion() == null || event.getDisplayedReviewStatus() == null)
+                throw new IllegalStateException("生产展示缺少正式复核状态或分配版本");
+            context.setAllocationVersion(event.getDisplayedAllocationVersion())
+                    .setReviewStatus(event.getDisplayedReviewStatus());
+        }
+        return context;
     }
 
     private List<ProcessPoolTimelineEventRespVO> enrichPqcSubmissionGroupRows(ProcessPoolTimelinePageReqVO reqVO,

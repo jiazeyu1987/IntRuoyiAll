@@ -84,6 +84,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 signatureService,
                 activeOrderSnapshotResolver,
                 gxpAuditService);
+        { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
@@ -361,6 +362,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
                 new BigDecimal("200").compareTo(payload.getOutputQuantity()) == 0
                         && Long.valueOf(41L).equals(payload.getWorkOrderId())));
+        verify(processPoolSubmitEventService).createInitialAllocation(801L, 81L, new BigDecimal("200"));
     }
 
     @Test
@@ -475,6 +477,28 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
+    void deniedActualSystemUserCreatePermissionStopsNewSubmitBeforeSignatureAndFacts() throws Exception {
+        var type=cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationServiceImpl.class;
+        var constructor=type.getConstructors()[0];
+        var actual=(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationServiceImpl)constructor.newInstance(
+                java.util.Arrays.stream(constructor.getParameterTypes()).map(org.mockito.Mockito::mock).toArray());
+        var permission=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual,"permissionApi",permission);
+        org.mockito.Mockito.doAnswer(call->{actual.authorizeNewSubmission(call.getArgument(0),call.getArgument(1));return null;})
+                .when(submitAuthorizationService).authorizeNewSubmission(any(),any());
+        when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        stubValidLossReason();
+        try(MockedStatic<SecurityFrameworkUtils> security=mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(ServiceException.class,()->submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+        verify(permission).hasAnyPermissions(org.mockito.ArgumentMatchers.eq(9001L),org.mockito.ArgumentMatchers.eq("mes:pro-feedback:create"));
+        verifyNoInteractions(autoCodeRecordService,signatureService,feedbackService,feedbackMaterialService);
+        verify(processPoolSubmitEventService,never()).createSubmitEvent(any());
+        verify(gxpAuditService,never()).append(any());
+    }
+
+    @Test
     void shouldReturnExistingSubmitResultBeforeWritingDuplicateFeedback() {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any()))
                 .thenReturn(Optional.of(new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventResult()
@@ -506,6 +530,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         verify(feedbackService, never()).createFrontlineFeedback(any());
         verify(submitAuthorizationService, never()).authorizeActiveOrder(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(autoCodeRecordService, signatureService);
+        verify(submitAuthorizationService, never()).authorizeNewSubmission(any(), any());
         verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
     }
 

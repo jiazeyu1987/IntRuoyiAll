@@ -8888,7 +8888,7 @@ const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
     return
   }
   reviewDialogMode.value = 'REJECTION'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'REJECTED'
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
@@ -8903,7 +8903,7 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
     return
   }
   reviewDialogMode.value = 'ALLOCATION'
-  reviewEvent.value = event
+  reviewEvent.value = structuredClone(toRaw(event))
   reviewForm.reviewStatus = 'APPROVED'
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
@@ -8924,6 +8924,17 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   }
 }
 
+const requireProductionDisplayedReview = () => {
+  const context = reviewEvent.value?.expectedReviews?.[0]
+  if (!context || reviewEvent.value?.expectedReviews?.length !== 1 ||
+      context.eventId !== reviewEvent.value?.id || !context.payloadHash ||
+      context.revisionId == null || context.reviewId == null || context.reviewRound == null ||
+      !context.reviewStatus || context.allocationVersion == null) {
+    throw new Error('生产记录缺少复核上下文，请刷新后重新复核')
+  }
+  return structuredClone(toRaw(context))
+}
+
 const submitReview = async () => {
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
   if (reviewForm.reviewStatus === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
@@ -8941,6 +8952,7 @@ const submitReview = async () => {
         leaderType: 'PRODUCTION',
         eventId,
         reviewStatus: 'REJECTED',
+        expectedReview: requireProductionDisplayedReview(),
         reviewRemark,
         ...reviewSignaturePayload
       })
@@ -8952,6 +8964,7 @@ const submitReview = async () => {
           eventId,
           leaderType,
           allocationMode: reviewForm.allocationMode,
+          expectedReview: requireProductionDisplayedReview(),
           expectedVersion: allocationSnapshot.value?.version,
           idempotencyKey: getOrCreateAllocationSaveIdempotencyKey({
             eventId,
@@ -8973,6 +8986,8 @@ const submitReview = async () => {
           leaderType,
           allocationMode: reviewForm.allocationMode,
           reviewRemark,
+          expectedReview: requireProductionDisplayedReview(),
+          expectedVersion: requireProductionDisplayedReview().allocationVersion,
           ...reviewSignaturePayload,
           allocations: buildAllocationSubmitLines()
         })

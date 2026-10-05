@@ -412,6 +412,7 @@ public class ProcessPoolTimelinePqcGroupSqlTest {
             statement.execute("CREATE DOMAIN IF NOT EXISTS UNSIGNED AS BIGINT");
             // Columns checked against existing event/review/revision migrations; only queried columns are needed here.
             statement.execute("CREATE TABLE mes_pro_process_pool_event(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,event_type VARCHAR(40),raw_payload VARCHAR(4000),work_order_id BIGINT,report_management_status VARCHAR(40))");
+            statement.execute("CREATE TABLE mes_pro_process_pool_report_allocation_state(event_id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0,current_version INT)");
             statement.execute("CREATE TABLE mes_pro_work_order(id BIGINT,tenant_id BIGINT,deleted INT DEFAULT 0)");
             statement.execute("CREATE TABLE mes_pro_process_pool_submission_review(id BIGINT,tenant_id BIGINT,event_id BIGINT,leader_user_id BIGINT,review_round INT DEFAULT 0,review_status VARCHAR(30),review_remark VARCHAR(50),reviewed_at TIMESTAMP,deleted INT DEFAULT 0)");
             statement.execute("CREATE TABLE mes_pro_process_pool_event_revision(id BIGINT,tenant_id BIGINT,event_id BIGINT,revision_status VARCHAR(30),revision_signature_id BIGINT,revision_signature_user_id BIGINT,modified_by_user_id BIGINT,revision_signature_snapshot VARCHAR(2000),after_payload VARCHAR(4000),server_revision_time TIMESTAMP,deleted INT DEFAULT 0)");

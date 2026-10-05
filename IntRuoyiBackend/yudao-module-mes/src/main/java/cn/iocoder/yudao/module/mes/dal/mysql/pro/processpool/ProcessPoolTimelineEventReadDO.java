@@ -71,6 +71,9 @@ public class ProcessPoolTimelineEventReadDO {
     private Long displayedRevisionId;
     private Long displayedReviewId;
     private Integer displayedReviewRound;
+    private Integer displayedAllocationVersion;
+    // Formal latest decision; the page may separately project a signed correction as pending.
+    private String displayedReviewStatus;
     private java.util.List<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionReviewExpectedContext> expectedReviews;
     private String pqcResult;
     private String pqcSummary;

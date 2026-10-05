@@ -36,6 +36,27 @@ class MesFrontlineSubmitAuthorizationTest {
 
     private MesFrontlineSubmitAuthorizationServiceImpl submitAuthorizationService;
 
+    @Test
+    void newSystemUserSubmissionRequiresActualEmployeeCurrentCreateButHistoricalIdentityStillReads() {
+        var permissions = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "permissionApi", permissions);
+        org.mockito.Mockito.lenient().when(permissions.hasAnyPermissions(9001L, "mes:pro-feedback:create")).thenReturn(true);
+        givenSnapshot(List.of(employee(10001L, "TPL-201-E1001")), List.of(device(501L)));
+        assertDoesNotThrow(() -> submitAuthorizationService.authorize(command(10001L,10001L,501L,101L,1001L,201L,"TPL-201-E1001")));
+        assertThrows(ServiceException.class, () -> submitAuthorizationService.authorizeNewSubmission(10001L,"SYSTEM_USER"));
+        org.mockito.Mockito.verify(permissions).hasAnyPermissions(10001L, "mes:pro-feedback:create");
+        when(permissions.hasAnyPermissions(10001L, "mes:pro-feedback:create")).thenReturn(true);
+        assertDoesNotThrow(() -> submitAuthorizationService.authorizeNewSubmission(10001L,"SYSTEM_USER"));
+    }
+
+    @Test
+    void profileIdentityNeverUsesSystemAccountPermissionEvenWithNumericCollision() {
+        var permissions = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(submitAuthorizationService, "permissionApi", permissions);
+        assertDoesNotThrow(() -> submitAuthorizationService.authorizeNewSubmission(10001L,"MES_EMPLOYEE_PROFILE"));
+        org.mockito.Mockito.verifyNoInteractions(permissions);
+    }
+
     @BeforeEach
     void setUp() {
         submitAuthorizationService = new MesFrontlineSubmitAuthorizationServiceImpl(

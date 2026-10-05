@@ -208,7 +208,7 @@ class MesNcrScopeAuditTransactionTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor, null, List.of()));
         jdbc.update("INSERT INTO gxp_audit_ledger_sequence(tenant_id,next_ledger_sequence) VALUES(1,1)");
         jdbc.update("INSERT INTO gxp_audit_policy_activation(id,tenant_id,policy_version) VALUES(1,1,'ncr-scope-fixture')");
-        for (String operation : List.of(CREATE, "mes.nonconformance.rework", "mes.nonconformance.void", "mes.work-task.entitlement")) {
+        for (String operation : List.of(CREATE, "mes.nonconformance.rework", "mes.nonconformance.void", "mes.nonconformance.concession", "mes.work-task.entitlement")) {
             jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,domain,"
                     + "subject_type,action_type,reason_policy,signature_policy,state_policy,applicability,active)"
                     + " VALUES(1,'ncr-scope-fixture',?,'MES','NONCONFORMANCE_REVIEW',?,'USER_REQUIRED',?,?,'GXP',1)",
@@ -411,7 +411,7 @@ class MesNcrScopeAuditTransactionTest {
     @org.junit.jupiter.params.provider.CsvSource({"false,rework","false,void","true,rework","true,void"})
     void qaClosurePreservesPqcAndProjectsFormalActorWithRealNcrMapperAndDoneSql(boolean approved,String disposition) {
         seedDisposition();
-        jdbc.update("UPDATE "+APPLICATION+" SET batch_execution_id=9001,application_status=? WHERE id=7001", approved?"MANAGER_RELEASE_PENDING":"PQC_RELEASE_PENDING");
+        jdbc.update("UPDATE "+APPLICATION+" SET batch_execution_id=9001,applied_at='2026-09-29 07:00:00',application_status=? WHERE id=7001", approved?"MANAGER_RELEASE_PENDING":"PQC_RELEASE_PENDING");
         jdbc.update("UPDATE "+TASK+" SET batch_execution_id=9001,work_order_id=3001,assignee_user_id=23,candidate_user_snapshot='22,23',task_code='PQC-SA28' WHERE id=8001");
         String receipt="{\"original\":\"unchanged\"}";
         if(approved) {
@@ -430,6 +430,24 @@ class MesNcrScopeAuditTransactionTest {
         String closure="NONCONFORMANCE_"+disposition.toUpperCase(java.util.Locale.ROOT);
         assertEquals(closure,application.getApplicationStatus()); assertEquals(1001L,application.getQaClosureReviewId());
         assertEquals(receipt,application.getDossierSummaryJson());
+        var detailService = closureDetailReader();
+        var detail = detailService.getFormalDetail(8101L);
+        var archived = archivedPqcDetail(detailService, application);
+        assertEquals(detail.getActiveOrderStatus().getStatus(),archived.getActiveOrderStatus().getStatus());
+        if(approved)assertEquals(9201L,archived.getPqcProductionRelease().getSignature().getSignatureId());
+        else assertNull(archived.getPqcProductionRelease());
+        assertEquals(closure, detail.getActiveOrderStatus().getStatus());
+        assertEquals("void".equals(disposition)?"已作废":"已返工关闭", detail.getActiveOrderStatus().getStatusLabel());
+        assertEquals("ACTIVE_ORDER", session.getMapper(MesProEdhrNonconformanceReviewMapper.class).selectById(1001L).getSourceType());
+        if (approved) assertEquals(9201L, detail.getPqcProductionRelease().getSignature().getSignatureId());
+        else assertNull(detail.getPqcProductionRelease());
+        verifyOtherPersistedClosureSourceBindings(detailService, application);
+        for (String mismatch : List.of("source_id=999", "active_order_id=999", "work_order_id=999", "tenant_id=2", "review_status='pending_review'", "batch_execution_id=999", "source_type='UNKNOWN'")) {
+            jdbc.update("UPDATE " + REVIEW + " SET " + mismatch + " WHERE id=1001");
+            assertThrows(IllegalStateException.class, () -> detailService.getFormalDetail(8101L), mismatch);
+            jdbc.update("UPDATE " + REVIEW + " SET source_id=8101,active_order_id=8101,work_order_id=3001,tenant_id=1,review_status='closed',batch_execution_id=9001,source_type='ACTIVE_ORDER' WHERE id=1001");
+        }
+
         assertEquals(approved?"APPROVE":null,application.getPqcDecision());
         assertEquals(approved?22L:null,application.getPqcDecidedBy());
         assertEquals(approved?"APPROVE":closure,task.getReason()); assertEquals(23L,task.getAssigneeUserId());
@@ -454,6 +472,163 @@ class MesNcrScopeAuditTransactionTest {
         jdbc.update("UPDATE "+APPLICATION+" SET qa_closure_review_id=9999 WHERE id=7001");
         assertThrows(IllegalStateException.class,()->resolver.resolvePqc(8001L,"RELEASE_APPLICATION",7001L,9001L,3001L,task.getReason(),task.getCompletedAt()));
         assertTrue(taskMapper.selectDonePage(req,actor).getList().isEmpty());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"concession_release"})
+    void actualQaRecoveryRestoresDossierUpload(String disposition) {
+        seedDisposition();
+        jdbc.update("DELETE FROM "+APPLICATION);jdbc.update("UPDATE "+ACTIVE+" SET business_status='ACTIVE' WHERE id=8101");
+        var active=session.getMapper(MesProcessPoolActiveOrderMapper.class).selectById(8101L);
+        var files=mock(cn.iocoder.yudao.module.infra.service.file.FileService.class);
+        var relations=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderDossierFileMapper.class);
+        var users=mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
+        when(users.getUser(21L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(21L).setNickname("QA"));
+        var dossier=new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService(
+                session.getMapper(MesProcessPoolActiveOrderReleaseApplicationMapper.class),session.getMapper(MesProcessPoolActiveOrderMapper.class),
+                relations,session.getMapper(MesProEdhrNonconformanceReviewMapper.class),users,files,mock(MesProEdhrOperationAuditService.class));
+        inject(dossier,"nonconformanceReviewService",service);inject(dossier,"gxpAuditService",mock(GxpAuditService.class));
+        var scope=mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierReadScopeService.class);
+        when(scope.requireMutation(21L,8101L,null,false)).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierReadScopeService.Context(active,null));
+        inject(dossier,"dossierReadScopeService",scope);
+        byte[] content="real-test-pdf".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var upload=new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesActiveOrderDossierFileService.UploadCommand(8101L,null,"OTHER_FILE","recovery.pdf","application/pdf",content);
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->dossier.upload(21L,upload));
+        verifyNoInteractions(files,relations);
+        service.dispose(dispositionRequest(disposition));
+        assertFalse(session.getMapper(MesProWorkOrderMapper.class).selectById(3001L).getTemporaryFrozen());
+        assertEquals(disposition,session.getMapper(MesProEdhrNonconformanceReviewMapper.class).selectById(1001L).getDisposition());
+        when(files.createFileAndReturnId(any(),any(),any(),any())).thenReturn(9501L);
+        when(files.getFile(9501L)).thenReturn(FileDO.builder().id(9501L).configId(1L).name("recovery.pdf")
+                .path("mes/active-order-dossier/8101/OTHER_FILE/recovery.pdf").url("https://fixture.invalid/recovery.pdf").type("application/pdf").size((long)content.length).build());
+        when(relations.insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO.class))).thenAnswer(call->{
+            call.getArgument(0,cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO.class).setId(9502L);return 1;
+        });
+        assertEquals(9501L,dossier.upload(21L,upload).fileId());
+        verify(relations).insert(any(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDossierFileDO.class));
+    }
+
+    /** Reader contract for the other current producer source identities; ACTIVE_ORDER disposal above is real. */
+    private void verifyOtherPersistedClosureSourceBindings(
+            cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl reader,
+            MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        createTable(cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO.class);
+        session.getConfiguration().addMapper(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class);
+        inject(reader,"eventMapper",session.getMapper(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper.class));
+        var pqcSource=spy(session.getMapper(MesPqcInspectionTaskMapper.class));
+        // Unrelated detail rows stay outside this closure contract; exact source query still uses H2.
+        doReturn(List.of()).when(pqcSource).selectListByActiveOrderId(any());
+        inject(reader,"pqcTaskMapper",pqcSource);
+        jdbc.update("INSERT INTO mes_pro_process_pool_event(id,tenant_id,event_type,work_order_id) VALUES(9301,1,'PQC_INSPECTION',3001)");
+        jdbc.update("INSERT INTO mes_pqc_inspection_task(id,tenant_id,submitted_event_id,work_order_id,active_order_id) VALUES(9302,1,9301,3001,8101)");
+        for (var source : Map.of("PQC_RELEASE",7001L,"DEVIATION",9001L,"PQC_SUBMISSION",9301L).entrySet()) {
+            jdbc.update("UPDATE "+REVIEW+" SET source_type=?,source_id=? WHERE id=1001",source.getKey(),source.getValue());
+            assertEquals(application.getApplicationStatus(),archivedPqcDetail(reader,application).getActiveOrderStatus().getStatus());
+            jdbc.update("UPDATE "+REVIEW+" SET source_id=999 WHERE id=1001");
+            assertThrows(IllegalStateException.class,()->archivedPqcDetail(reader,application),source.getKey());
+        }
+        jdbc.update("UPDATE "+REVIEW+" SET source_type='PQC_SUBMISSION',source_id=9301 WHERE id=1001");
+        for (String mismatch : List.of("tenant_id=2","work_order_id=999","active_order_id=999")) {
+            jdbc.update("UPDATE mes_pqc_inspection_task SET "+mismatch+" WHERE id=9302");
+            assertThrows(IllegalStateException.class,()->archivedPqcDetail(reader,application),mismatch);
+            jdbc.update("UPDATE mes_pqc_inspection_task SET tenant_id=1,work_order_id=3001,active_order_id=8101 WHERE id=9302");
+        }
+        jdbc.update("UPDATE "+REVIEW+" SET source_type='ACTIVE_ORDER',source_id=8101 WHERE id=1001");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void independentBatchVoidThenActualArchivedDetailPreservesPriorPqc(boolean approved) throws Exception {
+        createTable(MesProEdhrRecordChangeEventDO.class);createTable(MesProEdhrBatchExecutionArchiveDO.class);
+        var config=session.getConfiguration();
+        var tenantPlugin=new com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor();
+        new cn.iocoder.yudao.framework.tenant.config.YudaoTenantAutoConfiguration().tenantLineInnerInterceptor(
+                new cn.iocoder.yudao.framework.tenant.config.TenantProperties(),tenantPlugin);config.addInterceptor(tenantPlugin);
+        config.addMapper(MesProEdhrRecordChangeEventMapper.class);config.addMapper(MesProEdhrBatchExecutionArchiveMapper.class);
+        jdbc.update("INSERT INTO "+APPLICATION+"(id,tenant_id,active_order_id,work_order_id,batch_execution_id,application_status,version,pqc_release_work_task_id,applied_at) VALUES(7001,1,8101,3001,9001,?,1,8001,CURRENT_TIMESTAMP)",
+                approved?"MANAGER_RELEASE_PENDING":"PQC_RELEASE_PENDING");
+        jdbc.update("INSERT INTO "+TASK+"(id,tenant_id,task_type,business_scope_type,business_scope_id,work_order_id,status,candidate_user_snapshot) VALUES(8001,1,'PQC_PRODUCTION_RELEASE','RELEASE_APPLICATION',7001,3001,?,'22')",approved?"DONE":"TODO");
+        if(approved) {
+            String subject=MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(9001L,"PQC_RELEASE",null,null,null,null,null,null,null,
+                    "PQC_RELEASE_APPLICATION",7001L,"PQC生产放行","PQC_RELEASE",null,null,null,null);
+            insertFormalSignature(9201L,22L,"PQC_RELEASE",subject,MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject),"PQC approved");
+            jdbc.update("UPDATE "+APPLICATION+" SET pqc_decision='APPROVE',pqc_decided_by=22,pqc_decided_at=CURRENT_TIMESTAMP,dossier_summary_json=? WHERE id=7001",
+                    JsonUtils.toJsonString(Map.of("applicationId",7001L,"pqcReleaseWorkTaskId",8001L,"batchExecutionId",9001L,"decidedBy",22L,"decision","APPROVE","signatureId",9201L)));
+        }
+        var appMapper=session.getMapper(MesProcessPoolActiveOrderReleaseApplicationMapper.class);
+        String before=JsonUtils.toJsonString(appMapper.selectById(7001L));
+        var writer=new MesProEdhrBatchVoidEffectServiceImpl();
+        for(var f:writer.getClass().getDeclaredFields())if(!Modifier.isStatic(f.getModifiers()))inject(writer,f.getName(),mock(f.getType()));
+        var changes=session.getMapper(MesProEdhrRecordChangeEventMapper.class);
+        inject(writer,"batchExecutionMapper",session.getMapper(MesProEdhrBatchExecutionMapper.class));
+        inject(writer,"batchArchiveMapper",session.getMapper(MesProEdhrBatchExecutionArchiveMapper.class));
+        inject(writer,"changeEventMapper",changes);inject(writer,"releaseApplications",appMapper);inject(writer,"workTaskService",tasks);
+        var guard=new MesEdhrBatchLifecycleGuard();inject(guard,"reviewMapper",session.getMapper(MesProEdhrNonconformanceReviewMapper.class));
+        inject(guard,"batchMapper",session.getMapper(MesProEdhrBatchExecutionMapper.class));inject(guard,"changeMapper",changes);inject(writer,"lifecycleGuard",guard);
+        when(signer.recordBatchVoidRequestSignature(any(),any(),any(),any(),any())).thenReturn(9401L);inject(writer,"signatureService",signer);
+        var actual=(MesProEdhrBatchVoidEffectService)tx(writer);
+        var change=actual.executeDirectPlatformVoidBatchExecution(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO()
+                .setBatchExecutionId(9001L).setReasonCategory("ORDER_CANCELLED").setReasonText("independent batch void").setPassword("test-only"),21L);
+        assertEquals("EFFECTIVE",changes.selectById(change.getId()).getChangeStatus());
+        assertEquals(60,session.getMapper(MesProEdhrBatchExecutionMapper.class).selectById(9001L).getStatus());
+        var application=appMapper.selectById(7001L);
+        // The actual writer closes pending applications only; approved PQC facts remain immutable.
+        assertEquals(approved?"MANAGER_RELEASE_PENDING":"BATCH_VOIDED",application.getApplicationStatus());
+        if(approved)assertEquals(before,JsonUtils.toJsonString(application));
+        var reader=closureDetailReader();inject(reader,"recordChangeEventMapper",changes);
+        var detail=archivedPqcDetail(reader,application);
+        assertEquals(application.getApplicationStatus(),detail.getActiveOrderStatus().getStatus());
+        if(approved)assertEquals(9201L,detail.getPqcProductionRelease().getSignature().getSignatureId());
+        else {
+            assertNull(detail.getPqcProductionRelease());assertEquals("已作废",detail.getActiveOrderStatus().getStatusLabel());
+            for(String mismatch:List.of("batch_execution_id=999","change_status='SUBMITTED'","change_type='CORRECTION'","target_scope='CELL'","tenant_id=2")) {
+                jdbc.update("UPDATE mes_pro_edhr_record_change_event SET "+mismatch+" WHERE id=?",change.getId());
+                assertThrows(IllegalStateException.class,()->archivedPqcDetail(reader,application),mismatch);
+                jdbc.update("UPDATE mes_pro_edhr_record_change_event SET batch_execution_id=9001,change_status='EFFECTIVE',change_type='VOID',target_scope='BATCH',tenant_id=1 WHERE id=?",change.getId());
+            }
+        }
+    }
+
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail archivedPqcDetail(
+            cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl reader,
+            MesProcessPoolActiveOrderReleaseApplicationDO application) {
+        var authorization=mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseService.class);
+        when(authorization.get(22L,application.getId())).thenReturn(new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult()
+                .setStatus(application.getApplicationStatus()).setDecision(application.getPqcDecision()).setSignatureId("APPROVE".equals(application.getPqcDecision())?9201L:null));
+        var materials=mock(cn.iocoder.yudao.module.mes.service.pro.workorder.kingdee.MesKingdeeProductionMaterialListQueryService.class);
+        when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(List.of(),0L));
+        var users=(cn.iocoder.yudao.module.system.service.user.AdminUserService)ReflectionTestUtils.getField(reader,"adminUserService");
+        var entry=new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcReleaseOrderDetailService(authorization,
+                session.getMapper(MesProcessPoolActiveOrderReleaseApplicationMapper.class),session.getMapper(MesProcessPoolActiveOrderMapper.class),
+                signatureQuery,users,reader,materials);
+        return entry.get(22L,application.getId()).detail();
+    }
+
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl closureDetailReader() {
+        Class<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl> type =
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl.class;
+        var constructor = type.getConstructors()[0];
+        Object[] args = Arrays.stream(constructor.getParameterTypes()).map(org.mockito.Mockito::mock).toArray();
+        final cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl reader;
+        try { reader = (cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailServiceImpl) constructor.newInstance(args); }
+        catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+        for (var field : type.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers())) continue;
+            if (ReflectionTestUtils.getField(reader, field.getName()) == null) inject(reader, field.getName(), mock(field.getType()));
+        }
+        inject(reader,"activeOrderMapper",session.getMapper(MesProcessPoolActiveOrderMapper.class));
+        inject(reader,"releaseApplicationMapper",session.getMapper(MesProcessPoolActiveOrderReleaseApplicationMapper.class));
+        inject(reader,"nonconformanceReviewMapper",session.getMapper(MesProEdhrNonconformanceReviewMapper.class));
+        inject(reader,"batchExecutionMapper",session.getMapper(MesProEdhrBatchExecutionMapper.class));
+        inject(reader,"signatureQueryService",signatureQuery);
+        var users=(cn.iocoder.yudao.module.system.service.user.AdminUserService) ReflectionTestUtils.getField(reader,"adminUserService");
+        when(users.getUser(22L)).thenReturn(new AdminUserDO().setId(22L).setNickname("PQC reviewer"));
+        var rows=(MesProcessPoolActiveOrderDetailReadMapper)ReflectionTestUtils.getField(reader,"detailReadMapper");
+        when(rows.selectByActiveOrderId(8101L)).thenReturn(List.of(new MesTeamLeaderActiveOrderDetailReadDO()
+                .setSnapshotId(4101L).setActiveOrderId(8101L).setWorkOrderId(3001L).setWorkOrderCode("WORK-3001")
+                .setRouteName("frozen route").setRouteProcessId(5101L).setProcessId(6101L).setProcessCode("P-6101")
+                .setProcessName("Production").setRequiredQuantity(BigDecimal.TEN).setKeyFlag(true)));
+        return reader;
     }
 
     @Test void voidClosesOnlyActiveBatchFillAndReworkWithActualRuntimeClaimsAndPreservesDoneAndOtherBatch() {
@@ -663,7 +838,8 @@ class MesNcrScopeAuditTransactionTest {
         }
         String table = row.getAnnotation(TableName.class).value();
         // These BaseDO mappings omit tenant_id present in both production table definitions.
-        if (row == MesProEdhrWorkTaskDO.class || row == MesProEdhrReleaseTransactionDO.class) {
+        if (row == MesProEdhrWorkTaskDO.class || row == MesProEdhrReleaseTransactionDO.class
+                || row == MesProEdhrRecordChangeEventDO.class || row == MesProEdhrBatchExecutionArchiveDO.class) {
             columns.add("`tenant_id` BIGINT NOT NULL DEFAULT 0");
         }
         jdbc.execute("CREATE TABLE " + table + "(" + String.join(",", columns) + ")");
