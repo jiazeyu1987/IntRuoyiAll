@@ -1,0 +1,106 @@
+{
+  "status": "PASS_BOUNDED_EXACT_OPERATION_BROWSER_NOT_RUNTIME_LATENCY_PROOF",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T10:50:48+08:00",
+  "counts": {
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccExactWorkingBrowserScopeDatabaseTest.xml",
+      "bytes": 97105,
+      "sha256": "be99471012cb8ccbba867d428f45b8b04feed3bd21fa587fcd3408f5194bb566",
+      "cases": [
+        "exactIdentityDoesNotGrantScopeAndWrongOrHalfIdentityNeverFallsBackToBroadScan",
+        "ordinaryRequestWithoutExactPairRetainsItsExistingFullListBehavior",
+        "historicalOnlyKeywordIsStillFilteredAfterCanonicalAggregation",
+        "exactPairBoundsRealCandidateMastersWithoutChangingTheVersionChain"
+      ],
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml",
+      "bytes": 94405,
+      "sha256": "453e553b13f2747ed29e07d1f4f59798ffba4f426d1ff5561db54edadd2fc5b6",
+      "cases": [
+        "checkoutCurrentActiveVersionCreatesLockWithoutCreatingIterationOrChangingFormalPointer",
+        "checkoutWorkingVersion_byNonRequesterWithCategoryUploadPermission_isDenied"
+      ],
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml",
+      "bytes": 99936,
+      "sha256": "6bc08bb5933b37739f53a5c3cba6df3c42a3621cd0a1c90250c80feba1d38fa8",
+      "cases": [
+        "actualWithdrawnNativeRevisionCheckoutCheckinAndSameTargetAttemptPreserveHistory"
+      ],
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "bytes": 94973,
+      "sha256": "17aa5f401dd885702a7f21d3563b72707a028c8263c087980935d00049a89f40",
+      "cases": [
+        "authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict"
+      ],
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFilePageReqVO.java",
+      "bytes": 1829,
+      "sha256": "bbe810db3b090a6ce6fcee0f92b9e88837da3c48c07622bd58589888c10e5d42"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 277812,
+      "sha256": "29cf0245097efe4c88762885e8cda6d5ba1cfeff651ed30a73867a3289a667b3"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccExactWorkingBrowserScopeDatabaseTest.java",
+      "bytes": 4793,
+      "sha256": "9ef13bf220a821512321e5beddf1e4a3d86e1e8be10d1808ff6ec331667d211a"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-exact-browser-final-regression.log",
+    "sha256": "aa55cd3d322b67f0241ca2379feb3b9e79c02b6a7b8f395813507ee8de5e876d"
+  },
+  "effectiveRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g72-exact-browser-effective-red-r2.xml",
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "reason": "exactMaster expected1 originalwholelist2; old DTO absentpair compile-safe input checks"
+  },
+  "fixtureErrors": "history getter and missingLinkedHashSet import compilation only, not business RED",
+  "requestBoundary": "positive both Long workingFileId/MasterId only ordinary storage browser-page; exact currenttenant/file-master projection, allsameMaster versionIDs; originalfilters/permission/latestaggregation/finalkeyword maintained; otherpage/scope/export rejects pair",
+  "assignmentScope": "existing nonemptyassigned IDs intersection; no directfile authorization or emptyIDs broad fallback",
+  "absentPair": "original query unchanged",
+  "requestedButNotExecutedAdjacency": "incorrect optional old latest-keyword method name did not select an old extra testcase; no claim it executed; current actual historical-only keyword case proves ordering",
+  "schemaChanges": 0,
+  "actualDbWrites": 0,
+  "actualUiRuns": 0,
+  "latencyClaim": "candidate bound proven by actual SQL/count; real ordinary-account30s-timeout resolution remains Root UI",
+  "mavenFree": true
+}

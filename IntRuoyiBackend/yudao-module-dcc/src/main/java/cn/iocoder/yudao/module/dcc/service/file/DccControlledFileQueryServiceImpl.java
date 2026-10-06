@@ -127,6 +127,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -330,6 +331,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     @Override
     public PageResult<DccControlledFileRespVO> getControlledFilePage(Long userId, DccControlledFilePageReqVO reqVO) {
+        rejectWorkingBrowserScopeOnOtherEndpoint(reqVO);
         Set<Long> requestedDirectoryIds = resolveRequestedDirectoryIds(reqVO);
         DccControlledFilePageReqVO candidateReqVO = buildCandidateReqForWorkflowSearch(reqVO);
         boolean hasDirectoryManagementPermission = directoryAccessPermissionService.hasDirectoryManagementPermission(userId);
@@ -369,6 +371,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     @Override
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<DccControlledFileRespVO> getControlledFileBrowserPage(Long userId, DccControlledFilePageReqVO reqVO) {
+        if (hasWorkingBrowserScope(reqVO) && (reqVO.getBrowserScope()!=null || reqVO.getSelectorScope()!=null
+                || reqVO.getProjectFolderId()!=null))
+            throw new IllegalArgumentException("exact working navigation requires the normal storage browser");
         if (reqVO.getBrowserScope()!=null) return getProjectBrowserPage(userId,reqVO);
         if (reqVO.getSelectorScope()!=null || reqVO.getProjectFolderId()!=null) {
             if (reqVO.getSelectorScope()==null || !Set.of("GLOBAL","PROJECT_FOLDER").contains(reqVO.getSelectorScope())
@@ -477,7 +482,18 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
             candidateReqVO.setKeyword(null);
         }
         List<DccControlledFileDO> candidates;
-        if (requestedDirectoryIds != null) {
+        if (hasWorkingBrowserScope(reqVO)) {
+            if (!browserSummaryQuery) throw new IllegalArgumentException("exact working navigation is not supported by this endpoint");
+            Set<Long> exactIds = resolveWorkingBrowserCandidateIds(reqVO);
+            if (activeAssignedControlledFileIds != null && !activeAssignedControlledFileIds.isEmpty()) {
+                exactIds.retainAll(activeAssignedControlledFileIds);
+                if (exactIds.isEmpty()) return List.of();
+            }
+            if (requestedDirectoryIds != null && requestedDirectoryIds.isEmpty()) return List.of();
+            candidates = controlledFileMapper.selectBrowserSummaryList(
+                    requestedDirectoryIds == null ? candidateReqVO : buildPageReqWithoutDirectory(candidateReqVO),
+                    requestedDirectoryIds, exactIds);
+        } else if (requestedDirectoryIds != null) {
             if (requestedDirectoryIds.isEmpty()) {
                 return List.of();
             }
@@ -521,6 +537,40 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
     private Set<Long> resolveActiveAssignedControlledFileIds(Long userId) {
         return assignmentScopeService.resolveActiveAssignedControlledFileIds(userId);
+    }
+
+    private boolean hasWorkingBrowserScope(DccControlledFilePageReqVO request) {
+        return request.getWorkingFileId()!=null || request.getWorkingMasterId()!=null;
+    }
+
+    private void rejectWorkingBrowserScopeOnOtherEndpoint(DccControlledFilePageReqVO request) {
+        if (hasWorkingBrowserScope(request))
+            throw new IllegalArgumentException("exact working navigation is only supported by the storage browser page");
+    }
+
+    private Set<Long> resolveWorkingBrowserCandidateIds(DccControlledFilePageReqVO request) {
+        Long fileId=request.getWorkingFileId(), masterId=request.getWorkingMasterId();
+        if (fileId==null || masterId==null || fileId<=0 || masterId<=0)
+            throw new IllegalArgumentException("exact working file and Master identity must both be positive");
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        var file=controlledFileMapper.selectById(fileId);
+        var master=controlledFileMasterMapper.selectById(masterId);
+        if (file==null || master==null || Boolean.TRUE.equals(file.getDeleted()) || Boolean.TRUE.equals(master.getDeleted())
+                || !Objects.equals(fileId,file.getId()) || !Objects.equals(masterId,master.getId())
+                || !Objects.equals(tenant,file.getTenantId()) || !Objects.equals(tenant,master.getTenantId())
+                || !Objects.equals(masterId,file.getMasterId())
+                || !Objects.equals(master.getDccProjectCodeId(),file.getDccProjectCodeId()))
+            throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        var chain=Objects.requireNonNull(controlledFileMapper.selectListByMasterId(masterId),"exact working version chain");
+        var ids=new LinkedHashSet<Long>();
+        for (var row:chain) {
+            if (row==null || row.getId()==null || !Objects.equals(tenant,row.getTenantId())
+                    || !Objects.equals(masterId,row.getMasterId()) || Boolean.TRUE.equals(row.getDeleted()))
+                throw new IllegalStateException("exact working version chain identity is invalid");
+            if (!ids.add(row.getId())) throw new IllegalStateException("exact working version identity is duplicated");
+        }
+        if (!ids.contains(fileId)) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
+        return ids; // Candidate scope only. Original row authorization and aggregation execute below.
     }
 
     private boolean isActiveAssignedControlledFile(DccControlledFileDO file, Set<Long> activeAssignedControlledFileIds) {
