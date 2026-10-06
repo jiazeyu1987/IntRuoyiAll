@@ -1,0 +1,16 @@
+{
+  "status": "BUSINESS_SOURCE_AND_FINAL_ACCEPTANCE_RECORDS_PUSHED_VERIFIED",
+  "branch": "int_qms",
+  "reviewedDeliveryCommit": "a4e62615680ffddd81dbfd1d91ff24af206fb5c0",
+  "remoteBranchCommit": "a4e62615680ffddd81dbfd1d91ff24af206fb5c0",
+  "ahead": 0,
+  "behind": 0,
+  "businessObjective": "HTML confirmed business flows aligned; discovered differences fixed and bounded regression/real UI evidence complete",
+  "formalTaskState": "ready_for_closeout; officialcleanup capability absent, no completed claim",
+  "nonTaskDirtyAssetsPreserved": [
+    "AGENTS.md",
+    "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+    "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java"
+  ],
+  "testLocksRemaining": 0
+}
