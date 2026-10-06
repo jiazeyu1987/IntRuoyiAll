@@ -12,3 +12,4 @@
 - CLEANUP_PREVIEW: PASS，keep 当前三份记录，delete 为空，warnings none。
 - CLEANUP_APPLY: PASS，未删除任何文件。
 - CLOSEOUT: 文档交付完成。按 docs/task-closeout-rules.md，Git 提交推送未完成时任务台账保留 blocked；既有提交线程负责 Git，本任务未暂存、提交、推送或清理 Git 锁。
+- FOLLOWUP 2026-10-06: 用户明确授权“提交推送intqms的前后端代码”；doc/tasks/20261006-int-qms-commit-push 已提交本任务 AGENTS.md 与三份记录，基线 d95a490ed36479ab1e344d966bc4a9333706c692 已推送 origin/int_qms，远端 ref 一致、ahead/behind=0/0。既有结构、UTF-8 和端口合同复核通过，解除 Git blocker，状态 completed。

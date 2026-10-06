@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked — 文档更新、验证和 cleanup 均完成；按 task-closeout-rules.md，提交推送前不能标记 completed。Git 闭环由既有提交线程处理，本任务未并发操作索引。
+completed — 文档更新、验证和 cleanup 均完成；2026-10-06 用户明确授权提交推送后，由 doc/tasks/20261006-int-qms-commit-push 完成 Git 闭环，基线 d95a490ed 已推送 origin/int_qms。
 
 ## 设计约束检查
 

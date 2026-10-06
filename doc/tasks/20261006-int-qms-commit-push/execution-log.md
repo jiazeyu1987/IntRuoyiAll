@@ -1,0 +1,25 @@
+# 执行记录
+
+- REQUEST: 提交推送intqms的前后端代码。
+- PRECHECK: 已读取 AGENTS.md、docs/task-closeout-rules.md、docs/experience-index.md、docs/powershell-memory.md 的 Git 提交与代理门禁、docs/powershell-encoding.md、docs/branch-runtime-ports.md。
+- BRANCH: int_qms；基线 HEAD=85c7d1645；origin=https://github.com/jiazeyu1987/IntRuoyiAll.git。
+- REPOSITORY: IntRuoyiBackend 和 IntRuoyiFronted 的 git rev-parse --show-toplevel 均为当前根目录，无独立子仓。
+- INVENTORY: 初始暂存区为空；有效 tracked diff 为 AGENTS.md（11 insertions/1 deletion）；两份 FileController 文件仅状态显示修改，git diff 无内容差异；前端无差异。已有分支约定任务三份正式文档尚未跟踪。其余未跟踪内容为历史任务产物，保持本地。
+- NETWORK_RED: git fetch origin int_qms -> FAIL；本地 http/https proxy=127.0.0.1:7892，无监听；不是仓库代码错误。
+- NETWORK_DIAGNOSTIC: Windows ProxyEnable=0；Test-NetConnection github.com -Port 443 -> True。按 docs/powershell-memory.md 的 GitHub HTTPS 443 本地代理门禁，后续 Git 网络命令使用一次性空 proxy 参数。
+- IMPLEMENTATION_COMMIT: 不适用；本任务不引入生产实现。
+- NETWORK_GREEN: 使用一次性 http.proxy=、https.proxy=、http.https://github.com.proxy= 完成 ls-remote/fetch -> PASS；原远端 int_qms=85c7d164563a2e617da2300bae2a569550101196，HEAD...origin/int_qms=0/0。
+- SOURCE_CHECK: git diff --name-status 只包含 AGENTS.md；git ls-files --others --exclude-standard -- IntRuoyiFronted IntRuoyiBackend 为空。最近前端提交 567eeb09d、后端提交 4bb094657 均已包含在原远端 HEAD。
+- VALIDATION_DIAGNOSTIC: 首次 Python 文档验证发生 KeyError（Windows Path 字典键使用反斜杠），修正为 Path.as_posix() 后 UTF-8 与文档结构 7 文件 -> PASS；此为验证命令错误，没有生产代码改动。
+- GREEN: git diff --check -- AGENTS.md、git diff --cached --check -> PASS；branch-runtime-port-guard.ps1 -> PASS，int_qms/int_qms=8061/48061。
+- BASELINE_COMMIT: d95a490ed36479ab1e344d966bc4a9333706c692，docs(qms): record workstation branch and submission conventions。
+- BASELINE_FILES: AGENTS.md；doc/tasks/20260930-agents-int-qms-workstation-context/task.md、execution-log.md、verification-report.md。暂存清单已人工复核，仅上述 4 文件。
+- BASELINE_PUSH: git -c <一次性代理配置> push origin int_qms -> PASS；远端 ref=d95a490ed36479ab1e344d966bc4a9333706c692；ahead/behind=0/0。
+- RESCAN: 未出现新的源码内容差异；两份 FileController 仅残留无内容差异状态。历史未跟踪任务产物保持本地，没有删除或宽泛暂存。
+- STATUS: ready_for_closeout；准备只保留本任务三份正式记录。
+- CLEANUP_PREVIEW/APPLY: PASS；keep task.md、execution-log.md、verification-report.md；delete 为空、warnings none；没有删除文件。
+- SOURCE_STATUS_REFRESH: 精确 git add 两份 FileController 文件后，git diff --cached --exit-code -- IntRuoyiBackend -> PASS，无 staged 内容；初始修改标记为换行/索引状态，工作区文件未重写。
+- RELATED_TASK_CLOSEOUT: 分支约定文档已交付，更新 20260930-agents-int-qms-workstation-context 三份正式记录解除原 Git blocker；沿用原 cleanup PASS，当前无新增临时文件。
+- CLOSEOUT_FILES: doc/tasks/20261006-int-qms-commit-push/task.md、execution-log.md、verification-report.md；doc/tasks/20260930-agents-int-qms-workstation-context/task.md、execution-log.md、verification-report.md。
+- CLOSEOUT_COMMIT: 此日志所在提交为正式收尾提交，提交后使用 git log -1 --format='%H' -- doc/tasks/20261006-int-qms-commit-push 定位 hash（提交对象不能嵌入自身 hash）。最后一次 push 及远端 HEAD 一致性须在交付回复前核验。
+- STATUS: completed，已满足基线推送及 cleanup 门禁；最后收尾记录若推送失败则恢复 blocked。

@@ -17,4 +17,4 @@ PASS — AGENTS.md 已明确两台电脑分工及本机 int_qms 默认提交目�
 - git diff --check（当前任务范围）-> PASS。
 - branch-runtime-port-guard.ps1 -> PASS，8061/48061。
 - task-closeout-cleanup preview/apply -> PASS，仅保留当前三份记录，未删除文件。
-- Git 状态：本任务未暂存、提交或推送，提交闭环由既有提交线程处理；台账不能标记 completed。
+- Git 状态：原任务执行时未提交推送；2026-10-06 授权交付任务已完成本任务内容提交推送，基线 d95a490ed36479ab1e344d966bc4a9333706c692，远端 ref 一致、ahead/behind=0/0 -> PASS；详见 doc/tasks/20261006-int-qms-commit-push。
