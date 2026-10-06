@@ -446,6 +446,7 @@
 - Trigger: 主工作区同时出现大量 tracked dirty、untracked 任务文档、运行快照、迁移包或本地 Office 输入，且需要恢复主线可集成状态。
 - Preflight check: 先用 git status --porcelain=v1 --untracked-files=all 或 NUL 分隔输出冻结基线；处理包含中文的路径时必须使用 Git 的 NUL 输出或正确解码，不能把 Git 的引号/八进制转义误判为实际路径。按“主干代码/测试、正式项目文档、并行任务记录、可再生生成物、敏感本地数据、未知业务输入”分类。
 - Commit rule: 只对归属明确且已通过 staged 文件清单、git diff --cached --check 和定向验证的文件选择性暂存；禁止整体 git add -A、把并行任务半成品并入主线，或用提交掩盖未知业务输入。
+- 主干快照提交：用户仅要求提交推送时，冻结起始路径与 SHA-256，暂存前后核对源码、索引内容和 HEAD；冻结后的新改动保留原处。任务应明确 Git 完整性核验与业务验证的边界，不把提交或推送通过记作构建、业务回归或 E2E 通过。
 - Ignore rule: 可再生的 tmp-*、编译输出、运行时快照、测试依赖、备份目录、review 运行目录和本地迁移包进入项目 .gitignore；并行任务工作记录和本机 Office 输入只在当前机器的 .git/info/exclude 中排除，保留实体文件且不改变团队共享规则。
 - Index lock rule: 遇到 .git/index.lock 时先检查活动 Git 进程和锁文件时间；活动进程结束后重新读取 HEAD、状态和 ancestry，再决定是否需要处理 stale lock，禁止直接删除可能仍被使用的锁。
 - Blocker: 已跟踪的设计表格、业务资源或其他不可再生输入无法确认归属时，必须保留 dirty 并单独交由业务负责人审阅；不能通过 restore、reset 或宽泛 ignore 隐藏修改。
