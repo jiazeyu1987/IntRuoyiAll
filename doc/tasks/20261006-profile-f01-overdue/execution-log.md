@@ -92,3 +92,16 @@ Quartz禁用参数首次覆盖local已有exclude列表，导致两个AI vectorSt
 
 - 核心附属文件cleanup preview/apply最终PASS(status=applied)，7个keep、0个delete、blocked/warnings为空；任务目录只剩task.md、execution-log.md、verification-report.md、task-state.json，9个源码/测试原字节SHA256不变。两个中断目录已清除，partial-node_modules保留至托管归档，当前不能记完整目录清理PASS。
 - 经验核对：docs/worktree-memory.md已有长路径安全清理和忽略产物归属检查规则，覆盖本次WinError3处理，不新增重复长期条目。
+
+## M3融合成功与归档阻塞 / 2026-10-06
+- 实现提交f836485d04cf69f5389d28458719ae66abea6578；验证记录提交e7be02862a6abf10248009af5094570e716f7ce2。根int_main端口guard PASS(8081/48081)。ff-only从f68e333e418e0873759a943ff681f8410b5aabb1推进至e7be02862，9源码/测试内容与已验证worktree一致，另外4文件仅本任务核心记录。
+- 融合前后5个并行文件SHA256逐一一致：GxpAuditEventMapper.java、ActiveOrderHandoffPanel.vue、active-order-handoff-behavior.spec.cjs、docs/e2e-rules.md、GxpAuditScopedPageProjectionTest.java。不stash/reset/基线提交/删除这些文件，无远端推送或主服务重启。
+- 归档预检PASS：worktree源码干净、任务分支已为int_main祖先、无任务java/node/python进程或8088/48088监听。调用Codex archive_worktree返回queued；附件类型变为archived_worktree仅表示归档请求已登记，不代表物理删除PASS。
+- 2026-10-06T14:02:46.961Z应用worker日志：归档快照git ls-files --stage --others --exclude-standard -z超过60秒，Could not inspect nested repositories before saving the worktree，snapshot失败。主进程managed-worktree-archive-queue持续Could not confirm the task's archive status并重试。实际目录/.git元数据/partial-node_modules仍存在，槽位active=true保留。
+- 核心记录/附属文件cleanup PASS；物理worktree及残留目录清理未完成，M3 in_progress，ready_for_closeout保持，禁止completed或释放槽位。功能修复及用户要求的定向静态/E2E/源码融合已达成；此处阻塞是应用归档环境，不是F01代码失败。没有绕开托管工具改用shell删除。
+
+## 继续收尾核对 / 2026-10-06
+- 主线HEAD仍为e7be02862，F01实现已融合。当前新出现的并行AGENTS.md改动亦须保留，和其余五个并行文件一起排除在任务提交之外。
+- 按现行根AGENTS补齐七节点实际链路审查：个人中心入口、请求/鉴权、登录/状态异常、正式数据/状态集合、响应/角标、隐藏恢复落库、下游正式页面入口。报告列明真实方法依据及静态/单测/真实E2E边界，不把查询修复扩大为下游业务全链验收。
+- 托管附件仍显示archived_worktree，但物理checkout、IntRuoyi5元数据、partial-node_modules均存在；8088/48088无监听，slot7仍active。应用归档队列最新仍报Could not confirm the task's archive status；仅核对已有请求，不重复提交归档或修改应用状态。
+- 保持ready_for_closeout及M3 in_progress；准备精确提交本任务四份核心记录，随后核验提交清单与六个并行文件指纹。没有推送、发布、主后端重启或手工删除托管worktree。

@@ -1,11 +1,24 @@
 # F01验证报告
 
 ## 放行结论
-PASS：主Agent批准F01逾期待办漏行/漏数修复。定向静态、行为单测、后端查询回归与真实页面E2E通过；E2E使用用户授权的模拟测试数据。当前ready_for_closeout，提交/融合/托管归档待执行。F02分页、F04改密、F03资料编辑未实施。
+PASS：主Agent批准F01逾期待办漏行/漏数修复。定向静态、行为单测、后端查询回归与真实页面E2E通过；E2E使用用户授权的模拟测试数据。当前ready_for_closeout，F01源码已快进融合int_main；核心清理通过，托管归档/残留目录清理与slot7释放未完成。F02分页、F04改密、F03资料编辑未实施。
 
 ## 实现与审核
 个人中心列表和角标显式请求includeOverdue=true；服务端用同一分页查询的TODO/OVERDUE集合返回列表和total，保留旧默认TODO及单OVERDUE调用。状态参数冲突显式拒绝。复用原本人/正式候选、租户及终态批次/ARCHIVE例外，不改正式任务身份、状态文案、导航、隐藏语义、权限或50条上限。
 审核9个源码/测试差异：6个生产文件及3个测试文件；无生产配置、POM、锁文件、迁移、F02/F03/F04改动。可见逾期行进入原批次详情且保留workTaskId。隐藏只是个人可见性，按原设计不减少业务待办角标，不改变任务状态。
+
+## F01实际业务链逐节点审查
+本次结论限定为个人工作台的开放任务查询、计数、个人隐藏恢复及正式页面入口；不表示已验收下游归档、签名或放行业务。以下源码依据均为仓库相对路径，方法锚点可直接定位。
+
+| 业务节点 | 代码依据 | 审查结果及验证边界 |
+| --- | --- | --- |
+| 个人中心入口与加载权限 | IntRuoyiFronted/src/router/modules/remaining.ts 的 personalWorkbenchTodoBadge；IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue 的 canViewEdhrWorkTasks、loadWorkbench、loadEdhrRows | 实际入口调用本人任务加载器，仅具备任一原查询权限时启用；列表显式 includeOverdue=true，仍为原50条首批，F02不在本次范围。 |
+| 请求与接口鉴权 | IntRuoyiFronted/src/api/mes/pro/edhr/workTask.ts 的 getEdhrWorkTaskMyPage；IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrWorkTaskController.java 的 getMyPage | 原 GET /mes/pro/edhr-work-task/my-page，@Valid 与两项原查询权限检查保留；参数新增未引入新接口、数据源或鉴权绕过。 |
+| 登录身份、状态参数及异常分支 | 同后端模块 service/pro/batchrecord/MesProEdhrWorkTaskServiceImpl.java 的 getMyPage、requireLoginUserId | 联合分支要求登录用户，includeOverdue=true 与非空 status 冲突显式报错；旧默认TODO与单OVERDUE路径保持。错误不会转换为成功的默认数据；有定向回归证据。 |
+| 正式任务数据与可办理集合 | 同后端模块 dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java 的 selectMyOpenPage、baseMyWrapper、applyMyTaskVisibility、applyOpenWorkTaskBatchVisibility | 读取 mes_pro_edhr_work_task，以同一分页查询取 TODO/OVERDUE；复用本人/正式候选精确token与终态/ARCHIVE条件，不拼接两个分页结果、不改任务状态或落库。候选与终态分支有查询测试；租户拦截配置未改，本轮没有新增跨租户E2E，不宣称完成全租户隔离审计。 |
+| 响应、行身份及角标 | 同Service的 buildWorkTaskRespPage；ProfileWorkbench.vue 的 mapEdhrWorkTaskRow；IntRuoyiFronted/src/store/modules/profileWorkbenchTodoBadge.ts 的 loadEdhrWorkTaskTodoTotal、refreshTodoTotal | 响应保留 page.total，行保留实际工作任务ID、原状态和对象；角标用相同联合查询的服务端total，加载失败继续抛错。生产loader单测与页面4983→4985→4983验证通过。 |
+| 隐藏恢复与实际写入 | ProfileWorkbench.vue 的 handleHideTodo、handleRestoreTodo；IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/profileworkbench/ProfileWorkbenchTaskVisibilityServiceImpl.java 的 hideTask、restoreTask；对应 ProfileWorkbenchTaskVisibilityMapper.deletePhysicalByUserAndTaskKey | 隐藏只写 system_profile_workbench_task_visibility，使用当前用户/租户；恢复按tenant_id、user_id、task_key删除。页面确认、隐藏、恢复均通过；只读核验任务状态未变、个人隐藏记录为空。原业务角标不因个人隐藏减少。 |
+| 下游正式页面入口 | ProfileWorkbench.vue 的 openTodo；IntRuoyiFronted/src/utils/edhrWorkTaskNavigation.ts 的 navigateToEdhrWorkTask、normalizeEdhrWorkTaskRouteParts | 保留原任务类型分支与正式身份，没有以TODO状态阻断OVERDUE。实际ARCHIVE逾期任务从页面到原批次详情，workTaskId保留且无加载失败。FILL/REWORK导航有相邻静态回归，本轮未执行其下游填写/签名/状态推进。 |
 
 ## 定向验证
 - F01静态合同：node tests/e2e/profile-edhr-overdue-static.spec.cjs；修复前退出1缺少联合选项，修复后退出0。
@@ -40,7 +53,12 @@ PASS：主Agent批准F01逾期待办漏行/漏数修复。定向静态、行为�
 按project-experience-consolidation检索已有docs/e2e-rules.md、docs/worktree-memory.md：真实页面、空样本阻塞、独立依赖、基线错误区分、补丁绝对路径等通用规则已覆盖。临时D盘目录、模拟身份和启动参数仅保留任务证据；不新建长期经验文档，不编辑并行任务的经验文档。
 
 ## 收尾证据
-待执行：任务自有实现/记录提交；cleanup preview/apply；与主线无关脏改动指纹保护；ff-only融合；托管worktree归档；释放slot7；completed记录提交。按照最近根AGENTS，不基线提交并行改动、不自动推送、不重启主后端。
+实现/验证记录提交、核心cleanup preview/apply、主线并行文件指纹保护及ff-only融合均通过；剩余托管worktree归档、目录清理、slot7释放及completed记录待执行。按照最近根AGENTS，不基线提交并行改动、不自动推送、不重启主后端。
 
 - 实现提交：f836485d04cf69f5389d28458719ae66abea6578（9文件，178 insertions/6 deletions）。
 - 核心清理preview/apply PASS，7个keep/0个delete、blocked/warnings为空；核心任务目录仅4份记录，9文件源码指纹未变。首次apply FAIL(WinError3)及扩展路径apply中断保留历史；两个目录已删，partial-node_modules待托管归档并核验不存在。并行删除被自动审批拒绝(blocked by policy)，未执行；JSON回执见D盘cleanup-core-preview.json、cleanup-core-apply.json。
+
+## 最终源码融合与收尾状态
+- F01代码融合PASS：int_main已快进到e7be02862a6abf10248009af5094570e716f7ce2，包含实现f836485d04cf69f5389d28458719ae66abea6578。9个源码/测试与验证版本一致；五个并行文件SHA256未变。根端口guard通过，没有推送、发布或主后端重启。
+- 核心记录清理PASS，授权模拟数据两轮残留0。托管archive_worktree queued后快照ls-files超时60秒，归档队列持续无法确认任务归档状态；附件archived_worktree不能等同目录清理成功。物理worktree、元数据、partial-node_modules及slot7(active=true)保留，尚不标completed。
+- 实际待收尾：应用归档成功并核对目录/元数据消失、依赖残留不存在，再在互斥锁下释放slot7并提交completed记录。F01验证和已融合结论不回退，无需重复构建/业务测试。

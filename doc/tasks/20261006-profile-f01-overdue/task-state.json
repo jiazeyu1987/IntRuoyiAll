@@ -27,14 +27,18 @@
     "frontendTypes": "failed_preexisting_TS2677_confirmed_HEAD_baseline",
     "backendQueryTests": "passed_5_of_5_including_2_new_F01_tests",
     "realE2e": "passed_real_frontend_task_backend_with_user_authorized_simulated_data",
-    "merged": false,
+    "merged": true,
     "runtimeBackendPackage": "passed_31_modules_original_POM_restored",
     "simulatedFixtureCleanup": "passed_both_cycles_zero_residuals",
     "mainAgentReview": "passed_F01_only",
+    "businessChainReview": "passed_F01_entry_query_count_visibility_navigation_scope_only",
     "gitDiffCheck": "passed",
-    "cleanup": "core_artifacts_passed_residual_pending_managed_archive"
+    "cleanup": "core_artifacts_passed_residual_pending_managed_archive",
+    "mergePreservation": "passed_5_unrelated_files_byte_identical"
   },
-  "blockers": [],
+  "blockers": [
+    "Codex托管归档：git ls-files --stage --others --exclude-standard -z超过60秒；snapshot失败，队列随后无法确认task archive status持续重试。物理worktree及slot7保留，禁止标completed或提前释放。"
+  ],
   "taskRuntimeDirectory": "D:/IntRuoyiTaskRuntime/profile-f01-overdue",
   "frontendDependencies": "installed_from_frozen_lockfile_task_owned_junction",
   "runtimeServices": "not_running_at_closeout_preflight",
@@ -124,8 +128,9 @@
   "closeout": {
     "coreArtifactCleanup": "passed",
     "residualDirectoryCleanup": "pending_managed_archive",
-    "merge": "pending",
-    "archive": "pending",
-    "slotRelease": "pending"
-  }
+    "merge": "passed_ff_only",
+    "archive": "queued_snapshot_inspection_timed_out_physical_checkout_retained",
+    "slotRelease": "pending_checkout_retained"
+  },
+  "mergedHead": "e7be02862a6abf10248009af5094570e716f7ce2"
 }
