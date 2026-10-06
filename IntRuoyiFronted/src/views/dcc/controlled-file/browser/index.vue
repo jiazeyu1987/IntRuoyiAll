@@ -2973,12 +2973,12 @@ const buildBrowserReturnPath = () => {
 const getList = async () => {
   const requestRouteStateKey = buildBrowserRouteStateKey()
   const requestSequence = ++listRequestSequence
-  const requestParams = buildBrowserRequestParams()
+  const requestParams = buildBrowserRequestParams(true)
   const requestWorkingQuery = workingBrowserIdentityQuery(route.query)
   const requestedSelection = [route.query.workingFileId, route.query.workingMasterId]
   const contextKey = JSON.stringify([route.fullPath, browserMode.value, getBrowserCacheContext(), requestParams, requestedSelection])
   const isCurrent = () => requestSequence === listRequestSequence && contextKey ===
-    JSON.stringify([route.fullPath, browserMode.value, getBrowserCacheContext(), buildBrowserRequestParams(), [route.query.workingFileId, route.query.workingMasterId]])
+    JSON.stringify([route.fullPath, browserMode.value, getBrowserCacheContext(), buildBrowserRequestParams(true), [route.query.workingFileId, route.query.workingMasterId]])
   browserListErrorMessage.value = ''
   list.value = []
   total.value = 0
@@ -3221,7 +3221,7 @@ const retryCheckinListRefresh = async () => {
   }
 }
 
-const buildBrowserRequestParams = (): ControlledFilePageReqVO => {
+const buildBrowserRequestParams = (includeWorkingScope = false): ControlledFilePageReqVO => {
   const requestParams: ControlledFilePageReqVO = {
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
@@ -3236,6 +3236,13 @@ const buildBrowserRequestParams = (): ControlledFilePageReqVO => {
   if (isCurrentDirectorySearch.value) {
     requestParams.directoryId = selectedDirectoryId.value
     requestParams.includeDescendantDirectories = false
+  }
+  if (includeWorkingScope && browserMode.value === 'storage') {
+    const working = workingBrowserIdentityQuery(route.query)
+    if (working.workingFileId !== undefined) {
+      requestParams.workingFileId = working.workingFileId
+      requestParams.workingMasterId = working.workingMasterId
+    }
   }
   return requestParams
 }

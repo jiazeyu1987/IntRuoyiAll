@@ -829,6 +829,8 @@ export interface ExternalFileReviewVO {
 }
 
 export interface ControlledFilePageReqVO extends PageParam {
+  workingFileId?: string
+  workingMasterId?: string
   categoryId?: DccRouteId
   directoryId?: DccRouteId
   includeDescendantDirectories?: boolean
