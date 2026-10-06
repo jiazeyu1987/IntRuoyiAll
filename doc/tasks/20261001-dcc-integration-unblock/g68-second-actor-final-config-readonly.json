@@ -1,0 +1,30 @@
+{
+  "status": "FORMAL_UI_CONFIG_FINAL_READONLY_CORROBORATION",
+  "uiOwner": "legacy_occupancy_core real Playwright own session authorizedtworesources andtaskonlyparent correction",
+  "facts": [
+    {
+      "query": "SELECT id,name,parent_id,leader_user_id,status FROM system_dept WHERE id=910335 AND tenant_id=1 AND deleted=0;",
+      "result": "910335\tG67独立文控会签验收\t124\t1\t0\n"
+    },
+    {
+      "query": "SELECT id,dept_id,post_ids,status FROM system_users WHERE id=910328 AND tenant_id=1 AND deleted=0;",
+      "result": "910328\t910335\t[4]\t0\n"
+    },
+    {
+      "query": "SELECT role_id FROM system_user_role WHERE user_id=910328 AND deleted=0 ORDER BY role_id;",
+      "result": "991222\n991223\n"
+    },
+    {
+      "query": "SELECT subject_type,subject_id,access_level,active FROM dcc_project_access_rule WHERE tenant_id=1 AND dcc_project_code_id=271 AND deleted=0 ORDER BY subject_id;",
+      "result": "USER\t1\tOWNER\t\u0001\nUSER\t910328\tOWNER\t\u0001\n"
+    },
+    {
+      "query": "SELECT id,category_id,subject_type,subject_id,marker,scope_type,active FROM dcc_category_view_matrix_rule WHERE category_id=908710 AND deleted=0 ORDER BY id;",
+      "result": "2479\t908710\tDEPT\t136\t▲\tMANAGER_AND_ABOVE\t1\n2480\t908710\tDEPT\t226\t●\tALL_MEMBERS\t1\n2481\t908710\tDEPT\t910335\t●\tALL_MEMBERS\t1\n"
+    }
+  ],
+  "businessSqlWrites": false,
+  "roles": "G58/G67 only, removes earlier doc_control project-assignment hard scope; prior training proof retained historical",
+  "departmentScope": "newtaskDept910335 onlyuser910328 belongscompany124 matchingcurrentmatrix，notdept103/newprivilegedrole",
+  "notYetPass": "multiuser checkout and actualsigned second review"
+}

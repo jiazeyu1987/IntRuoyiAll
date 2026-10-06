@@ -1,0 +1,9 @@
+{
+  "status": "EXACT_OWNED_QMS_STOPPED_FOR_G71",
+  "stoppedAt": "2026-10-06T09:42:04.6630183+08:00",
+  "sha256": "a6e1a34805829e0e9f4b09d2bdc8d6e316eb5440e08e438c0e997c8f9ac84128",
+  "port": 48061,
+  "sharedDependenciesChanged": false,
+  "configurationUiAgentFree": true,
+  "pid": 6952
+}

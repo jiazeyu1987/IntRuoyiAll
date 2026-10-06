@@ -14,7 +14,8 @@ Connect the public browser to authorized project discovery, logical folders, con
 - Root owns full type/build/backend verification. No Maven, E2E, services, real DB or Git commit/push here.
 
 ## Current Status
-ready_for_closeout — 本轮已确认业务差异修复和验证完成，源码已正常推送。正式cleanup工具不可用，保留原证据并待工具收尾；不伪completed。
+
+ready_for_closeout — 已确认HTML业务方向与主流程实现、定向回归及关键真实页面闭环完成；最新主管理最终报告 doc/tasks/20261001-dcc-integration-unblock/g73-final-html-business-alignment.md。提交推送收据待最终核对；正式cleanup工具缺失，未伪preview/apply/completed。早期in_progress/blocked只是阶段历史，不覆盖本状态。
 
 ## BDD
 - Given authorized projects including empty projects, when opening project browsing and a logical folder, then getProjectDiscoveryPage and getProjectFolders/buildProjectFolderTree supply identities; the browser uses projectFolderId and keeps server total.
@@ -136,6 +137,13 @@ ready_for_closeout for Root review of this display-only increment; shared task r
 
 ## Cleanup Keep
 
+- doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-fingerprints.json
+- doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-fingerprints-r2.json
+- doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-bdd.md
+- doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-fingerprints.json
 - doc/tasks/20261002-dcc-public-browser/g67-notification-reminder-ui-path.md
 - doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json
 - doc/tasks/20261002-dcc-public-browser/g66-frontend-completion-proof-audit.md
@@ -287,3 +295,6 @@ BDD: Given existing temporary objects or a nontransactional target engine, When 
 BDD: Given the formal parser's canonical report bytes, When generating the durable coverage artifact on Windows, Then its actual file SHA must equal the hash bound to quality registration; implicit CRLF conversion or any extra newline must not alter the approved bytes.
 
 G22 preparation milestone: ready_for_closeout for Root Review only. Separate25-operation and maximum1quality-version templates, impact/full payload, blank actual-approval input, readonly preflight and formal-source report are prepared. Effective offline RED -> 12 PASS. Real QA person/basis/signature/time, independent local-test write authorization and fresh MySQL/role/schema verification remain pending; no DB/business E2E claim. G21 Git manifest is frozen; shared task remains in_progress.
+
+
+G73收口：G72普通双账号锁真实通过，31由910328本人CANCELLED、两任务链ACTIVE锁0。新B1attempt2受控/整改通知本人打开/7天提醒/下发后消除真实通过。原未来激活待实际日期、非全部排列E2E边界保留。任务已ready_for_closeout，原stage/source/pins与失败前置证据不删除。

@@ -1,0 +1,375 @@
+{
+  "status": "PASS_REAL_UI_NEW_NATIVE_DISTRIBUTE_BUTTON_AND_ONLY_DOC_CONTROL_BIND",
+  "tenantUser": "芋道源码/admin",
+  "runtime": "Root stable attempt16 PID6952 /8061+48061",
+  "newMenu": {
+    "id": "605071339",
+    "parentId": "6800",
+    "parentName": "文控中心",
+    "name": "文控下发",
+    "permission": "dcc:controlled-file:distribute",
+    "type": 3,
+    "sort": 99,
+    "status": 0,
+    "visible": true,
+    "keepAlive": false,
+    "alwaysShow": false,
+    "routeIconComponent": "no page/path/icon/component entered",
+    "idProof": "actual V2 visible rowkey DOM inspection, not API body",
+    "reopenedProof": "023.json/native-button-final.png",
+    "rootReadOnlyCorroboration": "parent6800/type3/sort99/flags0/exact fields empty confirmed byRoot beforebinding"
+  },
+  "role": {
+    "id": "910233",
+    "code": "doc_control",
+    "visibleSelectedBefore": [
+      "5550",
+      "605071312",
+      "6800",
+      "6807",
+      "900120",
+      "900450",
+      "990200",
+      "990216"
+    ],
+    "visibleSelectedAfter": [
+      "5550",
+      "605071312",
+      "605071339",
+      "6800",
+      "6807",
+      "900120",
+      "900450",
+      "990200",
+      "990216"
+    ],
+    "exactAdded": [
+      "605071339"
+    ],
+    "removed": [],
+    "originalHalfCheckedAncestorSemanticsPreserved": true,
+    "noFullSelect": true,
+    "parentChildCouplingTurnedOff": true,
+    "noOtherRolesUserRoleMutation": true,
+    "preimageStep": "033.json",
+    "finalStep": "048.json"
+  },
+  "actualFirstSave": {
+    "naturalPost200": true,
+    "reopenedNewChecked": false,
+    "step": "039.json",
+    "result": "NOT_PASS no grant; retained, no pretendingfirstsuccess"
+  },
+  "finalSave": {
+    "newVisibleCheckboxInspectedChecked": true,
+    "naturalPost200": true,
+    "step": "042.json",
+    "reopenedNewChecked": true,
+    "finalScreenshot": "doc-control-distribute-verified-final.png"
+  },
+  "naturalWrites": [
+    {
+      "path": "/admin-api/system/menu/create",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/admin-api/system/permission/assign-role-menu",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/admin-api/system/permission/assign-role-menu",
+      "method": "POST",
+      "status": 200
+    }
+  ],
+  "session": {
+    "process": 78118,
+    "terminalExit": 0,
+    "browserClosed": true,
+    "UI_FREEsent": true
+  },
+  "security": {
+    "credentials": "onlyAGENTS-inmemory",
+    "noApiFetchMockSqlRouterInjection": true,
+    "noTokenHeadersStorageStateTraceCapture": true
+  },
+  "scopeLimit": "configurationonly; Rootactualworkbench/distributeE2E/finalDBsetdiff follows separately",
+  "assets": [
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/001.json",
+      "bytes": 7456,
+      "sha256": "a0317dd475dafcbcce0a16b093ec11a7d35063b57546798ba2c5fa4bb29f9b54"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/002.json",
+      "bytes": 196,
+      "sha256": "e0147108e0461e1d22531f55544f11acd0beba65f06c5437f10fc251ed4ddafc"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/003.json",
+      "bytes": 4051,
+      "sha256": "b210e41a19725010dbc7ea0c41282e26518ba5438634a3c61fa60c1551a83d60"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/004.json",
+      "bytes": 3948,
+      "sha256": "692efadd60ffa4f928da9197d874ce35016df4635847ca1a961a3ee063a593d1"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/005.json",
+      "bytes": 3948,
+      "sha256": "1a0a56bf220ef96d207f6531f4ee52a332cfdc23c8918de3e8b6ee0d491a9240"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/006.json",
+      "bytes": 3960,
+      "sha256": "a6314ff5bedcaa8b78152aa182a8bc8ca94b682fbc3557820c35b6454e40cc21"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/007.json",
+      "bytes": 2900,
+      "sha256": "652a2d00331fbc2c9298932299716abd68baaa91eafe121899f2a58d65d98aa6"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/008.json",
+      "bytes": 1458,
+      "sha256": "20400bc810aaae3149085295bf2c6e5839445d07512eca61b220a2bca988f8ae"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/009.json",
+      "bytes": 3104,
+      "sha256": "0240f21be18d4e5e59906c43c51450f5820edfca8ee307aa4ed957eb5fa66c56"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/010.json",
+      "bytes": 3007,
+      "sha256": "72c00c4742a30a898faa4b18e4fa5f50a18979971d3ca07005fcf58ae6bd5a5f"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/011.json",
+      "bytes": 3007,
+      "sha256": "03e8827cd1b89142878f3f91cd6e423cef77bca3c7b24a304fe1485dbe20b52a"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/012.json",
+      "bytes": 3729,
+      "sha256": "b67931cb6ec62c82636bc442f083366895881f405591be7fb7e519796291628c"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/013.json",
+      "bytes": 3729,
+      "sha256": "481524019e2df66858c4c833f5f3c8d9b0ef01ea4f60a2073e27d1ce7d9ca07f"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/014.json",
+      "bytes": 2343,
+      "sha256": "8b7923d970074eeb26c827127db3a5403f8f5b739112334a77e4095329656bdf"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/015.json",
+      "bytes": 2373,
+      "sha256": "7e74836650c2858199803ebb998b206dbffc8e7aeedf07eb124fd7bd158310dc"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/016.json",
+      "bytes": 2375,
+      "sha256": "dd5bdc4a6a0465e54a0b1245e24e39c049aa3f7c8b67df1742c0421b6fe48e27"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/017.json",
+      "bytes": 2488,
+      "sha256": "0cd5631da0558506d0ba42c0c18c6d982695cd52f0963deed6626d4224c801e6"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/018.json",
+      "bytes": 1682,
+      "sha256": "4ecf4888ecf5c73870f5ba7b2c315988378e60f84e51868ba23a5fed2790a63b"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/019.json",
+      "bytes": 1475,
+      "sha256": "bcb093da65c71cddebc73faeab0320577ac8ca940fc30ae92f74ad62c1512e31"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/020.json",
+      "bytes": 1578,
+      "sha256": "fcdc2190f0ef8de098ce642578c112811ed776d3d60bd51fbc57781dff883fbc"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/021.json",
+      "bytes": 1521,
+      "sha256": "580b13bf42e183eae01cac35a9c621c54dbae54904da6eca445566a693e8d8c6"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/022.json",
+      "bytes": 2608,
+      "sha256": "dde8001d45685b82d29143f35f4f08b6278d84907bb89e01a98c65cc63591bf8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/023.json",
+      "bytes": 2505,
+      "sha256": "83ec4055c69c0b37ca4ec9527c098feb19c9575be274c219b84e914a8dce92b9"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/024.json",
+      "bytes": 2398,
+      "sha256": "6214bbcced1cdbaecd2ae301ed59bba54c47f262380661537f8c896de2667404"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/025.json",
+      "bytes": 2398,
+      "sha256": "1e32e32cd18c44ed61d29e3599b0f0ff912942ec4b1664aea126338fdcb37c9d"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/026.json",
+      "bytes": 197,
+      "sha256": "c1544114485fa2223dc344eb3f94bb39d649d6cd11d5243d9b3f5fb92941fd36"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/027.json",
+      "bytes": 3228,
+      "sha256": "9af07dcd9108d05d7ac686f8bce9ca3151db2ea1ad10ed6c86f612c1784bbe26"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/028.json",
+      "bytes": 3103,
+      "sha256": "0c0e2004afa66874ef816d55ad417588374b76b37def425c2dd7947bcbfd659f"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/029.json",
+      "bytes": 5538,
+      "sha256": "3433e1dbbabb1d1be870f22a131c43ea567812ecaa09a148c898a2a5b8210175"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/030.json",
+      "bytes": 5418,
+      "sha256": "35cecf16807dd724b044d113e4212c84ea0ceb2774b2caf8a31d64e7dd1799db"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/031.json",
+      "bytes": 260215,
+      "sha256": "689db4518e541e2bcaf550aba66ca36b52691e2d8d69de2fd48bf989280c4c07"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/032.json",
+      "bytes": 260396,
+      "sha256": "a0023da24b32e45a56dc80261924aaf4f7ad8e71ea6bb7969795ce8ed485c035"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/033.json",
+      "bytes": 260511,
+      "sha256": "0f208e40c36625da95d8c1086eb3401a990dab0e875cfc4e07646e2637c0e75a"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/034.json",
+      "bytes": 3154,
+      "sha256": "69cdf5891bc8afd049fa765389ee4fb4d6db02f5f0d8d4ef19b7d85f2635a9b0"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/035.json",
+      "bytes": 5489,
+      "sha256": "ff55f1ed75cc5759ff0b3a2a8074f5d5b9a06ec462cd66e87815986898c9ff76"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/036.json",
+      "bytes": 5646,
+      "sha256": "e0171441a516df3939f1dfbd28cf84d89c5abd3f66e12eb0e86f4c43fa0741ed"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/037.json",
+      "bytes": 260215,
+      "sha256": "69f06e13545c938a94b4663a7a8db7ee6b7ea05ee42d5b2f812345f6b5006f5a"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/038.json",
+      "bytes": 260215,
+      "sha256": "3eea3ec925dc9aa4f17bef7073b813c082d997ab3254247f0be283aae6255ead"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/039.json",
+      "bytes": 260331,
+      "sha256": "3acc1b3e2a67b66451c0a719820b6108c4bec4a0ae03b3c7d853d4e3c9ad3fe8"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/040.json",
+      "bytes": 260214,
+      "sha256": "a090e60a7ad6dafdaf1b013cf9b7299f301d9783e18161a2078bde85cb2bfb55"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/041.json",
+      "bytes": 260395,
+      "sha256": "4d288bf8ce658fd3dad79b62fe3b0f293f73e491c2ea982bf09c65f183039e93"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/042.json",
+      "bytes": 3154,
+      "sha256": "c9c24fd83ee40a8477d01bda1e070e31a5c9123de9817e7a907e0ca14ced2035"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/043.json",
+      "bytes": 2915,
+      "sha256": "6209dfd9f3286a2897704263d1ca6f60457aec76ce15ffb5830066f0bfa91640"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/044.json",
+      "bytes": 5531,
+      "sha256": "899cf7d07bf9ed5fb38a8f03c0f3ecdbaa1fa9d2c068b9de6f5ac5e1c0376e6e"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/045.json",
+      "bytes": 5538,
+      "sha256": "ed5fcea17e4350f5386054c34fc86422916e355417e8d793ac45462e712a1a84"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/046.json",
+      "bytes": 260214,
+      "sha256": "546af3ac02654851df064b81c3a4ce2fc94eee0cf5c048ca0525ebe91b0a5339"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/047.json",
+      "bytes": 260214,
+      "sha256": "a67574a8a2b4b14ca3034b85abd4673381920738e68c66d2de60536c29467abb"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/048.json",
+      "bytes": 260339,
+      "sha256": "ef1e0b21ddd73e0dbf291665fed4ffb6999f77d25f0071661986e0e9756aaa25"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/049.json",
+      "bytes": 260214,
+      "sha256": "090448d1f0ab85b6d0d36367997716959608b6c8d085c1d59e87a7371700ea96"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/doc-control-distribute-final.png",
+      "bytes": 120542,
+      "sha256": "9d0063cc6842daf8097266df377822280d9f635314b80377e31ef1bc2b323ad7"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/doc-control-distribute-verified-final.png",
+      "bytes": 120643,
+      "sha256": "2bb6181c4945013ed28191ab1faf1e82c828c964c2a445243d1e0b035ad67055"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/doc-control-menu-before-add.png",
+      "bytes": 124725,
+      "sha256": "12117706c512ddccdedd8756ea726a7ed5fbd1fb3d7d4b62f21b33c7971734f5"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/native-button-before-save.png",
+      "bytes": 76379,
+      "sha256": "44148a63d231b4656ff799fbdfd93ea8d637b7c89fc9c6be70ac0450c6875287"
+    },
+    {
+      "path": "C:/IntRuoyiBackups/20261006-dcc-task-actor-config/g70-ui-r1/native-button-final.png",
+      "bytes": 76598,
+      "sha256": "15dc120f7fa679aae11e9c62832485810e6bee6df942eaf2b139a254900221a6"
+    }
+  ],
+  "script": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-permission-ui.cjs",
+    "sha256": "47981203d50ca490ba62b6eeb0091ee24e5e2398ee14e25fdf89aad12c3a1c21"
+  }
+}

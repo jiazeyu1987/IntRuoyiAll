@@ -1,0 +1,9 @@
+{
+  "pid": 5512,
+  "reason": "Stop task-owned slow full scans and prepare exact-scope package",
+  "port": 48061,
+  "sha256": "20b5fcfc498abb7c34eb5192bd38bbe3657a0f73d33c9f6c1e81283490591a83",
+  "sharedDependenciesChanged": false,
+  "status": "EXACT_OWNED_QMS_STOPPED_FOR_G72",
+  "stoppedAt": "2026-10-06T10:41:32.1664354+08:00"
+}

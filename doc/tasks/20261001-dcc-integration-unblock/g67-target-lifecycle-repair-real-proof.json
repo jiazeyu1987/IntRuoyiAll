@@ -1,0 +1,36 @@
+{
+  "status": "ACTUAL_UI_REPAIR_FINAL_SHARED_ACTIVE_ORIGINAL_NATIVE_AND_SIGNATURES_UNCHANGED",
+  "actualUi": "r15/123normalfileoperation→126verifiedsourcefacts→127actualreason→128twoconfirm→129formalrequest",
+  "target": "4028/65593 task-owned G56 originalnativeACTIVE/sharedFINALIZING",
+  "facts": [
+    {
+      "query": "SELECT id,canonical_status,domain_status,open_candidate_unique_flag,active_unique_flag,native_version_id FROM controlled_content_version_ref WHERE id=65593;",
+      "result": "65593\tFINALIZING\tFINALIZING\t1\tNULL\t2054545668044084028\n"
+    },
+    {
+      "query": "SELECT id,status,controlled_time,activated_time,process_instance_id,published_file_id,stamped_file_id FROM dcc_controlled_file WHERE id=2054545668044084028;",
+      "result": "2054545668044084028\tACTIVE\t2026-10-05 16:46:51\t2026-10-05 16:46:51\t8a634e88-c095-11f1-9629-b082e25ec548\t9198354931281\t9198354931281\n"
+    },
+    {
+      "query": "SELECT id,actor_id,action_type,process_instance_id,signed_at,evidence_status FROM dcc_controlled_file_signature WHERE controlled_file_id=2054545668044084028 ORDER BY id;",
+      "result": "412\t1\tASSIGN\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:26:12\tVALID\n413\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:34:36\tVALID\n414\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:39:00\tVALID\n415\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:46:49\tVALID\n"
+    }
+  ],
+  "businessSqlWrites": false,
+  "originalHistoricalFactsRewritten": false,
+  "finalFacts": [
+    {
+      "query": "SELECT id,canonical_status,domain_status,open_candidate_unique_flag,active_unique_flag,native_version_id FROM controlled_content_version_ref WHERE id=65593;",
+      "result": "65593\tACTIVE\tACTIVE\tNULL\t1\t2054545668044084028\n"
+    },
+    {
+      "query": "SELECT id,status,controlled_time,activated_time,process_instance_id,published_file_id,stamped_file_id FROM dcc_controlled_file WHERE id=2054545668044084028;",
+      "result": "2054545668044084028\tACTIVE\t2026-10-05 16:46:51\t2026-10-05 16:46:51\t8a634e88-c095-11f1-9629-b082e25ec548\t9198354931281\t9198354931281\n"
+    },
+    {
+      "query": "SELECT id,actor_id,action_type,process_instance_id,signed_at,evidence_status FROM dcc_controlled_file_signature WHERE controlled_file_id=2054545668044084028 ORDER BY id;",
+      "result": "412\t1\tASSIGN\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:26:12\tVALID\n413\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:34:36\tVALID\n414\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:39:00\tVALID\n415\t1\tAPPROVE\t8a634e88-c095-11f1-9629-b082e25ec548\t2026-10-05 16:46:49\tVALID\n"
+    }
+  ],
+  "sourceRepairUiFinal": "r15/130 closed maintenance dialog and reloaded original details"
+}

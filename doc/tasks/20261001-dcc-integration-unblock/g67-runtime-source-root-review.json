@@ -1,0 +1,16 @@
+{
+  "status": "G67_PACKAGED_EXACT_EMBEDDED_CLASSES_AND_OWNED_RUNTIME_HEALTH_UP",
+  "packageSession": 31492,
+  "sourceCommit": "983b5bdd5",
+  "port": 48061,
+  "pid": 39620,
+  "profile": "dcc-local-development",
+  "attempt": 14,
+  "jarSha256": "c3db9c7631d4c8fca2d8123b47ff21515e0aeb75896eb645552d128a268c2123",
+  "reviewedSources": 45,
+  "embeddedClasses": 34,
+  "health": "UP",
+  "activationScope": "existing formal job5625 only, cron minute, Shanghai",
+  "sharedDependenciesChanged": false,
+  "realUiStatus": "in_progress"
+}

@@ -23,14 +23,7 @@ Isolated H2 and in-memory Flowable only; Maven reactor targeted tests, main appl
 
 ## Current Status
 
-ready_for_closeout — G64 rejection120/4 and current control/remediation final16/1 independently all0, source/XML seals retained; Maven/source/target frozen, Root owns actual UI/runtime/Git/goal closeout.
-
-Preserved G53 latestdefinition finite receipt9/3 PASS and G49 projectapplication broad102/7 plus later43/2 PASS are independent prior deliveries, not additive totals or replacements for RootactualUI.
-
-G57 local restoration separate newRunner1/test1 is ready_for_closeout final R2: actual oldstartup missingRAMJob RED1failure0error -> 17GREEN -> minimal24/2 all0 CLI0 at18:52:39. Defaultdisabled, only dcc-local-development/exactexisting5625/localDBUUID/Shanghai/RAM/globalSyncfalse, no pooledconnection state setter or DBCRUD/sharedsync. TwooriginalXML archived-r2; final manifest1e1fe7d3...ccb4. Maven FREE Root, noactualDB/UI/runtime/Git/package by this owner; do not sum24 with284 or claim fullHTML.
-
-Previous finite delivery remains ready_for_closeout: LD03/G48 mapping17production/6tests/4schema, actual219/6 PASS and six XML permanently archived. The new G49 implementation does not rewrite that receipt or claim the overall goal completed.
-
+ready_for_closeout — 已确认HTML业务方向与主流程实现、定向回归及关键真实页面闭环完成；最新主管理最终报告 doc/tasks/20261001-dcc-integration-unblock/g73-final-html-business-alignment.md。提交推送收据待最终核对；正式cleanup工具缺失，未伪preview/apply/completed。早期in_progress/blocked只是阶段历史，不覆盖本状态。
 
 ## G02 Root review repair
 
@@ -74,6 +67,148 @@ Root resumes this existing record for a bounded obsolete readiness repair. Curre
 - No child agents, services, real DB, E2E or Git writes by this subtask. Root retains final authorized integration/closeout; historical no-authorization wording does not block this implementation.
 
 ## Cleanup Keep
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccExactWorkingBrowserScopeDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-exact-browser-green-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-exact-browser-effective-red-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-exact-working-browser-scope-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-exact-working-browser-scope-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-exact-working-browser-scope-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g72-final-business-alignment-review.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-permission-ui.md
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-permission-ui.cjs
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-ui-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnCheckinMultipartContextDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-effective-red-r3.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-effective-red-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-effective-red.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g71-detail-independent-relation-read-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-policy.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-verification-receipt-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-fingerprints-r2.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-postflight.sql
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-preflight.sql
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-menu-contract-test.py
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-operator-contract.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-task-actor-view-owner-ui.md
+- doc/tasks/20261002-dcc-public-backend-completion/g68-task-actor-ui.cjs
+- doc/tasks/20261002-dcc-public-backend-completion/g68-task-actor-ui-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnCheckinMultipartContextDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSourceUploadContextTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-final-junit/TEST-cn.iocoder.yudao.module.dcc.framework.web.DccUploadEndpointHttpContractTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-green-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-effective-red-r5.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-effective-red-r3.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-effective-red-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g69-checkin-upload-context-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnNativeRevisionReworkDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccCurrentRelationsRevisionFreezeDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-green-attempt1.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-effective-red.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-rework-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-rework-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g68-withdrawn-revision-rework-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSelectedIterationDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccVersionPlacementDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRevisionDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccCurrentRelationsRevisionFreezeDatabaseTest.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-green-r2.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-green-attempt1.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-effective-red-r4.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-effective-red-r3.xml
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-freeze-verification-receipt.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-freeze-fingerprints.json
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-current-relations-freeze-bdd.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-second-actor-real-ui-setup.md
+
+- doc/tasks/20261002-dcc-public-backend-completion/g67-remediation-signing-ui-contract.md
 
 - doc/tasks/20261002-dcc-public-backend-completion/g66-current-reviewer-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReviewerConfigurationTest.xml
 
@@ -656,3 +791,6 @@ BDD and implementation completed in the integration tree. P05 RED lost/misrouted
 - Given modern/legacy namespace race and latecallerfailure, When finalclaimtransaction executes, Then stable tenant/fullbinary registryunique+modernunique both atomically protect; losers explicitlyfail, no partialrows or silentduplicate success.
 - Given legacyowner actualobsolete20calendar-year deadline, When retain/release, Then sidecarevidenceonly updated and group remainsoccupied until everyowner released and no active/pending/WORKING/inflight source; lastowner can free stablegroup, oldclaims/history preserved.
 - New standalone3table forwardDDL only, independent frozen19; registrationINSERT reviewed forRoottrustedsealedall39proof, no clientMATCHbool, noREST/UI/BPM/platform/job/newaudit25 edits. ActualRoot39body=35MATCH4NoSuchKey blocksactivation; developmentalH2fakeproof notactualregistration.
+
+
+G73收口：G72普通双账号锁真实通过，31由910328本人CANCELLED、两任务链ACTIVE锁0。新B1attempt2受控/整改通知本人打开/7天提醒/下发后消除真实通过。原未来激活待实际日期、非全部排列E2E边界保留。任务已ready_for_closeout，原stage/source/pins与失败前置证据不删除。

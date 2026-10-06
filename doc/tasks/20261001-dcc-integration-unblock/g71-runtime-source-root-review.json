@@ -1,0 +1,15 @@
+{
+  "status": "G71_FINAL_SOURCE_RUNTIME_HEALTH_UP",
+  "pid": 5512,
+  "port": 48061,
+  "attempt": 17,
+  "launcherPid": 23064,
+  "health": "UP",
+  "jarSha256": "20b5fcfc498abb7c34eb5192bd38bbe3657a0f73d33c9f6c1e81283490591a83",
+  "sourceCommit": "13da69fb3a561fd5d915f9734e195ee068bd8ec5",
+  "packageSession": 45618,
+  "sourcePins": 53,
+  "classes": 49,
+  "activationScope": "existingminutejob5625/Shanghai",
+  "directBusinessSqlWrites": false
+}

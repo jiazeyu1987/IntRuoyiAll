@@ -8,10 +8,12 @@ const { createRequire } = require('node:module')
 const repo = 'C:/IntRuoyiAll-int_main'
 const load = createRequire(path.join(repo, 'IntRuoyiFronted/package.json'))
 const { chromium } = load('playwright')
-const output = 'C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r13'
+const output = 'C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r15'
 let browser, page, authenticated = false, step = 0, chain = Promise.resolve()
 const observed = []
 const pageErrors = []
+const actorPages = new Map()
+let currentActor = null
 const taskActorName = 'g57dccdoc20261005'
 let taskActorCredential = 'Gx7!' + crypto.randomBytes(24).toString('base64url')
 const taskActorNextCredential = 'Vy9@' + crypto.randomBytes(24).toString('base64url')
@@ -52,7 +54,7 @@ async function snapshot() {
   const options = await page.locator('.el-select-dropdown:visible,.el-tree-select__popper:visible').allInnerTexts()
   const result = { status: 'ACTUAL_VISIBLE_UI_SNAPSHOT', url: new URL(page.url()).pathname, text, dialogs, options, controls, screenshot: capture, naturalResponses: observed.splice(0), pageErrors: pageErrors.splice(0) }
   fs.writeFileSync(path.join(output, String(step).padStart(3, '0') + '.json'), JSON.stringify(result, null, 2), 'utf8')
-  console.log(JSON.stringify({ ...result, text: dialogs.length || options.length ? undefined : text.slice(0, 1800), controls: controls.slice(-10), options: result.options.map(value => value.slice(0, 1100)), naturalResponses: result.naturalResponses.filter(x => x.pathname.includes('/dcc/')).slice(-12) }))
+  console.log(JSON.stringify({ ...result, text: dialogs.length || options.length ? undefined : text.slice(-2600), controls: controls.slice(-10), options: result.options.map(value => value.slice(0, 1100)), naturalResponses: result.naturalResponses.filter(x => x.pathname.includes('/dcc/')).slice(-12) }))
 }
 async function login(actor) {
   const instructions = fs.readFileSync(path.join(repo, 'AGENTS.md'), 'utf8')
@@ -61,6 +63,9 @@ async function login(actor) {
   const username = actor === 'doc' ? taskActorName : instructions.match(/^用户名\s+(\S+)\s*$/m)?.[1]
   const credential = actor === 'doc' ? taskActorCredential : instructions.match(/^密码\s+(\S+)\s*$/m)?.[1]
   if (!username || !credential) throw new Error('user-provided-identity-unavailable')
+  if (authenticated) { page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, timezoneId: 'Asia/Shanghai' }); attachPage(page); authenticated = false }
+  currentActor = actor === 'doc' ? 'doc' : 'admin'
+  actorPages.set(currentActor, page)
   await page.goto('http://127.0.0.1:' + global.frontendPort + '/login', { waitUntil: 'domcontentloaded' })
   const form = page.locator('.login-form:visible')
   await form.waitFor({ state: 'visible' })
@@ -88,6 +93,7 @@ async function login(actor) {
 async function command(c) {
   requireAllowed(c)
   if (c.action === 'login') return login(c.actor)
+  if (c.action === 'switchActor') { if (!['admin','doc'].includes(c.actor) || !actorPages.has(c.actor)) throw new Error('genuine-actor-session-required'); page = actorPages.get(c.actor); currentActor = c.actor; return snapshot() }
   if (c.action === 'snapshot') return snapshot()
   if (c.action === 'close') { await browser.close(); console.log('{"status":"ACTUAL_UI_SESSION_CLOSED"}'); process.exit(0) }
   if (!authenticated) throw new Error('login-required')
@@ -138,7 +144,7 @@ async function command(c) {
   }
   if (c.action === 'navigate') {
     const target = new URL(c.path, 'http://127.0.0.1:8061')
-    if (target.origin !== 'http://127.0.0.1:8061' || (!['/mdm/product-catalog','/approval-center/todo','/user/profile','/system/user','/dcc/controlled-file/upload','/dcc/project-directory','/dcc/controlled-file/browser','/dcc/controlled-file/workbench','/infra/job','/infra/job/log','/job/job-log'].includes(target.pathname) && !/^\/dcc\/controlled-file\/detail\/[1-9][0-9]*$/.test(target.pathname))) throw new Error('unsupported-ui-route')
+    if (target.origin !== 'http://127.0.0.1:8061' || (!['/mdm/product-catalog','/approval-center/todo','/user/profile','/system/user','/system/role','/signature-governance/authorizations','/signature-governance/my-signature','/system/notify/my','/dcc/controlled-file/upload','/dcc/project-directory','/dcc/controlled-file/browser','/dcc/controlled-file/workbench','/infra/job','/infra/job/log','/job/job-log'].includes(target.pathname) && !/^\/dcc\/controlled-file\/detail\/[1-9][0-9]*$/.test(target.pathname))) throw new Error('unsupported-ui-route')
     await page.goto(target.href,{waitUntil:'domcontentloaded'}); return snapshot()
   }
   const el = locator(c)
@@ -175,9 +181,9 @@ async function command(c) {
   if (c.action === 'signCredential') {
     const signingPath = new URL(page.url()).pathname
     const detailSigning = /^\/dcc\/controlled-file\/detail\/[1-9][0-9]*$/.test(signingPath)
-    const taskApprovalSigning = signingPath === '/approval-center/todo' && (await page.locator('.el-dialog:visible').innerText()).includes('20261005-dcc-full-html-g61-independent-training.pdf')
+    const taskApprovalSigning = signingPath === '/approval-center/todo' && (await page.locator('.el-dialog:visible').innerText()).includes('20261005-dcc-')
     if ((!detailSigning && !taskApprovalSigning) || await el.getAttribute('type') !== 'password') throw new Error('signature-context-required')
-    const provided = fs.readFileSync(path.join(repo, 'AGENTS.md'), 'utf8').match(/^密码\s+(\S+)\s*$/m)?.[1]
+    const provided = currentActor === 'doc' && taskActorCredentialEntered ? taskActorCredential : currentActor === 'admin' ? fs.readFileSync(path.join(repo, 'AGENTS.md'), 'utf8').match(/^密码\s+(\S+)\s*$/m)?.[1] : null
     if (!provided) throw new Error('user-provided-identity-unavailable')
     await el.fill(provided); return snapshot()
   }
@@ -198,15 +204,7 @@ async function command(c) {
   else throw new Error('unsupported-action')
   await snapshot()
 }
-;(async () => {
-  const branch = execFileSync('git', ['branch','--show-current'], {cwd:repo,encoding:'utf8'}).trim()
-  if (branch !== 'int_qms') throw new Error('actual-qms-runtime-required')
-  execFileSync('pwsh',['-NoProfile','-File',path.join(repo,'scripts/preflight/branch-runtime-port-guard.ps1')],{cwd:repo,encoding:'utf8'})
-  global.frontendPort = 8061
-  if (fs.existsSync(output)) throw new Error('existing-evidence-directory')
-  fs.mkdirSync(output)
-  browser = await chromium.launch({ headless: true })
-  page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, timezoneId: 'Asia/Shanghai' })
+function attachPage(page) {
   page.on('pageerror', error => { pageErrors.push({ type: error.name, safeMessage: /^(文档目录表单组件加载失败|.* is not (a function|iterable)|Cannot read properties of (undefined|null).*)$/.test(error.message) ? error.message.slice(0, 300) : 'frontend-exception-message-withheld' }) })
   page.on('response', async response => {
     const u = new URL(response.url())
@@ -219,6 +217,17 @@ async function command(c) {
       console.log(JSON.stringify(diagnostic))
     }
   })
+}
+;(async () => {
+  const branch = execFileSync('git', ['branch','--show-current'], {cwd:repo,encoding:'utf8'}).trim()
+  if (branch !== 'int_qms') throw new Error('actual-qms-runtime-required')
+  execFileSync('pwsh',['-NoProfile','-File',path.join(repo,'scripts/preflight/branch-runtime-port-guard.ps1')],{cwd:repo,encoding:'utf8'})
+  global.frontendPort = 8061
+  if (fs.existsSync(output)) throw new Error('existing-evidence-directory')
+  fs.mkdirSync(output)
+  browser = await chromium.launch({ headless: true })
+  page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, timezoneId: 'Asia/Shanghai' })
+  attachPage(page)
   console.log('{"status":"REGISTERED_REAL_UI_SESSION_READY"}')
   readline.createInterface({ input: process.stdin }).on('line', line => {
     chain = chain.then(() => command(JSON.parse(line))).catch(error => console.log(JSON.stringify({ status: 'ACTUAL_UI_COMMAND_FAILED', errorType: error.name, safeMessage: ['unsafe-command', 'login-required', 'credential-command-forbidden', 'unsupported-action'].includes(error.message) ? error.message : 'inspect-observed-visible-state' })))

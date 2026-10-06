@@ -67,3 +67,5 @@ BPM拒绝回调的状态CAS必须匹配经过核验的真实流程key，不能�
 工作稿保存后修改当前受控文件的关联，新正式升版申请必须在提交事务冻结当时的当前集合。不能继承旧稿审批历史，也不能仅在旧快照为空时回退读取当前集合；当前空集合也可能代表真实取消。准确锁定来源 Master、最新受控基线和 current set 版本，保留旧稿正文/属性及旧申请历史，同键重放不重新冻结。证据：主任务 g67-revision-relations-root-review.md。
 
 原生升版撤回仍须能沿原目标修正重提；页面按钮可见或 checkout HTTP200 不能证明获锁。服务资格、checkout SQL CAS、checkin 真实正文和失败前驱策略需同时接通，且读取真正已结束、取消的原 BPM 历史。不能把 legacy nextMinor 重提或删除旧流程当作保持目标和历史的修复。证据：主任务 g68-withdrawn-revision-root-review.md。
+
+检出修正链还需正式multipart上传上下文同样核验已结束的原生撤回申请，隔离票据测试不能证明真实上传预检接通。普通文件详情不应主动读取没有消费者的旧关联字段，导致合法主文件被无权旧关联阻断；独立历史入口继续严格拒绝。明确选定文件的检出浏览将准确同租户File/Master身份传到后台，以同Master全部版本限制候选，再保原权限、版本聚合与关键词规则；全域33k逐版本权限扫描不是提高超时或授管理员可以代替的修复。菜单权限需随正式脚本交付，类别规则不代系统permission。证据：主管理 g69-checkin-upload-root-review.md、g70-menu-root-review.md、g71-main-detail-root-review.md、g72-exact-selection-root-review.md，真实最终链见 g73-final-html-business-alignment.md。

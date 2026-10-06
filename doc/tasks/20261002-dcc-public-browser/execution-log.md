@@ -261,3 +261,22 @@ Root将原readonlyplan收敛授权两FE源，不mytasks新队列/DTO/marker。�
 ## G67 通知精确来源入口最终冻结
 
 2生产+1test sourcefreeze17finite/2lint，Root准singlefulltypes75657实际0、singleVite84592实际0/Buildsuccessful，仅既有2warning无依赖/config改。原code+6tuple/sameorigin/唯一viewerfrom/LongMAX/deadline，existing NotifyMessageVOtemplateCode可靠非新增marker，badrelation不泛BPMtarget；原消息详情button中文身份/期限只读来源，readonly权限后端保，no relatedMaster->file猜。没mytasks/DTO/workbench/provider/审批/角色扩，BErelay与原sender契约同。ParentG63/submitterG64/workbenchG59 protected全部旧raw同，旧notifyseal此2file有明确supersedes。finalmanifest/Keep/pin/log验证齐ready_for_closeout_for_Root_review，sharedtaskin_progress。Rootactual新B1消息接收/来源button/10月13 inclusive7天提醒待，Agent无实际API/UI/DB/Git/service/Maven；taskbuild临时output由Rootcleanup、不发布。
+
+## G68 native升版撤回提示及旧动作显示
+
+Rootr15/112已撤回原生REV仍泛删除/legacy重提，有限Parent源hint优先exactWITHDRAWN/revisionkey/BPM/无后继→existing检出检入修正文+targetserver保持/旧历史保，legacy sharedhelper与originalmutations不变。Root同时明确dropdown显示，原status/requester/noSuccessor保、anyformal allowed gate+两个eachactioncomputed，native无actions/缺projectionfailclosed、legacy只真已授项，真实lifecycle/formaction助手串Parent原renderer。实际有效hintRED3=1P2F及menuRED4=1P3F→末5files16PASS0fail/skip/exit0+Parentlint39380actual0；首宿主undefined默认scope/缺approvalTodoTask不相关failwarn保而不计RED，末无defaultfalse假getter。Sourcefreeze1prod/1testseal/Keep齐，G67notify3raw同，旧seals保；no新类型/import/interfaces按Root不全types/build，不旧G67build冒新Parent。Rootactualhint/menu/本人新正文B1retry待，Agent无UI/API/DB/Git/service/Maven，sharedtaskin_progress/ready_for_closeout_for_Root_review。
+
+## G68 r2 低影响业务文案
+
+Rootreview/提交e78c12047后授权仅ParentresponsibilityHint从实现词‘重提目标由正式服务保持’改‘重新提交仍申请原目标版本’，其余撤回/历史提示和guard/菜单/动作不变。只调整既有test期待，无新BDD/test/业务逻辑。现16有限回归(5files)PASS0fail/skip/exit0、Parentlint0warning/exit0，原计数不累加。r2seal替代Parent/test原stagepin、旧manifest/BDD保，G67通知3asset raw同；无全typesbuild/Git/UI/DB/service/runtime/Maven，RootHMR及包verifier读r2，sourcefreeze。
+
+## G69 CHECKIN浏览错误具体消息
+
+Root授权唯一browser本地resolve4line优先formalresponse.data.msg，G64extract私有不改其导出/API/mapping，原Error/string/fallback保。actualAxiosError+actualuploadCheckinSource原RED2全FAIL→末3files20PASS0fail/skip/exit0+browserlint0，无fixture准备错误；真实handler保持failed/清票据/onError0Success、同SOURCE/CHECKIN/file/category/session不发status绕BE。源1prod/test1freeze，G58browser旧pin由本新seal明确supersede，G68r2/G67notify/G64submitter3stages原raw同。无API/interface/signature变化按Root no全typesbuild；actualRootWITHDRAWN sourcecontext修后的newticket/sameB1正常UI待，offline业务msg不真实oracle。Agent无API/UI/DB/Git/服务/Maven，sharedtaskin_progress/ready_for_closeout_for_Root_review。
+
+## G72 正常working浏览exactscope透传
+
+Root真实普通账号全域latestperfile鉴权timeout，正式BE新增nullablepairedLong sameTenant/master scope；FE2prod browsergetList/requestcontext build(true)精确routehelper字符串pair，defaultbuilderfalse保3exports无pair，project/plain原无pair策略保。API2optionalstring typefield，不Number/新请求/缓存/selection/默认list策略变化，G69errorlogic保。actualcanonicalnav/builder/原API/Axiosadapter oldRED3=1P2F→末5files37全PASS0fail/skip/exit0、2lint78138actual0、singlefulltypes70969actual0，无全build（Rootscope）不旧结果外推，new3+old34overlap。source/testfreeze2prod1testmanifest/Keep齐，ParentG68r2/G67notify/G64submitter全pin保，workflow原Rootmapping/其它types不改义。RootnewBE scopedread/正常UI锁动作尚待，Agent无实际API/UI/DB/Git/runtime/service/Maven，共享taskin_progress/ready_for_closeout_for_Root_review。
+
+
+G73最终核对：已确认业务方向12流程/27AC逐项按源码、正式定向证明与关键实际页面审查，发现的差异均已对应修复review。最终真实B1同目标attempt2+独立签名441–444+所选关联任务/通知来源只读+提前7天临期下发/消提醒；G71普通4028详情可读，G72sameMaster浏览及两个真实账户一锁互斥/本人释放通过、残锁0。正式版本A3执行、B1待10/13不变。sourceImplementations dc252cf2f/983b5bdd5/e11ba7c55/e78c12047/d8e8d5959/8d2aac288/6fa4da6e6/13da69fb3/8c1146618/567eeb09d/4bb094657；最终统一包40305实际exit0/57sources51classes/runtime18健康UP。详细边界、指纹和原证据见主管理 g73-final-html-business-alignment.md。每次stage列表+diffcheck+runtimeguard均核。未添加隐藏权限绕过、fallback、SQL业务造动作、重写历史或模拟成功；原3非任务rawSHA保。正式cleanup preview/apply工具当前缺失，未执行未记PASS，任务停ready_for_closeout。

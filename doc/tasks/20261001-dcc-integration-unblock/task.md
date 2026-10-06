@@ -268,7 +268,7 @@ H09主管理公共上传接线：四Owner交付与H08反馈无新变化，不重
 
 ## Current Status
 
-in_progress — 持续目标要求完整HTML满足证明。原G63关键主线结果保留；本轮G64补足文件驳回重提、关联整改、精确名称等未验场景，逐项审查证据强度，未定规则保持待讨论。
+ready_for_closeout — 已确认HTML业务方向与主流程实现、定向回归及关键真实页面闭环完成；最新主管理最终报告 doc/tasks/20261001-dcc-integration-unblock/g73-final-html-business-alignment.md。提交推送收据待最终核对；正式cleanup工具缺失，未伪preview/apply/completed。早期in_progress/blocked只是阶段历史，不覆盖本状态。
 
 ## BDD
 
@@ -357,6 +357,54 @@ Root按8项A冻结源接收已实现增量，但X-01真实未送审来源FAIL仍
 - 已确认文控上传本轮线下培训文件即可、作废20年、审核人后台配置及失败原目标号重提；提醒配置仍待答，不猜值或模拟完成。
 
 ## Cleanup Keep
+
+- doc/tasks/20261001-dcc-integration-unblock/g67-final-package-stage-pins.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-notification-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g67-owned-runtime-stop.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-real-acceptance-plan.md
+- doc/tasks/20261001-dcc-integration-unblock/g67-replacement-relation-snapshot-real-failure.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-revision-relations-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g67-runtime-remediation-preflight.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-runtime-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-second-actor-actual-ui-readiness.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-target-lifecycle-repair-real-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g67-verify-final-package.py
+- doc/tasks/20261001-dcc-integration-unblock/g68-final-package-stage-pins.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-native-withdrawn-checkout-real-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-owned-runtime-stop.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-runtime-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-second-actor-final-config-readonly.json
+- doc/tasks/20261001-dcc-integration-unblock/g68-verify-final-package.py
+- doc/tasks/20261001-dcc-integration-unblock/g68-withdrawn-revision-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g69-associated-remediation-notification-real-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-checkin-upload-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g69-final-package-stage-pins.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-owned-runtime-stop.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-replacement-real-progress.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-runtime-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g69-verify-final-package.py
+- doc/tasks/20261001-dcc-integration-unblock/g70-actual-mysql-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g70-execute-menu-rehearsal.py
+- doc/tasks/20261001-dcc-integration-unblock/g70-menu-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g71-final-package-stage-pins.json
+- doc/tasks/20261001-dcc-integration-unblock/g71-main-detail-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g71-owned-runtime-stop.json
+- doc/tasks/20261001-dcc-integration-unblock/g71-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g71-runtime-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g71-seven-day-reminder-distribution-real-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g71-verify-final-package.py
+- doc/tasks/20261001-dcc-integration-unblock/g72-exact-selection-root-review.md
+- doc/tasks/20261001-dcc-integration-unblock/g72-final-package-stage-pins.json
+- doc/tasks/20261001-dcc-integration-unblock/g72-owned-runtime-stop.json
+- doc/tasks/20261001-dcc-integration-unblock/g72-package-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g72-runtime-source-root-review.json
+- doc/tasks/20261001-dcc-integration-unblock/g72-two-actor-checkout-real-proof.json
+- doc/tasks/20261001-dcc-integration-unblock/g72-verify-final-package.py
+- doc/tasks/20261001-dcc-integration-unblock/g73-final-html-business-alignment.md
+
 
 - doc/tasks/20261001-dcc-integration-unblock/g57-implementation-stage-paths.json
 - doc/tasks/20261001-dcc-integration-unblock/g57-implementation-commit-proof.json
@@ -1286,3 +1334,14 @@ G55最终交付：唯一int_qms四方向已主流程验收，源25项commit ee4d
 G56–G59 当前全HTML验收进展（2026-10-05）：旧初始17提交已推8090e7193；G56修复24源c9ca、G57修复33源+5BDD85b76ea6b均正常推origin/int_qms验证0ahead0behind。实际含关联/培训4028四签名→受控下发，folder3新增/更名/软删、request10批准→272/615、crossproject引用count0/1/0、分钟job5625恢复后实际alltenant0日志正常。真实检入4026→4029 A1-1正文v2、4030 A1-2正文v3，baselineA1仍ACTIVE。G58新增独立TRAINING_RECORD权限及正确workinglabel/globaloperation scope，BE3+2tests实际260/7全0，FE分别15/20/29有限PASS+全types74726/build57908exit0；source冻结待G59同包。实际PARTIAL选earlier4029/未来20261006送审在公共controlled-content ref65592仍FINALIZING时拒绝，新candidate0；新nativeLifecycle遗漏共享收口是确定G59主架构缺口，不松openCandidate守卫、不写SQL清flag。Root已授权DCC-onlysharedpending状态、受控/生效/作废同事务投影及显式审核证据后的维护修复，BE/FE并行TDD中。真实独立Docuser910328及taskrole991222前端创建；首次3existingrole因合法logrole限制整体拒，尚未通过独立待办资格，不伪多账号PASS。最新Jar45a9...fcb7/own56836 48061和FE50712 8061保持健康。G59未完，mainTaskin_progress，不标全HTML或cleanupcompleted。每scope含setup错误与有效RED/GREEN原证，重叠数量不加。既有3无关资产rawSHA始终保留，不暂存其他旧资产。
 
 G63最后实际入口校验：G62作废申请正常POST成功，单MATRIX_REVIEW task d7c6aef6-c0d7-11f1-8698-b082e25ec548 / processd7c17fa8-c0d7-11f1-8698-b082e25ec548，assignee1；原File4033ACTIVE、原BPM4c5d、训练record/四签名保。实际normaltodo325→327至handlingapproval页，DetailSignoffAssignment旧management gate不显示、review按钮正式disabled；不拼management参数绕验收，FE按真实currenttask同轮次单组件资格G63修。后端有限一次只读g63-native-obsolete-current-round-readonly-review已确认独立两个userTask、不从file.needTraining/旧BPM/旧签名借资格、批准owner字段不适用，没有新增BE缺口。G62FE修native完成panel+2asset/BDD commit3d760fb正常push，G62BE46b同已正常push；两oldwarnings只构建提示不更新依赖。原3无关资产rawSHA保护逐项正确，正式cleanup/experience技能工具仍缺未伪PASS；已更新既有experience，精确217raw归档byte验证，不删除他任务。
+
+
+G67–G69当前状态更新：持续按HTML v1.6 12流程/27AC整合。已review并提交G67当前关联冻结983b5bdd5与通知入口dc252cf2f，55后端/17前端有限证明；G68真实原生撤回返工及准确页面入口e11ba7c55/e78c12047/d8e8d5959，14后端/16前端有限证明，实际4043本人checkout锁30成功、原历史保留。G69正式检入上传context遗漏已真实HTTP400复现，BE修复中；browser正式消息优先8d2aac288经20定向/lint通过，当前push重试中。原三非任务资产rawSHA保持不变。新包attempt15健康UP，仅QMS48061/8061，旧包归档。独立普通账号签名图片本人实UI启用；项目271OWNER2已独立Playwright重开确认，查看矩阵任务自有部门公司范围修正由授权agent真实UI完成，未把受限账号拒绝称锁PASS。完整新B1同目标/关联指派/本人通知/七天提醒实际闭环继续，主任务in_progress，不能据有限证明标completed。
+
+G69有限后端正式multipart17/4与前端20/3已独立review并提交6fa4da6e6/8d2aac288；新包尚待最后独立配置UI保存后统一更新，真实checkin/newB1仍未PASS。精确原始XML四件已private归档。
+
+
+G73收口：G72普通双账号锁真实通过，31由910328本人CANCELLED、两任务链ACTIVE锁0。新B1attempt2受控/整改通知本人打开/7天提醒/下发后消除真实通过。原未来激活待实际日期、非全部排列E2E边界保留。任务已ready_for_closeout，原stage/source/pins与失败前置证据不删除。
+
+
+## G73 Permanent Evidence Keep

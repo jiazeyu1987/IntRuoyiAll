@@ -1,0 +1,39 @@
+{
+  "status": "ACTUAL_UI_ACCOUNT_AND_OWN_SIGNATURE_READY_NOT_SIGNOFF_OR_LOCK_E2E_PASS",
+  "actor": "g57dccdoc20261005/910328",
+  "configurationUi": "r14/048-059 dept/post; r15/006-041 ownedrolecreate/exact4menus/append;044-061 auth/reset/firstchange/ownImage10;068-075projectEDIT;083-099categoryUPLOAD/VIEW",
+  "newCategoryScope": "Only908710 USER910328, preservepriorconfiguredsemantics and matrix; formalreplace changes configurable rowIDs; previous G61 noVIEW actor proof remains historical",
+  "fixturePngSha256": "28ea84e47c56178f0c54e0d20a1f0b5dfa122381e5e58ae4476ab35c6cca5b7c",
+  "facts": [
+    {
+      "query": "SELECT id,username,dept_id,post_ids,status FROM system_users WHERE id=910328;",
+      "result": "910328\tg57dccdoc20261005\t103\t[4]\t0\n"
+    },
+    {
+      "query": "SELECT role_id FROM system_user_role WHERE user_id=910328 AND deleted=0 ORDER BY role_id;",
+      "result": "910233\n991222\n991223\n"
+    },
+    {
+      "query": "SELECT menu_id FROM system_role_menu WHERE role_id=991223 AND deleted=0 ORDER BY menu_id;",
+      "result": "6800\n6806\n6807\n605071338\n"
+    },
+    {
+      "query": "SELECT id,subject_id,access_level,active FROM dcc_project_access_rule WHERE tenant_id=1 AND dcc_project_code_id=271 AND deleted=0 ORDER BY id;",
+      "result": "34\t1\tOWNER\t\u0001\n35\t910328\tEDIT\t\u0001\n"
+    },
+    {
+      "query": "SELECT id,action_type,subject_id,active,remark FROM dcc_file_category_permission_rule WHERE category_id=908710 AND subject_type='USER' AND subject_id=910328 AND deleted=0 ORDER BY id;",
+      "result": "14511\tTRAINING_RECORD\t910328\t1\t20261005-dcc-full-html-g56 仅本次独立文控线下培训上传资格，保原会签批准及其他配置\n14516\tUPLOAD\t910328\t1\t20261006-dcc-full-html-g67 仅测试账号910328编制/检出验收。\n14517\tVIEW\t910328\t1\t20261006-dcc-full-html-g67 本机测试用户910328技术调研报告查看，检出锁/整改来源验收所需。\n"
+    },
+    {
+      "query": "SELECT user_id,authorization_state,electronic_signature_enabled,locked_until,failure_count FROM dcc_electronic_signature_authorization WHERE user_id=910328 AND deleted=0;",
+      "result": "910328\tENABLED\t1\tNULL\t0\n"
+    },
+    {
+      "query": "SELECT id,user_id,version_no,file_name,file_size,sha256,image_status,active,uploaded_by,uploaded_at,enabled_at FROM dcc_electronic_signature_image WHERE user_id=910328 AND deleted=0;",
+      "result": "10\t910328\t1\tg67-test-signature-910328.png\t5969\t28ea84e47c56178f0c54e0d20a1f0b5dfa122381e5e58ae4476ab35c6cca5b7c\tACTIVE\t1\t910328\t2026-10-06 05:17:30\t2026-10-06 05:17:30\n"
+    }
+  ],
+  "directBusinessSqlWrites": false,
+  "credentialsPersisted": false
+}
