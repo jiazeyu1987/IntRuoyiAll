@@ -50,3 +50,5 @@
 - 推送后git ls-remote --exit-code origin refs/heads/int_main = 4a2862eae553cd57f09087f27490ba4d1306ffbf，与本地HEAD完全一致；origin/int_main...int_main=0/0；git status --short --branch只输出分支行，工作区及暂存区干净。
 - cleanup与主干推送实际证据通过后，人工及机器状态同步为completed；最终收尾提交仅包含本任务4个记录，其hash将在随后独立回执中记录，避免把自引用hash写入其自身提交。
 - 收尾记录暂存诊断：普通git add已暂存4个已跟踪记录，但因doc/tasks父目录的ignore规则返回exit=1；git add --dry-run复核同一原因。按任务记录保留要求，对这4个精确路径显式git add -f后重新核对暂存清单与差异；不改变ignore配置，不收集其他忽略文件。
+- 最终收尾提交：d75b9567a92509b46ecdc82bed1fd73f3b4ce90b；文件为本任务task.md、execution-log.md、verification-report.md、task-state.json，共4项；UTF-8、状态一致、精确暂存、索引内容和git diff --cached --check均PASS，提交成功。
+- 本条hash回执单独提交，仅更新execution-log.md。回执提交可由git log -1 --format=%H -- doc/tasks/20261006-main-code-submit/execution-log.md精确定位，避免hash自引用。随后推送这两个文档提交，并在本轮工具回执核对远端refs/heads/int_main=本地HEAD、ahead/behind=0/0、工作区干净；任一失败须恢复blocked并报告。
