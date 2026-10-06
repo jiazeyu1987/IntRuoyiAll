@@ -1,0 +1,63 @@
+{
+  "status": "PASS_PREPARED_OFFLINE_ONLY",
+  "productionSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261006_dcc_native_distribution_menu.sql",
+    "bytes": 5795,
+    "sha256": "d31eaefd71bfab3fba2acd2836826b2c8b89edfeebf8e28cbf177e6272527fdb"
+  },
+  "offlineTests": {
+    "command": "python doc/tasks/20261002-dcc-public-backend-completion/g70-menu-contract-test.py",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "cliExitCode": 0,
+    "logSha256": "3fe68edd4c0fb085181b1c38b098bd9a30f9293138b6756410846957d39b22ee"
+  },
+  "red": {
+    "reason": "required exact distribution permission seed missing",
+    "tests": 5,
+    "failures": 1,
+    "errors": 0,
+    "logSha256": "627fc196cae148677c8de89b572a204461c4d9ed6586d81864f25c14ac61b836"
+  },
+  "releasePolicyClosure": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure-r2.json",
+    "sha256": "e9dea2d2e6da301c088a92a9d7962ae9145f183fff88c5bfca5c5e618472b059",
+    "cliExitCode": 0,
+    "dependencyCount": 5,
+    "onlyNewScriptMayExecute": true
+  },
+  "sourceFactsFromRoot": {
+    "reservedMenu6839": "ABSENT",
+    "parent6800": "ACTIVE_DIRECTORY_EXISTING_DOCROLE_GRANT",
+    "retired6808": "UNCHANGED",
+    "notGranted6819": true,
+    "targetTenant": "1",
+    "targetRole": "910233",
+    "roleCode": "doc_control"
+  },
+  "maxWrites": {
+    "newMenu": 1,
+    "newRoleMenu": 1,
+    "oldRows": 0,
+    "otherTenants": 0,
+    "rolesUsersPackagesCategory": 0
+  },
+  "exactUiCreatedMenuReuse": "positive ID is returned only after all immutable business fields match; preserve old audit metadata",
+  "actualDbRuns": 0,
+  "actualFirstRepeatRollbackVerified": false,
+  "actualMenuId": "605071339",
+  "actualUiPermissionProof": false,
+  "mavenRuns": 0,
+  "notes": "Pure proposal oracle + actualSQLstatic contract is not actual MySQL execution; Root sole clone/source/UI",
+  "actualUiFieldsFromRootReadonly": {
+    "menuId": "605071339",
+    "componentIsNull": false,
+    "componentNameIsNull": false,
+    "componentHex": "",
+    "componentNameHex": "",
+    "pathHex": "",
+    "iconHex": ""
+  },
+  "strictPayloadRevision": "r2 component/component_name exact empty strings, no NULL/coalesce equivalence; earlier NULL was unverified design inference"
+}

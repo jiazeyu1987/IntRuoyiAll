@@ -1,0 +1,51 @@
+{
+  "status": "FROZEN_PREPARED_R2_STRICT_ACTUAL_UI_PAYLOAD",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261006_dcc_native_distribution_menu.sql",
+      "bytes": 5795,
+      "sha256": "d31eaefd71bfab3fba2acd2836826b2c8b89edfeebf8e28cbf177e6272527fdb"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-contract-test.py",
+      "bytes": 5403,
+      "sha256": "03478c2cd4afb65fb4fc7e83ec77ada5cd18de93f68bed0b1f228fb535b511b1"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-bdd.md",
+      "bytes": 2332,
+      "sha256": "a2b41e48d14b5e046097a05ef43279125a224688d9160dfad0a27081cf8efa38"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-operator-contract.md",
+      "bytes": 4910,
+      "sha256": "081fe3ef440ae2993f4c26d066cee428d4d3a492f4de658a99c40ee62f17d29c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-preflight.sql",
+      "bytes": 1253,
+      "sha256": "e1d19eff7315499d2321dd7abbf75919b9d531b37e451879aa363eb9f2dcd847"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-postflight.sql",
+      "bytes": 928,
+      "sha256": "b06dcef33443f5ba1bee63e1dac40f6e2ff6b1c1e2fc1443935e21c41ebd820c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure-r2.json",
+      "bytes": 2763,
+      "sha256": "e9dea2d2e6da301c088a92a9d7962ae9145f183fff88c5bfca5c5e618472b059"
+    }
+  ],
+  "compiledClasses": [],
+  "verificationReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-verification-receipt-r2.json",
+    "bytes": 2312,
+    "sha256": "72f2503395abe7627f5a3ee28682e552d80a3df6bb401cd7b18397a86e32ef36"
+  },
+  "supersedes": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-fingerprints.json",
+    "sha256": "ed690b522bd3e8d597aa22b7b84a1822bcdb29f1bee7db36dcdd73a08e7b9606"
+  },
+  "noActualDbExecution": true
+}
