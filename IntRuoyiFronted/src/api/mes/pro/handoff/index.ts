@@ -5,7 +5,8 @@ export interface HandoffTask {
   id: number | string; activeOrderId: number | string; workOrderId: number | string
   routeProcessId?: number | string
   taskType: string; sourceType: string; sourceId: number | string; roundId: number | string
-  completedBy?: number | string; completedAt?: string
+  completedBy?: number | string; completedAt?: string | number; completionSourceId?: number | string
+  responsibilitySnapshotJson?: string
   status: string; actionUrl: string; reason: string; createTime: string
 }
 export interface HandoffReceipt {

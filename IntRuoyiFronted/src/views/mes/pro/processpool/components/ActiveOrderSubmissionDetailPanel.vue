@@ -2250,6 +2250,7 @@ const props = defineProps<{
   loading?: boolean
   error?: string
   embedded?: boolean
+  readOnly?: boolean
   displayMode?: 'full' | 'production' | 'pqc'
   recordScope?: 'DETAIL_RECORD' | 'FORMAL_BATCH_SOURCE_DETAIL'
   productionRouteProcessId?: number | string
@@ -2433,6 +2434,7 @@ const activeOrderStatusTagType = computed(() => {
   return 'info'
 })
 const activeOrderDossierMutationLockReason = computed(() => {
+  if (props.readOnly) return '已办任务详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
   if (status === 'RELEASED') return '已上市放行，资料文件仅可查看'
   if (status === 'VOIDED') return '已作废，资料文件仅可查看'
@@ -4558,6 +4560,10 @@ const deleteDossierFile = async (categoryKey: string, file: ActiveOrderDossierFi
     type: 'warning'
   })
   if (!dossierRequestContext.isCurrentContext(operationToken)) return
+  if (activeOrderDossierMutationLocked.value) {
+    dossierFileError.value = activeOrderDossierMutationLockReason.value
+    return
+  }
   try {
     await deleteActiveOrderDossierFile({
       activeOrderId,

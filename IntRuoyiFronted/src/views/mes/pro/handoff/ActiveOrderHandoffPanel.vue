@@ -22,6 +22,27 @@
       </el-descriptions>
       <el-alert title="这是原周期已正式完成的作废结果，只能查看。" type="info" :closable="false" class="mt-4" />
     </el-dialog>
+    <el-dialog v-model="completedResultOpen" title="原周期交接完成记录" width="760px" @update:model-value="completedResultVisibilityChanged">
+      <section data-active-order-handoff-completed-result>
+        <el-alert v-if="completedResultError" :title="completedResultError" type="error" :closable="false" show-icon />
+        <el-skeleton v-else-if="completedResultLoading" :rows="6" animated />
+        <el-descriptions v-else-if="completedResult && completionSnapshot" :column="1" border>
+          <el-descriptions-item label="原交接任务"><span data-handoff-completed-task-id>{{ completedResult.id }}</span></el-descriptions-item>
+          <el-descriptions-item label="原周期"><span data-handoff-completed-cycle-id>{{ completedResult.activeOrderId }}</span></el-descriptions-item>
+          <el-descriptions-item label="冻结工单">{{ completionSnapshot.workOrderCode }} / {{ completedResult.workOrderId }}</el-descriptions-item>
+          <el-descriptions-item label="冻结工序">{{ completionSnapshot.processName }} / {{ completedResult.routeProcessId }}</el-descriptions-item>
+          <el-descriptions-item label="交接事项">{{ labels[completedResult.taskType] }}</el-descriptions-item>
+          <el-descriptions-item label="原正式来源"><span data-handoff-completed-source>{{ completedResult.sourceType }} / {{ completedResult.sourceId }}</span></el-descriptions-item>
+          <el-descriptions-item label="原轮次"><span data-handoff-completed-round-id>{{ completedResult.roundId }}</span></el-descriptions-item>
+          <el-descriptions-item label="原通知原因 / 业务意见">{{ completedResult.reason }}</el-descriptions-item>
+          <el-descriptions-item label="实际完成者"><span data-handoff-completed-actor>{{ completedResult.completedBy }}</span></el-descriptions-item>
+          <el-descriptions-item label="实际完成时间">{{ formatDateTimeValue(completedResult.completedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="完成来源编号"><span data-handoff-completed-completion-source>{{ completedResult.completionSourceId }}</span></el-descriptions-item>
+          <el-descriptions-item label="交接状态">已完成，仅供查看</el-descriptions-item>
+        </el-descriptions>
+        <el-alert title="这是原交接任务的完成记录，仅供查看；不代表复核批准结论，也不替代正式签名或原业务结果。" type="info" :closable="false" class="mt-4" />
+      </section>
+    </el-dialog>
     <el-dialog v-model="receiptOpen" title="本人交接通知回执" width="680px" @close="closeReceipt">
       <el-alert v-if="receiptError" :title="receiptError" type="error" :closable="false" class="mb-4" />
       <el-table :data="receipts" v-loading="receiptLoading">
@@ -39,13 +60,18 @@
   </el-card>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import * as api from '@/api/mes/pro/handoff'
-import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff } from '@/utils/activeOrderHandoffNavigation'
+import { resolveActiveOrderHandoffTarget, navigateToActiveOrderHandoff, isClosedHandoffCompletion } from '@/utils/activeOrderHandoffNavigation'
+import { formatDateTimeValue } from '@/utils/formatTime'
 const router = useRouter(), route = useRoute()
 const resultOpen = ref(false), result = ref<api.HandoffTask>()
 let resultEpoch = 0
+const completedResultOpen = ref(false), completedResult = ref<api.HandoffTask>()
+const completedResultLoading = ref(false), completedResultError = ref('')
+const completionSnapshot = ref<{ workOrderCode: string; processName: string }>()
+let completionEpoch = 0
 const tasks = ref<api.HandoffTask[]>([]), loading = ref(false), error = ref('')
 const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
@@ -90,7 +116,7 @@ const retry = async () => {
 }
 const openVoidResult = async () => {
   const epoch = ++resultEpoch; result.value = undefined; resultOpen.value = false
-  if (route.query.handoffTaskId === undefined) return
+  if (route.query.handoffTaskId === undefined || route.query.handoffResult !== undefined) return
   try {
     const id = route.query.handoffTaskId
     if (typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接任务身份无效')
@@ -106,6 +132,48 @@ const openVoidResult = async () => {
     result.value = task; resultOpen.value = true
   } catch (e) { if (epoch === resultEpoch) error.value = failure(e) }
 }
-watch(() => [route.query.handoffTaskId, route.query.activeOrderId, route.query.reviewId, route.query.roundId, route.query.handoffType, route.query.handoffReadOnly], openVoidResult, { immediate: true })
+const closeCompletedResult = () => {
+  ++completionEpoch; completedResultOpen.value = false; completedResult.value = undefined
+  completionSnapshot.value = undefined; completedResultLoading.value = false; completedResultError.value = ''
+}
+const completedResultVisibilityChanged = (visible: boolean) => { if (!visible) closeCompletedResult() }
+const openCompletedResult = async () => {
+  const epoch = ++completionEpoch
+  completedResult.value = undefined; completionSnapshot.value = undefined; completedResultError.value = ''
+  completedResultOpen.value = true; completedResultLoading.value = true
+  try {
+    const id = route.query.handoffTaskId
+    if (route.query.handoffResult !== 'completed' || typeof id !== 'string' || !/^[1-9][0-9]*$/.test(id)) throw new Error('交接完成记录入口身份无效')
+    const context = await api.handoffNavigationContext(id)
+    if (epoch !== completionEpoch) return
+    const task = context.task
+    const target = resolveActiveOrderHandoffTarget({ actionUrl: task.actionUrl, handoffTaskId: task.id, handoffType: task.taskType, activeOrderId: task.activeOrderId })
+    if (!target || target.path === '/user/profile' || !isClosedHandoffCompletion(context)) throw new Error('该交接不是已关闭周期的正式完成记录')
+    const expectedQuery = { ...target.query, tab: 'notifyMessage', handoffReadOnly: '1', handoffResult: 'completed' }
+    if (Object.entries(expectedQuery).some(([key, value]) => route.query[key] !== value)
+      || Object.keys(route.query).length !== Object.keys(expectedQuery).length) throw new Error('完成记录入口与原任务、周期、来源或轮次不一致')
+    if (typeof task.responsibilitySnapshotJson !== 'string') throw new Error('原交接冻结责任快照缺失')
+    const snapshot = JSON.parse(task.responsibilitySnapshotJson)
+    if (!snapshot || Array.isArray(snapshot) || snapshot.identityDomain !== 'SYSTEM_USER'
+      || String(snapshot.activeOrderId) !== String(task.activeOrderId) || String(snapshot.workOrderId) !== String(task.workOrderId)
+      || snapshot.sourceType !== task.sourceType || String(snapshot.sourceId) !== String(task.sourceId)
+      || String(snapshot.roundId) !== String(task.roundId)
+      || (task.routeProcessId != null && String(snapshot.routeProcessId) !== String(task.routeProcessId))
+      || typeof snapshot.workOrderCode !== 'string' || !snapshot.workOrderCode.trim()
+      || typeof snapshot.processName !== 'string' || !snapshot.processName.trim()) throw new Error('原交接冻结工单、工序或来源身份不匹配')
+    completedResult.value = task; completionSnapshot.value = { workOrderCode: snapshot.workOrderCode, processName: snapshot.processName }
+  } catch (e) { if (epoch === completionEpoch) completedResultError.value = failure(e) }
+  finally { if (epoch === completionEpoch) completedResultLoading.value = false }
+}
+const loadHandoffResult = async () => {
+  ++resultEpoch; result.value = undefined; resultOpen.value = false
+  closeCompletedResult()
+  if (route.query.handoffResult === undefined) await openVoidResult()
+  else await openCompletedResult()
+}
+watch(() => route.query, loadHandoffResult, { immediate: true, deep: true })
+onBeforeUnmount(() => {
+  ++resultEpoch; result.value = undefined; resultOpen.value = false; closeCompletedResult()
+})
 onMounted(load)
 </script>

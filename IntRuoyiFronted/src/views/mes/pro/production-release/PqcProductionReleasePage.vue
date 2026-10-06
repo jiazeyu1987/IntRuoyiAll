@@ -9,7 +9,8 @@
         :production-material-lists="orderDetail?.productionMaterialLists || []"
         :loading="detailLoading"
         :error="detailError"
-        :pqc-release-application-id="detailRow?.applicationId"
+        :pqc-release-application-id="detailApplicationId"
+        :read-only="detailReadOnly"
         @retry="retryOrderDetail"
       />
     </ActiveOrderDetailLayout>
@@ -279,6 +280,8 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const detailRow = ref<MesPqcProductionReleasePageItemRespVO>()
+const detailApplicationId = ref<string>()
+const detailReadOnly = ref(false)
 const orderDetail = ref<Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>>()
 let detailRequestSequence = 0
 const activeView = ref<MesPqcProductionReleaseViewStatus>(PQC_RELEASE_VIEW_PENDING)
@@ -364,12 +367,86 @@ const readPqcReleaseRouteContext = (): PqcReleaseRouteContext | undefined => {
   return { applicationId, pqcReleaseWorkTaskId: workTaskId }
 }
 
+const clearOrderDetail = () => {
+  detailRequestSequence++
+  detailVisible.value = false
+  detailLoading.value = false
+  detailError.value = ''
+  detailRow.value = undefined
+  detailApplicationId.value = undefined
+  detailReadOnly.value = false
+  orderDetail.value = undefined
+}
+
+const isExactPositiveId = (value: unknown) =>
+  (typeof value === 'string' && /^[1-9]\d*$/.test(value)) ||
+  (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
+
+const isFormalSignedTime = (value: unknown) =>
+  (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) ||
+  (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Date.parse(value)))
+
+const requirePqcReleaseAuthority = (
+  result: MesPqcProductionReleaseDecisionRespVO,
+  context: PqcReleaseRouteContext
+) => {
+  if (!result || !isExactPositiveId(result.applicationId) || !isExactPositiveId(result.pqcReleaseWorkTaskId) ||
+    String(result.applicationId) !== context.applicationId || String(result.pqcReleaseWorkTaskId) !== context.pqcReleaseWorkTaskId) {
+    throw new Error('正式生产放行回执与当前申请或工作任务不一致。')
+  }
+  if (result.status === 'PQC_RELEASE_PENDING' && result.decision == null) return 'PENDING'
+  if (result.decision !== 'APPROVE' || !['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED'].includes(result.status) ||
+    !isExactPositiveId(result.signatureId) || !isExactPositiveId(result.decidedBy) || !isExactPositiveId(result.batchExecutionId) ||
+    !isFormalSignedTime(result.decidedAt) || !Number.isSafeInteger(result.version) || result.version <= 0 ||
+    !/^[a-f0-9]{64}$/.test(result.sourceSnapshotHash)) {
+    throw new Error('当前任务缺少完整且已签署的生产放行批准回执。')
+  }
+  return 'APPROVED'
+}
+
+const openCompletedPqcReleaseDetail = async (
+  context: PqcReleaseRouteContext,
+  decision: MesPqcProductionReleaseDecisionRespVO,
+  isCurrent: () => boolean
+) => {
+  detailApplicationId.value = context.applicationId
+  detailReadOnly.value = true
+  detailVisible.value = true
+  detailLoading.value = true
+  detailError.value = ''
+  try {
+    const result = await getPqcProductionReleaseOrderDetail(context.applicationId)
+    if (!isCurrent()) return
+    const summary = result?.detail?.pqcProductionRelease
+    const signature = summary?.signature
+    if (!isExactPositiveId(result?.detail?.activeOrderId) || !isExactPositiveId(result?.detail?.workOrderId) ||
+      summary?.status !== decision.status || !isExactPositiveId(signature?.signatureId) ||
+      String(signature?.signatureId) !== String(decision.signatureId) || signature?.role !== 'PQC_RELEASE' ||
+      !signature?.signerName?.trim() || !isFormalSignedTime(signature?.signedAt)) {
+      throw new Error('订单详情缺少与正式生产放行回执一致的有效电子签名。')
+    }
+    orderDetail.value = result
+  } catch (error) {
+    if (!isCurrent()) return
+    detailError.value = resolveErrorMessage(error, '已办生产放行详情加载失败。')
+  } finally {
+    if (isCurrent()) detailLoading.value = false
+  }
+}
+
 const openPqcReleaseFromRoute = async () => {
   const generation = ++pqcReleaseRouteGeneration
+  clearOrderDetail()
+  const detailSequence = detailRequestSequence
+  listRequestSequence++
+  loading.value = false
+  list.value = []
+  total.value = 0
+  loadError.value = ''
   releaseDialogVisible.value = false
   resetReleaseDialog()
   const dialogGeneration = releaseDialogGeneration
-  const isCurrent = () => generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration
+  const isCurrent = () => generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration && detailSequence === detailRequestSequence
   queryParams.applicationId = undefined
   queryParams.pqcReleaseWorkTaskId = undefined
   queryParams.workOrderCode = typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : ''
@@ -377,9 +454,21 @@ const openPqcReleaseFromRoute = async () => {
   try {
     const context = readPqcReleaseRouteContext()
     if (context) {
-      activeView.value = PQC_RELEASE_VIEW_PENDING
+      if (!userStore.permissions.has('mes:pro-production-release:query') && !userStore.permissions.has('*:*:*')) {
+        throw new Error('当前账号没有生产放行查询权限。')
+      }
       queryParams.applicationId = context.applicationId
       queryParams.pqcReleaseWorkTaskId = context.pqcReleaseWorkTaskId
+      loading.value = true
+      const decision = await getPqcProductionRelease(context.applicationId)
+      if (!isCurrent()) return
+      const state = requirePqcReleaseAuthority(decision, context)
+      if (state === 'APPROVED') {
+        loading.value = false
+        await openCompletedPqcReleaseDetail(context, decision, isCurrent)
+        return
+      }
+      activeView.value = PQC_RELEASE_VIEW_PENDING
     }
     await getList(isCurrent)
     if (!isCurrent() || loadError.value || !context) return
@@ -397,6 +486,8 @@ const openPqcReleaseFromRoute = async () => {
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, '生产放行待办加载失败。')
+  } finally {
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -461,7 +552,13 @@ const captureReleaseContext = () => {
 watch(releaseDialogVisible, (visible) => {
   if (!visible) resetReleaseDialog()
 }, { flush: 'sync' })
-onBeforeUnmount(() => { releaseDialogGeneration++; pqcReleaseRouteGeneration++ })
+onBeforeUnmount(() => {
+  releaseDialogGeneration++
+  pqcReleaseRouteGeneration++
+  listRequestSequence++
+  loading.value = false
+  clearOrderDetail()
+})
 
 const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   resetReleaseDialog()
@@ -654,8 +751,12 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
     message.error('缺少正式活跃订单来源，无法查看详情')
     return
   }
-  const sequence = ++detailRequestSequence
+  clearOrderDetail()
+  const sequence = detailRequestSequence
+  listRequestSequence++
+  loading.value = false
   detailRow.value = row
+  detailApplicationId.value = row.applicationId
   detailVisible.value = true
   detailLoading.value = true
   detailError.value = ''
@@ -673,7 +774,8 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
 }
 
 const retryOrderDetail = () => {
-  if (detailRow.value) void openActiveOrderDetail(detailRow.value)
+  if (detailReadOnly.value) void openPqcReleaseFromRoute()
+  else if (detailRow.value) void openActiveOrderDetail(detailRow.value)
 }
 
 onMounted(() => openPqcReleaseFromRoute())

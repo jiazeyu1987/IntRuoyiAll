@@ -17,7 +17,7 @@ const compile = (value) => ts.transpileModule(value, {
   compilerOptions: { target: ts.ScriptTarget.ES2020 }
 }).outputText
 
-const createHarness = ({ mutations = false } = {}) => {
+const createHarness = ({ mutations = false, confirm = () => Promise.resolve() } = {}) => {
   const pendingLoads = []
   const pendingUploads = []
   const pendingDeletes = []
@@ -59,7 +59,7 @@ const createHarness = ({ mutations = false } = {}) => {
       success: (message) => messages.success.push(message),
       error: (message) => messages.error.push(message)
     },
-    ElMessageBox: { confirm: () => Promise.resolve() }
+    ElMessageBox: { confirm }
   }
   vm.createContext(context)
   const names = ['createDossierRequestContext', 'dossierRequestContext', 'recordScope', 'auditScopeTypeValue', 'auditScopeIdValue', 'resolveDossierReadContext', 'loadDossierFiles',
@@ -330,4 +330,82 @@ test('删除回调切换到新订单后不得写错误或成功提示', async ()
   assert.deepEqual(harness.messages.success, [])
   harness.pendingLoads[1].resolve({ context: 'B' })
   await current
+})
+
+test('已办只读入口同时禁用资料控件并拒绝直接上传和删除调用', async () => {
+  const pageSource = fs.readFileSync(path.resolve(__dirname, '../../src/views/mes/pro/production-release/PqcProductionReleasePage.vue'), 'utf8')
+  assert.match(pageSource, /:read-only="detailReadOnly"/)
+  const template = parse(source).descriptor.template.content
+  assert.match(template, /<el-upload[\s\S]*?:disabled="activeOrderDossierMutationLocked"/)
+  assert.match(template, /data-active-order-dossier-file-upload[\s\S]*?<el-button[\s\S]*?:disabled="activeOrderDossierMutationLocked"/)
+  assert.match(template, /:disabled="activeOrderDossierMutationLocked"[\s\S]*?@click="deleteDossierFile/)
+  for (const status of ['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING']) {
+    const harness = createHarness({ mutations: true })
+    harness.props.readOnly = true
+    harness.props.detail.activeOrderStatus = { status }
+    let uploadError
+    await harness.uploadDossierFile('OTHER_FILE', {
+      file: { name: 'a.pdf' }, onSuccess: () => assert.fail('只读上传不得成功'), onError: error => { uploadError = error }
+    })
+    await harness.deleteDossierFile('OTHER_FILE', { attachmentId: 'ATT-A', fileName: 'a.pdf' })
+    assert.equal(harness.pendingUploads.length, 0)
+    assert.equal(harness.pendingDeletes.length, 0)
+    assert.match(uploadError.message, /已办任务详情仅可查看/)
+    assert.match(harness.refs.dossierFileError.value, /已办任务详情仅可查看/)
+    assert.deepEqual(harness.messages.success, [])
+  }
+})
+
+test('普通资料入口在 REPORT 或 MANAGER 状态仍允许原上传和删除', async () => {
+  for (const status of ['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING']) {
+    const harness = createHarness({ mutations: true })
+    harness.props.readOnly = false
+    harness.props.detail.activeOrderStatus = { status }
+    const initial = harness.loadDossierFiles()
+    harness.pendingLoads[0].resolve({ applicationId: 'APP-A' })
+    await initial
+    const upload = harness.uploadDossierFile('OTHER_FILE', { file: { name: 'a.pdf' }, onSuccess() {}, onError() { assert.fail('普通上传不得被只读锁拒绝') } })
+    assert.equal(harness.pendingUploads.length, 1)
+    harness.pendingUploads[0].resolve()
+    await new Promise(resolve => setImmediate(resolve))
+    harness.pendingLoads[1].resolve({ applicationId: 'APP-A' })
+    await upload
+    const deletion = harness.deleteDossierFile('OTHER_FILE', { attachmentId: 'ATT-A', fileName: 'a.pdf' })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(harness.pendingDeletes.length, 1)
+    harness.pendingDeletes[0].resolve()
+    await new Promise(resolve => setImmediate(resolve))
+    harness.pendingLoads[2].resolve({ applicationId: 'APP-A' })
+    await deletion
+    assert.deepEqual(harness.messages.success, ['资料文件已上传', '资料文件已删除'])
+  }
+})
+
+test('删除确认期间切换为已办只读入口时不提交删除', async () => {
+  let confirmResolve
+  const confirm = new Promise(resolve => { confirmResolve = resolve })
+  const harness = createHarness({ mutations: true, confirm: () => confirm })
+  const initial = harness.loadDossierFiles()
+  harness.pendingLoads[0].resolve({ applicationId: 'APP-A' })
+  await initial
+  const deletion = harness.deleteDossierFile('OTHER_FILE', { attachmentId: 'ATT-A', fileName: 'a.pdf' })
+  harness.props.readOnly = true
+  confirmResolve()
+  await deletion
+  assert.equal(harness.pendingDeletes.length, 0)
+  assert.match(harness.refs.dossierFileError.value, /已办任务详情仅可查看/)
+  assert.deepEqual(harness.messages.success, [])
+})
+
+test('普通已上市或已作废详情保留原资料写锁', async () => {
+  for (const status of ['RELEASED', 'VOIDED']) {
+    const harness = createHarness({ mutations: true })
+    harness.props.readOnly = false
+    harness.props.detail.activeOrderStatus = { status }
+    await harness.uploadDossierFile('OTHER_FILE', { file: { name: 'a.pdf' }, onSuccess() { assert.fail('终态资料不得上传') }, onError() {} })
+    await harness.deleteDossierFile('OTHER_FILE', { attachmentId: 'ATT-A', fileName: 'a.pdf' })
+    assert.equal(harness.pendingUploads.length, 0)
+    assert.equal(harness.pendingDeletes.length, 0)
+    assert.match(harness.refs.dossierFileError.value, /仅可查看/)
+  }
 })

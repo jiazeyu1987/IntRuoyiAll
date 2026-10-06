@@ -484,8 +484,11 @@ public class MesActiveOrderHandoffService {
     public NavigationContext navigationContext(Long taskId,Long actor) {
         var task=tasks.selectById(taskId);access(task,actor);validate(task);
         boolean isCurrent=current(task);
+        boolean closedDone=!isCurrent&&"DONE".equals(task.getStatus())
+                &&task.getCompletedBy()!=null&&task.getCompletedBy()>0&&task.getCompletedAt()!=null
+                &&task.getCompletionSourceId()!=null&&task.getCompletionSourceId()>0;
         require(!"CANCELED".equals(task.getStatus()),"旧周期交接已取消，请在历史记录中查看，禁止办理新周期");
-        require(isCurrent||("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"DONE".equals(task.getStatus())
+        require(isCurrent||closedDone||("QA_DECISION_HANDOFF".equals(task.getTaskType())&&"DONE".equals(task.getStatus())
                 &&task.getReason().startsWith("void：")),"旧周期交接已失效，禁止办理；请查看原周期历史");
         boolean profileCorrection=false;
         if(isCurrent && "TODO".equals(task.getStatus()) && Set.of("PRODUCTION_REVIEW","PQC_REVIEW").contains(task.getTaskType())) {

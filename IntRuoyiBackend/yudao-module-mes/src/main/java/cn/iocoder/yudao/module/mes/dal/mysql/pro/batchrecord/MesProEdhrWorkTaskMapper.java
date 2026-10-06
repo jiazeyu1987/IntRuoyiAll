@@ -460,7 +460,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 + " AND (mes_pro_edhr_work_task.batch_execution_id IS NULL OR mes_pro_edhr_work_task.batch_execution_id = pa.batch_execution_id)"
                                 + " AND pa.pqc_decision IS NULL AND pa.pqc_decided_by IS NULL AND pa.pqc_decided_at IS NULL"
                                 + " AND nr.closed_at = mes_pro_edhr_work_task.completed_at"
-                                + " AND pa.application_status = mes_pro_edhr_work_task.reason"
+                                + " AND CAST(pa.application_status AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
                                 + " AND ((nr.disposition = 'rework' AND pa.application_status = 'NONCONFORMANCE_REWORK')"
                                 + " OR (nr.disposition = 'void' AND pa.application_status = 'NONCONFORMANCE_VOID')))", userId))
                 .or(actor -> actor

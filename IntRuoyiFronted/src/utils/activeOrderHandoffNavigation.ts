@@ -1,5 +1,5 @@
 import type { Router } from 'vue-router'
-import { handoffNavigationContext } from '@/api/mes/pro/handoff'
+import { handoffNavigationContext, type HandoffTask } from '@/api/mes/pro/handoff'
 
 const positiveId = (value: string | null): value is string => !!value && /^[1-9][0-9]*$/.test(value)
 const paths: Record<string, readonly string[]> = {
@@ -14,6 +14,16 @@ const paths: Record<string, readonly string[]> = {
 }
 export interface ActiveOrderHandoffTarget {
   type: 'activeOrderHandoff'; label: '处理当轮交接'; actionUrl: string; path: string; query: Record<string, string>
+}
+export const isClosedHandoffCompletion = (context: { task: HandoffTask; current: boolean; processable: boolean }) => {
+  const task = context.task
+  const completedId = (value: unknown) => (typeof value === 'string' && positiveId(value))
+    || (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
+  const completedTime = typeof task.completedAt === 'number'
+    ? Number.isFinite(task.completedAt) && task.completedAt > 0
+    : typeof task.completedAt === 'string' && task.completedAt.trim() !== '' && Number.isFinite(Date.parse(task.completedAt))
+  return context.current === false && context.processable === false && task.status === 'DONE'
+    && completedId(task.completedBy) && completedId(task.completionSourceId) && completedTime
 }
 export const resolveActiveOrderHandoffTarget = (params: Record<string, unknown>): ActiveOrderHandoffTarget | null => {
   if (params.handoffTaskId === undefined) return null
@@ -40,6 +50,11 @@ export const navigateToActiveOrderHandoff = async (router: Router, target: Activ
   if (!context || context.task.actionUrl !== target.actionUrl || String(context.task.id) !== target.query.handoffTaskId
     || String(context.task.activeOrderId) !== target.query.activeOrderId || String(context.task.roundId) !== target.query.roundId
     || context.task.taskType !== target.query.handoffType) throw new Error('交接通知与正式任务不一致，请刷新')
+  if (isClosedHandoffCompletion(context) && target.path !== '/user/profile') {
+    await router.push({ path: '/user/profile', query: { ...target.query,
+      tab: 'notifyMessage', handoffReadOnly: '1', handoffResult: 'completed' } })
+    return
+  }
   if (context.task.status === 'CANCELED' || (!context.current && !(context.task.taskType === 'QA_DECISION_HANDOFF' && context.task.reason.startsWith('void：') && context.task.status === 'DONE')))
     throw new Error('旧周期交接已失效，禁止办理新周期')
   if (target.path === '/user/profile' && (context.task.status !== 'DONE' || !context.task.reason.startsWith('void：'))) throw new Error('作废交接结果未正式完成')

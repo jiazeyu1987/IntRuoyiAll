@@ -49,6 +49,7 @@ class MesMarketReleaseDoneVisibilityTest extends BaseDbUnitTest {
     void clearTenant() {
         jdbc.update("DELETE FROM mes_pro_process_pool_active_order_release_application WHERE request_idempotency_key='PQC-done-request'");
         jdbc.update("DELETE FROM system_users WHERE id=346 AND username='pqc346'");
+        jdbc.update("DELETE FROM system_users WHERE id=345 AND username='qa345-byte'");
         TenantContextHolder.clear();
     }
 
@@ -262,6 +263,49 @@ class MesMarketReleaseDoneVisibilityTest extends BaseDbUnitTest {
         assertEquals("1,346,348", tasks.selectById(task.getId()).getCandidateUserSnapshot());
     }
 
+    @ParameterizedTest(name = "QA {0} closure must byte-match task reason [{1}]")
+    @CsvSource({"rework,NONCONFORMANCE_REWORK,1", "void,NONCONFORMANCE_VOID,1",
+            "rework,nonconformance_rework,0", "void,nonconformance_void,0",
+            "rework,NONCONFORMANCE_REWORK_extra,0", "void,NONCONFORMANCE_VOID_extra,0",
+            "rework,' NONCONFORMANCE_REWORK',0", "void,'NONCONFORMANCE_VOID ',0",
+            "rework,NONCONFORMANCE_VOID,0", "void,NONCONFORMANCE_REWORK,0"})
+    void qaDoneClosureRequiresFullByteExactReason(String disposition, String reason, long expected) throws Exception {
+        var task = completedQaClosureTask(disposition);
+        jdbc.update("UPDATE mes_pro_edhr_work_task SET reason=? WHERE id=?", reason, task.getId());
+        assertEquals(expected, fullLengthH2PqcDoneCount(345L));
+        assertEquals(1L, tasks.selectById(task.getId()).getAssigneeUserId());
+        assertEquals("1,346,348", tasks.selectById(task.getId()).getCandidateUserSnapshot());
+    }
+
+    @Test
+    void byteExactQaClosureStillRequiresActualActorAndCurrentReviewBinding() throws Exception {
+        var task = completedQaClosureTask("void");
+        assertEquals(1L, fullLengthH2PqcDoneCount(345L));
+        assertEquals(0L, fullLengthH2PqcDoneCount(346L), "the unused PQC candidate is not the QA closer");
+        assertEquals(0L, fullLengthH2PqcDoneCount(1L), "the frozen owner is not the QA closer");
+        jdbc.update("UPDATE mes_pro_process_pool_active_order_release_application SET qa_closure_review_id=987002 WHERE id=?",
+                task.getBusinessScopeId());
+        assertEquals(0L, fullLengthH2PqcDoneCount(345L), "matching bytes cannot replace the formal current closure FK");
+    }
+
+    private MesProEdhrWorkTaskDO completedQaClosureTask(String disposition) {
+        var task = completedPqcTask("APPROVE");
+        LocalDateTime closedAt = task.getCompletedAt();
+        String closure = "NONCONFORMANCE_" + disposition.toUpperCase(java.util.Locale.ROOT);
+        jdbc.update("INSERT INTO system_users (id,username,nickname,status,tenant_id) VALUES (345,'qa345-byte','QA closer',0,1)");
+        jdbc.update("INSERT INTO mes_pro_edhr_nonconformance_review"
+                + "(id,review_code,source_type,source_id,active_order_id,batch_execution_id,work_order_id,"
+                + "review_status,nonconformance_reason,qa_user_id,frozen_at,closed_at,disposition,tenant_id)"
+                + " VALUES(987001,'QA-done-byte','ACTIVE_ORDER',414,414,1229,990274,'closed','formal QA closure',345,?,?,?,1)",
+                closedAt.minusHours(1), closedAt, disposition);
+        jdbc.update("UPDATE mes_pro_process_pool_active_order_release_application SET application_status=?,"
+                + "qa_closure_review_id=987001,pqc_decision=NULL,pqc_decided_by=NULL,pqc_decided_at=NULL WHERE id=?",
+                closure, task.getBusinessScopeId());
+        jdbc.update("UPDATE mes_pro_edhr_work_task SET reason=?,review_source_type='EDHR_NONCONFORMANCE_REVIEW',"
+                + "review_source_id=987001 WHERE id=?", closure, task.getId());
+        return tasks.selectById(task.getId());
+    }
+
     @Test
     void fullByteComparisonRejectsValuesThatCaseInsensitiveTextTreatsAsEqual() {
         // H2 VARCHAR_IGNORECASE proves the byte predicate resists text folding, not MySQL collation support.
@@ -277,17 +321,25 @@ class MesMarketReleaseDoneVisibilityTest extends BaseDbUnitTest {
     }
 
     private long fullLengthH2PqcDoneCount() throws Exception {
+        return fullLengthH2PqcDoneCount(346L);
+    }
+
+    private long fullLengthH2PqcDoneCount(Long actorId) throws Exception {
         var wrapper = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>();
         var projection = MesProEdhrWorkTaskMapper.class.getDeclaredMethod("applyDoneTaskVisibility",
                 LambdaQueryWrapperX.class, Long.class);
         projection.setAccessible(true);
-        projection.invoke(tasks, wrapper, 346L);
+        projection.invoke(tasks, wrapper, actorId);
         wrapper.eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
                 .eq(MesProEdhrWorkTaskDO::getStatus, "DONE")
                 .apply("mes_pro_edhr_work_task.tenant_id = {0}", 1L).eq(MesProEdhrWorkTaskDO::getDeleted, false);
         String sql = wrapper.getCustomSqlSegment();
         assertTrue(sql.contains("CAST(pa.pqc_decision AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"),
                 "The actual mapper must cast both differently collated columns; a scalar test cannot replace this guard");
+        assertTrue(sql.contains("CAST(pa.application_status AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"),
+                "QA status and task reason must use full byte equality despite different MySQL column collations");
+        assertTrue(!sql.contains("AND pa.application_status = mes_pro_edhr_work_task.reason"),
+                "No implicit cross-column collation comparison may remain in the actual DONE predicate");
         var bindings = new ArrayList<Object>();
         var matcher = Pattern.compile("#\\{ew\\.paramNameValuePairs\\.([^}]+)}").matcher(sql);
         while (matcher.find()) bindings.add(wrapper.getParamNameValuePairs().get(matcher.group(1)));
