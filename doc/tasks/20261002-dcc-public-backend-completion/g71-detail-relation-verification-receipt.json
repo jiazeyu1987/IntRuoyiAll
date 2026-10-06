@@ -1,0 +1,87 @@
+{
+  "status": "PASS_FINITE_AUTHORIZED_DETAIL_INDEPENDENT_HISTORY_READ",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T09:36:31+08:00",
+  "counts": {
+    "tests": 56,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest.xml",
+      "bytes": 105136,
+      "sha256": "afa9ba3de70317bc5e7312d2c82dc0c6804740d3a54afa059ea654297f92f08d",
+      "tests": 40,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml",
+      "bytes": 94038,
+      "sha256": "afc5a4a3e836c8f5007fca4342a93a79287855b442634c000850364095943c35",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileRelatedFileServiceTest.xml",
+      "bytes": 95658,
+      "sha256": "427d4d12598aea9bd2910fa4e1604a0d602fb136170ec8096b4bb5b3ecf54b45",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWithdrawnCheckinMultipartContextDatabaseTest.xml",
+      "bytes": 100116,
+      "sha256": "08242c66c3fcf768d649be3b3ba53f158d309b0dd08a8c64a33aaa2184491206",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 274224,
+      "sha256": "2f2d075638dc637d3db53d23a39a672911a7db54efca1a04e9d2abdd024bad3a"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 30357,
+      "sha256": "f036e2d50781b0df38ac632f04af06064de446164bfa3a9256c064e58afc5989"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-final-regression-r4.log",
+    "sha256": "b1c0967feebed0bb5244980f3bba9aee40ea1a833dc2eb074105c3b13ab702cf"
+  },
+  "effectiveRed": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g71-detail-relation-effective-red-r3.xml",
+    "tests": 1,
+    "errors": 1,
+    "reason": "Query assertRelationNameVisible1310 -> actual RelatedHistory -> listRelatedFiles -> toRespVO3004 -> authorized main getFile542"
+  },
+  "otherAttempts": "duplicate same-version seed / main PREVIEW qualification / missing real downloadPolicy / binary-array Map.equals are test preparation/verification errors, not business RED",
+  "scope": "remove one unused eager legacy relation projection only; optional field null, no fake empty/filter/accesscatch/latest replacement",
+  "guardsPreserved": [
+    "main detail real permission/hard-scope",
+    "explicit history target-name denial",
+    "current relations endpoint guards",
+    "no binary grants",
+    "all original File/relation rows with binaryHEX exact compare unchanged"
+  ],
+  "G69OtherFiveAssetsUnchanged": true,
+  "schemaChanges": 0,
+  "actualDbActions": 0,
+  "actualUiRuns": 0,
+  "sourceTargetMavenFrozen": true
+}

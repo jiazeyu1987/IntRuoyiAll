@@ -3001,7 +3001,6 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setChangeDescription(file.getChangeDescription());
         respVO.setEffectiveDate(file.getEffectiveDate());
         respVO.setRemark(file.getRemark());
-        respVO.setRelatedFiles(relatedFileService.listRelatedFiles(file.getId()));
         respVO.setAttachments(attachmentService.listAttachments(file.getId()));
         respVO.setStatus(file.getStatus());
         respVO.setRequesterId(file.getRequesterId());

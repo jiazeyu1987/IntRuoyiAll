@@ -27,6 +27,7 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
     @Resource DccProjectFolderMapper folders;
     @Resource DccProjectFilePlacementMapper placements;
     @Resource DccProjectFolderStorageMappingMapper storageMappings;
+    @Resource DccControlledFileRelatedFileMapper historicalRelations;
     DccControlledFileQueryServiceImpl query;JdbcTemplate jdbc;
     @BeforeEach void fixture() {
         TenantContextHolder.setTenantId(1L);jdbc=new JdbcTemplate(source);
@@ -48,6 +49,51 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
+
+    @Test void authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict() throws Exception {
+        jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2' WHERE id=9007199254740993");
+        var directories=(DccDirectoryAccessPermissionService)ReflectionTestUtils.getField(query,"directoryAccessPermissionService");
+        when(directories.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of(3L));
+        ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
+        assertTrue(query.canViewFileName(99L,files.selectById(9007199254740993L)));
+        var target=new cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO();
+        org.springframework.beans.BeanUtils.copyProperties(files.selectById(9007199254740993L),target);
+        target.setId(300L);target.setDirectoryId(4L);target.setStatus("OBSOLETE");target.setVersionNo("A/1");
+        target.setObsoletedTime(java.time.LocalDateTime.of(2026,10,1,12,0));files.insert(target);
+        jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_number_snapshot,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(9007199254740993,300,5,10,'N-1','Old historical.pdf','A/1','UPLOAD',1)");
+        var resolver=new cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolverImpl();
+        ReflectionTestUtils.setField(resolver,"fileMapper",files);ReflectionTestUtils.setField(resolver,"masterMapper",masters);ReflectionTestUtils.setField(resolver,"jdbc",jdbc);
+        var policy=new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicyImpl();
+        ReflectionTestUtils.setField(policy,"query",query);
+        var relations=new DccControlledFileRelatedFileServiceImpl();
+        ReflectionTestUtils.setField(relations,"controlledFileMapper",files);ReflectionTestUtils.setField(relations,"controlledFileMasterMapper",masters);
+        ReflectionTestUtils.setField(relations,"relatedFileMapper",historicalRelations);ReflectionTestUtils.setField(relations,"latestFileResolver",resolver);
+        ReflectionTestUtils.setField(relations,"relationAccessPolicy",policy);ReflectionTestUtils.setField(query,"relatedFileService",relations);
+        var fileRows=normalizeOriginalRows(jdbc.queryForList("SELECT * FROM dcc_controlled_file ORDER BY id"));
+        var relationRows=normalizeOriginalRows(jdbc.queryForList("SELECT * FROM dcc_controlled_file_related_file ORDER BY id"));
+        var controller=new DccControlledFileController();ReflectionTestUtils.setField(controller,"queryService",query);
+        try(var login=mockStatic(SecurityFrameworkUtils.class)) {
+            login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            var response=query.getControlledFile(99L,9007199254740993L);
+            assertNull(response.getRelatedFiles(),"the unused legacy eager projection must not become a fake empty list");
+            MockMvcBuilders.standaloneSetup(controller).build().perform(get("/dcc/controlled-files/9007199254740993"))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(0));
+            var denied=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    ()->relations.listHistoricalRelatedFiles(99L,9007199254740993L));
+            assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED.getCode(),denied.getCode());
+            var scope=(DccControlledFileAssignmentScopeService)ReflectionTestUtils.getField(query,"assignmentScopeService");
+            when(scope.isWithinAssignedFileScope(99L,9007199254740993L)).thenReturn(false);
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getControlledFile(99L,9007199254740993L));
+        }
+        assertEquals(fileRows,normalizeOriginalRows(jdbc.queryForList("SELECT * FROM dcc_controlled_file ORDER BY id")));
+        assertEquals(relationRows,normalizeOriginalRows(jdbc.queryForList("SELECT * FROM dcc_controlled_file_related_file ORDER BY id")));
+    }
+    private List<Map<String,Object>> normalizeOriginalRows(List<Map<String,Object>> rows) {
+        return rows.stream().map(row->{Map<String,Object> normalized=new TreeMap<>();
+            row.forEach((key,value)->normalized.put(key,value instanceof byte[] bytes
+                    ? "BINARY:"+java.util.HexFormat.of().formatHex(bytes):value));return normalized;}).toList();
+    }
 
     @Test void publicDetailExposesObsoleteForARealControlledPendingVersion() throws Exception {
         prepareFormalControlledPending();
