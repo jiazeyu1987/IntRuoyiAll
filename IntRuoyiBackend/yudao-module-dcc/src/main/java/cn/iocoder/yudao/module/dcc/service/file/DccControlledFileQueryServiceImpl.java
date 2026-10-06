@@ -138,6 +138,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_UPLOAD_TICKET_INVALID;
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ALREADY_CHECKED_OUT;
@@ -932,6 +933,21 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         } catch (IllegalArgumentException invalidLineage) {
             return false;
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void assertCancelledRevisionCheckinUpload(Long userId, Long fileId, Long categoryId) {
+        var file = requireCheckoutAccessibleControlledFile(userId, fileId);
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        if (!Objects.equals(file.getTenantId(), tenant) || !Objects.equals(file.getId(), fileId)
+                || !Objects.equals(file.getCategoryId(), categoryId)
+                || !Objects.equals(file.getRequesterId(), userId)
+                || !DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus()))
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        var master = controlledFileMasterMapper.selectById(file.getMasterId());
+        if (!isEditableWithdrawnNativeRevision(file, master)) throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        assertCanMutateControlledFile(userId, file);
     }
 
     private void rejectWhenMasterHasOtherUnfinishedWorkflow(Long masterId, DccControlledFileDO currentFile) {

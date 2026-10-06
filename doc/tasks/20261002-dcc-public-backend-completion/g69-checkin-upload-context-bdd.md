@@ -1,0 +1,7 @@
+# G69 native cancelled revision multipart source upload
+
+- Status: in_progress. Root actual4043 lock30 ACTIVE; normal frontend multipart SOURCE/CHECKIN failed HTTP400 in validateSourceUploadContext709 before any checkin POST. Neither source bytes nor client context fields are assumed invalid. Root owns real page/DB/runtime.
+- BDD: Given actual native revision submission/cancellation and the requester's exact held lock, When the formal Controller receives real multipart PDF bytes with category/session/purpose SOURCE/context CHECKIN/fileId, Then actual UploadService calls actual source-context authority, reuses G68 strict cancelled history/lineage/hard scope, and produces the normal namespaced temporary upload result. No new status-only blanket whitelist.
+- BDD: Given wrong actor/base lock/category/tenant, an unended or non-native withdrawn file, When the same multipart entry is used, Then it fails before file allocation/ticket; active lock and old history remain unchanged.
+- Minimal production: internal Query read assertion wrapping its existing G68 predicate/normal file scope; service interface; Workflow special withdrawn CHECKIN branch calls it, with original ordinary context and precise lock checks retained. No new REST/DTO/table/ticket platform or GET mutation.
+- Test boundaries: actual H2 cancellation/lock, real Controller multipart/UploadService/Workflow and read policy; storage and ticket interfaces explicit isolated test ports, not a real browser/S3/registry E2E. Root will repeat the natural upload and see uploaded status before checkin.

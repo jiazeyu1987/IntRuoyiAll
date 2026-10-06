@@ -703,8 +703,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             DccControlledFileDO file = request.getControlledFileId() == null ? null
                     : controlledFileMapper.selectById(request.getControlledFileId());
             if (file == null || file.getMasterId() == null
-                    || !Objects.equals(file.getCategoryId(), category.getId())
-                    || !Set.of("WORKING", "REJECTED", "PENDING_APPLICANT_REWORK", "ACTIVE", "SUPERSEDED")
+                    || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                    || !Objects.equals(file.getCategoryId(), category.getId())) {
+                throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+            }
+            if (DccControlledFileStatusEnum.WITHDRAWN.getStatus().equals(file.getStatus())) {
+                queryService.assertCancelledRevisionCheckinUpload(userId,file.getId(),category.getId());
+            } else if (!Set.of("WORKING", "REJECTED", "PENDING_APPLICANT_REWORK", "ACTIVE", "SUPERSEDED")
                     .contains(StrUtil.trimToEmpty(file.getStatus()))) {
                 throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
             }

@@ -39,7 +39,7 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
             wire(query,"bpmProcessInstanceService",processes);
     }
 
-    private long cancelledRevision() {
+    long cancelledRevision() {
         controlled("A/3");changeDefault();long selected=checkin(20L,"saved selected body");
         long candidate=workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT"));
         var reason=new DccControlledFileWithdrawReqVO();reason.setReason("真实撤回保留申请历史");

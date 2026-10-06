@@ -17,6 +17,8 @@ import cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessOpera
 import java.util.List;
 
 public interface DccControlledFileQueryService {
+    /** Internal read authority for a checked-out, truly cancelled native revision's source upload. */
+    void assertCancelledRevisionCheckinUpload(Long userId, Long fileId, Long categoryId);
     List<DccApplicationRoundSummary> listApplicationRounds(Long userId, Long controlledFileId);
     DccFileRelationPermissions getRelationPermissions(Long userId, Long controlledFileId);
     DccControlledFileApplicationEvidence getApplicationEvidence(Long userId, Long controlledFileId,

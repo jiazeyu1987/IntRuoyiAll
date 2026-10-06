@@ -130,7 +130,7 @@ class DccSourceUploadContextTest extends BaseMockitoUnitTest {
         var request = request("CHECKIN");
         request.setControlledFileId(40L);
         when(controlledFileMapper.selectById(40L)).thenReturn(DccControlledFileDO.builder()
-                .id(40L).masterId(50L).categoryId(10L).dccProjectCodeId(30L).status("ACTIVE").build());
+                .id(40L).tenantId(1L).masterId(50L).categoryId(10L).dccProjectCodeId(30L).status("ACTIVE").build());
         var checkout = DccControlledFileCheckoutDO.builder().actorId(88L).baseIterationId(40L).build();
         when(checkoutMapper.selectActiveByMasterId(1L, 50L)).thenReturn(checkout);
         assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request),
