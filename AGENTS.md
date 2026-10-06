@@ -1,6 +1,16 @@
 # IntRuoyi Agent Instructions
 
-适用于当前 IntRuoyi Git 仓库根目录，不绑定电脑盘符或绝对路径；最近层级 `AGENTS.md` 优先。后端为 Java 17/Spring Boot/Maven，前端为 Vue 3/Vite/TypeScript；主分支 `int_main`。
+适用于当前 IntRuoyi Git 仓库根目录，不绑定电脑盘符或绝对路径；最近层级 `AGENTS.md` 优先。后端为 Java 17/Spring Boot/Maven，前端为 Vue 3/Vite/TypeScript；仓库集成主分支为 `int_main`，本机文控开发分支为 `int_qms`。
+
+## 本机分工与默认提交目标
+
+- 用户使用两台电脑分工：另一台电脑在 `int_main` 进行主程序开发；本机在 `int_qms` 进行文控（DCC）模块开发、问题修复、验证和代码提交。
+- 本机各 Codex 线程默认以 `int_qms` 为文控任务的开发、验证和提交分支。本机用户说“提交代码”或“提交主干代码”且未另行指定分支时，目标是当前文控分支 `int_qms`，不要因仓库集成主分支为 `int_main` 就改变提交目标。
+- 执行任务和 Git 操作前，以 `git branch --show-current` 核对实际分支；目录名即使含 `int_main` 也不能作为分支依据。实际分支与本机约定不一致时，先核对原因，不自动切换。
+- 只有用户明确要求时，才将文控改动合入 `int_main` 或切换到 `int_main`；默认提交到 `int_qms`，获准推送时推送到 `origin/int_qms`。
+- 本节仅明确工作分工与目标分支，不构成常驻 Git 提交/推送、E2E、数据库写入、服务重启或发布授权；仍遵守下列当轮授权规则。
+
+## 通用执行规则
 
 - 修改、测试、运行、Git、数据库、E2E、发布、服务器或 worktree 操作前，先读 `docs` 中对应规则及 `task-closeout-rules.md`；文件缺失即阻塞。
 - 默认禁止 fallback、降级、吞异常、模拟成功和兼容补丁；缺少依赖、数据、权限或服务时准确报错，不得猜测或绕过。
