@@ -1697,6 +1697,77 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getMyPage_includeOverdueKeepsDefaultAndSingleStatusQueries() {
+        MesProEdhrWorkTaskDO todo = insertFillTask(5301L, 2301L, "profile-todo");
+        MesProEdhrWorkTaskDO overdue = insertFillTask(5302L, 2302L, "profile-overdue")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(overdue);
+        for (String status : List.of(MesProEdhrWorkTaskStatus.DOING,
+                MesProEdhrWorkTaskStatus.DONE, MesProEdhrWorkTaskStatus.CANCELED)) {
+            MesProEdhrWorkTaskDO excluded = insertFillTask(5303L, 2303L, "profile-" + status).setStatus(status);
+            workTaskMapper.updateById(excluded);
+        }
+        MesProEdhrWorkTaskPageReqVO req = new MesProEdhrWorkTaskPageReqVO();
+        req.setPageSize(10);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            assertEquals(List.of(todo.getId()), workTaskService.getMyPage(req).getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            assertEquals(List.of(overdue.getId()), workTaskService.getMyPage(req).getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setStatus(null);
+            req.setIncludeOverdue(true);
+            PageResult<MesProEdhrWorkTaskRespVO> combined = workTaskService.getMyPage(req);
+            assertEquals(2L, combined.getTotal());
+            assertEquals(List.of(overdue.getId(), todo.getId()), combined.getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).toList());
+            req.setPageSize(1);
+            assertEquals(2L, workTaskService.getMyPage(req).getTotal());
+            assertEquals(1, workTaskService.getMyPage(req).getList().size());
+            req.setStatus(MesProEdhrWorkTaskStatus.TODO);
+            ServiceException conflict = assertThrows(ServiceException.class, () -> workTaskService.getMyPage(req));
+            assertEquals(PRO_EDHR_WORK_TASK_STATUS_INVALID.getCode(), conflict.getCode());
+        }
+    }
+
+    @Test
+    void getMyPage_includeOverduePreservesCandidateAndBatchVisibility() {
+        MesProEdhrWorkTaskDO candidate = insertFillTask(5310L, 2310L, "profile-candidate")
+                .setAssigneeUserId(288L).setCandidateUserSnapshot("288,99")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(candidate);
+        MesProEdhrWorkTaskDO other = insertFillTask(5311L, 2311L, "profile-other")
+                .setAssigneeUserId(288L).setCandidateUserSnapshot("288,199")
+                .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+        workTaskMapper.updateById(other);
+        MesProEdhrWorkTaskDO archive = null;
+        for (int status : List.of(30, 40, 50, 60)) {
+            Long batchId = 1000L + status;
+            insertBatch(batchForInitialFill(batchId, 4101L).setStatus(status));
+            MesProEdhrWorkTaskDO terminal = insertFillTask(batchId, batchId, "profile-terminal-" + status)
+                    .setBatchExecutionId(batchId).setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            workTaskMapper.updateById(terminal);
+            MesProEdhrWorkTaskDO archiveTask = insertFillTask(batchId + 100L, batchId + 100L,
+                            "profile-archive-" + status)
+                    .setBatchExecutionId(batchId).setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE)
+                    .setStatus(MesProEdhrWorkTaskStatus.OVERDUE);
+            workTaskMapper.updateById(archiveTask);
+            if (status == 30) archive = archiveTask;
+        }
+        MesProEdhrWorkTaskPageReqVO req = new MesProEdhrWorkTaskPageReqVO();
+        req.setPageSize(20);
+        req.setIncludeOverdue(true);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getMyPage(req);
+            assertEquals(2L, page.getTotal());
+            assertEquals(Set.of(candidate.getId(), archive.getId()), page.getList().stream()
+                    .map(MesProEdhrWorkTaskRespVO::getId).collect(java.util.stream.Collectors.toSet()));
+        }
+    }
+
+    @Test
     void getMyPage_excludesTodoTasksFromTerminalBatches() {
         insertBatch(batchForInitialFill(1001L, 4101L)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));

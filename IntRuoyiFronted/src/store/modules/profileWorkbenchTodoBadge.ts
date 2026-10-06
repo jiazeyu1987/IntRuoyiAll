@@ -1,10 +1,7 @@
 import request from '@/config/axios'
 import { getMyDistributionTaskPage } from '@/api/dcc/controlledFile/distribution'
 import { getMyTrainingTaskPage } from '@/api/dcc/controlledFile/training'
-import {
-  EDHR_WORK_TASK_STATUS_TODO,
-  getEdhrWorkTaskMyPage
-} from '@/api/mes/pro/edhr/workTask'
+import { getEdhrWorkTaskMyPage } from '@/api/mes/pro/edhr/workTask'
 import { ProWorkOrderApi } from '@/api/mes/pro/workorder'
 import { usePermissionStoreWithOut } from '@/store/modules/permission'
 import { useUserStoreWithOut } from '@/store/modules/user'
@@ -119,7 +116,7 @@ const loadEdhrWorkTaskTodoTotal = async () => {
     {
       pageNo: 1,
       pageSize: PROFILE_WORKBENCH_TODO_BADGE_PAGE_SIZE,
-      status: EDHR_WORK_TASK_STATUS_TODO
+      includeOverdue: true
     },
     { ignoreErrorMessage: true }
   )

@@ -563,7 +563,7 @@ const loadDccTrainingRows = async () => {
 
 const loadEdhrRows = async () => {
   const page = await getEdhrWorkTaskMyPage(
-    { pageNo: 1, pageSize: TODO_PAGE_SIZE },
+    { pageNo: 1, pageSize: TODO_PAGE_SIZE, includeOverdue: true },
     { ignoreErrorMessage: true }
   )
   return requirePageList(page, 'eDHR 工作任务').map(mapEdhrWorkTaskRow)

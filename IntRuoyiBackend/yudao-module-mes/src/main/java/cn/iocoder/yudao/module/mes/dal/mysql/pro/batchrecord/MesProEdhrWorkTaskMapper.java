@@ -37,6 +37,15 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
 
+    default PageResult<MesProEdhrWorkTaskDO> selectMyOpenPage(MesProEdhrWorkTaskPageReqVO reqVO,
+                                                          Long assigneeUserId) {
+        return selectPage(reqVO, applyOpenWorkTaskBatchVisibility(
+                baseMyWrapper(reqVO, assigneeUserId, true), reqVO.getTaskType())
+                .in(MesProEdhrWorkTaskDO::getStatus,
+                        MesProEdhrWorkTaskStatus.TODO, MesProEdhrWorkTaskStatus.OVERDUE)
+                .orderByDesc(MesProEdhrWorkTaskDO::getId));
+    }
+
     default PageResult<MesProEdhrWorkTaskDO> selectDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                             Long assigneeUserId) {
         return selectPage(reqVO, applyDoneTaskVisibility(baseMyFilterWrapper(reqVO), assigneeUserId)

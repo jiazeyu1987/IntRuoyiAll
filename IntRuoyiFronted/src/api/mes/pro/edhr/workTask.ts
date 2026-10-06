@@ -26,6 +26,7 @@ export const EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES = [
 export interface EdhrWorkTaskPageReqVO extends PageParam {
   taskType?: string
   status?: string
+  includeOverdue?: boolean
   workOrderCode?: string
   batchCode?: string
   processName?: string

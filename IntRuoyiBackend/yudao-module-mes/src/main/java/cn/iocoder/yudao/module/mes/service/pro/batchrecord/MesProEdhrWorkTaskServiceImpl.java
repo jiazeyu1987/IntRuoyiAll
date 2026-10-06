@@ -161,6 +161,14 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     public PageResult<MesProEdhrWorkTaskRespVO> getMyPage(MesProEdhrWorkTaskPageReqVO reqVO) {
+        if (Boolean.TRUE.equals(reqVO.getIncludeOverdue())) {
+            if (StrUtil.isNotBlank(reqVO.getStatus())) {
+                throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+            }
+            Long userId = requireLoginUserId();
+            PageResult<MesProEdhrWorkTaskDO> page = workTaskMapper.selectMyOpenPage(reqVO, userId);
+            return buildWorkTaskRespPage(page, userId);
+        }
         String status = StrUtil.blankToDefault(reqVO.getStatus(), MesProEdhrWorkTaskStatus.TODO);
         if (!Objects.equals(status, MesProEdhrWorkTaskStatus.TODO)
                 && !Objects.equals(status, MesProEdhrWorkTaskStatus.OVERDUE)) {
