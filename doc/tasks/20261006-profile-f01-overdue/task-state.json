@@ -1,0 +1,131 @@
+{
+  "taskId": "20261006-profile-f01-overdue",
+  "status": "ready_for_closeout",
+  "scope": [
+    "F01"
+  ],
+  "branch": "codex/profile-f01-overdue",
+  "baseCommit": "f68e333e418e0873759a943ff681f8410b5aabb1",
+  "workspace": "E:/IntRuoyiWorktree/profile-f01-overdue/IntRuoyi",
+  "runtime": {
+    "slot": 7,
+    "frontendPort": 8088,
+    "backendPort": 48088,
+    "active": true
+  },
+  "milestones": {
+    "M0": "completed",
+    "M1": "completed",
+    "M2": "completed",
+    "M3": "in_progress"
+  },
+  "verification": {
+    "f01StaticContract": "passed",
+    "adjacentStaticContracts": "passed",
+    "frontendLoaderUnit": "passed_3_of_3",
+    "frontendLint": "passed",
+    "frontendTypes": "failed_preexisting_TS2677_confirmed_HEAD_baseline",
+    "backendQueryTests": "passed_5_of_5_including_2_new_F01_tests",
+    "realE2e": "passed_real_frontend_task_backend_with_user_authorized_simulated_data",
+    "merged": false,
+    "runtimeBackendPackage": "passed_31_modules_original_POM_restored",
+    "simulatedFixtureCleanup": "passed_both_cycles_zero_residuals",
+    "mainAgentReview": "passed_F01_only",
+    "gitDiffCheck": "passed",
+    "cleanup": "core_artifacts_passed_residual_pending_managed_archive"
+  },
+  "blockers": [],
+  "taskRuntimeDirectory": "D:/IntRuoyiTaskRuntime/profile-f01-overdue",
+  "frontendDependencies": "installed_from_frozen_lockfile_task_owned_junction",
+  "runtimeServices": "not_running_at_closeout_preflight",
+  "testSigningSecretAuthorized": true,
+  "baselineRisks": [
+    "全项目类型检查既有TS2677：notifyMessageNavigation.ts:197；HEAD对照同样失败。定向静态门禁已通过，不扩大F01范围修复该模块，不声称全项目类型检查PASS。"
+  ],
+  "simulatedFixtureAuthorized": true,
+  "simulatedFixture": {
+    "simulated": true,
+    "mark": "SIMULATED:F01:20261006-profile-f01-overdue",
+    "tenantId": 1,
+    "userId": 1,
+    "batchExecutionId": 900000001235,
+    "parentWorkOrderId": 1009212217,
+    "tasks": [
+      {
+        "id": 2754,
+        "taskCode": "F01-SIM-20261006-TODO",
+        "status": "TODO",
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/detail?id=900000001235&workTaskId=2754"
+      },
+      {
+        "id": 2755,
+        "taskCode": "F01-SIM-20261006-OVERDUE",
+        "status": "OVERDUE",
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/detail?id=900000001235&workTaskId=2755"
+      },
+      {
+        "id": 2756,
+        "taskCode": "F01-SIM-20261006-DOING",
+        "status": "DOING",
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/detail?id=900000001235&workTaskId=2756"
+      },
+      {
+        "id": 2757,
+        "taskCode": "F01-SIM-20261006-DONE",
+        "status": "DONE",
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/detail?id=900000001235&workTaskId=2757"
+      },
+      {
+        "id": 2758,
+        "taskCode": "F01-SIM-20261006-CANCELED",
+        "status": "CANCELED",
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/detail?id=900000001235&workTaskId=2758"
+      }
+    ]
+  },
+  "e2eEvidence": {
+    "fixtureCycle1": {
+      "batch": 900000001235,
+      "taskIds": [
+        2754,
+        2755,
+        2756,
+        2757,
+        2758
+      ],
+      "visibleStatuses": [
+        "TODO",
+        "OVERDUE"
+      ],
+      "excludedStatuses": [
+        "DOING",
+        "DONE",
+        "CANCELED"
+      ],
+      "hideRestore": "passed_no_status_change_business_badge_unchanged",
+      "formalNavigation": "passed_batch_detail_workTaskId_2755"
+    },
+    "countCycle": {
+      "batch": 900000001237,
+      "taskIds": [
+        2761,
+        2762,
+        2763,
+        2764,
+        2765
+      ],
+      "baselineBadge": 4983,
+      "withFixtureBadge": 4985,
+      "afterCleanupBadge": 4983
+    },
+    "allFixtureRowsRemoved": true
+  },
+  "implementationCommit": "f836485d04cf69f5389d28458719ae66abea6578",
+  "closeout": {
+    "coreArtifactCleanup": "passed",
+    "residualDirectoryCleanup": "pending_managed_archive",
+    "merge": "pending",
+    "archive": "pending",
+    "slotRelease": "pending"
+  }
+}
