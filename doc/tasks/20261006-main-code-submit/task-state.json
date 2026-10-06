@@ -1,10 +1,13 @@
 {
   "taskId": "20261006-main-code-submit",
-  "status": "ready_for_closeout",
+  "status": "completed",
   "milestones": {
     "preflight": "completed",
     "baselineCommit": "completed",
-    "closeout": "pending",
-    "push": "pending"
-  }
+    "closeout": "completed",
+    "push": "completed"
+  },
+  "baselineCommit": "1b0bf53d51bc89cc8527449be52aebe0a335511c",
+  "implementationCommit": "4a2862eae553cd57f09087f27490ba4d1306ffbf",
+  "verifiedRemoteHead": "4a2862eae553cd57f09087f27490ba4d1306ffbf"
 }

@@ -43,6 +43,10 @@
 
 - 基线提交：1b0bf53d51bc89cc8527449be52aebe0a335511c；文件清单为上表18项，1005 insertions、25 deletions。Git pre-commit端口钩子PASS。
 - project-experience-consolidation：核对已有docs/worktree-memory.md的Dirty/Untracked分类门禁，在原节归并“主干快照提交”的冻结与验证边界经验；未新建长期经验文档。
-- 当前任务没有业务实现变更；本任务实现提交范围为上述经验文档及4个任务记录。任务实现提交hash待记录。
-- 状态已同步为ready_for_closeout；cleanup preview/apply与推送结果待记录。
+- 当前任务没有业务实现变更；本任务实现提交：4a2862eae553cd57f09087f27490ba4d1306ffbf；范围为docs/worktree-memory.md及本任务task.md、execution-log.md、verification-report.md、task-state.json，共5文件。
+- 状态已先同步为ready_for_closeout；cleanup preview -> ready，apply -> applied，均exit=0；keep=4、delete=0、blocked=0、warnings=0；主工作区linked=False，未进行worktree合并或删除。
 - 任务文档结构验证：UTF-8、必需标题、task.md/task-state.json状态一致、18行冻结指纹清单均PASS；归并经验后的git diff --check PASS。
+- 推送前端口守卫及pre-push钩子均PASS；git push origin int_main -> exit=0，远端0c8d6cc19推进到4a2862eae。
+- 推送后git ls-remote --exit-code origin refs/heads/int_main = 4a2862eae553cd57f09087f27490ba4d1306ffbf，与本地HEAD完全一致；origin/int_main...int_main=0/0；git status --short --branch只输出分支行，工作区及暂存区干净。
+- cleanup与主干推送实际证据通过后，人工及机器状态同步为completed；最终收尾提交仅包含本任务4个记录，其hash将在随后独立回执中记录，避免把自引用hash写入其自身提交。
+- 收尾记录暂存诊断：普通git add已暂存4个已跟踪记录，但因doc/tasks父目录的ignore规则返回exit=1；git add --dry-run复核同一原因。按任务记录保留要求，对这4个精确路径显式git add -f后重新核对暂存清单与差异；不改变ignore配置，不收集其他忽略文件。

@@ -13,5 +13,7 @@
 - 端口门禁与代码提交：PASS，8081/48081；pre-commit钩子通过；代码基线1b0bf53d51bc89cc8527449be52aebe0a335511c。
 - 经验归并：PASS，更新既有docs/worktree-memory.md的主干快照提交核验边界。
 - 任务文档：PASS，UTF-8、必需标题、机器/人工状态一致、18项冻结清单完整；归并后的git diff --check PASS。
-- cleanup与推送：pending。
+- cleanup：PASS，preview=ready、apply=applied；keep=4、delete=0、blocked=0、warnings=0，未操作其他任务资产或worktree。
+- 主干推送：PASS，git push origin int_main exit=0；远端与本地HEAD均4a2862eae553cd57f09087f27490ba4d1306ffbf，ahead/behind=0/0，工作区干净。
+- 最终结果：起始7个已有提交、18文件代码基线及本任务实现记录已同步远端；本任务完成，收尾记录独立提交后按同一远端HEAD与0/0门禁核对。
 - 未运行业务构建/回归/E2E；本轮授权为主干代码快照提交，不将上述Git核验扩大为业务验收结论。

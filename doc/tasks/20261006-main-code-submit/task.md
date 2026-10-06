@@ -8,8 +8,8 @@
 
 - completed：核对主干、远端、冻结18个文件及内容指纹；远端 behind=0。
 - completed：差异、文件类型、敏感信息和端口门禁验证；独立代码基线提交1b0bf53d5。
-- in_progress：经验归并、任务 ready_for_closeout、cleanup preview/apply。
-- pending：推送并核对远端 HEAD、ahead/behind 和工作区状态。
+- completed：经验归并、任务 ready_for_closeout、cleanup preview/apply；保留4个任务文件，删除0项。
+- completed：主干代码及任务实现记录推送成功，远端HEAD一致、ahead/behind=0/0、工作区干净；最终收尾记录随独立文档提交同步。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
