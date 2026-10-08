@@ -474,3 +474,40 @@
 - 用户回复“已经手动删除了”；顺序实际核验失效index.lock不存在，57项最终实现指纹全部保持。worktree HEAD f68e333e；暂存70项任务资产、四项最新任务记录待重新暂存；未绕过Git hook。
 - 主仓只读实际确认int_main HEAD bf16ef91b52d577d4c3652019439a13c9794787b，相对任务基线13项committed差异与本次实现重叠0，主索引无暂存资产。并行dirty在融合前重新冻结当前指纹；不stash/restore/提交其它资产。
 - 历史工具拒绝保留为环境证据，当前blockers清空；仍为ready_for_closeout，待实际提交、主干融合和归档返回后记录结果，不能提前记completed。
+
+### 2026-10-08T03:46:10.483739+00:00 隔离索引只读及临时仓库验证
+
+- 主仓正常并行推进至476ec5322ab2b8d76ad67308a50eb6c08f980533；已融合UM05的033be6219仍为祖先。实际57源码审计：56项SHA保持，showroom一项仅已审查6行setCanonicalUsername夹具；密码生产实现未改变。只读诊断大小写断言session10100 FAIL后修正case，session21819实际PASS。
+- 子Agent只读放行最终隔离索引提交方案，候选树/实际提交仅5项记录，保留真实主索引非任务条目和并行文件字节。临时独立仓库实际验证：保留并行staged修改和新增、实际候选提交只含自有文件、仅同步自有索引项，均PASS。
+- 临时目录output/playwright/um05-index-selfcheck-3z7ma5le清理：Python因只读Git对象WinError5失败；native PowerShell已核对绝对目录及父边界，但删除操作被工具自动审批拒绝，理由blocked by policy。没有替换工具绕过；需要用户手动删除确切自有临时目录，最终finish/提交增加目录不存在门禁。此拒绝不改变密码修复与业务验证PASS。
+- managed archive Git PID69624持续活跃、目标checkout仍存在，不释放slot9、不误记最终completed。
+
+### 2026-10-08T03:52:53.979321+00:00 用户清理临时目录后恢复
+
+- 用户回复“已经删除”；实际Test-Path确切output/playwright/um05-index-selfcheck-3z7ma5le为False，临时仓库清理PASS；之前自动拒绝保留于历史。
+- 当前int_main HEAD476ec5322ab2b8d76ad67308a50eb6c08f980533，UM05实现仍为已融合祖先。主仓无暂存，docs/local-runtime.md和docs/powershell-memory.md属于并行修改，原处保留。
+- managed archive后台Git PID69624仍活跃，worktree目录实际仍存在。该操作仍在推进，不重启、终止、替代删除或提前释放slot9，等待实际归档完成后再更新最终5项记录。
+
+### 后续并行个人中心兼容复核
+
+主Agent及子Agent只读review PASS：资料5字段白名单不影响密码凭据；本人改密同步锁、快照、异常脱敏和成功清会话保持。实际原始98后端/55前端日志及源镜像SHA核验PASS，当前57指纹单独记录；原真实Playwright E2E/MySQL证据仅对应033已验版本，未复跑新增profile版本。首次源镜像相对路径解析错误FAIL后按manifest所在目录纠正，实际SHA PASS，未改源码。后台managed归档仍运行，不释放slot、不标completed。
+
+### 2026-10-08T07:48:54.747168+00:00 UM-05最终本地融合与收尾
+
+- 用户手动移除失效锁后，原放行57项源码指纹保持；正常提交session87809 exit0，原提交b8a346de5fd6e44a77ba6f171fa36f19438ed183，精确70项任务文件。Git缓慢期间保留活跃锁，没有重启或绕过hook。
+- 对主仓bf16ef91b52d577d4c3652019439a13c9794787b进行无冲突基线衔接，最终实现提交033be6219eb066b7ca9ba157c197979d3618fa18；精确70授权路径及57源码LF SHA再次实际PASS。未改生产/测试代码，未重跑或伪称新业务测试。
+- 首轮标准FF被--no-overwrite-ignore保护中止，阻挡为主仓同任务目录9份ignored旧记录，HEAD未动；仅恢复9项自有索引准备，60项并行字节全保持。旧目录21份资产原始SHA归档至任务专用output，子Agent只读确认旧379行日志是当前日志完整前缀，旧报告实际证据全部保留，过期pending不覆盖新PASS。增强预演显式核对所有incoming路径的ignored/untracked覆盖冲突后再运行。
+- 子Agent只读复核9个Java17前置与真实并行夹具差异，并复审融合脚本；临时索引仅准备目标提交9个blob，标准read-tree -m -u -n实际preview PASS。真实主索引仅准备同9项后标准git merge --ff-only --no-autostash --no-overwrite-ignore实际exit0；post-merge端口guard PASS。没有stash/reset/restore、提交并行夹具或额外merge commit。最终记录由已审查隔离索引脚本单独提交，候选树和实际提交精确5项；真实索引其它条目和无关工作文件保持，避免夹带其它任务暂存。
+- 标准FF刚完成时HEAD精确等于实现提交、索引与HEAD一致；60项原主仓并行文件原始字节全保持。9项前置中8项clean、另一项仅剩原6行夹具增加，逐字diff全保持。完整70路径交付、57任务源码与已测清单全一致。后续并行提交72cfde8e0ab5d658ee56abb88624c258bec7f0c4为实现提交直接后继，只与showroom前置测试相交6行canonicalUsername夹具增加；截至上述并行提交时56项SHA保持、另1项仅这6行；后续个人中心6c22418e另改用户服务、密码页及其行为回归3项，当前共4项不同，见后续兼容复核证据。只读SHA诊断session10100因setter大小写断言失误FAIL，纠正为setCanonicalUsername后session21819实际PASS，未改源码。
+- 原cleanup preview14keep20delete0block0warning、apply20删除PASS保持；主仓合入后再次preview14keep0delete0block0warning、apply0删除PASS；正式测试、13核心记录与正式证据均保留。任务运行实例/测试账号已清理，8090/48090free；main48081在融合前只读观察PID7252，后续只读观察该PID已退出且48081无监听，属于外部变化；本任务无主服务启停，不复用旧4056/PID不变证据。
+- Codex managed archive实际完成，目标checkout不存在且实现已在int_main；slot9在预约脚本同名mutex内唯一匹配路径/分支后标为inactive，其它登记项语义逐项相同。没有删除其它worktree、停止共享服务或数据库写入。
+- 长期密码/登录经验已合并已有docs/login-access.md；历史H2/TS/harness失败与自动工具拒绝记录保留，旧Git锁阻塞已解除。任务completed；最终提交采用隔离索引，仅含本任务5项收尾记录，真实主索引其它条目和并行文件保护，提交结果/hash以实际Git log为准（记录不能自包含自身hash）。不推送、发布或重启main。
+
+- 后续个人中心改动：主Agent和um05_parallel_prerequisite_review子Agent沿资料白名单更新、本人改密、接口异常、会话清理、强制改密及令牌服务复核PASS；原密码事务/校验/历史/令牌撤销未变，当前57源码LF指纹另存post_integration_adjacent_review。只读核对该任务实际98后端测试及55前端行为测试0失败/错误/跳过、5 SFC编译及8项定向lint；这些是新增版本的受控回归，不替代原033版本真实Playwright E2E/MySQL证据，未复跑新增版本真实E2E/MySQL。全仓TS2677/TS1149基线失败仍保留。
+
+### 2026-10-08T07:49:44.793316+00:00 归档结束后的实际收尾复核
+
+- 原等待session12793实际exit1：观察到归档进程结束时实体目录尚存在；后续独立只读核对原目录不存在、精确Git worktree登记不存在、PID69624不存在，Codex归档附件身份一致。未再次删除目录、prune Git登记或终止活跃归档。只读监控session45081正常exit0。
+- 用户手动清理的隔离索引验证临时目录再次确认不存在。按当前实际状态顺序运行prepare-release、专属slot9释放及finish，三步均实际exit0；释放证据PASS、8090/48090无监听、其余70条登记语义保持。最终本地提交只允许本任务五份收尾记录，完成结论以实际提交和独立最终核验为准。
+
+- 2026-10-08T07:51:04.537299+00:00 最终五项记录首次隔离索引暂存exit1，原因是.git/info/exclude:17的/doc/tasks/*/目录忽略规则；实际HEAD保持5b77574d94096efda06160a88320ee4139c86b5a，真实主索引无暂存。只读确认原私有索引实际仅暂存这五项，未执行提交；保留首次私有索引作诊断，按显式五路径git add -f及新的独立私有索引重新执行。未变更忽略规则或暂存其它路径。

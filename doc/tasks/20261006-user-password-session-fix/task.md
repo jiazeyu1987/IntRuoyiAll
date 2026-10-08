@@ -31,7 +31,7 @@
 - [x] M0：独立 worktree、端口/依赖/工具前置与原问题核验（业务运行待 M2）。
 - [x] M1：UM-05/S-01 最小代码及对应定向回归。
 - [x] M2：静态验证、代码评审、真实页面 E2E。
-- [ ] M3：仅通过后清理、任务提交、融合主代码及最终验证。
+- [x] M3：仅通过后清理、任务提交、融合主代码及最终验证。
 
 ## Expected Verification
 
@@ -50,7 +50,9 @@
 
 ## Current Status
 
-ready_for_closeout — M2全部实际PASS：后端257、前端50、Java17标准31模块package、静态及完整ESLint、真实Playwright密码/双会话/唯一提交、MySQL旧RR生产服务。测试账号已UI删除且活动令牌0，临时产物及任务运行实例清理已完成。M3提交/融合/归档被失效Git锁阻塞；用户已授权清理，但自动工具策略仍拒绝确切文件删除，需外部移除锁后继续。不push、不启停主48081。
+completed
+
+UM-05/S-01原放行版本静态业务链、后端257、前端50、Java17标准构建、真实Playwright E2E和MySQL旧RR验证通过；任务代码已快进融合int_main，主仓并行修改字节保持，独立worktree已managed归档。后续个人中心3项交集另经主Agent和子Agent静态兼容审查，并核对98后端/55前端定向回归证据；未复跑该新增版本真实E2E或MySQL。slot9释放通过，最终5项收尾记录采用隔离索引单独提交，实际hash以Git log为准。本任务未push、发布或重启主48081。
 
 ## Cleanup Keep
 

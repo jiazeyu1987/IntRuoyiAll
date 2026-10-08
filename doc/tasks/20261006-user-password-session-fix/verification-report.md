@@ -2,7 +2,7 @@
 
 ## Decision
 
-PASS — 主Agent已放行第一项UM-05/S-01代码，M2所需静态、定向回归、真实页面E2E和MySQL并发核验均实际通过。当前ready_for_closeout，临时产物和任务运行实例已实际清理；本地任务提交、主干融合及worktree归档被Git锁阻塞，尚未完成。
+PASS — UM-05/S-01原033版本静态逐节点审查和实际验证通过并已快进融合int_main；后续个人中心3项交集另经静态兼容审查及98/55既有定向回归证据核验，新增版本真实E2E/MySQL未复跑。managed归档及slot9释放通过，历史Git锁拒绝已解除；最终5项任务记录采用隔离索引单独本地提交，结果以实际提交及Git log为准。
 
 ## Requirement To Evidence
 
@@ -16,7 +16,7 @@ PASS — 主Agent已放行第一项UM-05/S-01代码，M2所需静态、定向回
 
 ## Business Chain Static Review
 
-主Agent按实际入口逐节点复核，以下不是关键词命中结论。代码依据中的B表示`IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/`，F表示`IntRuoyiFronted/src/`，W表示`IntRuoyiBackend/yudao-framework/`。方法锚点与行号来自当前worktree。正式测试结果沿用此前实际运行证据；本轮57项实现/测试/经验文件的UTF-8/LF SHA全部与放行清单一致，没有重跑或扩大测试范围。
+主Agent按实际入口逐节点复核，以下不是关键词命中结论。代码依据中的B表示`IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/`，F表示`IntRuoyiFronted/src/`，W表示`IntRuoyiBackend/yudao-framework/`。本表方法锚点、行号和57项UTF-8/LF SHA一致结论均对应原033融合时已验版本，正式测试沿用当时实际证据。后续个人中心新增3项交集的当前行号、指纹和验证边界单独列于Post-integration Compatibility Review，不将此表旧行号或旧E2E冒充当前版本的新验证。
 
 | 业务节点 | 前置、输入、处理和下游结果 | 当前代码依据与审查结论 |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ PASS — 主Agent已放行第一项UM-05/S-01代码，M2所需静态、定向回
 | 重置后重新登录 | 正式INITIAL/RESET_REQUIRED生成passwordChangeRequired；登录页面优先进入个人中心密码tab，路由动态加载保留该目标，主动改密ACTIVE后普通新登录正常进入。 | B/service/oauth2/OAuth2TokenServiceImpl.java/passwordChangeRequired:340；F/views/Login/components/LoginForm.vue:256；F/permission.ts:84。PASS，原SSO/redirect不覆盖强制改密目标；双浏览器旧会话401与新密码登录DOM另证。 |
 | 审计与拒绝分支隐私 | 元数据filter在访问日志filter之前，为两个正式映射提供requestEnable=false和固定URI；认证/租户/权限/HTTP方法提前拒绝仍受保护。访问/错误日志不读body/query，异常只保留类型/安全栈，业务错误码保留，LogRecord仅安全目标字段。 | B/framework/web/config/SystemWebConfiguration.java/passwordRequestLogMetadataFilter:24；B/framework/web/core/filter/PasswordRequestLogMetadataFilter.java/doFilterInternal:85；W/yudao-spring-boot-starter-web/src/main/java/cn/iocoder/yudao/framework/apilog/core/filter/ApiAccessLogFilter.java/doFilterInternal:67；同模块framework/web/core/handler/GlobalExceptionHandler.java/buildExceptionLog:432、protectedExceptionHandler:482；B/service/user/AdminUserServiceImpl.java:334、352。PASS，37项正式隐私回归另证；普通接口原行为不作为密码入口隐私证明。 |
 
-上述业务链静态PASS仅适用于UM-05/S-01及已核对的当前源码。融合未完成：失效Git锁和工具删除拒绝仍是M3环境阻塞，不能用静态放行代替合并证据。
+上述业务链静态PASS对应UM-05/S-01原033已核对源码。实现已通过标准快进融合，当时57项实现文件提交指纹与原已测版本一致、60项主仓并行文件字节保持；后续新增个人中心改动单独按下方兼容章节审查。独立worktree实体清理已完成，目录与Git登记实际不存在，详见Closeout。
 
 ## Actual Verification
 
@@ -60,15 +60,29 @@ PASS — 主Agent已放行第一项UM-05/S-01代码，M2所需静态、定向回
 
 ## Runtime And Data Boundary
 
-用户回复“恢复”后只读核对，正式本机127.0.0.1:23306/ruoyi-vue-pro及测试数据实际存在。此前ruoyi1049来自错误库名假设，未执行恢复、创建库或覆盖数据。主48081 PID4056未停止/重启；共享admin凭据和权限未修改。只处理本任务资产，不基线提交主仓其它并行脏文件，不push/发布。最近AGENTS权限/归属规则覆盖旧closeout文档默认全脏提交和push要求。
+用户回复“恢复”后只读核对，正式本机127.0.0.1:23306/ruoyi-vue-pro及测试数据实际存在。此前ruoyi1049来自错误库名假设，未执行恢复、创建库或覆盖数据。任务验证时主48081 PID4056未被本任务停止/重启；后续外部换为PID7252（2026-10-07T16:32:11+08），融合过程中又观察该PID退出且48081无监听；本任务无主服务启停。共享admin凭据和权限未修改。只处理本任务资产，不基线提交主仓其它并行脏文件，不push/发布。最近AGENTS权限/归属规则覆盖旧closeout文档默认全脏提交和push要求。
+
+## Post-integration Compatibility Review
+
+PASS（只读静态兼容性）— 原033be6219版本的真实Playwright E2E、MySQL核验及257后端/50前端验证已完成并支持当时融合；其后并行个人中心6c22418e修改3项交集，不能把旧源码指纹或旧E2E标为该新增版本的复跑结果。
+
+| 当前节点 | 代码及证据 | 兼容结论 |
+| --- | --- | --- |
+| 资料写入与密码字段隔离 | AdminUserServiceImpl.java/updateUserProfile:310；ProfileUpdateHttpContractSupport.java/assertProtectedFields:108 | 只写昵称、邮箱、手机、性别和头像；空AdminUserDO没有密码默认值，受保护密码/状态/身份字段实际HTTP/H2合同检查保持。本人/管理员改密的锁、旧密码、强度、历史、事务、全部token撤销未改。 |
+| 本人改密与异常结果 | ResetPwd.vue/submit:88、isFieldValidationError:73 | 同步提交锁保留；真实校验结果与输入快照一致才提交；失败保留输入/会话；成功清密码及会话后导航。程序、请求、清理和导航异常均固定安全文案，没有新增密码回显。 |
+| 并发与隐私回归 | profile-reset-password-submit-behavior.spec.cjs:244、309、382；system-user-password-session-behavior.spec.cjs | 真实SFC/规则与受控transport覆盖重复提交、校验中变更零请求、失败重试、脱敏及清理/导航异常；原真实Pinia/router会话回归更新后保留。 |
+
+- 主Agent及um05_parallel_prerequisite_review子Agent实际review PASS；当前57项源码LF SHA单独保存于integration-file-manifest.json的post_integration_adjacent_review，其中53项不变，另4项为showroom原6行夹具和上述profile3项。
+- 只读核验该并行任务原始日志、报告及不可变镜像：实际后端98项（含用户服务80项）、前端55项0失败/错误/跳过，5 SFC编译和8项定向lint PASS；当前共享源码及相关回归脚本与镜像LF指纹匹配，原始证据SHA一致。未重新运行这些测试，不将受控测试称为真实页面E2E。
+- 后续profile版本真实E2E、MySQL和完整安全过滤链未复跑。原UM05真实证据保留且注明版本；本次兼容复核未扩大实现范围。全仓TypeScript仍有TS2677、TS1149基线失败。
 
 ## Closeout
 
-ready_for_closeout — 实现与全部要求验证通过，cleanup preview/apply已实际通过；任务本地commit、融合和归档尚未完成。
+completed — UM-05/S-01本地交付通过；原历史阻塞不代表当前状态。
 
-- M3当前实际BLOCKED（2026-10-07T14:35:50+08:00）：用户已明确授权清理失效锁；顺序进程核对未发现仓库Git进程后，确切index.lock删除命令仍被工具自动审批拒绝，理由仅为blocked by policy。锁仍0字节、HEAD仍f68e333e、70项任务暂存保留；当前任务记录待重新暂存。授权不再是阻塞，工具策略拒绝才是阻塞，未提交、融合、归档或释放slot9。没有改用其它工具绕过拒绝。
-- 2026-10-07T14:47:01+08:00第三个恢复轮次只读核验仍为锁0字节、Git进程[]、HEAD f68e333e，无法推进提交/融合；update_goal实际返回blocked。12节点静态审查依据及已通过的实际验证证据保留，等待外部移除确切失效锁后恢复，未标记completed。
-- 2026-10-08T08:49:23+08:00用户要求再试一次；核对当前Git状态读取进程未持有该旧锁后重试确切PowerShell删除，工具再次拒绝blocked by policy；只读确认锁仍0字节，提交/融合未执行。get_goal返回active，本次恢复阻塞审计为第1轮；本轮未重新运行业务测试，不改变原验证证据。
-- 2026-10-08T08:52:38+08:00第3个恢复轮次实际只读核验锁仍0字节、仓库Git进程[]、HEAD f68e333e；同一阻塞未解除，update_goal实际返回blocked。当前未提交融合，保留ready_for_closeout及已验证源码/证据，等待外部锁清理后继续。
-
-- 2026-10-07T05:05:50+08:00只读复查：失效锁仍存在、暂无任务git进程，70项暂存/57源码指纹保持，未提交融合。主仓44项并行dirty含9个与本任务内容完全相同的Java17前置测试；merge前重取当前快照并保持并行资产。仍等待失效锁的确切授权。
+- 实现提交：033be6219eb066b7ca9ba157c197979d3618fa18，父提交bf16ef91b52d577d4c3652019439a13c9794787b；原提交b8a346de5fd6e44a77ba6f171fa36f19438ed183。实际融合时70精确授权路径、57项源码规范LF指纹和原已验证版本一致。后续个人中心改动的3项交集和并行showroom夹具另经复核，当前57指纹见integration-file-manifest.json的post_integration_adjacent_review；不得把原E2E解释为新增版本复跑。
+- 主Agent及子Agent融合过程复核PASS；临时索引standard read-tree dry-run PASS，真实git merge --ff-only --no-autostash --no-overwrite-ignore exit0及post-merge端口guard PASS。标准FF刚完成时主HEAD等于目标提交，索引无暂存；随后并行任务提交72cfde8e0ab5d658ee56abb88624c258bec7f0c4收录6行showroom夹具；6c22418e修改个人中心3项交集，静态兼容复核及新增定向98/55回归证据见上节。
+- 60项并行主仓文件原始字节全部保留，融合时9个构建前置中8个clean、1个保留准确6行并行夹具变更；后续6行由上述并行提交收录。未提交其它任务或扩大密码修复范围。
+- cleanup原实际preview/apply PASS；真实UI任务账号删除及SELECT-only活动账号/token0；任务runtime关闭、8090/48090free。主48081的PID7252在融合途中被只读观察为外部退出、当时无监听；本任务没有启停或重启主服务。
+- Codex managed worktree归档成功、原checkout不存在；同预约mutex释放且仅释放slot9，其它登记完整保持。分支实现已融合，本任务未push或发布。
+- 最终5项任务记录采用隔离索引单独本地提交；实际提交结果由Git log定位。全仓TypeScript既有TS2677及后续并行基线TS1149仍未修，不将目标修复PASS解释为全仓全部通过。
