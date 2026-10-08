@@ -33,6 +33,11 @@ export const getRefreshToken = () => {
 // 设置token
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
+  setRefreshedToken(token)
+}
+
+// 同一会话续期只更新令牌，保留当前身份、菜单和访问租户。
+export const setRefreshedToken = (token: TokenType) => {
   wsCache.set(RefreshTokenKey, token.refreshToken)
   wsCache.set(AccessTokenKey, token.accessToken)
 }

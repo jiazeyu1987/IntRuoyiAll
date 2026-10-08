@@ -181,7 +181,7 @@ import {
 } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
 import { usePermissionStore } from '@/store/modules/permission'
-import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
 import { checkPermi } from '@/utils/permission'
 
@@ -339,9 +339,11 @@ const buildPageQuery = (): ProfileWorkbenchTodoQuery => {
 
 const currentQueryKey = () => JSON.stringify(buildPageQuery())
 
+const hasAuthenticatedUser = () => Boolean(getAccessToken()) && userStore.getUser.id > 0
+
 const tryCommitPage = (token: PageToken, commit: () => void) => {
   if (
-    disposed || token.generation !== requestGeneration || token.scopeKey !== pageScopeKey() ||
+    disposed || !hasAuthenticatedUser() || token.generation !== requestGeneration || token.scopeKey !== pageScopeKey() ||
     token.queryKey !== currentQueryKey()
   ) return false
   commit()
@@ -369,6 +371,12 @@ const pageMatchesBadgeSources = (query: ProfileWorkbenchTodoQuery, token: Profil
   JSON.stringify(normalizeProfileWorkbenchSources(token.badgeSources))
 
 const loadWorkbench = async (): Promise<boolean> => {
+  if (disposed) return false
+  if (!hasAuthenticatedUser()) {
+    invalidatePage()
+    profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
+    return false
+  }
   if (visibilityWritePending.value) return false
   const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
   invalidatePage()
@@ -400,13 +408,17 @@ const loadWorkbench = async (): Promise<boolean> => {
       hiddenTotal.value = undefined
       loadErrorMessages.value = [resolveErrorMessage(error, '待办任务加载失败，请重试。')]
     })
-    if (suppliesBadge) profileWorkbenchTodoBadgeStore.tryCommit(badge, {
-      loaded: false, error: resolveErrorMessage(error, '待处理数量加载失败')
+    if (suppliesBadge) tryCommitPage(token, () => {
+      profileWorkbenchTodoBadgeStore.tryCommit(badge, {
+        loaded: false, error: resolveErrorMessage(error, '待处理数量加载失败')
+      })
     })
     return false
   } finally {
     tryCommitPage(token, () => { loading.value = false })
-    if (suppliesBadge) profileWorkbenchTodoBadgeStore.tryCommit(badge, { loading: false })
+    if (suppliesBadge) tryCommitPage(token, () => {
+      profileWorkbenchTodoBadgeStore.tryCommit(badge, { loading: false })
+    })
     if (badgeRefresh) {
       const error = await badgeRefresh
       if (error !== undefined) {

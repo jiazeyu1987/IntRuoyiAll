@@ -22,7 +22,7 @@ assert.equal(
 assert.match(
   axiosService,
   /const\s+refreshTokenPayload\s*=\s*refreshTokenRes\.data/,
-  'refresh-token response must be normalized before calling setToken'
+  'refresh-token response must be normalized before persisting renewed tokens'
 )
 assert.match(
   axiosService,
@@ -41,7 +41,7 @@ assert.match(
 )
 assert.match(
   axiosService,
-  /setToken\(\s*refreshTokenPayload\.data\s*\)/,
+  /setRefreshedToken\(\s*refreshTokenPayload\.data\s*\)/,
   'token persistence must use the validated payload data'
 )
 assert.match(
@@ -51,10 +51,10 @@ assert.match(
 )
 
 const validationIndex = axiosService.indexOf('refreshCode !== 0 && refreshCode !== 200')
-const persistenceIndex = axiosService.indexOf('setToken(refreshTokenPayload.data)')
+const persistenceIndex = axiosService.indexOf('setRefreshedToken(refreshTokenPayload.data)')
 assert.ok(
   validationIndex >= 0 && persistenceIndex > validationIndex,
-  'business failure validation must run before setToken'
+  'business failure validation must run before setRefreshedToken'
 )
 
-console.log('PASS: refresh-token business failures route to re-login before setToken')
+console.log('PASS: refresh-token business failures route to re-login before renewed token persistence')

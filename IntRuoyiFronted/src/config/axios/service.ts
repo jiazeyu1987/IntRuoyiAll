@@ -9,7 +9,7 @@ import {
   getTenantId,
   getVisitTenantId,
   removeToken,
-  setToken
+  setRefreshedToken
 } from '@/utils/auth'
 import errorCode from './errorCode'
 
@@ -194,11 +194,11 @@ service.interceptors.response.use(
     } else if (code === 401) {
       // 如果未认证，并且未进行刷新令牌，说明可能是访问令牌过期了
       if (!isRefreshToken) {
-        isRefreshToken = true
         // 1. 如果获取不到刷新令牌，则只能执行登出操作
         if (!getRefreshToken()) {
           return handleAuthorized()
         }
+        isRefreshToken = true
         // 2. 进行刷新访问令牌
         try {
           const refreshTokenRes = await refreshToken()
@@ -215,7 +215,7 @@ service.interceptors.response.use(
             throw createApiError(t('sys.api.timeoutMessage'), refreshCode, refreshTokenPayload)
           }
           // 2.1 刷新成功，则回放队列的请求 + 当前请求
-          setToken(refreshTokenPayload.data)
+          setRefreshedToken(refreshTokenPayload.data)
           ;(config.headers as RequestCustomHeaders).Authorization = 'Bearer ' + getAccessToken()
           requestList.forEach((cb: any) => {
             cb()
@@ -322,7 +322,7 @@ const handleAuthorized = () => {
   if (!isRelogin.show) {
     // 如果已经到登录页面则不进行弹窗提示
     if (window.location.href.includes('login')) {
-      return
+      return Promise.reject(t('sys.api.timeoutMessage'))
     }
     isRelogin.show = true
     ElMessageBox.confirm(t('sys.api.timeoutMessage'), t('common.confirmTitle'), {

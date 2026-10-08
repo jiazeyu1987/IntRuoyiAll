@@ -1,0 +1,15 @@
+{
+  "taskId": "20261008-profile-session-boundary-fixes",
+  "status": "ready_for_closeout",
+  "milestone": "M3",
+  "baseCommit": "5b77574d94096efda06160a88320ee4139c86b5a",
+  "blockers": [],
+  "verificationBoundary": "controlled behavior tests and static review; no real E2E/database writes",
+  "integrationAuthorized": true,
+  "integrationAuthorization": "2026-10-08 user reply 授权 to commit this fix, push the repair branch, and integrate into local int_main; main-branch push and runtime deployment not included",
+  "cleanup": {"mode": "preview then apply; worktree-closeout off", "result": "PASS exit 0", "kept": 5, "deleted": 0, "warnings": 0, "blocked": 0, "integration": "AUTHORIZED; precise commit/rebase/push/fast-forward integration and managed archive pending"},
+  "workspace": "E:/IntRuoyiWorktree/profile-session-boundaries/IntRuoyi",
+  "branch": "codex/profile-session-boundaries",
+  "slot": 7,
+  "verification": {"newBehaviorTests": "8/8 PASS", "existingBehaviorTests": "55/55 PASS", "staticContracts": "4/4 PASS", "targetEslint": "PASS exit 0", "sfcCompile": "3/3 PASS", "fullTypes": "BLOCKED: baseline and fixed exit 2; identical three diagnostics", "independentReview": "PASS: frontend chain and backend formal identity/persistence/revocation/refresh contracts", "realE2E": "NOT RUN: not requested this turn"}
+}
