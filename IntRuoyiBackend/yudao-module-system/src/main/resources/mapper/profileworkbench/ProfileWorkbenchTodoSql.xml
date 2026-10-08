@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.system.api.profileworkbench.ProfileWorkbenchTodoSql">
+<sql id="normalizedProjection">
+SELECT b.*, CASE WHEN due_at IS NULL THEN 1 ELSE 0 END AS due_group,
+COALESCE(due_at, CAST('1970-01-01 00:00:00' AS DATETIME)) AS due_sort,
+CASE WHEN due_at IS NULL THEN COALESCE(created_at, CAST('1970-01-01 00:00:00' AS DATETIME))
+ELSE CAST('1970-01-01 00:00:00' AS DATETIME) END AS created_sort
+FROM (<include refid="${baseRef}"/>) b
+</sql>
+<sql id="where">
+<where>
+<if test="q.taskType != null">AND CAST(r.task_type AS BINARY) = CAST(#{q.taskType} AS BINARY)</if>
+<if test="q.filterField != null and q.filterValue != null and q.filterValue != ''">
+AND
+<choose><when test="q.filterField == 'source'"><choose><when test="q.filterOperator == 'eq'">CAST(COALESCE(r.source, '') AS BINARY) = CAST(#{q.filterValue} AS BINARY)</when><otherwise>LOCATE(CAST(#{q.filterValue} AS BINARY), CAST(COALESCE(r.source, '') AS BINARY)) &gt; 0</otherwise></choose></when><when test="q.filterField == 'detail'"><choose><when test="q.filterOperator == 'eq'">CAST(COALESCE(r.detail, '') AS BINARY) = CAST(#{q.filterValue} AS BINARY)</when><otherwise>LOCATE(CAST(#{q.filterValue} AS BINARY), CAST(COALESCE(r.detail, '') AS BINARY)) &gt; 0</otherwise></choose></when><when test="q.filterField == 'statusLabel'"><choose><when test="q.filterOperator == 'eq'">CAST(COALESCE(r.status_label, '') AS BINARY) = CAST(#{q.filterValue} AS BINARY)</when><otherwise>LOCATE(CAST(#{q.filterValue} AS BINARY), CAST(COALESCE(r.status_label, '') AS BINARY)) &gt; 0</otherwise></choose></when><otherwise>1 = 0</otherwise></choose>
+</if>
+<if test="q.visibility != null">
+AND <if test="q.visibility == 'visible'">NOT</if> EXISTS (
+SELECT 1 FROM system_profile_workbench_task_visibility v
+WHERE v.tenant_id = #{q.tenantId} AND v.user_id = #{q.userId} AND v.deleted = 0
+AND CAST(v.task_key AS BINARY) = CAST(r.task_key AS BINARY))
+</if>
+</where>
+</sql>
+<sql id="after">
+<if test="after != null">
+AND (
+<if test="q.sortKey != null"><choose><when test="q.sortKey == 'taskType'">CAST(COALESCE(r.task_type, '') AS BINARY)</when><when test="q.sortKey == 'source'">CAST(COALESCE(r.source, '') AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(COALESCE(r.detail, '') AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(COALESCE(r.status_label, '') AS BINARY)</when><otherwise>CAST('' AS BINARY)</otherwise></choose> <choose><when test="q.sortOrder == 'desc'">&lt;</when><otherwise>&gt;</otherwise></choose> <choose><when test="q.sortKey == 'taskType'">CAST(COALESCE(#{after.taskType}, '') AS BINARY)</when><when test="q.sortKey == 'source'">CAST(COALESCE(#{after.source}, '') AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(COALESCE(#{after.detail}, '') AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(COALESCE(#{after.statusLabel}, '') AS BINARY)</when><otherwise>CAST('' AS BINARY)</otherwise></choose> OR (<choose><when test="q.sortKey == 'taskType'">CAST(COALESCE(r.task_type, '') AS BINARY)</when><when test="q.sortKey == 'source'">CAST(COALESCE(r.source, '') AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(COALESCE(r.detail, '') AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(COALESCE(r.status_label, '') AS BINARY)</when><otherwise>CAST('' AS BINARY)</otherwise></choose> = <choose><when test="q.sortKey == 'taskType'">CAST(COALESCE(#{after.taskType}, '') AS BINARY)</when><when test="q.sortKey == 'source'">CAST(COALESCE(#{after.source}, '') AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(COALESCE(#{after.detail}, '') AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(COALESCE(#{after.statusLabel}, '') AS BINARY)</when><otherwise>CAST('' AS BINARY)</otherwise></choose> AND </if>
+((r.due_group &gt; CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END) OR (r.due_group = CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END AND r.due_sort &gt; COALESCE(#{after.dueAt}, CAST('1970-01-01 00:00:00' AS DATETIME))) OR (r.due_group = CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END AND r.due_sort = COALESCE(#{after.dueAt}, CAST('1970-01-01 00:00:00' AS DATETIME)) AND r.created_sort &lt; CASE WHEN #{after.dueAt} IS NULL THEN COALESCE(#{after.createdAt}, CAST('1970-01-01 00:00:00' AS DATETIME)) ELSE CAST('1970-01-01 00:00:00' AS DATETIME) END) OR (r.due_group = CASE WHEN #{after.dueAt} IS NULL THEN 1 ELSE 0 END AND r.due_sort = COALESCE(#{after.dueAt}, CAST('1970-01-01 00:00:00' AS DATETIME)) AND r.created_sort = CASE WHEN #{after.dueAt} IS NULL THEN COALESCE(#{after.createdAt}, CAST('1970-01-01 00:00:00' AS DATETIME)) ELSE CAST('1970-01-01 00:00:00' AS DATETIME) END AND r.numeric_id &lt; #{after.numericId}))
+<if test="q.sortKey != null">)</if>
+)
+</if>
+</sql>
+<sql id="order">
+ORDER BY <if test="q.sortKey != null"><choose><when test="q.sortKey == 'taskType'">CAST(COALESCE(r.task_type, '') AS BINARY)</when><when test="q.sortKey == 'source'">CAST(COALESCE(r.source, '') AS BINARY)</when><when test="q.sortKey == 'detail'">CAST(COALESCE(r.detail, '') AS BINARY)</when><when test="q.sortKey == 'statusLabel'">CAST(COALESCE(r.status_label, '') AS BINARY)</when><otherwise>CAST('' AS BINARY)</otherwise></choose> <choose><when test="q.sortOrder == 'desc'">DESC</when><otherwise>ASC</otherwise></choose>,</if>
+r.due_group ASC, r.due_sort ASC, r.created_sort DESC, r.numeric_id DESC
+</sql>
+</mapper>

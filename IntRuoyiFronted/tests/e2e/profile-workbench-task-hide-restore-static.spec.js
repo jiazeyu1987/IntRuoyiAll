@@ -38,16 +38,15 @@ assert(
   'profile workbench must persist restore actions through system API'
 )
 assert(
-  profileWorkbench.includes('getProfileWorkbenchHiddenTaskKeys') &&
-    profileWorkbench.includes('hideProfileWorkbenchTask') &&
+  profileWorkbench.includes('hideProfileWorkbenchTask') &&
     profileWorkbench.includes('restoreProfileWorkbenchTask'),
-  'ProfileWorkbench must call hidden-key, hide, and restore APIs'
+  'ProfileWorkbench must retain formal hide and restore APIs'
 )
 assert(
   profileWorkbench.includes('activeVisibilityTab') &&
-    profileWorkbench.includes('visibleRows') &&
-    profileWorkbench.includes('hiddenRows'),
-  'ProfileWorkbench must split visible and hidden rows instead of removing data blindly'
+    profileWorkbench.includes('hiddenTotal') &&
+    profileWorkbench.includes('visibility: activeVisibilityTab.value'),
+  'server owns complete visible and hidden filtering'
 )
 assert(
   profileWorkbench.includes('handleHideTodo') && profileWorkbench.includes('handleRestoreTodo'),
@@ -61,3 +60,9 @@ assert(
   profileWorkbench.includes('profileWorkbenchTodoBadgeStore.refreshTodoTotal()'),
   'ProfileWorkbench must refresh the badge after hide/restore changes'
 )
+
+
+assert(!profileWorkbench.includes('hiddenTaskKeys'), 'no local hidden-key intersection')
+assert.match(profileWorkbench, /actionTaskKey\.value = row\.taskKey[\s\S]*beginBadgeUpdate\(\)[\s\S]*invalidatePage\(\)[\s\S]*await restoreProfileWorkbenchTask/)
+assert.match(profileWorkbench, /writeSucceeded = true[\s\S]*await loadWorkbench\(\)/)
+assert.match(profileWorkbench, /任务已恢复，但列表刷新失败|任务已隐藏，但列表刷新失败/)

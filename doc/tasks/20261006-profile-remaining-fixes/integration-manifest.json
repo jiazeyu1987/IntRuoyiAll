@@ -1,0 +1,239 @@
+{
+  "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+  "branch": "codex/profile-remaining-fixes",
+  "taskOwnedPaths": [
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+    "IntRuoyiFronted/src/store/modules/profileWorkbenchTodoBadge.ts",
+    "IntRuoyiFronted/src/views/Profile/components/BasicInfo.vue",
+    "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue",
+    "IntRuoyiFronted/src/views/Profile/components/ResetPwd.vue",
+    "IntRuoyiFronted/src/views/showroom-admin/assignment/AssignmentWorkbench.vue",
+    "IntRuoyiFronted/src/views/showroom-admin/index.vue",
+    "IntRuoyiFronted/tests/e2e/edhr-work-task-notify-workbench-fill-navigation-static.spec.js",
+    "IntRuoyiFronted/tests/e2e/profile-unified-todo-list-static.spec.js",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-system-error-static.spec.cjs",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-task-hide-restore-static.spec.js",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-todo-badge-static.spec.js",
+    "IntRuoyiFronted/tests/e2e/system-user-password-session-behavior.spec.cjs",
+    "docs/backend-development.md",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccWorkbenchTodoMapper.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/resources/mapper/profileworkbench/DccWorkbenchTodoMapper.xml",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/MesWorkbenchTodoMapper.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesOpenWorkTaskVisibility.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+    "IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/dal/mysql/workflow/ShowroomWorkbenchTodoMapper.java",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/workflow/service/ShowroomAssignmentWorkbenchSource.java",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/resources/mapper/profileworkbench/ShowroomWorkbenchTodoMapper.xml",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunkDTO.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunks.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoQueryDTO.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoRowDTO.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSortContract.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSource.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSourceId.java",
+    "IntRuoyiBackend/yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/controller/admin/oauth2/OAuth2UserProfileUpdateContractTest.java",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/controller/admin/user/UserProfileControllerContractTest.java",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/ProfileUpdateHttpContractSupport.java",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserProfileUpdateReqVOValidationTest.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/controller/admin/profileworkbench/ProfileWorkbenchTodoController.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountReqVO.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountRespVO.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageReqVO.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageRespVO.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoQueryService.java",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoReadTransaction.java",
+    "IntRuoyiFronted/src/api/system/profileWorkbenchTodo/index.ts",
+    "IntRuoyiFronted/tests/e2e/profile-basic-info-optional-contact-behavior.spec.cjs",
+    "IntRuoyiFronted/tests/e2e/profile-reset-password-submit-behavior.spec.cjs",
+    "IntRuoyiFronted/tests/e2e/profile-showroom-assignment-navigation-static.spec.cjs"
+  ],
+  "sourceSha256": {
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProEdhrWorkTaskMapper.java": "84019abc83232c29f1291a0bf2a483ab3aad3a51253e33edca81b077d5d6b3ab",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java": "84aed689d2adb2245131a104c3c33249a7abd4dfb8e4797c327d119ebd6d8f0b",
+    "IntRuoyiFronted/src/store/modules/profileWorkbenchTodoBadge.ts": "bf1f8fdfdf92383120daa5bb2cc6a2e1364761f3d0420100760f10dd51a86b7b",
+    "IntRuoyiFronted/src/views/Profile/components/BasicInfo.vue": "6b68fa8d71a8bc37936ba2364889576dbd2ab554ab9ae488ecc0c67f13f363ad",
+    "IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue": "ba6a291a1c08247bd03c2412efd03051b0349d80cbbbe624f5fcd281843f46b8",
+    "IntRuoyiFronted/src/views/Profile/components/ResetPwd.vue": "f79753f2bacf9276f32711ffd61908f670f77ab2b76c89333dc09757f2773b7a",
+    "IntRuoyiFronted/src/views/showroom-admin/assignment/AssignmentWorkbench.vue": "717877c7545135e86c321d8cb4ca72b8de47f38533b3190c73c46271c1c30bd9",
+    "IntRuoyiFronted/src/views/showroom-admin/index.vue": "ac3e129dfd5e4ce48ba27dc37478bd038d9fc0e6eade6979c60c6d4b21f32090",
+    "IntRuoyiFronted/tests/e2e/edhr-work-task-notify-workbench-fill-navigation-static.spec.js": "0f2ebd5634223a4cc0890d071868b31ad0108d3e52ecfc75e3f75a23194c14c2",
+    "IntRuoyiFronted/tests/e2e/profile-unified-todo-list-static.spec.js": "145ed940070d4abe507c3495abdb17b9252bf8c84294002a9264020e58ad5964",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-system-error-static.spec.cjs": "2846c94347154fe460262284e6507aa7eb35c1077ff9c669eddf86dd872319c5",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-task-hide-restore-static.spec.js": "e654266416edc3757c0caeb868beb5a87f597f94424684445b4a2da3c37f195e",
+    "IntRuoyiFronted/tests/e2e/profile-workbench-todo-badge-static.spec.js": "c4c0596a1d8d8c69c9b5489fe13332ab2d7c043de27f03ff2dc83cd38130067f",
+    "IntRuoyiFronted/tests/e2e/system-user-password-session-behavior.spec.cjs": "81d1001dcfddaf7fdb550adfbabca2685887adb38a225af5d69cda0e6515a202",
+    "docs/backend-development.md": "18f780ea3d7208793b3378687f25eea9182b00c747714b6e2e5e61ad01a53424",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccWorkbenchTodoMapper.java": "0ae4dc6e829bb76c798681edc8c888d8896b9d688c2e528e8a25dd44ae4352c9",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java": "ac554f215c067bc0bced93ba8aca9a5620ef0bd86c61409f33454d06019d8a65",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java": "c56d44ba8d7585597751e022439d0a90884702ec8eb5b3d39ccd5d376d17fb08",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/resources/mapper/profileworkbench/DccWorkbenchTodoMapper.xml": "d05acc178861326095bd91263d55c4b668272c4ed4bbc7280963c4908b00dbff",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/MesWorkbenchTodoMapper.java": "cc3fade344298dba325244c61343f9478dd214c6bda3e92feb809e870886d33b",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesOpenWorkTaskVisibility.java": "9c0892de09e9c6f5bc1f1fdb205f87632580cefecac13001bad5d5bcaa893ea3",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java": "d618f8c3691b4bf4045b187c4b492291432dca76c30b0536c5682a92a4ea4a42",
+    "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java": "bf4f767b3bb8292133d7c3ccd51f8cb9564e725ae0b227fb33e0177d720da89b",
+    "IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml": "fafe12a09b8e9f6b89248ace492d787d58ea91101b0067d01cbf3643fe5fae40",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/dal/mysql/workflow/ShowroomWorkbenchTodoMapper.java": "04754e8ded5a1b1878b086d082507c67f188a152039596095a1371be8820fcbe",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/workflow/service/ShowroomAssignmentWorkbenchSource.java": "e3e4deebf51afad4c1864805b20e4f70457aa79e36abd9f0db8810212ad55b2b",
+    "IntRuoyiBackend/yudao-module-showroom/src/main/resources/mapper/profileworkbench/ShowroomWorkbenchTodoMapper.xml": "bd420138ef24b6edb4e0fe427c0c94aabe2378551a291b28ad7eb15d56ea7286",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunkDTO.java": "acc6c8eee3eef116e3c75626f2668d3ed21d9b91030c04fa0d6d471db3eee124",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunks.java": "6680fe5b59efad393bc3baa56462e5c38dc04fa96752d8137b5bbd26fde1f6dd",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoQueryDTO.java": "6ea69909693a1fb5a8fe331396e67f45b0a2d129627544c88673df99e6168e2b",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoRowDTO.java": "aba2e73e47f0ee68ad93086e775c09a49c10e72c12d978c17bba055b480b8c46",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSortContract.java": "50c7b9655c84ea5398f49c372e730016ef29de4bce90e329924d62059a539228",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSource.java": "dde603e67fd7bb14556f130912f9f688f95bde916405606000809831a7df9441",
+    "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSourceId.java": "06a345876ab100d6f953b02cead4b0be7e39de97a184fd40ec67c117fbfb0205",
+    "IntRuoyiBackend/yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml": "b2555d4d1eed6ce795a48e4f1080a7d573239bfa8b84314f47b8e2bfc3feac19",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/controller/admin/oauth2/OAuth2UserProfileUpdateContractTest.java": "22597af408ca2d0890c8479895f82e1617c6b9bad4a78e83068f03e78f18e928",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/controller/admin/user/UserProfileControllerContractTest.java": "39226c100c69b5e52e692eaee690a3e79ad8b1bb7631a10e7504fd93dfd432e0",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/ProfileUpdateHttpContractSupport.java": "25bb3bef6ca2525943b8a5b5e1294bfaefad0b69bba4df71e705b22baad50d24",
+    "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserProfileUpdateReqVOValidationTest.java": "58b562c35eeb12590754cc06692f83ce411ec621aaf0f8c34b34291b36c192a5",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/controller/admin/profileworkbench/ProfileWorkbenchTodoController.java": "9ca9152eff54d0756ab9d39b8c57e20da309f150d1ee515d88dfe0a4b2b5adb0",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountReqVO.java": "fc834675a29e4df203e1544c45de18d2c3d84d77b9f1549a164985bb6ddbc27a",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountRespVO.java": "e15c08fe2e6e51a436192df421510664e457a5b4a7e66d191c989bcc15253cc5",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageReqVO.java": "5b04f307a4099c5551c9a682e9cfb6ba6d20b14a54781d84cc1f47cc5ad9bb8f",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageRespVO.java": "023cdb0a3bca9f736bbcf09a38d04406aff8d2dbe1869fe9a5c911a8982891a2",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoQueryService.java": "906e5055aff0c1df0cc06b63faf4edc9f53c628de2ea35ed855f283d9699add9",
+    "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoReadTransaction.java": "378e49f2b9fbe56105ca20ff85985fcb44293aac69cb16c7de8d672ea1edbe0b",
+    "IntRuoyiFronted/src/api/system/profileWorkbenchTodo/index.ts": "cb893d96ee028630b14a6ee73eb5f79d35c9dd784c3548ca936d5cb02a72a15b",
+    "IntRuoyiFronted/tests/e2e/profile-basic-info-optional-contact-behavior.spec.cjs": "2b217795baf8ef1f6d1dc8aa8f1db32c2259cb3eaa8e8d1a7ab8fb27102123c6",
+    "IntRuoyiFronted/tests/e2e/profile-reset-password-submit-behavior.spec.cjs": "35854f2c01efe793f57fc6cc787b819927b80a10f853ffa1830e2b3592fca9ab",
+    "IntRuoyiFronted/tests/e2e/profile-showroom-assignment-navigation-static.spec.cjs": "6083d6cfea37464c6b33a214afc85ea35ad47b9e2ff1b64542180d869a979a78"
+  },
+  "scope": "F02/F04/F03 plus existing backend-development memory",
+  "frontendVerificationManifest": "verified033-IntRuoyiFronted-manifest.json + verified476-frontend-upstream-manifest.json",
+  "backendVerificationManifest": "final476-backend-manifest.json",
+  "formatNormalization": [
+    {
+      "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccWorkbenchTodoMapper.java",
+      "originalSha256": "9fed5daa505559e86229d0c2dbda7a05a8d93977f816ae3f50b7c524e412635a",
+      "newSha256": "0ae4dc6e829bb76c798681edc8c888d8896b9d688c2e528e8a25dd44ae4352c9",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+      "originalSha256": "e9a81854b2399df2df5a8f6b97deec8b7406d93ae6065c23c1a255e600bc484b",
+      "newSha256": "ac554f215c067bc0bced93ba8aca9a5620ef0bd86c61409f33454d06019d8a65",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+      "originalSha256": "259f55137b86ebe56a918ac12a6d8b947071e334e5e626e8b763e41bfefe5d50",
+      "newSha256": "c56d44ba8d7585597751e022439d0a90884702ec8eb5b3d39ccd5d376d17fb08",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/MesWorkbenchTodoMapper.java",
+      "originalSha256": "d76df25693e35930a436e5a21648dde6b34390bc048f394ba7c062eb1b3c0b09",
+      "newSha256": "cc3fade344298dba325244c61343f9478dd214c6bda3e92feb809e870886d33b",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "originalSha256": "ad4da2dd5973f798d7d251516bfba045b7ed49f5618890e9aa92882c4943e7b0",
+      "newSha256": "d618f8c3691b4bf4045b187c4b492291432dca76c30b0536c5682a92a4ea4a42",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+      "originalSha256": "631009ccef3fee729099b5898d38d022b3ce2c5c6b32c966a4a3f2f08485fc95",
+      "newSha256": "bf4f767b3bb8292133d7c3ccd51f8cb9564e725ae0b227fb33e0177d720da89b",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/dal/mysql/workflow/ShowroomWorkbenchTodoMapper.java",
+      "originalSha256": "74fc83020ae146eda547c9172a604ba2394645f04db714fdf24af0b3bf04b493",
+      "newSha256": "04754e8ded5a1b1878b086d082507c67f188a152039596095a1371be8820fcbe",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/workflow/service/ShowroomAssignmentWorkbenchSource.java",
+      "originalSha256": "1d09f15c1bd0c626063d060c36d3cc531bab11015b12c7220acd2aada7b673b2",
+      "newSha256": "e3e4deebf51afad4c1864805b20e4f70457aa79e36abd9f0db8810212ad55b2b",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunkDTO.java",
+      "originalSha256": "32b2085002b8efdb6457cfdd4931532b022e8de3f0babb5eed2704e29a5fba68",
+      "newSha256": "acc6c8eee3eef116e3c75626f2668d3ed21d9b91030c04fa0d6d471db3eee124",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunks.java",
+      "originalSha256": "86a873a41eacfcee341403560eadc02c36a42f044798b7ad0f7bff03400400fb",
+      "newSha256": "6680fe5b59efad393bc3baa56462e5c38dc04fa96752d8137b5bbd26fde1f6dd",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoQueryDTO.java",
+      "originalSha256": "1e986580b8b6bf39d82dbf866cb5de2a4fe88180f8df6d62d561b50bab0d207d",
+      "newSha256": "6ea69909693a1fb5a8fe331396e67f45b0a2d129627544c88673df99e6168e2b",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoRowDTO.java",
+      "originalSha256": "19e841625aaee881baba6190de62ceedec7d811271f3d77632789f99428ac678",
+      "newSha256": "aba2e73e47f0ee68ad93086e775c09a49c10e72c12d978c17bba055b480b8c46",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSortContract.java",
+      "originalSha256": "289ae4af1c902d4c0305545fd1c86396792bdeb175adbbc8f0fff422754cb482",
+      "newSha256": "50c7b9655c84ea5398f49c372e730016ef29de4bce90e329924d62059a539228",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSource.java",
+      "originalSha256": "23203d49ee558f825d88026da5d26ab230c2a267270b3f86cdf6a400765308b9",
+      "newSha256": "dde603e67fd7bb14556f130912f9f688f95bde916405606000809831a7df9441",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSourceId.java",
+      "originalSha256": "d1949fb1db9cdc91051dd74c60268d48ccac371e11de3a93c8a6fa9da5cea2a8",
+      "newSha256": "06a345876ab100d6f953b02cead4b0be7e39de97a184fd40ec67c117fbfb0205",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml",
+      "originalSha256": "bf5da81cb75d98df5ff1f2300dbbed0107b9270b00c09b05c3227be3f4ff1398",
+      "newSha256": "b2555d4d1eed6ce795a48e4f1080a7d573239bfa8b84314f47b8e2bfc3feac19",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountReqVO.java",
+      "originalSha256": "bb5eff84766447a8b47379d19e06e86aeedc725b1e71716d90fbe253904b4762",
+      "newSha256": "fc834675a29e4df203e1544c45de18d2c3d84d77b9f1549a164985bb6ddbc27a",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountRespVO.java",
+      "originalSha256": "67f33112db7f3f90e9a406c6d5742e4d2f632be1075c79a7bf05e2fcb7b065b4",
+      "newSha256": "e15c08fe2e6e51a436192df421510664e457a5b4a7e66d191c989bcc15253cc5",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageReqVO.java",
+      "originalSha256": "9f2254332ef1378b624fe40cce7785cd857524010afbbf3cd2aca94ebf9c2337",
+      "newSha256": "5b04f307a4099c5551c9a682e9cfb6ba6d20b14a54781d84cc1f47cc5ad9bb8f",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageRespVO.java",
+      "originalSha256": "e89f6674aa1d72400b05ea58a5ec8a36ebf32920582a88f793d81dce9c664746",
+      "newSha256": "023cdb0a3bca9f736bbcf09a38d04406aff8d2dbe1869fe9a5c911a8982891a2",
+      "onlyWhitespace": true
+    },
+    {
+      "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoReadTransaction.java",
+      "originalSha256": "f5cafb1eff31e8cb9c7e0bace4aa1bdd44c3ebae7fdafb009e363e7ce9354ff2",
+      "newSha256": "378e49f2b9fbe56105ca20ff85985fcb44293aac69cb16c7de8d672ea1edbe0b",
+      "onlyWhitespace": true
+    }
+  ]
+}

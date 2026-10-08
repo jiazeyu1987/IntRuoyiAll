@@ -38,19 +38,8 @@ assert.match(
   'profile child route must opt in so top tags view can show the workbench todo count'
 )
 
-for (const apiToken of [
-  'getMyDistributionTaskPage',
-  'getMyTrainingTaskPage',
-  'getEdhrWorkTaskMyPage',
-  'ProWorkOrderApi.getWorkOrderPage',
-  '/showroom/assignment/page'
-]) {
-  assert.match(
-    badgeStore,
-    new RegExp(apiToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-    `badge store must use the same real todo source as personal workbench: ${apiToken}`
-  )
-}
+assert.match(badgeStore, /getProfileWorkbenchTodoCount\(token\.badgeSources\)/)
+assert.doesNotMatch(badgeStore, /getMyDistributionTaskPage|getMyTrainingTaskPage|getEdhrWorkTaskMyPage|normalizeAssignmentPage|assignments\.length/)
 
 assert.match(
   badgeStore,
@@ -62,21 +51,11 @@ assert.doesNotMatch(
   /getEdhrWorkTaskStats/,
   'badge store must not use stats endpoint because it has a narrower permission contract than the workbench list'
 )
-assert.match(
-  badgeStore,
-  /normalizePageTotal/,
-  'badge store must validate PageResult.total before applying the count'
-)
-assert.match(
-  badgeStore,
-  /normalizeAssignmentPage/,
-  'badge store must use the showroom assignment List contract instead of reading a missing PageResult.total'
-)
-assert.match(
-  badgeStore,
-  /SHOWROOM_ASSIGNMENT_TODO_BADGE_PAGE_SIZE[\s\S]*assignments\.length\s*===\s*SHOWROOM_ASSIGNMENT_TODO_BADGE_PAGE_SIZE/,
-  'showroom assignment badge count must fail fast when the list endpoint reaches its page-size cap'
-)
+assert.match(badgeStore, /requireProfileWorkbenchTodoTotal\(total\)/)
+assert.match(badgeStore, /epoch: \+\+this\.badgeUpdateEpoch/)
+assert.match(badgeStore, /tryCommit\(token: ProfileWorkbenchBadgeToken, patch: BadgePatch\)[\s\S]*if \(!this\.isCurrentToken\(token\)\) return false/)
+assert.match(badgeStore, /pendingTodoTotalRequest && this\.isCurrentToken\(pendingTodoTotalRequest\.token\)/)
+
 assert.match(badgeStore, /throw error/, 'badge store must rethrow load failures instead of swallowing them')
 assert.doesNotMatch(badgeStore, /mock|fallback|降级|吞异常/i, 'badge store must not use mock or fallback counts')
 assert.match(

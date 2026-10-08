@@ -427,21 +427,21 @@ const deferred = () => {
   const promise = new Promise((done) => { resolve = done })
   return { promise, resolve }
 }
-// ElForm validates asynchronously and awaits the callback's returned Promise.
+// ElForm supports its production Promise validation contract.
 function profileForm(valid = true, validationPending) {
   const completions = []
   return {
     calls: 0,
-    validate(callback) {
+    validate() {
       this.calls++
       const completion = (async () => {
         if (validationPending) await validationPending
-        await callback(valid)
         return valid
       })()
       completions.push(completion)
       return completion
     },
+    clearValidate() {},
     settled: () => Promise.all(completions)
   }
 }
@@ -462,7 +462,7 @@ for (const stage of ['synchronous', 'validation', 'request']) test(`profile sing
     pending.resolve()
     await Promise.all([first, second, form.settled()])
     assert.equal(pendingState.validations, 1, 'One action must start only one validation')
-    assert.equal(pendingState.requests, stage === 'validation' ? 0 : 1)
+    assert.equal(pendingState.requests, stage === 'request' ? 1 : 0)
     assert.equal(pendingState.submitting, true)
     assert.equal(resetCalls, 0, 'Pending submission must preserve its inputs')
     assert.equal(vm.submitting, false)
@@ -493,12 +493,13 @@ for (const failure of ['invalid', 'request']) test(`profile releases submission 
     assertLocalClear(h); assertNoSecret(h)
   } finally { h.close() }
 })
-test('profile releases submission lock and propagates genuine validation exceptions', async () => {
+test('profile releases submission lock and propagates sanitized validation infrastructure exceptions', async () => {
   const h = harness(); const vm = h.mount(profilePanel)
   try {
     await h.ready()
     const error = new Error('Validation infrastructure failed')
-    await assert.rejects(async () => vm.submit({ validate() { throw error } }), (actual) => actual === error)
+    await assert.rejects(async () => vm.submit({ validate() { throw error } }), (actual) => actual.message === '密码表单校验程序异常，请联系管理员')
+    assert.deepEqual(h.messages, [])
     assert.equal(vm.submitting, false)
     assert.equal(passwordRequests(h).length, 0); assert.deepEqual(h.io, [])
     await submitProfile(vm, true)

@@ -307,7 +307,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         validateEmailUnique(id, reqVO.getEmail());
         validateMobileUnique(id, reqVO.getMobile());
         // 执行更新
-        userMapper.updateById(BeanUtils.toBean(reqVO, AdminUserDO.class).setId(id));
+        userMapper.update(new AdminUserDO(), Wrappers.<AdminUserDO>lambdaUpdate()
+                .eq(AdminUserDO::getId, id)
+                .set(reqVO.getNickname() != null, AdminUserDO::getNickname, reqVO.getNickname())
+                .set(reqVO.getEmail() != null, AdminUserDO::getEmail, reqVO.getEmail())
+                .set(reqVO.getMobile() != null, AdminUserDO::getMobile, reqVO.getMobile())
+                .set(reqVO.getSex() != null, AdminUserDO::getSex, reqVO.getSex())
+                .set(reqVO.getAvatar() != null, AdminUserDO::getAvatar, reqVO.getAvatar()));
     }
 
     @Override

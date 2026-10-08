@@ -363,12 +363,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
             wrapper.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId);
             return wrapper;
         }
-        String candidateToken = "," + userId + ",";
-        wrapper.and(query -> query
-                .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId)
-                .or()
-                .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
-                        "%" + candidateToken + "%"));
+        wrapper.apply(MesOpenWorkTaskVisibility.ownerWrapperSql(), userId);
         return wrapper;
     }
 
@@ -392,24 +387,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyOpenWorkTaskBatchVisibility(
             LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
             String taskType) {
-        String normalizedTaskType = taskType == null ? null : taskType.trim();
-        if (TASK_TYPE_ARCHIVE.equals(normalizedTaskType)) {
-            return excludeBatchStatusWrapper(wrapper, ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL);
-        }
-        if (normalizedTaskType != null && !normalizedTaskType.isEmpty()) {
-            return excludeTerminalBatchWrapper(wrapper);
-        }
-        wrapper.and(query -> query
-                .isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
-                .or()
-                .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
-                        "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                                + TERMINAL_BATCH_STATUS_SQL + ")")
-                .or(archiveQuery -> archiveQuery
-                        .eq(MesProEdhrWorkTaskDO::getTaskType, TASK_TYPE_ARCHIVE)
-                        .notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
-                                "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
-                                        + ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL + ")")));
+        wrapper.apply(MesOpenWorkTaskVisibility.batchSql(taskType));
         return wrapper;
     }
 

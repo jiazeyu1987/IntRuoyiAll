@@ -1,0 +1,243 @@
+{
+  "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+  "backendCompile": {
+    "scope": "compile",
+    "exit": 0,
+    "buildSuccess": true,
+    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-compile.log",
+    "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
+    "completedAt": "2026-10-08T12:41:54+0800"
+  },
+  "systemTests": {
+    "scope": "system",
+    "exit": 0,
+    "buildSuccess": true,
+    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-system.log",
+    "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
+    "completedAt": "2026-10-08T12:28:48+0800",
+    "suites": [
+      {
+        "name": "cn.iocoder.yudao.module.system.controller.admin.oauth2.OAuth2UserProfileUpdateContractTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.controller.admin.user.UserProfileControllerContractTest",
+        "tests": "7",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.profileworkbench.ProfileWorkbenchTaskVisibilityServiceImplTest",
+        "tests": "3",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest",
+        "tests": "80",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      },
+      {
+        "name": "cn.iocoder.yudao.module.system.service.user.UserProfileUpdateReqVOValidationTest",
+        "tests": "1",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0"
+      }
+    ],
+    "totalTests": 98,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "frontendBehavior": {
+    "exit": 0,
+    "nativeTests": 55,
+    "failures": 0,
+    "skipped": 0,
+    "log": "upstream-frontend-behavior.log",
+    "all16TaskSourceFingerprintsUnchanged": true
+  },
+  "lint": {
+    "exit": 0,
+    "files": 8,
+    "log": "upstream-scoped-lint.log",
+    "taskSourceUnchanged": true
+  },
+  "sfcCompile": {
+    "exit": 0,
+    "components": 5,
+    "log": "upstream-sfc.log",
+    "taskSourceUnchanged": true
+  },
+  "types": {
+    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "baselineExit": 2,
+    "currentExit": 2,
+    "fullTypeCheck": "FAIL_existing_baseline_errors",
+    "baselineComparison": "PASS",
+    "newDiagnostics": 0,
+    "diagnosticsEqual": true,
+    "diagnostics": [
+      "src/utils/notifyMessageNavigation.ts(197,25): error TS2677: A type predicate's type must be assignable to its parameter's type.",
+      "src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts(1,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.",
+      "src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue(27,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing."
+    ],
+    "allNormalizedDiagnosticText": "src/utils/notifyMessageNavigation.ts(197,25): error TS2677: A type predicate's type must be assignable to its parameter's type.\n  Type 'NotifyMessageTarget' is not assignable to type 'ShowroomProductNotifyTarget | BpmApprovalNotifyTarget | EdhrWorkTaskNotifyTarget | DccPublicationNotifyTarget'.\n    Type 'ActiveOrderHandoffTarget' is not assignable to type 'ShowroomProductNotifyTarget | BpmApprovalNotifyTarget | EdhrWorkTaskNotifyTarget | DccPublicationNotifyTarget'.\n      Type 'ActiveOrderHandoffTarget' is not assignable to type 'EdhrWorkTaskNotifyTarget'.\n        Types of property 'type' are incompatible.\n          Type '\"activeOrderHandoff\"' is not assignable to type '\"edhrWorkTask\"'.\nsrc/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts(1,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.\n  The file is in the program because:\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/nonconformanceReview.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/productionRelease/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/feedback/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/BatchExecutionTraceDrawer.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'\n    Matched by include pattern 'src' in 'tsconfig.relaxed.json'\nsrc/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue(27,62): error TS1149: File name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.\n  The file is in the program because:\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderSubmissionDetailPanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue'\n    Imported via '@/api/mes/pro/processPool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/edhr/nonconformanceReview.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/productionRelease/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/api/mes/pro/feedback/index.ts'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr/form-trace/BatchExecutionTraceDrawer.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionActiveOrderDetailPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'\n    Imported via '@/api/mes/pro/processpool/teamLeader' from file '<SOURCE>/IntRuoyiFronted/src/views/mes/pro/processpool/ActiveOrderSubmissionDetailPage.vue'\n    Matched by include pattern 'src' in 'tsconfig.relaxed.json'"
+  },
+  "F02Runtime": "NOT_RUN_UNVERIFIED",
+  "realE2E": "NOT_RUN",
+  "priorInterruptedCompiles": "NOT_PASS",
+  "evidenceSha256": {
+    "final476-backend-system.log": "88e18c90d9e66c8c6dd851e6010b295bce5dbc640a1a01b4d6a702b0691ccc29",
+    "final476-backend-compile.log": "7e0571df5b43fc7af5d452465b669eec3aca8a7466204bbf44a1c32c79b8aba8",
+    "upstream-frontend-behavior.log": "dcd2a57d88592dd61235b555da8b6fd853c0b47edd42af71c2b9b10c747ce2df",
+    "upstream-scoped-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "upstream-sfc.log": "3851b4bca675d698ee51afac929746673ddecc399ff891cd4c3091911f4f2bbb",
+    "baseline476-types.log": "11c572fb97c83e1f2dab98edba378d2222d88fa8a1bd0eb6d78b02f86b4a343e",
+    "current476-types.log": "91c9559be7902a7f867e7e71f9593d2f0289533a590268005a1d65ae18a465c8",
+    "final476-backend-manifest.json": "0f7e479f621868d0c27866a5c15eb788aa974c222bc69bfc940217ce7b3af866",
+    "verified476-frontend-upstream-manifest.json": "8231484552b7deb506c9e1c4d02fd649834e54cb40d72aaf5b3aaa445d4d523e"
+  },
+  "formatNormalization": {
+    "count": 21,
+    "tokenAndCommentPreserved": true,
+    "changes": [
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccWorkbenchTodoMapper.java",
+        "originalSha256": "9fed5daa505559e86229d0c2dbda7a05a8d93977f816ae3f50b7c524e412635a",
+        "newSha256": "0ae4dc6e829bb76c798681edc8c888d8896b9d688c2e528e8a25dd44ae4352c9",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+        "originalSha256": "e9a81854b2399df2df5a8f6b97deec8b7406d93ae6065c23c1a255e600bc484b",
+        "newSha256": "ac554f215c067bc0bced93ba8aca9a5620ef0bd86c61409f33454d06019d8a65",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+        "originalSha256": "259f55137b86ebe56a918ac12a6d8b947071e334e5e626e8b763e41bfefe5d50",
+        "newSha256": "c56d44ba8d7585597751e022439d0a90884702ec8eb5b3d39ccd5d376d17fb08",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/MesWorkbenchTodoMapper.java",
+        "originalSha256": "d76df25693e35930a436e5a21648dde6b34390bc048f394ba7c062eb1b3c0b09",
+        "newSha256": "cc3fade344298dba325244c61343f9478dd214c6bda3e92feb809e870886d33b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+        "originalSha256": "ad4da2dd5973f798d7d251516bfba045b7ed49f5618890e9aa92882c4943e7b0",
+        "newSha256": "d618f8c3691b4bf4045b187c4b492291432dca76c30b0536c5682a92a4ea4a42",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+        "originalSha256": "631009ccef3fee729099b5898d38d022b3ce2c5c6b32c966a4a3f2f08485fc95",
+        "newSha256": "bf4f767b3bb8292133d7c3ccd51f8cb9564e725ae0b227fb33e0177d720da89b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/dal/mysql/workflow/ShowroomWorkbenchTodoMapper.java",
+        "originalSha256": "74fc83020ae146eda547c9172a604ba2394645f04db714fdf24af0b3bf04b493",
+        "newSha256": "04754e8ded5a1b1878b086d082507c67f188a152039596095a1371be8820fcbe",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/workflow/service/ShowroomAssignmentWorkbenchSource.java",
+        "originalSha256": "1d09f15c1bd0c626063d060c36d3cc531bab11015b12c7220acd2aada7b673b2",
+        "newSha256": "e3e4deebf51afad4c1864805b20e4f70457aa79e36abd9f0db8810212ad55b2b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunkDTO.java",
+        "originalSha256": "32b2085002b8efdb6457cfdd4931532b022e8de3f0babb5eed2704e29a5fba68",
+        "newSha256": "acc6c8eee3eef116e3c75626f2668d3ed21d9b91030c04fa0d6d471db3eee124",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoChunks.java",
+        "originalSha256": "86a873a41eacfcee341403560eadc02c36a42f044798b7ad0f7bff03400400fb",
+        "newSha256": "6680fe5b59efad393bc3baa56462e5c38dc04fa96752d8137b5bbd26fde1f6dd",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoQueryDTO.java",
+        "originalSha256": "1e986580b8b6bf39d82dbf866cb5de2a4fe88180f8df6d62d561b50bab0d207d",
+        "newSha256": "6ea69909693a1fb5a8fe331396e67f45b0a2d129627544c88673df99e6168e2b",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoRowDTO.java",
+        "originalSha256": "19e841625aaee881baba6190de62ceedec7d811271f3d77632789f99428ac678",
+        "newSha256": "aba2e73e47f0ee68ad93086e775c09a49c10e72c12d978c17bba055b480b8c46",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSortContract.java",
+        "originalSha256": "289ae4af1c902d4c0305545fd1c86396792bdeb175adbbc8f0fff422754cb482",
+        "newSha256": "50c7b9655c84ea5398f49c372e730016ef29de4bce90e329924d62059a539228",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSource.java",
+        "originalSha256": "23203d49ee558f825d88026da5d26ab230c2a267270b3f86cdf6a400765308b9",
+        "newSha256": "dde603e67fd7bb14556f130912f9f688f95bde916405606000809831a7df9441",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/api/profileworkbench/ProfileWorkbenchTodoSourceId.java",
+        "originalSha256": "d1949fb1db9cdc91051dd74c60268d48ccac371e11de3a93c8a6fa9da5cea2a8",
+        "newSha256": "06a345876ab100d6f953b02cead4b0be7e39de97a184fd40ec67c117fbfb0205",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml",
+        "originalSha256": "bf5da81cb75d98df5ff1f2300dbbed0107b9270b00c09b05c3227be3f4ff1398",
+        "newSha256": "b2555d4d1eed6ce795a48e4f1080a7d573239bfa8b84314f47b8e2bfc3feac19",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountReqVO.java",
+        "originalSha256": "bb5eff84766447a8b47379d19e06e86aeedc725b1e71716d90fbe253904b4762",
+        "newSha256": "fc834675a29e4df203e1544c45de18d2c3d84d77b9f1549a164985bb6ddbc27a",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoCountRespVO.java",
+        "originalSha256": "67f33112db7f3f90e9a406c6d5742e4d2f632be1075c79a7bf05e2fcb7b065b4",
+        "newSha256": "e15c08fe2e6e51a436192df421510664e457a5b4a7e66d191c989bcc15253cc5",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageReqVO.java",
+        "originalSha256": "9f2254332ef1378b624fe40cce7785cd857524010afbbf3cd2aca94ebf9c2337",
+        "newSha256": "5b04f307a4099c5551c9a682e9cfb6ba6d20b14a54781d84cc1f47cc5ad9bb8f",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoPageRespVO.java",
+        "originalSha256": "e89f6674aa1d72400b05ea58a5ec8a36ebf32920582a88f793d81dce9c664746",
+        "newSha256": "023cdb0a3bca9f736bbcf09a38d04406aff8d2dbe1869fe9a5c911a8982891a2",
+        "onlyWhitespace": true
+      },
+      {
+        "file": "IntRuoyiBackend/yudao-server/src/main/java/cn/iocoder/yudao/server/profileworkbench/ProfileWorkbenchTodoReadTransaction.java",
+        "originalSha256": "f5cafb1eff31e8cb9c7e0bace4aa1bdd44c3ebae7fdafb009e363e7ce9354ff2",
+        "newSha256": "378e49f2b9fbe56105ca20ff85985fcb44293aac69cb16c7de8d672ea1edbe0b",
+        "onlyWhitespace": true
+      }
+    ]
+  }
+}

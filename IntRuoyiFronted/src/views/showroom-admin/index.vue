@@ -107,6 +107,7 @@
     <CompanyHistoryWorkbench v-else-if="activeSection === 'history'" />
     <AssignmentWorkbench
       v-else-if="activeSection === 'assignment'"
+      :route-assignment-id="route.query.assignmentId"
       :company-current="companyCurrent"
       :products="productRows"
     />

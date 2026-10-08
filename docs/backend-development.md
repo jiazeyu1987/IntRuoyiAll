@@ -1442,3 +1442,10 @@
 - 页面显示状态与正式审查状态可能不同；所见上下文应分别保存正文、修订、正式复核身份和分配版本，并在业务锁内、签名之前核验。回归应串联正式退回、签名补正、实际时间线投影及下一次确认/退回，不能只验证私有状态函数。
 - 终态详情沿实际关闭生产者核验每类来源的身份关系，并走正式归档入口验证；独立批次作废与 QA 处置可能收口不同申请状态，测试应按实际 writer 合同保留原决定和签名，不能为统一状态标签改写已批准事实。
 - 新增嵌套审计收口时须追到外层事务的首次业务锁：统一账本先于业务行，UPDATE/INSERT/DELETE 取得的锁也计入，不能只观察显式 FOR UPDATE。验证外层先更新其它对象再收口的路径，绑定实际更新对象 ID，并检查外层失败时先前更新一并回滚；内层先取账本不能证明外层锁序正确。
+
+## 新增 H2 合同测试的上下文隔离
+
+- Trigger: 新增真实 Service/Mapper 的 HTTP 合同测试后，既有测试单类通过，默认组合运行却出现 `Cannot commit, transaction is already closed` 或 SqlSessionFactory 错配。
+- Preflight check: 核对 Spring 缓存 context 的复用顺序与 MyBatis Plus 的 TableInfo/GlobalConfig 静态实体配置。不同 context 重新绑定同一实体后，旧缓存 context 的批量 Db 操作可能使用另一 factory；先用原类单跑和独立 fork 定位，再检查新增类的上下文归属。
+- 处理边界：仅在新增测试的共同基类以 `@DirtiesContext(AFTER_CLASS)` 释放自身 context；不要清全局实体缓存、修改无关生产事务或弱化原断言来掩盖测试干扰。
+- Verification: 修复后必须重跑原默认组合并确认全部用例零 failure/error/skip。独立 fork 或单类 PASS 只是诊断证据，不能替代默认回归；H2/standalone MockMvc 也不能证明真实 MySQL、生产安全过滤器或浏览器 E2E。

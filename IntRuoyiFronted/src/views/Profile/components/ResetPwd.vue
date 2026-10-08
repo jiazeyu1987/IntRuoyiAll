@@ -70,30 +70,70 @@ const rules = reactive<FormRules>({
   ]
 })
 
+const isFieldValidationError = (error: unknown) => {
+  if (!error || typeof error !== 'object' || error instanceof Error) return false
+  const entries = Object.entries(error)
+  return (
+    entries.length > 0 &&
+    entries.every(
+      ([field, errors]) =>
+        Object.prototype.hasOwnProperty.call(password, field) &&
+        Array.isArray(errors) &&
+        errors.length > 0 &&
+        errors.every((item) => item?.field === field && typeof item?.message === 'string')
+    )
+  )
+}
+
 const submit = async (formEl: FormInstance | undefined) => {
   if (!formEl || submitting.value) return
   submitting.value = true
+  const snapshot = { ...password }
   try {
-    await formEl.validate(async (valid) => {
-      if (valid) {
-        try {
-          await updateUserPassword(password.oldPassword, password.newPassword)
-        } catch {
-          message.error('密码修改失败，请检查输入后重试')
-          return
-        }
-        message.success('密码已修改，请重新登录')
-        userStore.clearSession()
-        try {
-          const failure = await push({ path: '/login' })
-          if (isNavigationFailure(failure)) {
-            message.error('密码已修改，请重新登录')
-          }
-        } catch {
-          message.error('密码已修改，请重新登录')
-        }
+    try {
+      if (!(await formEl.validate())) return
+    } catch (error) {
+      if (isFieldValidationError(error)) return
+      throw new Error('密码表单校验程序异常，请联系管理员')
+    }
+    if (
+      snapshot.oldPassword !== password.oldPassword ||
+      snapshot.newPassword !== password.newPassword ||
+      snapshot.confirmPassword !== password.confirmPassword
+    ) {
+      message.error('密码输入已变更，请重新提交验证')
+      return
+    }
+    try {
+      await updateUserPassword(snapshot.oldPassword, snapshot.newPassword)
+    } catch {
+      message.error('密码修改失败，请检查输入后重试')
+      return
+    }
+    password.oldPassword = ''
+    password.newPassword = ''
+    password.confirmPassword = ''
+    try {
+      userStore.clearSession()
+    } catch {
+      message.error('密码已修改，但本地会话清理失败，请重新登录')
+      return
+    }
+    try {
+      formEl.clearValidate()
+    } catch {
+      message.error('密码已修改，但表单校验状态清理失败，请重新登录')
+      return
+    }
+    message.success('密码已修改，请重新登录')
+    try {
+      const failure = await push({ path: '/login' })
+      if (isNavigationFailure(failure)) {
+        message.error('密码已修改，请重新登录')
       }
-    })
+    } catch {
+      message.error('密码已修改，请重新登录')
+    }
   } finally {
     submitting.value = false
   }
