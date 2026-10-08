@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.system.framework.operatelog.core.DeptParseFunctio
 import cn.iocoder.yudao.module.system.framework.operatelog.core.PostParseFunction;
 import cn.iocoder.yudao.module.system.framework.operatelog.core.SexParseFunction;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.mzt.logapi.starter.annotation.DiffLogField;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
@@ -42,6 +43,7 @@ public class UserSaveReqVO {
 
     @Schema(description = "岗位编号数组", example = "1")
     @DiffLogField(name = "岗位", function = PostParseFunction.NAME)
+    @JsonDeserialize(using = UserPostIdsDeserializer.class)
     private Set<Long> postIds;
 
     @Schema(description = "用户邮箱", example = "yudao@iocoder.cn")

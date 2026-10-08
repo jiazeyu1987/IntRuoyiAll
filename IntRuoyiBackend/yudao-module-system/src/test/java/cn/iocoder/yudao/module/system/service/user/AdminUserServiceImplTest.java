@@ -28,6 +28,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserPasswordHistoryDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.DeptMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.dept.PostMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserPasswordHistoryMapper;
 import cn.iocoder.yudao.module.system.enums.common.SexEnum;
@@ -97,6 +98,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     private DeptMapper deptMapper;
     @Resource
     private UserPostMapper userPostMapper;
+    @Resource
+    private PostMapper postMapper;
 
     @MockitoBean
     private DeptService deptService;
@@ -228,7 +231,13 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         AdminUserDO dbUser = randomAdminUserDO(o -> o.setPostIds(asSet(1L, 2L)));
         userMapper.insert(dbUser);
         userPostMapper.insert(new UserPostDO().setUserId(dbUser.getId()).setPostId(1L));
-        userPostMapper.insert(new UserPostDO().setUserId(dbUser.getId()).setPostId(2L));
+        UserPostDO retainedBinding = new UserPostDO().setUserId(dbUser.getId()).setPostId(2L);
+        userPostMapper.insert(retainedBinding);
+        retainedBinding = userPostMapper.selectById(retainedBinding.getId());
+        for (long id : new long[]{1L, 2L, 3L}) {
+            postMapper.insert(new PostDO().setId(id).setCode("um04-" + id).setName("岗位" + id)
+                    .setSort(0).setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        }
         // 准备参数
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
             o.setId(dbUser.getId());
@@ -259,17 +268,20 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         List<UserPostDO> userPosts = userPostMapper.selectListByUserId(user.getId());
         assertEquals(2L, userPosts.get(0).getPostId());
         assertEquals(3L, userPosts.get(1).getPostId());
+        assertEquals(retainedBinding.getId(), userPosts.get(0).getId());
+        assertEquals(retainedBinding.getCreateTime(), userPosts.get(0).getCreateTime());
+        assertEquals(dbUser.getPassword(), user.getPassword());
     }
 
     @Test
     public void testUpdateUser_genericAccountForbidden() {
-        AdminUserDO dbUser = randomAdminUserDO(o -> o.setUsername("operator01"));
+        AdminUserDO dbUser = randomAdminUserDO(o -> { o.setUsername("operator01"); o.setPostIds(Set.of()); });
         userMapper.insert(dbUser);
         UserSaveReqVO reqVO = randomPojo(UserSaveReqVO.class, o -> {
             o.setId(dbUser.getId());
             o.setUsername("test");
             o.setMobile(randomString());
-            o.setPostIds(null);
+            o.setPostIds(Set.of());
         });
 
         assertServiceException(() -> userService.updateUser(reqVO), USER_GENERIC_ACCOUNT_FORBIDDEN, "test");

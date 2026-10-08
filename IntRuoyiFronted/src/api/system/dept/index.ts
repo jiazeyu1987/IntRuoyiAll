@@ -13,8 +13,8 @@ export interface DeptVO {
 }
 
 // 查询部门（精简)列表
-export const getSimpleDeptList = (): Promise<DeptVO[]> => {
-  return request.get({ url: '/system/dept/simple-list' })
+export const getSimpleDeptList = (options?: { ignoreErrorMessage?: boolean }): Promise<DeptVO[]> => {
+  return request.get({ url: '/system/dept/simple-list', ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 查询部门列表

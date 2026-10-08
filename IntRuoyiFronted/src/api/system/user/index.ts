@@ -6,7 +6,7 @@ export interface UserVO {
   nickname: string
   deptId: number
   deptName?: string
-  postIds: string[]
+  postIds: Array<number | string>
   email: string
   mobile: string
   sex: number
@@ -25,6 +25,16 @@ export interface UserVO {
   loginDate: Date
   createTime: Date
   disabled?: boolean
+}
+
+export interface UserAssignedPostVO {
+  id: number | string
+  name: string
+  status: number
+}
+
+export interface UserEditVO extends UserVO {
+  assignedPosts: UserAssignedPostVO[]
 }
 
 export interface UserDingTalkImportRespVO {
@@ -59,14 +69,19 @@ export const getUser = (id: number) => {
   return request.get({ url: '/system/user/get?id=' + id })
 }
 
+// 查询包含正式既有岗位的用户编辑详情
+export const getUserForUpdate = (id: number): Promise<UserEditVO> => {
+  return request.get({ url: '/system/user/get-for-update?id=' + id, ignoreErrorMessage: true })
+}
+
 // 新增用户
-export const createUser = (data: UserVO) => {
-  return request.post({ url: '/system/user/create', data })
+export const createUser = (data: UserVO, options?: { ignoreErrorMessage?: boolean }) => {
+  return request.post({ url: '/system/user/create', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 修改用户
-export const updateUser = (data: UserVO) => {
-  return request.put({ url: '/system/user/update', data })
+export const updateUser = (data: UserVO, options?: { ignoreErrorMessage?: boolean }) => {
+  return request.put({ url: '/system/user/update', data, ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 删除用户

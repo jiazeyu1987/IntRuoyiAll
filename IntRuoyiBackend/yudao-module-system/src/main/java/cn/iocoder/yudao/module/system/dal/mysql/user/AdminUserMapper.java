@@ -28,6 +28,14 @@ public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
                 .eq(AdminUserDO::getDeleted, false).last("FOR UPDATE"));
     }
 
+    @Select("""
+            SELECT post_ids
+            FROM system_users
+            WHERE id = #{userId} AND tenant_id = #{tenantId} AND deleted = FALSE
+            FOR UPDATE
+            """)
+    String selectPostIdsForUpdate(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);
     }

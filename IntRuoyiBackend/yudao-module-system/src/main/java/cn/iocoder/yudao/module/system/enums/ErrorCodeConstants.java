@@ -125,6 +125,11 @@ public interface ErrorCodeConstants {
     ErrorCode ESIGN_CREDENTIAL_EXPIRED = new ErrorCode(1_002_003_036, "签名凭据已过期");
     ErrorCode ESIGN_IDENTITY_DISABLED = new ErrorCode(1_002_003_037, "电子签名账号已禁用");
     ErrorCode USER_UNLOCK_REASON_REQUIRED = new ErrorCode(1_002_003_038, "管理员解锁原因不能为空");
+    ErrorCode USER_EDIT_ID_INVALID = new ErrorCode(1_002_003_039, "编辑用户编号必须是正整数");
+    ErrorCode USER_POST_IDS_REQUIRED = new ErrorCode(1_002_003_040, "修改用户必须提交完整岗位编号数组，清空请提交空数组");
+    ErrorCode USER_POST_IDS_INVALID = new ErrorCode(1_002_003_041, "岗位编号集合必须只包含正 Long 编号");
+    ErrorCode USER_POST_BINDING_INCONSISTENT = new ErrorCode(1_002_003_042, "用户({})岗位绑定数据完整性异常：{}，请先处理正式绑定数据");
+    ErrorCode USER_POST_WRITE_FAILED = new ErrorCode(1_002_003_043, "用户({})岗位资料保存失败：{}，本次修改已撤销");
 
     // ========== 临时角色授权 1-002-003-100 ==========
     ErrorCode TEMPORARY_ROLE_GRANT_EXPIRE_TIME_INVALID = new ErrorCode(1_002_003_100, "临时角色授权有效期必须晚于当前时间");
