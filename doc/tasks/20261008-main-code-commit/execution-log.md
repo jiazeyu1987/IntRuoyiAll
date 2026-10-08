@@ -1,5 +1,12 @@
 # Execution Log
 
+## 后续远端推送授权
+
+- 用户后续指令：推送远端。
+- 复用本任务目录；本次推送前 HEAD=b05da02a520d5d0bf146cfa69b8ac74eaea23b7b，origin/int_main=476ec5322ab2b8d76ad67308a50eb6c08f980533，ahead 2。
+- 待推送代码提交 11a701bb573ad46c49cac57122522499217e0324、收尾提交 b05da02a520d5d0bf146cfa69b8ac74eaea23b7b。
+- 五处并行未提交修改保留，仅推送既有提交及本任务回执。
+
 ## 授权与范围
 
 - 用户指令：提交主干代码。
@@ -62,3 +69,17 @@
  M doc/tasks/20261006-user-password-session-fix/verification-report.md
  M docs/powershell-memory.md
 ```
+
+## M4 推送验证
+
+- git push origin int_main：PASS，远端 476ec5322 -> b05da02a5。
+- git ls-remote origin refs/heads/int_main：b05da02a520d5d0bf146cfa69b8ac74eaea23b7b，与本地 HEAD 一致。
+- git rev-list --left-right --count HEAD...origin/int_main：0/0。
+- 推送前及 pre-push 端口守卫均 PASS。
+- 本轮未改变业务源码，未运行新的构建或业务测试；既有主干快照经验仍适用，无需新增经验文档。
+
+## 推送回执收尾
+
+- cleanup preview/apply 均 PASS：keep 3、delete 0、blocked 0、warnings 0。
+- 三份本任务记录 UTF-8、Markdown 结构与 git diff --cached --check 通过后独立提交并同步远端。
+- 该回执提交号由 git log -1 -- doc/tasks/20261008-main-code-commit 定位；最终 ls-remote 核验结果在终端回执与用户总结中给出，避免提交号自引用。
