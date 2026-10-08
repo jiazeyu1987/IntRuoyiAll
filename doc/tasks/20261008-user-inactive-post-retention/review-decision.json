@@ -1,0 +1,86 @@
+{
+  "review_phase": "final",
+  "reviewed_at": "2026-10-09T00:01:14+08:00",
+  "review_scope": "Frozen UM04 ordinary user-post retention and explicit removal; targeted local slot-7 acceptance only",
+  "logic_status": "pass",
+  "usability_status": "pass",
+  "ui_status": "pass",
+  "blocking_issues": [],
+  "non_blocking_suggestions": [
+    {
+      "id": "S1",
+      "layer": "ui",
+      "title": "Improve distinction of long selected post names",
+      "evidence": [
+        "IntRuoyiFronted/src/views/system/user/UserForm.vue:74-108",
+        "output/playwright/um04-20261008/normal-save-reopened.png",
+        "output/playwright/um04-20261008/disabled-options.png"
+      ],
+      "risk": "Compact A/B tags share a truncated prefix and conceal the disabled suffix, which can increase selection ambiguity.",
+      "suggestion": "Consider a full-name/status tooltip or more room for selected labels. The real dropdown exposes complete names/status and all required tag removals succeeded, so no pre-release change is required."
+    }
+  ],
+  "required_changes": [],
+  "reviewed_evidence": {
+    "current_base": "a1640b169f69453701c9425d66a974033cf44120",
+    "changed_implementation_and_test_files": 20,
+    "backend_freeze_entries": 15,
+    "backend_unchanged_reference_entries": 1,
+    "frontend_owned_freeze_entries": 6,
+    "frontend_readonly_dependency_entries": 4,
+    "all_freeze_hashes_match": true,
+    "backend_tests": { "tests": 132, "failures": 0, "errors": 0, "skipped": 0, "exit_code": 0 },
+    "frontend_distinct_tests": { "tests": 50, "failures": 0, "exit_code": 0, "legacy_entry_uses_same_carrier": true },
+    "frontend_eslint_exit_code": 0,
+    "runtime_package_exit_code": 0,
+    "runtime_production_class_hash_matches": 11,
+    "runtime_slot": 7,
+    "runtime_backend_pid": 53748,
+    "runtime_package_sha256": "A4FF5308E2432D6D04DE89B87BAED917F23490F3286D4061904C11DF6334CFBF",
+    "safe_e2e_summary": "doc/tasks/20261008-user-inactive-post-retention/e2e-summary.json",
+    "raw_natural_events": 26,
+    "task_write_requests": 16,
+    "successful_task_write_requests": 15,
+    "exact_expected_rejection": { "code": 1002005001, "requests": 1 },
+    "task_user_id": "9908090349",
+    "task_post_ids": ["26", "27", "28"],
+    "tenant_id": 1,
+    "raw_store_witnesses_inspected": 7,
+    "actual_screenshots_inspected": 10,
+    "summary_events_stores_and_screenshot_hashes_match_raw": true,
+    "trace": { "format": "native .trace/.network/.stacks/resources/screencast", "before_after_action_pairs": 691, "frame_references": 2029, "distinct_frame_files": 2021, "missing_frame_files": 0, "forced_actions": 0, "recorded_action_errors": 1 },
+    "readonly_dual_storage_result": "Complete selections match JSON and active joins; original 163/164 retained on ordinary save/rejection, A163 removed/B164 retained/C165 added on BC, all active joins absent after clear; task fixtures soft deleted and shared admin/tenant retained"
+  },
+  "preserved_failures_and_boundaries": [
+    {
+      "area": "full_vue_tsc",
+      "actual_status": "fail",
+      "exit_code": 2,
+      "evidence": ["IntRuoyiFronted/src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue:299", "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue:6555", "output/playwright/um04-20261008/frontend-types-current-base.log"],
+      "boundary": "Two unchanged MES diagnostics, TS6133 loadingCatalog and TS2339 activeOrderId on never; full typecheck remains FAIL and no out-of-scope fix is requested."
+    },
+    {
+      "area": "personal_workbench_and_global_console_health",
+      "actual_status": "fail",
+      "observed_console_errors": 5,
+      "supplemental_warning_count": 180,
+      "evidence": ["output/playwright/um04-20261008/profile-precondition-failure.png", "output/playwright/um04-20261008/e2e-natural-evidence.json", "docs/e2e-rules.md:307-314", "docs/login-access.md:175-179"],
+      "boundary": "Preserved non-target MES workbench business500/collation error and handled reporters; independent target controls, requests, rows and stores passed. The remote post-deployment console gate does not apply to this local task. No global console-zero or full-site health PASS."
+    },
+    {
+      "area": "final_observations_harness",
+      "actual_status": "fail",
+      "evidence": ["output/playwright/um04-20261008/cli-final-natural-and-health-evidence.log", "IntRuoyiFronted/src/config/axios/service.ts:194-239"],
+      "boundary": "Original FAIL retained. Natural notification401 -> formal refresh0 -> same notification URL0 closes in 180ms; 12 task writes precede401, four cleanup DELETEs follow successful refresh. No unresolved target authentication failure. Other preparation locator/assertion failures are preserved and recovered using fresh real UI observations without replaying successful writes."
+    },
+    {
+      "area": "test_and_live_coverage",
+      "boundary": "H2 default READ_COMMITTED and standalone MockMvc do not prove all MySQL races or role-denial enforcement; native frontend tests substitute children/transport. Separate real desktop evidence proves required UM04 interactions and serial production persistence, not every viewport/accessibility path. No live no-post CREATE save was performed; optional contract is covered by backend/HTTP tests and actual unrequired create control/cancel."
+    },
+    {
+      "area": "trace_coverage",
+      "boundary": "Native trace begins after password/user fixture creation; early fixture actions are backed by real CLI/natural evidence. No trace.zip, full-session trace or every-action exported screenshot claim. Sole trace action error is wrong B-status parent click lmlp@673 before successful real UI recovery."
+    }
+  ],
+  "final_decision": "pass"
+}

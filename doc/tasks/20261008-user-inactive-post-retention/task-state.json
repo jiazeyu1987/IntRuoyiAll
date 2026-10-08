@@ -1,0 +1,197 @@
+{
+  "task_id": "20261008-user-inactive-post-retention",
+  "issue_id": "UM-04",
+  "status": "completed",
+  "milestone": "M4",
+  "base_commit": "a3b8bedfeece394f286e23a9d5144361b951e8ac",
+  "worktree": "E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi",
+  "branch": "codex/user-inactive-post-retention",
+  "slot": 7,
+  "frontend_port": 8088,
+  "backend_port": 48088,
+  "e2e_scope": "Playwright real frontend actions using task-owned users/posts; API/DB readonly verification only",
+  "integration_scope": "task-only local commits and int_main integration after review and verification",
+  "push_authorized": false,
+  "review_fix_run_id": "um04-20261008",
+  "worker": [
+    "/root/um04_backend_worker",
+    "/root/um04_frontend_worker",
+    "/root/um04_frontend_verifier"
+  ],
+  "reviewer": "/root/um04_release_reviewer",
+  "verification": {
+    "backend": {
+      "status": "PASS",
+      "tests": 132,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "report": "verification-evidence.json#backend",
+      "source_freeze": "output/playwright/um04-20261008/backend/backend-source-freeze-02.json",
+      "combined_run": "combined-02",
+      "limitation": "H2 transactions and standalone MockMvc are not MySQL repeatable-read or live security-filter evidence"
+    },
+    "frontend": {
+      "status": "PASS_TARGETED",
+      "legacyDispatcherTests": 50,
+      "legacyIsSameCarrier": true,
+      "eslintExit": 0,
+      "nativeTests": 50,
+      "fullTypes": {
+        "status": "FAIL_OUTSIDE_OWNED_SCOPE",
+        "diagnosticCount": 6,
+        "exitCode": 2,
+        "ownedFileDiagnostics": 0,
+        "evidence": "output/playwright/um04-20261008/frontend-types-standard-evidence.json"
+      },
+      "sourceFreeze": "output/playwright/um04-20261008/frontend-source-freeze.json",
+      "eslintWarnings": 0,
+      "report": "verification-evidence.json#frontend",
+      "fullTypesCurrentBase": {
+        "base": "a1640b169f69453701c9425d66a974033cf44120",
+        "command": "pnpm exec vue-tsc --noEmit --pretty false",
+        "nodeOptions": "--max-old-space-size=8192",
+        "start": "2026-10-08T22:15:09.9481223+08:00",
+        "end": "2026-10-08T22:16:15.780549+08:00",
+        "exitCode": 2,
+        "diagnostics": [
+          "src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue(299,7): error TS6133: 'loadingCatalog' is declared but its value is never read.",
+          "src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue(6555,49): error TS2339: Property 'activeOrderId' does not exist on type 'never'."
+        ],
+        "diagnosticCount": 2,
+        "status": "FAIL_OUTSIDE_OWNED_SCOPE"
+      }
+    },
+    "e2e": {
+      "status": "PASS_TARGETED",
+      "businessActionsExecuted": 16,
+      "evidence": "e2e-summary.json",
+      "scenarios": 8
+    },
+    "runtimePackage": {
+      "status": "PASS_CURRENT_BASE",
+      "evidence": "output/playwright/um04-20261008/runtime-class-evidence.json",
+      "productionClassesMatchTested": 11,
+      "exitCode": 0
+    },
+    "runtime": {
+      "frontendPid": 60612,
+      "status": "STOPPED_OWNED_ONLY",
+      "backendHealth": "UP",
+      "frontendHttp": 200,
+      "evidence": "output/playwright/um04-20261008/runtime-backend-ready.json",
+      "backendPid": 53748
+    },
+    "independentReview": {
+      "phase": "final",
+      "logic": "pass",
+      "usability": "pass",
+      "ui": "pass",
+      "decision": "pass",
+      "blockingIssues": 0,
+      "report": "review-report.md",
+      "decisionFile": "review-decision.json",
+      "reviewedAt": "2026-10-09T00:01:14+08:00"
+    }
+  },
+  "blockers": [],
+  "worktree_operation": "50a967c3-8671-494f-a99e-06d246d57a5d",
+  "subagent_startup_failure": {
+    "agent": "um04_runtime_preflight",
+    "model": "gpt-5.6-luna",
+    "status": "HTTP404_MODEL_NOT_SUPPORTED",
+    "observed_at": "2026-10-08T18:27:24.314151+08:00",
+    "replacement_permission": "User explicitly selected same model as primary Agent; inherited model enabled for new isolated children."
+  },
+  "subagent_model_authorization": "same_as_primary_explicit_user_reply",
+  "contract_author": "/root/um04_contract",
+  "runtime_preflight": "/root/um04_runtime_tools",
+  "runtime_prerequisites": {
+    "java17": "C:/Users/BJB110/.jdks/jdk-17.0.20+8",
+    "isolated_frontend_dependencies": "PASS; canonical physical SSD node_modules/.pnpm, frozen lock unchanged, session51928 exit0",
+    "verification": "Readonly preflight; not business tests",
+    "redis": "127.0.0.2:26379",
+    "main_frontend_pid": 14704,
+    "main_backend_pid": 37864,
+    "pnpm": "10.22.0",
+    "db": "127.0.0.2:23306/ruoyi-vue-pro",
+    "maven": "3.9.16",
+    "node": "24.12.0",
+    "ownership": "Do not operate main runtime"
+  },
+  "contract_review": "approved_for_implementation; production release pending M3",
+  "scope_amendment": "UM04 only: AdminUserMapper raw post_ids current read and local strict stored-JSON validation approved by primary; no global handler/DO/schema change",
+  "main_runtime_restoration": {
+    "authorized": "explicit user reply 2026-10-08",
+    "script": "formal restart-int-ruoyi-local.ps1 full",
+    "prebuiltOnly": true,
+    "schemaReadOnly": true,
+    "health": "UP",
+    "frontendHttp": 200,
+    "evidence": "output/playwright/um04-20261008/main-restoration-evidence.json"
+  },
+  "frontend_scope_amendment": "UM04 visible handler error ownership; only two simple-query wrappers optional error ownership; no interceptor/global behavior change",
+  "current_base_commit": "a1640b169f69453701c9425d66a974033cf44120",
+  "closeout": {
+    "status": "PASS",
+    "cleanupWorktree": {
+      "preview": "PASS",
+      "apply": "PASS",
+      "kept": 9,
+      "deleted": 9,
+      "blocked": 0,
+      "warnings": 0
+    },
+    "remaining": [],
+    "automaticApprovalRejection": {
+      "action": "Remove exact task dependency junction and physical cache",
+      "reason": "blocked by policy",
+      "commandExecuted": false,
+      "manualRequested": "D:/CodexTaskCache/um04-20261008"
+    },
+    "cacheDeletion": {
+      "status": "PASS_EXTERNAL_REMOVAL_OBSERVED",
+      "path": "D:\\CodexTaskCache\\um04-20261008",
+      "observedAbsentAt": "2026-10-09T00:22:59.043733+08:00",
+      "agentDeleteCommandExecuted": false
+    },
+    "cleanupMain": {
+      "preview": "PASS",
+      "apply": "PASS",
+      "kept": 9,
+      "deleted": 2,
+      "blocked": 0,
+      "warnings": 0
+    },
+    "manualCacheConfirmation": "User explicitly replied 已删除; exact path absent independently verified",
+    "managedArchive": {
+      "status": "PASS",
+      "path": "E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi",
+      "directoryAbsent": true,
+      "gitRegistrationAbsent": true,
+      "snapshotSaved": true,
+      "verifiedAt": "2026-10-09T00:38:09.677549+08:00"
+    },
+    "slotRelease": {
+      "status": "PASS",
+      "timestamp": "2026-10-09T00:38:11.2472440+08:00",
+      "path": "E:\\IntRuoyiWorktree\\user-inactive-posts\\IntRuoyi",
+      "branch": "codex/user-inactive-post-retention",
+      "slot": 7,
+      "frontendPort": 8088,
+      "backendPort": 48088,
+      "active": false,
+      "worktreeAbsent": true,
+      "portsFree": true,
+      "integratedCommit": "4d1a5041ea810ba7c6117b3a7b0b42d0e3e60ac2",
+      "otherEntriesUnchanged": true,
+      "otherEntriesCount": 73,
+      "mutex": "IntRuoyiWorktreePorts-5D32CF579217B79FD3DB6D99"
+    },
+    "finalRecordsCommit": "Exact nine retained records only; actual commit hash resolved from Git log (cannot self-embed commit hash)"
+  },
+  "closeout_records_complete": true,
+  "worktree_archive": "PASS: managed snapshot saved; exact checkout and Git registration absent 2026-10-09T00:38:09.677549+08:00",
+  "slot_release": "PASS: only slot7 inactive after physical managed archive; other73 entries unchanged",
+  "completedAt": "2026-10-09T00:39:29.681438+08:00"
+}

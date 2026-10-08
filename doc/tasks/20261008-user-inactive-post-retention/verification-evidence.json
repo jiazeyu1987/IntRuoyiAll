@@ -1,0 +1,2007 @@
+{
+  "taskId": "20261008-user-inactive-post-retention",
+  "issue": "UM-04",
+  "status": "completed",
+  "updatedAt": "2026-10-09T00:39:29.681438+08:00",
+  "testedBase": "a3b8bedfeece394f286e23a9d5144361b951e8ac",
+  "backend": {
+    "verifiedAtUtc": "2026-10-08T11:53:13.858Z",
+    "sourceFingerprintsMatch": true,
+    "sourceFreeze": "backend-source-freeze-02.json",
+    "productionCompileProof": "combined-01 log shows compile628 after freeze01; production sources unchanged in freeze02 and final check; combined02 production compile reused unchanged classes.",
+    "testCompileProof": "combined-02 log shows changed-source compile116 after freeze02; all selected test classes emitted after freeze02.",
+    "command": "mvn -pl yudao-module-system -am test '-Dtest=AdminUserServiceImplTest,AdminUserPostRetentionTransactionTest,UserPostEditHttpContractTest,PostServiceImplTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dfile.encoding=UTF-8' '-DargLine=-Dfile.encoding=UTF-8'",
+    "cwd": "E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi/IntRuoyiBackend",
+    "javaHome": "C:/Users/BJB110/.jdks/jdk-17.0.20+8",
+    "mavenOpts": "-Dfile.encoding=UTF-8",
+    "actualMavenExit": 0,
+    "buildSuccess": true,
+    "finishedAt": "2026-10-08T19:50:51+08:00",
+    "total": {
+      "tests": 132,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "reports": [
+      {
+        "class": "cn.iocoder.yudao.module.system.service.dept.PostServiceImplTest",
+        "tests": 13,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 6.606,
+        "reportModifiedUtc": "2026-10-08T11:50:43.545Z",
+        "sha256": "747a26a4563130e2e76fb8099f65584b6a58f7d4f947b250fbb68c662c12bd09",
+        "javaVersion": "17.0.20",
+        "fileEncoding": "UTF-8"
+      },
+      {
+        "class": "cn.iocoder.yudao.module.system.service.user.AdminUserPostRetentionTransactionTest",
+        "tests": 30,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 3.772,
+        "reportModifiedUtc": "2026-10-08T11:50:46.677Z",
+        "sha256": "d4164650494cebf734d9ad113331dc0d1d89b57d79307b4820c6d564d07b96d7",
+        "javaVersion": "17.0.20",
+        "fileEncoding": "UTF-8"
+      },
+      {
+        "class": "cn.iocoder.yudao.module.system.service.user.AdminUserServiceImplTest",
+        "tests": 80,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 2.861,
+        "reportModifiedUtc": "2026-10-08T11:50:49.53Z",
+        "sha256": "bb0890612a8453149493e40b4a94473f8bbb5c93e98baf174819796da8ce9a10",
+        "javaVersion": "17.0.20",
+        "fileEncoding": "UTF-8"
+      },
+      {
+        "class": "cn.iocoder.yudao.module.system.service.user.UserPostEditHttpContractTest",
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "seconds": 1.832,
+        "reportModifiedUtc": "2026-10-08T11:50:51.386Z",
+        "sha256": "1f34a09c8e947ce345e81555287edd84664fbef744f52595830bb5303f264f51",
+        "javaVersion": "17.0.20",
+        "fileEncoding": "UTF-8"
+      }
+    ],
+    "compiledFiles": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/UserController.class",
+        "modifiedUtc": "2026-10-08T11:46:50.233Z",
+        "sha256": "265e0382b7b706538a67588865079e336c358355c3d2939aa44d5bb6104dea22",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.class",
+        "modifiedUtc": "2026-10-08T11:46:48.719Z",
+        "sha256": "5648a348e2e2c39a83cc88723023b55f84f5ee9b3a5149515cd650bff4899448",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.class",
+        "modifiedUtc": "2026-10-08T11:46:48.702Z",
+        "sha256": "340b01130d054aa8ac7c03e438d673c7f5312385eab7eb16c3f22471f6570433",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.class",
+        "modifiedUtc": "2026-10-08T11:46:50.289Z",
+        "sha256": "00884f3ceea9e1877996a2f124adee24975a64ca289ba7146bf6af656c2c1c24",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/service/user/AdminUserService.class",
+        "modifiedUtc": "2026-10-08T11:46:48.688Z",
+        "sha256": "219ec6dfd39d41b9310d4d09a5bca5fe37228e2ce2813e66fca7fe782a7112b8",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.class",
+        "modifiedUtc": "2026-10-08T11:46:52.515Z",
+        "sha256": "6d3abfbd05df56f321c670b39b575b526cf2db7246108c583ce81e3373145536",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/convert/user/UserConvert.class",
+        "modifiedUtc": "2026-10-08T11:46:50.399Z",
+        "sha256": "f6e0853112c8f1b2078d659b01ab63cbe7f6ef11a7acf4680179641b43076607",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.class",
+        "modifiedUtc": "2026-10-08T11:46:48.697Z",
+        "sha256": "f1c7295c91c45ad6a0bba95f0f772edb0757e3dfac0ce2b83dd8c2059e8e876c",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.class",
+        "modifiedUtc": "2026-10-08T11:46:50.587Z",
+        "sha256": "ece1053285fee37dac85b441b1627f9e4989610c9343b5c986e4088f394db294",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.class",
+        "modifiedUtc": "2026-10-08T11:46:50.99Z",
+        "sha256": "661dec6872c99659eec97ab88f60667aa12da0068adea24c953ebcbd640f4228",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.class",
+        "modifiedUtc": "2026-10-08T11:46:49.025Z",
+        "sha256": "a093d21d07e9018abfc0643b9e773ebc71b317098b2ece2011aa0e7c82c181ab",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/test-classes/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.class",
+        "modifiedUtc": "2026-10-08T11:50:34.705Z",
+        "sha256": "c3abfae8cea109060fea4a20c5ff18c6ebc889cb6033d16c5526b1ee12b75b04",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/test-classes/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.class",
+        "modifiedUtc": "2026-10-08T11:50:34.355Z",
+        "sha256": "86c50211cf103e82bb72bac39909cb1435d62196c97ba9754f87635e6560cfea",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/test-classes/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.class",
+        "modifiedUtc": "2026-10-08T11:50:34.728Z",
+        "sha256": "f4ee37f15566019c787ad615418e79bfa9b58c3eb763c0d9be7a04dd896b21e5",
+        "afterRelevantFreeze": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/test-classes/cn/iocoder/yudao/module/system/service/dept/PostServiceImplTest.class",
+        "modifiedUtc": "2026-10-08T11:50:28.884Z",
+        "sha256": "7258fcf72b4ce98c7c68c7b79d38928556ecf12bd8fe2475f38b0dfb29f95e5a",
+        "afterRelevantFreeze": true
+      }
+    ]
+  },
+  "frontend": {
+    "legacyUsesSameCarrier": true,
+    "sourceFreeze": {
+      "captured_at": "2026-10-08T21:45:55.1137049+08:00",
+      "normalization": "Read UTF-8 text, normalize CRLF and CR to LF, encode UTF-8 without BOM, SHA-256",
+      "dependencies": "Canonical task-owned SSD node_modules/.pnpm; E junction points to D:/CodexTaskCache/um04-20261008/node_modules; no NODE_PATH",
+      "owned_source": [
+        {
+          "path": "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+          "normalized_utf8_sha256": "ffdad51197ea70668a8d0fa7e3feb394629fb6cfeae15aa245487f68ed4268f1",
+          "raw_bytes": 13878
+        },
+        {
+          "path": "IntRuoyiFronted/src/api/system/user/index.ts",
+          "normalized_utf8_sha256": "d72aec03785fc955f3fa27f3dd2fbab7dd444b65e229d1249f4b3a1216213209",
+          "raw_bytes": 4323
+        },
+        {
+          "path": "IntRuoyiFronted/src/api/system/post/index.ts",
+          "normalized_utf8_sha256": "e65482a9207c74709d0ed8e84df4d54c08791041c53fa1002af4cf1cbae246f3",
+          "raw_bytes": 1804
+        },
+        {
+          "path": "IntRuoyiFronted/src/api/system/dept/index.ts",
+          "normalized_utf8_sha256": "9442d0187bf326574dac9413a00f279885f14fbddadef4b7eea2fdbf800f0c9c",
+          "raw_bytes": 1487
+        },
+        {
+          "path": "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+          "normalized_utf8_sha256": "9898ca1fad7f695bf2ecb13667e8104620857a9bc47a4e31ee137008e8417e15",
+          "raw_bytes": 27354
+        },
+        {
+          "path": "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+          "normalized_utf8_sha256": "640b8ca3c0efa6fb1b6f914ecfe6d99c190a668ba58cfdf5ba7c827871fdb07c",
+          "raw_bytes": 754
+        }
+      ],
+      "actual_readonly_dependencies": [
+        {
+          "path": "IntRuoyiFronted/src/config/axios/index.ts",
+          "normalized_utf8_sha256": "83dcb25d8f3b24c7da51c45600d4b4d1cb3114295744c3016e530a1c5c513c70",
+          "raw_bytes": 1828
+        },
+        {
+          "path": "IntRuoyiFronted/src/utils/constants.ts",
+          "normalized_utf8_sha256": "37aefb7ec80c7723bcd85f1311ab2cc5d42954e61ccab6f05fb66c586d040f1a",
+          "raw_bytes": 8247
+        },
+        {
+          "path": "IntRuoyiFronted/src/utils/tree.ts",
+          "normalized_utf8_sha256": "c8b88212b75a366fae211a94a4c6c8291e607afcba15f9081f95a23a6bc82d49",
+          "raw_bytes": 10566
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/system/user/systemPasswordPolicy.ts",
+          "normalized_utf8_sha256": "528838ae9b3b5ed2630040f69448135b5c9b7a7743ec8fc38c28fc082a51ab41",
+          "raw_bytes": 974
+        }
+      ]
+    },
+    "legacyExit": 0,
+    "fullTypes": {
+      "status": "BLOCKED_BY_UNRELATED_REPOSITORY_DIAGNOSTICS",
+      "command": "pnpm exec vue-tsc --noEmit --pretty false",
+      "node_options": "--max-old-space-size=8192",
+      "exit_code": 2,
+      "diagnostic_count": 6,
+      "diagnostics": [
+        "src/utils/notifyMessageNavigation.ts(196,3): error TS2322: Type '(ShowroomProductNotifyTarget | BpmApprovalNotifyTarget | EdhrWorkTaskNotifyTarget | DccPublicationNotifyTarget | null)[]' is not assignable to type 'NotifyMessageTarget[]'.",
+        "src/utils/notifyMessageNavigation.ts(197,25): error TS2677: A type predicate's type must be assignable to its parameter's type.",
+        "src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue(299,7): error TS6133: 'loadingCatalog' is declared but its value is never read.",
+        "src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue(6555,49): error TS2339: Property 'activeOrderId' does not exist on type 'never'.",
+        "src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts(1,62): error TS1149: File name 'E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name 'E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing.",
+        "src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue(27,62): error TS1149: File name 'E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi/IntRuoyiFronted/src/api/mes/pro/processPool/teamLeader.ts' differs from already included file name 'E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi/IntRuoyiFronted/src/api/mes/pro/processpool/teamLeader.ts' only in casing."
+      ],
+      "comparison_limit": "Read-only comparison to current main files, not a second baseline compiler execution",
+      "comparisons": [
+        {
+          "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+          "worktree_normalized_sha256": "e48db2f0d7a0135ea661e9ba699fb056e018622920f65fc7aa5cabb7537ed038",
+          "main_current_normalized_sha256": "07e5fc6ae010732386cd085d6e90ad93a8d381befa7ff0d813685837f68b2b86",
+          "equal": false
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue",
+          "worktree_normalized_sha256": "e6e36d2f6a685e91f21437b31e9a40bd70f8453802a17cae0297a0cd12b58a7b",
+          "main_current_normalized_sha256": "e6e36d2f6a685e91f21437b31e9a40bd70f8453802a17cae0297a0cd12b58a7b",
+          "equal": true
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue",
+          "worktree_normalized_sha256": "b099211ef46e241afb21157231a48a126868eb2514fade79942500e218b5cc81",
+          "main_current_normalized_sha256": "b099211ef46e241afb21157231a48a126868eb2514fade79942500e218b5cc81",
+          "equal": true
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/mes/pro/processpool/components/activeOrderReworkSourceLocation.ts",
+          "worktree_normalized_sha256": "b431ddc38876f8be56e1850730f967110593968c92e4f9d0333866824909c576",
+          "main_current_normalized_sha256": "8ebbbeec649b3d3d10fb214bd8c901fee13b48a6876e86ebc6967593b55cee66",
+          "equal": false
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/mes/pro/processpool/components/ActiveOrderReworkSourcePanel.vue",
+          "worktree_normalized_sha256": "57a863191a835cc67f8af03a33d66dccdaceb380b34d2d2ffac240b372a1c742",
+          "main_current_normalized_sha256": "cd62116dd4105e4fadcd05ae3a21b1081143bffc3e110fe6c7b60b8962b2d0cc",
+          "equal": false
+        }
+      ],
+      "captured_at": "2026-10-08T21:49:41.0749251+08:00"
+    },
+    "eslintErrors": 0,
+    "browserE2E": false,
+    "nativeExit": 0,
+    "nativeTests": 50,
+    "eslintExit": 0,
+    "eslintWarnings": 0,
+    "fullTypesCurrentBase": {
+      "base": "a1640b169f69453701c9425d66a974033cf44120",
+      "command": "pnpm exec vue-tsc --noEmit --pretty false",
+      "nodeOptions": "--max-old-space-size=8192",
+      "start": "2026-10-08T22:15:09.9481223+08:00",
+      "end": "2026-10-08T22:16:15.780549+08:00",
+      "exitCode": 2,
+      "diagnostics": [
+        "src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue(299,7): error TS6133: 'loadingCatalog' is declared but its value is never read.",
+        "src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue(6555,49): error TS2339: Property 'activeOrderId' does not exist on type 'never'."
+      ],
+      "diagnosticCount": 2,
+      "status": "FAIL_OUTSIDE_OWNED_SCOPE"
+    }
+  },
+  "runtimePackage": {
+    "verifiedAt": "2026-10-08T22:42:49.53133+08:00",
+    "status": "PASS",
+    "baseCommit": "a1640b169f69453701c9425d66a974033cf44120",
+    "runtimePackage": {
+      "command": "mvn -pl yudao-server -am package -DskipTests",
+      "baseCommit": "a1640b169f69453701c9425d66a974033cf44120",
+      "start": "2026-10-08T22:14:20.5366521+08:00",
+      "end": "2026-10-08T22:40:57.3926834+08:00",
+      "exitCode": 0,
+      "jar": "E:\\IntRuoyiWorktree\\user-inactive-posts\\IntRuoyi\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+      "jarSHA256": "A4FF5308E2432D6D04DE89B87BAED917F23490F3286D4061904C11DF6334CFBF",
+      "testExecution": "132 cases passed separately; package skips execution",
+      "ownedSourcesUnchanged": true
+    },
+    "classes": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/UserController.class",
+        "sha256": "265e0382b7b706538a67588865079e336c358355c3d2939aa44d5bb6104dea22",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.class",
+        "sha256": "5648a348e2e2c39a83cc88723023b55f84f5ee9b3a5149515cd650bff4899448",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.class",
+        "sha256": "340b01130d054aa8ac7c03e438d673c7f5312385eab7eb16c3f22471f6570433",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.class",
+        "sha256": "00884f3ceea9e1877996a2f124adee24975a64ca289ba7146bf6af656c2c1c24",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/service/user/AdminUserService.class",
+        "sha256": "219ec6dfd39d41b9310d4d09a5bca5fe37228e2ce2813e66fca7fe782a7112b8",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.class",
+        "sha256": "6d3abfbd05df56f321c670b39b575b526cf2db7246108c583ce81e3373145536",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/convert/user/UserConvert.class",
+        "sha256": "f6e0853112c8f1b2078d659b01ab63cbe7f6ef11a7acf4680179641b43076607",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.class",
+        "sha256": "f1c7295c91c45ad6a0bba95f0f772edb0757e3dfac0ce2b83dd8c2059e8e876c",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.class",
+        "sha256": "ece1053285fee37dac85b441b1627f9e4989610c9343b5c986e4088f394db294",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.class",
+        "sha256": "661dec6872c99659eec97ab88f60667aa12da0068adea24c953ebcbd640f4228",
+        "matchesTestedAndPackaged": true
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/target/classes/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.class",
+        "sha256": "a093d21d07e9018abfc0643b9e773ebc71b317098b2ece2011aa0e7c82c181ab",
+        "matchesTestedAndPackaged": true
+      }
+    ],
+    "committedDccMapperHash": "F2431735A1A16600C919BF20602745DE4A54F1C73140A33ADF128623059554D2",
+    "dccMapperMatchesCommittedBase": true
+  },
+  "runtime": {
+    "status": "READY",
+    "verifiedAt": "2026-10-08T22:46:27.2489441+08:00",
+    "slot": 7,
+    "worktree": "E:\\IntRuoyiWorktree\\user-inactive-posts\\IntRuoyi",
+    "baseCommit": "a1640b169f69453701c9425d66a974033cf44120",
+    "backendPid": 53748,
+    "backendCreation": "2026-10-08T22:42:54.831491+08:00",
+    "backendParent": 63964,
+    "backendExecutable": "C:\\Users\\BJB110\\.jdks\\jdk-17.0.20+8\\bin\\java.exe",
+    "backendJar": "E:\\IntRuoyiWorktree\\user-inactive-posts\\IntRuoyi\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "backendJarSha256": "A4FF5308E2432D6D04DE89B87BAED917F23490F3286D4061904C11DF6334CFBF",
+    "health": "UP",
+    "frontendPid": 60612,
+    "frontendCreation": "2026-10-08T21:43:56.838425+08:00",
+    "frontendHttp": 200,
+    "formalDatasource": "127.0.0.2:23306/ruoyi-vue-pro",
+    "secrets": "In-memory only; no command line dumped"
+  },
+  "e2e": {
+    "pageConsoleErrorsBeforeLogin": 0,
+    "fixturesCreated": 0,
+    "loginPageReadiness": "Initial navigation60s timeout; same page later rendered correct test-tenant login, no reload or login submission",
+    "status": "PENDING_SHARED_WRITE_WINDOW",
+    "businessActionsExecuted": 0
+  },
+  "review": {
+    "preliminary": "Static only; not release PASS",
+    "status": "PENDING_FINAL_THREE_LAYER_REVIEW"
+  },
+  "integration": {
+    "status": "PASS",
+    "mainBase": "a1640b169f69453701c9425d66a974033cf44120",
+    "taskCommit": "4d1a5041ea810ba7c6117b3a7b0b42d0e3e60ac2",
+    "incomingFiles": [
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/convert/user/UserConvert.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserService.java",
+      "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+      "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.java",
+      "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.java",
+      "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.java",
+      "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+      "IntRuoyiFronted/src/api/system/dept/index.ts",
+      "IntRuoyiFronted/src/api/system/post/index.ts",
+      "IntRuoyiFronted/src/api/system/user/index.ts",
+      "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+      "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+      "docs/worktree-memory.md"
+    ],
+    "incomingDirtyOverlap": [],
+    "parallelFiles": [
+      {
+        "status": " M",
+        "path": "IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml",
+        "sha256": "caaca3e7bb5602a5cbb48948a8c2e4d953504cc96b75ca82e458d29bc1e79bc6"
+      },
+      {
+        "status": "??",
+        "path": "IntRuoyiBackend/script/tests/test_mes_workbench_regexp_collation.py",
+        "sha256": "9bb04c098d805a08c02e869eb9a2123682cd1f7d1f1460d5a8366370bd4cc45c"
+      }
+    ],
+    "readTreeDryRunExit": 0,
+    "cleanup": {
+      "mode": "apply",
+      "keep": 9,
+      "deleted": 9,
+      "blocked": 0,
+      "warnings": 0,
+      "worktreeCloseout": "off"
+    },
+    "mergeExit": 0,
+    "mainAfter": "4d1a5041ea810ba7c6117b3a7b0b42d0e3e60ac2",
+    "parallelBytesPreserved": true,
+    "sourceHashesMatched": 21,
+    "finishedAt": "2026-10-09T00:17:24.677609+08:00"
+  },
+  "currentBase": "a1640b169f69453701c9425d66a974033cf44120",
+  "baseFastForward": {
+    "time": "2026-10-08T22:13:45.0047111+08:00",
+    "beforeHead": "a3b8bedfeece394f286e23a9d5144361b951e8ac",
+    "afterHead": "a1640b169f69453701c9425d66a974033cf44120",
+    "operation": "git merge --ff-only explicit committed main SHA; no new commit",
+    "ownSourceHashesUnchanged": true,
+    "checks": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+        "before": "07C3F4E3BDE056BA21246D521BA491A49A33238F0DF5CE1F7C19EDB8D1D58758",
+        "after": "07C3F4E3BDE056BA21246D521BA491A49A33238F0DF5CE1F7C19EDB8D1D58758"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.java",
+        "before": "D525BF8EA04BBF0B179712F7594E5DDCA5A4650D4350561A662B192676B47124",
+        "after": "D525BF8EA04BBF0B179712F7594E5DDCA5A4650D4350561A662B192676B47124"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.java",
+        "before": "38EDE933B694FFE12E548AD333288BCA46254808B20076088E328D33BD8C0E03",
+        "after": "38EDE933B694FFE12E548AD333288BCA46254808B20076088E328D33BD8C0E03"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.java",
+        "before": "1E541F32F9BE9F426C7926AB9C4288066284945128601DC0DD5288EE41F362EF",
+        "after": "1E541F32F9BE9F426C7926AB9C4288066284945128601DC0DD5288EE41F362EF"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserService.java",
+        "before": "A928A424E0D0FABAAF4D8CC44E4E62903161DBEA59F44104F9602FBC4B641338",
+        "after": "A928A424E0D0FABAAF4D8CC44E4E62903161DBEA59F44104F9602FBC4B641338"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "before": "A1073741B745EE5DD19E7E19BB9FF95AB21BA7AA6D500D7CB778DCDBED2EEEDD",
+        "after": "A1073741B745EE5DD19E7E19BB9FF95AB21BA7AA6D500D7CB778DCDBED2EEEDD"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/convert/user/UserConvert.java",
+        "before": "54F9A00256AD150C4B8FBE07FF75F4EC60040ED91351F3FE51B690A549D1D9E3",
+        "after": "54F9A00256AD150C4B8FBE07FF75F4EC60040ED91351F3FE51B690A549D1D9E3"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.java",
+        "before": "F7B3ED306FA297AE17DD8E3FFD0428902C4649F7772CBAB044BD08C5878721A7",
+        "after": "F7B3ED306FA297AE17DD8E3FFD0428902C4649F7772CBAB044BD08C5878721A7"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.java",
+        "before": "4A9D5AB867A7F14BABBE259E0654A40AF7C7FC69895B13321228BC8BC92226EF",
+        "after": "4A9D5AB867A7F14BABBE259E0654A40AF7C7FC69895B13321228BC8BC92226EF"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java",
+        "before": "40D5D7FBFEB8024C97B6149B6BE47F399944657FA35176905874C2897D15EF91",
+        "after": "40D5D7FBFEB8024C97B6149B6BE47F399944657FA35176905874C2897D15EF91"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.java",
+        "before": "383AF6CE077B7852B4B7B11648D36F4D94C562E91B45730DF76ED39045287A94",
+        "after": "383AF6CE077B7852B4B7B11648D36F4D94C562E91B45730DF76ED39045287A94"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.java",
+        "before": "3CC697DB1077C981507B4E5244C4AEB0A300EAD770C92830138BEC7378B91EE5",
+        "after": "3CC697DB1077C981507B4E5244C4AEB0A300EAD770C92830138BEC7378B91EE5"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.java",
+        "before": "AA8D94C7C6A20C6B8889BB838859525BF09E74E257BECC042F7BE6C579188924",
+        "after": "AA8D94C7C6A20C6B8889BB838859525BF09E74E257BECC042F7BE6C579188924"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.java",
+        "before": "A06BCCEC62547B639E20513F4C5C3C79CEF473F9B2F1B4D968767D2EF80FDD91",
+        "after": "A06BCCEC62547B639E20513F4C5C3C79CEF473F9B2F1B4D968767D2EF80FDD91"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/dept/PostServiceImplTest.java",
+        "before": "2984E13CF5151195A11654982017E7CDF87933FC07D084AEB7242A7B621D07D4",
+        "after": "2984E13CF5151195A11654982017E7CDF87933FC07D084AEB7242A7B621D07D4"
+      },
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+        "before": "47E43DABA01788A71835ACBAB631FE802E4EE77D723446312CD072212E3FBC1B",
+        "after": "47E43DABA01788A71835ACBAB631FE802E4EE77D723446312CD072212E3FBC1B"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/user/index.ts",
+        "before": "74CFFFBE7C4BC0D266608510CF60F917392A145719A6951BF9AD8E5403AE7367",
+        "after": "74CFFFBE7C4BC0D266608510CF60F917392A145719A6951BF9AD8E5403AE7367"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/post/index.ts",
+        "before": "9FFD370CF2D5CDDD87D173B50CD81886180985AE1B978F2AA73E5D2B700E6875",
+        "after": "9FFD370CF2D5CDDD87D173B50CD81886180985AE1B978F2AA73E5D2B700E6875"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/dept/index.ts",
+        "before": "F24A8F965157EA3FC4442FDDDEE04B6B35A10E5DE40AB9FB5F0D67CC8528DB78",
+        "after": "F24A8F965157EA3FC4442FDDDEE04B6B35A10E5DE40AB9FB5F0D67CC8528DB78"
+      },
+      {
+        "path": "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+        "before": "9898CA1FAD7F695BF2ECB13667E8104620857A9BC47A4E31EE137008E8417E15",
+        "after": "9898CA1FAD7F695BF2ECB13667E8104620857A9BC47A4E31EE137008E8417E15"
+      },
+      {
+        "path": "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+        "before": "640B8CA3C0EFA6FB1B6F914ECFE6D99C190A668BA58CFDF5BA7C827871FDB07C",
+        "after": "640B8CA3C0EFA6FB1B6F914ECFE6D99C190A668BA58CFDF5BA7C827871FDB07C"
+      }
+    ],
+    "noMainRuntimeChange": true
+  },
+  "realE2E": {
+    "status": "PASS_TARGETED",
+    "issue": "UM-04",
+    "verifiedAt": "2026-10-08T23:52:34.3190943+08:00",
+    "frontend": "http://127.0.0.1:8088",
+    "backendPort": 48088,
+    "tenantId": 1,
+    "userId": 9908090349,
+    "postIds": [
+      26,
+      27,
+      28
+    ],
+    "scenarios": [
+      {
+        "id": "AC-04-01-formal-disabled",
+        "status": "PASS",
+        "assignedResponseCount": 2,
+        "selectedTagCount": 2,
+        "selectedLabels": [
+          "UM04-20261008-R1-A（已停用）",
+          "UM04-20261008-R1-B（已停用）"
+        ]
+      },
+      {
+        "id": "AC-04-01-cancel",
+        "status": "PASS",
+        "userUpdateCount": 0,
+        "reopenedOriginalFields": true,
+        "reopenedPostIds": [
+          "26",
+          "27"
+        ]
+      },
+      {
+        "id": "AC-04-01-normal-save",
+        "status": "PASS",
+        "submittedCompletePostIds": [
+          "26",
+          "27"
+        ],
+        "originalJoinIdentityAndTimesRetained": true
+      },
+      {
+        "id": "AC-04-02-new-post-disabled-before-save",
+        "status": "PASS",
+        "businessCode": 1002005001,
+        "dialogRetained": true,
+        "userAndBindingsUnchanged": true
+      },
+      {
+        "id": "AC-04-02-remove-a-add-c",
+        "status": "PASS",
+        "removedACandidateCount": 0,
+        "reopenedPostIds": [
+          "27",
+          "28"
+        ],
+        "retainedBJoin": "164",
+        "newCJoin": "165"
+      },
+      {
+        "id": "AC-04-02-explicit-clear",
+        "status": "PASS",
+        "submittedPostIds": [],
+        "reopenedTagCount": 0,
+        "activeJoinCount": 0
+      },
+      {
+        "id": "new-user-enabled-candidates",
+        "status": "PASS",
+        "disabledABCandidateCount": 0,
+        "cancelAdditionalCreates": 0
+      },
+      {
+        "id": "task-fixture-ui-cleanup",
+        "status": "PASS",
+        "successfulDeletes": 4,
+        "sharedAdminAndTenantRetained": true
+      }
+    ],
+    "taskWriteCount": 16,
+    "successfulTaskWrites": 15,
+    "expectedBusinessRejections": 1,
+    "targetRequestEvidenceFlushed": true,
+    "events": [
+      {
+        "time": "2026-10-08T15:21:08.964Z",
+        "method": "POST",
+        "path": "/admin-api/system/post/create",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "remark": "",
+          "code": "um0420261008r1a",
+          "name": "UM04-20261008-R1-A",
+          "status": 0
+        },
+        "createdId": 26
+      },
+      {
+        "time": "2026-10-08T15:21:44.581Z",
+        "method": "POST",
+        "path": "/admin-api/system/post/create",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "remark": "",
+          "code": "um0420261008r1b",
+          "name": "UM04-20261008-R1-B",
+          "status": 0
+        },
+        "createdId": 27
+      },
+      {
+        "time": "2026-10-08T15:21:45.876Z",
+        "method": "POST",
+        "path": "/admin-api/system/post/create",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "remark": "",
+          "code": "um0420261008r1c",
+          "name": "UM04-20261008-R1-C",
+          "status": 0
+        },
+        "createdId": 28
+      },
+      {
+        "time": "2026-10-08T15:23:20.16Z",
+        "method": "POST",
+        "path": "/admin-api/system/user/create",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Initial",
+          "remark": "",
+          "postIds": [
+            "26",
+            "27"
+          ],
+          "status": 0
+        },
+        "createdId": 9908090349
+      },
+      {
+        "time": "2026-10-08T15:24:09.428Z",
+        "method": "GET",
+        "path": "/admin-api/system/post/get",
+        "queryId": "26",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:24:30.41Z",
+        "method": "PUT",
+        "path": "/admin-api/system/post/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 26,
+          "remark": "",
+          "code": "um0420261008r1a",
+          "name": "UM04-20261008-R1-A",
+          "status": 1
+        }
+      },
+      {
+        "time": "2026-10-08T15:24:53.293Z",
+        "method": "GET",
+        "path": "/admin-api/system/post/get",
+        "queryId": "27",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:26:29.212Z",
+        "method": "PUT",
+        "path": "/admin-api/system/post/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 27,
+          "remark": "",
+          "code": "um0420261008r1b",
+          "name": "UM04-20261008-R1-B",
+          "status": 1
+        }
+      },
+      {
+        "time": "2026-10-08T15:26:44.313Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Initial",
+          "remark": "",
+          "postIds": [
+            26,
+            27
+          ],
+          "assignedPosts": [
+            {
+              "id": 26,
+              "name": "UM04-20261008-R1-A",
+              "status": 1
+            },
+            {
+              "id": 27,
+              "name": "UM04-20261008-R1-B",
+              "status": 1
+            }
+          ]
+        }
+      },
+      {
+        "time": "2026-10-08T15:28:37.514Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Initial",
+          "remark": "",
+          "postIds": [
+            26,
+            27
+          ],
+          "assignedPosts": [
+            {
+              "id": 26,
+              "name": "UM04-20261008-R1-A",
+              "status": 1
+            },
+            {
+              "id": 27,
+              "name": "UM04-20261008-R1-B",
+              "status": 1
+            }
+          ]
+        }
+      },
+      {
+        "time": "2026-10-08T15:28:38.511Z",
+        "method": "PUT",
+        "path": "/admin-api/system/user/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Normal-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            "26",
+            "27"
+          ],
+          "status": 0
+        }
+      },
+      {
+        "time": "2026-10-08T15:28:39.624Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Normal-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            26,
+            27
+          ],
+          "assignedPosts": [
+            {
+              "id": 26,
+              "name": "UM04-20261008-R1-A",
+              "status": 1
+            },
+            {
+              "id": 27,
+              "name": "UM04-20261008-R1-B",
+              "status": 1
+            }
+          ]
+        }
+      },
+      {
+        "time": "2026-10-08T15:31:08.81Z",
+        "method": "GET",
+        "path": "/admin-api/system/post/get",
+        "queryId": "28",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:31:48.225Z",
+        "method": "PUT",
+        "path": "/admin-api/system/post/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 28,
+          "remark": "",
+          "code": "um0420261008r1c",
+          "name": "UM04-20261008-R1-C",
+          "status": 1
+        }
+      },
+      {
+        "time": "2026-10-08T15:31:51.475Z",
+        "method": "PUT",
+        "path": "/admin-api/system/user/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 1002005001,
+        "tenantId": "1",
+        "expectedFailure": true,
+        "message": "岗位(UM04-20261008-R1-C) 不处于开启状态，不允许选择",
+        "submitted": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Should-Rollback",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            "27",
+            "28"
+          ],
+          "status": 0
+        }
+      },
+      {
+        "time": "2026-10-08T15:33:17.089Z",
+        "method": "GET",
+        "path": "/admin-api/system/post/get",
+        "queryId": "28",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:33:17.938Z",
+        "method": "PUT",
+        "path": "/admin-api/system/post/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 28,
+          "remark": "",
+          "code": "um0420261008r1c",
+          "name": "UM04-20261008-R1-C",
+          "status": 0
+        }
+      },
+      {
+        "time": "2026-10-08T15:33:21.284Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-Normal-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            26,
+            27
+          ],
+          "assignedPosts": [
+            {
+              "id": 26,
+              "name": "UM04-20261008-R1-A",
+              "status": 1
+            },
+            {
+              "id": 27,
+              "name": "UM04-20261008-R1-B",
+              "status": 1
+            }
+          ]
+        }
+      },
+      {
+        "time": "2026-10-08T15:33:22.642Z",
+        "method": "PUT",
+        "path": "/admin-api/system/user/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-BC-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            "27",
+            "28"
+          ],
+          "status": 0
+        }
+      },
+      {
+        "time": "2026-10-08T15:33:23.875Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-BC-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [
+            27,
+            28
+          ],
+          "assignedPosts": [
+            {
+              "id": 27,
+              "name": "UM04-20261008-R1-B",
+              "status": 1
+            },
+            {
+              "id": 28,
+              "name": "UM04-20261008-R1-C",
+              "status": 0
+            }
+          ]
+        }
+      },
+      {
+        "time": "2026-10-08T15:34:41.689Z",
+        "method": "PUT",
+        "path": "/admin-api/system/user/update",
+        "queryId": null,
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "submitted": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-BC-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [],
+          "status": 0
+        }
+      },
+      {
+        "time": "2026-10-08T15:34:43.145Z",
+        "method": "GET",
+        "path": "/admin-api/system/user/get-for-update",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1",
+        "edit": {
+          "id": 9908090349,
+          "username": "um0420261008r1",
+          "nickname": "UM04-R1-BC-Saved",
+          "remark": "UM04 retain disabled A and B",
+          "postIds": [],
+          "assignedPosts": []
+        }
+      },
+      {
+        "time": "2026-10-08T15:38:11.116Z",
+        "method": "DELETE",
+        "path": "/admin-api/system/user/delete",
+        "queryId": "9908090349",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:39:30.365Z",
+        "method": "DELETE",
+        "path": "/admin-api/system/post/delete",
+        "queryId": "28",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:39:30.935Z",
+        "method": "DELETE",
+        "path": "/admin-api/system/post/delete",
+        "queryId": "27",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      },
+      {
+        "time": "2026-10-08T15:39:31.505Z",
+        "method": "DELETE",
+        "path": "/admin-api/system/post/delete",
+        "queryId": "26",
+        "httpStatus": 200,
+        "code": 0,
+        "tenantId": "1"
+      }
+    ],
+    "stores": [
+      {
+        "phase": "before-fixtures",
+        "time": "2026-10-08T23:05:42.1203621+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "assigned-enabled",
+        "time": "2026-10-08T23:23:44.8389059+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Initial\t\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t0\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t0\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "normal-saved",
+        "time": "2026-10-08T23:28:42.6467785+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Normal-Saved\tUM04 retain disabled A and B\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "rejected-c-disabled",
+        "time": "2026-10-08T23:31:54.7565325+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Normal-Saved\tUM04 retain disabled A and B\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t1\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "bc-saved",
+        "time": "2026-10-08T23:33:27.3206077+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[27,28]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t165\t9908090349\t28\t1\t0\t2026-10-08 23:33:23\t2026-10-08 23:33:23\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "cleared",
+        "time": "2026-10-08T23:35:08.4904705+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:34:41\nbinding\t165\t9908090349\t28\t1\t1\t2026-10-08 23:33:23\t2026-10-08 23:34:41\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      },
+      {
+        "phase": "cleanup",
+        "time": "2026-10-08T23:39:34.2270025+08:00",
+        "tenantId": 1,
+        "username": "um0420261008r1",
+        "db": "127.0.0.2:23306/ruoyi-vue-pro",
+        "readonly": true,
+        "exitCode": 0,
+        "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[]\t1\t1\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:34:41\nbinding\t165\t9908090349\t28\t1\t1\t2026-10-08 23:33:23\t2026-10-08 23:34:41\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t1\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t1\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t1\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+      }
+    ],
+    "storeVerification": {
+      "status": "PASS",
+      "readonly": true,
+      "tenantId": 1,
+      "userId": "9908090349",
+      "postIds": [
+        "26",
+        "27",
+        "28"
+      ],
+      "originalJoinIds": [
+        "163",
+        "164"
+      ],
+      "newJoinId": "165",
+      "normalRetainedIdentity": true,
+      "rejectionRolledBackUserAndJoins": true,
+      "bcDiffCorrect": true,
+      "clearBothStoresEmpty": true,
+      "ownedFixtureCleanup": true,
+      "sharedAdminAndTenantRetained": true,
+      "verifiedAt": "2026-10-08T23:48:38.7802351+08:00"
+    },
+    "authenticationRefresh": {
+      "challenge": {
+        "url": "http://127.0.0.1:8088/admin-api/system/notify-message/get-unread-count",
+        "method": "GET",
+        "httpStatus": 200,
+        "businessCode": 401,
+        "message": "账号未登录",
+        "time": "2026-10-08T15:36:59.041Z"
+      },
+      "refresh": {
+        "url": "http://127.0.0.1:8088/admin-api/system/auth/refresh-token?refreshToken=%5BREDACTED%5D",
+        "method": "POST",
+        "httpStatus": 200,
+        "businessCode": 0,
+        "message": "",
+        "time": "2026-10-08T15:36:59.182Z"
+      },
+      "retry": {
+        "url": "http://127.0.0.1:8088/admin-api/system/notify-message/get-unread-count",
+        "method": "GET",
+        "httpStatus": 200,
+        "businessCode": 0,
+        "message": "",
+        "time": "2026-10-08T15:36:59.221Z"
+      },
+      "closureMilliseconds": 180.0,
+      "existingSource": "IntRuoyiFronted/src/config/axios/service.ts:194",
+      "taskWritesBefore": 12,
+      "cleanupDeletesAfter": 4
+    },
+    "nonTargetProfile": {
+      "initialResponses": [
+        {
+          "requestIndex": 3775,
+          "httpStatus": 200,
+          "businessCode": 0,
+          "message": "",
+          "category": "authentication_permission"
+        },
+        {
+          "requestIndex": 3777,
+          "httpStatus": 200,
+          "businessCode": 0,
+          "message": "",
+          "category": "authentication_permission"
+        },
+        {
+          "requestIndex": 3980,
+          "httpStatus": 200,
+          "businessCode": 500,
+          "message": "系统异常",
+          "category": "profile_workbench_non_target"
+        },
+        {
+          "requestIndex": 3984,
+          "httpStatus": 200,
+          "businessCode": 500,
+          "message": "系统异常",
+          "category": "profile_workbench_non_target"
+        },
+        {
+          "requestIndex": 4016,
+          "httpStatus": 200,
+          "businessCode": 500,
+          "message": "系统异常",
+          "category": "profile_workbench_non_target"
+        }
+      ],
+      "futureFailedResponse": [
+        {
+          "url": "http://127.0.0.1:8088/admin-api/system/profile-workbench-todo/count?enabledSources=DCC_DISTRIBUTION&enabledSources=DCC_TRAINING&enabledSources=EDHR_WORK_TASK&enabledSources=SHOWROOM_ASSIGNMENT&enabledSources=WORK_ORDER",
+          "method": "GET",
+          "httpStatus": 200,
+          "businessCode": 500,
+          "message": "系统异常",
+          "time": "2026-10-08T15:29:54.008Z"
+        }
+      ],
+      "initialConsoleErrors": [
+        "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26 @ http://127.0.0.1:8088/src/layout/components/TagsView/src/TagsView.vue:222",
+        "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26 @ http://127.0.0.1:8088/src/layout/components/Menu/src/Menu.vue?vue&type=script&lang.tsx:52",
+        "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26\r\n    at async Proxy.ensureTodoTotalLoaded (http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:139:7) @ http://127.0.0.1:8088/src/views/Profile/Index.vue:108"
+      ],
+      "futureConsoleErrors": [
+        {
+          "type": "error",
+          "text": "个人工作台待处理数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26",
+          "location": {
+            "url": "http://127.0.0.1:8088/src/layout/components/TagsView/src/TagsView.vue",
+            "line": 222,
+            "column": 14,
+            "lineNumber": 222,
+            "columnNumber": 14
+          },
+          "time": "2026-10-08T15:29:54.005Z"
+        },
+        {
+          "type": "error",
+          "text": "个人工作台待处理数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26",
+          "location": {
+            "url": "http://127.0.0.1:8088/src/layout/components/Menu/src/Menu.vue?vue&type=script&lang.tsx",
+            "line": 52,
+            "column": 14,
+            "lineNumber": 52,
+            "columnNumber": 14
+          },
+          "time": "2026-10-08T15:29:54.005Z"
+        }
+      ],
+      "errorCount": 5,
+      "source": "MES profile-workbench TodoMapper regex collation SQL error; independent of UM04 user/post services",
+      "targetControlsAndBehaviorPassed": true,
+      "rule": "docs/e2e-rules.md:307-314"
+    },
+    "targetUnhandledErrors": 0,
+    "pageerrorCount": 0,
+    "requestfailedCountSinceSupplementalCapture": 0,
+    "responseParseErrors": 0,
+    "warnings": {
+      "baselineSnapshotCount": 85,
+      "futureCapturedCount": 180,
+      "type": "Runtime directive used on component with non-element root node",
+      "scope": "Existing SystemUser/ElDropdownItem directive warnings retained; real controls proved independently",
+      "fullLocalEvidenceHash": "1359E9DE62126E50B7063C5600BBA29BB021362972BF0524EB6254CE127DA020"
+    },
+    "screenshots": [
+      {
+        "name": "user-entry-precondition",
+        "sha256": "BF283D405A5A2D3548A96F766ED2C796D721C13B2D265C94FD0B0A1CC836423E"
+      },
+      {
+        "name": "disabled-options",
+        "sha256": "61E2EEDB199845819024F423A5AB2451054216A1F1644B3573A64D8183ABB7CC"
+      },
+      {
+        "name": "removed-a-options",
+        "sha256": "55783629376BD3F78209B4D5E0585751390D84C5CC70F6DD6349E95192C19AD5"
+      },
+      {
+        "name": "cancel-reopened",
+        "sha256": "09B98B5131971E8BF07B11DD30E128BEAC74B6ED21CFE9BCC74DF7426B37F6A0"
+      },
+      {
+        "name": "normal-save-reopened",
+        "sha256": "EC9D2A97D85FF941793E4041DE341782492E29BBA6218DD7F6ADA30BABB59AE1"
+      },
+      {
+        "name": "negative-post-disabled",
+        "sha256": "EAB01BC038FFAFB12A46492EF08BA5A9788418253BF8FFFDA03FE09ADEECACF2"
+      },
+      {
+        "name": "bc-save-reopened",
+        "sha256": "66A0E6AADCE09DE0D89160772563B27385CAC2D16DB0A73345037B754B91CC3A"
+      },
+      {
+        "name": "clear-save-reopened",
+        "sha256": "E2FF0742EA2191CA1B81B3E6FAAD0BFECAE9FF7506D0F07D674BA3870D56B4F2"
+      },
+      {
+        "name": "new-user-enabled-candidates",
+        "sha256": "5BD3B122A0C6B8FE9625C7D623C68C85F8A6817D9EF43ADAE0D476228BD5CE13"
+      },
+      {
+        "name": "owned-posts-cleaned",
+        "sha256": "63120529A0BAA288B2C63E1E7EBDD540A3DC22E9B33FE40AC590C9DA272289FB"
+      }
+    ],
+    "naturalEvidenceHash": "1359E9DE62126E50B7063C5600BBA29BB021362972BF0524EB6254CE127DA020",
+    "harnessFailuresRetained": [
+      "unsupported network command",
+      "empty snapshot scrub helper failure",
+      "combobox input click intercepted by placeholder before any user save",
+      "incorrect status parent locator before B save",
+      "post C guard checked before asynchronous details loaded; no save",
+      "final observation assertion saw auth401; safe archive proves existing refresh/retry closure"
+    ],
+    "limits": [
+      "No full-site health PASS: existing MES profile error remains",
+      "No full vue-tsc PASS: two unrelated current-base MES diagnostics remain",
+      "H2 regression does not prove all MySQL repeatable-read race combinations",
+      "No direct API/SQL writes or force-click/DOM injection used",
+      "Business trace started after password/user creation; raw traces/console/scripts not committed and removed at closeout"
+    ],
+    "independentReview": {
+      "decision": "pass",
+      "report": "review-report.md",
+      "decisionFile": "review-decision.json",
+      "reviewedAt": "2026-10-09T00:01:14+08:00"
+    }
+  },
+  "finalSourceCheck": {
+    "status": "PASS",
+    "verifiedAt": "2026-10-09T00:04:24.731526+08:00",
+    "files": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+        "algorithm": "raw_sha256",
+        "sha256": "07c3f4e3bde056ba21246d521ba491a49a33238f0df5ce1f7c19edb8d1d58758"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.java",
+        "algorithm": "raw_sha256",
+        "sha256": "d525bf8ea04bbf0b179712f7594e5ddca5a4650d4350561a662b192676b47124"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.java",
+        "algorithm": "raw_sha256",
+        "sha256": "38ede933b694ffe12e548ad333288bca46254808b20076088e328d33bd8c0e03"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.java",
+        "algorithm": "raw_sha256",
+        "sha256": "1e541f32f9be9f426c7926ab9c4288066284945128601dc0dd5288ee41f362ef"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserService.java",
+        "algorithm": "raw_sha256",
+        "sha256": "a928a424e0d0fabaaf4d8cc44e4e62903161dbea59f44104f9602fbc4b641338"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "algorithm": "raw_sha256",
+        "sha256": "a1073741b745ee5dd19e7e19bb9ff95ab21ba7aa6d500d7cb778dcdbed2eeedd"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/convert/user/UserConvert.java",
+        "algorithm": "raw_sha256",
+        "sha256": "54f9a00256ad150c4b8fbe07ff75f4ec60040ed91351f3fe51b690a549d1d9e3"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.java",
+        "algorithm": "raw_sha256",
+        "sha256": "f7b3ed306fa297ae17dd8e3ffd0428902c4649f7772cbab044bd08c5878721a7"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.java",
+        "algorithm": "raw_sha256",
+        "sha256": "4a9d5ab867a7f14babbe259e0654a40af7c7fc69895b13321228bc8bc92226ef"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java",
+        "algorithm": "raw_sha256",
+        "sha256": "40d5d7fbfeb8024c97b6149b6be47f399944657fa35176905874c2897d15ef91"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.java",
+        "algorithm": "raw_sha256",
+        "sha256": "383af6ce077b7852b4b7b11648d36f4d94c562e91b45730df76ed39045287a94"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.java",
+        "algorithm": "raw_sha256",
+        "sha256": "3cc697db1077c981507b4e5244c4aeb0a300ead770c92830138bec7378b91ee5"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.java",
+        "algorithm": "raw_sha256",
+        "sha256": "aa8d94c7c6a20c6b8889bb838859525bf09e74e257becc042f7be6c579188924"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.java",
+        "algorithm": "raw_sha256",
+        "sha256": "a06bccec62547b639e20513f4c5c3c79cef473f9b2f1b4d968767d2ef80fdd91"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/dept/PostServiceImplTest.java",
+        "algorithm": "raw_sha256",
+        "sha256": "2984e13cf5151195a11654982017e7cdf87933fc07d084aeb7242a7b621d07d4"
+      },
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "ffdad51197ea70668a8d0fa7e3feb394629fb6cfeae15aa245487f68ed4268f1"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/user/index.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "d72aec03785fc955f3fa27f3dd2fbab7dd444b65e229d1249f4b3a1216213209"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/post/index.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "e65482a9207c74709d0ed8e84df4d54c08791041c53fa1002af4cf1cbae246f3"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/dept/index.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "9442d0187bf326574dac9413a00f279885f14fbddadef4b7eea2fdbf800f0c9c"
+      },
+      {
+        "path": "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "9898ca1fad7f695bf2ecb13667e8104620857a9bc47a4e31ee137008e8417e15"
+      },
+      {
+        "path": "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "640b8ca3c0efa6fb1b6f914ecfe6d99c190a668ba58cfdf5ba7c827871fdb07c"
+      },
+      {
+        "path": "IntRuoyiFronted/src/config/axios/index.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "83dcb25d8f3b24c7da51c45600d4b4d1cb3114295744c3016e530a1c5c513c70"
+      },
+      {
+        "path": "IntRuoyiFronted/src/utils/constants.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "37aefb7ec80c7723bcd85f1311ab2cc5d42954e61ccab6f05fb66c586d040f1a"
+      },
+      {
+        "path": "IntRuoyiFronted/src/utils/tree.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "c8b88212b75a366fae211a94a4c6c8291e607afcba15f9081f95a23a6bc82d49"
+      },
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/systemPasswordPolicy.ts",
+        "algorithm": "normalized_utf8_lf_sha256",
+        "sha256": "528838ae9b3b5ed2630040f69448135b5c9b7a7743ec8fc38c28fc082a51ab41"
+      }
+    ],
+    "frontFreezeKeys": [
+      "captured_at",
+      "normalization",
+      "dependencies",
+      "owned_source",
+      "actual_readonly_dependencies"
+    ]
+  },
+  "backendSourceFreeze": {
+    "frozenAtUtc": "2026-10-08T11:49:43.442Z",
+    "scope": "Final backend UM-04 sources after one test fixture email uniqueness correction; production hashes unchanged since freeze01.",
+    "head": "a3b8bedfeece394f286e23a9d5144361b951e8ac",
+    "combinedRun": "combined-02",
+    "files": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+        "sha256": "07c3f4e3bde056ba21246d521ba491a49a33238f0df5ce1f7c19edb8d1d58758",
+        "modifiedUtc": "2026-10-08T10:55:15.825Z",
+        "bytes": 12618
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.java",
+        "sha256": "d525bf8ea04bbf0b179712f7594e5ddca5a4650d4350561a662b192676b47124",
+        "modifiedUtc": "2026-10-08T10:55:07.786Z",
+        "bytes": 630
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.java",
+        "sha256": "38ede933b694ffe12e548ad333288bca46254808b20076088e328d33bd8c0e03",
+        "modifiedUtc": "2026-10-08T10:55:12.748Z",
+        "bytes": 3390
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.java",
+        "sha256": "1e541f32f9be9f426c7926ab9c4288066284945128601dc0dd5288ee41f362ef",
+        "modifiedUtc": "2026-10-08T10:55:10.583Z",
+        "bytes": 1656
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserService.java",
+        "sha256": "a928a424e0d0fabaaf4d8cc44e4e62903161dbea59f44104f9602fbc4b641338",
+        "modifiedUtc": "2026-10-08T10:55:18.285Z",
+        "bytes": 8655
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "sha256": "a1073741b745ee5dd19e7e19bb9ff95ab21ba7aa6d500d7cb778dcdbed2eeedd",
+        "modifiedUtc": "2026-10-08T11:32:25.774Z",
+        "bytes": 59952
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/convert/user/UserConvert.java",
+        "sha256": "54f9a00256ad150c4b8fbe07ff75f4ec60040ed91351f3fe51b690a549d1d9e3",
+        "modifiedUtc": "2026-10-08T10:55:21.097Z",
+        "bytes": 3152
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.java",
+        "sha256": "f7b3ed306fa297ae17dd8e3ffd0428902c4649f7772cbab044bd08c5878721a7",
+        "modifiedUtc": "2026-10-08T10:55:23.438Z",
+        "bytes": 1494
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.java",
+        "sha256": "4a9d5ab867a7f14babbe259e0654a40af7c7fc69895b13321228bc8bc92226ef",
+        "modifiedUtc": "2026-10-08T10:55:26.829Z",
+        "bytes": 1803
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java",
+        "sha256": "40d5d7fbfeb8024c97b6149b6be47f399944657fa35176905874c2897d15ef91",
+        "modifiedUtc": "2026-10-08T11:32:24.081Z",
+        "bytes": 5776
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.java",
+        "sha256": "383af6ce077b7852b4b7b11648d36f4d94c562e91b45730df76ed39045287a94",
+        "modifiedUtc": "2026-10-08T10:55:29.312Z",
+        "bytes": 24745
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.java",
+        "sha256": "3cc697db1077c981507b4e5244c4aeb0a300ead770c92830138bec7378b91ee5",
+        "modifiedUtc": "2026-10-08T11:01:02.317Z",
+        "bytes": 86176
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.java",
+        "sha256": "aa8d94c7c6a20c6b8889bb838859525bf09e74e257becc042f7be6c579188924",
+        "modifiedUtc": "2026-10-08T11:49:43.374Z",
+        "bytes": 27594
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.java",
+        "sha256": "a06bccec62547b639e20513f4c5c3c79cef473f9b2f1b4d968767d2ef80fdd91",
+        "modifiedUtc": "2026-10-08T11:02:44.765Z",
+        "bytes": 8876
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/dept/PostServiceImplTest.java",
+        "sha256": "2984e13cf5151195a11654982017e7cdf87933fc07d084aeb7242a7b621d07d4",
+        "modifiedUtc": "2026-10-08T10:25:12.860Z",
+        "bytes": 8862
+      }
+    ]
+  },
+  "frontendSourceFreeze": {
+    "captured_at": "2026-10-08T21:45:55.1137049+08:00",
+    "normalization": "Read UTF-8 text, normalize CRLF and CR to LF, encode UTF-8 without BOM, SHA-256",
+    "dependencies": "Canonical task-owned SSD node_modules/.pnpm; E junction points to D:/CodexTaskCache/um04-20261008/node_modules; no NODE_PATH",
+    "owned_source": [
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+        "normalized_utf8_sha256": "ffdad51197ea70668a8d0fa7e3feb394629fb6cfeae15aa245487f68ed4268f1",
+        "raw_bytes": 13878
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/user/index.ts",
+        "normalized_utf8_sha256": "d72aec03785fc955f3fa27f3dd2fbab7dd444b65e229d1249f4b3a1216213209",
+        "raw_bytes": 4323
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/post/index.ts",
+        "normalized_utf8_sha256": "e65482a9207c74709d0ed8e84df4d54c08791041c53fa1002af4cf1cbae246f3",
+        "raw_bytes": 1804
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/dept/index.ts",
+        "normalized_utf8_sha256": "9442d0187bf326574dac9413a00f279885f14fbddadef4b7eea2fdbf800f0c9c",
+        "raw_bytes": 1487
+      },
+      {
+        "path": "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+        "normalized_utf8_sha256": "9898ca1fad7f695bf2ecb13667e8104620857a9bc47a4e31ee137008e8417e15",
+        "raw_bytes": 27354
+      },
+      {
+        "path": "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+        "normalized_utf8_sha256": "640b8ca3c0efa6fb1b6f914ecfe6d99c190a668ba58cfdf5ba7c827871fdb07c",
+        "raw_bytes": 754
+      }
+    ],
+    "actual_readonly_dependencies": [
+      {
+        "path": "IntRuoyiFronted/src/config/axios/index.ts",
+        "normalized_utf8_sha256": "83dcb25d8f3b24c7da51c45600d4b4d1cb3114295744c3016e530a1c5c513c70",
+        "raw_bytes": 1828
+      },
+      {
+        "path": "IntRuoyiFronted/src/utils/constants.ts",
+        "normalized_utf8_sha256": "37aefb7ec80c7723bcd85f1311ab2cc5d42954e61ccab6f05fb66c586d040f1a",
+        "raw_bytes": 8247
+      },
+      {
+        "path": "IntRuoyiFronted/src/utils/tree.ts",
+        "normalized_utf8_sha256": "c8b88212b75a366fae211a94a4c6c8291e607afcba15f9081f95a23a6bc82d49",
+        "raw_bytes": 10566
+      },
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/systemPasswordPolicy.ts",
+        "normalized_utf8_sha256": "528838ae9b3b5ed2630040f69448135b5c9b7a7743ec8fc38c28fc082a51ab41",
+        "raw_bytes": 974
+      }
+    ]
+  },
+  "evidenceValidators": {
+    "backend": {
+      "command": "python C:/Users/BJB110/.codex/skills/backend-api-delivery/scripts/validate_backend_api.py --evidence doc/tasks/20261008-user-inactive-post-retention/backend-worker-result.md",
+      "exitCode": 0,
+      "status": "PASS_STRUCTURE_ONLY"
+    },
+    "frontend": {
+      "command": "python C:/Users/BJB110/.codex/skills/frontend-feature-delivery/scripts/validate_frontend_feature.py --evidence doc/tasks/20261008-user-inactive-post-retention/frontend-worker-result.md",
+      "exitCode": 0,
+      "status": "PASS_STRUCTURE_ONLY"
+    },
+    "limits": "Nearest AGENTS BDD/TDD optional override applies; marker validity is evidence structure only and does not replace actual tests."
+  },
+  "independentReview": {
+    "review_phase": "final",
+    "reviewed_at": "2026-10-09T00:01:14+08:00",
+    "review_scope": "Frozen UM04 ordinary user-post retention and explicit removal; targeted local slot-7 acceptance only",
+    "logic_status": "pass",
+    "usability_status": "pass",
+    "ui_status": "pass",
+    "blocking_issues": [],
+    "non_blocking_suggestions": [
+      {
+        "id": "S1",
+        "layer": "ui",
+        "title": "Improve distinction of long selected post names",
+        "evidence": [
+          "IntRuoyiFronted/src/views/system/user/UserForm.vue:74-108",
+          "output/playwright/um04-20261008/normal-save-reopened.png",
+          "output/playwright/um04-20261008/disabled-options.png"
+        ],
+        "risk": "Compact A/B tags share a truncated prefix and conceal the disabled suffix, which can increase selection ambiguity.",
+        "suggestion": "Consider a full-name/status tooltip or more room for selected labels. The real dropdown exposes complete names/status and all required tag removals succeeded, so no pre-release change is required."
+      }
+    ],
+    "required_changes": [],
+    "reviewed_evidence": {
+      "current_base": "a1640b169f69453701c9425d66a974033cf44120",
+      "changed_implementation_and_test_files": 20,
+      "backend_freeze_entries": 15,
+      "backend_unchanged_reference_entries": 1,
+      "frontend_owned_freeze_entries": 6,
+      "frontend_readonly_dependency_entries": 4,
+      "all_freeze_hashes_match": true,
+      "backend_tests": {
+        "tests": 132,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "exit_code": 0
+      },
+      "frontend_distinct_tests": {
+        "tests": 50,
+        "failures": 0,
+        "exit_code": 0,
+        "legacy_entry_uses_same_carrier": true
+      },
+      "frontend_eslint_exit_code": 0,
+      "runtime_package_exit_code": 0,
+      "runtime_production_class_hash_matches": 11,
+      "runtime_slot": 7,
+      "runtime_backend_pid": 53748,
+      "runtime_package_sha256": "A4FF5308E2432D6D04DE89B87BAED917F23490F3286D4061904C11DF6334CFBF",
+      "safe_e2e_summary": "doc/tasks/20261008-user-inactive-post-retention/e2e-summary.json",
+      "raw_natural_events": 26,
+      "task_write_requests": 16,
+      "successful_task_write_requests": 15,
+      "exact_expected_rejection": {
+        "code": 1002005001,
+        "requests": 1
+      },
+      "task_user_id": "9908090349",
+      "task_post_ids": [
+        "26",
+        "27",
+        "28"
+      ],
+      "tenant_id": 1,
+      "raw_store_witnesses_inspected": 7,
+      "actual_screenshots_inspected": 10,
+      "summary_events_stores_and_screenshot_hashes_match_raw": true,
+      "trace": {
+        "format": "native .trace/.network/.stacks/resources/screencast",
+        "before_after_action_pairs": 691,
+        "frame_references": 2029,
+        "distinct_frame_files": 2021,
+        "missing_frame_files": 0,
+        "forced_actions": 0,
+        "recorded_action_errors": 1
+      },
+      "readonly_dual_storage_result": "Complete selections match JSON and active joins; original 163/164 retained on ordinary save/rejection, A163 removed/B164 retained/C165 added on BC, all active joins absent after clear; task fixtures soft deleted and shared admin/tenant retained"
+    },
+    "preserved_failures_and_boundaries": [
+      {
+        "area": "full_vue_tsc",
+        "actual_status": "fail",
+        "exit_code": 2,
+        "evidence": [
+          "IntRuoyiFronted/src/views/mes/pro/edhr-batch/components/BatchReverseTracePanel.vue:299",
+          "IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue:6555",
+          "output/playwright/um04-20261008/frontend-types-current-base.log"
+        ],
+        "boundary": "Two unchanged MES diagnostics, TS6133 loadingCatalog and TS2339 activeOrderId on never; full typecheck remains FAIL and no out-of-scope fix is requested."
+      },
+      {
+        "area": "personal_workbench_and_global_console_health",
+        "actual_status": "fail",
+        "observed_console_errors": 5,
+        "supplemental_warning_count": 180,
+        "evidence": [
+          "output/playwright/um04-20261008/profile-precondition-failure.png",
+          "output/playwright/um04-20261008/e2e-natural-evidence.json",
+          "docs/e2e-rules.md:307-314",
+          "docs/login-access.md:175-179"
+        ],
+        "boundary": "Preserved non-target MES workbench business500/collation error and handled reporters; independent target controls, requests, rows and stores passed. The remote post-deployment console gate does not apply to this local task. No global console-zero or full-site health PASS."
+      },
+      {
+        "area": "final_observations_harness",
+        "actual_status": "fail",
+        "evidence": [
+          "output/playwright/um04-20261008/cli-final-natural-and-health-evidence.log",
+          "IntRuoyiFronted/src/config/axios/service.ts:194-239"
+        ],
+        "boundary": "Original FAIL retained. Natural notification401 -> formal refresh0 -> same notification URL0 closes in 180ms; 12 task writes precede401, four cleanup DELETEs follow successful refresh. No unresolved target authentication failure. Other preparation locator/assertion failures are preserved and recovered using fresh real UI observations without replaying successful writes."
+      },
+      {
+        "area": "test_and_live_coverage",
+        "boundary": "H2 default READ_COMMITTED and standalone MockMvc do not prove all MySQL races or role-denial enforcement; native frontend tests substitute children/transport. Separate real desktop evidence proves required UM04 interactions and serial production persistence, not every viewport/accessibility path. No live no-post CREATE save was performed; optional contract is covered by backend/HTTP tests and actual unrequired create control/cancel."
+      },
+      {
+        "area": "trace_coverage",
+        "boundary": "Native trace begins after password/user fixture creation; early fixture actions are backed by real CLI/natural evidence. No trace.zip, full-session trace or every-action exported screenshot claim. Sole trace action error is wrong B-status parent click lmlp@673 before successful real UI recovery."
+      }
+    ],
+    "final_decision": "pass"
+  },
+  "implementationCommit": "4d1a5041ea810ba7c6117b3a7b0b42d0e3e60ac2",
+  "integrationSourceManifest": {
+    "base": "a1640b169f69453701c9425d66a974033cf44120",
+    "branch": "codex/user-inactive-post-retention",
+    "files": [
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/UserController.java",
+        "normalizedUtf8LfSha256": "e5177380e4acac4720d5721916828ced9c9f13c9d88a01d5e52cafc528ebef8a"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserSaveReqVO.java",
+        "normalizedUtf8LfSha256": "61d4c9458a4a93ec0e97a37d81168a68023a6c5b14fdc5ae5aea902ffb32c2a6"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/convert/user/UserConvert.java",
+        "normalizedUtf8LfSha256": "d852230e34f6d9a51530d97d1575eb27c9d8e9b47c95cf8789ac4f31e2bf849b"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/PostMapper.java",
+        "normalizedUtf8LfSha256": "963c9c57af14e8d7ca1428732991ce9da7df0a5a41018851d56dbc4600ad7e73"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/dept/UserPostMapper.java",
+        "normalizedUtf8LfSha256": "dc6933825a27540e729b66156ccfac7c55b337326aecac3c4f42816e47599472"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.java",
+        "normalizedUtf8LfSha256": "9c432b4ecb668a69cf530d15f75ae446b972e3ad6ed1b9d3f34cf99dba731d8d"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/enums/ErrorCodeConstants.java",
+        "normalizedUtf8LfSha256": "077d572a5395a66a43e2e7731e7037d05099ab8c790b1ce55ab85a8b16fc7d28"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserService.java",
+        "normalizedUtf8LfSha256": "ef17ceccfeca2781abbb39fe65a1eaee2c0fc9ab720f495d495b5d0899e91165"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.java",
+        "normalizedUtf8LfSha256": "423cbb7f7dc29d48879e85e99d311c763244f67167b445dfae6b3c456aeafa85"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserServiceImplTest.java",
+        "normalizedUtf8LfSha256": "3c5ec46d93385cfb3bd134e701724f0367519d88ffd1da010126c25697fa540a"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/dept/index.ts",
+        "normalizedUtf8LfSha256": "9442d0187bf326574dac9413a00f279885f14fbddadef4b7eea2fdbf800f0c9c"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/post/index.ts",
+        "normalizedUtf8LfSha256": "e65482a9207c74709d0ed8e84df4d54c08791041c53fa1002af4cf1cbae246f3"
+      },
+      {
+        "path": "IntRuoyiFronted/src/api/system/user/index.ts",
+        "normalizedUtf8LfSha256": "d72aec03785fc955f3fa27f3dd2fbab7dd444b65e229d1249f4b3a1216213209"
+      },
+      {
+        "path": "IntRuoyiFronted/src/views/system/user/UserForm.vue",
+        "normalizedUtf8LfSha256": "ffdad51197ea70668a8d0fa7e3feb394629fb6cfeae15aa245487f68ed4268f1"
+      },
+      {
+        "path": "IntRuoyiFronted/tests/e2e/system-user-post-stale-filter-static.spec.js",
+        "normalizedUtf8LfSha256": "640b8ca3c0efa6fb1b6f914ecfe6d99c190a668ba58cfdf5ba7c827871fdb07c"
+      },
+      {
+        "path": "docs/worktree-memory.md",
+        "normalizedUtf8LfSha256": "8ca3303e7957f9399ee3e0a947a2f929828b596c5454be84b9edf2deb77653c3"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserEditRespVO.java",
+        "normalizedUtf8LfSha256": "d525bf8ea04bbf0b179712f7594e5ddca5a4650d4350561a662b192676b47124"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/user/vo/user/UserPostIdsDeserializer.java",
+        "normalizedUtf8LfSha256": "1e541f32f9be9f426c7926ab9c4288066284945128601dc0dd5288ee41f362ef"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/AdminUserPostRetentionTransactionTest.java",
+        "normalizedUtf8LfSha256": "aa8d94c7c6a20c6b8889bb838859525bf09e74e257becc042f7be6c579188924"
+      },
+      {
+        "path": "IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/user/UserPostEditHttpContractTest.java",
+        "normalizedUtf8LfSha256": "a06bccec62547b639e20513f4c5c3c79cef473f9b2f1b4d968767d2ef80fdd91"
+      },
+      {
+        "path": "IntRuoyiFronted/scripts/system-user-post-retention.test.mjs",
+        "normalizedUtf8LfSha256": "9898ca1fad7f695bf2ecb13667e8104620857a9bc47a4e31ee137008e8417e15"
+      }
+    ]
+  },
+  "runtimeStopped": [
+    {
+      "pid": 53748,
+      "creation": "2026-10-08T22:42:54.8314910+08:00",
+      "executable": "C:\\Users\\BJB110\\.jdks\\jdk-17.0.20+8\\bin\\java.exe",
+      "port": 48088,
+      "stoppedAt": "2026-10-09T00:18:02.8415963+08:00"
+    },
+    {
+      "pid": 60612,
+      "creation": "2026-10-08T21:43:56.8384250+08:00",
+      "executable": "D:\\Programs\\node.exe",
+      "port": 8088,
+      "stoppedAt": "2026-10-09T00:18:03.6322715+08:00"
+    }
+  ],
+  "postMergeNative": {
+    "command": "node --test scripts/system-user-post-retention.test.mjs",
+    "cwd": "E:\\IntRuoyi\\IntRuoyiFronted",
+    "exitCode": 0,
+    "finishedAt": "2026-10-09T00:19:13.9542894+08:00"
+  },
+  "closeout": {
+    "status": "PASS",
+    "cleanupWorktree": {
+      "preview": "PASS",
+      "apply": "PASS",
+      "kept": 9,
+      "deleted": 9,
+      "blocked": 0,
+      "warnings": 0
+    },
+    "remaining": [],
+    "automaticApprovalRejection": {
+      "action": "Remove exact task dependency junction and physical cache",
+      "reason": "blocked by policy",
+      "commandExecuted": false,
+      "manualRequested": "D:/CodexTaskCache/um04-20261008"
+    },
+    "cacheDeletion": {
+      "status": "PASS_EXTERNAL_REMOVAL_OBSERVED",
+      "path": "D:\\CodexTaskCache\\um04-20261008",
+      "observedAbsentAt": "2026-10-09T00:22:59.043733+08:00",
+      "agentDeleteCommandExecuted": false
+    },
+    "cleanupMain": {
+      "preview": "PASS",
+      "apply": "PASS",
+      "kept": 9,
+      "deleted": 2,
+      "blocked": 0,
+      "warnings": 0
+    },
+    "manualCacheConfirmation": "User explicitly replied 已删除; exact absence verified",
+    "managedArchive": {
+      "status": "PASS",
+      "path": "E:/IntRuoyiWorktree/user-inactive-posts/IntRuoyi",
+      "directoryAbsent": true,
+      "gitRegistrationAbsent": true,
+      "snapshotSaved": true,
+      "verifiedAt": "2026-10-09T00:38:09.677549+08:00"
+    },
+    "slotRelease": {
+      "status": "PASS",
+      "timestamp": "2026-10-09T00:38:11.2472440+08:00",
+      "path": "E:\\IntRuoyiWorktree\\user-inactive-posts\\IntRuoyi",
+      "branch": "codex/user-inactive-post-retention",
+      "slot": 7,
+      "frontendPort": 8088,
+      "backendPort": 48088,
+      "active": false,
+      "worktreeAbsent": true,
+      "portsFree": true,
+      "integratedCommit": "4d1a5041ea810ba7c6117b3a7b0b42d0e3e60ac2",
+      "otherEntriesUnchanged": true,
+      "otherEntriesCount": 73,
+      "mutex": "IntRuoyiWorktreePorts-5D32CF579217B79FD3DB6D99"
+    },
+    "finalRecordsCommit": "Exact nine retained records only; actual commit hash resolved from Git log (cannot self-embed commit hash)"
+  }
+}
