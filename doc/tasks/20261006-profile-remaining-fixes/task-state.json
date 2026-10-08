@@ -184,8 +184,14 @@
     }
   },
   "cleanup": {
-    "preview": "pending",
-    "apply": "pending",
+    "preview": "PASS_keep8_delete10_blocked0_warnings0",
+    "apply": "PASS_deleted_only_10_worker_drafts",
     "worktreeCloseout": "off_task_only_cleanup_then_guarded_ff_and_managed_archive"
+  },
+  "integration": {
+    "implementationCommit": "d16ff384a68eb69f5b8691e202b617e8b7cd8349",
+    "merge": "pending_guarded_ff",
+    "archive": "pending",
+    "slotsRelease": "pending"
   }
 }

@@ -59,3 +59,9 @@ cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本
 
 ## 提交前格式复验
 21个新增文件仅清行尾空白/EOF空行，主Agent与实际编译前镜像逐字规范化对照一致；整改后实际31模块增量编译exit0/BUILD SUCCESS，完成时间2026-10-08T12:41:54+0800。原98项/55项行为结果未因纯格式重复执行。最终源及编译证据SHA已更新，不使用整改前指纹代表整改后源码。
+
+## 已执行实施提交与cleanup
+实施提交d16ff384a68eb69f5b8691e202b617e8b7cd8349通过原Git hook；精确70路径、零外来暂存文件、diff/cached diff check通过。cleanup preview/apply exit0，keep8/delete10/blocked0/warnings0。此时FF/归档仍pending。
+
+## 已执行实施提交与cleanup
+实施提交d16ff384a68eb69f5b8691e202b617e8b7cd8349通过原Git hook；精确70路径、零外来暂存文件、diff/cached diff check通过。cleanup preview/apply exit0，keep8/delete10/blocked0/warnings0。此时FF/归档仍pending。

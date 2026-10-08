@@ -157,3 +157,15 @@ git diff --cached --check实际exit2，F02新增文件有行尾空格和多余EO
 ## 纯格式整改通过
 
 worker仅整改21个实际报错的新增文件。主Agent将编译前后文本逐行rstrip规范化对照，确认token、注释、换行内逻辑均一致；当前源重新同步镜像并实际31模块增量compile exit0/BUILD SUCCESS。源SHA更新integration-manifest和verification-evidence，先前行为/H2结果语义有效，不对纯格式重复跑业务测试。状态恢复ready_for_closeout，重新精确暂存全部任务文件后检查差异。
+
+## 精确实施提交与清理
+
+implementation commit d16ff384a68eb69f5b8691e202b617e8b7cd8349，精确70个文件（50实现/测试/已有经验+8当前正式记录+7原方案+5最终review状态/报告）。完整staged list与白名单一致，git diff --check/cached --check退出0，pre-commit端口归属hook启用通过。
+
+cleanup preview/apply均exit0，keep8/delete10/blocked0/warnings0，仅删除worker-drafts的10份中间稿；正式src/test、tests/e2e、源码、原计划、最终审核和核心证据保留。worktree-closeout=off，未执行技能的全脏提交/自动remove。当前仍ready_for_closeout，主干融合/托管归档/槽位释放待实际执行。
+
+## 精确实施提交与清理
+
+implementation commit d16ff384a68eb69f5b8691e202b617e8b7cd8349，精确70个文件（50实现/测试/已有经验+8当前正式记录+7原方案+5最终review状态/报告）。完整staged list与白名单一致，git diff --check/cached --check退出0，pre-commit端口归属hook启用通过。
+
+cleanup preview/apply均exit0，keep8/delete10/blocked0/warnings0，仅删除worker-drafts的10份中间稿；正式src/test、tests/e2e、源码、原计划、最终审核和核心证据保留。worktree-closeout=off，未执行技能的全脏提交/自动remove。当前仍ready_for_closeout，主干融合/托管归档/槽位释放待实际执行。
