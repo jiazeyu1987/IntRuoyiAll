@@ -1474,9 +1474,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING,
                     StrUtil.blankToDefault(responsibilitySourceKey, "blank"));
         }
-        Long batchRecordVersionId = requireProcessFormResponsibilityVersionId(fillRule);
-        MesProEdhrCandidateContract candidate = candidateResolver.resolveProcessFormRule(fillRule);
-        Long assigneeUserId = resolveFirstCandidateUserId(candidate.userSnapshot());
+        requireProcessFormResponsibilityVersionId(fillRule);
+        resolveFirstCandidateUserId(candidateResolver.resolveProcessFormRule(fillRule).userSnapshot());
         LocalDateTime now = LocalDateTime.now();
         for (MesProEdhrWorkTaskDO task : workTaskMapper.selectActiveFillOrReworkList()) {
             MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(task.getBatchTaskId());
@@ -1499,17 +1498,36 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED,
                         "workTaskId=" + task.getId());
             }
+            List<MesProEdhrProcessFormPermissionRuleDO> responsibilityRules =
+                    processFormPermissionRuleMapper.selectEnabledFillRules(fillRule.getRouteProcessId(),
+                            StrUtil.trim(fillRule.getBatchRecordReportId()), fillRule.getBatchRecordVersionId());
+            if (responsibilityRules.isEmpty() && Boolean.FALSE.equals(fillRule.getEnabled())
+                    && fillRule.getId() != null
+                    && processFormPermissionRuleMapper.selectListByRouteProcessReportAndVersion(
+                            fillRule.getRouteProcessId(), StrUtil.trim(fillRule.getBatchRecordReportId()),
+                            fillRule.getBatchRecordVersionId()).stream().anyMatch(rule ->
+                            Objects.equals(rule.getId(), fillRule.getId()) && Boolean.FALSE.equals(rule.getEnabled()))) {
+                // Disabled configuration does not transfer an existing task to its submitted candidates.
+                continue;
+            }
+            ProcessFormResponsibilitySnapshot responsibility = buildProcessFormResponsibilitySnapshot(
+                    responsibilityRules, null, batchTask);
+            if (!Objects.equals(responsibilitySourceKey, responsibility.sourceKey())) {
+                throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING, responsibilitySourceKey);
+            }
+            MesProEdhrCandidateContract candidate = responsibility.candidate();
             MesProEdhrWorkTaskDO update = new MesProEdhrWorkTaskDO()
                     .setId(task.getId())
-                    .setAssigneeUserId(assigneeUserId)
+                    .setAssigneeUserId(resolveFirstCandidateUserId(candidate.userSnapshot()))
                     .setCandidateSourceType(candidate.sourceType())
                     .setCandidateSourceId(candidate.sourceId())
                     .setCandidateUserSnapshot(candidate.userSnapshot())
                     .setSourceUserId(SecurityFrameworkUtils.getLoginUserId())
                     .setResponsibilitySourceType(ENTITLEMENT_SOURCE_TYPE_FILLER)
-                    .setResponsibilitySourceKey(responsibilitySourceKey)
-                    .setResponsibilitySourceVersion(String.valueOf(batchRecordVersionId))
-                    .setResponsibilitySourceDigest(buildProcessFormResponsibilitySourceDigest(fillRule))
+                    .setResponsibilitySourceKey(responsibility.sourceKey())
+                    .setResponsibilitySourceVersion(responsibility.sourceVersion())
+                    .setResponsibilitySourceDigest(responsibility.sourceDigest())
+                    .setResponsibilityScopeJson(responsibility.scopeJson())
                     .setOwnershipLastTransferredAt(now)
                     .setOwnershipLastTransferredBy(SecurityFrameworkUtils.getLoginUserId())
                     .setReason(reason)

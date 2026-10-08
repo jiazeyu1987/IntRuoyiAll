@@ -207,6 +207,14 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 明确授权本机默认引擎缓存清理时，按本机 CLI help 显式指定 `desktop-linux` builder；不要扩展到独立 `docker-container` builder。保留全部镜像 tag/ID、容器身份/启动时间/挂载和卷，清理前后核对。
 - 记录 prune 实际 Total 和清理后的 builder du；即使缓存为 0B，宿主 VHDX 仍可能不缩小。停止 Docker、关闭 WSL 与压缩 VHDX 继续作为独立授权动作；当前进程无管理员权限时，先完成可执行的缓存清理和核验，再提出具体提权操作。
 
+### Docker VHDX 压缩脚本审查
+
+- 编写或审查压缩脚本不代表授权实际停机。脚本正式入口应核对管理员、固定磁盘、本机 Docker context/endpoint，提示全部 WSL 停止并明确确认；只读模式不写运行日志或暂停服务。
+- 原运行容器清单须在首次停止前独立持久化，后续状态原子更新；停止后重新核对容器集合与运行状态，竞争变化则取消压缩并恢复原运行集合。只启动原运行 ID，不扩大到所有容器，不重启后端。
+- docker stop 的有限 timeout 到期会 SIGKILL；需要正常退出时使用 timeout=-1。DiskPart 压缩不应因脚本计时器被强杀；连续 DiskPart 脚本至少间隔15秒。必须用 readonly attach，核验退出码及 attach/compact/detach 正向证据；分离未确认不得启动 Docker。
+- 日志/状态写入失败仍须明确报错并使整体失败；发生在停机之后时，不得阻止安全分离与必要恢复。恢复成功不能掩盖压缩失败。验证危险分支采用隔离工具替身，真实只读预检通过不能写成压缩已成功。
+- Windows 原生命令参数仅在需要时使用 CommandLineToArgvW 引号规则，WSL flags 不应一律加双引号；WSL 重定向输出按 UTF-16LE、Docker 按 UTF-8 解码。DiskPart 成功原文应按当前语言核对，未知输出不得默认成功。
+
 ## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
 
 - Trigger: 用户明确要求删除当前 Ruoyi 环境用不到的 Docker `image`、`volume`、`container`，或需要在 Docker Desktop WSL2 磁盘过大后进一步清理容器和卷。

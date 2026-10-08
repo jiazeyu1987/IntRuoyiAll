@@ -4,7 +4,8 @@ param(
     [string]$WorktreeName,
     [string]$OperationRecordPath,
     [string]$PrebuiltBackendJar,
-    [string]$PrebuiltBackendSha256
+    [string]$PrebuiltBackendSha256,
+    [switch]$BackendSchemaReadOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1078,6 +1079,9 @@ function Ensure-RequiredLocalMySqlSchema {
         if ($probePassed) {
             continue
         }
+        if ($BackendSchemaReadOnly) {
+            Fail "Required local schema/seed missing in read-only mode: $($migration.Name)"
+        }
         Invoke-LocalSqlScript $migration.ScriptPath
         if ($migration.PSObject.Properties.Name -contains 'ProbeTable') {
             $probePassed = Test-LocalTableExists $migration.ProbeTable
@@ -1244,6 +1248,68 @@ pnpm dev -- --strictPort
       -RedirectStandardOutput (Join-Path $RuntimeDir "frontend-runtime-control-$timestamp.out.log") `
       -RedirectStandardError (Join-Path $RuntimeDir "frontend-runtime-control-$timestamp.err.log") `
       -WindowStyle Hidden
+}
+
+function Assert-OwnedBackendProcess($Process) {
+    if ($Process.Name -ine 'java.exe' -or -not $Process.CommandLine) {
+        throw 'Backend port is occupied by an unowned process'
+    }
+    $command = $Process.CommandLine
+    $jarMatch = [regex]::Match($command, '(?i)(?:^|\s)-jar\s+(?:"([^"]+)"|([^\s"]+))')
+    $portMatch = [regex]::Match($command, '(?:^|\s)"?--server\.port=(\d+)"?(?=\s|$)')
+    $repoMatch = [regex]::Match($command, '(?:^|\s)(?:"--yudao\.runtime-control\.repo-root=([^"]+)"|--yudao\.runtime-control\.repo-root=(?:"([^"]+)"|([^\s"]+)))(?=\s|$)')
+    if (-not $jarMatch.Success -or -not $portMatch.Success -or -not $repoMatch.Success) {
+        throw 'Backend process lacks exact runtime jar/port/repo ownership arguments'
+    }
+    $jarValue = if ($jarMatch.Groups[1].Success) { $jarMatch.Groups[1].Value } else { $jarMatch.Groups[2].Value }
+    $repoValue = @($repoMatch.Groups | Select-Object -Skip 1 | Where-Object Success | Select-Object -First 1 -ExpandProperty Value)[0]
+    $jarPath = [IO.Path]::GetFullPath($jarValue.Replace('/', '\'))
+    $expectedRuntime = [IO.Path]::GetFullPath($RuntimeDir).TrimEnd('\')
+    $actualRepo = [IO.Path]::GetFullPath($repoValue.Replace('/', '\')).TrimEnd('\')
+    $expectedRepo = [IO.Path]::GetFullPath($RepoRoot).TrimEnd('\')
+    if ([IO.Path]::GetDirectoryName($jarPath) -ine $expectedRuntime -or
+        [IO.Path]::GetFileName($jarPath) -notmatch '^backend-runtime-control-[a-zA-Z0-9-]+\.jar$' -or
+        [int]$portMatch.Groups[1].Value -ne $BackendPort -or $actualRepo -ine $expectedRepo) {
+        throw 'Backend process belongs to another runtime profile or repository'
+    }
+}
+
+function Stop-OwnedBackendListener {
+    # Enumerate all listeners: a successful empty inventory differs from a failed query.
+    $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop)
+    $owners = @($listeners | Where-Object LocalPort -eq $BackendPort |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+    $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+    $verified = @()
+    foreach ($owner in $owners) {
+        $matches = @($processes | Where-Object ProcessId -eq $owner)
+        if ($matches.Count -ne 1 -or $owner -eq $PID) {
+            throw 'Backend listener process identity is unavailable'
+        }
+        Assert-OwnedBackendProcess $matches[0]
+        $verified += $matches[0]
+    }
+    foreach ($process in $verified) {
+        # Query again immediately before stopping. Exit is benign; PID reuse is not.
+        $current = @(Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ProcessId)" -ErrorAction Stop)
+        if ($current.Count -eq 0) { continue }
+        if ($current.Count -ne 1 -or $current[0].CreationDate -ne $process.CreationDate -or
+            $current[0].CommandLine -cne $process.CommandLine) {
+            throw 'Backend process identity changed before stop'
+        }
+        Assert-OwnedBackendProcess $current[0]
+        try {
+            Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop
+        } catch {
+            $remaining = @(Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ProcessId)" -ErrorAction Stop)
+            if ($remaining.Count -ne 0) { throw }
+        }
+    }
+    $remainingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
+        Where-Object LocalPort -eq $BackendPort)
+    if ($remainingListeners.Count -ne 0) {
+        throw 'Backend port became occupied before launch; no additional process stopped'
+    }
 }
 
 function Get-BackendJarSha256([string]$Path) {
@@ -1432,8 +1498,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 & java @backendArgs
 "@
     $backendEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($backendScript))
-    Stop-MatchingProcesses 'backend' $RuntimeDir
-    Stop-Port $BackendPort
+    Stop-OwnedBackendListener
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
