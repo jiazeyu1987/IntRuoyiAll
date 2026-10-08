@@ -7,7 +7,7 @@
 - M0：完成。规则、独立worktree、依赖与验收范围已确认。
 - M1：完成。原生产代码5项回归中4项失败；最小修复后扩展到8项，全部通过。
 - M2：完成。8项新回归、55项原行为回归、4项静态合同、目标ESLint及3个相关SFC编译通过；前后端实际业务链独立复审PASS。全量类型检查仍有3项基线错误，没有新增。
-- M3：任务记录清理preview/apply通过，5项保留、0项删除、无blocked/warnings；用户本轮已授权提交、推送修复分支并合入本地int_main，集成进行中。
+- M3：完成。任务记录清理preview/apply通过，5项保留、0项删除、无blocked/warnings；按用户授权提交实现、推送修复分支并快进合入本地int_main，托管worktree归档与目录删除已验证，槽位7已释放。外部依赖缓存递归删除被自动审批拦截，保留并如实记录。
 
 ## Expected Verification
 - 令牌刷新保持当前身份的缓存与租户上下文；新登录仍清除上一身份缓存。
@@ -18,7 +18,7 @@
 - 本轮未要求E2E，不启动服务、不写数据库、不进行真实账号改密。
 
 ## Current Status
-ready_for_closeout：实现、定向验证、完整业务链独立复审及任务记录清理完成，用户已授权Git集成。正式实现位于E:/IntRuoyiWorktree/profile-session-boundaries/IntRuoyi，分支codex/profile-session-boundaries，基线5b77574d94096efda06160a88320ee4139c86b5a。主工作区本目录是同一任务记录镜像，正式代码以独立worktree为准；并行改动不纳入本任务，2026-10-08只读确认主干已前进到689674145a29a0ef9b7ca76fb20c027df581496b，仅比基线新增另一任务的5项收尾文档，不与本任务6项源码/测试/经验路径重合。
+completed：实现、定向验证、完整业务链独立复审、任务范围清理与授权集成完成。正式实现提交0e336ba8ff2acc9e5b638eb6bb880bd55296cbc2已正常推送codex/profile-session-boundaries并快进合入E:/IntRuoyi的本地int_main；本目录为最终任务记录。原独立worktree已保存可恢复归档快照，物理目录与Git登记均已移除，槽位7为inactive。主工作区6项并行改动融合前后SHA256一致，未纳入提交。67项定向测试、目标ESLint、3项SFC编译与独立复审通过；全量类型检查仍有3项既有错误，本轮未执行真实E2E。
 
 ## 设计约束检查
 保留登录身份切换的缓存失效；无感刷新不能按新登录处理。保留权限、租户隔离、错误显式拒绝、旧会话结果写回守卫；不引入fallback，不改密码服务策略或F02数据查询。根AGENTS覆盖关联文档/技能默认BDD/TDD/E2E与Git完成门禁；本轮已获提交、修复分支推送与本地主干融合授权。
@@ -29,7 +29,7 @@ ready_for_closeout：实现、定向验证、完整业务链独立复审及任�
 - docs/login-access.md合并可复用会话经验；任务记录为本目录5项核心文件。没有后端、业务数据库或运行配置改动。
 
 ## 授权集成
-用户回复“授权”，对应提交本次修复、推送修复分支并合入本地int_main；只提交本任务文件，不含主工作区并行改动，不推送int_main已有其他提交。全量类型检查原有3项错误如实保留为验证限制，不扩展修复。槽位7与任务专有依赖保留至集成收尾，未启动服务。
+用户回复“授权”，对应提交本次修复、推送修复分支并合入本地int_main；只提交本任务文件，不含主工作区并行改动，不推送int_main已有其他提交。全量类型检查原有3项错误如实保留为验证限制，不扩展修复。未启动服务，槽位7已释放；D:/IntRuoyiTaskRuntime/profile-session-boundaries/verification保留审计证据。任务专有pnpm-virtual-store缓存删除被自动审批以“blocked by policy”拒绝，未执行删除或绕过；该外部缓存不在workspace清理计划内，当前保留，不影响已完成的代码融合与worktree清理。
 
 ## Cleanup Keep
 - doc/tasks/20261008-profile-session-boundary-fixes/task-state.json

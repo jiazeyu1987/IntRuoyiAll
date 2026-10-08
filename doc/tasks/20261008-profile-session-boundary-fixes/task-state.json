@@ -1,15 +1,50 @@
 {
   "taskId": "20261008-profile-session-boundary-fixes",
-  "status": "ready_for_closeout",
+  "status": "completed",
   "milestone": "M3",
   "baseCommit": "5b77574d94096efda06160a88320ee4139c86b5a",
   "blockers": [],
   "verificationBoundary": "controlled behavior tests and static review; no real E2E/database writes",
   "integrationAuthorized": true,
   "integrationAuthorization": "2026-10-08 user reply 授权 to commit this fix, push the repair branch, and integrate into local int_main; main-branch push and runtime deployment not included",
-  "cleanup": {"mode": "preview then apply; worktree-closeout off", "result": "PASS exit 0", "kept": 5, "deleted": 0, "warnings": 0, "blocked": 0, "integration": "AUTHORIZED; precise commit/rebase/push/fast-forward integration and managed archive pending"},
-  "workspace": "E:/IntRuoyiWorktree/profile-session-boundaries/IntRuoyi",
+  "cleanup": {
+    "mode": "preview then apply; worktree-closeout off; exact-scope manual fast-forward and managed archive",
+    "result": "PASS exit 0 in original worktree and main workspace",
+    "kept": 5,
+    "deleted": 0,
+    "warnings": 0,
+    "blocked": 0,
+    "managedArchive": "PASS recoverable snapshot saved; directory absent and Git worktree registration absent",
+    "slotRelease": "PASS slot 7 active=false; all unrelated registry entries unchanged",
+    "externalCacheRemoval": "NOT EXECUTED: automatic approval rejected recursive deletion with blocked by policy; optional external cache retained",
+    "retainedExternalCache": "D:/IntRuoyiTaskRuntime/profile-session-boundaries/pnpm-virtual-store",
+    "retainedAuditEvidence": "D:/IntRuoyiTaskRuntime/profile-session-boundaries/verification"
+  },
+  "workspace": "E:/IntRuoyi",
+  "archivedWorkspace": "E:/IntRuoyiWorktree/profile-session-boundaries/IntRuoyi",
+  "integration": {
+    "implementationCommit": "0e336ba8ff2acc9e5b638eb6bb880bd55296cbc2",
+    "preRebaseCommit": "c06986186",
+    "mainBeforeIntegration": "689674145a29a0ef9b7ca76fb20c027df581496b",
+    "merge": "PASS --ff-only",
+    "repairBranchPush": "PASS remote exact commit; ahead/behind 0/0",
+    "parallelAssets": "PASS six unchanged SHA256 entries",
+    "postRebaseTests": "67/67 PASS",
+    "postRebaseLintAndSfc": "PASS",
+    "managedArchive": "PASS recoverable snapshot saved; directory and Git registration absent",
+    "finalRecordsCommitTitle": "docs(profile): complete session boundary fix closeout",
+    "mainBranchPush": "NOT AUTHORIZED; not performed"
+  },
   "branch": "codex/profile-session-boundaries",
   "slot": 7,
-  "verification": {"newBehaviorTests": "8/8 PASS", "existingBehaviorTests": "55/55 PASS", "staticContracts": "4/4 PASS", "targetEslint": "PASS exit 0", "sfcCompile": "3/3 PASS", "fullTypes": "BLOCKED: baseline and fixed exit 2; identical three diagnostics", "independentReview": "PASS: frontend chain and backend formal identity/persistence/revocation/refresh contracts", "realE2E": "NOT RUN: not requested this turn"}
+  "verification": {
+    "newBehaviorTests": "8/8 PASS",
+    "existingBehaviorTests": "55/55 PASS",
+    "staticContracts": "4/4 PASS",
+    "targetEslint": "PASS exit 0",
+    "sfcCompile": "3/3 PASS",
+    "fullTypes": "BLOCKED: baseline and fixed exit 2; identical three diagnostics",
+    "independentReview": "PASS: frontend chain and backend formal identity/persistence/revocation/refresh contracts",
+    "realE2E": "NOT RUN: not requested this turn"
+  }
 }
