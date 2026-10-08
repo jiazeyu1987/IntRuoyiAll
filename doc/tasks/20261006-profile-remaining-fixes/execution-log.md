@@ -169,3 +169,13 @@ cleanup preview/apply均exit0，keep8/delete10/blocked0/warnings0，仅删除wor
 implementation commit d16ff384a68eb69f5b8691e202b617e8b7cd8349，精确70个文件（50实现/测试/已有经验+8当前正式记录+7原方案+5最终review状态/报告）。完整staged list与白名单一致，git diff --check/cached --check退出0，pre-commit端口归属hook启用通过。
 
 cleanup preview/apply均exit0，keep8/delete10/blocked0/warnings0，仅删除worker-drafts的10份中间稿；正式src/test、tests/e2e、源码、原计划、最终审核和核心证据保留。worktree-closeout=off，未执行技能的全脏提交/自动remove。当前仍ready_for_closeout，主干融合/托管归档/槽位释放待实际执行。
+
+## 最终并行主干进展和rebase
+
+第一次cleanup记录提交后发现main另有staged并行文件，未改其index、未merge；随后这些路径形成11a701bb checkpoint。476→11仅6路径与70任务路径零交集。主Agent实际阅读owner reconciliation diff：正式enabled规则→responsibility snapshot→candidate/source/scope，持久化禁用规则跳过；F02仍直接读正式owner/candidate/dueTime，无替代来源。独立reviewer追加窄边界复核。
+
+两个本任务提交无冲突rebase到11a701bb：implementation 77b67bb75e91a521df52b0838468f703ba49b2d1，cleanup 096f446712b39c61dffc672033812ae87213cd30；旧d16ff/403821只属rebase前历史。逐文件核对任务token/注释完全一致（Git checkout换行按UTF8 LF规范化），当前SHA重建integration-manifest。精确D镜像仅更新4个最新后端路径，并重核所有任务源码；最后增量compile进行中。F03/F04及前端无逻辑修改，不重复无关行为测试/类型/lint。尚未FF。
+
+## 最新11a门禁通过
+
+31模块compile exit0/BUILD SUCCESS，12:56:26；主Agent阅读精确11a diff和静态补充报告，正式快照来源/候选/scope、F01谓词与实际下游权限保留。独立review通过。其余98/55/types/lint的对应任务及系统/前端代码无token变化，复用原实际结果并注明运行基点，不虚构新执行。状态恢复ready_for_closeout，最终FF/归档待执行。

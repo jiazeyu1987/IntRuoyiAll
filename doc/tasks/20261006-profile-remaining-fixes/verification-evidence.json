@@ -4,10 +4,10 @@
     "scope": "compile",
     "exit": 0,
     "buildSuccess": true,
-    "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+    "baseCommit": "11a701bb573ad46c49cac57122522499217e0324",
     "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-compile.log",
     "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
-    "completedAt": "2026-10-08T12:41:54+0800"
+    "completedAt": "2026-10-08T12:56:26+0800"
   },
   "systemTests": {
     "scope": "system",
@@ -57,7 +57,8 @@
     "totalTests": 98,
     "failures": 0,
     "errors": 0,
-    "skipped": 0
+    "skipped": 0,
+    "validityAfterRebase": "No system/F03/F04 source token changes; original98 at476 retained, not rerun at11a"
   },
   "frontendBehavior": {
     "exit": 0,
@@ -65,7 +66,8 @@
     "failures": 0,
     "skipped": 0,
     "log": "upstream-frontend-behavior.log",
-    "all16TaskSourceFingerprintsUnchanged": true
+    "all16TaskSourceFingerprintsUnchanged": true,
+    "validityAfterRebase": "No frontend source token changes; original55 retained; line endings normalized identical"
   },
   "lint": {
     "exit": 0,
@@ -99,13 +101,13 @@
   "priorInterruptedCompiles": "NOT_PASS",
   "evidenceSha256": {
     "final476-backend-system.log": "88e18c90d9e66c8c6dd851e6010b295bce5dbc640a1a01b4d6a702b0691ccc29",
-    "final476-backend-compile.log": "7e0571df5b43fc7af5d452465b669eec3aca8a7466204bbf44a1c32c79b8aba8",
+    "final476-backend-compile.log": "edffed0ef3944208c15682a50e2b63ef295673cf579e5243b44121a105097a64",
     "upstream-frontend-behavior.log": "dcd2a57d88592dd61235b555da8b6fd853c0b47edd42af71c2b9b10c747ce2df",
     "upstream-scoped-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "upstream-sfc.log": "3851b4bca675d698ee51afac929746673ddecc399ff891cd4c3091911f4f2bbb",
     "baseline476-types.log": "11c572fb97c83e1f2dab98edba378d2222d88fa8a1bd0eb6d78b02f86b4a343e",
     "current476-types.log": "91c9559be7902a7f867e7e71f9593d2f0289533a590268005a1d65ae18a465c8",
-    "final476-backend-manifest.json": "0f7e479f621868d0c27866a5c15eb788aa974c222bc69bfc940217ce7b3af866",
+    "final476-backend-manifest.json": "efa2702f1e84d3461dfc473ccd9e74c2148828446d85082ee1e29874d168a084",
     "verified476-frontend-upstream-manifest.json": "8231484552b7deb506c9e1c4d02fd649834e54cb40d72aaf5b3aaa445d4d523e"
   },
   "formatNormalization": {
@@ -239,5 +241,7 @@
         "onlyWhitespace": true
       }
     ]
-  }
+  },
+  "latestCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+  "latestSharedBoundaryStaticReview": "f02-static-11a-supplement.md PASS"
 }

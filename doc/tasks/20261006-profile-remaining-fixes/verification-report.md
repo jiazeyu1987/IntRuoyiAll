@@ -1,7 +1,7 @@
 # 个人中心剩余修复验证报告
 
 ## 当前结论
-ready_for_closeout。主Agent已按用户批准门禁放行F02/F04/F03；最新集成基点476ec5322。源码尚待精确提交、FF融合、清理及托管归档，当前不声称收尾完成。
+ready_for_closeout。主Agent已按用户批准门禁放行F02/F04/F03；最新源码编译基点11a701bb；476后的共享owner变化已补查，原476证据按未变范围保留。源码尚待精确提交、FF融合、清理及托管归档，当前不声称收尾完成。
 
 ## 验收边界
 F02原六项AC全部保留，用户仅调整为完整业务链静态审查+编译/类型/目标lint；不执行F02行为、SQL、HTTP、H2/MySQL、真实数据、RR、容量或E2E。F03/F04保留受控前端行为、真实Validator/standalone MockMvc/Service/临时H2回读及原系统/会话回归。F01已融合，不重新实现。
@@ -10,7 +10,7 @@ F02原六项AC全部保留，用户仅调整为完整业务链静态审查+编�
 
 | 检查 | 实际结果 | 证据和限制 |
 | --- | --- | --- |
-| yudao-server -am compile，跳过测试 | PASS，exit0/BUILD SUCCESS，31个reactor模块成功，12:31:09完成 | final476-backend-compile.log；实际JDK21.0.10，source/target17；编译不证明SQL/事务运行 |
+| yudao-server -am compile，跳过测试 | PASS，exit0/BUILD SUCCESS，31个reactor模块成功，最后一次11a编译12:56:26完成 | final476-backend-compile.log；实际JDK21.0.10，source/target17；编译不证明SQL/事务运行 |
 | 默认Maven系统定向组合 | PASS，98 tests，0failure/error/skip，exit0，12:28:48完成 | UserService80、admin HTTP7、OAuth2 HTTP7、visibility3、VO1；最终Surefire XML核对；只临时H2，非真实账号/MySQL |
 | 前端定向及上游会话组合 | PASS，55 native tests，0fail/cancel/skip，exit0 | 两个profile行为脚本+原system-user-password-session脚本；真实SFC/async-validator、受控Axios、真实Pinia/router；非真实浏览器E2E |
 | 8个目标源ESLint | PASS，exit0 | upstream-scoped-lint.log；最新16个任务前端文件指纹不变，无lint配置变化；未扩大修复范围 |
@@ -53,7 +53,7 @@ F03/F04 round4通过，主Agent复核真实Controller/五字段nonnull更新和�
 F02 SQL执行、实际多数据源/事务/RR、并发、真实全量分页/末页、容量/性能/EXPLAIN、HTTP/H2/MySQL数据行为和真实页面/E2E全部NOT RUN/UNVERIFIED。F03/F04真实账号写入、完整安全filter/method proxy链、真实页面/E2E未运行。无数据库写入、主干服务重启、推送或发布。
 
 ## 集成与收尾
-implementation和最终closeout分开提交，只暂存本任务50路径及正式相关文档；并行main未提交的服务、部署脚本、测试和其他任务记录保留，未计入本任务测试或提交。其owner/candidate补改仍写正式任务，不改变F02查询输入合同；这些并行源码不属于本次476测试样本。
+implementation和最终closeout分开提交，只暂存本任务50路径及正式相关文档；并行owner/deploy修改已由主干独立提交11a701bb，未混入本任务提交；其owner补改已纳入最新精确编译和补充静态审查。其他未提交任务记录继续保留。
 cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本任务临时文档；核心记录/修订/合同/指纹/结构证据保留。FF前逐路径零冲突及并行文件SHA保护；FF后托管archive，路径消失后释放槽位，最后更新completed。当前均待执行。
 原始验证日志在任务自有D运行目录，不提交stdout、凭据或一次性脚本；关键命令、结果、Surefire统计和证据SHA由verification-evidence.json永久保存，integration-manifest.json固定提交文件范围。
 
@@ -65,3 +65,6 @@ cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本
 
 ## 已执行实施提交与cleanup
 实施提交d16ff384a68eb69f5b8691e202b617e8b7cd8349通过原Git hook；精确70路径、零外来暂存文件、diff/cached diff check通过。cleanup preview/apply exit0，keep8/delete10/blocked0/warnings0。此时FF/归档仍pending。
+
+## 11a最终放行补充
+实际11a共有规则集合生成候选/完整scope snapshot，sourceKey严格匹配，持久化禁用同rule才skip。主Agent检查精确diff及正式生产者/消费链，独立f02-static-11a-supplement.md通过；F02读取正式快照、F01共享谓词和处理权限保持。全部31模块11a compile exit0/BUILD SUCCESS，12:56:26完成。F03/F04/system、前端及类型/lint所需代码未有token改动，保留476的98测试及033/476前端55和基线对照结果，不声称重新执行。任务2提交无冲突rebase，Git换行规范化相等，当前50路径SHA已重建。

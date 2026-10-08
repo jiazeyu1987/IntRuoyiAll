@@ -33,13 +33,14 @@
     "round4F02": "pass_static_plus_latest476_supplement",
     "round4F03F04": "pass_98backend_55frontend",
     "upstream476Supplement": "pass_full_chain_static",
-    "mainAgentDecision": "pass_approved_gate_only"
+    "mainAgentDecision": "PASS_approved_scope_only",
+    "latest11aSupplement": "PASS_full_chain_static"
   },
   "e2eRequiredThisTurn": false,
   "blockers": [],
   "worktreeOperationId": "c8f89b5f-0dc1-4425-937a-12fd1a80ad68",
   "worktreeCreation": "registered_completed",
-  "reviewWorkflowStatus": "pass_main_agent_approved_pending_closeout",
+  "reviewWorkflowStatus": "pass_latest_shared_boundary_and_compile_pending_ff",
   "mysqlPrerequisite": "removed_from_f02_current_gate_no_write_authorization",
   "agents": {
     "reviewer": "/root/profile_f03_f04_final_review",
@@ -71,7 +72,7 @@
     "started": false,
     "slot": 11
   },
-  "integrationBaseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+  "integrationBaseCommit": "11a701bb573ad46c49cac57122522499217e0324",
   "verification": {
     "frontendBehavior": {
       "result": "PASS",
@@ -98,10 +99,10 @@
       "scope": "compile",
       "exit": 0,
       "buildSuccess": true,
-      "baseCommit": "476ec5322ab2b8d76ad67308a50eb6c08f980533",
+      "baseCommit": "11a701bb573ad46c49cac57122522499217e0324",
       "log": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification\\final476-backend-compile.log",
       "sourceMirror": "D:\\ir-profile476\\IntRuoyiBackend",
-      "completedAt": "2026-10-08T12:41:54+0800"
+      "completedAt": "2026-10-08T12:56:26+0800"
     },
     "backendDefaultLatestBase": {
       "result": "PASS",
@@ -189,9 +190,11 @@
     "worktreeCloseout": "off_task_only_cleanup_then_guarded_ff_and_managed_archive"
   },
   "integration": {
-    "implementationCommit": "d16ff384a68eb69f5b8691e202b617e8b7cd8349",
-    "merge": "pending_guarded_ff",
+    "implementationCommit": "77b67bb75e91a521df52b0838468f703ba49b2d1",
+    "merge": "pending",
     "archive": "pending",
-    "slotsRelease": "pending"
+    "slotsRelease": "pending",
+    "cleanupCommit": "096f446712b39c61dffc672033812ae87213cd30",
+    "rebase": "PASS_no_task_source_tokens_changed"
   }
 }
