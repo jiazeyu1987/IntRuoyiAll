@@ -286,10 +286,11 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 
 - Trigger: 标准 `full/backend` 重启已进入 `spring-boot:repackage`，`yudao-server-exec.jar` 暂时为 `0` 字节、Maven 长时间无新输出，或误以为最终打包卡死。
 - Preflight check: 不得只根据终端静默、低 CPU 或临时 `0` 字节 Jar 判定失败；先确认 Maven 进程仍属于本次任务，再用 `jcmd <pid> Thread.print -l` 检查主线程。若主线程处于 `AbstractJarWriter$StoredEntryPreparator.load`、`writeNestedLibrary` 或 `Repackager.repackage` 的文件读取/写入链路，说明仍在处理 Spring Boot 嵌套依赖，应继续等待标准命令返回。
+- 编译阶段补充：增量编译也可能因 Windows 文件 I/O 长时间静默。若栈位于 `WinNTFileSystem.delete0 -> IncrementalBuildHelper.beforeRebuildExecution`、资源复制或 javac/Lombok 类文件写入，结合目标文件数、修改时间及进程读写量的连续变化判断进度；磁盘队列高只能作为诊断证据，不能替代最终构建结果。完整构建已成功但启动因并发端口变化失败时，先重新核对共享运行态；确认可启动后，可将本次已验证新包及其 SHA256 交给标准 `PrebuiltBackendJar/PrebuiltBackendSha256` 入口，保留可执行包与 schema 门禁。
 - Blocker: Maven 进程已退出且脚本非零返回、线程栈不再属于打包链路、进程归属不明、目标 Jar 长时间不变化且无法证明仍在 I/O，或最终没有 `BUILD SUCCESS` 时，必须停止成功结论。
 - Verification: 以 Maven `BUILD SUCCESS`、`yudao-server-exec.jar` 完整生成、标准重启脚本退出码 `0`、新 `48081/8081` 进程归属及最终 health/HTTP 检查共同证明完成；线程栈只能证明“仍在执行”，不能代替最终成功结果。
 - Forbidden action: 禁止因临时 `0` 字节 Jar 或终端静默强停本任务构建、改用旧 Jar、跳过重打包或手工启动旧后端冒充成功。
-- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`。
+- Evidence: `doc/tasks/20260817-restart-local-runtime/verification-report.md`；`doc/tasks/20261008-restart-local-runtime/verification-report.md`。
 
 ## 2026-08-29 本地重启脚本 WMI 查询卡住门禁
 
@@ -382,3 +383,10 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - 触发：后台启动器已退出，但 cleanup 删除其 stdout/stderr 日志报 Windows WinError 32。
 - 规则：后代运行进程可能仍持有启动器日志句柄；父 PID 已退出不能证明日志已闲置。保留仍被当前服务持有的日志，将其列入任务 `Cleanup Keep`，重新 preview/apply 只清理已闲置的辅助文件。
 - 验证：归档实际清理失败、修正范围和最终结果，复核前后端健康状态。禁止为清理日志停止用户要求保留运行的服务，或改名、强制解锁和删除活跃日志。
+
+## 本机历史运行 JAR 清理
+
+- 盘点空间先核对文件索引是否已更新，按整盘目录合计与卷已用空间对账；大文件子集或过期索引不能作为整盘总占用。区分文件逻辑大小、实际分配空间和并发写入造成的差额。
+- 用户授权清理历史 JAR 时，冻结精确绝对路径、直属目录、扩展名、截止日期、文件字节数与修改时间；只删除清单中的普通文件，不递归清空 runtime，不按文件名中的日期代替已约定的修改时间条件。
+- 删除前检查可见进程（含 PowerShell 编码启动命令）、服务、计划任务、启动脚本与运行配置、Docker 挂载；保护现用包、固定主程序名称、仍被引用的版本和授权日期范围外的包。文件锁定、状态变化或无法判断引用时保留并记录原因，不强杀共享服务。
+- 执行中复核引用与文件元数据，逐个使用 LiteralPath 删除并记录结果；完成后验证已删清单无残留、保留项及主程序仍存在，分别记录删除字节数与磁盘空闲增量。任务证据默认脱敏，不保存完整进程命令行或含凭据的配置。

@@ -389,7 +389,7 @@
 ### 本机 Codex 历史清理门禁
 
 - Trigger: 用户要求删除 Codex 已归档会话或清理本机历史以释放磁盘空间。
-- Preflight check: 先核对运行中桌面后端的 ExecutablePath 与版本，不能默认全局 npm CLI 和桌面版本一致；只读核对归档索引、历史文件元数据、spawn 后代及 fork history_base 引用。迁移文件末尾 UUID 可能是 rollout ID，不能直接当稳定会话 ID。
+- Preflight check: 先核对运行中桌面后端的 ExecutablePath 与版本，不能默认全局 npm CLI 和桌面版本一致；只读核对归档索引、历史文件元数据、spawn 后代及 fork history_base 引用。迁移文件末尾 UUID 可能是 rollout ID，不能直接当稳定会话 ID。引用核验应遍历当前与旧版 rollout 文件，仅读取索引中的当前 rollout_path 会漏掉旧版历史引用；先用 session_meta 确认文件归属，再将 rollout ID 映射回稳定会话 ID。
 - Safe strategy: 按明确授权冻结归档清单与未归档保护清单，优先用匹配版本的原生删除 API；有未归档引用的源历史必须保留。共享名称索引使用固定临时文件和进程内锁，多客户端删除存在竞争；出现名称索引冲突或 SQLite 锁竞争，应停止任务客户端的新请求并核查结果，不得显示默认成功。
 - Verification: 分别核对桌面归档列表、索引、历史文件与受保护会话；删除文件字节数和卷空闲量分开报告，不把其他任务产生的空间变化算成本任务释放量。
 - Evidence: `doc/tasks/20261008-codex-archived-sessions-cleanup/execution-log.md`，全局 CLI 0.147.0 与桌面 0.158.0-alpha.2.1 不一致，改用桌面配套二进制处理迁移历史；发现两条归档源历史被未归档会话引用。

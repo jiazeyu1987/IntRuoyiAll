@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -93,10 +94,21 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     private MesProRouteMapper routeMapper;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    // Ownership regression keeps auxiliary auditing as a collaborator, without skipping its business callbacks.
+    @MockitoBean
+    private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
+        doAnswer(call -> {
+            call.getArgument(3, Runnable.class).run();
+            return null;
+        }).when(auxiliaryAudit).entitlements(any(), any(), any(), any());
+        doAnswer(call -> {
+            call.getArgument(1, java.util.function.Supplier.class).get();
+            return null;
+        }).when(auxiliaryAudit).notifications(any(), any());
         lenient().when(routeProcessService.resolveCurrentRouteProcess(any(), any(), any()))
                 .thenAnswer(invocation -> MesProRouteProcessDO.builder()
                         .id(invocation.getArgument(0))
@@ -109,6 +121,30 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
                         .routeId(invocation.getArgument(1))
                         .processId(invocation.getArgument(2))
                         .build());
+    }
+
+    @Test
+    void auxiliaryAuditFixture_executesBothBusinessCallbacksAndPropagatesFailures() {
+        java.util.concurrent.atomic.AtomicBoolean entitlementExecuted = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean notificationExecuted = new java.util.concurrent.atomic.AtomicBoolean();
+        MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO().setId(19000L);
+        auxiliaryAudit.entitlements(task, FILLER_POLICY, Set.of(501L), () -> entitlementExecuted.set(true));
+        auxiliaryAudit.notifications(task, () -> {
+            notificationExecuted.set(true);
+            return List.of(29000L);
+        });
+        assertTrue(entitlementExecuted.get());
+        assertTrue(notificationExecuted.get());
+        IllegalStateException entitlementFailure = assertThrows(IllegalStateException.class,
+                () -> auxiliaryAudit.entitlements(task, FILLER_POLICY, Set.of(501L), () -> {
+                    throw new IllegalStateException("entitlement callback failed");
+                }));
+        assertEquals("entitlement callback failed", entitlementFailure.getMessage());
+        IllegalStateException notificationFailure = assertThrows(IllegalStateException.class,
+                () -> auxiliaryAudit.notifications(task, () -> {
+                    throw new IllegalStateException("notification callback failed");
+                }));
+        assertEquals("notification callback failed", notificationFailure.getMessage());
     }
 
     @Test
@@ -150,6 +186,7 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
         ArgumentCaptor<SystemEntitlementSyncReqDTO> captor =
                 ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
         verify(permissionApi).syncEntitlementClaims(captor.capture());
+        verify(auxiliaryAudit).entitlements(any(), any(), any(), any());
         SystemEntitlementSyncReqDTO request = captor.getValue();
         assertEquals(122L, request.getTenantId());
         assertEquals(WORK_TASK_SOURCE_TYPE, request.getSourceType());

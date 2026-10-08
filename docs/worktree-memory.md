@@ -308,13 +308,17 @@
 - Trigger: 用户明确授权按最近若干天未更新的条件批量删除 worktree，而非按分支合入状态做常规任务收尾。
 - Preflight check: 固定带时区的滚动时间阈值；同时检查目录内部文件、目录及 worktree 专属 Git 元数据最新写入时间，不能只看根目录时间或最后提交时间。使用 `git --no-optional-locks status` 避免检查本身刷新索引；进程扫描排除当前 PID，记录路径归属，不按端口盲停进程。先核对聊天附件；仅对本聊天可管理的托管附件使用归档工具，其余真实 linked worktree 必须核对所属 common Git 目录、注册路径和显式绝对路径边界。
 - Preservation rule: 删除授权不等于丢弃源码授权；未授权提交时不得用保全提交绕过最近层级 AGENTS。删除前保存 binary patch、变更/未跟踪文件及核心任务记录到独立恢复目录，逐文件核对 SHA-256；没有 surviving ref 覆盖的 detached HEAD 必须生成完整 bundle 并 verify。保留既有分支与恢复包，不顺手合并、推送或创建备份分支。忽略文件不自动进入保全包，需先识别仍有用途的内容。
+- Source archive: 大量小文件可流式写入每目标独立 ZIP，分别核对源码、解包成员和归档整体 SHA-256；可再生成的依赖与构建目录按明确清单排除，链接只记录目标时必须称为源码恢复包，不宣称完整文件系统备份。复用既有包仍须在删除前重检源目录。
+- Inventory invariant: Windows 目录的 st_size 反映目录索引分配，可能因 API 或索引整理发生变化，不能当作源码内容大小。删除前比较完整路径集合、类型、全部条目写入时间、普通文件字节数与 SHA-256、reparse 目标；不要因为目录索引字节变化而跳过真正的源码差异。
+- Read-only Git diff: 生成补丁时同时使用 `--no-optional-locks` 与 `-c diff.autoRefreshIndex=false`；仅前者不保证 `git diff` 不创建、删除索引锁，从而刷新专属 Git 目录时间。若检查自带副作用已发生，须复现同一命令并证明元数据文件集合、时间、哈希、恢复索引、HEAD 和 status 全部不变，才能只排除已证实的目录时间变化；不明来源的更新仍须保留目标。
+- Classification: `.git` 为目录的独立仓库不属于 linked worktree；无 `.git` 的残留也须确认所有相关 common Git 目录均无精确路径或子路径登记，才能按已授权残留清单删除。父目录内普通备份、状态目录和正式恢复资产不自动纳入工作树清理。
 - Blocker: 近期更新、运行中、locked/index.lock、扫描拒绝访问、缺失 Git 元数据、物理路径与注册路径不同、或保全核验失败时停止该目标。不得把异常 worktree 静默降级成普通目录递归删除。
 - Explicit exception: 仅在用户明确批准“异常目录完整备份后按普通目录删除”时，对固定清单执行该方案；不修复或重写 `.git` 指针，不调用可能误删有效外部注册的 `git worktree remove`。检查外部有效 worktree 的精确注册、HEAD 和专属元数据哈希；并行任务使总注册表变化时，不冻结或回滚无关注册。
 - Full snapshot gate: 普通目录清理的“完整备份”须明确隐藏/忽略文件、空目录和 reparse 链接的范围。Windows tar 可能将 junction 展开，即使未显式启用跟随链接，也必须通过实际解包、重建链接和逐文件 SHA-256/结构比对确认；文件包加链接清单不能仅凭打包成功放行。删除前再核对源快照与包/清单哈希，发现差异即停。
 - Link boundary: 不沿 reparse point 盘点或递归删除；先精确移除目录内链接，再删除已验证的目标根。原始绝对链接指向不随换位置恢复而自动迁移；ACL/ADS/硬链接拓扑、缺失外部 Git 元数据及单盘灾难恢复必须单独说明，不能夸大恢复承诺。正式恢复资产保留到用户另行授权，不纳入 task-closeout 的临时资产清理。
 - Verification: 逐项核对物理目录不存在、所属仓库注册不存在、HEAD 有引用或已验证 bundle、具名分支仍包含原 HEAD；只对已删除且登记端口无监听的目标持同一 registry mutex 置 inactive，并验证其他登记项不变。批量完整证据保存为任务报告，终端仅输出汇总，避免输出截断掩盖遗漏。
 - Forbidden action: 禁止只凭最后提交时间判旧、因盘满跳过保全、对 worktree 父目录批量递归删除、将扫描失败记为清理成功、释放有监听或其他任务的槽位、或清理独立恢复目录。
-- Evidence: `doc/tasks/20261001-delete-stale-d-worktrees/verification-report.md`。
+- Evidence: `doc/tasks/20261001-delete-stale-d-worktrees/verification-report.md`；`doc/tasks/20261008-stale-worktrees-cleanup/verification-report.md`。
 
 ### Git 注册已移除但物理目录被运行态锁住
 
