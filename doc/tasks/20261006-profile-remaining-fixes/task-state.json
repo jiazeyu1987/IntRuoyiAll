@@ -13,7 +13,7 @@
     "M1": "completed",
     "M2": "completed",
     "M3": "completed",
-    "M4": "pending"
+    "M4": "in_progress"
   },
   "fixes": {
     "F02": "passed_full_chain_static_compile_lint_no_new_types_runtime_not_run",
@@ -23,12 +23,6 @@
   "review": {
     "mainAgentReleaseRequired": true,
     "independentReviewerRequired": true,
-    "round1Decision": "fail",
-    "round1Report": ".review-fix-loop/runs/20261006-profile-remaining-fixes/review/report-round-1.md",
-    "draftStructuredReport": "D:/IntRuoyiTaskRuntime/profile-remaining-fixes/drafts/draft-review-structured.md",
-    "draftStructuredDecision": "fail_acceptance_not_run",
-    "round3F02": "pass_static_only_compile_pending",
-    "round3F03F04": "pass_old_base_default_90tests",
     "upstreamReconciliation": "passed_preserving_033be6219e_password_session",
     "round4F02": "pass_static_plus_latest476_supplement",
     "round4F03F04": "pass_98backend_55frontend",
@@ -37,10 +31,12 @@
     "latest11aSupplement": "PASS_full_chain_static"
   },
   "e2eRequiredThisTurn": false,
-  "blockers": [],
+  "blockers": [
+    "托管archive目录删除仍运行，物理checkout及所属Git元数据存在；slot11保持active，禁止提前completed。实现/验证/FF融合已通过。"
+  ],
   "worktreeOperationId": "c8f89b5f-0dc1-4425-937a-12fd1a80ad68",
   "worktreeCreation": "registered_completed",
-  "reviewWorkflowStatus": "pass_latest_shared_boundary_and_compile_pending_ff",
+  "reviewWorkflowStatus": "PASS_integrated_pending_managed_directory_removal",
   "mysqlPrerequisite": "removed_from_f02_current_gate_no_write_authorization",
   "agents": {
     "reviewer": "/root/profile_f03_f04_final_review",
@@ -72,7 +68,7 @@
     "started": false,
     "slot": 11
   },
-  "integrationBaseCommit": "11a701bb573ad46c49cac57122522499217e0324",
+  "integrationBaseCommit": "30038aecaf54a8214ef86e0e683c50c585335d56",
   "verification": {
     "frontendBehavior": {
       "result": "PASS",
@@ -176,25 +172,46 @@
       "manifest": "verified476-frontend-upstream-manifest.json",
       "comparison": "final476-types-comparison.json"
     },
-    "stagedDiffCheck": "FAIL_trailing_whitespace_and_extra_EOF_lines_no_commit",
+    "stagedDiffCheck": "PASS_after_whitespace_normalization",
     "formatNormalization": {
       "files": 21,
       "onlyWhitespace": true,
       "rootVerified": true,
       "incrementalCompile": "PASS"
-    }
+    },
+    "historicalFormatGateAttempt": "FAIL_trailing_whitespace_and_extra_EOF_lines_no_commit"
   },
   "cleanup": {
     "preview": "PASS_keep8_delete10_blocked0_warnings0",
     "apply": "PASS_deleted_only_10_worker_drafts",
-    "worktreeCloseout": "off_task_only_cleanup_then_guarded_ff_and_managed_archive"
+    "worktreeCloseout": "off_task_only_cleanup_then_guarded_ff_and_managed_archive",
+    "mainRecordCleanup": "PASS_keep8_delete10_blocked0_warnings0"
   },
   "integration": {
-    "implementationCommit": "77b67bb75e91a521df52b0838468f703ba49b2d1",
-    "merge": "pending",
-    "archive": "pending",
-    "slotsRelease": "pending",
-    "cleanupCommit": "096f446712b39c61dffc672033812ae87213cd30",
-    "rebase": "PASS_no_task_source_tokens_changed"
+    "implementationCommit": "6c22418e788d98d31add1c79c8d61d1514aadf97",
+    "merge": "PASS_ff_only",
+    "archive": "snapshot_archived_physical_removal_running",
+    "slotsRelease": "F01_slot7_released_slot11_retained_until_checkout_absent",
+    "cleanupCommit": "dafa665637246f0041a251251b93647c9a1bcef6",
+    "rebase": "PASS_no_task_source_tokens_changed",
+    "approvalCommit": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+    "mainHead": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+    "mainPrior": "30038aecaf54a8214ef86e0e683c50c585335d56",
+    "sourceCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+    "mainAdvanceSinceCompile": "documentation_only",
+    "ffOnly": "PASS",
+    "protectedParallelFiles": 6,
+    "allParallelSHA256Preserved": true,
+    "allParallelIndexEntriesPreserved": true,
+    "all50TaskSourceNormalizedMatch": true
+  },
+  "updatedAt": "2026-10-08T13:51:00.679290+08:00",
+  "historicalReview": {
+    "round1Decision": "fail",
+    "round1Report": ".review-fix-loop/runs/20261006-profile-remaining-fixes/review/report-round-1.md",
+    "draftStructuredReport": "D:/IntRuoyiTaskRuntime/profile-remaining-fixes/drafts/draft-review-structured.md",
+    "draftStructuredDecision": "fail_acceptance_not_run",
+    "round3F02": "pass_static_only_compile_pending",
+    "round3F03F04": "pass_old_base_default_90tests"
   }
 }

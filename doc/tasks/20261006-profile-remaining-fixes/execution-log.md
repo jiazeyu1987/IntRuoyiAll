@@ -179,3 +179,9 @@ cleanup preview/apply均exit0，keep8/delete10/blocked0/warnings0，仅删除wor
 ## 最新11a门禁通过
 
 31模块compile exit0/BUILD SUCCESS，12:56:26；主Agent阅读精确11a diff和静态补充报告，正式快照来源/候选/scope、F01谓词与实际下游权限保留。独立review通过。其余98/55/types/lint的对应任务及系统/前端代码无token变化，复用原实际结果并注明运行基点，不虚构新执行。状态恢复ready_for_closeout，最终FF/归档待执行。
+
+## 融合及收尾检查点 / 2026-10-08T13:51:00.679290+08:00
+- 剩余修复精确实现6c22418e788d98d31add1c79c8d61d1514aadf97、cleanup dafa665637246f0041a251251b93647c9a1bcef6、放行记录3fbce57e92339c55e3ba5988c692ee7d67a8d7fd已FF融合；50源码规范化一致，六个并行文件SHA/index保持。
+- 两个托管artifact均已归档，F01实体/元数据/partial依赖不存在，slot7已释放；剩余任务实体删除仍在运行，slot11和临时运行目录保留，ready_for_closeout。
+- 主目录cleanup preview/apply：剩余keep8/delete10、F01 keep6/delete0，blocked/warnings均0。最终记录仅任务自有路径；无推送、发布、主后端重启或既有数据库写入。
+- project-experience-consolidation已将HTTP测试上下文与默认组合回归经验合入既有docs/backend-development.md；F02仅静态+编译/types/lint，实际运行、数据、RR、容量、E2E未执行。

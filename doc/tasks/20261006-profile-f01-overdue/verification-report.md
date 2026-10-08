@@ -1,7 +1,7 @@
 # F01验证报告
 
 ## 放行结论
-PASS：主Agent批准F01逾期待办漏行/漏数修复。定向静态、行为单测、后端查询回归与真实页面E2E通过；E2E使用用户授权的模拟测试数据。当前ready_for_closeout，F01源码已快进融合int_main；核心清理通过，托管归档/残留目录清理与slot7释放未完成。F02分页、F04改密、F03资料编辑未实施。
+PASS / completed：F01原实现、定向静态/行为/查询回归及用户授权模拟数据的真实页面E2E通过并已融合。本次补核历史收尾：托管归档、实体目录和所属Git元数据消失、partial-node_modules不存在、slot7释放及核心记录清理全部PASS；没有重跑业务验证或数据写入。F02/F03/F04属于独立后续任务。
 
 ## 实现与审核
 个人中心列表和角标显式请求includeOverdue=true；服务端用同一分页查询的TODO/OVERDUE集合返回列表和total，保留旧默认TODO及单OVERDUE调用。状态参数冲突显式拒绝。复用原本人/正式候选、租户及终态批次/ARCHIVE例外，不改正式任务身份、状态文案、导航、隐藏语义、权限或50条上限。
@@ -62,3 +62,6 @@ PASS：主Agent批准F01逾期待办漏行/漏数修复。定向静态、行为�
 - F01代码融合PASS：int_main已快进到e7be02862a6abf10248009af5094570e716f7ce2，包含实现f836485d04cf69f5389d28458719ae66abea6578。9个源码/测试与验证版本一致；五个并行文件SHA256未变。根端口guard通过，没有推送、发布或主后端重启。
 - 核心记录清理PASS，授权模拟数据两轮残留0。托管archive_worktree queued后快照ls-files超时60秒，归档队列持续无法确认任务归档状态；附件archived_worktree不能等同目录清理成功。物理worktree、元数据、partial-node_modules及slot7(active=true)保留，尚不标completed。
 - 实际待收尾：应用归档成功并核对目录/元数据消失、依赖残留不存在，再在互斥锁下释放slot7并提交completed记录。F01验证和已融合结论不回退，无需重复构建/业务测试。
+
+## 历史收尾核验 / 2026-10-08T13:51:00.679290+08:00
+托管artifact为archived_worktree，原精确checkout路径和所属Git元数据均不存在，partial-node_modules不存在；原互斥锁下slot7已active=false，其他登记项保持。主目录cleanup preview/apply keep6/delete0、blocked0/warnings0。旧归档超时记录为历史状态，IntRuoyi5属于其他任务并未操作。本次仅纠正记录，未重跑、推送或重启主服务。

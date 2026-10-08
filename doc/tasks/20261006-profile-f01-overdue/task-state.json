@@ -1,6 +1,6 @@
 {
   "taskId": "20261006-profile-f01-overdue",
-  "status": "ready_for_closeout",
+  "status": "completed",
   "scope": [
     "F01"
   ],
@@ -11,13 +11,13 @@
     "slot": 7,
     "frontendPort": 8088,
     "backendPort": 48088,
-    "active": true
+    "active": false
   },
   "milestones": {
     "M0": "completed",
     "M1": "completed",
     "M2": "completed",
-    "M3": "in_progress"
+    "M3": "completed"
   },
   "verification": {
     "f01StaticContract": "passed",
@@ -33,12 +33,10 @@
     "mainAgentReview": "passed_F01_only",
     "businessChainReview": "passed_F01_entry_query_count_visibility_navigation_scope_only",
     "gitDiffCheck": "passed",
-    "cleanup": "core_artifacts_passed_residual_pending_managed_archive",
+    "cleanup": "PASS_core_cleanup_archive_paths_absent_slot7_released",
     "mergePreservation": "passed_5_unrelated_files_byte_identical"
   },
-  "blockers": [
-    "Codex托管归档：git ls-files --stage --others --exclude-standard -z超过60秒；snapshot失败，队列随后无法确认task archive status持续重试。物理worktree及slot7保留，禁止标completed或提前释放。"
-  ],
+  "blockers": [],
   "taskRuntimeDirectory": "D:/IntRuoyiTaskRuntime/profile-f01-overdue",
   "frontendDependencies": "installed_from_frozen_lockfile_task_owned_junction",
   "runtimeServices": "not_running_at_closeout_preflight",
@@ -126,11 +124,15 @@
   },
   "implementationCommit": "f836485d04cf69f5389d28458719ae66abea6578",
   "closeout": {
-    "coreArtifactCleanup": "passed",
-    "residualDirectoryCleanup": "pending_managed_archive",
+    "coreArtifactCleanup": "PASS_preview_apply_keep6_delete0",
+    "residualDirectoryCleanup": "PASS_no_partial_node_modules",
     "merge": "passed_ff_only",
-    "archive": "queued_snapshot_inspection_timed_out_physical_checkout_retained",
-    "slotRelease": "pending_checkout_retained"
+    "archive": "PASS_managed_archived_checkout_and_metadata_absent",
+    "slotRelease": "PASS_slot7_inactive_other_entries_preserved"
   },
-  "mergedHead": "e7be02862a6abf10248009af5094570e716f7ce2"
+  "mergedHead": "e7be02862a6abf10248009af5094570e716f7ce2",
+  "historicalArchiveBlockers": [
+    "Codex托管归档：git ls-files --stage --others --exclude-standard -z超过60秒；snapshot失败，队列随后无法确认task archive status持续重试。物理worktree及slot7保留，禁止标completed或提前释放。"
+  ],
+  "completedAt": "2026-10-08T13:51:00.679290+08:00"
 }

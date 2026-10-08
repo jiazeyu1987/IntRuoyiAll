@@ -105,3 +105,9 @@ Quartz禁用参数首次覆盖local已有exclude列表，导致两个AI vectorSt
 - 按现行根AGENTS补齐七节点实际链路审查：个人中心入口、请求/鉴权、登录/状态异常、正式数据/状态集合、响应/角标、隐藏恢复落库、下游正式页面入口。报告列明真实方法依据及静态/单测/真实E2E边界，不把查询修复扩大为下游业务全链验收。
 - 托管附件仍显示archived_worktree，但物理checkout、IntRuoyi5元数据、partial-node_modules均存在；8088/48088无监听，slot7仍active。应用归档队列最新仍报Could not confirm the task's archive status；仅核对已有请求，不重复提交归档或修改应用状态。
 - 保持ready_for_closeout及M3 in_progress；准备精确提交本任务四份核心记录，随后核验提交清单与六个并行文件指纹。没有推送、发布、主后端重启或手工删除托管worktree。
+
+## 融合及收尾检查点 / 2026-10-08T13:51:00.679290+08:00
+- 剩余修复精确实现6c22418e788d98d31add1c79c8d61d1514aadf97、cleanup dafa665637246f0041a251251b93647c9a1bcef6、放行记录3fbce57e92339c55e3ba5988c692ee7d67a8d7fd已FF融合；50源码规范化一致，六个并行文件SHA/index保持。
+- 两个托管artifact均已归档，F01实体/元数据/partial依赖不存在，slot7已释放；剩余任务实体删除仍在运行，slot11和临时运行目录保留，ready_for_closeout。
+- 主目录cleanup preview/apply：剩余keep8/delete10、F01 keep6/delete0，blocked/warnings均0。最终记录仅任务自有路径；无推送、发布、主后端重启或既有数据库写入。
+- project-experience-consolidation已将HTTP测试上下文与默认组合回归经验合入既有docs/backend-development.md；F02仅静态+编译/types/lint，实际运行、数据、RR、容量、E2E未执行。
