@@ -1,7 +1,7 @@
 # 个人中心剩余修复验证报告
 
 ## 当前结论
-ready_for_closeout：F02/F04/F03已按批准门禁放行并快进融合int_main。31模块编译、98项后端与55项前端定向验证、目标lint/SFC通过，类型检查基线新增诊断0。F02运行/真实数据/E2E未执行。归档快照已保存，托管实体目录删除仍运行；slot11保留，最终收尾未完成。F01已确认归档且slot7释放。
+completed。主Agent按批准门禁放行F02/F04/F03并快进融合int_main。31模块编译、98项后端及55项前端定向验证、目标lint/SFC通过，类型检查与基线诊断一致、新增0。托管归档、路径/元数据消失、槽位释放及清理核验完成。F02真实运行和数据验证未执行。
 
 ## 验收边界
 F02原六项AC全部保留，用户仅调整为完整业务链静态审查+编译/类型/目标lint；不执行F02行为、SQL、HTTP、H2/MySQL、真实数据、RR、容量或E2E。F03/F04保留受控前端行为、真实Validator/standalone MockMvc/Service/临时H2回读及原系统/会话回归。F01已融合，不重新实现。
@@ -54,7 +54,7 @@ F02 SQL执行、实际多数据源/事务/RR、并发、真实全量分页/末�
 
 ## 集成与收尾
 implementation和最终closeout分开提交，只暂存本任务50路径及正式相关文档；并行owner/deploy修改已由主干独立提交11a701bb，未混入本任务提交；其owner补改已纳入最新精确编译和补充静态审查。其他未提交任务记录继续保留。
-cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本任务临时文档；核心记录/修订/合同/指纹/结构证据保留。快进融合已完成：实现6c22418e788d98d31add1c79c8d61d1514aadf97、cleanup dafa665637246f0041a251251b93647c9a1bcef6、放行记录3fbce57e92339c55e3ba5988c692ee7d67a8d7fd；主干前基点30038aecaf54a8214ef86e0e683c50c585335d56相对编译基点只有文档改动。50个任务源码规范化相等，六个并行文件SHA及暂存index均保留。托管归档已排队，目录消失、槽位释放及最终completed记录仍待核验。
+cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本任务临时文档；核心记录/修订/合同/指纹/结构证据保留。快进融合已完成：实现6c22418e788d98d31add1c79c8d61d1514aadf97、cleanup dafa665637246f0041a251251b93647c9a1bcef6、放行记录3fbce57e92339c55e3ba5988c692ee7d67a8d7fd；主干前基点30038aecaf54a8214ef86e0e683c50c585335d56相对编译基点只有文档改动。50个任务源码规范化相等，六个并行文件SHA及暂存index均保留。托管归档已完成，两个任务目录及所属Git元数据不存在，槽位7/11已按互斥锁释放；最终收尾证据见下节。
 原始验证日志在任务自有D运行目录，不提交stdout、凭据或一次性脚本；关键命令、结果、Surefire统计和证据SHA由verification-evidence.json永久保存，integration-manifest.json固定提交文件范围。
 
 ## 提交前格式复验
@@ -68,3 +68,12 @@ cleanup先preview后apply，worktree-closeout=off，仅删除worker-drafts等本
 
 ## 已完成融合与待收尾 / 2026-10-08T13:51:00.679290+08:00
 主目录cleanup preview/apply通过，keep8/delete10、blocked0/warnings0；10份同线程worker草稿已清理。两个托管artifact均archived_worktree，但剩余worktree实体目录及所属元数据仍存在，托管Git删除仍运行，不能把快照归档等同收尾完成。slot11及D盘临时运行目录保留，待实体路径消失后核验并精确释放/清理。F01实体路径和元数据、partial-node_modules均不存在，slot7在原互斥锁下释放，其他登记项保持。
+
+## 最终收尾证据 / 2026-10-08T14:41:02.477747+08:00
+- 快进融合PASS；50个任务源码规范化一致，六个并行文件SHA256和index保持。实施/清理/放行提交见上节，后续仅提交精确任务记录。
+- 两个托管artifact均archived_worktree，两个精确checkout目录、所属Git元数据及F01 partial-node_modules均不存在。未操作其他任务元数据。
+- 槽位7/11在原登记互斥锁下preview/apply，active=false；其他登记项语义完全保持。
+- task-closeout-cleanup preview/apply：剩余任务keep8/delete10，F01 keep6/delete0；均blocked0/warnings0。运行目录preview/apply清除14个任务自有临时目录，verification日志/指纹与共享Maven/pnpm缓存保留。
+- 检查点提交282607c2f0ba06e5b9149cd49c6d4c52a2fa187a仅含11个任务记录；提交耗时期间并行四个文件发生更新，原字节不变断言FAIL。随后实际提交路径及并行index完全一致核验PASS，未改回并行文件，不宣称该窗口所有文件字节不变。编译统计辅助正则曾跨行多计BUILD SUCCESS、前端摘要曾假定TAP格式；改用实际逐行模块及Node信息格式后，31/98/55与12项AC和50个源码指纹复核PASS，未重跑或更改业务测试结果。
+- 使用project-experience-consolidation，复用现有docs/backend-development.md沉淀新HTTP测试上下文与原服务组合回归经验；没有新建长期经验文档。
+- F02仅静态+编译/types/lint放行，SQL/RR/容量/真实数据/真实页面/E2E仍NOT RUN/UNVERIFIED；F03/F04安全filter链及真实账号写入/真实页面/E2E未执行。无推送、发布、主服务重启或既有数据库写入。

@@ -1,19 +1,19 @@
 {
   "taskId": "20261006-profile-remaining-fixes",
-  "status": "ready_for_closeout",
+  "status": "completed",
   "scope": [
     "F02",
     "F04",
     "F03"
   ],
   "baseCommit": "bf16ef91b52d577d4c3652019439a13c9794787b",
-  "workspace": "E:/IntRuoyiWorktree/profile-remaining-fixes/IntRuoyi",
+  "workspace": "E:/IntRuoyi",
   "milestones": {
     "M0": "completed",
     "M1": "completed",
     "M2": "completed",
     "M3": "completed",
-    "M4": "in_progress"
+    "M4": "completed"
   },
   "fixes": {
     "F02": "passed_full_chain_static_compile_lint_no_new_types_runtime_not_run",
@@ -31,12 +31,10 @@
     "latest11aSupplement": "PASS_full_chain_static"
   },
   "e2eRequiredThisTurn": false,
-  "blockers": [
-    "托管archive目录删除仍运行，物理checkout及所属Git元数据存在；slot11保持active，禁止提前completed。实现/验证/FF融合已通过。"
-  ],
+  "blockers": [],
   "worktreeOperationId": "c8f89b5f-0dc1-4425-937a-12fd1a80ad68",
   "worktreeCreation": "registered_completed",
-  "reviewWorkflowStatus": "PASS_integrated_pending_managed_directory_removal",
+  "reviewWorkflowStatus": "passed_completed",
   "mysqlPrerequisite": "removed_from_f02_current_gate_no_write_authorization",
   "agents": {
     "reviewer": "/root/profile_f03_f04_final_review",
@@ -66,7 +64,8 @@
     "frontendPort": 8092,
     "backendPort": 48092,
     "started": false,
-    "slot": 11
+    "slot": 11,
+    "active": false
   },
   "integrationBaseCommit": "30038aecaf54a8214ef86e0e683c50c585335d56",
   "verification": {
@@ -172,7 +171,7 @@
       "manifest": "verified476-frontend-upstream-manifest.json",
       "comparison": "final476-types-comparison.json"
     },
-    "stagedDiffCheck": "PASS_after_whitespace_normalization",
+    "stagedDiffCheck": "PASS_after_21_file_whitespace_normalization",
     "formatNormalization": {
       "files": 21,
       "onlyWhitespace": true,
@@ -185,13 +184,182 @@
     "preview": "PASS_keep8_delete10_blocked0_warnings0",
     "apply": "PASS_deleted_only_10_worker_drafts",
     "worktreeCloseout": "off_task_only_cleanup_then_guarded_ff_and_managed_archive",
-    "mainRecordCleanup": "PASS_keep8_delete10_blocked0_warnings0"
+    "mainRecordCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+    "final": {
+      "completedAt": "2026-10-08T14:41:02.477747+08:00",
+      "managedArchive": "PASS_artifact_archived_checkout_and_metadata_absent",
+      "managedArtifactEvidence": {
+        "status": "PASS",
+        "artifacts": [
+          {
+            "id": "01a11183-4466-7322-b7b0-09b5785d5a79",
+            "attachmentType": "archived_worktree",
+            "identityKey": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+            "payload": {
+              "worktree": {
+                "root": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+                "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+                "sourceCwd": "E:\\IntRuoyi",
+                "sourceGitRoot": "E:/IntRuoyi",
+                "worktreesRoot": "E:\\IntRuoyiWorktree"
+              },
+              "pullRequests": []
+            },
+            "createdAt": 1791295177
+          },
+          {
+            "id": "01a119e9-c173-7c93-876d-e1f966b2b5e9",
+            "attachmentType": "archived_worktree",
+            "identityKey": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+            "payload": {
+              "worktree": {
+                "root": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+                "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+                "sourceCwd": "E:\\IntRuoyi",
+                "sourceGitRoot": "E:/IntRuoyi",
+                "worktreesRoot": "E:\\IntRuoyiWorktree"
+              },
+              "pullRequests": []
+            },
+            "createdAt": 1791436112
+          }
+        ]
+      },
+      "physicalEvidence": {
+        "checkedAt": "2026-10-08T14:39:38.613354+08:00",
+        "checkouts": {
+          "F01": {
+            "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+            "exists": false,
+            "gitMetadata": []
+          },
+          "remaining": {
+            "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+            "exists": false,
+            "gitMetadata": []
+          }
+        },
+        "abortedF01DependencyExists": false,
+        "physicalArchiveComplete": true
+      },
+      "slotRelease": {
+        "mode": "apply",
+        "status": "PASS",
+        "changes": [
+          {
+            "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+            "slot": 7,
+            "branch": "codex/profile-f01-overdue",
+            "previousActive": false,
+            "newActive": false
+          },
+          {
+            "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+            "slot": 11,
+            "branch": "codex/profile-remaining-fixes",
+            "previousActive": true,
+            "newActive": false
+          }
+        ],
+        "unrelatedEntriesPreserved": true,
+        "registry": "E:\\IntRuoyi\\.git\\intrruoyi-runtime\\worktree-ports.json",
+        "checkedAt": "2026-10-08T14:40:11.9140867+08:00"
+      },
+      "runtimeCleanup": {
+        "mode": "apply",
+        "phase": "all",
+        "status": "PASS",
+        "targets": [
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\backend-targets",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\frontend-virtual-store",
+            "action": "delete_task_owned_temporary_runtime"
+          }
+        ],
+        "kept": [
+          "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+          "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+          "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+        ],
+        "checkedAt": "2026-10-08T14:40:30.7855808+08:00"
+      },
+      "independentRuntimeCleanup": {
+        "mode": "apply",
+        "phase": "independent",
+        "status": "PASS",
+        "targets": [
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\drafts",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\final476-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\pre-upstream-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\reconcile",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified476-source",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-virtual-store",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-virtual-store",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-frontend-virtual-store",
+            "action": "delete_task_owned_temporary_runtime"
+          },
+          {
+            "path": "D:\\ir-profile476",
+            "action": "delete_task_owned_temporary_runtime"
+          }
+        ],
+        "kept": [
+          "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+          "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+          "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+        ],
+        "checkedAt": "2026-10-08T14:15:26.3880091+08:00"
+      },
+      "runtimeDirectoriesRemoved": 14,
+      "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+      "F01RecordCleanup": "PASS_keep6_delete0_blocked0_warnings0",
+      "pushed": false,
+      "deployed": false,
+      "mainServiceRestarted": false
+    }
   },
   "integration": {
     "implementationCommit": "6c22418e788d98d31add1c79c8d61d1514aadf97",
     "merge": "PASS_ff_only",
-    "archive": "snapshot_archived_physical_removal_running",
-    "slotsRelease": "F01_slot7_released_slot11_retained_until_checkout_absent",
+    "archive": "PASS_artifact_archived_checkout_and_metadata_absent",
+    "slotsRelease": "PASS_slots7_and11_inactive_other_entries_preserved",
     "cleanupCommit": "dafa665637246f0041a251251b93647c9a1bcef6",
     "rebase": "PASS_no_task_source_tokens_changed",
     "approvalCommit": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
@@ -203,9 +371,10 @@
     "protectedParallelFiles": 6,
     "allParallelSHA256Preserved": true,
     "allParallelIndexEntriesPreserved": true,
-    "all50TaskSourceNormalizedMatch": true
+    "all50TaskSourceNormalizedMatch": true,
+    "finalRecordsCommit": "see_git_log_for_this_path_after_completedAt"
   },
-  "updatedAt": "2026-10-08T13:51:00.679290+08:00",
+  "updatedAt": "2026-10-08T14:41:02.477747+08:00",
   "historicalReview": {
     "round1Decision": "fail",
     "round1Report": ".review-fix-loop/runs/20261006-profile-remaining-fixes/review/report-round-1.md",
@@ -213,5 +382,7 @@
     "draftStructuredDecision": "fail_acceptance_not_run",
     "round3F02": "pass_static_only_compile_pending",
     "round3F03F04": "pass_old_base_default_90tests"
-  }
+  },
+  "completedAt": "2026-10-08T14:41:02.477747+08:00",
+  "implementationWorkspace": "E:/IntRuoyiWorktree/profile-remaining-fixes/IntRuoyi"
 }

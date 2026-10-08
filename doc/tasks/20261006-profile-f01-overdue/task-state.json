@@ -6,7 +6,7 @@
   ],
   "branch": "codex/profile-f01-overdue",
   "baseCommit": "f68e333e418e0873759a943ff681f8410b5aabb1",
-  "workspace": "E:/IntRuoyiWorktree/profile-f01-overdue/IntRuoyi",
+  "workspace": "E:/IntRuoyi",
   "runtime": {
     "slot": 7,
     "frontendPort": 8088,
@@ -33,7 +33,7 @@
     "mainAgentReview": "passed_F01_only",
     "businessChainReview": "passed_F01_entry_query_count_visibility_navigation_scope_only",
     "gitDiffCheck": "passed",
-    "cleanup": "PASS_core_cleanup_archive_paths_absent_slot7_released",
+    "cleanup": "PASS_final_task_owned_closeout",
     "mergePreservation": "passed_5_unrelated_files_byte_identical"
   },
   "blockers": [],
@@ -125,14 +125,16 @@
   "implementationCommit": "f836485d04cf69f5389d28458719ae66abea6578",
   "closeout": {
     "coreArtifactCleanup": "PASS_preview_apply_keep6_delete0",
-    "residualDirectoryCleanup": "PASS_no_partial_node_modules",
+    "residualDirectoryCleanup": "PASS_no_checkout_metadata_or_partial_node_modules",
     "merge": "passed_ff_only",
-    "archive": "PASS_managed_archived_checkout_and_metadata_absent",
-    "slotRelease": "PASS_slot7_inactive_other_entries_preserved"
+    "archive": "PASS_managed_archived",
+    "slotRelease": "PASS_slot7_inactive_other_entries_preserved",
+    "finalRecordCommit": "see_git_log_for_this_path_after_completedAt"
   },
   "mergedHead": "e7be02862a6abf10248009af5094570e716f7ce2",
   "historicalArchiveBlockers": [
     "Codex托管归档：git ls-files --stage --others --exclude-standard -z超过60秒；snapshot失败，队列随后无法确认task archive status持续重试。物理worktree及slot7保留，禁止标completed或提前释放。"
   ],
-  "completedAt": "2026-10-08T13:51:00.679290+08:00"
+  "completedAt": "2026-10-08T14:41:02.477747+08:00",
+  "implementationWorkspace": "E:/IntRuoyiWorktree/profile-f01-overdue/IntRuoyi"
 }

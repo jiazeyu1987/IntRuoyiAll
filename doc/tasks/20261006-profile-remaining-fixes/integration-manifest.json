@@ -304,5 +304,5 @@
     "IntRuoyiFronted/tests/e2e/profile-reset-password-submit-behavior.spec.cjs": "35854f2c01efe793f57fc6cc787b819927b80a10f853ffa1830e2b3592fca9ab",
     "IntRuoyiFronted/tests/e2e/profile-showroom-assignment-navigation-static.spec.cjs": "6083d6cfea37464c6b33a214afc85ea35ad47b9e2ff1b64542180d869a979a78"
   },
-  "fingerprintNote": "sourceSha256 freezes reviewed worktree bytes; integratedSourceNormalizedSha256 freezes UTF-8/LF main content after FF"
+  "fingerprintNote": "sourceSha256 freezes original reviewed worktree bytes; integratedSourceNormalizedSha256 freezes UTF-8/LF main content after guarded FF"
 }

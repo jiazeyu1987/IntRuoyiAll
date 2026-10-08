@@ -111,3 +111,10 @@ Quartz禁用参数首次覆盖local已有exclude列表，导致两个AI vectorSt
 - 两个托管artifact均已归档，F01实体/元数据/partial依赖不存在，slot7已释放；剩余任务实体删除仍在运行，slot11和临时运行目录保留，ready_for_closeout。
 - 主目录cleanup preview/apply：剩余keep8/delete10、F01 keep6/delete0，blocked/warnings均0。最终记录仅任务自有路径；无推送、发布、主后端重启或既有数据库写入。
 - project-experience-consolidation已将HTTP测试上下文与默认组合回归经验合入既有docs/backend-development.md；F02仅静态+编译/types/lint，实际运行、数据、RR、容量、E2E未执行。
+
+## 最终收尾核验 / 2026-10-08T14:41:02.477747+08:00
+- 当前剩余修复实施6c22418e788d98d31add1c79c8d61d1514aadf97、cleanup dafa665637246f0041a251251b93647c9a1bcef6、放行记录3fbce57e92339c55e3ba5988c692ee7d67a8d7fd快进融合int_main；50源码规范化一致，六个并行文件SHA/index保留。
+- 两个托管artifact均归档，精确路径及所属Git元数据不存在；不操作无关IntRuoyi5。原槽位互斥锁preview/apply释放7/11，其他登记项保持。
+- 主目录任务cleanup preview/apply通过：剩余任务keep8/delete10、F01 keep6/delete0，blocked/warnings均0。任务自有14个D盘临时目录清理通过，verification证据和共享依赖缓存保留。
+- 最近AGENTS及用户精确本地集成授权覆盖旧全脏基线/推送条款；最终提交仅当前任务记录与同线程F01记录，不包含并行资产，不推送。
+- F01仅纠正历史收尾记录，不重复实施/测试/数据写入；F02运行、数据、SQL/RR/容量/E2E未执行，F03/F04实际安全filter/真实页面E2E未执行。

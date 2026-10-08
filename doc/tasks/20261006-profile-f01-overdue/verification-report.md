@@ -1,7 +1,7 @@
 # F01验证报告
 
 ## 放行结论
-PASS / completed：F01原实现、定向静态/行为/查询回归及用户授权模拟数据的真实页面E2E通过并已融合。本次补核历史收尾：托管归档、实体目录和所属Git元数据消失、partial-node_modules不存在、slot7释放及核心记录清理全部PASS；没有重跑业务验证或数据写入。F02/F03/F04属于独立后续任务。
+PASS / completed：F01原实现、定向静态/行为/后端查询回归和用户授权模拟数据的真实页面E2E通过，已融合int_main。本次只补核历史收尾：托管归档、实体目录和所属Git元数据消失、partial-node_modules不存在、slot7释放及核心记录清理全部PASS。原验证证据保持，没有重跑或新增数据写入。F02/F03/F04属于独立后续任务，结果见20261006-profile-remaining-fixes。
 
 ## 实现与审核
 个人中心列表和角标显式请求includeOverdue=true；服务端用同一分页查询的TODO/OVERDUE集合返回列表和total，保留旧默认TODO及单OVERDUE调用。状态参数冲突显式拒绝。复用原本人/正式候选、租户及终态批次/ARCHIVE例外，不改正式任务身份、状态文案、导航、隐藏语义、权限或50条上限。
@@ -65,3 +65,6 @@ PASS / completed：F01原实现、定向静态/行为/查询回归及用户授�
 
 ## 历史收尾核验 / 2026-10-08T13:51:00.679290+08:00
 托管artifact为archived_worktree，原精确checkout路径和所属Git元数据均不存在，partial-node_modules不存在；原互斥锁下slot7已active=false，其他登记项保持。主目录cleanup preview/apply keep6/delete0、blocked0/warnings0。旧归档超时记录为历史状态，IntRuoyi5属于其他任务并未操作。本次仅纠正记录，未重跑、推送或重启主服务。
+
+## 历史收尾纠正 / 2026-10-08T14:41:02.477747+08:00
+归档超时与目录保留描述是历史状态，当前已实际核验archived_worktree、精确checkout及所属元数据不存在、partial-node_modules不存在，slot7在原互斥锁下active=false。IntRuoyi5归属其他任务，未操作。主目录cleanup preview/apply keep6/delete0、blocked0/warnings0；同步机器状态completed及M3完成。原F01源码/E2E证据不重跑，未推送或重启主服务。

@@ -118,7 +118,16 @@
     "20261006-profile-f01-overdue-main-cleanup-preview.log": "e2cb71160152fb614abd9916923e79136cb761a547fc6531b88da201d9ee2912",
     "20261006-profile-f01-overdue-main-cleanup-apply.log": "6708ef0d024cc60eda5e7bcf634e50a85685cf555f4c1611d6628f3b4638c31a",
     "20261006-profile-remaining-fixes-main-cleanup-preview.log": "cd6b51d927df25181415943b41c6933502e528db1c3a87dc6143e0b28f89c1f7",
-    "20261006-profile-remaining-fixes-main-cleanup-apply.log": "b97f96425a6f54e3015b277fc5eec05cafce0786571dbe6371472e8a5a0c680f"
+    "20261006-profile-remaining-fixes-main-cleanup-apply.log": "b97f96425a6f54e3015b277fc5eec05cafce0786571dbe6371472e8a5a0c680f",
+    "independent-runtime-preflight.json": "ea25708fbba35482ff0f66e34951eef15591283b33b97d16bb50180339c9ab46",
+    "runtime-cleanup-independent-preview.log": "bcdb4872b551acfea1ad8b3c31708504aac5d030c7104958afe10d10bc5d0778",
+    "runtime-cleanup-independent-apply.log": "712b45aa7d2c7d41f2839747ea0c99190c678f8af30f70e83f2c0c7f36ceabca",
+    "runtime-closeout-preflight.json": "5b7a8c61319597ef2dbdbc67d9a40a3a7d850d042cff178d9c8284b85869bb1f",
+    "archive-physical-check.json": "1e72b472649defd4008154a216739a97182dbf30667e60e3fe4131f2c4a025b6",
+    "release-slots-preview.log": "ac7be38a889edb4d6c5a569bf86278ccdeddb5e1510042edc59b7683a07b7364",
+    "release-slots-apply.log": "f763a7ad65905306aefe754930b4540317413cb2769682632542ba4a65bb016b",
+    "runtime-cleanup-preview.log": "e8f47710343c8aefe90a411c254ba90047ff27c95e2b9620df62404d44d2d19b",
+    "runtime-cleanup-apply.log": "60badc63ee2907edfdb33c13c8c0ec428216eee880d0a76448e6a6d1bf5cd689"
   },
   "formatNormalization": {
     "count": 21,
@@ -318,12 +327,63 @@
     "purpose": "Preserve actual XML counts/fingerprints before temporary build directory deletion"
   },
   "closeout": {
-    "status": "ready_for_closeout",
-    "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
-    "managedSnapshot": "archived_worktree",
-    "physicalRemoval": "RUNNING_checkout_still_exists",
-    "slot11": "active_retained",
-    "F01Slot7": {
+    "completedAt": "2026-10-08T14:41:02.477747+08:00",
+    "managedArchive": "PASS_artifact_archived_checkout_and_metadata_absent",
+    "managedArtifactEvidence": {
+      "status": "PASS",
+      "artifacts": [
+        {
+          "id": "01a11183-4466-7322-b7b0-09b5785d5a79",
+          "attachmentType": "archived_worktree",
+          "identityKey": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+          "payload": {
+            "worktree": {
+              "root": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+              "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+              "sourceCwd": "E:\\IntRuoyi",
+              "sourceGitRoot": "E:/IntRuoyi",
+              "worktreesRoot": "E:\\IntRuoyiWorktree"
+            },
+            "pullRequests": []
+          },
+          "createdAt": 1791295177
+        },
+        {
+          "id": "01a119e9-c173-7c93-876d-e1f966b2b5e9",
+          "attachmentType": "archived_worktree",
+          "identityKey": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "payload": {
+            "worktree": {
+              "root": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+              "workspaceRoot": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+              "sourceCwd": "E:\\IntRuoyi",
+              "sourceGitRoot": "E:/IntRuoyi",
+              "worktreesRoot": "E:\\IntRuoyiWorktree"
+            },
+            "pullRequests": []
+          },
+          "createdAt": 1791436112
+        }
+      ]
+    },
+    "physicalEvidence": {
+      "checkedAt": "2026-10-08T14:39:38.613354+08:00",
+      "checkouts": {
+        "F01": {
+          "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+          "exists": false,
+          "gitMetadata": []
+        },
+        "remaining": {
+          "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "exists": false,
+          "gitMetadata": []
+        }
+      },
+      "abortedF01DependencyExists": false,
+      "physicalArchiveComplete": true
+    },
+    "slotRelease": {
       "mode": "apply",
       "status": "PASS",
       "changes": [
@@ -331,14 +391,253 @@
           "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
           "slot": 7,
           "branch": "codex/profile-f01-overdue",
+          "previousActive": false,
+          "newActive": false
+        },
+        {
+          "path": "E:\\IntRuoyiWorktree\\profile-remaining-fixes\\IntRuoyi",
+          "slot": 11,
+          "branch": "codex/profile-remaining-fixes",
           "previousActive": true,
           "newActive": false
         }
       ],
       "unrelatedEntriesPreserved": true,
       "registry": "E:\\IntRuoyi\\.git\\intrruoyi-runtime\\worktree-ports.json",
-      "checkedAt": "2026-10-08T13:49:24.3122312+08:00"
+      "checkedAt": "2026-10-08T14:40:11.9140867+08:00"
     },
-    "checkedAt": "2026-10-08T13:51:00.679290+08:00"
+    "runtimeCleanup": {
+      "mode": "apply",
+      "phase": "all",
+      "status": "PASS",
+      "targets": [
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\backend-targets",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\frontend-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        }
+      ],
+      "kept": [
+        "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+      ],
+      "checkedAt": "2026-10-08T14:40:30.7855808+08:00"
+    },
+    "independentRuntimeCleanup": {
+      "mode": "apply",
+      "phase": "independent",
+      "status": "PASS",
+      "targets": [
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\drafts",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\final476-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\pre-upstream-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\reconcile",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified476-source",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\baseline033-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verified033-frontend-virtual-store",
+          "action": "delete_task_owned_temporary_runtime"
+        },
+        {
+          "path": "D:\\ir-profile476",
+          "action": "delete_task_owned_temporary_runtime"
+        }
+      ],
+      "kept": [
+        "D:\\IntRuoyiTaskRuntime\\profile-remaining-fixes\\verification",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\maven-repository",
+        "D:\\IntRuoyiTaskRuntime\\profile-f01-overdue\\store"
+      ],
+      "checkedAt": "2026-10-08T14:15:26.3880091+08:00"
+    },
+    "runtimeDirectoriesRemoved": 14,
+    "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+    "F01RecordCleanup": "PASS_keep6_delete0_blocked0_warnings0",
+    "pushed": false,
+    "deployed": false,
+    "mainServiceRestarted": false
+  },
+  "checkpointCommit": {
+    "status": "PASS_exact_owned_commit_and_parallel_index_preserved",
+    "commit": "282607c2f0ba06e5b9149cd49c6d4c52a2fa187a",
+    "paths": [
+      ".review-fix-loop/runs/20261006-profile-remaining-fixes/run.json",
+      "doc/tasks/20261006-profile-f01-overdue/execution-log.md",
+      "doc/tasks/20261006-profile-f01-overdue/task-state.json",
+      "doc/tasks/20261006-profile-f01-overdue/task.md",
+      "doc/tasks/20261006-profile-f01-overdue/verification-report.md",
+      "doc/tasks/20261006-profile-remaining-fixes/execution-log.md",
+      "doc/tasks/20261006-profile-remaining-fixes/integration-manifest.json",
+      "doc/tasks/20261006-profile-remaining-fixes/task-state.json",
+      "doc/tasks/20261006-profile-remaining-fixes/task.md",
+      "doc/tasks/20261006-profile-remaining-fixes/verification-evidence.json",
+      "doc/tasks/20261006-profile-remaining-fixes/verification-report.md"
+    ],
+    "taskOwnedRecordsOnly": true,
+    "protectedParallelPaths": 8,
+    "allParallelIndexEntriesPreserved": true,
+    "allParallelSHA256Preserved": false,
+    "parallelWritesObservedDuringCommit": [
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/execution-log.md",
+        "beforeSha256": "0b2af80e31d66a799b5e77dbfab7fa6a1a161a220dfd17add4c42c178a6735bc",
+        "afterSha256": "ac9822a1c224ee2d18e5eeb17e35f4fb46fce1f254acc72492545958889b97b6",
+        "mtime": 1791438829.3611171
+      },
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/task-state.json",
+        "beforeSha256": "a4b480598cc52fa83c7fc33bb01784578f5986ca5f0992d5f890731486c6ac46",
+        "afterSha256": "c45170a3423c1585f4d9e776e7afeeb857e99c56ae2f31adba88fc5fec469241",
+        "mtime": 1791439119.9811628
+      },
+      {
+        "path": "doc/tasks/20261006-user-password-session-fix/verification-report.md",
+        "beforeSha256": "078e57c80cba1512acfb59975258a3d3464098f52a411d609d19242e6ddba897",
+        "afterSha256": "d43b636004d14f4c225b7b399684751e6a2ecc508c9986cb725fd1b7d554b10c",
+        "mtime": 1791438984.9939058
+      },
+      {
+        "path": "docs/worktree-memory.md",
+        "beforeSha256": "e584cadebe9168ba2ce61f8530d693a3f406aa8c0b9f50978e50d8e613802b61",
+        "afterSha256": "2ff9e9a2691b2f9b55c9a778e539aa25958c89966f81b6539e19960a81c0f3b8",
+        "mtime": 1791438823.61325
+      }
+    ],
+    "interpretation": "Original byte-stability guard FAILED; actual commit contains exactly 11 owned records, unrelated index entries match. Concurrently changed files are left untouched; no claim all unrelated bytes stayed constant.",
+    "sourceGuard": "50 exact normalized fingerprints verified before commit",
+    "recordStatus": "ready_for_closeout",
+    "pushed": false
+  },
+  "completionEvidenceAudit": {
+    "approvedImplementationGate": "PASS",
+    "scope": [
+      "F02",
+      "F04",
+      "F03"
+    ],
+    "acceptanceRows": [
+      "| F02-AC1 完整集合及筛选 | ProfileWorkbench.buildPageQuery/loadWorkbench→新wrapper重复enabledSources+点参数→admin package Controller allowlist/@Valid→QueryService标准权限/当前user+tenant→DCC/MES/Showroom五源base/count/chunk共有projection/where→完整server total/page；旧first-page本地slice已删除 | 静态通过；未证明运行集合 |",
+      "| F02-AC2 隐藏恢复 | ProfileWorkbench.runVisibilityAction→原正式visibility端点/service当前用户和租户→新共享SQL在limit前按tenant/user/taskKey EXISTS→business/hidden/request三种count→写成功后刷新并区分刷新失败；只隐藏当前可用来源，完成任务不从历史制造出来 | 静态通过；未执行F02写入 |",
+      "| F02-AC3 排序和页码 | UnifiedListTemplate custom sort/statusLabel映射→VO固定键→共享SQL ORDER BY/after完整tuple→UTF8 unsigned comparator+source ordinal→ReadTransaction heap前缀与count钳制effectivePageNo→前端更新接受token query key | 静态通过；未测实际排序/容量 |",
+      "| F02-AC4 异常和竞争 | adapter严格count/chunk→budget及SQL10秒timeout→非法行/数量/游标/溢出全请求失败→page generation+身份/来源/query全写入守卫→共享badge单调epoch/当前scope/pending复用→写入前失效及卸载守卫 | 静态通过；未执行F02并发/超时 |",
+      "| F02-AC5 权限、租户及导航 | PermissionApi真实动态权限包括临时USE审计先于读事务；eDHR双权限OR；展厅tenant+当前assignee+OPEN；DCC正式关系和工单共享口径；MesOpenWorkTaskVisibility保持F01本人/候选及批次终态ARCHIVE例外；各source字符串正式ID→原处理route；展厅query.assignmentId传入目标组件，直接正式get并精确身份校验，脱离旧首20 | 静态通过；未执行正式处理页面 |",
+      "| F02-AC6 同快照和资源 | @DS master外层QueryService拒绝既有事务→不同bean的公开@Transactional readOnly/RR方法→同线程五源Mapper无切库/异步→count/chunk/merge；每源100行、101探测、至多100响应，深页成本随已消费前缀增长 | 静态设计通过；实际数据源、表引擎/RR/性能未验证 |",
+      "| F03-AC1 无联系方式可改昵称 | Profile Index→真实Form expose model→BasicInfo可选空联系方式/trim/已有非空清空提示零请求→白名单省略空值→profile wrapper→两个Controller当前user/@Valid→updateUserProfile nonnull set | 定向受控行为、实际Validator/HTTP/H2通过；纳入后端98项、前端55项及主Agent复核 |",
+      "| F03-AC2 非空校验/旧共享合同 | BasicInfo原手机号pattern/email/长度→原共享VO不新增trim/NotBlank→原unique及same-user/blank分支→显式五字段更新，不含身份/角色/部门/password→GET/readback昵称cache | Validator/H2及原服务回归通过；后续基点未改变该行为源码 |",
+      "| F03-AC3 更新与回读 | new AdminUserDO作为真实填充实体→DefaultDBFieldHandler updateTime/updater→实际Mapper→两Controller回读；missing/null preserve与blank/empty旧合同、{}全null和保护字段均有断言 | 真实H2通过；安全filters/method proxy NOT RUN |",
+      "| F04-AC1 单次提交 | ResetPwd校验前锁→三个InputPassword及XButton disabled/loading→await validate→snapshot一致→唯一update-password→finally解锁；reset期间零操作 | 当前组件行为及原会话回归通过，纳入55项前端测试；独立review及主Agent复核通过 |",
+      "| F04-AC2 失败可修正重试 | 字段拒绝零请求/控件恢复；真实Axios business/500/network受控adapter保留reject，组件本地一次固定安全消息/保留输入；两参wrapper固定ignoreErrorMessage=true保留 | 当前异常与重试定向验证通过；未执行真实账号写入或安全filter链 |",
+      "| F04-AC3 成功清敏感字段 | request成功→三字段清空→实际clearSession→clearValidate→成功提示及login导航；清理或导航失败提示已修改须登录，无二次写入 | 当前组件、实际Pinia/router会话回归通过；保留上游会话撤销策略 |"
+    ],
+    "sourceFingerprints": {
+      "count": 50,
+      "allMatch": true
+    },
+    "evidenceHashesAllMatch": true,
+    "backendCompiledModules": 31,
+    "backendTests": 98,
+    "frontendTests": 55,
+    "fullTypes": "FAIL_existing_baseline_errors_new0",
+    "F02Runtime": "NOT_RUN_UNVERIFIED_per_approved_amendment",
+    "reviewReports": {
+      "f02-static-round-3.md": {
+        "sha256": "8d11c245ba71571877a754e208b3dc75876458cabb848274ca06ff06562bbab2",
+        "length": 14683
+      },
+      "f02-static-round-4.md": {
+        "sha256": "114c8176c08c2265a4498b7c3ac78cda7af50c7c79ed7e93a1dd07f5a0033fb8",
+        "length": 11544
+      },
+      "f02-static-476-supplement.md": {
+        "sha256": "e2aea294dae123875f06be9b789172e5c5dfcec320efd811974855f658dab931",
+        "length": 6268
+      },
+      "f02-static-11a-supplement.md": {
+        "sha256": "01e7efe62131c18aaaef2e44459c5fce43fef150dab879428429a9b95b6fa044",
+        "length": 4905
+      },
+      "f03-f04-release-round-4.md": {
+        "sha256": "02499d112beede197d3df37e9755d9568359c8a2e5da720aed981c6aa5a1604c",
+        "length": 8158
+      }
+    },
+    "integration": {
+      "implementationCommit": "6c22418e788d98d31add1c79c8d61d1514aadf97",
+      "cleanupCommit": "dafa665637246f0041a251251b93647c9a1bcef6",
+      "approvalCommit": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+      "mainHead": "3fbce57e92339c55e3ba5988c692ee7d67a8d7fd",
+      "mainPrior": "30038aecaf54a8214ef86e0e683c50c585335d56",
+      "sourceCompileBase": "11a701bb573ad46c49cac57122522499217e0324",
+      "mainAdvanceSinceCompile": "documentation_only",
+      "ffOnly": "PASS",
+      "protectedParallelFiles": 6,
+      "allParallelSHA256Preserved": true,
+      "allParallelIndexEntriesPreserved": true,
+      "all50TaskSourceNormalizedMatch": true
+    },
+    "closeout": {
+      "status": "ready_for_closeout",
+      "mainTaskCleanup": "PASS_keep8_delete10_blocked0_warnings0",
+      "managedSnapshot": "archived_worktree",
+      "physicalRemoval": "RUNNING_checkout_still_exists",
+      "slot11": "active_retained",
+      "F01Slot7": {
+        "mode": "apply",
+        "status": "PASS",
+        "changes": [
+          {
+            "path": "E:\\IntRuoyiWorktree\\profile-f01-overdue\\IntRuoyi",
+            "slot": 7,
+            "branch": "codex/profile-f01-overdue",
+            "previousActive": true,
+            "newActive": false
+          }
+        ],
+        "unrelatedEntriesPreserved": true,
+        "registry": "E:\\IntRuoyi\\.git\\intrruoyi-runtime\\worktree-ports.json",
+        "checkedAt": "2026-10-08T13:49:24.3122312+08:00"
+      },
+      "checkedAt": "2026-10-08T13:51:00.679290+08:00"
+    },
+    "goalComplete": false,
+    "auditStage": "approved_gate_before_physical_closeout"
   }
 }
