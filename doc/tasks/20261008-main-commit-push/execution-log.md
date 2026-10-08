@@ -115,3 +115,12 @@ Git 推送前的端口守卫再次 PASS；推送进行中。
 - 本地 HEAD 与 origin/int_main：72cfde8e0ab5d658ee56abb88624c258bec7f0c4；left/right = 0/0。
 - 初始已有 4 个提交连同本任务代码快照共 5 个提交已推送。
 - 本任务收尾提交仅包含 task.md、execution-log.md、verification-report.md；三份记录结构及 UTF-8 校验通过。
+
+## 收尾提交回执
+
+- 收尾记录提交：4121aa5f1198d5d19cdab6115ddf8b9038a6456a。
+- 文件清单：task.md、execution-log.md、verification-report.md，均位于 doc/tasks/20261008-main-commit-push/。
+- 代码基线提交：72cfde8e0ab5d658ee56abb88624c258bec7f0c4；没有额外业务实现提交。
+- 本回执提交仅更新 execution-log.md；推送后最终 hash 以本文件 Git 历史和终端推送结果为准，避免提交号自引用。
+
+- 收尾回执普通 git add 返回 1；git add --dry-run 确认原因是本机忽略整个任务目录。按已明确的任务记录保留要求，仅对此路径使用 git add -f，不改变忽略规则。
