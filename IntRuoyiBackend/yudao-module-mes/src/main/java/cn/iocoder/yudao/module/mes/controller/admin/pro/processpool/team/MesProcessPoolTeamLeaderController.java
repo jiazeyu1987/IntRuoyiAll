@@ -1138,9 +1138,28 @@ public class MesProcessPoolTeamLeaderController {
                 .setActiveOrderStatus(toActiveOrderStatusSummaryRespVO(detail.getActiveOrderStatus()))
                 .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
                         detail.getPqcProductionRelease()))
+                .setReworkSource(toActiveOrderReworkSourceRespVO(detail.getReworkSource()))
                 .setOperationFacts(detail.getOperationFacts().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderOperationFactRespVO)
                         .toList());
+    }
+
+
+    private static MesTeamLeaderActiveOrderDetailRespVO.ReworkSourceDetail toActiveOrderReworkSourceRespVO(
+            MesTeamLeaderActiveOrderDetail.ReworkSourceDetail source) {
+        if (source == null) {
+            return null;
+        }
+        return new MesTeamLeaderActiveOrderDetailRespVO.ReworkSourceDetail()
+                .setCurrentActiveOrderId(source.getCurrentActiveOrderId())
+                .setSourceActiveOrderId(source.getSourceActiveOrderId())
+                .setSourceBusinessStatus(source.getSourceBusinessStatus())
+                .setReviewId(source.getReviewId()).setReviewCode(source.getReviewCode())
+                .setNonconformanceReason(source.getNonconformanceReason()).setReviewOpinion(source.getReviewOpinion())
+                .setQaUserId(source.getQaUserId()).setDisposedAt(source.getDisposedAt())
+                .setQaSignature(toActiveOrderSignatureDetailRespVO(source.getQaSignature()))
+                .setQaSignatureEvidence(source.getQaSignatureEvidence())
+                .setQaSignatureVerification(source.getQaSignatureVerification());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.ProcessDetail toActiveOrderProcessDetailRespVO(

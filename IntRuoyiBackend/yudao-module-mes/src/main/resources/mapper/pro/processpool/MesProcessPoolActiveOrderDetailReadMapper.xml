@@ -24,6 +24,17 @@
 
     <select id="selectByActiveOrderId"
             resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO">
+        <bind name="archivedReworkSource" value="false"/>
+        <include refid="FormalActiveOrderDetailRead"/>
+    </select>
+
+    <select id="selectArchivedReworkByActiveOrderId"
+            resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderDetailReadDO">
+        <bind name="archivedReworkSource" value="true"/>
+        <include refid="FormalActiveOrderDetailRead"/>
+    </select>
+
+    <sql id="FormalActiveOrderDetailRead">
         SELECT process_snapshot.id AS snapshotId,
                process_snapshot.active_order_id AS activeOrderId,
                process_snapshot.work_order_id AS workOrderId,
@@ -60,7 +71,14 @@
         INNER JOIN mes_pro_process_pool_active_order active_order
           ON active_order.id = process_snapshot.active_order_id
          AND active_order.tenant_id = process_snapshot.tenant_id
-         AND active_order.deleted = 0
+        <choose>
+            <when test="archivedReworkSource">
+                AND active_order.tenant_id = #{archivedTenantId}
+                AND active_order.business_status = 'REWORKED'
+                AND active_order.active_status = 'REMOVED'
+            </when>
+            <otherwise>AND active_order.deleted = 0</otherwise>
+        </choose>
         INNER JOIN mes_pro_work_order work_order
           ON work_order.id = process_snapshot.work_order_id
          AND work_order.tenant_id = process_snapshot.tenant_id
@@ -131,7 +149,7 @@
         WHERE process_snapshot.active_order_id = #{activeOrderId}
           AND process_snapshot.deleted = 0
         ORDER BY process_snapshot.id ASC, pool_event.server_submit_time ASC, allocation.id ASC
-    </select>
+    </sql>
 
     <select id="selectEventPartiesByEventIds"
             resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesTeamLeaderActiveOrderEventPartyReadDO">

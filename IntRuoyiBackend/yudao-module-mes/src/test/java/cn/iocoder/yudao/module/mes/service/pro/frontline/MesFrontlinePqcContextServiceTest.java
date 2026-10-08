@@ -822,6 +822,64 @@ class MesFrontlinePqcContextServiceTest {
     }
 
     @Test
+    void listProcessesPreservesProductionIdentityForPartialMethodsAcrossSameInspectionRound() {
+        MesProcessPoolActiveOrderDO order = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
+                LocalDateTime.of(2026, 8, 12, 8, 0));
+        order.setDccProjectCodeId(DCC_PROJECT_ID);
+        order.setQaRegulationId(REGULATION_ID);
+        order.setQaRegulationVersionId(REGULATION_VERSION_ID);
+        when(activeOrderMapper.selectById(ACTIVE_ORDER_ID)).thenReturn(order);
+        when(workOrderMapper.selectById(WORK_ORDER_ID)).thenReturn(workOrder(WORK_ORDER_ID));
+        when(routeMapper.selectByIdIgnoreDeleted(ROUTE_ID)).thenReturn(route());
+        when(regulationService.getLockedVersionForOrder(DCC_PROJECT_ID, REGULATION_ID, REGULATION_VERSION_ID))
+                .thenReturn(lockedQaAggregate("RETIRED",
+                        qaPublishedProcess(QA_PROCESS_ID, "ID-QA-001", "QA装配", 1,
+                                qaPublishedItem("ID-001", List.of("FIRST")),
+                                qaPublishedItem("ID-002", List.of("FIRST")))));
+        List<MesPqcInspectionTaskDO> tasks = List.of(
+                partialMethodTask(9102L, 30003L, 40003L, "ID-001", "PENDING"),
+                partialMethodTask(9103L, 30001L, 40001L, "ID-002", "PENDING"),
+                partialMethodTask(9101L, 30001L, 40001L, "ID-001", "SUBMITTED"),
+                partialMethodTask(9104L, 30003L, 40003L, "ID-002", "PENDING"));
+        when(pqcTaskMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(tasks);
+        when(processSnapshotMapper.selectListByActiveOrderId(ACTIVE_ORDER_ID)).thenReturn(List.of(
+                processSnapshot(30003L, 40003L).setProcessNameSnapshot("后续生产工序"),
+                processSnapshot(30001L, 40001L).setProcessNameSnapshot("当前生产工序")));
+
+        List<MesFrontlinePqcProcessRespVO.PqcTaskOption> projected =
+                service.listProcessesByActiveOrder(ACTIVE_ORDER_ID).get(0).getPqcTaskOptions();
+
+        assertEquals(List.of(9101L, 9102L, 9103L, 9104L), projected.stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
+        assertEquals(List.of(30001L, 30003L, 30001L, 30003L), projected.stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getRouteProcessId).toList());
+        assertEquals(List.of(40001L, 40003L, 40001L, 40003L), projected.stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getProcessId).toList());
+        assertEquals(List.of("当前生产工序", "后续生产工序", "当前生产工序", "后续生产工序"), projected.stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getProductionProcessName).toList());
+        assertEquals(List.of("SUBMITTED", "PENDING", "PENDING", "PENDING"), projected.stream()
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getTaskStatus).toList());
+        assertTrue(projected.stream().allMatch(option -> "FIRST".equals(option.getInspectionRuleKey())
+                && LocalDate.of(2026, 8, 12).equals(option.getBusinessDate())
+                && "FIRST".equals(option.getShiftCode()) && option.getRoundNo() == 1));
+        assertEquals(List.of(9103L), projected.stream()
+                .filter(option -> option.getRouteProcessId().equals(30001L)
+                        && option.getProcessId().equals(40001L) && "PENDING".equals(option.getTaskStatus()))
+                .map(MesFrontlinePqcProcessRespVO.PqcTaskOption::getPqcTaskId).toList());
+        verify(processSnapshotMapper).selectListByActiveOrderId(ACTIVE_ORDER_ID);
+    }
+
+    private static MesPqcInspectionTaskDO partialMethodTask(
+            long id, long routeProcessId, long processId, String itemCode, String status) {
+        return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(ACTIVE_ORDER_ID)
+                .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
+                .routeProcessId(routeProcessId).processId(processId)
+                .regulationVersionId(REGULATION_VERSION_ID).qaProcessId(QA_PROCESS_ID).qaItemCode(itemCode)
+                .inspectionRuleKey("FIRST").inspectionType("FIRST").businessDate(LocalDate.of(2026, 8, 12))
+                .shiftCode("FIRST").roundNo(1).plannedInspectionQuantity(5).taskStatus(status).build();
+    }
+
+    @Test
     void listProcessesByActiveOrderIdUsesLockedQaSnapshotAndDedicatedProjection() {
         MesProcessPoolActiveOrderDO activeOrder = activeOrder(ACTIVE_ORDER_ID, WORK_ORDER_ID,
                 LocalDateTime.of(2026, 8, 12, 8, 0));

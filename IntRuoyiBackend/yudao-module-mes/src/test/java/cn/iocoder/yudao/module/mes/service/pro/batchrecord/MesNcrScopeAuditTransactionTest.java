@@ -433,6 +433,14 @@ class MesNcrScopeAuditTransactionTest {
         var detailService = closureDetailReader();
         var detail = detailService.getFormalDetail(8101L);
         var archived = archivedPqcDetail(detailService, application);
+        var detailRows = (MesProcessPoolActiveOrderDetailReadMapper) ReflectionTestUtils.getField(detailService,"detailReadMapper");
+        if ("rework".equals(disposition)) {
+            verify(detailRows).selectArchivedReworkByActiveOrderId(8101L,1L);
+            verify(detailRows,times(1)).selectByActiveOrderId(8101L);
+        } else {
+            verify(detailRows,never()).selectArchivedReworkByActiveOrderId(8101L,1L);
+            verify(detailRows,times(2)).selectByActiveOrderId(8101L);
+        }
         assertEquals(detail.getActiveOrderStatus().getStatus(),archived.getActiveOrderStatus().getStatus());
         if(approved)assertEquals(9201L,archived.getPqcProductionRelease().getSignature().getSignatureId());
         else assertNull(archived.getPqcProductionRelease());
@@ -624,10 +632,12 @@ class MesNcrScopeAuditTransactionTest {
         var users=(cn.iocoder.yudao.module.system.service.user.AdminUserService) ReflectionTestUtils.getField(reader,"adminUserService");
         when(users.getUser(22L)).thenReturn(new AdminUserDO().setId(22L).setNickname("PQC reviewer"));
         var rows=(MesProcessPoolActiveOrderDetailReadMapper)ReflectionTestUtils.getField(reader,"detailReadMapper");
-        when(rows.selectByActiveOrderId(8101L)).thenReturn(List.of(new MesTeamLeaderActiveOrderDetailReadDO()
+        var formalRows = List.of(new MesTeamLeaderActiveOrderDetailReadDO()
                 .setSnapshotId(4101L).setActiveOrderId(8101L).setWorkOrderId(3001L).setWorkOrderCode("WORK-3001")
                 .setRouteName("frozen route").setRouteProcessId(5101L).setProcessId(6101L).setProcessCode("P-6101")
-                .setProcessName("Production").setRequiredQuantity(BigDecimal.TEN).setKeyFlag(true)));
+                .setProcessName("Production").setRequiredQuantity(BigDecimal.TEN).setKeyFlag(true));
+        when(rows.selectByActiveOrderId(8101L)).thenReturn(formalRows);
+        when(rows.selectArchivedReworkByActiveOrderId(8101L,1L)).thenReturn(formalRows);
         return reader;
     }
 

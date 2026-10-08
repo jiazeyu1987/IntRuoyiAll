@@ -188,6 +188,7 @@ export const submitEdhrRelease = async (data: EdhrReleaseSubmitReqVO) => {
 export const approveEdhrRelease = async (data: EdhrReleaseApproveReqVO) => {
   return await request.post<EdhrReleaseRowVO>({
     url: '/mes/pro/edhr-release/approve',
+    timeout: 180000,
     data
   })
 }

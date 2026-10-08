@@ -22,6 +22,10 @@
       </template>
     </el-alert>
     <template v-else-if="detail">
+      <ActiveOrderReworkSourcePanel
+        :active-order-id="detail.activeOrderId"
+        :source="detail.reworkSource"
+      />
       <ActiveOrderCorrectionHistoryPanel
         :context="signatureEvidenceContext"
         @signature="signatureEvidenceViewer.open"
@@ -2235,6 +2239,7 @@ import { formatDateTimeValue } from '@/utils/formatTime'
 import { getActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
 import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
 import ActiveOrderCorrectionHistoryPanel from './ActiveOrderCorrectionHistoryPanel.vue'
+import ActiveOrderReworkSourcePanel from './ActiveOrderReworkSourcePanel.vue'
 import { resolveUrlPathFileName } from '@/utils/fileName'
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import ProtectedPdfViewer from '@/views/dcc/controlled-file/view/index.vue'

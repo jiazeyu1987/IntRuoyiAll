@@ -37,7 +37,7 @@ test('实际隔离方法清空既有新周期与填写上下文并终止旧选�
 })
 test('实际普通提交、签名确认和订单切换入口均不能绕过RETURN隔离',async()=>{
  const names=['handleValidate','handleConfirmPqcSubmit','handleProductionFormalSubmit','handleSelectActiveOrder'],errors=[]
- const page=functions(names,{hasReturnNotification:{value:true},showFrontlineError:e=>errors.push(e)})
+ const page=functions(names,{hasReturnNotification:{value:true},isPqcMode:{value:true},payloadLoading:{value:false},pqcSubmitResultUncertain:{value:false},showFrontlineError:e=>errors.push(e)})
  await page.handleValidate();await page.handleConfirmPqcSubmit();await page.handleProductionFormalSubmit();await page.handleSelectActiveOrder({activeOrderId:414});assert.equal(errors.length,4);assert.ok(errors.every(e=>e.includes('退回通知仅允许更正原任务')))
 })
 test('实际自动生产初始化与PQC刷新入口不会再查询其他周期',async()=>{

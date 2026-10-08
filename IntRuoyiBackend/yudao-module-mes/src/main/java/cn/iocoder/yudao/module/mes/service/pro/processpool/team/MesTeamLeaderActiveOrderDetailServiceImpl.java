@@ -188,7 +188,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
 
     private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                                        boolean archivedFormalSource) {
-        List<MesTeamLeaderActiveOrderDetailReadDO> rows = detailReadMapper.selectByActiveOrderId(activeOrderId);
+        List<MesTeamLeaderActiveOrderDetailReadDO> rows = archivedFormalSource && "REWORKED".equals(activeOrder.getBusinessStatus())
+                ? detailReadMapper.selectArchivedReworkByActiveOrderId(activeOrderId, activeOrder.getTenantId())
+                : detailReadMapper.selectByActiveOrderId(activeOrderId);
         if (rows == null || rows.isEmpty()) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
         }
@@ -229,10 +231,123 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setInputMaterialUsages(resolveInputMaterialUsages(inputSourceSnapshot))
                 .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList())
                 .setActiveOrderStatus(resolveActiveOrderStatus(application))
-                .setOperationFacts(resolveOperationFacts(activeOrderId));
+                .setOperationFacts(resolveOperationFacts(activeOrderId))
+                .setReworkSource(resolveReworkSource(activeOrder));
         attachPickListMetadata(detail, activeOrderId);
         attachPqcProductionRelease(detail, application);
         return detail;
+    }
+
+
+    private MesTeamLeaderActiveOrderDetail.ReworkSourceDetail resolveReworkSource(MesProcessPoolActiveOrderDO current) {
+        Long sourceId = current.getReworkSourceActiveOrderId(), reviewId = current.getReworkReviewId();
+        if (sourceId == null && reviewId == null) {
+            return null;
+        }
+        if (sourceId == null || sourceId <= 0 || reviewId == null || reviewId <= 0
+                || current.getId() == null || Objects.equals(current.getId(), sourceId)
+                || current.getTenantId() == null || current.getWorkOrderId() == null) {
+            throw new IllegalStateException("REWORK_DETAIL_FORMAL_LINK_REQUIRED");
+        }
+        var source = activeOrderMapper.selectByIdIgnoreDeleted(sourceId);
+        var review = nonconformanceReviewMapper.selectById(reviewId);
+        if (source == null || review == null || !Objects.equals(source.getId(), sourceId)
+                || !Objects.equals(review.getId(), reviewId)
+                || !Objects.equals(current.getTenantId(), source.getTenantId())
+                || !Objects.equals(current.getTenantId(), review.getTenantId())
+                || !Objects.equals(current.getWorkOrderId(), source.getWorkOrderId())
+                || !Objects.equals(current.getWorkOrderId(), review.getWorkOrderId())
+                || !Objects.equals(sourceId, review.getActiveOrderId())
+                || !"REMOVED".equals(source.getActiveStatus()) || !"REWORKED".equals(source.getBusinessStatus())
+                || !"closed".equals(review.getReviewStatus()) || !"rework".equals(review.getDisposition())
+                || review.getQaUserId() == null || review.getClosedAt() == null
+                || review.getReviewCode() == null || review.getReviewCode().isBlank()
+                || review.getReviewOpinion() == null || review.getReviewOpinion().isBlank()
+                || review.getNonconformanceReason() == null || review.getNonconformanceReason().isBlank()) {
+            throw new IllegalStateException("REWORK_DETAIL_SOURCE_REVIEW_MISMATCH");
+        }
+        if (review.getTraceSnapshotJson() == null || review.getTraceSnapshotJson().isBlank()) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_SNAPSHOT_REQUIRED");
+        }
+        JSONObject trace = JSON.parseObject(review.getTraceSnapshotJson());
+        JSONObject signed = trace == null ? null : trace.getJSONObject("qaSignatureSnapshotJson");
+        String aggregateHash = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrQaDispositionAggregateHash.build(
+                review, review.getDisposition(), review.getReviewMaterialUrl(), review.getReviewMaterialFileId(),
+                review.getReviewMaterialsJson(), review.getReviewOpinion(), review.getQaUserId());
+        if (signed == null || !Objects.equals(trace.getLong("reviewId"), reviewId)
+                || !Objects.equals(trace.getString("sourceType"), review.getSourceType())
+                || !Objects.equals(trace.getLong("sourceId"), review.getSourceId())
+                || !Objects.equals(trace.getString("disposition"), "rework")
+                || !Objects.equals(trace.getLong("qaUserId"), review.getQaUserId())
+                || !Objects.equals(signed.getLong("reviewId"), reviewId)
+                || !Objects.equals(signed.getLong("qaUserId"), review.getQaUserId())
+                || !Objects.equals(signed.getString("actionType"), MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION)
+                || !Objects.equals(signed.getString("disposition"), "rework")
+                || !Objects.equals(signed.getString("aggregateHash"), aggregateHash)) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_SNAPSHOT_MISMATCH");
+        }
+        Long signatureId = signed.getLong("signatureId");
+        if (signatureId == null || signatureId <= 0) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_SIGNATURE_REQUIRED");
+        }
+        String action = MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION;
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, action,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", reviewId,
+                "eDHR不合格评审处置", action, null, null, aggregateHash, null);
+        ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
+        if (signature == null || !Objects.equals(signature.id(), signatureId)
+                || !Objects.equals(signature.actorId(), review.getQaUserId())
+                || !Objects.equals(signature.moduleCode(), "MES") || !Objects.equals(signature.actionCode(), action)
+                || !Objects.equals(signature.subjectType(), "MES_BATCH_RECORD")
+                || !Objects.equals(signature.subjectId(), subject)
+                || !Objects.equals(signature.subjectVersion(), cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject))
+                || !Objects.equals(signature.reason(), review.getReviewOpinion())
+                || !"VALID".equals(signature.verificationStatus()) || signature.signedAt() == null
+                || signature.actorDisplayName() == null || signature.actorDisplayName().isBlank()
+                || signature.contentHash() == null || signature.contentHash().isBlank()
+                || signature.evidenceHash() == null || signature.evidenceHash().isBlank()) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_SIGNATURE_MISMATCH");
+        }
+        ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
+        if (verification == null || !Objects.equals(verification.signatureId(), signatureId)
+                || !"VALID".equals(verification.verificationStatus())
+                || !Objects.equals(signature.contentHash(), verification.storedContentHash())
+                || !Objects.equals(signature.contentHash(), verification.calculatedContentHash())
+                || !Objects.equals(signature.evidenceHash(), verification.storedEvidenceHash())
+                || !Objects.equals(signature.evidenceHash(), verification.calculatedEvidenceHash())) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_EVIDENCE_MISMATCH");
+        }
+        var expectedCanonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(review.getQaUserId(), "MES", action,
+                        "MES_BATCH_RECORD", subject, signature.subjectVersion(), review.getReviewOpinion()));
+        JSONObject actualCanonical = JSON.parseObject(signature.canonicalContentJson());
+        if (actualCanonical == null) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_CANONICAL_MISMATCH");
+        }
+        if (actualCanonical.containsKey("signatureIdentity")) {
+            JSONObject identity = actualCanonical.getJSONObject("signatureIdentity");
+            if (identity == null || !identity.keySet().equals(Set.of("domain", "signerId", "displayName", "operatorId", "tenantId"))
+                    || !"SYSTEM_USER".equals(identity.getString("domain"))
+                    || !Objects.equals(identity.getLong("tenantId"), current.getTenantId())
+                    || !Objects.equals(identity.getLong("signerId"), review.getQaUserId())
+                    || !Objects.equals(identity.getLong("operatorId"), review.getQaUserId())
+                    || !Objects.equals(identity.getString("displayName"), signature.actorDisplayName())) {
+                throw new IllegalStateException("REWORK_DETAIL_QA_IDENTITY_MISMATCH");
+            }
+            actualCanonical.remove("signatureIdentity");
+        }
+        if (!JsonUtils.parseTree(expectedCanonical.canonicalContentJson()).equals(JsonUtils.parseTree(actualCanonical.toJSONString()))) {
+            throw new IllegalStateException("REWORK_DETAIL_QA_CANONICAL_MISMATCH");
+        }
+        return new MesTeamLeaderActiveOrderDetail.ReworkSourceDetail()
+                .setCurrentActiveOrderId(current.getId()).setSourceActiveOrderId(sourceId)
+                .setSourceBusinessStatus(source.getBusinessStatus()).setReviewId(reviewId).setReviewCode(review.getReviewCode())
+                .setNonconformanceReason(review.getNonconformanceReason()).setReviewOpinion(review.getReviewOpinion())
+                .setQaUserId(review.getQaUserId()).setDisposedAt(review.getClosedAt())
+                .setQaSignature(new MesTeamLeaderActiveOrderDetail.SignatureDetail()
+                        .setSignatureId(signatureId).setSignerName(signature.actorDisplayName())
+                        .setSignedAt(signature.signedAt()).setRole(action))
+                .setQaSignatureEvidence(signature).setQaSignatureVerification(verification);
     }
 
     private MesTeamLeaderActiveOrderDetail.ActiveOrderStatusSummary resolveActiveOrderStatus(

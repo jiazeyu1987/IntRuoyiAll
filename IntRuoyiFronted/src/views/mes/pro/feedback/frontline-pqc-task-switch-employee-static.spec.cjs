@@ -44,11 +44,11 @@ assert.match(
 )
 
 const taskSelectionFunctions = [
-  ['selectPqcInspectionTab', 'const getPqcSelectedEquipmentLabel'],
-  ['selectPqcInspectionTaskOption', 'const selectPqcInspectionRule']
+  ['selectPqcInspectionTab', 'const getPqcSelectedEquipmentLabel', 'option'],
+  ['selectPqcInspectionRule', 'const updatePqcQuantity', 'currentRuleOption']
 ]
 
-for (const [functionName, endMarker] of taskSelectionFunctions) {
+for (const [functionName, endMarker, optionName] of taskSelectionFunctions) {
   const functionSource = sliceBetween(
     panelSource,
     `const ${functionName} = async`,
@@ -57,7 +57,7 @@ for (const [functionName, endMarker] of taskSelectionFunctions) {
   )
   assert.match(
     functionSource,
-    /applyPqcTaskOptionToSelectedProcess\(option\)/,
+    new RegExp(`applyPqcTaskOptionToSelectedProcess\\(${optionName}\\)`),
     `${functionName} must update the selected PQC task option`
   )
   assert.match(
@@ -72,6 +72,7 @@ const ruleSelection = sliceBetween(panelSource, 'const selectPqcInspectionRule =
 assert.match(panelSource, /@click="selectPqcInspectionRule\(tab\.ruleKey\)"/)
 assert.match(panelSource, /@click="selectPqcInspectionTab\(item\.key\)"/)
 assert.match(ruleSelection, /getPqcTaskOptionForRule\(currentProcess, ruleKey, activePqcTabKey\.value\)/)
+assert.match(ruleSelection, /activePqcTaskOptionId\.value !== currentRuleOption\.pqcTaskId \|\| !deviceState\.selectedEmployee/)
 assert.match(ruleSelection, /applyPqcTaskOptionToSelectedProcess\(currentRuleOption\)[\s\S]*await switchPqcCurrentLoginEmployeeForActiveTask\(\)/)
 assert.match(ruleSelection, /findFirstPqcProcessForInspectionRule\([\s\S]*await handleSelectProcess\(targetProcess\)/)
 assert.match(ruleSelection, /if \(!targetProcess\)[\s\S]*clearPqcTaskOptionDraft\(\)[\s\S]*showFrontlineError/)

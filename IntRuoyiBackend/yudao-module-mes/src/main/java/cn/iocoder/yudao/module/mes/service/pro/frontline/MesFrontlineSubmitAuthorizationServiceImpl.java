@@ -28,17 +28,13 @@ public class MesFrontlineSubmitAuthorizationServiceImpl implements MesFrontlineS
     private final MesReportAllocationReleaseStateService releaseStateService;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper workOrderMapper;
-    @jakarta.annotation.Resource
-    private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
 
     @Override
     public void authorizeNewSubmission(Long employeeId, String identityDomain) {
         requireValue(employeeId, "employeeId");
-        if ("SYSTEM_USER".equals(identityDomain)) {
-            if (!permissionApi.hasAnyPermissions(employeeId, "mes:pro-feedback:create")) {
-                throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "实际生产员工当前无报工提交权限");
-            }
-        } else if (!"MES_EMPLOYEE_PROFILE".equals(identityDomain)) {
+        // The controller authorizes the login operator; the selected employee is validated
+        // through the team snapshot, formal identity and their own electronic signature.
+        if (!Set.of("SYSTEM_USER", "MES_EMPLOYEE_PROFILE").contains(identityDomain == null ? "" : identityDomain)) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, "signatureIdentityDomain");
         }
     }

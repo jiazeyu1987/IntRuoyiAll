@@ -819,7 +819,7 @@ public class MesStage2_5BackfillBatchExecutionSimulationServiceImpl
             MesProWorkOrderDO workOrder,
             MesProcessPoolActiveOrderPickListBindingDO binding,
             MesCompletionBackfillReceipt receipt) {
-        String batchIdempotencyKey = "STAGE2_5-BATCH-" + command.getSimulationRunId();
+        String batchIdempotencyKey = "ACTIVE_ORDER_COMPLETION_BATCH:" + receipt.getReceiptId();
         return new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(workOrder.getId())
                 .setWorkOrderCode(workOrder.getCode())

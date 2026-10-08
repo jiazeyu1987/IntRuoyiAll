@@ -769,6 +769,119 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
     }
 
     @Test
+    void saveRuleByReport_singleFillRuleReplacesCurrentRouteFillRolesButKeepsSignaturesAndOtherVersions() {
+        String reportId = "REPORT-SINGLE-REPLACE-ROLE";
+        Long routeProcessId = 5840L;
+        Long versionId = 77250L;
+        insertRouteBatchRecord(8840L, routeProcessId, reportId, null, 77249L, versionId);
+        for (String ruleType : List.of("FILL", "EQUIPMENT_FILL", "QUALITY_FILL")) {
+            processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, versionId,
+                    ruleType, "", "ROLE", "910415", "旧填写角色"));
+        }
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, versionId,
+                "SIGNATURE", "R1C1", "ROLE", "7001", "审核角色"));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, 77248L,
+                "FILL", "", "ROLE", "910416", "历史版本填写人"));
+        when(adminUserApi.getUserList(List.of(301L))).thenReturn(List.of(
+                adminUser(301L, "生产组长", CommonStatusEnum.ENABLE.getStatus())));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            processFormPermissionRuleService.saveRuleByReport(
+                    new MesProEdhrBatchRecordFormPermissionRuleSaveReqVO()
+                            .setBatchRecordReportId(reportId)
+                            .setFillRule(candidateRule("USERS", List.of(301L), "ANY_ONE", null, true, "生产组长")));
+        }
+
+        List<MesProEdhrProcessFormPermissionRuleDO> currentRules =
+                processFormPermissionRuleMapper.selectListByRouteProcessReportAndVersion(
+                        routeProcessId, reportId, versionId);
+        assertEquals(1, currentRules.size());
+        assertEquals("SIGNATURE", currentRules.get(0).getRuleType());
+        assertEquals("7001", currentRules.get(0).getCandidateSourceIds());
+        List<MesProEdhrProcessFormPermissionRuleDO> effectiveRules =
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                        routeProcessId, reportId, versionId);
+        assertEquals(1, effectiveRules.size());
+        assertEquals(0L, effectiveRules.get(0).getRouteProcessId());
+        assertEquals("USERS", effectiveRules.get(0).getCandidateSourceType());
+        assertEquals("301", effectiveRules.get(0).getCandidateSourceIds());
+        assertEquals("910416", processFormPermissionRuleMapper.selectEnabledFillRule(
+                routeProcessId, reportId, 77248L).getCandidateSourceIds());
+    }
+
+    @Test
+    void saveRuleByReport_singleFillPreservesNonFillScopeRules() {
+        assertReportFillSavePreservesNonFillScopeRules(false);
+    }
+
+    @Test
+    void saveRuleByReport_assistAssignmentsPreserveNonFillScopeRules() {
+        assertReportFillSavePreservesNonFillScopeRules(true);
+    }
+
+    private void assertReportFillSavePreservesNonFillScopeRules(boolean assistAssignments) {
+        String reportId = "REPORT-PRESERVE-SCOPE";
+        MesProEdhrPermissionScopeDO scope = new MesProEdhrPermissionScopeDO()
+                .setScopeName("existing-scope").setObjectType("ROUTE_PROCESS_BATCH_RECORD")
+                .setObjectId("5841|" + reportId).setStatus("ENABLED").setVersion(3);
+        permissionScopeMapper.insert(scope);
+        insertRouteBatchRecord(8841L, 5841L, reportId, scope.getId(), 77251L, 77252L);
+        LocalDateTime effectiveFrom = LocalDateTime.of(2026, 9, 1, 9, 0);
+        LocalDateTime effectiveTo = LocalDateTime.of(2026, 12, 1, 9, 0);
+        List<MesProEdhrPermissionRuleDO> retained = List.of(
+                new MesProEdhrPermissionRuleDO().setSubjectType("ROLE").setSubjectId(7001L)
+                        .setAbility("SIGN").setDecision("ALLOW").setPriority(23).setStatus("ENABLED"),
+                new MesProEdhrPermissionRuleDO().setSubjectType("USER").setSubjectId(998L)
+                        .setAbility("APPROVE").setDecision("DENY").setPriority(7).setStatus("DISABLED"));
+        for (MesProEdhrPermissionRuleDO rule : retained) {
+            permissionRuleMapper.insert(rule.setScopeId(scope.getId()).setVersion(1)
+                    .setEffectiveFrom(effectiveFrom).setEffectiveTo(effectiveTo));
+        }
+        for (String ability : List.of("VIEW", "FILL")) {
+            permissionRuleMapper.insert(new MesProEdhrPermissionRuleDO().setScopeId(scope.getId())
+                    .setSubjectType("ROLE").setSubjectId(910415L).setAbility(ability)
+                    .setDecision("ALLOW").setPriority(10).setStatus("ENABLED").setVersion(1));
+        }
+        when(adminUserApi.getUserList(List.of(301L))).thenReturn(List.of(
+                adminUser(301L, "生产组长", CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrBatchRecordFormPermissionRuleSaveReqVO request =
+                new MesProEdhrBatchRecordFormPermissionRuleSaveReqVO().setBatchRecordReportId(reportId);
+        if (assistAssignments) {
+            when(jimuReportGateway.getReportJson(reportId)).thenReturn(assistRowsReportJson());
+            request.setFillAssignments(List.of(
+                    fillAssignment("AR_001", "USERS", List.of(301L), "ANY_ONE", true, "生产组长"),
+                    fillAssignment("AR_002", "USERS", List.of(301L), "ANY_ONE", true, "生产组长")));
+        } else {
+            request.setFillRule(candidateRule("USERS", List.of(301L), "ANY_ONE", null, true, "生产组长"));
+        }
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            processFormPermissionRuleService.saveRuleByReport(request);
+        }
+        List<MesProEdhrPermissionRuleDO> saved = permissionRuleMapper.selectListByScopeId(scope.getId());
+        assertEquals(4, saved.size());
+        for (MesProEdhrPermissionRuleDO expected : retained) {
+            MesProEdhrPermissionRuleDO actual = saved.stream()
+                    .filter(rule -> expected.getAbility().equals(rule.getAbility())).findFirst().orElseThrow();
+            assertEquals(expected.getSubjectType(), actual.getSubjectType());
+            assertEquals(expected.getSubjectId(), actual.getSubjectId());
+            assertEquals(expected.getDecision(), actual.getDecision());
+            assertEquals(expected.getPriority(), actual.getPriority());
+            assertEquals(expected.getStatus(), actual.getStatus());
+            assertEquals(effectiveFrom, actual.getEffectiveFrom());
+            assertEquals(effectiveTo, actual.getEffectiveTo());
+        }
+        assertFalse(saved.stream().anyMatch(rule -> Long.valueOf(910415L).equals(rule.getSubjectId())));
+        assertEquals(2L, saved.stream().filter(rule -> "USER".equals(rule.getSubjectType())
+                && Long.valueOf(301L).equals(rule.getSubjectId())
+                && List.of("VIEW", "FILL").contains(rule.getAbility())).count());
+        assertEquals(4, permissionScopeMapper.selectById(scope.getId()).getVersion());
+    }
+
+    @Test
     void saveRuleByReport_assistAssignmentsReplaceRouteScopedFillRulesButKeepSignatures() {
         String reportId = "REPORT-ASSIST-REPLACE-ROUTE";
         Long routeProcessId = 5832L;
@@ -1072,6 +1185,40 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         assertEquals(0, result.getAffectedRouteBindingCount());
         assertEquals(List.of(404L), result.getFillRule().getCandidateSourceIds());
         assertEquals("损耗单填写人", result.getFillRule().getCandidateUsers().get(0).getDisplayName());
+    }
+
+    @Test
+    void getRule_inheritsFormFillWhilePreservingRouteSignatureAndRouteFillPriority() {
+        String reportId = "REPORT-INHERIT-FILL-KEEP-SIGNATURE";
+        Long routeProcessId = 5842L;
+        Long versionId = 77254L;
+        insertRouteBatchRecord(8842L, routeProcessId, reportId, null, 77253L, versionId);
+        processFormPermissionRuleMapper.insert(permissionRule(0L, reportId, versionId,
+                "FILL", "", "USERS", "301", "表单级生产组长"));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, versionId,
+                "SIGNATURE", "R1C1", "USER", "998", "逐工序审核人"));
+        when(adminUserApi.getUserList(List.of(301L))).thenReturn(List.of(
+                adminUser(301L, "生产组长", CommonStatusEnum.ENABLE.getStatus())));
+        when(adminUserApi.getUserList(List.of(998L))).thenReturn(List.of(
+                adminUser(998L, "审核人", CommonStatusEnum.ENABLE.getStatus())));
+
+        MesProEdhrProcessFormPermissionRuleRespVO inherited =
+                processFormPermissionRuleService.getRule(routeProcessId, reportId);
+        assertEquals("CONFIGURED", inherited.getFillRuleStatus());
+        assertEquals(List.of(301L), inherited.getFillRule().getCandidateSourceIds());
+        assertEquals("CONFIGURED", inherited.getSignatureRuleStatus());
+        assertEquals(1, inherited.getSignatureRules().size());
+        assertEquals("R1C1", inherited.getSignatureRules().get(0).getSignatureCellKey());
+        assertEquals(List.of(998L), inherited.getSignatureRules().get(0).getRule().getCandidateSourceIds());
+
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, versionId,
+                "FILL", "", "USER", "302", "逐工序优先填写人"));
+        when(adminUserApi.getUserList(List.of(302L))).thenReturn(List.of(
+                adminUser(302L, "工序填写人", CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrProcessFormPermissionRuleRespVO routeConfigured =
+                processFormPermissionRuleService.getRule(routeProcessId, reportId);
+        assertEquals(List.of(302L), routeConfigured.getFillRule().getCandidateSourceIds());
+        assertEquals(List.of(998L), routeConfigured.getSignatureRules().get(0).getRule().getCandidateSourceIds());
     }
 
     @Test

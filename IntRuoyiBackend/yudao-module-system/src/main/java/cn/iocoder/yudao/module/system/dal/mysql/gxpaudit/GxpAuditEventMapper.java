@@ -33,6 +33,12 @@ public interface GxpAuditEventMapper extends BaseMapperX<GxpAuditEventDO> {
                 .eqIfPresent(GxpAuditEventDO::getActorId, query.getActorId())
                 .orderByDesc(GxpAuditEventDO::getLedgerSequence);
         if (eventIds != null || subjectIds != null) {
+            // Object-scoped pages are summaries. Full state and canonical bytes remain available
+            // through selectByTenantIdAndId; do not load their LONGTEXT payloads for every list row.
+            wrapper.select(GxpAuditEventDO.class, field ->
+                    !"beforeStateJson".equals(field.getProperty())
+                            && !"afterStateJson".equals(field.getProperty())
+                            && !"canonicalEventJson".equals(field.getProperty()));
             if (eventIds == null || eventIds.isEmpty()) {
                 if (subjectIds == null || subjectIds.isEmpty()) {
                     return PageResult.empty();

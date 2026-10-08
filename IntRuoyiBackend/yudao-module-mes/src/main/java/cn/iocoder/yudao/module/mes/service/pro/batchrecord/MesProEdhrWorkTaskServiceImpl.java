@@ -1491,7 +1491,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING,
                         "workTaskId=" + task.getId());
             }
-            if (!Objects.equals(responsibilitySourceKey, task.getResponsibilitySourceKey())) {
+            if (!Objects.equals(responsibilitySourceKey, task.getResponsibilitySourceKey())
+                    && !isRouteFillerMigratingToForm(task, batchTask, fillRule, responsibilitySourceKey)) {
                 continue;
             }
             if (Boolean.TRUE.equals(task.getOwnershipLocked())) {
@@ -2602,6 +2603,24 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private boolean isFormLevelProcessFormRule(MesProEdhrProcessFormPermissionRuleDO fillRule) {
         return fillRule != null && Objects.equals(fillRule.getRouteProcessId(),
                 MesProEdhrProcessFormPermissionRuleMapper.FORM_LEVEL_ROUTE_PROCESS_ID);
+    }
+
+    private boolean isRouteFillerMigratingToForm(MesProEdhrWorkTaskDO task,
+                                                MesProEdhrBatchExecutionTaskDO batchTask,
+                                                MesProEdhrProcessFormPermissionRuleDO fillRule,
+                                                String responsibilitySourceKey) {
+        if (!isFormLevelProcessFormRule(fillRule)
+                || !TASK_TYPE_FILL.equals(fillRule.getRuleType())
+                || !ENTITLEMENT_SOURCE_TYPE_FILLER.equals(task.getResponsibilitySourceType())
+                || task.getRouteProcessId() == null
+                || !Objects.equals(task.getRouteProcessId(), batchTask.getRouteProcessId())) {
+            return false;
+        }
+        String reportId = StrUtil.trim(fillRule.getBatchRecordReportId());
+        Long versionId = fillRule.getBatchRecordVersionId();
+        return Objects.equals(responsibilitySourceKey, "FORM|" + reportId + "|" + versionId)
+                && Objects.equals(task.getResponsibilitySourceKey(),
+                "ROUTE|" + task.getRouteProcessId() + "|" + reportId + "|" + versionId);
     }
 
     private void syncRuntimeTaskEntitlement(MesProEdhrWorkTaskDO task) {

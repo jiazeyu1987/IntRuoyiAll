@@ -331,6 +331,90 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     }
 
     @Test
+    void reconcileProcessFormFillTaskOwnership_migratesExactRouteFillerToFormAndRuntimeClaim() {
+        String reportId = "REPORT-OWN-MIGRATE";
+        Long versionId = 88130L;
+        String formKey = "FORM|" + reportId + "|" + versionId;
+        insertBatchTask(19130L, 39130L, 5930L, reportId, versionId);
+        MesProEdhrWorkTaskDO task = insertFillTask(39130L, 19130L, 5930L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE)
+                .setResponsibilitySourceKey("ROUTE|5930|" + reportId + "|" + versionId)
+                .setResponsibilitySourceVersion(String.valueOf(versionId)).setOwnershipLocked(false);
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUserList(List.of(502L, 503L))).thenReturn(List.of(adminUser(502L), adminUser(503L)));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            workTaskService.reconcileProcessFormFillTaskOwnership(formKey,
+                    processFormRule(0L, reportId, versionId, "502,503"), "表单填写人统一配置");
+        }
+        MesProEdhrWorkTaskDO updated = workTaskMapper.selectById(task.getId());
+        assertEquals(formKey, updated.getResponsibilitySourceKey());
+        assertEquals(FILLER_SOURCE_TYPE, updated.getResponsibilitySourceType());
+        assertEquals("88130", updated.getResponsibilitySourceVersion());
+        assertEquals(502L, updated.getAssigneeUserId());
+        assertEquals("502,503", updated.getCandidateUserSnapshot());
+        assertEquals("USERS", updated.getCandidateSourceType());
+        ArgumentCaptor<SystemEntitlementSyncReqDTO> captor = ArgumentCaptor.forClass(SystemEntitlementSyncReqDTO.class);
+        verify(permissionApi).syncEntitlementClaims(captor.capture());
+        assertEquals("WORK_TASK|" + task.getId(), captor.getValue().getSourceKey());
+        assertEquals(Set.of(502L, 503L), captor.getValue().getResolvedUserIds());
+        assertTrue(captor.getValue().getSourceDigest().contains("responsibilitySourceKey=" + formKey));
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_doesNotMigrateOtherRouteSourcesOrTargets() {
+        String reportId = "REPORT-OWN-MIGRATE-BOUNDARY";
+        Long versionId = 88131L;
+        List<MesProEdhrWorkTaskDO> tasks = new java.util.ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            long routeProcessId = 5940L + index;
+            String taskReportId = index == 3 ? "OTHER-REPORT" : reportId;
+            Long taskVersionId = index == 4 ? 88132L : versionId;
+            insertBatchTask(19140L + index, 39140L + index, routeProcessId, taskReportId, taskVersionId);
+            String sourceKey = "ROUTE|" + routeProcessId + "|" + taskReportId + "|" + taskVersionId;
+            if (index == 1) sourceKey = "ROUTE|9999|" + reportId + "|" + versionId;
+            if (index == 2) sourceKey = "ROUTE|" + routeProcessId + "|" + reportId + "|88132";
+            MesProEdhrWorkTaskDO task = insertFillTask(39140L + index, 19140L + index, routeProcessId, 501L, "501")
+                    .setResponsibilitySourceType(index == 0 ? "OTHER_SOURCE" : FILLER_SOURCE_TYPE)
+                    .setResponsibilitySourceKey(sourceKey).setOwnershipLocked(false);
+            workTaskMapper.updateById(task);
+            tasks.add(task);
+        }
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        workTaskService.reconcileProcessFormFillTaskOwnership("FORM|" + reportId + "|" + versionId,
+                processFormRule(0L, reportId, versionId, "502"), "统一配置");
+        for (MesProEdhrWorkTaskDO task : tasks) {
+            MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(task.getId());
+            assertEquals(501L, unchanged.getAssigneeUserId());
+            assertEquals(task.getResponsibilitySourceKey(), unchanged.getResponsibilitySourceKey());
+            assertEquals("501", unchanged.getCandidateUserSnapshot());
+        }
+        verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
+    }
+
+    @Test
+    void reconcileProcessFormFillTaskOwnership_rejectsLockedRouteToFormMigration() {
+        String reportId = "REPORT-OWN-MIGRATE-LOCKED";
+        insertBatchTask(19150L, 39150L, 5950L, reportId, 88150L);
+        String routeKey = "ROUTE|5950|" + reportId + "|88150";
+        MesProEdhrWorkTaskDO task = insertFillTask(39150L, 19150L, 5950L, 501L, "501")
+                .setResponsibilitySourceType(FILLER_SOURCE_TYPE).setResponsibilitySourceKey(routeKey)
+                .setOwnershipLocked(true);
+        workTaskMapper.updateById(task);
+        when(adminUserApi.getUserList(List.of(502L))).thenReturn(List.of(adminUser(502L)));
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> workTaskService.reconcileProcessFormFillTaskOwnership("FORM|" + reportId + "|88150",
+                        processFormRule(0L, reportId, 88150L, "502"), "统一配置"));
+        assertEquals(PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED.getCode(), exception.getCode());
+        MesProEdhrWorkTaskDO unchanged = workTaskMapper.selectById(task.getId());
+        assertEquals(501L, unchanged.getAssigneeUserId());
+        assertEquals(routeKey, unchanged.getResponsibilitySourceKey());
+        assertEquals("501", unchanged.getCandidateUserSnapshot());
+        verify(permissionApi, never()).syncEntitlementClaims(any(SystemEntitlementSyncReqDTO.class));
+    }
+
+    @Test
     void reconcileProcessFormFillTaskOwnership_rejectsLockedTaskAndKeepsOwner() {
         String sourceKey = "ROUTE|5903|REPORT-OWN-003|88004";
         insertBatchTask(19003L, 39003L, 5903L, "REPORT-OWN-003", 88004L);

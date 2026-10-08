@@ -2,7 +2,7 @@
   <el-card data-active-order-handoff-panel class="mb-4">
     <template #header><span>我的生产交接</span><el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button></template>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
-    <el-table :data="tasks" v-loading="loading" row-key="id">
+    <el-table :data="pagedTasks" v-loading="loading" row-key="id">
       <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
       <el-table-column label="交接事项"><template #default="{ row }">{{ labels[row.taskType] }}</template></el-table-column>
       <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />
@@ -12,6 +12,17 @@
         <el-button link type="primary" @click="showReceipts(row)">通知回执</el-button>
       </template></el-table-column>
     </el-table>
+    <el-pagination
+      v-if="tasks.length"
+      :current-page="page"
+      :page-size="PAGE_SIZE"
+      :total="tasks.length"
+      :disabled="loading"
+      background
+      layout="total, prev, pager, next, jumper"
+      class="mt-4"
+      @update:current-page="changePage"
+    />
     <el-dialog v-model="resultOpen" title="原周期作废交接结果" width="680px">
       <el-descriptions v-if="result" :column="1" border>
         <el-descriptions-item label="活跃周期">{{ result.activeOrderId }}</el-descriptions-item>
@@ -73,6 +84,12 @@ const completedResultLoading = ref(false), completedResultError = ref('')
 const completionSnapshot = ref<{ workOrderCode: string; processName: string }>()
 let completionEpoch = 0
 const tasks = ref<api.HandoffTask[]>([]), loading = ref(false), error = ref('')
+const PAGE_SIZE = 100
+const page = ref(1)
+const pagedTasks = computed(() => tasks.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
+const changePage = (nextPage: number) => {
+  page.value = Math.min(Math.max(1, nextPage), Math.max(1, Math.ceil(tasks.value.length / PAGE_SIZE)))
+}
 const selected = ref<api.HandoffTask>(), receipts = ref<api.HandoffReceipt[]>([])
 const receiptOpen = ref(false), receiptLoading = ref(false), receiptError = ref(''), retryReason = ref(''), retrying = ref(false)
 let listEpoch = 0, receiptEpoch = 0
@@ -81,9 +98,9 @@ const states: Record<string, string> = { TODO: '待处理', DONE: '已完成', C
 const deliveryStates = { PENDING: '待投递', FAILED: '投递失败', SENT: '已发送' }
 const failure = (e: unknown) => e instanceof Error ? e.message : String(e)
 const load = async () => {
-  const epoch = ++listEpoch; loading.value = true; error.value = ''
-  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) tasks.value = rows }
-  catch (e) { if (epoch === listEpoch) { tasks.value = []; error.value = failure(e) } }
+  const epoch = ++listEpoch; page.value = 1; loading.value = true; error.value = ''
+  try { const rows = await api.myHandoffs(); if (epoch === listEpoch) { tasks.value = rows; changePage(page.value) } }
+  catch (e) { if (epoch === listEpoch) { tasks.value = []; page.value = 1; error.value = failure(e) } }
   finally { if (epoch === listEpoch) loading.value = false }
 }
 const openTask = async (task: api.HandoffTask) => {
@@ -173,6 +190,7 @@ const loadHandoffResult = async () => {
 }
 watch(() => route.query, loadHandoffResult, { immediate: true, deep: true })
 onBeforeUnmount(() => {
+  ++listEpoch
   ++resultEpoch; result.value = undefined; resultOpen.value = false; closeCompletedResult()
 })
 onMounted(load)

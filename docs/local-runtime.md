@@ -179,6 +179,13 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
 - Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
 
+## 本机跨盘文件迁移边界
+
+- 触发：为释放本机磁盘空间而迁移个人文件或本地运行产物。
+- 前置检查：区分静态文件、软件运行数据、项目仓库和系统已知文件夹；只搬大文件与整个文件夹重定向是不同范围。先核对源/目标绝对路径、目标卷健康与容量、现有目标冲突、重解析点及活动文件，不能仅按扩展名把工具程序、聊天附件或数据库当作可迁移安装包。
+- 执行：先复制并逐文件核对字节数和 SHA-256，持久化源/目标映射，再移除已确认的源文件；移除前重新确认文件未变化。验证与移除期间限制写入竞争，遇到锁定、权限拒绝或不一致立即停止并保留源文件。
+- 验证：核对目标文件数、字节数、内容摘要和源文件移除状态；释放量以迁移文件实际字节数为依据，磁盘空闲量变化另记，不能忽略并发任务的写入影响。路径变化可能影响最近文件入口和固定路径引用，不用兼容链接掩盖影响，也不自动修改浏览器下载目录、强制关闭用户应用或重启共享服务。
+
 ## 2026-08-05 本机 Docker 未使用镜像清理门禁
 
 - Trigger: D 盘空间不足、`D:\Docker\DockerDesktopWSL\disk\docker_data.vhdx` 过大、`docker system df` 显示大量未使用镜像、用户要求通过 Docker 命令清理未使用镜像。
@@ -187,6 +194,18 @@ PORT_CONTRACT_VERSION: 2026-08-24-branch-runtime-v7
 - Verification: 再次运行 `docker image prune -a -f` 应返回 `Total reclaimed space: 0B`；记录清理前后 `docker system df`，并确认容器仍存在、volume 未执行 prune。
 - Forbidden action: 禁止执行 `docker system prune --volumes`、`docker volume prune`、删除容器、删除 VHDX、或把 VHDX 文件未立刻缩小误判为清理失败；VHDX 回收/压缩必须作为单独授权任务处理。
 - Evidence: `doc/tasks/20260805-docker-unused-image-cleanup/verification-report.md`。
+
+### 按发布历史范围清理镜像
+
+- 用户仅授权历史发布镜像清理时，先冻结候选 tag/ID、全部容器引用和需要保留的发布版本；保留项目工具、基础镜像及未明确纳入范围的镜像。删除精确 tag 使用 `docker image rm`，不加 force；执行前再次核对 tag 指纹和容器引用，变化即停止。不要用全局 prune 扩大范围。
+- 保留版本的清理按候选 ID/tag 无残留验收，不为了获得全局 reclaimable 0B 删除保留项。容器 Mounts 按 Destination/Source 排序后比较全部属性；Docker 返回数组的顺序变化不等于挂载配置变化。
+- `docker system df` 的镜像大小、构建缓存和可回收统计可能共享层；镜像删除后缓存可回收量增加，不代表 Windows 已释放同等空间。分别记录 Docker 分类统计、VHDX 字节数和宿主盘可用空间，缓存清理与 VHDX 压缩继续按各自授权执行。
+
+### Docker 构建缓存清理范围
+
+- 缓存清理前用 `docker buildx ls` 和目标 builder 的 `docker buildx du --builder <name>` 确认驱动、缓存范围和可回收状态；当前选中的 builder 可能属于并行任务，不能按星号选择项直接清理。
+- 明确授权本机默认引擎缓存清理时，按本机 CLI help 显式指定 `desktop-linux` builder；不要扩展到独立 `docker-container` builder。保留全部镜像 tag/ID、容器身份/启动时间/挂载和卷，清理前后核对。
+- 记录 prune 实际 Total 和清理后的 builder du；即使缓存为 0B，宿主 VHDX 仍可能不缩小。停止 Docker、关闭 WSL 与压缩 VHDX 继续作为独立授权动作；当前进程无管理员权限时，先完成可执行的缓存清理和核验，再提出具体提权操作。
 
 ## 2026-08-05 本机 Ruoyi Docker 未用容器卷镜像清理门禁
 

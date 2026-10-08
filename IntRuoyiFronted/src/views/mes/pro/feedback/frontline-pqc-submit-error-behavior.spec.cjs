@@ -16,6 +16,7 @@ function harness(error, receipt = { pqcTaskId: 1, pqcEventId: 88 }, payloads = [
   const observed = { reads: 0, resets: 0, successes: [], errors: [], submits: [] }
   const dependencies = {
     isAxiosError: axios.isAxiosError,
+    hasReturnNotification: ref(false), isInitialHandoffBlocked: ref(false),
     activePqcTaskOption: ref({ pqcTaskId: 1 }),
     deviceState: { selectedProcess: {} }, isFrontlinePqcProcess: () => true,
     pqcSubmitResultUncertain: ref(false), pqcSignatureDialogVisible: ref(true),

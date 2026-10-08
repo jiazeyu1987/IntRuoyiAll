@@ -120,6 +120,13 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderAct
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationResult;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionBatchExecutionService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesFlow6CompletionBackfillReceipt;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationCommand;
+import cn.iocoder.yudao.module.mes.service.pro.simulation.stage2_5.MesStage2_5BackfillBatchExecutionSimulationServiceImpl;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderPickListBindingMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFlowBlockerException;
@@ -142,6 +149,17 @@ import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderCompletionResult;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderReleaseApplicationService;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -204,6 +222,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -236,6 +255,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrBatchExecutionOriginMapper batchExecutionOriginMapper;
     @Resource
     private javax.sql.DataSource testDataSource;
+    @Resource
+    private MesProEdhrOperationAuditEventMapper realOperationAuditMapper;
     @Resource
     private MesProcessPoolActiveOrderReleaseApplicationMapper reworkApplicationMapper;
     @Resource
@@ -491,6 +512,310 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setPickListLineSnapshotHash(request.getPickListLineSnapshotHash())
                 .setSourceEvidence(request.getSourceEvidence()).setPayloadHash(request.getPayloadHash());
         return new MesBatchExecutionAuthoritativeContext().setProvisionCommand(canonical);
+    }
+
+    @Test
+    void p2ThenFormalCompletionReusesOneReceiptBatchWithoutNewTasks() {
+        Fixture fixture = insertRouteFixture(true, true);
+        CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
+        Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+        int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
+        assertTrue(taskCount > 0);
+
+        assertEquals(batchId, batchExecutionService.openOrCreate(requests.formal()).getId());
+        assertEquals(batchId, batchExecutionService.openOrCreate(requests.p2()).getId());
+        assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
+        assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), requests.p2().getBatchCode()).size());
+        assertEquals(1, provisioningRecords.size());
+        assertEquals("ACTIVE_ORDER_COMPLETION_BATCH:287",
+                provisioningRecords.get(batchId).getIdempotencyKey());
+        assertEquals(requests.formal().getIdempotencyKey(), requests.p2().getIdempotencyKey());
+    }
+
+    @Test
+    void formalCompletionThenP2ReusesTheSameReceiptBatch() {
+        Fixture fixture = insertRouteFixture(true, true);
+        CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
+        Long batchId = batchExecutionService.openOrCreate(requests.formal()).getId();
+        int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
+
+        assertEquals(batchId, batchExecutionService.openOrCreate(requests.p2()).getId());
+        assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
+        assertEquals(1, provisioningRecords.size());
+        assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), requests.formal().getBatchCode()).size());
+    }
+
+    @Test
+    void p2BatchReplayRejectsDifferentCycleAndReceiptSource() {
+        Fixture fixture = insertRouteFixture(true, true);
+        CompletionEntryRequests requests = completionEntryRequests(fixture, 8287L, 287L);
+        Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+        int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
+
+        for (var mismatch : List.<java.util.function.Consumer<EdhrBatchExecutionOpenOrCreateReqVO>>of(
+                request -> request.setActiveOrderId(8288L),
+                request -> request.setSourceSnapshotHash("different-receipt-source"),
+                request -> request.setCompletionBackfillReceiptId("288"),
+                request -> request.setCompletionBackfillReceiptHash("different-receipt-hash"))) {
+            EdhrBatchExecutionOpenOrCreateReqVO invalid = JSON.parseObject(
+                    JSON.toJSONString(requests.formal()), EdhrBatchExecutionOpenOrCreateReqVO.class);
+            mismatch.accept(invalid);
+            assertServiceException(() -> batchExecutionService.openOrCreate(invalid),
+                    MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_RECEIPT_INVALID);
+        }
+        assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
+        assertEquals(1, provisioningRecords.size());
+        assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), requests.p2().getBatchCode()).size());
+    }
+
+    @Test
+    void p2AndFormalCompletionKeepNewReceiptCyclesSeparate() {
+        Fixture fixture = insertRouteFixture(true, true);
+        CompletionEntryRequests first = completionEntryRequests(fixture, 8287L, 287L);
+        Long firstBatch = batchExecutionService.openOrCreate(first.p2()).getId();
+        assertEquals(firstBatch, batchExecutionService.openOrCreate(first.formal()).getId());
+
+        CompletionEntryRequests second = completionEntryRequests(fixture, 8288L, 288L);
+        Long secondBatch = batchExecutionService.openOrCreate(second.p2()).getId();
+        assertEquals(secondBatch, batchExecutionService.openOrCreate(second.formal()).getId());
+        assertNotEquals(firstBatch, secondBatch);
+        assertEquals(2, provisioningRecords.size());
+        assertEquals(2, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                fixture.workOrderId(), first.p2().getBatchCode()).size());
+    }
+
+    private CompletionEntryRequests completionEntryRequests(Fixture fixture, Long activeOrderId, Long receiptId) {
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesFlow6CompletionBackfillReceipt formalReceipt = new MesFlow6CompletionBackfillReceipt()
+                .setReceiptId(receiptId).setTenantId(1L).setActiveOrderId(activeOrderId)
+                .setWorkOrderId(workOrder.getId()).setWorkOrderCode(workOrder.getCode())
+                .setBatchCode("BATCH-P2-FORMAL").setRouteId(fixture.routeId())
+                .setRouteVersionId(fixture.routeVersionId()).setCompletionVersion(1)
+                .setExpectedActiveOrderVersion(0L).setRequestIdempotencyKey("completion:" + receiptId)
+                .setCompletionTransactionId("ACTIVE_ORDER_COMPLETION:" + receiptId)
+                .setSourceSnapshotHash("source:" + receiptId).setReceiptHash("receipt:" + receiptId)
+                .setStatus(MesFlow6CompletionBackfillReceipt.STATUS_BACKFILL_SUCCEEDED)
+                .setBatchRecordId(receiptId + 1000).setProcessInspectionId(receiptId + 2000)
+                .setHasActualLoss(false).setLossQuantity(java.math.BigDecimal.ZERO)
+                .setLossReportStatus("NOT_REQUIRED").setZeroLossConfirmationSnapshot("{\"confirmed\":true}");
+        MesProcessPoolActiveOrderPickListBindingDO binding = MesProcessPoolActiveOrderPickListBindingDO.builder()
+                .id(receiptId + 3000).activeOrderId(activeOrderId).workOrderId(workOrder.getId())
+                .pickListId(receiptId + 4000).bindingVersion(1).bindingStatus("BOUND")
+                .sourceSnapshotHash("pick-list:" + receiptId).build();
+        binding.setTenantId(1L);
+        MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort receiptPort =
+                mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class);
+        MesProcessPoolActiveOrderPickListBindingMapper bindingMapper =
+                mock(MesProcessPoolActiveOrderPickListBindingMapper.class);
+        when(receiptPort.getByReceiptId(receiptId, 1L)).thenReturn(formalReceipt);
+        when(bindingMapper.selectListByActiveOrderId(activeOrderId)).thenReturn(List.of(binding));
+        MesBatchExecutionAuthoritativeContextResolver resolver =
+                new MesBatchExecutionAuthoritativeContextResolver(receiptPort, bindingMapper);
+        doAnswer(invocation -> resolver.resolve(invocation.getArgument(0), 1L))
+                .when(authoritativeContextResolver).resolve(any(MesBatchExecutionProvisionCommand.class), eq(1L));
+        MesBatchExecutionEntryContractService entryContract = new MesBatchExecutionEntryContractService();
+        doAnswer(invocation -> entryContract.validate(
+                invocation.getArgument(0, MesBatchExecutionAuthoritativeContext.class)))
+                .when(batchExecutionEntryContractService).validate(any(MesBatchExecutionAuthoritativeContext.class));
+
+        MesCompletionBackfillReceipt p2Receipt = new MesCompletionBackfillReceipt()
+                .setReceiptId(String.valueOf(receiptId)).setTenantId(1L).setActiveOrderId(activeOrderId)
+                .setWorkOrderId(workOrder.getId()).setBatchCode(formalReceipt.getBatchCode())
+                .setRouteId(formalReceipt.getRouteId()).setRouteVersionId(formalReceipt.getRouteVersionId())
+                .setCompletionTransactionId(formalReceipt.getCompletionTransactionId())
+                .setSourceSnapshotHash(formalReceipt.getSourceSnapshotHash())
+                .setReceiptHash(formalReceipt.getReceiptHash()).setExpectedActiveOrderVersion(0L)
+                .setCompletionVersion(1L).setSourceVersion("1");
+        MesProcessPoolActiveOrderDO activeOrder = new MesProcessPoolActiveOrderDO();
+        activeOrder.setId(activeOrderId);
+        MesStage2_5BackfillBatchExecutionSimulationCommand simulation =
+                new MesStage2_5BackfillBatchExecutionSimulationCommand()
+                        .setSimulationRunId("STAGE2_5-" + receiptId).setActorUserId(341L);
+        // Invoke the real producer bodies; their request construction uses no service dependencies.
+        EdhrBatchExecutionOpenOrCreateReqVO p2 = ReflectionTestUtils.invokeMethod(
+                mock(MesStage2_5BackfillBatchExecutionSimulationServiceImpl.class), "buildBatchRequest",
+                simulation, activeOrder, workOrder, binding, p2Receipt);
+        EdhrBatchExecutionOpenOrCreateReqVO formal = ReflectionTestUtils.invokeMethod(
+                new MesTeamLeaderActiveOrderCompletionBatchExecutionService(null, null, null, null),
+                "buildOpenRequest", 1L, activeOrderId, workOrder, formalReceipt);
+        return new CompletionEntryRequests(p2, formal);
+    }
+
+    private record CompletionEntryRequests(EdhrBatchExecutionOpenOrCreateReqVO p2,
+                                           EdhrBatchExecutionOpenOrCreateReqVO formal) {
+    }
+
+    @Test
+    void formalReleaseReusesP2BatchAndOpenAuditSharesCallerConnection() {
+        exerciseFormalExistingOpenAudit(0);
+    }
+
+    @Test
+    void formalReleaseAuditWriteFailureRollsBackCompletionAndExistingBatch() {
+        exerciseFormalExistingOpenAudit(1);
+    }
+
+    @Test
+    void formalReleaseGenerationFailureRollsBackExistingOpenSuccessAudit() {
+        exerciseFormalExistingOpenAudit(2);
+    }
+
+    /** Real apply/BatchService/audit transactions and H2 rows; completion/generation are explicit boundary doubles.
+     * The physical-connection assertion covers transaction joining, not MySQL next-key lock emulation. */
+    private void exerciseFormalExistingOpenAudit(int failurePhase) {
+        Fixture fixture = insertRouteFixture(true, true);
+        CompletionEntryRequests requests = completionEntryRequests(fixture, 8288L, 288L);
+        JdbcTemplate jdbc = new JdbcTemplate(testDataSource);
+        // Private H2 boundary fixture for these three tests; no production schema or data is touched.
+        jdbc.execute("CREATE TABLE IF NOT EXISTS mes_pro_process_pool_active_order ("
+                + "id BIGINT PRIMARY KEY,leader_user_id BIGINT NOT NULL,work_order_id BIGINT NOT NULL,"
+                + "route_id BIGINT NOT NULL,route_version_id BIGINT NOT NULL,active_status VARCHAR(32) NOT NULL,"
+                + "business_status VARCHAR(32) NOT NULL,version INT NOT NULL,tenant_id BIGINT NOT NULL,"
+                + "deleted BOOLEAN NOT NULL DEFAULT FALSE)");
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_active_order WHERE id=8288", Integer.class));
+        DataSourceTransactionManager transactions = new DataSourceTransactionManager(testDataSource);
+        java.sql.Connection[] outerConnection = new java.sql.Connection[1];
+        AtomicInteger auditWritesInOuter = new AtomicInteger();
+        var auditedMapper = mock(MesProEdhrOperationAuditEventMapper.class);
+        when(auditedMapper.selectListByObject(any(), any())).thenAnswer(invocation ->
+                realOperationAuditMapper.selectListByObject(invocation.getArgument(0), invocation.getArgument(1)));
+        doAnswer(invocation -> {
+            if (outerConnection[0] != null) {
+                org.junit.jupiter.api.Assertions.assertSame(outerConnection[0],
+                        DataSourceUtils.getConnection(testDataSource),
+                        "Reused OPEN audit must share the physical caller transaction after its FOR UPDATE snapshot");
+                auditWritesInOuter.incrementAndGet();
+            }
+            MesProEdhrOperationAuditEventDO event = invocation.getArgument(0, MesProEdhrOperationAuditEventDO.class);
+            int inserted = realOperationAuditMapper.insert(event);
+            // Test-only boundary for the runtime tenant INSERT interceptor missing from BaseDbUnitTest.
+            assertEquals(1, jdbc.update("UPDATE mes_pro_edhr_operation_audit_event SET tenant_id=? WHERE id=?",
+                    TenantContextHolder.getRequiredTenantId(), event.getId()));
+            if (outerConnection[0] != null && failurePhase == 1) {
+                throw new IllegalStateException("injected audit failure after real SQL insert");
+            }
+            return inserted;
+        }).when(auditedMapper).insert(any(MesProEdhrOperationAuditEventDO.class));
+        var realAudit = new MesProEdhrOperationAuditServiceImpl();
+        ReflectionTestUtils.setField(realAudit, "auditEventMapper", auditedMapper);
+        var auditProxy = new ProxyFactory(realAudit);
+        auditProxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
+        Object batchTarget = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(batchExecutionService);
+        ReflectionTestUtils.setField(batchTarget, "operationAuditService", auditProxy.getProxy());
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9908090341L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("edhrTestProdLeader");
+            Long batchId = batchExecutionService.openOrCreate(requests.p2()).getId();
+            int taskCount = batchTaskMapper.selectListByBatchExecutionId(batchId).size();
+            int batchStatus = batchExecutionMapper.selectById(batchId).getStatus();
+            List<MesProEdhrOperationAuditEventDO> originalAudits = realOperationAuditMapper
+                    .selectListByObject("BATCH_EXECUTION", String.valueOf(batchId));
+            assertEquals(1, originalAudits.size());
+            jdbc.update("INSERT INTO mes_pro_process_pool_active_order "
+                    + "(id,leader_user_id,work_order_id,route_id,route_version_id,active_status,business_status,version,tenant_id) "
+                    + "VALUES (8288,9908090341,?,?,?,'ACTIVE','IN_PROGRESS',0,1)",
+                    fixture.workOrderId(), fixture.routeId(), fixture.routeVersionId());
+            var completion = mock(MesTeamLeaderActiveOrderCompletionService.class);
+            when(completion.completeForRelease(eq(9908090341L), eq(8288L), any(), any())).thenAnswer(invocation -> {
+                outerConnection[0] = DataSourceUtils.getConnection(testDataSource);
+                jdbc.update("UPDATE mes_pro_process_pool_active_order SET active_status='COMPLETED',version=1 WHERE id=8288");
+                return new MesTeamLeaderActiveOrderCompletionResult().setActiveOrderId(8288L).setCompletionReceiptId(288L);
+            });
+            var batchEntry = mock(MesTeamLeaderActiveOrderCompletionBatchExecutionService.class);
+            when(batchEntry.openOrCreate(eq(9908090341L), eq(8288L), eq(288L), any())).thenAnswer(invocation ->
+                    batchExecutionService.openOrCreate(requests.formal()).getId());
+            // Retain the real tenant-scoped FOR UPDATE reader for the exact audit slice that caused the lock.
+            var collector = new MesReleaseAffectedStateCollector(testDataSource);
+            var affected = mock(MesReleaseAffectedStateCollector.class);
+            when(affected.completionBatchId(288L)).thenReturn(batchId);
+            when(affected.capture(any(), any(), any(), any(), eq(true))).thenAnswer(invocation -> {
+                List<Map<String, Object>> lockedAudits = ReflectionTestUtils.invokeMethod(collector, "rows",
+                        "mes_pro_edhr_operation_audit_event", "id,audit_hash,operation_type,result_status,actor_user_id", "batch_execution_id = ?",
+                        new Object[]{batchId});
+                boolean beforeApply = invocation.getArgument(1) == null;
+                assertEquals(beforeApply ? 1 : 2, lockedAudits.size(), "Before locks the P2 OPEN; after must see the caller's new OPEN");
+                assertEquals(originalAudits.get(0).getId(), lockedAudits.get(0).get("id"));
+                assertEquals(originalAudits.get(0).getAuditHash(), lockedAudits.get(0).get("auditHash"));
+                if (!beforeApply) {
+                    org.junit.jupiter.api.Assertions.assertNotEquals(originalAudits.get(0).getId(), lockedAudits.get(1).get("id"));
+                    assertEquals("OPEN", lockedAudits.get(1).get("operationType"));
+                    assertEquals("SUCCESS", lockedAudits.get(1).get("resultStatus"));
+                    assertEquals(9908090341L, lockedAudits.get(1).get("actorUserId"));
+                }
+                return Map.of("operationAudits", lockedAudits);
+            });
+            var generation = mock(MesTeamLeaderActiveOrderReleaseGenerationService.class);
+            when(generation.generate(eq(9908090341L), any())).thenAnswer(invocation -> {
+                var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setActiveOrderId(8288L)
+                        .setWorkOrderId(fixture.workOrderId()).setRouteId(fixture.routeId())
+                        .setRouteVersionId(fixture.routeVersionId()).setBatchCode(requests.formal().getBatchCode())
+                        .setApplicationStatus("PQC_RELEASE_PENDING").setVersion(1)
+                        .setSourceSnapshotHash(requests.formal().getSourceSnapshotHash())
+                        .setRequestIdempotencyKey("apply:288").setBusinessIdempotencyKey("release:8288");
+                application.setTenantId(1L);
+                reworkApplicationMapper.insert(application);
+                if (failurePhase == 2) {
+                    assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_active_order_release_application WHERE active_order_id=8288", Integer.class));
+                    throw new IllegalStateException("injected downstream generation failure");
+                }
+                return new MesTeamLeaderActiveOrderReleaseApplicationResult().setApplicationId(application.getId())
+                        .setActiveOrderId(8288L).setVersion(1).setStatus("PQC_RELEASE_PENDING")
+                        .setSourceSnapshotHash(requests.formal().getSourceSnapshotHash());
+            });
+            var applicationService = new MesTeamLeaderActiveOrderReleaseApplicationServiceImpl(generation, completion,
+                    mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper.class),
+                    batchExecutionMapper, reworkApplicationMapper, batchEntry, batchExecutionOriginMapper);
+            ReflectionTestUtils.setField(applicationService, "gxpAuditService",
+                    mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+            ReflectionTestUtils.setField(applicationService, "affectedStates", affected);
+            var handoff = mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
+            ReflectionTestUtils.setField(applicationService, "handoffService", handoff);
+            var applyProxy = new ProxyFactory(applicationService);
+            applyProxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
+            var apply = (MesTeamLeaderActiveOrderReleaseApplicationService) applyProxy.getProxy();
+            var command = new MesTeamLeaderActiveOrderReleaseApplyCommand().setActiveOrderId(8288L).setIdempotencyKey("apply:288");
+            if (failurePhase == 0) {
+                var result = apply.apply(9908090341L, command);
+                assertEquals(batchId, result.getBatchExecutionId());
+                assertEquals(batchId, reworkApplicationMapper.selectById(result.getApplicationId()).getBatchExecutionId());
+                assertEquals("COMPLETED", jdbc.queryForObject("SELECT active_status FROM mes_pro_process_pool_active_order WHERE id=8288", String.class));
+                var audits = realOperationAuditMapper.selectListByObject("BATCH_EXECUTION", String.valueOf(batchId));
+                assertEquals(2, audits.size());
+                assertEquals(originalAudits.get(0).getAuditHash(), audits.get(0).getPreviousAuditHash());
+                assertEquals(64, audits.get(0).getAuditHash().length());
+                assertEquals("SUCCESS", audits.get(0).getResultStatus());
+                assertEquals("OPEN", audits.get(0).getOperationType());
+                assertEquals(9908090341L, audits.get(0).getActorUserId());
+                var metadata = JSON.parseObject(audits.get(0).getMetadataJson());
+                assertEquals(8288L, metadata.getLong("activeOrderId"));
+                assertEquals(requests.formal().getSourceSnapshotHash(), metadata.getString("sourceSnapshotHash"));
+                verify(handoff).productionLeaderContinued(eq(8288L), eq(9908090341L), eq(result.getApplicationId()));
+            } else {
+                if (failurePhase == 1) assertServiceException(() -> apply.apply(9908090341L, command),
+                        MesProEdhrOperationAuditErrorCodeConstants.PRO_EDHR_OPERATION_AUDIT_WRITE_FAILED,
+                        "injected audit failure after real SQL insert");
+                else assertEquals("injected downstream generation failure",
+                        assertThrows(IllegalStateException.class, () -> apply.apply(9908090341L, command)).getMessage());
+                assertEquals("ACTIVE", jdbc.queryForObject("SELECT active_status FROM mes_pro_process_pool_active_order WHERE id=8288", String.class));
+                assertEquals(0, jdbc.queryForObject("SELECT version FROM mes_pro_process_pool_active_order WHERE id=8288", Integer.class));
+                assertEquals(batchStatus, batchExecutionMapper.selectById(batchId).getStatus());
+                assertEquals(originalAudits, realOperationAuditMapper.selectListByObject("BATCH_EXECUTION", String.valueOf(batchId)));
+                assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM mes_pro_process_pool_active_order_release_application WHERE active_order_id=8288", Integer.class));
+                verify(handoff, never()).productionLeaderContinued(any(), any(), any());
+                if (failurePhase == 1) verify(generation, never()).generate(any(), any());
+            }
+            assertEquals(1, auditWritesInOuter.get(), "existing OPEN must reach the real insert in the caller transaction");
+            assertEquals(taskCount, batchTaskMapper.selectListByBatchExecutionId(batchId).size());
+            assertEquals(1, batchExecutionMapper.selectListByWorkOrderIdAndBatchCode(
+                    fixture.workOrderId(), requests.p2().getBatchCode()).size());
+            assertEquals(1, provisioningRecords.size());
+        } finally {
+            ReflectionTestUtils.setField(batchTarget, "operationAuditService", operationAuditService);
+            jdbc.update("DELETE FROM mes_pro_process_pool_active_order WHERE id=8288");
+        }
     }
 
     @Test

@@ -47,6 +47,29 @@
             </strong>
           </div>
         </button>
+        <label class="frontline-top-card frontline-pqc-production-process-card">
+          <span>生产工序</span>
+          <select
+            data-pqc-production-process-select
+            aria-label="生产工序"
+            :value="selectedPqcProductionProcessKey"
+            :disabled="payloadLoading || pqcSubmitResultUncertain || hasInitialHandoffQuery"
+            @change="handleSelectPqcProductionProcess"
+          >
+            <option value="" disabled>请选择生产工序</option>
+            <option
+              v-for="option in pqcProductionProcessSelection.options"
+              :key="option.key"
+              :value="option.key"
+            >{{ option.name || '名称缺失' }} · 路线工序 {{ option.routeProcessId }}</option>
+          </select>
+          <span v-if="pqcProductionProcessSelection.error" role="alert" data-pqc-production-process-error>
+            {{ pqcProductionProcessSelection.error }}
+          </span>
+          <span v-else-if="!selectedPqcProductionProcess" role="status">
+            {{ pqcProductionProcessSelection.options.length ? '选择后填写该生产工序的检验任务' : '暂无已有生产提交的待检工序' }}
+          </span>
+        </label>
         <div
           class="frontline-top-card frontline-production-process-nav-card frontline-pqc-process-nav-card"
           data-pqc-process-nav-card
@@ -55,7 +78,7 @@
             class="frontline-production-process-nav-button"
             type="button"
             data-pqc-process-previous
-            aria-label="前一个工序"
+            aria-label="前一个检验工序"
             :disabled="isPqcProcessPreviousDisabled"
             @click.stop="handleNavigatePqcProcess(-1)"
           >
@@ -68,14 +91,14 @@
             :disabled="isPqcProcessNavigationBlocked"
             @click="openPicker('process')"
           >
-            <span>工序</span>
+            <span>检验工序</span>
             <strong>{{ selectedProcessLabel }}</strong>
           </button>
           <button
             class="frontline-production-process-nav-button"
             type="button"
             data-pqc-process-next
-            aria-label="后一个工序"
+            aria-label="后一个检验工序"
             :disabled="isPqcProcessNextDisabled"
             @click.stop="handleNavigatePqcProcess(1)"
           >
@@ -1490,6 +1513,12 @@ import {
   resolveFrontlinePqcTaskAvailabilityIssue
 } from './frontlinePqcTaskAvailability'
 import {
+  buildPqcProductionProcessOptions,
+  getPqcProductionProcessTasks,
+  requirePqcProductionProcessIdentity,
+  type PqcProductionProcessIdentity
+} from './frontlinePqcProductionProcess'
+import {
   FRONTLINE_PQC_NO_PENDING_ORDER_TEXT,
   FrontlinePqcStaleActiveOrderSelectionError,
   FrontlineProductionStaleActiveOrderSelectionError,
@@ -1890,6 +1919,10 @@ const activePqcMethodKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionKey = ref<PqcInspectionItemKey>()
 const selectedPqcInspectionRuleKey = ref<FrontlinePqcInspectionRuleKey>()
 const activePqcTaskOptionId = ref<number>()
+const selectedPqcProductionProcess = ref<PqcProductionProcessIdentity>()
+const selectedPqcProductionProcessKey = computed(() => selectedPqcProductionProcess.value
+  ? `${selectedPqcProductionProcess.value.routeProcessId}:${selectedPqcProductionProcess.value.processId}`
+  : '')
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
 const pqcItemSelections = reactive<Record<string, PqcItemSelection>>({})
@@ -2063,7 +2096,10 @@ const hasPqcTaskOptionSnapshot = (
 )
 
 const getPqcTaskOptions = (process?: FrontlinePqcProcessVO) =>
-  (process?.pqcTaskOptions || []).filter(hasPqcTaskOptionSnapshot)
+  (process && selectedPqcProductionProcess.value && !pqcProductionProcessSelection.value.error
+    ? getPqcProductionProcessTasks(process, selectedPqcProductionProcess.value)
+    : [])
+    .filter(hasPqcTaskOptionSnapshot)
 
 const mapPqcInspectionItem = (item: FrontlinePqcInspectionItemVO): PqcInspectionItem => ({
     key: item.itemCode,
@@ -2330,11 +2366,16 @@ const isSubmitBlocked = computed(() =>
 
 const isPqcSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  !selectedPqcProductionProcess.value ||
+  Boolean(pqcProductionProcessSelection.value.error) ||
   hasReturnNotification.value ||
   isInitialHandoffBlocked.value ||
   pqcSubmitResultUncertain.value ||
   deviceState.loadingEmployees ||
-  deviceState.loadingTemplate
+  deviceState.loadingTemplate ||
+  !deviceState.selectedEmployee ||
+  !activePqcTaskOption.value ||
+  activePqcTaskOptionId.value !== activePqcTaskOption.value.pqcTaskId
 )
 
 const statusText = computed(() => {
@@ -2891,6 +2932,19 @@ const switchableProcessOptions = computed(() => {
 const allSwitchablePqcProcessOptions = computed(() =>
   switchableProcessOptions.value.filter(isFrontlinePqcProcess)
 )
+
+const pqcProductionProcessSelection = computed(() => {
+  const activeOrderId = deviceState.selectedActiveOrder?.activeOrderId
+  if (!activeOrderId) return { options: [], error: '' }
+  try {
+    return {
+      options: buildPqcProductionProcessOptions(allSwitchablePqcProcessOptions.value, activeOrderId),
+      error: ''
+    }
+  } catch (error) {
+    return { options: [], error: resolveErrorMessage(error) }
+  }
+})
 
 const filteredPqcProcessOptions = computed(() => {
   const ruleKey = selectedPqcInspectionRuleKey.value
@@ -3855,7 +3909,7 @@ const selectPqcInspectionTab = async (itemKey: PqcInspectionItemKey) => {
     showFrontlineError('当前检验方法暂无待执行PQC任务。')
     return
   }
-  if (activePqcTaskOptionId.value !== option.pqcTaskId) {
+  if (activePqcTaskOptionId.value !== option.pqcTaskId || !deviceState.selectedEmployee) {
     applyPqcTaskOptionToSelectedProcess(option)
     selectedPqcInspectionKey.value = itemKey
     await switchPqcCurrentLoginEmployeeForActiveTask()
@@ -3987,15 +4041,24 @@ const getPqcCurrentSubmitTaskOptions = () => {
   if (!isFrontlinePqcProcess(process) || !activeOption) {
     throw new Error('缺少PQC任务上下文，无法提交。')
   }
+  if (!selectedPqcProductionProcess.value) {
+    throw new Error('请选择正式生产工序后再提交PQC检验。')
+  }
+  const productionTasks = getPqcProductionProcessTasks(process, selectedPqcProductionProcess.value)
+  if (!productionTasks.some(option => option.pqcTaskId === activeOption.pqcTaskId)) {
+    throw new Error('当前PQC任务与所选生产工序不一致，禁止提交。')
+  }
   const scopeOptions = getPqcTaskOptions(process).filter((option) =>
+    option.inspectionRuleKey === activeOption.inspectionRuleKey &&
     option.inspectionType === activeOption.inspectionType &&
     option.businessDate === activeOption.businessDate &&
     option.shiftCode === activeOption.shiftCode &&
     option.roundNo === activeOption.roundNo
   )
-  const completedScopeOptions = process.pqcTaskOptions
+  const completedScopeOptions = productionTasks
     .filter((option) =>
       option.taskStatus !== 'PENDING' &&
+      option.inspectionRuleKey === activeOption.inspectionRuleKey &&
       option.inspectionType === activeOption.inspectionType &&
       option.businessDate === activeOption.businessDate &&
       option.shiftCode === activeOption.shiftCode &&
@@ -4207,7 +4270,7 @@ const selectPqcInspectionRule = async (ruleKey: FrontlinePqcInspectionRuleKey) =
       getPqcTaskOptionForRule(currentProcess, ruleKey)
     : undefined
   if (currentProcess && currentRuleOption) {
-    if (activePqcTaskOption.value?.pqcTaskId !== currentRuleOption.pqcTaskId) {
+    if (activePqcTaskOptionId.value !== currentRuleOption.pqcTaskId || !deviceState.selectedEmployee) {
       applyPqcTaskOptionToSelectedProcess(currentRuleOption)
       await switchPqcCurrentLoginEmployeeForActiveTask()
     }
@@ -4598,6 +4661,10 @@ const handleSelectActiveOrder = async (
   activeOrder: FrontlineActiveOrderVO,
   requestedProcessIdentity?: ProductionInitialProcessIdentity
 ) => {
+  if (isPqcMode.value && (payloadLoading.value || pqcSubmitResultUncertain.value)) {
+    showFrontlineError('当前PQC提交结果尚未确认，禁止切换订单。')
+    return
+  }
   if (hasReturnNotification.value) {
     showFrontlineError('退回通知仅允许更正原任务，禁止选择普通填写订单。')
     return
@@ -4653,12 +4720,12 @@ const handleSelectActiveOrder = async (
   pqcSubmitResultUncertain.value = false
   pqcSignatureDialogVisible.value = false
   pqcSignaturePassword.value = ''
+  selectedPqcProductionProcess.value = undefined
   selectedPqcInspectionRuleKey.value = undefined
   clearPqcExecutionSelection()
   const selectionRequestId = ++activeOrderSelectionRequestId
-  let processes: FrontlinePqcProcessVO[]
   try {
-    processes = await selectFrontlinePqcActiveOrder(
+    await selectFrontlinePqcActiveOrder(
       deviceState,
       activeOrder,
       currentLoginUserId.value
@@ -4678,22 +4745,42 @@ const handleSelectActiveOrder = async (
   applyActiveOrderToContext(activeOrder)
   employeeTemplateCode.value = undefined
   payloadPreview.value = undefined
-  const initialRuleKey = findFirstPqcInspectionRuleKey(processes)
-  if (!initialRuleKey) {
-    closePicker()
-    showFrontlineError('当前工单没有可执行PQC检验任务。')
+  // Production identity must be selected from its visible, formally sourced options first.
+  deviceState.selectedProcess = undefined
+  closePicker()
+}
+
+const handleSelectPqcProductionProcess = async (event: Event) => {
+  if (payloadLoading.value || pqcSubmitResultUncertain.value || hasInitialHandoffQuery.value) {
+    showFrontlineError('当前PQC提交或交接未结束，禁止切换生产工序。')
     return
   }
-  selectedPqcInspectionRuleKey.value = initialRuleKey
-  const initialProcess = findInitialProcess(processes)
-  if (initialProcess) {
-    try {
-      await handleSelectProcess(initialProcess)
-    } catch (error) {
-      showFrontlineError(error)
+  try {
+    if (pqcProductionProcessSelection.value.error) {
+      throw new Error(pqcProductionProcessSelection.value.error)
     }
-  } else {
-    closePicker()
+    const key = (event.target as HTMLSelectElement).value
+    const option = pqcProductionProcessSelection.value.options.find(candidate => candidate.key === key)
+    if (!option) throw new Error('所选生产工序没有当前订单的正式生产提交及待检任务。')
+    const identity = requirePqcProductionProcessIdentity(option)
+    clearPqcExecutionSelection()
+    deviceState.selectedProcess = undefined
+    selectedPqcProductionProcess.value = identity
+    selectedPqcInspectionRuleKey.value = undefined
+    const processes = allSwitchablePqcProcessOptions.value
+    const initialRuleKey = findFirstPqcInspectionRuleKey(processes)
+    if (!initialRuleKey) {
+      throw new Error('所选生产工序没有可执行PQC检验任务。')
+    }
+    selectedPqcInspectionRuleKey.value = initialRuleKey
+    const initialProcess = findInitialProcess(processes)
+    if (initialProcess) {
+      await handleSelectProcess(initialProcess)
+    } else {
+      throw new Error('所选生产工序缺少正式QA检验工序。')
+    }
+  } catch (error) {
+    showFrontlineError(error)
   }
 }
 
@@ -4704,6 +4791,10 @@ const handleSelectProcess = async (
   const selectionRequestId = ++processSelectionRequestId
   if (isPqcMode.value && !isFrontlinePqcProcess(process)) {
     showFrontlineError('PQC只能选择QA规程工序。')
+    return
+  }
+  if (isPqcMode.value && !selectedPqcProductionProcess.value) {
+    showFrontlineError('请先选择具有正式生产提交的生产工序。')
     return
   }
   const selectedRuleKey = selectedPqcInspectionRuleKey.value
@@ -5115,7 +5206,8 @@ const assertPqcFormalSubmissionReady = () => {
   if (pqcTaskAvailabilityIssue.value) {
     throw new Error(pqcTaskAvailabilityIssue.value.message)
   }
-  if (!deviceState.selectedEmployee || !activePqcTaskOption.value) {
+  if (!deviceState.selectedEmployee || !activePqcTaskOption.value ||
+    activePqcTaskOptionId.value !== activePqcTaskOption.value.pqcTaskId) {
     throw new Error('请先完成PQC人员和任务切换。')
   }
 }
@@ -6410,6 +6502,7 @@ const initializeInitialHandoffSelection = async () => {
   const epoch = ++initialHandoffEpoch
   initialHandoffTask.value = undefined; initialHandoffLoading.value = true; initialHandoffInvalid.value = true
   deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
+  selectedPqcProductionProcess.value = undefined
   payloadPreview.value = undefined
   try {
     const id = route.query.handoffTaskId
@@ -6442,9 +6535,14 @@ const initializeInitialHandoffSelection = async () => {
       clearPqcExecutionSelection()
       const processes = await selectFrontlinePqcActiveOrder(deviceState,activeOrder,currentLoginUserId.value)
       if (epoch !== initialHandoffEpoch) return
-      const exact = processes.flatMap(process => getPqcTaskOptions(process).filter(option => String(option.pqcTaskId) === String(task.sourceId)).map(option => ({process,option})))
+      const exact = processes.flatMap(process => process.pqcTaskOptions.filter(option => hasPqcTaskOptionSnapshot(option) && String(option.pqcTaskId) === String(task.sourceId)).map(option => ({process,option})))
       if (exact.length !== 1 || String(exact[0].process.activeOrderId) !== String(task.activeOrderId)) throw new Error('原交接PQC任务不在该周期正式可执行工序中。')
       const {process,option} = exact[0]
+      const productionIdentity = requirePqcProductionProcessIdentity(option)
+      const productionOption = buildPqcProductionProcessOptions(processes, activeOrder.activeOrderId)
+        .find(candidate => candidate.routeProcessId === productionIdentity.routeProcessId && candidate.processId === productionIdentity.processId)
+      if (!productionOption || String(productionIdentity.routeProcessId) !== String(task.routeProcessId)) throw new Error('原交接PQC任务与正式生产工序不一致。')
+      selectedPqcProductionProcess.value = productionIdentity
       selectedPqcInspectionRuleKey.value = option.inspectionRuleKey
       await selectFrontlinePqcProcess(deviceState,process)
       if (epoch !== initialHandoffEpoch) return
@@ -6461,6 +6559,7 @@ const initializeInitialHandoffSelection = async () => {
   } catch (error) {
     if (epoch === initialHandoffEpoch) {
       initialHandoffTask.value = undefined; deviceState.selectedActiveOrder = undefined; deviceState.selectedProcess = undefined; deviceState.selectedEmployee = undefined
+      selectedPqcProductionProcess.value = undefined
       showFrontlineError(error)
     }
   } finally { if (epoch === initialHandoffEpoch) initialHandoffLoading.value = false }
@@ -6690,7 +6789,7 @@ onUnmounted(() => {
 
 .frontline-operator-panel.is-pqc-fullscreen .frontline-operator-top.is-pqc,
 .frontline-operator-panel:fullscreen .frontline-operator-top.is-pqc {
-  grid-template-columns: minmax(480px, 1.45fr) minmax(360px, 1.2fr) minmax(140px, 0.45fr) 150px;
+  grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
   gap: 12px;
 }
 
@@ -6756,7 +6855,7 @@ onUnmounted(() => {
   gap: 20px;
 
   &.is-pqc {
-    grid-template-columns: minmax(480px, 1.45fr) minmax(360px, 1.2fr) minmax(140px, 0.45fr) 150px;
+    grid-template-columns: minmax(280px, 1.35fr) minmax(230px, 1fr) minmax(280px, 1.1fr) minmax(120px, 0.45fr) 150px;
     gap: 12px;
   }
 }
@@ -7024,6 +7123,34 @@ onUnmounted(() => {
 
   .frontline-home-button {
     font-size: 30px;
+  }
+}
+
+.frontline-pqc-production-process-card {
+  cursor: default;
+
+  select {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: 2px solid var(--frontline-line);
+    border-radius: 8px;
+    background: var(--frontline-panel);
+    color: inherit;
+    font: inherit;
+    font-size: 18px;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+  }
+
+  [role='alert'],
+  [role='status'] {
+    margin-top: 6px;
+    font-size: 14px !important;
   }
 }
 

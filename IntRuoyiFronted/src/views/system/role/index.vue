@@ -104,6 +104,12 @@
           <Icon class="mr-5px" icon="ep:delete" />
           批量删除
         </el-button>
+        <UserTableColumnSettings
+          :columns="roleColumns"
+          :saving="roleColumnSaving"
+          @change="saveRoleColumnConfig"
+          @reset="resetRoleColumnConfig"
+        />
       </div>
     </el-form>
   </ContentWrap>
@@ -172,26 +178,60 @@
           v-loading="loading"
           :data="list"
           :row-class-name="getRoleRowClassName"
+          data-user-table-column-explicit
+          data-user-table-key="system.role.main"
+          @header-dragend="handleRoleHeaderDragend"
           @selection-change="handleRowCheckboxChange"
         >
-          <el-table-column type="selection" width="55" />
-          <el-table-column align="center" label="权限角色编号" prop="id" width="120" />
-          <el-table-column align="center" label="权限角色名称" min-width="160" prop="name" />
-          <el-table-column align="center" label="所属分类" min-width="120" prop="categoryName">
+          <el-table-column
+            type="selection"
+            column-key="selection"
+            :width="getRoleColumnWidth('selection')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('id')"
+            align="center"
+            label="权限角色编号"
+            prop="id"
+            :width="getRoleColumnWidth('id')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('name')"
+            align="center"
+            label="权限角色名称"
+            min-width="160"
+            prop="name"
+            :width="getRoleColumnWidth('name')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('categoryName')"
+            align="center"
+            label="所属分类"
+            min-width="120"
+            prop="categoryName"
+            :width="getRoleColumnWidth('categoryName')"
+          >
             <template #default="scope">
               <el-tag type="primary">{{ scope.row.categoryName }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="权限角色类型" align="center" prop="type" width="120">
+          <el-table-column
+            v-if="isRoleColumnVisible('type')"
+            label="权限角色类型"
+            align="center"
+            prop="type"
+            :width="getRoleColumnWidth('type')"
+          >
             <template #default="scope">
               <dict-tag :type="DICT_TYPE.SYSTEM_ROLE_TYPE" :value="scope.row.type" />
             </template>
           </el-table-column>
           <el-table-column
+            v-if="isRoleColumnVisible('assignedUserCount')"
             align="center"
             label="分配人数"
             prop="assignedUserCount"
-            width="100"
+            :width="getRoleColumnWidth('assignedUserCount')"
           >
             <template #default="scope">
               <span class="permission-role-table__number">
@@ -199,22 +239,56 @@
               </span>
             </template>
           </el-table-column>
-          <el-table-column align="center" label="权限角色标识" min-width="180" prop="code" />
-          <el-table-column align="center" label="显示顺序" prop="sort" width="100" />
-          <el-table-column align="center" label="备注" min-width="180" prop="remark" show-overflow-tooltip />
-          <el-table-column align="center" label="状态" prop="status" width="100">
+          <el-table-column
+            v-if="isRoleColumnVisible('code')"
+            align="center"
+            label="权限角色标识"
+            min-width="180"
+            prop="code"
+            :width="getRoleColumnWidth('code')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('sort')"
+            align="center"
+            label="显示顺序"
+            prop="sort"
+            :width="getRoleColumnWidth('sort')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('remark')"
+            align="center"
+            label="备注"
+            min-width="180"
+            prop="remark"
+            show-overflow-tooltip
+            :width="getRoleColumnWidth('remark')"
+          />
+          <el-table-column
+            v-if="isRoleColumnVisible('status')"
+            align="center"
+            label="状态"
+            prop="status"
+            :width="getRoleColumnWidth('status')"
+          >
             <template #default="scope">
               <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
             </template>
           </el-table-column>
           <el-table-column
+            v-if="isRoleColumnVisible('createTime')"
             :formatter="dateFormatter"
             align="center"
             label="创建时间"
             prop="createTime"
-            width="180"
+            :width="getRoleColumnWidth('createTime')"
           />
-          <el-table-column :width="300" align="center" fixed="right" label="操作">
+          <el-table-column
+            :width="getRoleColumnWidth('actions')"
+            column-key="actions"
+            align="center"
+            fixed="right"
+            label="操作"
+          >
             <template #default="scope">
               <el-button
                 v-hasPermi="['system:role:update']"
@@ -280,6 +354,11 @@ import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
 import download from '@/utils/download'
 import * as RoleApi from '@/api/system/role'
+import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import RoleForm from './RoleForm.vue'
 import RoleCategoryForm from './RoleCategoryForm.vue'
 import RoleAssignMenuForm from './RoleAssignMenuForm.vue'
@@ -290,6 +369,30 @@ defineOptions({ name: 'SystemRole' })
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
+
+const roleDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'selection', label: '选择', width: 55, hideable: false, business: false },
+  { key: 'id', label: '权限角色编号', width: 120 },
+  { key: 'name', label: '权限角色名称', minWidth: 160 },
+  { key: 'categoryName', label: '所属分类', minWidth: 120 },
+  { key: 'type', label: '权限角色类型', width: 120, visible: false },
+  { key: 'assignedUserCount', label: '分配人数', width: 100 },
+  { key: 'code', label: '权限角色标识', minWidth: 180, visible: false },
+  { key: 'sort', label: '显示顺序', width: 100, visible: false },
+  { key: 'remark', label: '备注', minWidth: 180 },
+  { key: 'status', label: '状态', width: 100 },
+  { key: 'createTime', label: '创建时间', width: 180 },
+  { key: 'actions', label: '操作', width: 300, hideable: false, business: false }
+]
+const {
+  columns: roleColumns,
+  saving: roleColumnSaving,
+  isColumnVisible: isRoleColumnVisible,
+  getColumnWidth: getRoleColumnWidth,
+  handleHeaderDragend: handleRoleHeaderDragend,
+  saveConfig: saveRoleColumnConfig,
+  resetConfig: resetRoleColumnConfig
+} = useUserTableColumns('system.role.main', roleDefaultColumns)
 
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数

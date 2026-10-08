@@ -700,6 +700,22 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   activeOrderStatus?: TeamLeaderActiveOrderStatusSummaryRespVO
   pqcProductionRelease?: TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO
   operationFacts?: TeamLeaderActiveOrderOperationFactRespVO[]
+  reworkSource?: TeamLeaderActiveOrderReworkSourceRespVO
+}
+
+export interface TeamLeaderActiveOrderReworkSourceRespVO {
+  currentActiveOrderId: number | string
+  sourceActiveOrderId: number | string
+  sourceBusinessStatus: 'REWORKED'
+  reviewId: number | string
+  reviewCode: string
+  nonconformanceReason: string
+  reviewOpinion: string
+  qaUserId: number | string
+  disposedAt: string | number
+  qaSignature: TeamLeaderActiveOrderSignatureDetailRespVO
+  qaSignatureEvidence: import('../edhr/activeOrderSignature').ActiveOrderSignatureEvidence['evidence']
+  qaSignatureVerification: import('../edhr/activeOrderSignature').ActiveOrderSignatureEvidence['verification']
 }
 
 export interface TeamLeaderActiveOrderOperationFactRespVO {
@@ -1119,6 +1135,7 @@ export const uploadActiveOrderDossierFile = async (
   const response = await request.upload<ActiveOrderDossierFileUploadApiResp>({
     url: '/mes/pro/process-pool/team-leader/active-order/dossier-files/upload',
     data: formData,
+    timeout: 180000,
     onUploadProgress
   })
   if (!response.data) {
@@ -1241,6 +1258,7 @@ export const simulateStage2_5BackfillBatchExecution = async (
   return await request.post<Stage2_5BackfillBatchExecutionSimulationRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/simulation/stage2-5',
     data,
+    timeout: 180000,
     ignoreErrorMessage: true
   })
 }

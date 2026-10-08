@@ -477,25 +477,37 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     }
 
     @Test
-    void deniedActualSystemUserCreatePermissionStopsNewSubmitBeforeSignatureAndFacts() throws Exception {
+    void leaderCanSubmitForSelectedEmployeeWithoutEmployeeMenuPermission() throws Exception {
         var type=cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationServiceImpl.class;
         var constructor=type.getConstructors()[0];
         var actual=(cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationServiceImpl)constructor.newInstance(
                 java.util.Arrays.stream(constructor.getParameterTypes()).map(org.mockito.Mockito::mock).toArray());
-        var permission=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
-        org.springframework.test.util.ReflectionTestUtils.setField(actual,"permissionApi",permission);
         org.mockito.Mockito.doAnswer(call->{actual.authorizeNewSubmission(call.getArgument(0),call.getArgument(1));return null;})
                 .when(submitAuthorizationService).authorizeNewSubmission(any(),any());
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
+        when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
+        when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
+        when(signatureService.recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
+                eq("一线生产报工提交"), any(MesProductionSubmitSignatureContext.class))).thenReturn(4001L);
         stubValidLossReason();
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
+                .setActualEmployeeId(9102L)
+                .setSignatureEmployeeId(9102L)
+                .setSignatureIdentityDomain("SYSTEM_USER");
         try(MockedStatic<SecurityFrameworkUtils> security=mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(ServiceException.class,()->submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
         }
-        verify(permission).hasAnyPermissions(org.mockito.ArgumentMatchers.eq(9001L),org.mockito.ArgumentMatchers.eq("mes:pro-feedback:create"));
-        verifyNoInteractions(autoCodeRecordService,signatureService,feedbackService,feedbackMaterialService);
-        verify(processPoolSubmitEventService,never()).createSubmitEvent(any());
-        verify(gxpAuditService,never()).append(any());
+        verify(submitAuthorizationService).authorizeNewSubmission(9102L, "SYSTEM_USER");
+        verify(submitAuthorizationService).authorizeActiveOrder(9001L, 81L, 41L, 21L, 71L, 31L);
+        verify(signatureService).recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
+                eq("一线生产报工提交"), any(MesProductionSubmitSignatureContext.class));
+        verify(feedbackService).createFrontlineFeedback(argThat(payload ->
+                Long.valueOf(9102L).equals(payload.getFeedbackUserId())));
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
+                Long.valueOf(9102L).equals(payload.getActualEmployeeId())
+                        && Long.valueOf(9102L).equals(payload.getSignatureEmployeeId())
+                        && Long.valueOf(9001L).equals(payload.getDeviceAccountUserId())));
     }
 
     @Test

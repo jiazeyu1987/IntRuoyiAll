@@ -133,7 +133,7 @@ const load = async () => {
   const serial = ++requestSerial
   loading.value = true
   try {
-    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt[0], initiatedAtEnd: query.initiatedAt[1], status: activeStatus.value === 'ALL' ? undefined : activeStatus.value })
+    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt?.[0], initiatedAtEnd: query.initiatedAt?.[1], status: activeStatus.value === 'ALL' ? undefined : activeStatus.value })
     if (serial !== requestSerial) return
     rows.value = data.list || []
     total.value = data.total || 0

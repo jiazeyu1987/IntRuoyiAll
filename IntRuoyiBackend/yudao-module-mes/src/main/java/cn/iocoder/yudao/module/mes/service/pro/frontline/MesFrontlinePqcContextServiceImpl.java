@@ -548,6 +548,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         }
         MesFrontlinePqcProcessRespVO.PqcTaskOption option = new MesFrontlinePqcProcessRespVO.PqcTaskOption();
         option.setPqcTaskId(task.getId());
+        option.setRouteProcessId(task.getRouteProcessId());
+        option.setProcessId(task.getProcessId());
         option.setRegulationVersionId(task.getRegulationVersionId());
         option.setQaProcessId(task.getQaProcessId());
         option.setQaItemCode(task.getQaItemCode());
@@ -571,6 +573,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         if (routeDeviceContext == null) {
             throw exception(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH, pqcTaskIdentityText(task));
         }
+        option.setProductionProcessName(routeDeviceContext.productionProcessName());
         option.setInspectionItems(copyInspectionItemsWithDeviceParameters(taskInspectionItems,
                 routeDeviceContext));
         if (option.getInspectionItems().isEmpty()
@@ -832,7 +835,8 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
             parametersByDeviceCode.put(deviceCode,
                     parametersByDeviceId.getOrDefault(routeDeviceId, List.of()));
         }
-        return new PqcRouteDeviceContext(Set.copyOf(routeDeviceCodes), Map.copyOf(parametersByDeviceCode));
+        return new PqcRouteDeviceContext(snapshot.getProcessNameSnapshot(),
+                Set.copyOf(routeDeviceCodes), Map.copyOf(parametersByDeviceCode));
     }
 
     private static List<MesFrontlinePqcProcessRespVO.PqcInspectionItem> copyInspectionItemsWithDeviceParameters(
@@ -2285,6 +2289,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
     }
 
     private record PqcRouteDeviceContext(
+            String productionProcessName,
             Set<String> deviceCodes,
             Map<String, List<MesFrontlinePqcProcessRespVO.PqcDeviceParameter>> parametersByDeviceCode) {
     }

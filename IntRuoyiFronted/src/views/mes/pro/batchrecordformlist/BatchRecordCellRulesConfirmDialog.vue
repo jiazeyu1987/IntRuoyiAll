@@ -182,6 +182,51 @@
           data-fill-config-panel="mapping-control"
         >
           <div class="batch-record-cell-rules-editor__side-scroll">
+            <section
+              v-if="activeConfigMode === 'source' && !hasAssistFillConfiguration"
+              class="batch-record-cell-rules-editor__assist-filler-control"
+              data-fill-config-panel="whole-form-responsibility"
+            >
+              <strong>整表填写责任</strong>
+              <template v-if="wholeFormFillRule">
+                <el-select
+                  v-model="wholeFormFillRule.candidateSourceType"
+                  aria-label="填写责任来源"
+                  @change="wholeFormFillRule.candidateSourceIds = []"
+                >
+                  <el-option
+                    v-for="option in assistSubjectTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="wholeFormFillRule.candidateSourceIds"
+                  multiple
+                  filterable
+                  clearable
+                  placeholder="选择整表填写人或角色"
+                  aria-label="整表填写人或角色"
+                >
+                  <el-option
+                    v-for="option in wholeFormSubjectOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select v-model="wholeFormFillRule.completionPolicy" aria-label="填写完成条件">
+                  <el-option label="任一人完成" value="ANY_ONE" />
+                  <el-option label="全部人员完成" value="ALL" />
+                </el-select>
+                <el-switch
+                  v-model="wholeFormFillRule.enabled"
+                  active-text="启用整表填写责任"
+                />
+              </template>
+              <el-button v-else @click="configureWholeFormFillRule">配置整表填写责任</el-button>
+            </section>
             <div
               v-if="activeConfigMode === 'assistMapping'"
               class="batch-record-cell-rules-editor__control-head"
@@ -625,6 +670,7 @@ import {
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 import {
   EdhrProcessFormPermissionRuleApi,
+  type EdhrProcessFormCandidateRule,
   type EdhrProcessFormCandidateSourceType,
   type EdhrProcessFormCompletionPolicy,
   type EdhrProcessFormFillAssignment
@@ -760,6 +806,12 @@ const assistResponsibilitySubjects = ref<AssistResponsibilitySubject[]>([])
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const assistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
+const wholeFormFillRule = ref<EdhrProcessFormCandidateRule | null>(null)
+const savedWholeFormFillRuleSignature = ref('null')
+const loadedFillAssignmentCount = ref(0)
+const hasAssistFillConfiguration = computed(
+  () => assistRows.value.length > 0 || loadedFillAssignmentCount.value > 0
+)
 const savedStateSignature = ref('')
 const simpleUserOptions = ref<UserVO[]>([])
 const simpleRoleOptions = ref<RoleVO[]>([])
@@ -1266,6 +1318,65 @@ const assistSubjectTypeOptions = [
   { label: '角色', value: 'ROLE' }
 ] as const
 
+const wholeFormSubjectOptions = computed(() =>
+  wholeFormFillRule.value?.candidateSourceType === 'ROLE'
+    ? assistRoleOptions.value
+    : assistUserOptions.value
+)
+
+const wholeFormFillRuleBusinessFields = (rule: EdhrProcessFormCandidateRule | null) =>
+  rule
+    ? {
+        candidateSourceType: rule.candidateSourceType,
+        candidateSourceIds: normalizeAssignmentIds(rule.candidateSourceIds),
+        completionPolicy: rule.completionPolicy,
+        dueMinutes: rule.dueMinutes,
+        enabled: rule.enabled,
+        remark: rule.remark
+      }
+    : null
+
+const buildWholeFormFillRuleSignature = (rule: EdhrProcessFormCandidateRule | null) =>
+  JSON.stringify(wholeFormFillRuleBusinessFields(rule))
+
+const applyWholeFormFillRule = (rule?: EdhrProcessFormCandidateRule | null) => {
+  wholeFormFillRule.value = rule
+    ? {
+        ...rule,
+        candidateSourceType: normalizeAssignmentSourceType(rule.candidateSourceType),
+        candidateSourceIds: [...rule.candidateSourceIds]
+      }
+    : null
+  savedWholeFormFillRuleSignature.value = buildWholeFormFillRuleSignature(wholeFormFillRule.value)
+}
+
+const configureWholeFormFillRule = () => {
+  wholeFormFillRule.value = {
+    candidateSourceType: 'USERS',
+    candidateSourceIds: [],
+    completionPolicy: 'ANY_ONE',
+    enabled: true
+  }
+}
+
+const normalizedWholeFormFillRuleForSave = (): EdhrProcessFormCandidateRule | null => {
+  if (hasAssistFillConfiguration.value || !wholeFormFillRule.value) return null
+  const rule = wholeFormFillRule.value
+  const candidateSourceIds = normalizeAssignmentIds(rule.candidateSourceIds)
+  if (!candidateSourceIds.length) {
+    throw new Error('整表填写责任缺少填写人或角色。')
+  }
+  if (buildWholeFormFillRuleSignature(rule) === savedWholeFormFillRuleSignature.value) return null
+  return {
+    candidateSourceType: rule.candidateSourceType,
+    candidateSourceIds,
+    completionPolicy: rule.completionPolicy,
+    dueMinutes: rule.dueMinutes,
+    enabled: rule.enabled,
+    remark: rule.remark
+  }
+}
+
 const assistSubjectOptions = computed(() =>
   pendingAssistSubjectType.value === 'ROLE' ? assistRoleOptions.value : assistUserOptions.value
 )
@@ -1359,6 +1470,7 @@ const buildEditableStateSignature = () =>
   JSON.stringify(
     stableDirtyValue({
       rules: sortRules(ruleRows.value).map(normalizeRuleForDirtyCheck),
+      wholeFormFillRule: wholeFormFillRuleBusinessFields(wholeFormFillRule.value),
       assistRows: orderAssistGridRows(normalizeAssistRows(assistRows.value)),
       assistAssignments: Object.keys(assistAssignments)
         .sort()
@@ -2321,6 +2433,8 @@ const loadCellRules = async () => {
     simpleRoleOptions.value = roles
     applyCellRulesResponse(data)
     applyAssistAssignments(permission.fillAssignments || [])
+    loadedFillAssignmentCount.value = permission.fillAssignments?.length || 0
+    applyWholeFormFillRule(permission.fillRule)
     markEditableStateClean()
   } catch (error) {
     const resolved = resolveErrorMessage(error, '填写规则读取失败，请联系管理员。')
@@ -2362,6 +2476,10 @@ const confirmAllRules = async () => {
     validateRuleRowsBeforeSave()
     const assistRowsForSave = normalizedAssistRowsForSave()
     const hasAssistRowsForSave = assistRowsForSave.length > 0
+    const fillAssignmentsForSave = hasAssistRowsForSave
+      ? normalizedAssistAssignmentsForSave(assistRowsForSave)
+      : null
+    const wholeFormFillRuleForSave = normalizedWholeFormFillRuleForSave()
     const rules = ruleRows.value.map(toManualReviewedRule)
     const data = await BatchRecordReportApi.saveCellRules({
       reportId: reportId.value,
@@ -2378,8 +2496,14 @@ const confirmAllRules = async () => {
     if (hasAssistRowsForSave) {
       await EdhrProcessFormPermissionRuleApi.saveByReport({
         batchRecordReportId: reportId.value,
-        fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)
+        fillAssignments: fillAssignmentsForSave!
       })
+    } else if (wholeFormFillRuleForSave) {
+      const permission = await EdhrProcessFormPermissionRuleApi.saveByReport({
+        batchRecordReportId: reportId.value,
+        fillRule: wholeFormFillRuleForSave
+      })
+      applyWholeFormFillRule(permission.fillRule)
     }
     applyCellRulesResponse(data)
     markEditableStateClean()

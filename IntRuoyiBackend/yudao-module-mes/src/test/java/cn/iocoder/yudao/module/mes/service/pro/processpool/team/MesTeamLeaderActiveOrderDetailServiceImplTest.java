@@ -1440,6 +1440,181 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode(), error.getCode());
     }
 
+
+    @Test
+    void ordinaryOrderDoesNotReadAnyReworkSource() {
+        var normal = MesProcessPoolActiveOrderDO.builder().id(420L).build();
+        assertNull(org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", normal));
+        org.mockito.Mockito.verifyNoInteractions(activeOrderMapper, nonconformanceReviewMapper, signatureQueryService);
+    }
+
+    @Test
+    void partialReworkReferenceIsAnErrorInsteadOfAnOrdinaryOrder() {
+        var current = MesProcessPoolActiveOrderDO.builder().id(420L).reworkSourceActiveOrderId(419L).build();
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current));
+        assertEquals("REWORK_DETAIL_FORMAL_LINK_REQUIRED", error.getMessage());
+    }
+
+    @Test
+    void exactFormalSourceReviewAndQaEvidenceAreProjectedWithoutWorkOrderLookup() {
+        var current = reworkFixture();
+        MesTeamLeaderActiveOrderDetail.ReworkSourceDetail source =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current);
+        assertEquals(420L, source.getCurrentActiveOrderId()); assertEquals(419L, source.getSourceActiveOrderId());
+        assertEquals(90L, source.getReviewId()); assertEquals(9908090345L, source.getQaUserId());
+        assertEquals(29026L, source.getQaSignature().getSignatureId());
+        assertEquals("VALID", source.getQaSignatureVerification().verificationStatus());
+        org.mockito.Mockito.verify(activeOrderMapper).selectByIdIgnoreDeleted(419L);
+        org.mockito.Mockito.verify(nonconformanceReviewMapper).selectById(90L);
+    }
+
+    @Test
+    void sameWorkOrderCannotReplaceTheFormalSourceOrCrossTenantReview() {
+        var current = reworkFixture();
+        var wrong = MesProEdhrNonconformanceReviewDO.builder().id(90L).activeOrderId(418L).workOrderId(990274L)
+                .reviewStatus("closed").disposition("rework").qaUserId(9908090345L).closedAt(LocalDateTime.now()).build();
+        wrong.setTenantId(1L); when(nonconformanceReviewMapper.selectById(90L)).thenReturn(wrong);
+        assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current));
+        wrong.setActiveOrderId(419L).setTenantId(2L);
+        assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current));
+    }
+
+    @Test
+    void mutatedQaDecisionContentOrEvidenceHashCannotAppearVerified() {
+        var current = reworkFixture();
+        var review = nonconformanceReviewMapper.selectById(90L);
+        review.setReviewOpinion("被修改的意见");
+        IllegalStateException snapshotError = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current));
+        assertEquals("REWORK_DETAIL_QA_SNAPSHOT_MISMATCH", snapshotError.getMessage());
+        review.setReviewOpinion("确认返工");
+        when(signatureQueryService.verifyEvidence(29026L)).thenReturn(new ElectronicSignatureVerificationDTO(
+                29026L, "VALID", "content", "content", "evidence", "different", "SHA256", "v1"));
+        IllegalStateException hashError = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "resolveReworkSource", current));
+        assertEquals("REWORK_DETAIL_QA_EVIDENCE_MISMATCH", hashError.getMessage());
+    }
+
+
+    @Test
+    void softDeletedReworkedSourceUsesTheDedicatedHistoricalMapper() {
+        reworkFixture();
+        var source = activeOrderMapper.selectByIdIgnoreDeleted(419L);
+        source.setRouteId(9201L).setVersion(0); source.setDeleted(true);
+        when(detailReadMapper.selectArchivedReworkByActiveOrderId(419L,1L)).thenReturn(List.of(
+                row(9101L,5001L,6001L,"清洗","100",null,null,null,null,null)
+                        .setActiveOrderId(419L).setWorkOrderId(990274L)));
+        when(processMaterialService.listArchivedFrozenMaterials(419L,9201L,5001L,6001L)).thenReturn(List.of());
+        var detail = service.getArchivedFormalDetail(419L);
+        assertEquals(419L,detail.getActiveOrderId()); assertEquals(1,detail.getProcesses().size());
+        org.mockito.Mockito.verify(detailReadMapper).selectArchivedReworkByActiveOrderId(419L,1L);
+        org.mockito.Mockito.verify(detailReadMapper,org.mockito.Mockito.never()).selectByActiveOrderId(419L);
+        org.mockito.Mockito.verifyNoInteractions(signatureQueryService);
+    }
+
+    @Test
+    void canonicalReviewAndAggregateCannotBeSubstitutedDespiteSelfConsistentHashes() {
+        var current = reworkFixture(); var good = signatureQueryService.getById(29026L);
+        for(String field : List.of("reviewSourceId","cellValuesHash")) {
+            var wrong = JSON.parseObject(good.canonicalContentJson()); wrong.put(field,"wrong");
+            when(signatureQueryService.getById(29026L)).thenReturn(copyReworkSignature(good,good.actorId(),wrong.toJSONString()));
+            IllegalStateException error = assertThrows(IllegalStateException.class,
+                    () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+            assertEquals("REWORK_DETAIL_QA_CANONICAL_MISMATCH",error.getMessage());
+        }
+    }
+
+    @Test
+    void verifiedSystemUserIdentityMustBelongToTheFormalQaSignerAndTenant() {
+        var current = reworkFixture(); var good = signatureQueryService.getById(29026L);
+        var content = JSON.parseObject(good.canonicalContentJson());
+        content.put("signatureIdentity",new java.util.LinkedHashMap<>(java.util.Map.of("domain","SYSTEM_USER","tenantId",1L,"signerId",9908090345L,
+                "operatorId",9908090345L,"displayName","QA测试人员")));
+        when(signatureQueryService.getById(29026L)).thenReturn(copyReworkSignature(good,good.actorId(),content.toJSONString()));
+        MesTeamLeaderActiveOrderDetail.ReworkSourceDetail valid =
+                org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current);
+        assertEquals(29026L,valid.getQaSignature().getSignatureId());
+        content.getJSONObject("signatureIdentity").put("tenantId",2L);
+        when(signatureQueryService.getById(29026L)).thenReturn(copyReworkSignature(good,good.actorId(),content.toJSONString()));
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        assertEquals("REWORK_DETAIL_QA_IDENTITY_MISMATCH",error.getMessage());
+    }
+
+    @Test
+    void wrongQaActorAndCalculatedContentHashFailBeforeProjection() {
+        var current = reworkFixture(); var good = signatureQueryService.getById(29026L);
+        when(signatureQueryService.getById(29026L)).thenReturn(copyReworkSignature(good,9908090346L,good.canonicalContentJson()));
+        IllegalStateException actorError = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        assertEquals("REWORK_DETAIL_QA_SIGNATURE_MISMATCH",actorError.getMessage());
+        when(signatureQueryService.getById(29026L)).thenReturn(good);
+        when(signatureQueryService.verifyEvidence(29026L)).thenReturn(new ElectronicSignatureVerificationDTO(
+                29026L,"VALID","content","different","evidence","evidence","SHA256","v1"));
+        IllegalStateException hashError = assertThrows(IllegalStateException.class,
+                () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        assertEquals("REWORK_DETAIL_QA_EVIDENCE_MISMATCH",hashError.getMessage());
+    }
+
+    @Test
+    void pendingVoidAndForeignSourceOrdersAreNeverPresentedAsReworkLineage() {
+        var current = reworkFixture(); var review = nonconformanceReviewMapper.selectById(90L);
+        review.setReviewStatus("pending_review");
+        assertThrows(IllegalStateException.class,() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        review.setReviewStatus("closed").setDisposition("void");
+        assertThrows(IllegalStateException.class,() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        review.setDisposition("rework"); var source = activeOrderMapper.selectByIdIgnoreDeleted(419L);
+        source.setWorkOrderId(990275L);
+        assertThrows(IllegalStateException.class,() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+        source.setWorkOrderId(990274L); source.setTenantId(2L);
+        assertThrows(IllegalStateException.class,() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,"resolveReworkSource",current));
+    }
+
+    private ElectronicSignatureEvidenceDTO copyReworkSignature(ElectronicSignatureEvidenceDTO s,Long actor,String canonical) {
+        return new ElectronicSignatureEvidenceDTO(s.id(),s.moduleCode(),s.actionCode(),s.subjectType(),s.subjectId(),s.subjectVersion(),
+                actor,s.meaningCode(),s.meaningLabel(),s.reason(),s.signedAt(),s.timeEvidenceId(),s.authenticationMethod(),
+                s.contentHash(),s.evidenceHash(),s.algorithm(),s.keyVersion(),s.policyVersion(),s.verificationStatus(),
+                s.processInstanceId(),s.taskId(),s.nodeCode(),s.nodeOrder(),canonical,s.beforeContentJson(),s.afterContentJson(),
+                s.fieldDiffJson(),s.actorDisplayName(),s.timeZone());
+    }
+
+    private MesProcessPoolActiveOrderDO reworkFixture() {
+        var at = LocalDateTime.of(2026, 10, 5, 18, 0);
+        var current = MesProcessPoolActiveOrderDO.builder().id(420L).workOrderId(990274L)
+                .reworkSourceActiveOrderId(419L).reworkReviewId(90L).build(); current.setTenantId(1L);
+        var source = MesProcessPoolActiveOrderDO.builder().id(419L).workOrderId(990274L)
+                .activeStatus("REMOVED").businessStatus("REWORKED").build(); source.setTenantId(1L);
+        var review = MesProEdhrNonconformanceReviewDO.builder().id(90L).reviewCode("NCR-90")
+                .sourceType("ACTIVE_ORDER").sourceId(419L).activeOrderId(419L).workOrderId(990274L)
+                .reviewStatus("closed").disposition("rework").qaUserId(9908090345L)
+                .closedAt(at).nonconformanceReason("需要返工").reviewOpinion("确认返工").build(); review.setTenantId(1L);
+        String aggregate = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrQaDispositionAggregateHash.build(
+                review, "rework", null, null, null, review.getReviewOpinion(), review.getQaUserId());
+        review.setTraceSnapshotJson("{\"reviewId\":90,\"sourceType\":\"ACTIVE_ORDER\",\"sourceId\":419,"
+                + "\"qaUserId\":9908090345,\"disposition\":\"rework\",\"qaSignatureSnapshotJson\":{"
+                + "\"reviewId\":90,\"qaUserId\":9908090345,\"signatureId\":29026,"
+                + "\"actionType\":\"QA_DISPOSITION\",\"disposition\":\"rework\",\"aggregateHash\":\"" + aggregate + "\"}}");
+        String action = MesProBatchRecordExecutionSignatureService.ACTION_QA_DISPOSITION;
+        String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, action,
+                null, null, null, null, null, null, null, "EDHR_NONCONFORMANCE_REVIEW", 90L,
+                "eDHR不合格评审处置", action, null, null, aggregate, null);
+        when(activeOrderMapper.selectByIdIgnoreDeleted(419L)).thenReturn(source);
+        lenient().when(nonconformanceReviewMapper.selectById(90L)).thenReturn(review);
+        String canonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(9908090345L,"MES",action,"MES_BATCH_RECORD",
+                        subject,cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject),"确认返工")).canonicalContentJson();
+        lenient().when(signatureQueryService.getById(29026L)).thenReturn(new ElectronicSignatureEvidenceDTO(
+                29026L, "MES", action, "MES_BATCH_RECORD", subject, cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject),
+                9908090345L, action, "QA处置", "确认返工", at, "time", "PASSWORD", "content", "evidence",
+                "SHA256", "v1", "v1", "VALID", null, null, null, null, canonical, null, null, null, "QA测试人员"));
+        lenient().when(signatureQueryService.verifyEvidence(29026L)).thenReturn(new ElectronicSignatureVerificationDTO(
+                29026L, "VALID", "content", "content", "evidence", "evidence", "SHA256", "v1"));
+        return current;
+    }
+
     private static MesTeamLeaderActiveOrderDetailReadDO row(Long snapshotId,
                                                               Long routeProcessId,
                                                               Long processId,

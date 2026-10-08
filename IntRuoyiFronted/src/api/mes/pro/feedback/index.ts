@@ -300,6 +300,9 @@ export interface FrontlinePqcProcessVO {
 
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
+  routeProcessId: number
+  processId: number
+  productionProcessName: string | null
   regulationVersionId: number
   qaProcessId: number
   qaItemCode?: string | null
@@ -1342,6 +1345,7 @@ export const ProFeedbackApi = {
   submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
     return await request.post<FrontlinePqcInspectionSubmitRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
+      timeout: 180000,
       data,
       ignoreErrorMessage: true
     })

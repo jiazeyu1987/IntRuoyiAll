@@ -1394,7 +1394,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(existing.getId()), "OPEN",
                 auditReason, existing.getId(), null, null, existing.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, entryAuditMetadata(provisionCommand));
+                "SUCCESS", null, null, entryAuditMetadata(provisionCommand), true);
         return result;
     }
 

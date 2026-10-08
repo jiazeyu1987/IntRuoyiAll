@@ -30,7 +30,26 @@ public class MesTeamLeaderActiveOrderDetail {
     private List<ProcessDetail> processes = List.of();
     private ActiveOrderStatusSummary activeOrderStatus;
     private PqcProductionReleaseSummary pqcProductionRelease;
+    private ReworkSourceDetail reworkSource;
     private List<OperationFact> operationFacts = List.of();
+
+
+    @Data
+    @Accessors(chain = true)
+    public static class ReworkSourceDetail {
+        private Long currentActiveOrderId;
+        private Long sourceActiveOrderId;
+        private String sourceBusinessStatus;
+        private Long reviewId;
+        private String reviewCode;
+        private String nonconformanceReason;
+        private String reviewOpinion;
+        private Long qaUserId;
+        private LocalDateTime disposedAt;
+        private SignatureDetail qaSignature;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO qaSignatureEvidence;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO qaSignatureVerification;
+    }
 
     @Data
     @Accessors(chain = true)

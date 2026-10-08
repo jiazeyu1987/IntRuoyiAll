@@ -61,7 +61,55 @@ const voidTask=()=>({id:taskId,activeOrderId:'413',sourceId:'229',roundId:'229',
 test('作废 DONE 在原周期关闭后跳转真实个人通知页并强制只读',async()=>{
  const task=voidTask(),nav=navigation({task,current:false,processable:false});let pushed;await nav.navigateToActiveOrderHandoff({push:async value=>pushed=value},nav.resolveActiveOrderHandoffTarget(params(task)));assert.equal(pushed.path,'/user/profile');assert.equal(pushed.query.tab,'notifyMessage');assert.equal(pushed.query.handoffReadOnly,'1');assert.equal(pushed.query.reviewId,'229')
 })
-function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+function panel(api, route={query:{}}){const nav=navigation(null), unmount=[];const values=script('src/views/mes/pro/handoff/ActiveOrderHandoffPanel.vue',{ref:vue.ref,computed:vue.computed,watch:()=>{},onMounted:()=>{},onBeforeUnmount:fn=>unmount.push(fn),api,useRouter:()=>({push:async()=>{}}),useRoute:()=>route,resolveActiveOrderHandoffTarget:nav.resolveActiveOrderHandoffTarget,navigateToActiveOrderHandoff:nav.navigateToActiveOrderHandoff,isClosedHandoffCompletion:nav.isClosedHandoffCompletion},['tasks','page','PAGE_SIZE','pagedTasks','changePage','loading','error','load','showReceipts','receipts','receiptError','retryReason','retryable','retry','resultOpen','result','openVoidResult','completedResultOpen','completedResult','completedResultError','completedResultLoading','completionSnapshot','loadHandoffResult','closeCompletedResult','completedResultVisibilityChanged']);return{...values,unmount:()=>unmount.forEach(fn=>fn())}}
+const handoffRows = count => Array.from({length:count},(_,index)=>({
+ id:(2100000000000000000n+BigInt(index)).toString(),activeOrderId:index<76?'422':'418',
+ taskType:'PQC_HANDOFF',status:index<76?'TODO':index%2?'DONE':'CANCELED',
+ sourceId:String(300000+index),roundId:'0',reason:'原自然顺序 '+index,actionUrl:'/original/'+index
+}))
+test('4866条原交接固定100条分49页，顺序、长整数身份和DONE/CANCELED全部保留',async()=>{
+ const rows=handoffRows(4866),p=panel({myHandoffs:async()=>rows});await p.load()
+ assert.equal(p.PAGE_SIZE,100);assert.deepEqual(p.tasks.value,rows);assert.equal(p.pagedTasks.value.length,100)
+ assert.equal(p.pagedTasks.value.filter(row=>row.activeOrderId==='422').length,76)
+ const ids=[]
+ for(let page=1;page<=49;page++){
+  p.changePage(page);assert.equal(p.pagedTasks.value.length,page===49?66:100)
+  p.pagedTasks.value.forEach((row,index)=>assert.equal(row,p.tasks.value[(page-1)*100+index]))
+  ids.push(...p.pagedTasks.value.map(row=>row.id))
+ }
+ assert.deepEqual(ids,rows.map(row=>row.id));assert.equal(new Set(ids).size,4866)
+ assert.equal(typeof ids[0],'string');assert.equal(ids[0],'2100000000000000000')
+ assert.ok(p.tasks.value.some(row=>row.status==='DONE'));assert.ok(p.tasks.value.some(row=>row.status==='CANCELED'))
+})
+test('刷新立即回第一页，返回条数缩小时夹限有效页，错误清空并显示原失败',async()=>{
+ let next=handoffRows(4866);const p=panel({myHandoffs:()=>next instanceof Error?Promise.reject(next):Promise.resolve(next)})
+ await p.load();p.changePage(100);assert.equal(p.page.value,49);p.changePage(0);assert.equal(p.page.value,1)
+ p.changePage(49);const pending=deferred();p.tasks.value=handoffRows(4866);next=pending.promise
+ const request=p.load();assert.equal(p.page.value,1);assert.equal(p.loading.value,true)
+ p.changePage(49);pending.resolve(handoffRows(101));await request
+ assert.equal(p.page.value,2);assert.equal(p.pagedTasks.value.length,1);assert.equal(p.loading.value,false)
+ next=new Error('formal list failed');await p.load();assert.equal(p.page.value,1);assert.deepEqual(p.tasks.value,[])
+ assert.deepEqual(p.pagedTasks.value,[]);assert.equal(p.error.value,'formal list failed');assert.equal(p.loading.value,false)
+ next=[];await p.load();p.changePage(20);assert.equal(p.page.value,1);assert.deepEqual(p.pagedTasks.value,[]);assert.equal(p.error.value,'')
+})
+test('旧刷新迟到成功或失败都不能覆盖新列表、页码、错误或loading',async()=>{
+ for(const rejected of [false,true]){
+  const a=deferred(),b=deferred();let calls=0;const p=panel({myHandoffs:()=>++calls===1?a.promise:b.promise})
+  const first=p.load(),second=p.load();b.resolve(handoffRows(101));await second;p.changePage(2)
+  if(rejected)a.reject(new Error('late old failure'));else a.resolve(handoffRows(4866))
+  await first;assert.equal(p.tasks.value.length,101);assert.equal(p.page.value,2);assert.equal(p.pagedTasks.value.length,1)
+  assert.equal(p.error.value,'');assert.equal(p.loading.value,false)
+ }
+})
+test('卸载失效列表请求，后页原任务回执仍精确读取原字符串ID',async()=>{
+ const rows=handoffRows(4866),reads=[],p=panel({myHandoffs:async()=>rows,handoffReceipts:async id=>{reads.push(id);return[]}})
+ await p.load();p.changePage(49);await p.showReceipts(p.pagedTasks.value[65]);assert.deepEqual(reads,[rows[4865].id]);assert.deepEqual(p.tasks.value,rows)
+ for(const rejected of [false,true]){
+  const late=deferred(),q=panel({myHandoffs:()=>late.promise});const request=q.load();q.unmount()
+  if(rejected)late.reject(new Error('after unmount'));else late.resolve(rows)
+  await request;assert.deepEqual(q.tasks.value,[]);assert.deepEqual(q.pagedTasks.value,[]);assert.equal(q.error.value,'')
+ }
+})
 test('真实回执失败可见，重试只发送准确本人通知版本及原因',async()=>{
  let writes=[];let failed=true;const task=returnTask();const p=panel({handoffReceipts:async()=>[{id:'44',status:failed?'FAILED':'SENT',rowVersion:2,attemptCount:1,lastErrorSummary:'ServiceException'}],retryHandoff:async data=>{writes.push(data);failed=false}})
  await p.showReceipts(task);assert.equal(p.receipts.value[0].status,'FAILED');assert.equal(p.retryable.value,true);await p.retry();assert.equal(writes.length,0);p.retryReason.value='恢复本人投递';await p.retry();assert.deepEqual(writes,[{id:'44',rowVersion:2,reason:'恢复本人投递'}]);assert.equal(p.receipts.value[0].status,'SENT');assert.equal(task.status,'TODO');assert.equal(p.retryable.value,false)

@@ -1,5 +1,7 @@
 # 项目经验索引
 
+- Keywords: 本机空间释放, 跨盘文件迁移, 静态文件与运行数据, 已知文件夹重定向, 源目标映射, SHA256校验后删除, 并发磁盘写入 -> `docs/local-runtime.md#本机跨盘文件迁移边界`
+
 - Keywords: afterCommit仍绑定原事务, REQUIRED消息未提交, 独立REQUIRES_NEW平台发送, 真实消息数据库回读 -> `docs/backend-development.md#站内信领域幂等必须延伸到平台消息门禁`
 - Keywords: GxP beforeObjectVersion, before-after各自版本, 真实审计helper command, 方法重载locator唯一, 真实写方法扫描可达 -> `docs/backend-development.md#GxP-业务写入统一审计接入门禁`
 - Keywords: 通知深链原周期, RETURN父页隔离, 禁止默认最新订单, 父页普通提交guard, 迟到配置响应世代, 保存责任人姓名选项 -> `docs/frontend-development.md#编辑表单与签署对象的一致性`
