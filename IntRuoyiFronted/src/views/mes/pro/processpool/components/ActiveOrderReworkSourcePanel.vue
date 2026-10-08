@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useUserStore } from '@/store/modules/user'
-import type { TeamLeaderActiveOrderReworkSourceRespVO } from '@/api/mes/pro/processPool/teamLeader'
+import type { TeamLeaderActiveOrderReworkSourceRespVO } from '@/api/mes/pro/processpool/teamLeader'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { buildReworkSourceDetailLocation } from './activeOrderReworkSourceLocation'
 

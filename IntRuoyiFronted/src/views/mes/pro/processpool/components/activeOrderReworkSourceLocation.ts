@@ -1,4 +1,4 @@
-import type { TeamLeaderActiveOrderReworkSourceRespVO } from '@/api/mes/pro/processPool/teamLeader'
+import type { TeamLeaderActiveOrderReworkSourceRespVO } from '@/api/mes/pro/processpool/teamLeader'
 
 const exactId = (value: number | string) => {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new Error('返工周期编号精度无效')

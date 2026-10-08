@@ -194,7 +194,7 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
     return target ? [target] : []
   }
   return [resolveDccPublicationTarget(templateParams), resolveShowroomProductTarget(templateParams), resolveBpmApprovalTarget(templateParams), resolveEdhrWorkTaskTarget(templateParams)].filter(
-    (target): target is NotifyMessageTarget => Boolean(target)
+    (target): target is NonNullable<typeof target> => Boolean(target)
   )
 }
 
