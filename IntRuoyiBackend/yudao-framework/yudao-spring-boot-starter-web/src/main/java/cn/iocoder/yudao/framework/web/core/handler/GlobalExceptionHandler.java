@@ -5,6 +5,7 @@ import cn.hutool.core.exceptions.ExceptionUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.apilog.core.annotation.ApiAccessLog;
 import cn.iocoder.yudao.framework.common.biz.infra.logger.ApiErrorLogCommonApi;
 import cn.iocoder.yudao.framework.common.biz.infra.logger.dto.ApiErrorLogCreateReqDTO;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -48,6 +50,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.*;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.ATTRIBUTE_HANDLER_METHOD;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.getLogRequestUri;
 
 /**
  * 全局异常处理器，将 Exception 翻译成 CommonResult + 对应的异常编号
@@ -59,6 +63,8 @@ import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeC
 @Slf4j
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class GlobalExceptionHandler {
+
+    private static final String REQUEST_PARAMETERS_PROTECTED = "参数禁止记录";
 
     /**
      * 忽略的 ServiceException 错误提示，避免打印过多 logger
@@ -79,6 +85,9 @@ public class GlobalExceptionHandler {
      * @return 通用返回
      */
     public CommonResult<?> allExceptionHandler(HttpServletRequest request, Throwable ex) {
+        if (isRequestLoggingDisabled(request)) {
+            return protectedExceptionHandler(request, ex);
+        }
         if (ex instanceof MissingServletRequestParameterException) {
             return missingServletRequestParameterExceptionHandler((MissingServletRequestParameterException) ex);
         }
@@ -128,6 +137,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = MissingServletRequestParameterException.class)
     public CommonResult<?> missingServletRequestParameterExceptionHandler(MissingServletRequestParameterException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[missingServletRequestParameterExceptionHandler]", ex);
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数缺失:%s", ex.getParameterName()));
     }
@@ -139,6 +152,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public CommonResult<?> methodArgumentTypeMismatchExceptionHandler(MethodArgumentTypeMismatchException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[methodArgumentTypeMismatchExceptionHandler]", ex);
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", ex.getMessage()));
     }
@@ -148,6 +165,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public CommonResult<?> methodArgumentNotValidExceptionExceptionHandler(MethodArgumentNotValidException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[methodArgumentNotValidExceptionExceptionHandler]", ex);
         // 获取 errorMessage
         String errorMessage = null;
@@ -173,6 +194,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BindException.class)
     public CommonResult<?> bindExceptionHandler(BindException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[handleBindException]", ex);
         FieldError fieldError = ex.getFieldError();
         assert fieldError != null; // 断言，避免告警
@@ -187,6 +212,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @SuppressWarnings("PatternVariableCanBeUsed")
     public CommonResult<?> methodArgumentTypeInvalidFormatExceptionHandler(HttpMessageNotReadableException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[methodArgumentTypeInvalidFormatExceptionHandler]", ex);
         if (ex.getCause() instanceof InvalidFormatException) {
             InvalidFormatException invalidFormatException = (InvalidFormatException) ex.getCause();
@@ -203,6 +232,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = ConstraintViolationException.class)
     public CommonResult<?> constraintViolationExceptionHandler(ConstraintViolationException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[constraintViolationExceptionHandler]", ex);
         ConstraintViolation<?> constraintViolation = ex.getConstraintViolations().iterator().next();
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数不正确:%s", constraintViolation.getMessage()));
@@ -213,6 +246,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = ValidationException.class)
     public CommonResult<?> validationException(ValidationException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[constraintViolationExceptionHandler]", ex);
         // 无法拼接明细的错误信息，因为 Dubbo Consumer 抛出 ValidationException 异常时，是直接的字符串信息，且人类不可读
         return CommonResult.error(BAD_REQUEST);
@@ -223,6 +260,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public CommonResult<?> maxUploadSizeExceededExceptionHandler(MaxUploadSizeExceededException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         return CommonResult.error(BAD_REQUEST.getCode(), "上传文件过大，请调整后重试");
     }
 
@@ -235,6 +276,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoHandlerFoundException.class)
     public CommonResult<?> noHandlerFoundExceptionHandler(NoHandlerFoundException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[noHandlerFoundExceptionHandler]", ex);
         return CommonResult.error(NOT_FOUND.getCode(), String.format("请求地址不存在:%s", ex.getRequestURL()));
     }
@@ -244,6 +289,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoResourceFoundException.class)
     private CommonResult<?> noResourceFoundExceptionHandler(HttpServletRequest req, NoResourceFoundException ex) {
+        if (isRequestLoggingDisabled(req)) {
+            return protectedExceptionHandler(req, ex);
+        }
         log.warn("[noResourceFoundExceptionHandler]", ex);
         return CommonResult.error(NOT_FOUND.getCode(), String.format("请求地址不存在:%s", ex.getResourcePath()));
     }
@@ -255,6 +303,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public CommonResult<?> httpRequestMethodNotSupportedExceptionHandler(HttpRequestMethodNotSupportedException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[httpRequestMethodNotSupportedExceptionHandler]", ex);
         return CommonResult.error(METHOD_NOT_ALLOWED.getCode(), String.format("请求方法不正确:%s", ex.getMessage()));
     }
@@ -266,6 +318,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public CommonResult<?> httpMediaTypeNotSupportedExceptionHandler(HttpMediaTypeNotSupportedException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         log.warn("[httpMediaTypeNotSupportedExceptionHandler]", ex);
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求类型不正确:%s", ex.getMessage()));
     }
@@ -277,6 +333,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = AccessDeniedException.class)
     public CommonResult<?> accessDeniedExceptionHandler(HttpServletRequest req, AccessDeniedException ex) {
+        if (isRequestLoggingDisabled(req)) {
+            return protectedExceptionHandler(req, ex);
+        }
         log.warn("[accessDeniedExceptionHandler][userId({}) 无法访问 url({})]", WebFrameworkUtils.getLoginUserId(req),
                 req.getRequestURL(), ex);
         return CommonResult.error(FORBIDDEN);
@@ -289,6 +348,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = UncheckedExecutionException.class)
     public CommonResult<?> uncheckedExecutionExceptionHandler(HttpServletRequest req, UncheckedExecutionException ex) {
+        if (isRequestLoggingDisabled(req)) {
+            return protectedExceptionHandler(req, ex);
+        }
         return allExceptionHandler(req, ex.getCause());
     }
 
@@ -299,6 +361,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = ServiceException.class)
     public CommonResult<?> serviceExceptionHandler(ServiceException ex) {
+        HttpServletRequest protectedRequest = ServletUtils.getRequest();
+        if (isRequestLoggingDisabled(protectedRequest)) {
+            return protectedExceptionHandler(protectedRequest, ex);
+        }
         // 不包含的时候，才进行打印，避免 ex 堆栈过多
         if (!IGNORE_ERROR_MESSAGES.contains(ex.getMessage())) {
             // 即使打印，也只打印第一层 StackTraceElement，并且使用 warn 在控制台输出，更容易看到
@@ -322,6 +388,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = Exception.class)
     public CommonResult<?> defaultExceptionHandler(HttpServletRequest req, Throwable ex) {
+        if (isRequestLoggingDisabled(req)) {
+            return protectedExceptionHandler(req, ex);
+        }
         // 特殊：如果是 ServiceException 的异常，则直接返回
         // 例如说：https://gitee.com/zhijiantianya/yudao-cloud/issues/ICSSRM、https://gitee.com/zhijiantianya/yudao-cloud/issues/ICT6FM
         if (ex.getCause() != null && ex.getCause() instanceof ServiceException) {
@@ -351,7 +420,12 @@ public class GlobalExceptionHandler {
             // 执行插入 errorLog
             apiErrorLogApi.createApiErrorLogAsync(errorLog);
         } catch (Throwable th) {
-            log.error("[createExceptionLog][url({}) log({}) 发生异常]", req.getRequestURI(),  JsonUtils.toJsonString(errorLog), th);
+            if (isRequestLoggingDisabled(req)) {
+                log.error("[createExceptionLog][url({})][{}][exceptionType({})]", getLogRequestUri(req),
+                        REQUEST_PARAMETERS_PROTECTED, th.getClass().getName());
+            } else {
+                log.error("[createExceptionLog][url({}) log({}) 发生异常]", req.getRequestURI(), JsonUtils.toJsonString(errorLog), th);
+            }
         }
     }
 
@@ -361,9 +435,10 @@ public class GlobalExceptionHandler {
         errorLog.setUserType(WebFrameworkUtils.getLoginUserType(request));
         // 设置异常字段
         errorLog.setExceptionName(e.getClass().getName());
-        errorLog.setExceptionMessage(ExceptionUtil.getMessage(e));
-        errorLog.setExceptionRootCauseMessage(ExceptionUtil.getRootCauseMessage(e));
-        errorLog.setExceptionStackTrace(ExceptionUtil.stacktraceToString(e));
+        boolean parametersProtected = isRequestLoggingDisabled(request);
+        errorLog.setExceptionMessage(parametersProtected ? REQUEST_PARAMETERS_PROTECTED : ExceptionUtil.getMessage(e));
+        errorLog.setExceptionRootCauseMessage(parametersProtected ? REQUEST_PARAMETERS_PROTECTED : ExceptionUtil.getRootCauseMessage(e));
+        errorLog.setExceptionStackTrace(parametersProtected ? protectedStackTrace(e) : ExceptionUtil.stacktraceToString(e));
         StackTraceElement[] stackTraceElements = e.getStackTrace();
         Assert.notEmpty(stackTraceElements, "异常 stackTraceElements 不能为空");
         StackTraceElement stackTraceElement = stackTraceElements[0];
@@ -374,15 +449,66 @@ public class GlobalExceptionHandler {
         // 设置其它字段
         errorLog.setTraceId(TracerUtils.getTraceId());
         errorLog.setApplicationName(applicationName);
-        errorLog.setRequestUrl(request.getRequestURI());
-        Map<String, Object> requestParams = MapUtil.<String, Object>builder()
-                .put("query", ServletUtils.getParamMap(request))
-                .put("body", ServletUtils.getBody(request)).build();
-        errorLog.setRequestParams(JsonUtils.toJsonString(requestParams));
+        errorLog.setRequestUrl(getLogRequestUri(request));
+        if (!parametersProtected) {
+            Map<String, Object> requestParams = MapUtil.<String, Object>builder()
+                    .put("query", ServletUtils.getParamMap(request))
+                    .put("body", ServletUtils.getBody(request)).build();
+            errorLog.setRequestParams(JsonUtils.toJsonString(requestParams));
+        }
         errorLog.setRequestMethod(request.getMethod());
         errorLog.setUserAgent(ServletUtils.getUserAgent(request));
         errorLog.setUserIp(ServletUtils.getClientIP(request));
         errorLog.setExceptionTime(LocalDateTime.now());
+    }
+
+    private boolean isRequestLoggingDisabled(HttpServletRequest request) {
+        if (request == null || !(request.getAttribute(ATTRIBUTE_HANDLER_METHOD) instanceof HandlerMethod handler)) {
+            return false;
+        }
+        ApiAccessLog annotation = handler.getMethodAnnotation(ApiAccessLog.class);
+        return annotation != null && !annotation.requestEnable();
+    }
+
+    private String protectedStackTrace(Throwable exception) {
+        StringBuilder stack = new StringBuilder(exception.getClass().getName())
+                .append(": ").append(REQUEST_PARAMETERS_PROTECTED);
+        for (StackTraceElement element : exception.getStackTrace()) {
+            stack.append("\n\tat ").append(element);
+        }
+        return stack.toString();
+    }
+
+    private CommonResult<?> protectedExceptionHandler(HttpServletRequest request, Throwable exception) {
+        if (exception instanceof UncheckedExecutionException && exception.getCause() != null) {
+            return protectedExceptionHandler(request, exception.getCause());
+        }
+        // Never pass the Throwable to a logger: cause/suppressed messages may contain request values.
+        log.warn("[protectedExceptionHandler][{}]\n{}", REQUEST_PARAMETERS_PROTECTED, protectedStackTrace(exception));
+        createExceptionLog(request, exception);
+        if (exception instanceof ServiceException serviceException) {
+            return CommonResult.error(serviceException.getCode(), "操作未完成，请检查输入后重试");
+        }
+        if (exception.getCause() instanceof ServiceException serviceException) {
+            return CommonResult.error(serviceException.getCode(), "操作未完成，请检查输入后重试");
+        }
+        if (exception instanceof MissingServletRequestParameterException
+                || exception instanceof MethodArgumentTypeMismatchException
+                || exception instanceof MethodArgumentNotValidException || exception instanceof BindException
+                || exception instanceof ValidationException || exception instanceof HttpMessageNotReadableException
+                || exception instanceof MaxUploadSizeExceededException || exception instanceof HttpMediaTypeNotSupportedException) {
+            return CommonResult.error(BAD_REQUEST.getCode(), "请求参数不正确");
+        }
+        if (exception instanceof AccessDeniedException) {
+            return CommonResult.error(FORBIDDEN);
+        }
+        if (exception instanceof NoHandlerFoundException || exception instanceof NoResourceFoundException) {
+            return CommonResult.error(NOT_FOUND);
+        }
+        if (exception instanceof HttpRequestMethodNotSupportedException) {
+            return CommonResult.error(METHOD_NOT_ALLOWED);
+        }
+        return CommonResult.error(INTERNAL_SERVER_ERROR);
     }
 
     /**

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.oauth2;
 
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.date.DateUtils;
@@ -13,11 +14,14 @@ import cn.iocoder.yudao.module.system.dal.dataobject.oauth2.OAuth2RefreshTokenDO
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.oauth2.OAuth2AccessTokenMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.oauth2.OAuth2RefreshTokenMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.dal.redis.oauth2.OAuth2AccessTokenRedisDAO;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -37,7 +41,8 @@ import static org.mockito.Mockito.when;
  *
  * @author 瑛泰源码
  */
-@Import({OAuth2TokenServiceImpl.class, OAuth2AccessTokenRedisDAO.class})
+@Import({OAuth2TokenServiceImpl.class, OAuth2AccessTokenRedisDAO.class,
+        org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration.class})
 public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
 
     @Resource
@@ -47,6 +52,8 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     private OAuth2AccessTokenMapper oauth2AccessTokenMapper;
     @Resource
     private OAuth2RefreshTokenMapper oauth2RefreshTokenMapper;
+    @Resource
+    private AdminUserMapper adminUserMapper;
 
     @Resource
     private OAuth2AccessTokenRedisDAO oauth2AccessTokenRedisDAO;
@@ -55,6 +62,17 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     private OAuth2ClientService oauth2ClientService;
     @MockitoBean
     private AdminUserService adminUserService;
+
+    @BeforeEach
+    void setExplicitTenant() {
+        TenantContextHolder.setTenantId(1L);
+        TenantContextHolder.setIgnore(false);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
+    }
 
     @Test
     public void testCreateAccessToken() {
@@ -69,8 +87,11 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
                 .setAccessTokenValiditySeconds(30).setRefreshTokenValiditySeconds(60);
         when(oauth2ClientService.validOAuthClientFromCache(eq(clientId))).thenReturn(clientDO);
         // mock 数据（用户）
-        AdminUserDO user = randomPojo(AdminUserDO.class);
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(userId)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setLoginLocked(0);
+        user.setTenantId(0L);
         when(adminUserService.getUser(userId)).thenReturn(user);
+        when(adminUserService.lockUserForSessionMutation(0L, userId)).thenReturn(user);
 
         // 调用
         OAuth2AccessTokenDO accessTokenDO = oauth2TokenService.createAccessToken(userId, userType, clientId, scopes);
@@ -118,7 +139,9 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         when(oauth2ClientService.validOAuthClientFromCache(eq(clientId))).thenReturn(clientDO);
         // mock 数据（访问令牌）
         OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class)
-                .setRefreshToken(refreshToken).setClientId("error");
+                .setRefreshToken(refreshToken).setClientId("error").setUserId(0L)
+                .setUserType(UserTypeEnum.ADMIN.getValue());
+        refreshTokenDO.setTenantId(TenantContextHolder.getRequiredTenantId());
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
 
         // 调用，并断言
@@ -137,7 +160,9 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         // mock 数据（访问令牌）
         OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class)
                 .setRefreshToken(refreshToken).setClientId(clientId)
+                .setUserId(0L).setUserType(UserTypeEnum.ADMIN.getValue())
                 .setExpiresTime(LocalDateTime.now().minusDays(1));
+        refreshTokenDO.setTenantId(TenantContextHolder.getRequiredTenantId());
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
 
         // 调用，并断言
@@ -165,9 +190,14 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class)
                 .setRefreshToken(refreshToken)
+                .setUserId(refreshTokenDO.getUserId())
                 .setUserType(refreshTokenDO.getUserType());
+        accessTokenDO.setTenantId(122L);
         oauth2AccessTokenMapper.insert(accessTokenDO);
         oauth2AccessTokenRedisDAO.set(accessTokenDO);
+        when(adminUserService.lockUserForSessionMutation(122L, refreshTokenDO.getUserId()))
+                .thenThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS));
 
         // 调用，并断言失效登录态被明确清理
         assertServiceException(() -> oauth2TokenService.refreshAccessToken(refreshToken, clientId),
@@ -196,12 +226,17 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
         // mock 数据（访问令牌）
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class).setRefreshToken(refreshToken)
+                .setUserId(refreshTokenDO.getUserId())
                 .setUserType(refreshTokenDO.getUserType());
+        accessTokenDO.setTenantId(0L);
         oauth2AccessTokenMapper.insert(accessTokenDO);
         oauth2AccessTokenRedisDAO.set(accessTokenDO);
         // mock 数据（用户）
-        AdminUserDO user = randomPojo(AdminUserDO.class);
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(refreshTokenDO.getUserId())
+                .setStatus(CommonStatusEnum.ENABLE.getStatus()).setLoginLocked(0);
+        user.setTenantId(0L);
         when(adminUserService.getUser(refreshTokenDO.getUserId())).thenReturn(user);
+        when(adminUserService.lockUserForSessionMutation(0L, refreshTokenDO.getUserId())).thenReturn(user);
 
         // 调用
         OAuth2AccessTokenDO newAccessTokenDO = oauth2TokenService.refreshAccessToken(refreshToken, clientId);
@@ -225,7 +260,8 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     public void testGetAccessToken() {
         // mock 数据（访问令牌）
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class)
-                .setExpiresTime(LocalDateTime.now().plusDays(1));
+                .setUserType(UserTypeEnum.MEMBER.getValue()).setExpiresTime(LocalDateTime.now().plusDays(1));
+        accessTokenDO.setTenantId(1L);
         oauth2AccessTokenMapper.insert(accessTokenDO);
         // 准备参数
         String accessToken = accessTokenDO.getAccessToken();
@@ -252,7 +288,8 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     public void testCheckAccessToken_expired() {
         // mock 数据（访问令牌）
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class)
-                .setExpiresTime(LocalDateTime.now().minusDays(1));
+                .setUserType(UserTypeEnum.MEMBER.getValue()).setExpiresTime(LocalDateTime.now().minusDays(1));
+        accessTokenDO.setTenantId(1L);
         oauth2AccessTokenMapper.insert(accessTokenDO);
         // 准备参数
         String accessToken = accessTokenDO.getAccessToken();
@@ -266,14 +303,15 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     public void testCheckAccessToken_refreshToken() {
         // mock 数据（访问令牌）
         OAuth2RefreshTokenDO refreshTokenDO = randomPojo(OAuth2RefreshTokenDO.class)
-                .setUserId(0L)
+                .setUserId(0L).setUserType(UserTypeEnum.ADMIN.getValue())
                 .setExpiresTime(LocalDateTime.now().plusDays(1));
+        refreshTokenDO.setTenantId(1L);
         oauth2RefreshTokenMapper.insert(refreshTokenDO);
         // 准备参数
         String accessToken = refreshTokenDO.getRefreshToken();
 
         // 调研，并断言
-        OAuth2AccessTokenDO result = oauth2TokenService.getAccessToken(accessToken);
+        OAuth2AccessTokenDO result = oauth2TokenService.checkAccessToken(accessToken);
         // 断言
         assertPojoEquals(refreshTokenDO, result, "expiresTime", "createTime", "updateTime", "deleted",
                 "creator", "updater");
@@ -283,17 +321,97 @@ public class OAuth2TokenServiceImplTest extends BaseDbAndRedisUnitTest {
     public void testCheckAccessToken_success() {
         // mock 数据（访问令牌）
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class)
-                .setExpiresTime(LocalDateTime.now().plusDays(1));
+                .setUserType(UserTypeEnum.MEMBER.getValue()).setExpiresTime(LocalDateTime.now().plusDays(1));
+        accessTokenDO.setTenantId(1L);
         oauth2AccessTokenMapper.insert(accessTokenDO);
         // 准备参数
         String accessToken = accessTokenDO.getAccessToken();
 
         // 调研，并断言
-        OAuth2AccessTokenDO result = oauth2TokenService.getAccessToken(accessToken);
+        OAuth2AccessTokenDO result = oauth2TokenService.checkAccessToken(accessToken);
         // 断言
         // TODO @芋艿：expiresTime 被屏蔽，仅 win11 会复现，建议后续修复。
         assertPojoEquals(accessTokenDO, result, "expiresTime", "createTime", "updateTime", "deleted",
                 "creator", "updater");
+    }
+
+    @Test
+    void testOrphanCacheCannotAuthorizeEitherPublicEntry() {
+        OAuth2AccessTokenDO orphan = randomPojo(OAuth2AccessTokenDO.class)
+                .setUserId(0L).setUserType(UserTypeEnum.ADMIN.getValue())
+                .setExpiresTime(LocalDateTime.now().plusDays(1));
+        orphan.setTenantId(1L);
+        oauth2AccessTokenRedisDAO.set(orphan);
+        assertNull(oauth2TokenService.getAccessToken(orphan.getAccessToken()));
+        assertServiceException(() -> oauth2TokenService.checkAccessToken(orphan.getAccessToken()),
+                new ErrorCode(401, "访问令牌不存在"));
+    }
+
+    @Test
+    void testOfficialMemberIdentityAndScopesReplacePoisonedCache() {
+        OAuth2AccessTokenDO official = randomPojo(OAuth2AccessTokenDO.class)
+                .setUserType(UserTypeEnum.MEMBER.getValue()).setClientId("official-client")
+                .setScopes(List.of("read")).setExpiresTime(LocalDateTime.now().plusDays(1));
+        official.setTenantId(1L);
+        oauth2AccessTokenMapper.insert(official);
+        OAuth2AccessTokenDO poisoned = randomPojo(OAuth2AccessTokenDO.class)
+                .setAccessToken(official.getAccessToken()).setUserId(0L)
+                .setUserType(UserTypeEnum.ADMIN.getValue()).setClientId("poisoned-client")
+                .setScopes(List.of("write")).setExpiresTime(LocalDateTime.now().plusDays(1));
+        poisoned.setTenantId(2L);
+        oauth2AccessTokenRedisDAO.set(poisoned);
+
+        OAuth2AccessTokenDO result = oauth2TokenService.checkAccessToken(official.getAccessToken());
+        assertEquals(official.getUserId(), result.getUserId());
+        assertEquals(UserTypeEnum.MEMBER.getValue(), result.getUserType());
+        assertEquals(1L, result.getTenantId());
+        assertEquals("official-client", result.getClientId());
+        assertEquals(List.of("read"), result.getScopes());
+        assertEquals(result.getUserId(), oauth2AccessTokenRedisDAO.get(official.getAccessToken()).getUserId());
+    }
+
+    @Test
+    void testAdminValidationUsesStoredTenantAndCurrentUserWithContextRestored() {
+        AdminUserDO user = randomPojo(AdminUserDO.class).setId(9021L)
+                .setCanonicalUsername("um05-token-current-user").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(0).setNickname("Current nickname").setDeptId(12L).setSex(1);
+        user.setTenantId(1L);
+        adminUserMapper.insert(user);
+        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class).setUserId(user.getId())
+                .setUserType(UserTypeEnum.ADMIN.getValue()).setUserInfo(java.util.Map.of("nickname", "Old nickname"))
+                .setExpiresTime(LocalDateTime.now().plusDays(1));
+        token.setTenantId(1L);
+        oauth2AccessTokenMapper.insert(token);
+        TenantContextHolder.setTenantId(2L);
+        TenantContextHolder.setIgnore(true);
+
+        OAuth2AccessTokenDO result = oauth2TokenService.getAccessToken(token.getAccessToken());
+        assertEquals("Current nickname", result.getUserInfo().get("nickname"));
+        assertEquals("12", result.getUserInfo().get("deptId"));
+        assertEquals(2L, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+
+        adminUserMapper.updateById(new AdminUserDO().setId(user.getId()).setStatus(CommonStatusEnum.DISABLE.getStatus()));
+        assertServiceException(() -> oauth2TokenService.checkAccessToken(token.getAccessToken()),
+                new ErrorCode(401, "账号已禁用，请重新登录"));
+        assertEquals(2L, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+        adminUserMapper.updateById(new AdminUserDO().setId(user.getId()).setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(1).setLoginLockedTime(LocalDateTime.now()));
+        assertServiceException(() -> oauth2TokenService.getAccessToken(token.getAccessToken()),
+                new ErrorCode(401, "账号已锁定，请重新登录"));
+        assertEquals(2L, TenantContextHolder.getTenantId());
+        assertTrue(TenantContextHolder.isIgnore());
+    }
+
+    @Test
+    void testOfficialTokenWithUnknownTypeIsRejected() {
+        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class).setUserType(99)
+                .setExpiresTime(LocalDateTime.now().plusDays(1));
+        token.setTenantId(1L);
+        oauth2AccessTokenMapper.insert(token);
+        assertServiceException(() -> oauth2TokenService.checkAccessToken(token.getAccessToken()),
+                new ErrorCode(401, "令牌存储身份不完整或用户类型无效"));
     }
 
     @Test

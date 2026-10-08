@@ -87,6 +87,7 @@ public class UserController {
     }
 
     @PutMapping("/update-password")
+    @ApiAccessLog(requestEnable = false, sanitizeKeys = {"password"})
     @Operation(summary = "重置用户密码")
     @PreAuthorize("@ss.hasPermission('system:user:update-password')")
     public CommonResult<Boolean> updateUserPassword(@Valid @RequestBody UserUpdatePasswordReqVO reqVO) {

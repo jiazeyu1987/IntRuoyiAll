@@ -350,6 +350,8 @@
 <script lang="ts" setup>
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { checkPermi } from '@/utils/permission'
+import { isNavigationFailure } from 'vue-router'
+import { useUserStore } from '@/store/modules/user'
 import { dateFormatter } from '@/utils/formatTime'
 import { CommonStatusEnum } from '@/utils/constants'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -387,6 +389,8 @@ defineOptions({ name: 'SystemUser' })
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
+const { push } = useRouter()
+const userStore = useUserStore()
 const lookupPageSize = 200
 
 interface UserTableRow extends UserApi.UserVO {
@@ -696,21 +700,48 @@ const handleAdvancedCommand = async (command: string) => {
 
 /** 重置密码 */
 const handleResetPwd = async (row: UserApi.UserVO) => {
+  let password: string
   try {
-    // 重置的二次确认
     const result = await message.prompt(
       '请输入"' + row.username + '"的新密码',
-      t('common.reminder')
+      t('common.reminder'),
+      { inputType: 'password' }
     )
-    const password = result.value
-    if (!isSystemPasswordStrong(password)) {
-      message.warning(SYSTEM_PASSWORD_MESSAGE)
-      return
+    password = result.value
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      message.error('无法打开密码重置，请重试')
     }
-    // 发起重置
+    return
+  }
+  if (!isSystemPasswordStrong(password)) {
+    message.warning(SYSTEM_PASSWORD_MESSAGE)
+    return
+  }
+  try {
     await UserApi.resetUserPassword(row.id, password)
-    message.success('修改成功，新密码是：' + password)
-  } catch {}
+  } catch {
+    message.error('密码重置失败，请重试')
+    return
+  }
+  message.success('密码已重置')
+  if (row.id === userStore.getUser.id) {
+    userStore.clearSession()
+    try {
+      const failure = await push({ path: '/login' })
+      if (isNavigationFailure(failure)) {
+        message.error('密码已重置，请重新登录')
+      }
+    } catch {
+      message.error('密码已重置，请重新登录')
+    }
+    return
+  }
+  try {
+    await getList()
+  } catch {
+    message.error('密码已重置，列表刷新失败，请重新刷新列表')
+  }
 }
 
 /** 解锁用户 */

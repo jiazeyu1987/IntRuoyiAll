@@ -49,6 +49,7 @@ export const updateUserProfile = (data: UserProfileUpdateReqVO) => {
 export const updateUserPassword = (oldPassword: string, newPassword: string) => {
   return request.put({
     url: '/system/user/profile/update-password',
+    ignoreErrorMessage: true,
     data: {
       oldPassword: oldPassword,
       newPassword: newPassword

@@ -46,6 +46,9 @@ import org.mockito.stubbing.Answer;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -76,7 +79,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@Import(AdminUserServiceImpl.class)
+@Import({AdminUserServiceImpl.class, org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration.class})
 public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
     private static final String TEST_INIT_PASSWORD = "Yudao@2026";
@@ -88,6 +91,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     private AdminUserMapper userMapper;
     @Resource
     private AdminUserPasswordHistoryMapper passwordHistoryMapper;
+    @Resource
+    private PlatformTransactionManager transactionManager;
     @Resource
     private DeptMapper deptMapper;
     @Resource
@@ -565,12 +570,14 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testUpdateUserPassword_rejectsRecentHistoryReuse() {
         AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
         userMapper.insert(dbUser);
-        passwordHistoryMapper.insert(AdminUserPasswordHistoryDO.builder()
+        AdminUserPasswordHistoryDO history = AdminUserPasswordHistoryDO.builder()
                 .userId(dbUser.getId())
                 .passwordHash("encode:old1")
                 .changedAt(LocalDateTime.now().minusDays(1))
                 .sourceType("SELF_CHANGE")
-                .build());
+                .build();
+        history.setTenantId(dbUser.getTenantId());
+        passwordHistoryMapper.insert(history);
         UserProfileUpdatePasswordReqVO reqVO = randomPojo(UserProfileUpdatePasswordReqVO.class, o -> {
             o.setOldPassword("current");
             o.setNewPassword("Old@2026");
@@ -640,12 +647,14 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     public void testUpdateUserPassword02_allowsRecentHistoryPasswordReuse() {
         AdminUserDO dbUser = randomAdminUserDO(o -> o.setPassword("encode:current"));
         userMapper.insert(dbUser);
-        passwordHistoryMapper.insert(AdminUserPasswordHistoryDO.builder()
+        AdminUserPasswordHistoryDO history = AdminUserPasswordHistoryDO.builder()
                 .userId(dbUser.getId())
                 .passwordHash("encode:old1")
                 .changedAt(LocalDateTime.now().minusDays(1))
                 .sourceType("SELF_CHANGE")
-                .build());
+                .build();
+        history.setTenantId(dbUser.getTenantId());
+        passwordHistoryMapper.insert(history);
         String password = "Old@2026";
         when(passwordEncoder.matches(eq(password), eq(dbUser.getPassword()))).thenReturn(false);
         when(passwordEncoder.matches(eq(password), eq("encode:old1"))).thenReturn(true);
@@ -664,6 +673,200 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> userService.updateUserPassword(dbUser.getId(), "yudao"),
                 USER_PASSWORD_STRENGTH_INVALID);
+    }
+
+    @Test
+    public void testPasswordReset_revokesTargetSessionsAndKeepsAccountBindings() {
+        AdminUserDO before = randomAdminUserDO(o -> {
+            o.setPassword("encoded-before");
+            o.setLoginLocked(1);
+            o.setLoginLockedTime(LocalDateTime.now());
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+            o.setPostIds(asSet(7L, 8L));
+            o.setPasswordCredentialStatus("ACTIVE");
+        });
+        userMapper.insert(before);
+        before = userMapper.selectById(before.getId());
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded-after");
+
+        userService.updateUserPassword(before.getId(), "Changed@2026");
+
+        verify(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        AdminUserDO after = userMapper.selectById(before.getId());
+        assertEquals("RESET_REQUIRED", after.getPasswordCredentialStatus());
+        assertEquals(before.getStatus(), after.getStatus());
+        assertEquals(before.getLoginLocked(), after.getLoginLocked());
+        assertEquals(before.getLoginLockedTime(), after.getLoginLockedTime());
+        assertEquals(before.getDeptId(), after.getDeptId());
+        assertEquals(before.getPostIds(), after.getPostIds());
+    }
+
+    @Test
+    public void testSelfPasswordChange_revokesSessions() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setPassword("encoded-before"));
+        userMapper.insert(before);
+        when(passwordEncoder.matches("old-secret", before.getPassword())).thenReturn(true);
+        when(passwordEncoder.encode("Changed@2026")).thenReturn("encoded-after");
+
+        userService.updateUserPassword(before.getId(), new UserProfileUpdatePasswordReqVO()
+                .setOldPassword("old-secret").setNewPassword("Changed@2026"));
+
+        verify(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        assertEquals("ACTIVE", userMapper.selectById(before.getId()).getPasswordCredentialStatus());
+    }
+
+    @Test
+    public void testPasswordMutation_revocationFailureRollsBackPasswordAndHistory() {
+        assertTrue(org.springframework.aop.support.AopUtils.isAopProxy(userService),
+                "Password mutation must be called through the real Spring transaction proxy");
+        for (boolean selfChange : new boolean[]{false, true}) {
+            AdminUserDO before = randomAdminUserDO(o -> {
+                o.setPassword("encoded-before");
+                o.setPasswordCredentialStatus("ACTIVE");
+                o.setPasswordUpdateTime(LocalDateTime.now().minusDays(1).withNano(0));
+            });
+            userMapper.insert(before);
+            when(passwordEncoder.encode("Changed@2026")).thenReturn("encoded-after");
+            when(passwordEncoder.matches("old-secret", before.getPassword())).thenReturn(true);
+            doThrow(new IllegalStateException("session cache deletion failed"))
+                    .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+
+            assertThrows(IllegalStateException.class, () -> {
+                if (selfChange) {
+                    userService.updateUserPassword(before.getId(), new UserProfileUpdatePasswordReqVO()
+                            .setOldPassword("old-secret").setNewPassword("Changed@2026"));
+                } else {
+                    userService.updateUserPassword(before.getId(), "Changed@2026");
+                }
+            });
+
+            AdminUserDO after = userMapper.selectById(before.getId());
+            assertEquals(before.getPassword(), after.getPassword());
+            assertEquals(before.getPasswordUpdateTime(), after.getPasswordUpdateTime());
+            assertEquals(before.getPasswordCredentialStatus(), after.getPasswordCredentialStatus());
+            assertTrue(passwordHistoryMapper.selectLatestListByUserId(before.getId(), 5).isEmpty());
+        }
+    }
+
+    @Test
+    public void testLockUserForSessionMutation_requiresWritableTransactionAndMatchingTenant() {
+        AdminUserDO user = randomAdminUserDO();
+        userMapper.insert(user);
+        assertThrows(IllegalStateException.class,
+                () -> userService.lockUserForSessionMutation(1L, user.getId()));
+
+        TransactionTemplate readOnly = new TransactionTemplate(transactionManager);
+        readOnly.setReadOnly(true);
+        readOnly.executeWithoutResult(status -> assertThrows(IllegalStateException.class,
+                () -> userService.lockUserForSessionMutation(1L, user.getId())));
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            assertThrows(IllegalStateException.class,
+                    () -> userService.lockUserForSessionMutation(null, user.getId()));
+            assertThrows(IllegalStateException.class,
+                    () -> userService.lockUserForSessionMutation(2L, user.getId()));
+            assertThrows(IllegalArgumentException.class,
+                    () -> userService.lockUserForSessionMutation(1L, 0L));
+            TenantContextHolder.clear();
+            try {
+                assertThrows(IllegalStateException.class,
+                        () -> userService.lockUserForSessionMutation(1L, user.getId()));
+            } finally {
+                TenantContextHolder.setTenantId(1L);
+            }
+        });
+    }
+
+    @Test
+    public void testLockUserForSessionMutation_allowsDisabledLockedUserAndRejectsDeletedOrOtherTenant() {
+        AdminUserDO user = randomAdminUserDO(o -> {
+            o.setStatus(CommonStatusEnum.DISABLE.getStatus());
+            o.setLoginLocked(1);
+            o.setLoginLockedTime(LocalDateTime.now());
+        });
+        userMapper.insert(user);
+        AdminUserDO otherTenant = randomAdminUserDO(o -> o.setTenantId(2L));
+        userMapper.insert(otherTenant);
+        AdminUserDO deleted = randomAdminUserDO();
+        userMapper.insert(deleted);
+        userMapper.deleteById(deleted.getId());
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            AdminUserDO locked = userService.lockUserForSessionMutation(1L, user.getId());
+            assertEquals(CommonStatusEnum.DISABLE.getStatus(), locked.getStatus());
+            assertEquals(1, locked.getLoginLocked());
+            assertServiceException(() -> userService.lockUserForSessionMutation(1L, otherTenant.getId()),
+                    USER_NOT_EXISTS);
+            assertServiceException(() -> userService.lockUserForSessionMutation(1L, deleted.getId()),
+                    USER_NOT_EXISTS);
+        });
+    }
+
+    @Test
+    public void testUpdateUserStatus_revocationFailureRollsBackStatus() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(before);
+        doThrow(new IllegalStateException("session cache deletion failed"))
+                .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+
+        assertThrows(IllegalStateException.class,
+                () -> userService.updateUserStatus(before.getId(), CommonStatusEnum.DISABLE.getStatus()));
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), userMapper.selectById(before.getId()).getStatus());
+    }
+
+    @Test
+    public void testLifecycleDeactivation_revocationFailureRollsBackDocumentAndStatus() {
+        AdminUserDO before = randomAdminUserDO(o -> o.setStatus(CommonStatusEnum.ENABLE.getStatus()));
+        userMapper.insert(before);
+        doThrow(new IllegalStateException("session cache deletion failed"))
+                .when(oauth2TokenService).removeAccessToken(before.getId(), UserTypeEnum.ADMIN.getValue());
+        LocalDateTime effectiveTime = LocalDateTime.now().minusMinutes(1).withNano(0);
+
+        assertThrows(IllegalStateException.class, () -> userService.recordUserLifecycleDeactivation(
+                buildLifecycleDeactivateReqVO(before.getId(), UserLifecycleDocumentTypeEnum.RESIGNATION.getType(),
+                        "UM05-ROLLBACK", effectiveTime.minusDays(1), effectiveTime)));
+
+        AdminUserDO after = userMapper.selectById(before.getId());
+        assertEquals(CommonStatusEnum.ENABLE.getStatus(), after.getStatus());
+        assertNull(after.getLifecycleDocumentType());
+        assertNull(after.getLifecycleDocumentNo());
+        assertNull(after.getLifecycleDeactivatedTime());
+    }
+
+    @Test
+    public void testProcessDueLifecycleDeactivations_locksByIdAndUsesCurrentUser() {
+        AdminUserMapper mapper = mock(AdminUserMapper.class);
+        AdminUserServiceImpl service = new AdminUserServiceImpl();
+        ReflectionTestUtils.setField(service, "userMapper", mapper);
+        ReflectionTestUtils.setField(service, "oauth2TokenService", oauth2TokenService);
+        LocalDateTime now = LocalDateTime.now().withNano(0);
+        when(mapper.selectListByPendingLifecycleDeactivation(now, 20)).thenReturn(List.of(
+                new AdminUserDO().setId(3L), new AdminUserDO().setId(2L), new AdminUserDO().setId(1L)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 1L)).thenReturn(new AdminUserDO().setId(1L)
+                .setLifecycleDeactivatedTime(now.minusMinutes(1)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 2L)).thenReturn(new AdminUserDO().setId(2L)
+                .setLifecycleDocumentType(UserLifecycleDocumentTypeEnum.TRANSFER.getType())
+                .setLifecycleDocumentNo("UM05-RESCHEDULED").setLifecycleEffectiveTime(now.plusDays(1)));
+        when(mapper.selectPermissionSubjectForUpdate(1L, 3L)).thenReturn(new AdminUserDO().setId(3L)
+                .setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLifecycleDocumentType(UserLifecycleDocumentTypeEnum.RESIGNATION.getType())
+                .setLifecycleDocumentNo("UM05-DUE").setLifecycleEffectiveTime(now.minusMinutes(1)));
+        when(mapper.update(isNull(), any())).thenReturn(1);
+
+        Integer count = new TransactionTemplate(transactionManager)
+                .execute(status -> service.processDueLifecycleDeactivations(now, 20));
+
+        assertEquals(1, count);
+        var order = inOrder(mapper, oauth2TokenService);
+        order.verify(mapper).selectListByPendingLifecycleDeactivation(now, 20);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 1L);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 2L);
+        order.verify(mapper).selectPermissionSubjectForUpdate(1L, 3L);
+        order.verify(mapper).update(isNull(), any());
+        order.verify(oauth2TokenService).removeAccessToken(3L, UserTypeEnum.ADMIN.getValue());
+        verify(mapper, times(1)).update(isNull(), any());
+        verify(oauth2TokenService, never()).removeAccessToken(1L, UserTypeEnum.ADMIN.getValue());
+        verify(oauth2TokenService, never()).removeAccessToken(2L, UserTypeEnum.ADMIN.getValue());
     }
 
     @Test

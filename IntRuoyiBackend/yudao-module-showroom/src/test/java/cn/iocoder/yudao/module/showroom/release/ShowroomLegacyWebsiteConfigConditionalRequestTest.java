@@ -32,8 +32,8 @@ class ShowroomLegacyWebsiteConfigConditionalRequestTest extends AbstractShowroom
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> showrooms = (List<Map<String, Object>>) data.get("showrooms");
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> products = (List<Map<String, Object>>) showrooms.getFirst().get("products");
-        assertTrue(String.valueOf(products.getFirst().get("previewImageUrl")).startsWith("/showroom/sites/"));
+        List<Map<String, Object>> products = (List<Map<String, Object>>) showrooms.get(0).get("products");
+        assertTrue(String.valueOf(products.get(0).get("previewImageUrl")).startsWith("/showroom/sites/"));
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.IF_NONE_MATCH, etag);

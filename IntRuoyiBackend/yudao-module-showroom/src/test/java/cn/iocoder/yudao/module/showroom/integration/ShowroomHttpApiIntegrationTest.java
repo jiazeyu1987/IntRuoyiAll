@@ -3773,9 +3773,9 @@ class ShowroomHttpApiIntegrationTest extends BaseDbUnitTest {
         assertEquals(2, batch.matchedCount());
         assertEquals(1, batch.succeededCount());
         assertEquals(1, batch.failedCount());
-        assertEquals(invalidHall.hallId(), batch.failures().getFirst().hallId());
-        assertEquals("HALL_BATCH_MISSING", batch.failures().getFirst().hallCode());
-        assertTrue(batch.failures().getFirst().reason().contains("hall EN description is required"));
+        assertEquals(invalidHall.hallId(), batch.failures().get(0).hallId());
+        assertEquals("HALL_BATCH_MISSING", batch.failures().get(0).hallCode());
+        assertTrue(batch.failures().get(0).reason().contains("hall EN description is required"));
 
         ShowroomNarrationVersion liveZh = narrationService.live(new ShowroomNarrationKey(
                         ShowroomNarrationTargetType.HALL, validHall.hallId(),

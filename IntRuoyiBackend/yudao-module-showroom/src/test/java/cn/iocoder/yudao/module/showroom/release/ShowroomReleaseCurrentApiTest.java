@@ -41,7 +41,7 @@ class ShowroomReleaseCurrentApiTest extends AbstractShowroomReleaseDbTest {
     @Test
     void shouldExposeScopedManifestDocumentAndAssetAfterPublish() throws Exception {
         var release = publishReleaseFixture();
-        var asset = release.assets().getFirst();
+        var asset = release.assets().get(0);
 
         var manifest = scopedReleaseController.getManifest(DEFAULT_SITE_KEY, DEFAULT_STAGE,
                 release.releaseId(), new HttpHeaders());
@@ -64,7 +64,7 @@ class ShowroomReleaseCurrentApiTest extends AbstractShowroomReleaseDbTest {
     @Test
     void shouldNotReadScopedReleaseResourcesFromDifferentStage() throws Exception {
         var release = publishReleaseFixture();
-        var asset = release.assets().getFirst();
+        var asset = release.assets().get(0);
         bindSiteStage("PROD");
 
         var manifest = scopedReleaseController.getManifest(DEFAULT_SITE_KEY, "PROD",

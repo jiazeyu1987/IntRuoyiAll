@@ -186,6 +186,16 @@ public interface AdminUserService {
     AdminUserDO getUser(Long id);
 
     /**
+     * 在调用方现有的可写 Spring 事务中锁定用户，再执行会话相关变更。
+     * 只校验用户存在；禁用和登录锁定状态由具体业务入口判断。
+     *
+     * @param tenantId 显式目标租户，必须与当前租户上下文一致
+     * @param userId 正式人员用户编号
+     * @return 当前锁定读取的用户
+     */
+    AdminUserDO lockUserForSessionMutation(Long tenantId, Long userId);
+
+    /**
      * 获得指定部门的用户数组
      *
      * @param deptIds 部门数组

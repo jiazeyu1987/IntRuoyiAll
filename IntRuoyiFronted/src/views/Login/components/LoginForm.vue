@@ -253,15 +253,14 @@ const handleLogin = async () => {
     if (!redirect.value) {
       redirect.value = '/'
     }
-    // 判断是否为SSO登录
-    if (redirect.value.indexOf('sso') !== -1) {
+    if (res.passwordChangeRequired) {
+      await push({ path: '/user/profile', query: { tab: 'resetPwd' } })
+    } else if (redirect.value.indexOf('sso') !== -1) {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
       try {
         await push(
-          res.passwordChangeRequired
-            ? { path: '/user/profile', query: { tab: 'resetPwd' } }
-            : { path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' }
+          { path: redirect.value || permissionStore.addRouters[0]?.path || '/srm/portal/application' }
         )
       } catch (error) {
         loginErrorMessage.value = resolveLoginErrorMessage(error, 'permission')

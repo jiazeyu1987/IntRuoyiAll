@@ -14,7 +14,7 @@ class ShowroomReleaseAssetFailureJsonTest extends AbstractShowroomReleaseDbTest 
     @Test
     void shouldReturnJsonErrorWhenAssetBytesAreBroken() throws Exception {
         ShowroomMaterializedRelease release = publishReleaseFixture();
-        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().getFirst();
+        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().get(0);
         var assetDo = releaseAssetMapper.selectByScopeAssetIdAndContentHash(DEFAULT_TENANT_ID, DEFAULT_SITE_KEY,
                 DEFAULT_STAGE, asset.assetId(), asset.contentHash());
         assetDo.setBinaryContent(new byte[0]);

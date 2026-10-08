@@ -1,0 +1,103 @@
+{
+  "session": 68637,
+  "status": "PASS",
+  "exit_code": 0,
+  "finished_at": "2026-10-06T22:17:31+08:00",
+  "totals": {
+    "tests": 257,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "classes": [
+    {
+      "tests": 56,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "OAuth2TokenAuthorityTransactionTest",
+      "report_modified_epoch": 1791296216.04562
+    },
+    {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "OAuth2TokenServiceImplTest",
+      "report_modified_epoch": 1791296231.8675046
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "OAuth2TokenServiceRuntimeFallbackTest",
+      "report_modified_epoch": 1791296232.0725684
+    },
+    {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "OAuth2PasswordSessionTransactionTest",
+      "report_modified_epoch": 1791296214.022412
+    },
+    {
+      "tests": 80,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "AdminUserServiceImplTest",
+      "report_modified_epoch": 1791296250.62647
+    },
+    {
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "AdminAuthServiceImplTest",
+      "report_modified_epoch": 1791296199.7271645
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "OAuth2GrantServiceImplTest",
+      "report_modified_epoch": 1791296200.3261826
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "PasswordAccessLogConfidentialityTest",
+      "report_modified_epoch": 1791296083.1910102
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "PasswordErrorLogConfidentialityTest",
+      "report_modified_epoch": 1791296141.089111
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "PasswordRequestLogMetadataFilterTest",
+      "report_modified_epoch": 1791296141.660537
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "class": "PasswordPreMvcLogConfidentialityTest",
+      "report_modified_epoch": 1791296141.2984185
+    }
+  ],
+  "boundary": "Real Spring/Mapper H2 regressions; external Redis mocks where declared. Not real frontend E2E or MySQL outer RR service proof."
+}

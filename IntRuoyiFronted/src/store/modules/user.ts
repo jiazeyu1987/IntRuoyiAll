@@ -79,6 +79,9 @@ export const useUserStore = defineStore('admin-user', {
     },
     async loginOut() {
       await loginOut()
+      this.clearSession()
+    },
+    clearSession() {
       removeToken()
       deleteUserCache() // 删除用户缓存
       this.resetState()

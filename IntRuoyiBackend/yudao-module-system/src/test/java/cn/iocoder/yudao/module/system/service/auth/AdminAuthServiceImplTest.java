@@ -17,6 +17,8 @@ import cn.iocoder.yudao.module.system.enums.social.SocialTypeEnum;
 import cn.iocoder.yudao.module.system.service.logger.LoginLogService;
 import cn.iocoder.yudao.module.system.service.member.MemberService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
+import cn.iocoder.yudao.module.system.service.oauth2.AdminPasswordAuthenticationSnapshot;
+import cn.iocoder.yudao.module.system.service.oauth2.AdminSessionToken;
 import cn.iocoder.yudao.module.system.service.social.SocialUserService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.anji.captcha.model.common.ResponseModel;
@@ -26,6 +28,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -37,7 +40,7 @@ import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServic
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomString;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -221,6 +224,104 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testAuthenticate_expiredLockIsNotClearedBeforeGuardedIssuance() {
+        AdminUserDO user = new AdminUserDO().setId(10L).setUsername("expired-lock")
+                .setPassword("encoded-password").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setLoginLocked(1).setLoginLockedTime(LocalDateTime.now().minusMinutes(31))
+                .setLoginFailureCount(5).setPasswordCredentialStatus("ACTIVE")
+                .setPasswordUpdateTime(LocalDateTime.now());
+        when(userService.getUserByUsername("expired-lock")).thenReturn(user);
+        when(userService.isPasswordMatch("current-password", "encoded-password")).thenReturn(true);
+
+        AdminUserDO authenticated = authService.authenticate("expired-lock", "current-password");
+
+        assertSame(user, authenticated);
+        assertEquals(1, authenticated.getLoginLocked());
+        assertEquals(5, authenticated.getLoginFailureCount());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+    }
+
+    @Test
+    public void testLogin_usesIssuedFlagAndCapturedCredentialVersion() {
+        AuthLoginReqVO reqVO = new AuthLoginReqVO().setUsername("snapshot-user").setPassword("current-password");
+        AdminUserDO user = new AdminUserDO().setId(11L).setUsername("snapshot-user")
+                .setPassword("encoded-before").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("ACTIVE").setPasswordUpdateTime(LocalDateTime.now());
+        user.setTenantId(1L);
+        when(userService.getUserByUsername("snapshot-user")).thenReturn(user);
+        when(userService.isPasswordMatch("current-password", "encoded-before")).thenReturn(true);
+        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(11L));
+        when(oauth2TokenService.createPasswordAccessToken(any(), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(token, true));
+
+        AuthLoginRespVO response = authService.login(reqVO);
+
+        assertEquals(Boolean.TRUE, response.getPasswordChangeRequired());
+        var order = inOrder(oauth2TokenService, loginLogService, userService);
+        order.verify(oauth2TokenService).createPasswordAccessToken(any(), eq("default"), isNull());
+        order.verify(loginLogService).createLoginLog(argThat(log ->
+                log.getResult().equals(LoginResultEnum.SUCCESS.getResult())));
+        order.verify(userService).updateUserLogin(eq(11L), any());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+        verify(oauth2TokenService, never()).createAccessToken(anyLong(), anyInt(), anyString(), any());
+    }
+
+    @Test
+    public void testLogin_guardedIssuanceFailureDoesNotRecordSuccessOrClearFailures() {
+        AdminUserDO user = new AdminUserDO().setId(12L).setUsername("changed-user")
+                .setPassword("encoded-before").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordCredentialStatus("ACTIVE").setPasswordUpdateTime(LocalDateTime.now());
+        user.setTenantId(1L);
+        when(userService.getUserByUsername("changed-user")).thenReturn(user);
+        when(userService.isPasswordMatch("current-password", "encoded-before")).thenReturn(true);
+        when(oauth2TokenService.createPasswordAccessToken(any(), eq("default"), isNull()))
+                .thenThrow(new IllegalStateException("Credential version changed"));
+
+        assertThrows(IllegalStateException.class, () -> authService.login(new AuthLoginReqVO()
+                .setUsername("changed-user").setPassword("current-password")));
+
+        verifyNoInteractions(loginLogService);
+        verify(userService, never()).updateUserLogin(anyLong(), any());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+    }
+
+    @Test
+    public void testSmsLogin_guardedFailureDoesNotPretendSmsCodeWasRestored() {
+        AdminUserDO user = new AdminUserDO().setId(13L);
+        when(userService.getUserByMobile("task-mobile")).thenReturn(user);
+        when(oauth2TokenService.createMobileAccessToken(13L, "task-mobile", "default", null))
+                .thenThrow(new IllegalStateException("Authenticated mobile binding changed"));
+
+        assertThrows(IllegalStateException.class,
+                () -> authService.smsLogin(new AuthSmsLoginReqVO("task-mobile", "one-time-code")));
+
+        var order = inOrder(smsCodeApi, oauth2TokenService);
+        order.verify(smsCodeApi).useSmsCode(any());
+        order.verify(oauth2TokenService).createMobileAccessToken(13L, "task-mobile", "default", null);
+        verify(oauth2TokenService, never()).createAdminAccessToken(anyLong(), anyString(), any());
+        verifyNoInteractions(loginLogService);
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+    }
+
+    @Test
+    public void testRegister_returnsGuardedCredentialFlag() {
+        authService.setCaptchaEnable(false);
+        AuthRegisterReqVO request = new AuthRegisterReqVO();
+        request.setUsername("registered-user");
+        request.setPassword("Current@2026");
+        when(userService.registerUser(request)).thenReturn(14L);
+        OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(14L));
+        when(oauth2TokenService.createAdminAccessToken(14L, "default", null))
+                .thenReturn(new AdminSessionToken(token, false));
+
+        AuthLoginRespVO response = authService.register(request);
+
+        assertEquals(Boolean.FALSE, response.getPasswordChangeRequired());
+        assertEquals(14L, response.getUserId());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+    }
+
+    @Test
     public void testLogin_success() {
         // 准备参数
         AuthLoginReqVO reqVO = randomPojo(AuthLoginReqVO.class, o ->
@@ -233,14 +334,15 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(1L).setUsername("test_username")
                 .setPassword("test_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
                 .setPasswordUpdateTime(LocalDateTime.now().minusDays(30)));
+        user.setTenantId(1L);
         when(userService.getUserByUsername(eq("test_username"))).thenReturn(user);
         // mock password 匹配
         when(userService.isPasswordMatch(eq("test_password"), eq(user.getPassword()))).thenReturn(true);
         // mock 缓存登录用户到 Redis
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
                 .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
-                .thenReturn(accessTokenDO);
+        when(oauth2TokenService.createPasswordAccessToken(any(AdminPasswordAuthenticationSnapshot.class), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(accessTokenDO, false));
 
         // 调用，并校验
         AuthLoginRespVO loginRespVO = authService.login(reqVO);
@@ -251,7 +353,11 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
                         && o.getResult().equals(LoginResultEnum.SUCCESS.getResult())
                         && o.getUserId().equals(user.getId()))
         );
-        verify(userService).resetUserLoginFailure(eq(user.getId()));
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+        ArgumentCaptor<AdminPasswordAuthenticationSnapshot> snapshot = ArgumentCaptor.forClass(AdminPasswordAuthenticationSnapshot.class);
+        verify(oauth2TokenService).createPasswordAccessToken(snapshot.capture(), eq("default"), isNull());
+        assertTrue(snapshotMatches(user, snapshot.getValue()), "Authenticated credential version must reach guarded issuance");
+        assertEquals(Boolean.FALSE, loginRespVO.getPasswordChangeRequired());
         verify(socialUserService).bindSocialUser(eq(new SocialUserBindReqDTO(
                 user.getId(), UserTypeEnum.ADMIN.getValue(),
                 reqVO.getSocialType(), reqVO.getSocialCode(), reqVO.getSocialState())));
@@ -264,12 +370,13 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(2L).setUsername("reset_user")
                 .setPassword("reset_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
                 .setPasswordCredentialStatus("RESET_REQUIRED").setPasswordUpdateTime(LocalDateTime.now()));
+        user.setTenantId(1L);
         when(userService.getUserByUsername(eq("reset_user"))).thenReturn(user);
         when(userService.isPasswordMatch(eq("reset_password"), eq(user.getPassword()))).thenReturn(true);
         OAuth2AccessTokenDO token = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(2L)
                 .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(2L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
-                .thenReturn(token);
+        when(oauth2TokenService.createPasswordAccessToken(any(AdminPasswordAuthenticationSnapshot.class), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(token, true));
 
         AuthLoginRespVO response = authService.login(reqVO);
 
@@ -289,14 +396,15 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(1L).setUsername("test_username")
                 .setPassword("test_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
                 .setPasswordUpdateTime(LocalDateTime.now().minusDays(30)));
+        user.setTenantId(1L);
         when(userService.getUserByUsername(eq("test_username"))).thenReturn(user);
         // mock password 匹配
         when(userService.isPasswordMatch(eq("test_password"), eq(user.getPassword()))).thenReturn(true);
         // mock 缓存登录用户到 Redis
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
                 .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
-                .thenReturn(accessTokenDO);
+        when(oauth2TokenService.createPasswordAccessToken(any(AdminPasswordAuthenticationSnapshot.class), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(accessTokenDO, false));
 
         // 调用，并校验
         AuthLoginRespVO loginRespVO = authService.login(reqVO);
@@ -348,12 +456,16 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         // mock 缓存登录用户到 Redis
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
                 .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
-                .thenReturn(accessTokenDO);
+        when(oauth2TokenService.createMobileAccessToken(eq(1L), eq(mobile), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(accessTokenDO, true));
 
         // 调用，并断言
         AuthLoginRespVO loginRespVO = authService.smsLogin(reqVO);
         assertPojoEquals(accessTokenDO, loginRespVO);
+        assertEquals(Boolean.TRUE, loginRespVO.getPasswordChangeRequired());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
+        verify(oauth2TokenService).createMobileAccessToken(1L, mobile, "default", null);
+        verify(oauth2TokenService, never()).createAdminAccessToken(anyLong(), anyString(), any());
         // 断言调用
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_MOBILE.getType())
@@ -376,12 +488,14 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         // mock 缓存登录用户到 Redis
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
                 .setUserType(UserTypeEnum.ADMIN.getValue()));
-        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
-                .thenReturn(accessTokenDO);
+        when(oauth2TokenService.createAdminAccessToken(eq(1L), eq("default"), isNull()))
+                .thenReturn(new AdminSessionToken(accessTokenDO, true));
 
         // 调用，并断言
         AuthLoginRespVO loginRespVO = authService.socialLogin(reqVO);
         assertPojoEquals(accessTokenDO, loginRespVO);
+        assertEquals(Boolean.TRUE, loginRespVO.getPasswordChangeRequired());
+        verify(userService, never()).resetUserLoginFailure(anyLong());
         // 断言调用
         verify(loginLogService).createLoginLog(
                 argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_SOCIAL.getType())
@@ -443,13 +557,22 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         String refreshToken = randomString();
         // mock 方法
         OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class);
-        when(oauth2TokenService.refreshAccessToken(eq(refreshToken), eq("default")))
-                .thenReturn(accessTokenDO);
+        when(oauth2TokenService.refreshAdminAccessToken(eq(refreshToken), eq("default")))
+                .thenReturn(new AdminSessionToken(accessTokenDO, true));
 
         // 调用
         AuthLoginRespVO loginRespVO = authService.refreshToken(refreshToken);
         // 断言
         assertPojoEquals(accessTokenDO, loginRespVO);
+        assertEquals(Boolean.TRUE, loginRespVO.getPasswordChangeRequired());
+    }
+
+    private static boolean snapshotMatches(AdminUserDO user, AdminPasswordAuthenticationSnapshot snapshot) {
+        return java.util.Objects.equals(user.getTenantId(), snapshot.getTenantId())
+                && java.util.Objects.equals(user.getId(), snapshot.getUserId())
+                && java.util.Objects.equals(user.getPassword(), snapshot.getPasswordHash())
+                && java.util.Objects.equals(user.getPasswordUpdateTime(), snapshot.getPasswordUpdateTime())
+                && java.util.Objects.equals(user.getPasswordCredentialStatus(), snapshot.getPasswordCredentialStatus());
     }
 
     @Test

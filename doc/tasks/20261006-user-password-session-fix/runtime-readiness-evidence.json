@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "backend_pid": 38204,
+  "backend_created": 1791315721.6160293,
+  "launcher_pid": 61124,
+  "backend_port": 48090,
+  "frontend_port": 8090,
+  "health_http": 200,
+  "health_status": "UP",
+  "started_event": true,
+  "official_branch_launcher": true,
+  "repo_state_arguments_present": true,
+  "immutable_jar_sha256": "e2faddc39bc9a633f3b1f2e86a0291bb5775ea6a689eaaf888e83fde6c436d35",
+  "secret_values_recorded": false,
+  "observed_at": "2026-10-07T03:45:04+08:00"
+}

@@ -21,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import static cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.isRequestLoggingDisabled;
 
 /**
  * Token 过滤器，验证 token 的有效性
@@ -59,6 +60,9 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
                 }
             } catch (Throwable ex) {
                 CommonResult<?> result = globalExceptionHandler.allExceptionHandler(request, ex);
+                if (isRequestLoggingDisabled(request)) {
+                    WebFrameworkUtils.setCommonResult(request, result);
+                }
                 ServletUtils.writeJSON(response, result);
                 return;
             }

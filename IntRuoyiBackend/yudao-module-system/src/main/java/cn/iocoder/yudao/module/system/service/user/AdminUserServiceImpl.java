@@ -51,6 +51,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
@@ -310,11 +311,13 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserPassword(Long id, UserProfileUpdatePasswordReqVO reqVO) {
-        // 校验旧密码密码
-        validateOldPassword(id, reqVO.getOldPassword());
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
+        if (!isPasswordMatch(reqVO.getOldPassword(), user.getPassword())) {
+            throw exception(USER_PASSWORD_FAILED);
+        }
         validatePasswordStrength(reqVO.getNewPassword());
-        AdminUserDO user = validateUserExists(id);
         validatePasswordNotReused(user, reqVO.getNewPassword());
         // 执行更新
         AdminUserDO updateObj = new AdminUserDO().setId(id);
@@ -323,14 +326,16 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("ACTIVE");
         userMapper.updateById(updateObj);
+        oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UPDATE_PASSWORD_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_USER_UPDATE_PASSWORD_SUCCESS)
     public void updateUserPassword(Long id, String password) {
         // 1. 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
         validatePasswordStrength(password);
 
         // 2. 更新密码
@@ -341,16 +346,17 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("RESET_REQUIRED");
         userMapper.updateById(updateObj);
+        oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
 
         // 3. 记录操作日志上下文
-        LogRecordContext.putVariable("user", user);
-        LogRecordContext.putVariable("newPassword", updateObj.getPassword());
+        LogRecordContext.putVariable("targetNickname", user.getNickname());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
         if (CommonStatusEnum.isEnable(status) && user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN, user.getLifecycleDocumentNo());
         }
@@ -369,7 +375,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO) {
-        AdminUserDO user = validateUserExists(reqVO.getId());
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), reqVO.getId());
         if (user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_ALREADY_DEACTIVATED, user.getLifecycleDocumentNo());
         }
@@ -406,13 +412,40 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_LIFECYCLE_PROCESS_LIMIT_INVALID);
         }
         List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit);
+        // 候选仅提供 ID；统一按 ID 加锁，锁后当前读才决定是否执行。
+        List<Long> userIds = users.stream().map(AdminUserDO::getId).sorted().toList();
         int processedCount = 0;
-        for (AdminUserDO user : users) {
+        for (Long userId : userIds) {
+            AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
+            if (user.getLifecycleDeactivatedTime() != null
+                    || user.getLifecycleDocumentType() == null || user.getLifecycleDocumentNo() == null
+                    || user.getLifecycleEffectiveTime() == null || user.getLifecycleEffectiveTime().isAfter(now)) {
+                continue;
+            }
             if (applyLifecycleDeactivation(user)) {
                 processedCount++;
             }
         }
         return processedCount;
+    }
+
+    @Override
+    public AdminUserDO lockUserForSessionMutation(Long tenantId, Long userId) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("User session mutation requires an existing writable Spring transaction");
+        }
+        if (tenantId == null || !Objects.equals(tenantId, TenantContextHolder.getTenantId())) {
+            throw new IllegalStateException("User session mutation requires a matching explicit tenant");
+        }
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User session mutation requires a positive user ID");
+        }
+        AdminUserDO user = userMapper.selectPermissionSubjectForUpdate(tenantId, userId);
+        if (user == null) {
+            throw exception(USER_NOT_EXISTS);
+        }
+        return user;
     }
 
     private boolean applyLifecycleDeactivation(AdminUserDO user) {
@@ -761,7 +794,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_PASSWORD_REUSE_FORBIDDEN);
         }
         List<AdminUserPasswordHistoryDO> historyList =
-                passwordHistoryMapper.selectLatestListByUserId(user.getId(), PASSWORD_HISTORY_REUSE_LIMIT);
+                passwordHistoryMapper.selectLatestListForUpdate(user.getTenantId(), user.getId(), PASSWORD_HISTORY_REUSE_LIMIT);
         for (AdminUserPasswordHistoryDO history : historyList) {
             if (isPasswordMatch(password, history.getPasswordHash())) {
                 throw exception(USER_PASSWORD_REUSE_FORBIDDEN);

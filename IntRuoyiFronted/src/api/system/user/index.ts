@@ -105,7 +105,7 @@ export const resetUserPassword = (id: number, password: string) => {
     id,
     password
   }
-  return request.put({ url: '/system/user/update-password', data: data })
+  return request.put({ url: '/system/user/update-password', data: data, ignoreErrorMessage: true })
 }
 
 // 用户状态修改

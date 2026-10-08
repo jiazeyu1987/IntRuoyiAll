@@ -15,6 +15,20 @@ import java.util.List;
  */
 public interface OAuth2TokenService {
 
+    /** 使用已完成密码认证的内存快照，在用户锁内校验并签发后台人员令牌。 */
+    AdminSessionToken createPasswordAccessToken(AdminPasswordAuthenticationSnapshot snapshot,
+                                               String clientId, List<String> scopes);
+
+    /** 在用户锁内校验当前后台人员身份并签发，返回锁内改密标记。 */
+    AdminSessionToken createAdminAccessToken(Long userId, String clientId, List<String> scopes);
+
+    /** 在用户锁内复核已验证短信凭据对应的手机号绑定后签发后台人员令牌。 */
+    AdminSessionToken createMobileAccessToken(Long userId, String authenticatedMobile,
+                                             String clientId, List<String> scopes);
+
+    /** 在正式租户内锁定后台人员并当前读刷新令牌，返回锁内改密标记。 */
+    AdminSessionToken refreshAdminAccessToken(String refreshToken, String clientId);
+
     /**
      * 创建访问令牌
      * 注意：该流程中，会包含创建刷新令牌的创建

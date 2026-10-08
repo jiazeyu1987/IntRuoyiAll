@@ -1,0 +1,140 @@
+{
+  "status": "PASS",
+  "packaging": "Full Maven server package; tests separately verified (257)",
+  "jar_sha256": "e2faddc39bc9a633f3b1f2e86a0291bb5775ea6a689eaaf888e83fde6c436d35",
+  "jar_modified": "2026-10-07T03:38:23.017690+08:00",
+  "immutable_jar": "E:\\IntRuoyiWorktree\\user-password-session\\IntRuoyi\\output\\runtime\\int_main\\um05-slot9\\yudao-server-um05.jar",
+  "sources": 24,
+  "classes": [
+    {
+      "module": "yudao-spring-boot-starter-biz-tenant",
+      "class": "cn/iocoder/yudao/framework/tenant/core/security/TenantSecurityWebFilter.class",
+      "sha256": "fac8d61811344894d412fdfe7fff54ccfb6c79a660ade171c31fc32d2ac0c568"
+    },
+    {
+      "module": "yudao-spring-boot-starter-security",
+      "class": "cn/iocoder/yudao/framework/security/core/filter/TokenAuthenticationFilter.class",
+      "sha256": "f6b5eafb22efd97274470c51fd23212ac5468d9611b23ab135604868975fe770"
+    },
+    {
+      "module": "yudao-spring-boot-starter-security",
+      "class": "cn/iocoder/yudao/framework/security/core/handler/AccessDeniedHandlerImpl.class",
+      "sha256": "486a2f4f7a50c46b0da56669bd247f08527b8e9e264081ea3dda25a2b4640ce4"
+    },
+    {
+      "module": "yudao-spring-boot-starter-security",
+      "class": "cn/iocoder/yudao/framework/security/core/handler/AuthenticationEntryPointImpl.class",
+      "sha256": "ed8e69499f2f994567af06c2a63ab8c3b06e121a57a9b1e59e4e91fccebe6efd"
+    },
+    {
+      "module": "yudao-spring-boot-starter-web",
+      "class": "cn/iocoder/yudao/framework/apilog/core/filter/ApiAccessLogFilter.class",
+      "sha256": "84f4299243d2157c95cd170a4da95c12748e173406b6f5d25583c28bb36432e9"
+    },
+    {
+      "module": "yudao-spring-boot-starter-web",
+      "class": "cn/iocoder/yudao/framework/apilog/core/filter/ApiAccessLogFilter$1.class",
+      "sha256": "ea607821fb4266e7efa41a135152683fd814fab1a154e11dbfce2c1f5411946d"
+    },
+    {
+      "module": "yudao-spring-boot-starter-web",
+      "class": "cn/iocoder/yudao/framework/apilog/core/interceptor/ApiAccessLogInterceptor.class",
+      "sha256": "c783a10003df4c9968453ceaeff035c974572a77766d75d76984ba6f42766275"
+    },
+    {
+      "module": "yudao-spring-boot-starter-web",
+      "class": "cn/iocoder/yudao/framework/web/core/handler/GlobalExceptionHandler.class",
+      "sha256": "ced73047c1ddbe207d8ba4aa35bb2f13270195346781c97920db3fd3edae4ff6"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/controller/admin/user/UserController.class",
+      "sha256": "3b050f6e69a8a30ccde3480c167216d8d48950345dc220969714f464bc416fbd"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/controller/admin/user/UserProfileController.class",
+      "sha256": "74cd3993ac0fe23d1e968d21ece193a28759a1384724a4fcfcd01b38e447326e"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/oauth2/OAuth2AccessTokenMapper.class",
+      "sha256": "442da6fba4aabddc9b885a1c83026afa1627532bfdf89a53b48f84a7c656273c"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/oauth2/OAuth2RefreshTokenMapper.class",
+      "sha256": "8c4afef7067d9f5766b07c32b589328ba651ce06c6be7ccf793d1883fc4dc1a8"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserMapper.class",
+      "sha256": "e4a9f4ac89e0bf83ec6706f42dc172248343e9b486bbfb4916aac8511a3a7abc"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/user/AdminUserPasswordHistoryMapper.class",
+      "sha256": "fd4993c8fbe17bc5128393e5c72384b845753edb2d27922b814a846a04e72ad6"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/enums/LogRecordConstants.class",
+      "sha256": "e89a9f58042f3450c1c570d7508969d7175d81ffbc9bd64c26ae4bfa76b1c922"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/framework/web/config/SystemWebConfiguration.class",
+      "sha256": "93c832a532905ac00555f076d64f59e527b217258db49d5d58615dc1b7d165cc"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/framework/web/core/filter/PasswordRequestLogMetadataFilter.class",
+      "sha256": "2e8ff673e131db8e8063219d6a71f37ff23dd5aea0b5b6e73e50a4e17a451171"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/framework/web/core/filter/PasswordRequestLogMetadataFilter$ProtectedEndpoint.class",
+      "sha256": "81f2643b8c813d1da332e9054881bcbc5642c813c93ef5d3261fcf131fdb3036"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/auth/AdminAuthServiceImpl.class",
+      "sha256": "13f4b7364359208f52d28f1722a90c28127781e7cdb9f9c6d5daa8fb4dc7848a"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/oauth2/AdminPasswordAuthenticationSnapshot.class",
+      "sha256": "a41e7687b0dee5999c3f6295e2a67157df442218628f48e247d2aeddd1e80903"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/oauth2/AdminSessionToken.class",
+      "sha256": "1611f9ef0b3426c9a4ea92bc49179ecc2f1cd2455234e0cebb1141efffd22fd6"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/oauth2/OAuth2GrantServiceImpl.class",
+      "sha256": "6bf1d31a304988f7b881c7dbb4fe6fd0995c71718f89c632a34d9c156bfff913"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/oauth2/OAuth2TokenService.class",
+      "sha256": "81b4c64623983d658bcf6df009b229483067b73bf9da8fe8e38a82014c1c2ce0"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/oauth2/OAuth2TokenServiceImpl.class",
+      "sha256": "5c6095500b7725897ca2c89941ed018d5cfb1c4e97f7677dcbbf77f6c1db144d"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/user/AdminUserService.class",
+      "sha256": "d357ff3771605a680f8ec0ef4f092d9bfb2f6626aa73cd8c33563d04d58f3e00"
+    },
+    {
+      "module": "yudao-module-system",
+      "class": "cn/iocoder/yudao/module/system/service/user/AdminUserServiceImpl.class",
+      "sha256": "ec71a629c6604ba065f2cd19d877fff0d9c1c8c9d4ba5af1d4c020b32aeb827a"
+    }
+  ]
+}

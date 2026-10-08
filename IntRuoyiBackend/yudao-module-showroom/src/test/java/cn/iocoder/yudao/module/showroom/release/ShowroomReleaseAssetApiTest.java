@@ -12,7 +12,7 @@ class ShowroomReleaseAssetApiTest extends AbstractShowroomReleaseDbTest {
     @Test
     void shouldExposeImmutableAssetBinaryContract() throws Exception {
         ShowroomMaterializedRelease release = publishReleaseFixture();
-        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().getFirst();
+        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().get(0);
 
         var response = scopedAssetController.getAsset(DEFAULT_SITE_KEY, DEFAULT_STAGE,
                 asset.assetId(), asset.contentHash(), new HttpHeaders());
@@ -27,7 +27,7 @@ class ShowroomReleaseAssetApiTest extends AbstractShowroomReleaseDbTest {
     @Test
     void legacyAssetPathShouldRequireSiteSelector() throws Exception {
         ShowroomMaterializedRelease release = publishReleaseFixture();
-        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().getFirst();
+        ShowroomMaterializedRelease.MaterializedAsset asset = release.assets().get(0);
 
         var response = assetController.getAsset(asset.assetId(), asset.contentHash(), new HttpHeaders());
 
