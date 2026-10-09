@@ -652,8 +652,7 @@ public class MesProcessPoolProductionReportCorrectionService {
             BigDecimal outputQuantity = requireDecimal(material.get("outputQuantity"),
                     "materialDetails.outputQuantity");
             BigDecimal lossQuantity = requireDecimal(material.get("lossQuantity"), "materialDetails.lossQuantity");
-            if (outputQuantity.compareTo(BigDecimal.ZERO) < 0 || lossQuantity.compareTo(BigDecimal.ZERO) < 0
-                    || lossQuantity.compareTo(outputQuantity) > 0) {
+            if (outputQuantity.compareTo(BigDecimal.ZERO) < 0 || lossQuantity.compareTo(BigDecimal.ZERO) < 0) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "materialDetails.quantity");
             }
             int updated = feedbackMaterialMapper.updateCorrectedMaterialFact(

@@ -139,6 +139,33 @@ class MesKingdeeProductionMaterialListQueryServiceImplTest extends BaseDbUnitTes
     }
 
     @Test
+    void getPage_keepsSharedBillScopedToExactOrderAcrossSecondPage() {
+        LocalDateTime sourceTime = LocalDateTime.of(2026, 6, 30, 8, 0);
+        for (int i = 1; i <= 101; i++) {
+            insertMaterialRow("BILL-SHARED", "PRODUCT-A", "WO-OWNED", i, "OWNED-" + i, "本订单物料",
+                    sourceTime, sourceTime.plusMinutes(1));
+        }
+        insertMaterialRow("BILL-SHARED", "PRODUCT-A", "WO-OWNED-EXTRA", 1, "OTHER-1", "同单据其它订单物料",
+                sourceTime, sourceTime.plusMinutes(1));
+        MesKingdeeProductionMaterialListPageReqVO request = new MesKingdeeProductionMaterialListPageReqVO();
+        request.setProductionOrderNo("WO-OWNED");
+        request.setPageSize(100);
+        request.setPageNo(1);
+        var first = queryService.getPage(request);
+        assertEquals(101L, first.getTotal());
+        assertEquals(100, first.getList().size());
+        org.junit.jupiter.api.Assertions.assertTrue(first.getList().stream()
+                .allMatch(row -> "WO-OWNED".equals(row.getProductionOrderNo())));
+        request.setPageNo(2);
+        var second = queryService.getPage(request);
+        assertEquals(101L, second.getTotal());
+        assertEquals(1, second.getList().size());
+        assertEquals("WO-OWNED", second.getList().get(0).getProductionOrderNo());
+        org.junit.jupiter.api.Assertions.assertTrue(first.getList().stream()
+                .noneMatch(row -> row.getId().equals(second.getList().get(0).getId())));
+    }
+
+    @Test
     void getDetailList_shouldReturnOnlySpecifiedBillAndSortByLineNoThenId() {
         insertMaterialRow("BILL-DETAIL", "PRODUCT-1", "WO-1", 2, "CHILD-LINE2-A", "子项2-A",
                 LocalDateTime.of(2026, 6, 30, 8, 0),

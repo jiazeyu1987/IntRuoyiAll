@@ -1352,7 +1352,13 @@
           label="生产用料清单"
           name="productionMaterialLists"
           data-team-leader-active-order-detail-production-material-list-tab
+          :data-active-order-production-material-list-state="
+            productionMaterialListLoading ? 'loading' : productionMaterialListError ? 'error' : 'success'
+          "
         >
+          <p data-active-order-production-material-list-scope>
+            当前活跃订单生产用料清单 · 生产工单：{{ detail.workOrderCode }}
+          </p>
           <el-alert
             v-if="productionMaterialListError"
             :title="productionMaterialListError"
@@ -1360,7 +1366,12 @@
             :closable="false"
             show-icon
             class="team-leader-workbench__production-material-list-error"
-          />
+            data-active-order-production-material-list-error
+          >
+            <el-button link type="primary" @click="$emit('retry')">
+              重新加载生产用料清单
+            </el-button>
+          </el-alert>
           <div
             v-else-if="productionMaterialListDocuments.length"
             v-loading="productionMaterialListLoading"
@@ -1469,6 +1480,7 @@
             v-loading="productionMaterialListLoading"
             :image-size="56"
             description="暂无生产用料清单"
+            data-active-order-production-material-list-empty
           />
         </el-tab-pane>
         <el-tab-pane

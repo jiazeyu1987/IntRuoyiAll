@@ -4942,18 +4942,9 @@ const assertProductionSubmissionReady = (): ProFrontlineFeedbackMaterialReqVO[] 
     if (invalidCompletionMaterials.length) {
       throw new Error(`完成数量必须大于 0：${invalidCompletionMaterials.map((material) => material.materialName).join('、')}`)
     }
-    const invalidLossMaterials = materialDetails.filter(
-      (material) => material.lossQuantity > material.outputQuantity
-    )
-    if (invalidLossMaterials.length) {
-      throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
-    }
   } else {
     if (productionDraft.outputQuantity === undefined || productionDraft.outputQuantity <= 0) {
       throw new Error('请填写完成数量：工序输出数量必须大于 0')
-    }
-    if (productionScrapQuantity.value > productionDraft.outputQuantity) {
-      throw new Error('损耗数量不能大于完成数量')
     }
   }
   const meteringValidityByDevice = new Map<number, boolean>()
@@ -5009,14 +5000,10 @@ const buildProductionFormalSubmitConfirmation = (
       : ''
     return `${reading.deviceCode || reading.deviceName || reading.deviceId}/${reading.parameterName || reading.parameterCode}=${value}${reading.unit || ''}${statusLabel}`
   }).join('、')
-  const totalCompletionQuantity = materialDetails.reduce(
-    (total, material) => total + material.outputQuantity,
-    0
-  )
-  const totalLossQuantity = materialDetails.reduce(
-    (total, material) => total + material.lossQuantity,
-    0
-  )
+  const totalCompletionQuantity = materialDetails.length > 0
+    ? materialDetails.reduce((total, material) => total + material.outputQuantity, 0)
+    : progressQuantity
+  const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
   const clearanceSummary = buildProductionClearanceConfirmationPayload()
     .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
     .join('、')
@@ -5028,6 +5015,7 @@ const buildProductionFormalSubmitConfirmation = (
     `工序进度：${progressQuantity}件`,
     `完成数量合计：${totalCompletionQuantity}件`,
     `损耗数量合计：${totalLossQuantity}件`,
+    '完成数量为合格产出，损耗另计。',
     `设备：${deviceSummary}`,
     `设备参数：${parameterSummary || (selectedDevices.length ? '无数值参数' : '无设备参数')}`,
     `清场确认：${clearanceSummary}`,

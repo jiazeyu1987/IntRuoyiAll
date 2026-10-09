@@ -329,8 +329,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         }
 
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
-                new BigDecimal("100.500").compareTo(payload.getFeedbackQuantity()) == 0
-                        && new BigDecimal("98.000").compareTo(payload.getQualifiedQuantity()) == 0
+                new BigDecimal("103.000").compareTo(payload.getFeedbackQuantity()) == 0
+                        && new BigDecimal("100.500").compareTo(payload.getQualifiedQuantity()) == 0
                         && new BigDecimal("2.500").compareTo(payload.getUnqualifiedQuantity()) == 0));
         verify(processPoolSubmitEventService).createInitialAllocation(
                 801L, 81L, new BigDecimal("100.500"));

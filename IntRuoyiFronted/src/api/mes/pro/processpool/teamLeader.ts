@@ -1,4 +1,5 @@
 import request from '@/config/axios'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 import type {
   ProcessPoolTimelineDetailVO,
   ProcessPoolTimelineEventVO,
@@ -1106,6 +1107,16 @@ export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number | str
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/detail',
     params: { activeOrderId }
+  })
+}
+
+export const getTeamLeaderActiveOrderProductionMaterialLists = async (
+  activeOrderId: number | string
+) => {
+  return await request.get<ErpProductionMaterialListVO[]>({
+    url: '/mes/pro/process-pool/team-leader/active-order/production-material-lists',
+    params: { activeOrderId },
+    ignoreErrorMessage: true
   })
 }
 

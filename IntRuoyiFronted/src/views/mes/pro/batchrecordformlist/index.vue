@@ -176,6 +176,14 @@
             <el-button link type="primary" @click="openSimulate(selectedReport)">填写</el-button>
             <el-button link type="primary" @click="openTemplateAction(selectedReport, 'signature')">签名</el-button>
             <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">填写配置</el-button>
+            <el-button
+              v-hasPermi="['mes:pro-batch-record-version:query']"
+              link
+              type="primary"
+              :disabled="!selectedReport.batchRecordVersionId || !selectedReport.versionNo || !selectedReport.versionStatus"
+              data-batch-record-version-review-entry
+              @click="versionReviewDialog?.open(selectedReport)"
+            >版本审核 / 迁移审查</el-button>
             <el-button link type="primary" @click="handleCellLinks(selectedReport)">链接</el-button>
             <el-button link type="primary" @click="handleRename(selectedReport)">重命名</el-button>
             <el-button link type="danger" @click="handleDelete(selectedReport)">删除</el-button>
@@ -498,6 +506,7 @@
       </template>
     </el-dialog>
 
+    <BatchRecordVersionReviewDialog ref="versionReviewDialog" @changed="getList" />
     <BatchRecordCellRulesConfirmDialog
       v-model="cellRulesDialog.visible"
       :report="cellRulesDialog.report"
@@ -544,6 +553,7 @@ import {
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
 import DesignerWrapper from '@/views/mes/pro/batchrecord-shared/DesignerWrapper.vue'
 import BatchRecordCellRulesConfirmDialog from '@/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue'
+import BatchRecordVersionReviewDialog from './BatchRecordVersionReviewDialog.vue'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
 import type {
   EdhrBatchExecutionReviewFormViewModel,
@@ -559,6 +569,7 @@ type RecordFormListRow = BatchRecordReportVO & {
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const versionReviewDialog = ref<InstanceType<typeof BatchRecordVersionReviewDialog>>()
 const BATCH_RECORD_FORM_LIST_PATH = '/mes/pro/batch-record-form-list'
 const PROCESS_POOL_REPORT_SOURCE_REPORT_ID = 'PROCESS_POOL_REPORT'
 const isBatchRecordFormListPath = () => route.path === BATCH_RECORD_FORM_LIST_PATH
