@@ -7,7 +7,7 @@
 1. 已完成：确认主干 int_main、39 个既有改动文件、远端和空闲端口 8081/48081；启动依赖已存在。
 2. 已完成：定向测试与完整后端打包通过，39 文件提交为 29df5ede2；已推送 origin/int_main，ahead/behind 为 0。
 3. 已完成：并行任务已在本次构建期间启动同一主干前后端；运行 Jar 全部 851 个归档条目与本次构建逐字节一致，前端 HTTP 200、后端 HTTP 200 / UP；未打断共享服务。
-4. 进行中：经验核对已完成，执行 cleanup preview/apply 后提交推送本任务收尾记录。
+4. 已完成：经验核对及 cleanup preview/apply 通过，7 个本任务临时清单已移除，3 份核心记录保留；收尾记录独立提交推送。
 
 ## Expected Verification
 - 提交前后检查 Git 状态、暂存文件范围、差异格式和分支端口合同。
@@ -23,7 +23,9 @@
 - 本任务文档与既有改动分开提交，日志不记录凭据。
 
 ## Current Status
-ready_for_closeout
+completed
+
+最终验证：代码基线已推送；前端 HTTP 200、后端 HTTP 200 / UP；归档内容与本次构建一致；cleanup PASS。
 
 ## Cleanup Candidates
 - .git/main-commit-push-start-paths.txt

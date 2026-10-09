@@ -36,6 +36,10 @@
 - 运行 Jar SHA256=C5C20F38BE9B9647288860B1C7DAE0A1D58BF500F6BA2668909BCCF7A494E817；整体归档哈希与新打包 Jar 不同，851 个条目名称及每个解压内容逐字节全部相同，说明运行负载与本次已验证构建等价。
 - 后端 /actuator/health -> HTTP 200 / UP；运行 Jar 修改时间早于 Java 进程启动时间；未覆盖运行包。
 - git status 无业务 dirty，HEAD...origin/int_main 为 0/0；状态转为 ready_for_closeout。只清理本任务 Git 元数据目录下 7 个明确临时清单，保留既有服务、运行日志和其它任务。
+- 验证记录提交：4fa2c100ef5f2ccda10914ace274807ea8adbdb8，仅 task.md、execution-log.md、verification-report.md；因本机 .git/info/exclude 排除任务目录，对本任务三个正式记录使用 git add -f。
+- cleanup preview -> ready，keep=3、delete=7、blocked=0、warnings=0；确认删除范围为本任务 7 个明确 Git 元数据清单。
+- cleanup apply -> applied；7 个临时文件存在性复验均为 False，3 份核心记录全部保留。当前是主工作区，无 worktree 融合、移除或其它任务清理。
+- 收尾状态更新为 completed；最终收尾提交仅上述 3 份核心记录，提交 hash 由 git log -1 --format=%H -- doc/tasks/20261009-main-commit-push-start 回查并随最终回复报告；提交后推送 origin int_main，复验同步和服务健康。
 
 ## 基线文件清单
 - IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/feedback/frontline/MesProFeedbackMaterialServiceImpl.java

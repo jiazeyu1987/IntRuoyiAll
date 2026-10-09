@@ -1,7 +1,7 @@
 # 主干提交推送与运行态验证报告
 
 ## Result
-ready_for_closeout：主干代码已推送，前后端在线且运行负载与本次构建一致；等待 cleanup 和最终记录推送。
+completed：主干代码已推送，前后端在线且运行负载与本次构建一致；cleanup preview/apply PASS。
 
 ## Git Verification
 - 冻结基线：6a012519b，39 个待提交文件；起始主干领先 origin/int_main 12 个提交。
@@ -28,5 +28,7 @@ ready_for_closeout：主干代码已推送，前后端在线且运行负载与�
 
 ## Closeout
 - project-experience-consolidation 核对现有经验，已覆盖本次 Git 冻结、端口归属、运行包核验和迁移授权边界，无新长期经验文档。
-- cleanup preview/apply：待执行，仅 7 个本任务临时清单属于清理范围。
+- cleanup preview：ready，keep=3、delete=7、blocked=0、warnings=0。
+- cleanup apply：applied，7 个本任务临时清单全部移除，3 份核心记录存在性核验 PASS。
 - 任务三份核心记录与共享运行态保留。
+- 验证记录提交：4fa2c100ef5f2ccda10914ace274807ea8adbdb8；最终收尾提交仅更新本任务三份核心记录，完成后推送 origin/int_main 并再次检查同步、前端 HTTP 与后端健康。
