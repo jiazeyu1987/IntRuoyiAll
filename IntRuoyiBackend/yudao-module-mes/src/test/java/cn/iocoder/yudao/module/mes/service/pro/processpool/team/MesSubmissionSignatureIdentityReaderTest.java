@@ -17,11 +17,13 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+// Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesSubmissionSignatureIdentityReaderTest {
     @Mock ElectronicSignatureQueryService signatures;
     @Mock MesProProcessPoolEventMapper events;
@@ -30,6 +32,7 @@ class MesSubmissionSignatureIdentityReaderTest {
     @InjectMocks MesSubmissionSignatureIdentityReader reader;
     private final LocalDateTime signedAt = LocalDateTime.of(2026,10,4,10,0);
     @BeforeEach void tenant() {
+        cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(reader, signatures, 1L);
         TenantContextHolder.setTenantId(1L);
         lenient().when(productionBinding.require(any(), any())).thenReturn(
                 new MesProductionSubmitSignatureContext(100L,40L,30L,"submission"));
@@ -61,6 +64,7 @@ class MesSubmissionSignatureIdentityReaderTest {
         assertEquals("Frozen PQC B",reader.read(70L,11L,100L,"PQC_SUBMIT").getSignerName());
     }
     @Test void wrongTenantDomainSignerAndOperatorRemainRejected() {
+        valid();
         when(events.selectById(11L)).thenReturn(event("PRODUCTION_SUBMIT"));
         for (var evidence : java.util.List.of(
                 evidence("PRODUCTION_SUBMIT","SYSTEM_USER",1L,7L,99L,"B"),
@@ -70,7 +74,7 @@ class MesSubmissionSignatureIdentityReaderTest {
             when(signatures.getById(70L)).thenReturn(evidence);
             assertThrows(IllegalStateException.class,()->reader.read(70L,11L,100L,"PRODUCTION_SUBMIT"));
         }
-        verify(signatures,never()).verifyEvidence(anyLong());
+        verify(signatures,times(4)).verifyEvidence(70L);
     }
     @Test void formalMissingIdentityCannotBeReinterpretedAsSimulation() {
         when(events.selectById(11L)).thenReturn(event("PRODUCTION_SUBMIT"));
@@ -87,7 +91,9 @@ class MesSubmissionSignatureIdentityReaderTest {
         verifyNoInteractions(signatures);
         event.setSignatureId(70L);
         when(signatures.getById(70L)).thenReturn(evidence("PRODUCTION_SUBMIT","MES_EMPLOYEE_PROFILE",1L,7L,99L,"B"));
-        when(signatures.verifyEvidence(70L)).thenReturn(new ElectronicSignatureVerificationDTO(70L,"MISMATCH","c","changed","e","e","SHA-256","v1"));
+        when(signatures.verifyEvidence(70L)).thenReturn(new ElectronicSignatureVerificationDTO(70L,"MISMATCH","c","changed","e","e","SHA-256","v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
         assertThrows(IllegalStateException.class,()->reader.read(70L,11L,100L,"PRODUCTION_SUBMIT"));
     }
     @Test void explicitStage1ProductionAndPqcSessionRecordsRemainNonFormalDisplay() {
@@ -117,17 +123,19 @@ class MesSubmissionSignatureIdentityReaderTest {
                 .setFeedbackSourceType("MES_PQC_INSPECTION_TASK").setFeedbackSourceId(200L);
         event.setTenantId(1L);return event;
     }
-    private void valid() { when(signatures.verifyEvidence(70L)).thenReturn(new ElectronicSignatureVerificationDTO(70L,"VALID","c","c","e","e","SHA-256","v1")); }
+    private void valid() { when(signatures.verifyEvidence(70L)).thenReturn(new ElectronicSignatureVerificationDTO(70L,"VALID","c","c","e","e","SHA-256","v1",
+            "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+            "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1")); }
     private ElectronicSignatureEvidenceDTO evidence(String action,String domain,Long tenant,Long signer,Long operator,String name) {
         boolean production="PRODUCTION_SUBMIT".equals(action);
         String sourceType=production?MesProductionSubmitSignatureContext.SOURCE_TYPE:"MES_PQC_INSPECTION_TASK";
         Long sourceId=production?100L:200L;
         String sourceName=production?new MesProductionSubmitSignatureContext(100L,40L,30L,"submission").sourceName():"PQC task";
         String subject=MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L,action,null,null,null,null,null,null,null,sourceType,sourceId,sourceName,null,null,null,null,null);
-        var json=JSON.parseObject("{\"executionId\":\"0\",\"actionType\":\""+action+"\",\"reviewSourceType\":\""+sourceType+"\",\"reviewSourceId\":\""+sourceId+"\"}");
+        var json=JSON.parseObject(MesBatchRecordSignatureSubjectAdapter.canonicalBusinessContent(subject,action,"reason"));
         json.put("reviewSourceName",sourceName);
         json.put("signatureIdentity",Map.of("domain",domain,"tenantId",tenant,"signerId",signer,"operatorId",operator,"displayName",name));
-        return new ElectronicSignatureEvidenceDTO(70L,"MES",action,"MES_BATCH_RECORD",subject,"v1",7L,action,action,"reason",signedAt,"time","SESSION_PLUS_SELECTED_USER_PASSWORD","c","e","SHA-256","v1","p1","VALID",null,null,null,null,json.toJSONString(),null,null,null,"Current different name");
+        return new ElectronicSignatureEvidenceDTO(70L,"MES",action,"MES_BATCH_RECORD",subject,MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject),7L,action,action,"reason",signedAt,"time",("MES_EMPLOYEE_PROFILE".equals(domain)?"SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD":"SESSION_PLUS_SELECTED_USER_PASSWORD"),"c","e","SHA-256","v1","p1","VALID",null,null,null,null,json.toJSONString(),null,null,null,"Current different name");
     }
     private ElectronicSignatureEvidenceDTO withContent(ElectronicSignatureEvidenceDTO e,String json) {
         return new ElectronicSignatureEvidenceDTO(e.id(),e.moduleCode(),e.actionCode(),e.subjectType(),e.subjectId(),e.subjectVersion(),e.actorId(),e.meaningCode(),e.meaningLabel(),e.reason(),e.signedAt(),e.timeEvidenceId(),e.authenticationMethod(),e.contentHash(),e.evidenceHash(),e.algorithm(),e.keyVersion(),e.policyVersion(),e.verificationStatus(),e.processInstanceId(),e.taskId(),e.nodeCode(),e.nodeOrder(),json,e.beforeContentJson(),e.afterContentJson(),e.fieldDiffJson(),e.actorDisplayName());

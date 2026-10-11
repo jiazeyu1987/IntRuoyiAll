@@ -103,7 +103,14 @@ public class ShowroomApprovalTaskAdapter implements ApprovalTaskProvider {
                 .filter(request -> matchesKeyword(request, context.getKeyword()))
                 .map(this::toSummary)
                 .toList();
-        return pageRows(summaries, context.getPageNo(), context.getPageSize());
+        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
+    }
+
+    @Override
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
     }
 
     @Override

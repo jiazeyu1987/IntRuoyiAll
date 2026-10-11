@@ -14,7 +14,7 @@ export interface ActiveOrderSignatureEvidence {
     actorId: number | string
     meaningLabel?: string
     reason?: string
-    signedAt: number
+    signedAt: string | number | null
     timeZone?: string
     authenticationMethod?: string
     timeEvidenceId?: string
@@ -25,17 +25,31 @@ export interface ActiveOrderSignatureEvidence {
     policyVersion?: string
     verificationStatus?: string
     canonicalContentJson: string
+    actorDisplayName?: string
+    identityDomain?: string
+    identitySnapshotStatus?: 'SNAPSHOT' | 'MISSING'
     beforeContentJson?: string
     afterContentJson?: string
     fieldDiffJson?: string
   }
   verification: {
     signatureId: number | string
-    verificationStatus: 'VALID' | 'MISMATCH'
+    verificationStatus: 'VALID' | 'INCOMPLETE' | 'MISMATCH'
     storedContentHash?: string
     calculatedContentHash?: string
     storedEvidenceHash?: string
     calculatedEvidenceHash?: string
+    algorithm: string
+    keyVersion: string
+    verificationScope: string
+    digestStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
+    timeConsistencyStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
+    auditBindingStatus: 'CONSISTENT' | 'MISSING' | 'MISMATCH'
+    timeSource: 'SERVER_CLOCK' | 'UNKNOWN'
+    timeTrustStatus: 'NOT_BOUND'
+    reasonCodes: string[]
+    verifiedAt: number
+    evidenceFormatVersion: 'V1' | 'UNSUPPORTED'
   }
 }
 

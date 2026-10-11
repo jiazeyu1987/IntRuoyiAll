@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskSummary;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineEntry;
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProvider;
+import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalCenterReviewPreflight;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRejectReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO;
@@ -35,7 +36,8 @@ import java.util.Objects;
 import java.util.Set;
 
 @Component
-public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
+public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider, ApprovalCenterReviewPreflight,
+        cn.iocoder.yudao.module.bpm.approval.content.ApprovalTrustedDecisionProvider {
 
     private static final String SOURCE_TASK_TYPE = "EDHR_WORK_TASK";
     private static final String EDHR_WORK_TASK_ROUTE = "/mes/pro/feedback/edhr-work-task";
@@ -57,6 +59,10 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
     private final MesManagerReleaseCompletedActorResolver completedActorResolver;
     @jakarta.annotation.Resource
     private MesActiveOrderHandoffApprovalProjection handoffProjection;
+    @jakarta.annotation.Resource
+    private MesEdhrApprovalOutcomeReader outcomeReader;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissions;
 
     public MesProEdhrApprovalTaskAdapter(MesProEdhrWorkTaskService workTaskService,
                                          MesProEdhrReleaseService releaseService,
@@ -97,29 +103,39 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
-        if (context.getViewType() == ApprovalTaskViewType.TODO) {
-            return pageTodo(context);
+        if (!SUPPORTED_VIEWS.contains(context.getViewType())) {
+            throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR does not support " + context.getViewType());
         }
-        MesProEdhrWorkTaskPageReqVO reqVO = toMergedTodoReqVO(context);
-        PageResult<MesProEdhrWorkTaskRespVO> page = switch (context.getViewType()) {
-            case DONE -> workTaskService.getApprovalCenterDonePage(reqVO, context.isGlobalView());
-            default -> throw new IllegalArgumentException("APPROVAL_VIEW_TYPE_UNSUPPORTED: EDHR does not support " + context.getViewType());
-        };
+        long limit = prefixLimit(context);
+        PageResult<MesEdhrAuthorizedTaskProjection> page = workTaskService.getApprovalCenterAuthorizedPrefix(toReqVO(context),
+                context.isGlobalView(), context.getViewType() == ApprovalTaskViewType.DONE, limit);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR");
-        var handoffs=handoffProjection.list(context);
-        var summaries=new ArrayList<ApprovalTaskSummary>(page.getList().stream().map(this::toSummary).toList());
-        summaries.addAll(handoffs);sortSummaries(summaries);
-        return new PageResult<>(slicePageRows(summaries,context.getPageNo(),context.getPageSize()),safeTotal(page)+handoffs.size());
+        PageResult<ApprovalTaskSummary> handoffs = Objects.requireNonNull(handoffProjection.prefix(context, limit),
+                "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR handoff");
+        var summaries = new ArrayList<ApprovalTaskSummary>(page.getList().stream()
+                .map(task -> toSummary(task, context.getLoginUserId())).toList());
+        summaries.addAll(Objects.requireNonNull(handoffs.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR handoff"));
+        sortSummaries(summaries, context.getViewType());
+        return new PageResult<>(cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(summaries).getList(),
+                Math.addExact(Objects.requireNonNull(page.getTotal()), Objects.requireNonNull(handoffs.getTotal())));
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
         if(MesActiveOrderHandoffApprovalProjection.SOURCE_TASK_TYPE.equals(context.getSourceTaskType()))return handoffProjection.timeline(context);
         requireSourceTaskType(context.getSourceTaskType());
         Long workTaskId = parseRequiredLong(context.getSourceTaskId(),
                 "APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
+        if (workTaskId <= 0 || !Objects.equals(workTaskId.toString(), context.getSourceTaskId())
+                || !Objects.equals(context.getSourceTaskId(), context.getBusinessKey())) {
+            throw new IllegalArgumentException("APPROVAL_TASK_IDENTITY_MISMATCH: EDHR timeline");
+        }
         Long executionId = parseOptionalLong(context.getProcessInstanceId(),
                 "APPROVAL_PROCESS_INSTANCE_INVALID: eDHR execution id must be numeric ");
         List<MesProEdhrWorkTaskDO> tasks = workTaskService.getApprovalCenterTimelineTasks(workTaskId, executionId,
@@ -131,6 +147,22 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         return tasks.stream()
                 .map(this::toTimelineEntry)
                 .toList();
+    }
+
+    @Override
+    public void preflightReview(ApprovalTaskReviewContext context) {
+        Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
+        requireSourceTaskType(context.getSourceTaskType());
+        if (context.getResult() != ApprovalTaskReviewResult.APPROVE) {
+            throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED: EDHR center only supports APPROVE");
+        }
+        Long workTaskId = parseRequiredLong(context.getSourceTaskId(), "APPROVAL_TASK_ID_REQUIRED: EDHR");
+        if (workTaskId <= 0 || !Objects.equals(String.valueOf(workTaskId), context.getSourceTaskId())
+                || !Objects.equals(context.getSourceTaskId(), context.getBusinessKey())
+                || context.getProcessInstanceId() != null) {
+            throw new IllegalArgumentException("APPROVAL_TASK_IDENTITY_MISMATCH: EDHR release");
+        }
+        releaseService.preflightApprovalCenterReview(context.getLoginUserId(), workTaskId);
     }
 
     @Override
@@ -163,48 +195,63 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 + context.getResult());
     }
 
-    private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        MesProEdhrWorkTaskPageReqVO reqVO = toMergedTodoReqVO(context);
-        PageResult<MesProEdhrWorkTaskRespVO> workTaskPage =
-                workTaskService.getApprovalCenterTodoPage(reqVO, context.isGlobalView());
-        Objects.requireNonNull(workTaskPage, "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR");
-        Objects.requireNonNull(workTaskPage.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR");
-        PageResult<MesProEdhrWorkTaskRespVO> candidateSignaturePage =
-                workTaskService.getApprovalCenterCandidateSignatureTodoPage(reqVO, context.isGlobalView());
-        Objects.requireNonNull(candidateSignaturePage, "APPROVAL_ADAPTER_PAGE_REQUIRED: EDHR candidate signature");
-        Objects.requireNonNull(candidateSignaturePage.getList(),
-                "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: EDHR candidate signature");
-        Map<String, ApprovalTaskSummary> summaryMap = new LinkedHashMap<>();
-        workTaskPage.getList().stream().map(this::toSummary)
-                .forEach(summary -> summaryMap.putIfAbsent(summary.getId(), summary));
-        candidateSignaturePage.getList().stream().map(this::toSummary)
-                .forEach(summary -> summaryMap.putIfAbsent(summary.getId(), summary));
-        List<ApprovalTaskSummary> summaries = new ArrayList<>(summaryMap.values());
-        var handoffs=handoffProjection.list(context);summaries.addAll(handoffs);sortSummaries(summaries);
-        long duplicateTotal = workTaskService.countApprovalCenterTodoDuplicateTasks(reqVO, context.isGlobalView());
-        return new PageResult<>(slicePageRows(summaries, context.getPageNo(), context.getPageSize()),
-                safeTotal(workTaskPage) + safeTotal(candidateSignaturePage)
-                        - Math.max(duplicateTotal, 0L)+handoffs.size());
-    }
-
     private static MesProEdhrWorkTaskPageReqVO toReqVO(ApprovalTaskQueryContext context) {
         MesProEdhrWorkTaskPageReqVO reqVO = new MesProEdhrWorkTaskPageReqVO();
-        reqVO.setPageNo(context.getPageNo() == null ? 1 : context.getPageNo());
-        reqVO.setPageSize(context.getPageSize() == null ? 10 : context.getPageSize());
         reqVO.setBatchCode(context.getKeyword());
         return reqVO;
     }
 
-    private static MesProEdhrWorkTaskPageReqVO toMergedTodoReqVO(ApprovalTaskQueryContext context) {
-        MesProEdhrWorkTaskPageReqVO reqVO = toReqVO(context);
-        int safePageNo = context.getPageNo() == null || context.getPageNo() < 1 ? 1 : context.getPageNo();
-        int safePageSize = context.getPageSize() == null || context.getPageSize() < 1 ? 10 : context.getPageSize();
-        reqVO.setPageNo(1);
-        reqVO.setPageSize(safePageNo * safePageSize);
-        return reqVO;
+    private static long prefixLimit(ApprovalTaskQueryContext context) {
+        var window=cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context);
+        return Math.addExact(window.offset(),window.limit());
     }
 
-    private ApprovalTaskSummary toSummary(MesProEdhrWorkTaskRespVO task) {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
+    }
+
+    @Override
+    public cn.iocoder.yudao.module.bpm.approval.content.ApprovalDomainDecision decide(Long actorId, Long receiptId,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewCommand command,
+            cn.iocoder.yudao.module.bpm.approval.content.PreparedApprovalContent content,
+            cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact signature) {
+        if (command.getResult() != ApprovalTaskReviewResult.APPROVE) throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED");
+        var auditFact = creationAudits.requireVerifiedEvent(content.identity().tenantId(), signature.auditEventId());
+        var raw = cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.parse(content.canonicalBusinessContentJson());
+        var result = releaseService.approveFromCenter(new cn.iocoder.yudao.module.mes.approval.content.EdhrCenterReviewCommand()
+                .setActorId(actorId).setWorkTaskId(Long.valueOf(content.identity().sourceTaskId()))
+                .setExpectedVersion(Integer.valueOf(raw.at("/release/version").textValue())).setIdempotencyKey(command.getIdempotencyKey())
+                .setReason(command.getReason()).setSignatureId(signature.id()).setSignatureCreationEventId(signature.auditEventId())
+                .setSignatureCreationEventHash(auditFact.eventHash()).setCenterReceiptId(receiptId).setPrepareId(command.getPrepareId())
+                .setCanonicalHash(content.contentHash()).setRenderedHash(content.contentHash()).setSubjectId(signature.subjectId())
+                .setSubjectVersion(signature.subjectVersion()).setEvidenceHash(signature.evidenceHash()));
+        var events = releaseEvents.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO>()
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId, Long.valueOf(content.identity().domainSubjectId()))
+                .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO::getIdempotencyKey,command.getIdempotencyKey()));
+        if (events.size()!=1 || result.getReleaseDecisionId()==null) throw new IllegalStateException("EDHR_CENTER_DOMAIN_LINKS_MISSING");
+        var links = new LinkedHashMap<String,Object>(); links.put("releaseId", content.identity().domainSubjectId());links.put("decisionId", result.getReleaseDecisionId().toString());links.put("eventId",events.get(0).getId().toString());
+        var candidates=creationAudits.readCandidateEventIdsByTarget(content.identity().tenantId(),"RELEASE_DECISION",result.getReleaseDecisionId().toString());
+        var verifiedDomain=new java.util.ArrayList<cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService.VerifiedAuditEventFact>();
+        for(var candidate:candidates) {
+            var fact=creationAudits.requireVerifiedEvent(content.identity().tenantId(),candidate);
+            var envelope=cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.parse(fact.canonicalEventJson());
+            if("mes.market-release.approve".equals(envelope.path("operationId").asText()) && signature.id().toString().equals(envelope.path("signatureRecordId").asText())) verifiedDomain.add(fact);
+        }
+        if(verifiedDomain.size()!=1) throw new IllegalStateException("EDHR_CENTER_DOMAIN_CREATION_NOT_UNIQUE");
+        links.put("businessAuditEventId",verifiedDomain.get(0).eventId().toString());links.put("businessAuditEventHash",verifiedDomain.get(0).eventHash());
+        return new cn.iocoder.yudao.module.bpm.approval.content.ApprovalDomainDecision("APPROVE",result.getReleaseStatus(),cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(links));
+    }
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService creationAudits;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper releaseEvents;
+    private ApprovalTaskSummary toSummary(MesEdhrAuthorizedTaskProjection projected, Long loginUserId) {
+        MesProEdhrWorkTaskRespVO task = projected.display();
+        MesEdhrApprovalOutcome outcome = outcomeReader.readAuthorizedTask(projected.task());
         if (task.getId() == null) {
             throw new IllegalStateException("APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
         }
@@ -223,7 +270,19 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         }
         ActionUrlParts decisionActionUrl = resolveDecisionActionUrl(task);
         Map<String, String> decisionDetailQuery = resolveDecisionDetailQuery(task, detailQuery, decisionActionUrl);
-        return ApprovalTaskSummary.builder()
+        String decisionRoute = resolveDecisionDetailRoute(task, decisionActionUrl);
+        String targetRoute = decisionRoute == null ? resolveDetailRoute(task) : decisionRoute;
+        List<String> requiredPermissions = requiredNavigationPermissions(targetRoute);
+        List<String> missing = requiredPermissions.stream()
+                .filter(permission -> !permissions.hasAnyPermissions(loginUserId, permission)).toList();
+        if (!missing.isEmpty()) {
+            decisionDetailQuery.put("requiredPermissionsMissing", String.join(",", missing));
+        }
+        if (requiredPermissions.isEmpty()) {
+            decisionDetailQuery.put("navigationContractMissing", "正式目标页权限合同未配置");
+        }
+        boolean navigationAllowed = !requiredPermissions.isEmpty() && missing.isEmpty();
+        return MesEdhrApprovalOutcomeProjection.apply(ApprovalTaskSummary.builder()
                 .id("EDHR:" + SOURCE_TASK_TYPE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.EDHR)
                 .sourceTaskType(SOURCE_TASK_TYPE)
@@ -231,31 +290,52 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessKey(String.valueOf(task.getId()))
                 .businessTitle(resolveTitle(task))
                 .businessCode(task.getTaskCode())
-                .businessStatus(task.getStatus())
                 .currentNodeCode(hasText(task.getSignatureCellKey()) ? task.getSignatureCellKey() : task.getTaskType())
                 .currentNodeName(task.getProcessName())
                 .initiatorUserId(task.getSourceUserId())
                 .initiatorUserName(task.getSourceUserName())
-                .assigneeUserId(resolveActor(task))
+                .assigneeUserId(task.getAssigneeUserId())
                 .processInstanceId(resolveProcessInstanceId(task))
                 .taskCreatedAt(task.getCreateTime())
                 .taskCompletedAt(task.getCompletedAt())
-                .approvalResult(resolveApprovalResult(task))
                 .requiresSignature(isReleaseApprovalTask(task) || hasText(task.getSignatureCellKey()))
                 .detailRoute(resolveDetailRoute(task))
                 .detailQuery(detailQuery)
-                .decisionDetailRoute(resolveDecisionDetailRoute(task, decisionActionUrl))
+                .decisionDetailRoute(decisionRoute)
                 .decisionDetailQuery(decisionDetailQuery)
-                .availableActions(resolveAvailableActions(task))
+                .availableActions(navigationAllowed ? resolveAvailableActions(task) : Set.of())
                 .capabilities(CAPABILITIES)
-                .build();
+                .build(), outcome);
+    }
+
+    // Contracts follow the actual mandatory page loads, not candidate membership or action tokens.
+    private static List<String> requiredNavigationPermissions(String route) {
+        if (EDHR_APPROVAL_DETAIL_ROUTE.equals(route)) {
+            return List.of("mes:pro-batch-record-execution:approve", "mes:pro-batch-record-execution:track",
+                    "mes:pro-batch-record-execution:signature-query");
+        }
+        if (EDHR_BATCH_EXECUTION_DETAIL_ROUTE.equals(route)) {
+            return List.of("mes:pro-edhr-batch-execution:query");
+        }
+        if (EDHR_WORK_TASK_ROUTE.equals(route)) {
+            return List.of("mes:pro-edhr-work-task:query");
+        }
+        if ("/mes/production-release/pqc".equals(route)) {
+            return List.of("mes:pro-production-release:query");
+        }
+        if ("/mes/pro/feedback/edhr-execution/form".equals(route)) {
+            return List.of("mes:pro-batch-record-execution:query", "mes:pro-batch-record-execution:track",
+                    "mes:pro-batch-record-execution:signature-query");
+        }
+        return List.of();
     }
 
     private ApprovalTaskTimelineEntry toTimelineEntry(MesProEdhrWorkTaskDO task) {
+        MesEdhrApprovalOutcome outcome = outcomeReader.readAuthorizedTask(task);
         if (task.getId() == null) {
             throw new IllegalStateException("APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
         }
-        return ApprovalTaskTimelineEntry.builder()
+        return MesEdhrApprovalOutcomeProjection.apply(ApprovalTaskTimelineEntry.builder()
                 .id("EDHR:" + SOURCE_TASK_TYPE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.EDHR)
                 .sourceTaskType(SOURCE_TASK_TYPE)
@@ -263,44 +343,13 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                 .businessKey(String.valueOf(task.getId()))
                 .nodeCode(hasText(task.getSignatureCellKey()) ? task.getSignatureCellKey() : task.getTaskType())
                 .nodeName(hasText(task.getProcessName()) ? task.getProcessName() : task.getTaskType())
-                .action(resolveAction(task))
-                .actionLabel(resolveActionLabel(task))
-                .actorUserId(resolveActor(task))
-                .actedAt(resolveActedAt(task))
-                .comment(resolveComment(task))
+                .action(MesEdhrApprovalOutcomeProjection.action(outcome))
+                .actionLabel(MesEdhrApprovalOutcomeProjection.actionLabel(outcome))
+                .taskCreatedAt(task.getCreateTime())
+                .taskCompletedAt(task.getCompletedAt())
                 .status(task.getStatus())
-                .evidenceType("REAL_WORK_TASK")
                 .domainReferenceId(String.valueOf(task.getId()))
-                .build();
-    }
-
-    private Long resolveActor(MesProEdhrWorkTaskRespVO task) {
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus()) && "PQC_PRODUCTION_RELEASE".equals(task.getTaskType())) {
-            return completedActorResolver.resolvePqc(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
-                    task.getBatchExecutionId(), task.getWorkOrderId(), task.getReason(), task.getCompletedAt());
-        }
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
-                && isReleaseApprovalTask(task)
-                && "RELEASE_TRANSACTION".equals(task.getBusinessScopeType()) && !isReleaseRejected(task)) {
-            return completedActorResolver.resolve(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
-                    task.getBatchExecutionId(), task.getWorkOrderId());
-        }
-        return task.getAssigneeUserId();
-    }
-
-    private Long resolveActor(MesProEdhrWorkTaskDO task) {
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus()) && "PQC_PRODUCTION_RELEASE".equals(task.getTaskType())) {
-            return completedActorResolver.resolvePqc(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
-                    task.getBatchExecutionId(), task.getWorkOrderId(), task.getReason(), task.getCompletedAt());
-        }
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())
-                && MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())
-                && "RELEASE_TRANSACTION".equals(task.getBusinessScopeType())
-                && !isReleaseRejected(task)) {
-            return completedActorResolver.resolve(task.getId(), task.getBusinessScopeType(), task.getBusinessScopeId(),
-                    task.getBatchExecutionId(), task.getWorkOrderId());
-        }
-        return task.getAssigneeUserId();
+                .build(), outcome);
     }
 
     private static String resolveTitle(MesProEdhrWorkTaskRespVO task) {
@@ -425,26 +474,15 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
                                                            Integer pageSize) {
         int safePageNo = pageNo == null || pageNo < 1 ? 1 : pageNo;
         int safePageSize = pageSize == null || pageSize < 1 ? 10 : pageSize;
-        int fromIndex = Math.min((safePageNo - 1) * safePageSize, rows.size());
-        int toIndex = Math.min(fromIndex + safePageSize, rows.size());
+        int fromIndex = (int) Math.min((long) (safePageNo - 1) * safePageSize, rows.size());
+        int toIndex = (int) Math.min((long) fromIndex + safePageSize, rows.size());
         return rows.subList(fromIndex, toIndex);
     }
 
-    private static void sortSummaries(List<ApprovalTaskSummary> rows) {
-        rows.sort(Comparator.comparing(MesProEdhrApprovalTaskAdapter::sortTime,Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ApprovalTaskSummary::getId,Comparator.reverseOrder()));
+    private static void sortSummaries(List<ApprovalTaskSummary> rows, ApprovalTaskViewType view) {
+        var ordered=cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(rows,view);
+        rows.clear(); rows.addAll(ordered);
     }
-    private static LocalDateTime sortTime(ApprovalTaskSummary summary) {
-        if (summary.getTaskCreatedAt() != null) {
-            return summary.getTaskCreatedAt();
-        }
-        return summary.getInitiatedAt();
-    }
-
-    private static long safeTotal(PageResult<?> page) {
-        return page.getTotal() == null ? 0L : page.getTotal();
-    }
-
     private static void requireSourceTaskType(String sourceTaskType) {
         if (!SOURCE_TASK_TYPE.equals(sourceTaskType)) {
             throw new IllegalArgumentException("APPROVAL_SOURCE_TASK_TYPE_UNSUPPORTED: EDHR does not support "
@@ -470,85 +508,6 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
         }
     }
 
-    private static String resolveAction(MesProEdhrWorkTaskDO task) {
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
-            if (isQaClosure(task.getTaskType(), task.getReason())) return task.getReason();
-            return isReleaseRejected(task) ? "REJECTED" : "APPROVED";
-        }
-        if (MesProEdhrWorkTaskStatus.OVERDUE.equals(task.getStatus())) {
-            return "OVERDUE";
-        }
-        if (MesProEdhrWorkTaskStatus.CANCELED.equals(task.getStatus())) {
-            return "CANCELLED";
-        }
-        if (MesProEdhrWorkTaskStatus.DOING.equals(task.getStatus())) {
-            return "STARTED";
-        }
-        if (MesProEdhrWorkTaskStatus.TODO.equals(task.getStatus())) {
-            return "CURRENT";
-        }
-        return task.getStatus();
-    }
-
-    private static ApprovalTaskReviewResult resolveApprovalResult(MesProEdhrWorkTaskRespVO task) {
-        if (!MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
-            return null;
-        }
-        if (isQaClosure(task.getTaskType(), task.getReason())) return null;
-        return isReleaseRejected(task) ? ApprovalTaskReviewResult.REJECT : ApprovalTaskReviewResult.APPROVE;
-    }
-
-    private static String resolveActionLabel(MesProEdhrWorkTaskDO task) {
-        if (MesProEdhrWorkTaskStatus.DONE.equals(task.getStatus())) {
-            if (isQaClosure(task.getTaskType(), task.getReason())) {
-                return "NONCONFORMANCE_REWORK".equals(task.getReason()) ? "QA处置返工关闭" : "QA处置作废关闭";
-            }
-            return isReleaseRejected(task) ? "审批驳回" : "审批通过";
-        }
-        if (MesProEdhrWorkTaskStatus.OVERDUE.equals(task.getStatus())) {
-            return "已逾期";
-        }
-        if (MesProEdhrWorkTaskStatus.CANCELED.equals(task.getStatus())) {
-            return "已取消";
-        }
-        if (MesProEdhrWorkTaskStatus.DOING.equals(task.getStatus())) {
-            return "处理中";
-        }
-        if (MesProEdhrWorkTaskStatus.TODO.equals(task.getStatus())) {
-            return "待处理";
-        }
-        return task.getStatus();
-    }
-
-    private static boolean isQaClosure(String taskType, String reason) {
-        return "PQC_PRODUCTION_RELEASE".equals(taskType)
-                && reason != null
-                && Set.of("NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID").contains(reason);
-    }
-
-    private static LocalDateTime resolveActedAt(MesProEdhrWorkTaskDO task) {
-        if (task.getCompletedAt() != null) {
-            return task.getCompletedAt();
-        }
-        if (task.getOverdueAt() != null) {
-            return task.getOverdueAt();
-        }
-        if (task.getStartedAt() != null) {
-            return task.getStartedAt();
-        }
-        return task.getCreateTime();
-    }
-
-    private static String resolveComment(MesProEdhrWorkTaskDO task) {
-        if (hasText(task.getReason())) {
-            return stripReviewResultPrefix(task.getReason());
-        }
-        if (hasText(task.getRemark())) {
-            return task.getRemark();
-        }
-        return task.getOverdueReason();
-    }
-
     private static String buildReviewIdempotencyKey(ApprovalTaskReviewResult result, Long workTaskId) {
         return "APPROVAL-CENTER-" + result.name() + "-" + workTaskId;
     }
@@ -571,25 +530,6 @@ public class MesProEdhrApprovalTaskAdapter implements ApprovalTaskProvider {
     private static boolean isApprovalDecisionTask(MesProEdhrWorkTaskRespVO task) {
         return task != null && (MesProEdhrWorkTaskService.TASK_TYPE_REVIEW.equals(task.getTaskType())
                 || MesProEdhrWorkTaskService.TASK_TYPE_APPROVE.equals(task.getTaskType()));
-    }
-
-    private static boolean isReleaseRejected(MesProEdhrWorkTaskRespVO task) {
-        return task != null && (("PQC_PRODUCTION_RELEASE".equals(task.getTaskType()) && "REJECT".equals(task.getReason()))
-                || (isReleaseApprovalTask(task) && hasText(task.getReason()) && task.getReason().startsWith("REJECT:")));
-    }
-
-    private static boolean isReleaseRejected(MesProEdhrWorkTaskDO task) {
-        return task != null
-                && (("PQC_PRODUCTION_RELEASE".equals(task.getTaskType()) && "REJECT".equals(task.getReason()))
-                || (MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())
-                    && hasText(task.getReason()) && task.getReason().startsWith("REJECT:")));
-    }
-
-    private static String stripReviewResultPrefix(String reason) {
-        if (reason.startsWith("APPROVE:") || reason.startsWith("REJECT:")) {
-            return reason.substring(reason.indexOf(':') + 1);
-        }
-        return reason;
     }
 
     private record ActionUrlParts(String route, Map<String, String> query) {

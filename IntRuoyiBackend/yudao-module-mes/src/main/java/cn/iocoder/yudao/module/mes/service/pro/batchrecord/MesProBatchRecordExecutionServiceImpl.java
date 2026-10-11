@@ -22,6 +22,8 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveR
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.EdhrDomainTaskAssignmentService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTraceDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalPageReqVO;
@@ -230,6 +232,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Resource
     private MesProBatchRecordApprovalSnapshotMapper approvalSnapshotMapper;
     @Resource
+    private MesEdhrFinalApprovalReceiptVerifier finalApprovalReceiptVerifier;
+    @Resource
     private MesProBatchRecordExecutionSignatureMapper signatureMapper;
     @Resource
     private MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
@@ -253,6 +257,10 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @Resource
     private BpmTaskService bpmTaskService;
+    @Resource
+    private EdhrDomainTaskAssignmentService domainTaskAssignmentService;
+    @Resource
+    private GxpAuditService gxpAuditService;
     @Resource
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
     @Resource
@@ -756,6 +764,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 reqVO.getApprovalSnapshotHash(), execution, snapshot);
         FieldAuditEvidence fieldAuditEvidence = validateSubmittedSnapshotFieldAuditEvidence(execution, snapshot);
         String domainTraceHash = requireLockedDomainTraceHash(snapshot);
+        validateApprovalTaskContext(approvalActionTask.getBpmTaskId(), reqVO.getBpmTaskId());
+        domainTaskAssignmentService.assign(approvalActionTask.getBpmTaskId(), approvalActionTask.getId());
         Task task = validateApprovalTask(execution, snapshot, approvalActionTask.getBpmTaskId(), reqVO.getBpmTaskId());
         Long userId = requireLoginUserId();
         domainTraceService.verifyForApproval(execution.getId(), domainTraceHash);
@@ -804,26 +814,32 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                     .setApproveTaskId(approveTask == null ? null : approveTask.getId());
         }
         MesProEdhrWorkTaskDO completedApproveTask = workTaskService.completeApproveTask(reqVO.getWorkTaskId(), execution.getId());
-        BpmTaskApproveReqVO approveReqVO = new BpmTaskApproveReqVO();
-        approveReqVO.setId(task.getId());
-        approveReqVO.setReason(reqVO.getComment());
-        bpmTaskService.approveTask(userId, approveReqVO);
-        LocalDateTime now = LocalDateTime.now();
-        approvalSnapshotMapper.approveAndClearCurrentBpmTask(new MesProBatchRecordApprovalSnapshotDO()
+        LocalDateTime now = finalApprovalReceiptVerifier.requireSignature(execution, approvalActionTask, signatureId, userId).signedAt();
+        if (approvalSnapshotMapper.approveAndClearCurrentBpmTask(new MesProBatchRecordApprovalSnapshotDO()
                 .setId(snapshot.getId())
                 .setApprovalStatus(APPROVAL_STATUS_APPROVED)
                 .setApproveSignatureId(signatureId)
                 .setApprovedBy(userId)
                 .setApprovedAt(now)
-                .setClosedAt(now));
-        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setClosedAt(now)) != 1) {
+            throw new IllegalStateException("EDHR_FINAL_APPROVAL_SNAPSHOT_UPDATE_FAILED");
+        }
+        if (executionMapper.updateById(new MesProBatchRecordExecutionDO()
                 .setId(execution.getId())
                 .setStatus(EXECUTION_STATUS_APPROVED)
                 .setApprovedBy(userId)
                 .setApprovedAt(now)
-                .setClosedAt(now));
+                .setClosedAt(now)) != 1) {
+            throw new IllegalStateException("EDHR_FINAL_APPROVAL_EXECUTION_UPDATE_FAILED");
+        }
         executionMapper.clearActiveContextKey(execution.getId());
         workTaskService.createNextFillAfterReview(completedApproveTask);
+        // A synchronous BPM completion event must see the same committed-in-this-transaction
+        // final receipt. The event only verifies it and closes the formal request.
+        BpmTaskApproveReqVO approveReqVO = new BpmTaskApproveReqVO();
+        approveReqVO.setId(task.getId());
+        approveReqVO.setReason(reqVO.getComment());
+        bpmTaskService.approveTask(userId, approveReqVO);
         return new MesProBatchRecordExecutionApprovalActionRespVO()
                 .setExecutionId(execution.getId())
                 .setStatus(MesProEdhrApprovalStatusMapping.executionStatusAfterFinalApproval(
@@ -854,6 +870,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 reqVO.getApprovalSnapshotHash(), execution, snapshot);
         FieldAuditEvidence fieldAuditEvidence = validateSubmittedSnapshotFieldAuditEvidence(execution, snapshot);
         String domainTraceHash = requireLockedDomainTraceHash(snapshot);
+        validateApprovalTaskContext(reviewTask.getBpmTaskId(), reqVO.getBpmTaskId());
+        domainTaskAssignmentService.assign(reviewTask.getBpmTaskId(), reviewTask.getId());
         Task task = validateApprovalTask(execution, snapshot, reviewTask.getBpmTaskId(), reqVO.getBpmTaskId());
         Long userId = requireLoginUserId();
         domainTraceService.verifyForApproval(execution.getId(), domainTraceHash);
@@ -877,27 +895,32 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setFieldAuditHeadHash(fieldAuditEvidence.fieldAuditHeadHash())
                 .setCellValuesHash(fieldAuditEvidence.cellValuesHash())
                 .setSignatureTimeCommand(buildSignatureTimeCommand(reqVO.getSignatureTime())));
+        LocalDateTime rejectedAt = finalApprovalReceiptVerifier.requireRejectSignature(execution, reviewTask, signatureId, userId)
+                .signedAt();
         BpmTaskRejectReqVO rejectReqVO = new BpmTaskRejectReqVO();
         rejectReqVO.setId(task.getId());
         rejectReqVO.setReason(rejectReason);
         bpmTaskService.rejectTask(userId, rejectReqVO);
-        LocalDateTime now = LocalDateTime.now();
-        approvalSnapshotMapper.updateById(new MesProBatchRecordApprovalSnapshotDO()
+        if (approvalSnapshotMapper.updateById(new MesProBatchRecordApprovalSnapshotDO()
                 .setId(snapshot.getId())
                 .setApprovalStatus(APPROVAL_STATUS_REJECTED)
                 .setRejectSignatureId(signatureId)
                 .setRejectedBy(userId)
-                .setRejectedAt(now)
+                .setRejectedAt(rejectedAt)
                 .setRejectReason(rejectReason)
                 .setCurrentBpmTaskId(null)
-                .setCurrentTaskDefinitionKey(null));
-        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setCurrentTaskDefinitionKey(null)) != 1) {
+            throw new IllegalStateException("EDHR_REJECT_SNAPSHOT_UPDATE_FAILED");
+        }
+        if (executionMapper.updateById(new MesProBatchRecordExecutionDO()
                 .setId(execution.getId())
                 .setStatus(EXECUTION_STATUS_REJECTED)
                 .setRejectedBy(userId)
-                .setRejectedAt(now)
+                .setRejectedAt(rejectedAt)
                 .setRejectReason(rejectReason)
-                .setActiveRevisionFlag(false));
+                .setActiveRevisionFlag(false)) != 1) {
+            throw new IllegalStateException("EDHR_REJECT_EXECUTION_UPDATE_FAILED");
+        }
         executionMapper.clearActiveContextKey(execution.getId());
         MesProBatchRecordExecutionDO revision = createReworkRevision(execution, snapshot, rejectReason);
         executionMapper.updateById(new MesProBatchRecordExecutionDO()
@@ -917,7 +940,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setBpmTaskId(task.getId())
                 .setSignatureId(signatureId)
                 .setTrackingEventId(signatureId)
-                .setRejectedAt(now);
+                .setRejectedAt(rejectedAt);
     }
 
     private MesProBatchRecordExecutionDO createReworkRevision(MesProBatchRecordExecutionDO rejected,
@@ -1054,7 +1077,9 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_NOT_EXISTS);
             }
             String expectedBpmTaskId = approvalActionTask.getBpmTaskId();
-            Task task = validateApprovalTask(execution, snapshot, expectedBpmTaskId, bpmTaskId);
+            validateApprovalTaskContext(expectedBpmTaskId, bpmTaskId);
+            Task task = domainTaskAssignmentService.read(expectedBpmTaskId, approvalActionTask.getId());
+            validateApprovalTaskIdentity(execution, snapshot, task);
             fillTaskFields(respVO, task);
             respVO.setCanApprove(Boolean.TRUE);
             respVO.setCanReject(Objects.equals(approvalActionTask.getTaskType(), MesProEdhrWorkTaskService.TASK_TYPE_REVIEW));
@@ -1333,7 +1358,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     }
 
     private MesProBatchRecordExecutionDO getSubmittedExecution(Long id) {
-        MesProBatchRecordExecutionDO execution = executionMapper.selectById(id);
+        gxpAuditService.acquireLedgerLock();
+        MesProBatchRecordExecutionDO execution = executionMapper.selectByIdForUpdate(id);
         if (execution == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_NOT_EXISTS);
         }
@@ -1370,13 +1396,23 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                                       MesProBatchRecordApprovalSnapshotDO snapshot,
                                       String expectedBpmTaskId,
                                       String requestBpmTaskId) {
+        validateApprovalTaskContext(expectedBpmTaskId, requestBpmTaskId);
+        Task task = bpmTaskService.validateTask(requireLoginUserId(), expectedBpmTaskId);
+        validateApprovalTaskIdentity(execution, snapshot, task);
+        return task;
+    }
+
+    private void validateApprovalTaskContext(String expectedBpmTaskId, String requestBpmTaskId) {
         if (StrUtil.isBlank(expectedBpmTaskId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_NOT_EXISTS);
         }
         if (StrUtil.isNotBlank(requestBpmTaskId) && !StrUtil.equals(expectedBpmTaskId, requestBpmTaskId)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_CONTEXT_INVALID);
         }
-        Task task = bpmTaskService.validateTask(requireLoginUserId(), expectedBpmTaskId);
+    }
+
+    private void validateApprovalTaskIdentity(MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordApprovalSnapshotDO snapshot, Task task) {
         if (task == null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_NOT_EXISTS);
         }
@@ -1387,7 +1423,6 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 && !StrUtil.equals(snapshot.getCurrentTaskDefinitionKey(), task.getTaskDefinitionKey())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_TASK_CONTEXT_INVALID);
         }
-        return task;
     }
 
     private Task getSingleRunningTask(String processInstanceId) {

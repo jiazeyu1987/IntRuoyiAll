@@ -6,6 +6,10 @@ import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProvider;
+import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalCenterReviewPreflight;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnership;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy;
+import jakarta.annotation.Resource;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCopyPageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstancePageReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO;
@@ -44,7 +48,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
-public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
+public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, ApprovalCenterReviewPreflight {
 
     private static final String PROCESS_INSTANCE_SOURCE = "BPM_PROCESS_INSTANCE";
     private static final String COPY_SOURCE = "BPM_PROCESS_INSTANCE_COPY";
@@ -104,6 +108,12 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     private final org.flowable.engine.TaskService flowableTaskService;
     private final PermissionApi permissionApi;
     private final RoleApi roleApi;
+
+    @Resource
+    private NativeApprovalOwnershipPolicy ownershipPolicy;
+
+    @Resource
+    private ApprovalFlowableTaskQueryService centerQuery;
 
     public BpmNativeApprovalTaskProvider(BpmProcessInstanceService processInstanceService,
                                          BpmProcessInstanceCopyService copyService,
@@ -169,6 +179,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void review(ApprovalTaskReviewContext context) {
+        preflightReview(context);
         Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
         if (!TODO_SOURCE.equals(context.getSourceTaskType())) {
             throw new IllegalArgumentException("APPROVAL_SOURCE_TASK_TYPE_UNSUPPORTED: BPM only supports "
@@ -194,6 +205,23 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         throw new IllegalArgumentException("APPROVAL_REVIEW_RESULT_UNSUPPORTED: " + context.getResult());
     }
 
+    @Override
+    public void preflightReview(ApprovalTaskReviewContext context) {
+        Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
+        if (context.getModuleCode() != ApprovalModuleCode.BPM || !TODO_SOURCE.equals(context.getSourceTaskType())) {
+            throw new IllegalArgumentException("APPROVAL_SOURCE_TASK_TYPE_UNSUPPORTED: BPM native review");
+        }
+        String taskId = requireText(context.getSourceTaskId(), "APPROVAL_TASK_ID_REQUIRED: BPM review");
+        Task task = taskService.getTask(taskId);
+        if (task == null || !Objects.equals(taskId, task.getId())
+                || !Objects.equals(task.getProcessInstanceId(), context.getProcessInstanceId())
+                || !Objects.equals(task.getProcessInstanceId(), context.getBusinessKey())) {
+            throw new IllegalArgumentException("APPROVAL_TASK_PROCESS_INSTANCE_MISMATCH: BPM review " + taskId);
+        }
+        centerQuery.requireNativeTaskAuthority(taskId,context.getLoginUserId());
+        ownershipPolicy.assertGenericMutationAllowed(task, context.getLoginUserId());
+    }
+
     private void claimRegistrationCertificateTaskIfPermitted(ApprovalTaskReviewContext context, String taskId) {
         Long loginUserId = context.getLoginUserId();
         if (loginUserId == null) {
@@ -215,101 +243,28 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         }
         ProcessInstance processInstance = processInstanceService.getProcessInstance(processInstanceId);
         Map<String, Object> variables = processInstance == null ? null : processInstance.getProcessVariables();
-        if (!isRegistrationCertificateClaimableApproval(variables)
-                || !selectedCandidateUserIds(variables).contains(loginUserId)
-                || !hasRegistrationCertificateApprovalAuthority(loginUserId, variables)) {
+        if (!centerQuery.isFormalRegistrationCandidate(taskId,loginUserId)) {
             return;
         }
         flowableTaskService.setAssignee(taskId, String.valueOf(loginUserId));
     }
 
+    @Override
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context, ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
+    }
+
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        BpmTaskPageReqVO reqVO = buildTaskPageReqVO(context);
-        PageResult<Task> page = taskService.getTaskTodoPage(resolveQueryUserId(context), reqVO);
-        Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM todo");
-        Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM todo");
-        List<Task> visibleTasks = new ArrayList<>(page.getList());
-        visibleTasks.addAll(listRegistrationCertificateCandidateTodos(context, reqVO, visibleTasks));
-        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(visibleTasks);
-        List<ApprovalTaskSummary> summaries = visibleTasks.stream()
-                .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
-                        processInstancesById, task.getProcessInstanceId())))
-                .toList();
-        if (summaries.isEmpty() && hasText(context.getKeyword())) {
-            return pageTodoByProcessInstanceId(context);
-        }
-        return new PageResult<>(summaries, Math.max(page.getTotal(), summaries.size()));
-    }
-
-    private List<Task> listRegistrationCertificateCandidateTodos(ApprovalTaskQueryContext context,
-                                                                 BpmTaskPageReqVO reqVO,
-                                                                 List<Task> alreadyVisible) {
-        Long loginUserId = context.getLoginUserId();
-        if (loginUserId == null || context.isGlobalView()) {
-            return List.of();
-        }
-        BpmTaskPageReqVO allReqVO = new BpmTaskPageReqVO();
-        allReqVO.setPageNo(1);
-        allReqVO.setPageSize(Math.max(1000, reqVO.getPageSize() == null ? 0 : reqVO.getPageSize()));
-        allReqVO.setCategory(reqVO.getCategory());
-        allReqVO.setProcessDefinitionKey(reqVO.getProcessDefinitionKey());
-        allReqVO.setCreateTime(reqVO.getCreateTime());
-        PageResult<Task> allPage = taskService.getTaskTodoPage(null, allReqVO);
-        if (allPage == null || allPage.getList() == null || allPage.getList().isEmpty()) {
-            return List.of();
-        }
-        Set<String> visibleTaskIds = alreadyVisible.stream()
-                .map(Task::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        return allPage.getList().stream()
-                .filter(task -> !visibleTaskIds.contains(task.getId()))
-                .filter(task -> canSeeRegistrationCertificateCandidateTask(context, task))
-                .toList();
-    }
-
-    private boolean canSeeRegistrationCertificateCandidateTask(ApprovalTaskQueryContext context, Task task) {
-        Map<String, Object> variables = task.getProcessVariables();
-        boolean assignedToLoginUser = Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee());
-        if (!isRegistrationCertificateClaimableApproval(variables)
-                || !matchesCurrentTenantTask(task, variables)
-                || (!assignedToLoginUser && !selectedCandidateUserIds(variables).contains(context.getLoginUserId()))) {
-            return false;
-        }
-        if (!hasText(context.getKeyword())) {
-            return hasRegistrationCertificateApprovalAuthority(context.getLoginUserId(), variables);
-        }
-        String keyword = context.getKeyword().trim();
-        boolean keywordMatched = Stream.of(task.getName(), task.getProcessInstanceId(),
-                        firstText(variables.get("registrationCertificateAccessRequestId"), variables.get("requestId")),
-                        firstText(variables.get("certificateId")),
-                        firstText(variables.get("certificateNo")),
-                        firstText(variables.get("requestKey")),
-                        resolveRegistrationCertificateAccessTitle(variables))
-                .filter(Objects::nonNull)
-                .anyMatch(value -> containsIgnoreCase(value, keyword));
-        return keywordMatched && hasRegistrationCertificateApprovalAuthority(context.getLoginUserId(), variables);
-    }
-
-    private PageResult<ApprovalTaskSummary> pageTodoByProcessInstanceId(ApprovalTaskQueryContext context) {
-        List<Task> tasks = taskService
-                .getRunningTaskListByProcessInstanceId(context.getKeyword().trim(), true, null)
-                .stream()
-                .filter(task -> context.isGlobalView()
-                        || Objects.equals(String.valueOf(context.getLoginUserId()), task.getAssignee()))
-                .toList();
-        Map<String, ProcessInstance> processInstancesById = requireRuntimeProcessInstances(tasks);
-        return pageSummaries(tasks.stream()
-                .filter(task -> matchesCurrentTenantTask(task, requireRuntimeProcessInstance(
-                        processInstancesById, task.getProcessInstanceId()).getProcessVariables()))
-                .map(task -> toTodoSummary(task, requireRuntimeProcessInstance(
-                        processInstancesById, task.getProcessInstanceId())))
-                .toList(), context.getPageNo(), context.getPageSize());
+        PageResult<Task> page=centerQuery.todo(context,"BPM");
+        var processes=requireRuntimeProcessInstances(page.getList());
+        var rows=page.getList().stream().map(task->toTodoSummary(task,
+                requireRuntimeProcessInstance(processes,task.getProcessInstanceId()),context.getLoginUserId())).toList();
+        return new PageResult<>(rows,page.getTotal());
     }
 
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
         BpmTaskPageReqVO reqVO = buildTaskPageReqVO(context);
-        PageResult<HistoricTaskInstance> page = taskService.getTaskDonePage(resolveQueryUserId(context), reqVO);
+        PageResult<HistoricTaskInstance> page = centerQuery.done(context,"BPM");
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM done");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM done");
         if (page.getList().isEmpty()) {
@@ -339,7 +294,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         reqVO.setPageSize(context.getPageSize() == null ? 10 : context.getPageSize());
         reqVO.setName(context.getKeyword());
         PageResult<HistoricProcessInstance> page =
-                processInstanceService.getProcessInstancePage(resolveQueryUserId(context), reqVO);
+                centerQuery.initiated(context);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM");
         List<ApprovalTaskSummary> summaries = page.getList().stream()
@@ -354,7 +309,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         reqVO.setPageSize(context.getPageSize() == null ? 10 : context.getPageSize());
         reqVO.setProcessInstanceName(context.getKeyword());
         PageResult<BpmProcessInstanceCopyDO> page =
-                copyService.getProcessInstanceCopyPage(resolveQueryUserId(context), reqVO);
+                centerQuery.copied(context);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM copy");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM copy");
         List<ApprovalTaskSummary> summaries = page.getList().stream()
@@ -363,7 +318,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         return new PageResult<>(summaries, page.getTotal());
     }
 
-    private ApprovalTaskSummary toTodoSummary(Task task, ProcessInstance processInstance) {
+    private ApprovalTaskSummary toTodoSummary(Task task, ProcessInstance processInstance, Long loginUserId) {
         requireTaskIdentity(task.getId(), task.getProcessInstanceId(), "BPM todo");
         Map<String, String> detailQuery = new LinkedHashMap<>();
         detailQuery.put("id", task.getProcessInstanceId());
@@ -371,6 +326,22 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         Map<String, Object> variables = resolveTodoProcessVariables(task, processInstance);
         Map<String, String> decisionDetailQuery = buildDecisionDetailQuery(variables, task.getProcessInstanceId());
         RoleRespDTO assigneeRole = resolveRegistrationCertificateAssigneeRole(variables);
+        NativeApprovalOwnership ownership = Objects.requireNonNull(ownershipPolicy.inspect(task, loginUserId),
+                "APPROVAL_OWNERSHIP_RESULT_REQUIRED");
+        List<String> contextTags = resolveBusinessContextTags(variables);
+        if (ownership.navigationBlocker() != null) {
+            // Existing display tags are optional; a formal ownership blocker is its own tag.
+            List<String> blockerTags = new ArrayList<>();
+            if (contextTags != null) blockerTags.addAll(contextTags);
+            blockerTags.add(switch (ownership.navigationBlocker()) {
+                case "EDHR_ENGINE_WORK_TASK_CONTEXT_AMBIGUOUS" -> "存在多个可办理签字格，缺少按执行记录选择工作任务的入口";
+                case "EDHR_ENGINE_WORK_TASK_CONTEXT_MISSING" -> "当前用户没有可进入的领域审核工作任务";
+                case "EDHR_ENGINE_FORMAL_REQUEST_MISSING" -> "缺少正式电子批记录审批关联，暂不能办理";
+                case "EDHR_ENGINE_DOMAIN_AUTHORITY_MISSING" -> "当前用户缺少领域审核权限或不是该流程任务的审批人";
+                default -> throw new IllegalStateException("APPROVAL_OWNERSHIP_NAVIGATION_BLOCKER_UNKNOWN");
+            });
+            contextTags = blockerTags;
+        }
         return ApprovalTaskSummary.builder()
                 .id("BPM:" + TODO_SOURCE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.BPM)
@@ -380,7 +351,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .businessTitle(resolveBusinessTitle(task.getName(), variables))
                 .businessCode(resolveBusinessCode(variables))
                 .businessIdentifierHidden(isRegistrationCertificateUploadOrRenewalApproval(variables))
-                .businessContextTags(resolveBusinessContextTags(variables))
+                .businessContextTags(contextTags)
                 .businessStatus("TODO")
                 .currentNodeCode(task.getTaskDefinitionKey())
                 .currentNodeName(resolveCurrentNodeName(task.getName(), task.getTaskDefinitionKey(), variables))
@@ -394,9 +365,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/bpm/process-instance/detail")
                 .detailQuery(detailQuery)
-                .decisionDetailRoute(resolveDecisionDetailRoute(variables))
-                .decisionDetailQuery(decisionDetailQuery)
-                .availableActions(TODO_ACTIONS)
+                .decisionDetailRoute(ownership.requiresDomainReview() ? ownership.decisionRoute() : resolveDecisionDetailRoute(variables))
+                .decisionDetailQuery(ownership.requiresDomainReview() ? ownership.decisionQuery() : decisionDetailQuery)
+                .availableActions(ownership.requiresDomainReview()
+                        ? ownership.decisionRoute() == null ? DETAIL_ACTIONS : Set.of("OPEN_DETAIL", "PROCESS_IN_MODULE")
+                        : TODO_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
     }

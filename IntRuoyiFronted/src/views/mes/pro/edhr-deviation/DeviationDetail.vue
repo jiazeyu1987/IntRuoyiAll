@@ -209,7 +209,10 @@ import { createCriticalDeviationReview, getNonconformanceReview, type EdhrNoncon
 import { ElMessage } from 'element-plus'
 import { useMessage } from '@/hooks/web/useMessage'
 import dayjs from 'dayjs'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const message = useMessage()
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 const props = withDefaults(defineProps<{ id: number; readonly?: boolean }>(), { readonly: false })
 const loading = ref(false)
 const detail = ref<DeviationRespVO>()
@@ -245,6 +248,12 @@ const resetHandling = () => {
 
 const signForm = reactive({ node: 'PREPARER', password: '', comment: '' })
 const ncrCreateForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '', idempotencyKey: '' })
+const ncrCreateGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, router.currentRoute.value.fullPath, props.id]))
+const resetNcrCreateContext = () => { ncrCreateGuard.invalidate(); ncrCreateLoading.value = false; ncrCreateForm.signaturePassword = '' }
+watch(ncrCreateVisible, resetNcrCreateContext, { flush: 'sync' })
+watch(() => props.id, resetNcrCreateContext, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { loadSequence++; resetNcrCreateContext(); ncrCreateVisible.value = false }, { flush: 'sync' })
+onBeforeUnmount(() => { loadSequence++; handlingSequence++; reviewSequence++; transferEligibilitySequence++; resetNcrCreateContext() })
 const signNodeOptions = computed(() => {
   const nodes = ['PREPARER', 'VERIFIER', 'DEPARTMENT_OWNER', 'QA', 'QUALITY_OWNER']
   if (detail.value?.level === 'CRITICAL') nodes.push('MANAGEMENT_REP')
@@ -319,21 +328,24 @@ const openReview = () => {
   }
 }
 const refreshTransferEligibility = async () => {
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = router.currentRoute.value.fullPath
   const id = props.id
   const sequence = loadSequence
   const refreshSequence = ++transferEligibilitySequence
   try {
-    const latest = await getDeviation(id)
-    if (id !== props.id || sequence !== loadSequence || refreshSequence !== transferEligibilitySequence || !detail.value) return
+    const latest = await getDeviation(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === loadSequence && refreshSequence === transferEligibilitySequence })
+    if (!approvalInvalidation.isCurrent(sessionKey) || routeKey !== router.currentRoute.value.fullPath || id !== props.id || sequence !== loadSequence || refreshSequence !== transferEligibilitySequence || !detail.value) return
     detail.value.canTransferToNcr = latest.canTransferToNcr
     detail.value.transferToNcrBlockedReason = latest.transferToNcrBlockedReason
   } catch (cause: any) {
-    if (id === props.id && sequence === loadSequence && refreshSequence === transferEligibilitySequence) {
+    if (approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === loadSequence && refreshSequence === transferEligibilitySequence) {
       ElMessage.error(cause?.response?.data?.msg || cause?.message || '转审状态读取失败，请重试')
     }
   }
 }
 const openNcrCreateDialog = () => {
+  resetNcrCreateContext()
   if (props.readonly || !detail.value || detail.value.status !== 'OPEN' || detail.value.level !== 'CRITICAL') return
   if (detail.value.canTransferToNcr !== true) return
   ncrCreateError.value = ''
@@ -344,10 +356,10 @@ const openNcrCreateDialog = () => {
   ncrCreateVisible.value = true
 }
 const submitNcrCreate = async () => {
+  if (ncrCreateLoading.value) return
   if (props.readonly) return
   const current = detail.value
-  const id = props.id
-  const sequence = loadSequence
+  let isCurrent = ncrCreateGuard.capture()
   const nonconformanceReason = ncrCreateForm.nonconformanceReason.trim()
   const signaturePassword = ncrCreateForm.signaturePassword.trim()
   if (!current || current.status !== 'OPEN' || current.level !== 'CRITICAL' || !current.batchExecutionId) {
@@ -364,23 +376,28 @@ const submitNcrCreate = async () => {
   }
   ncrCreateLoading.value = true
   ncrCreateError.value = ''
+  const payload = {
+    batchExecutionId: current.batchExecutionId, deviationIds: [current.id], nonconformanceReason,
+    remark: ncrCreateForm.remark.trim() || undefined, idempotencyKey: ncrCreateForm.idempotencyKey, signaturePassword
+  }
+  const submitSession = approvalInvalidation.syncSession()
+  let writeSucceeded = false
   try {
-    await createCriticalDeviationReview({
-      batchExecutionId: current.batchExecutionId,
-      deviationIds: [current.id],
-      nonconformanceReason,
-      remark: ncrCreateForm.remark.trim() || undefined,
-      idempotencyKey: ncrCreateForm.idempotencyKey,
-      signaturePassword
-    })
-    if (id !== props.id || sequence !== loadSequence) return
+    const receipt = await createCriticalDeviationReview(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    if (String(receipt.batchExecutionId) !== String(payload.batchExecutionId) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
+    const event = approvalInvalidation.captureHandoffReceiptSuccess(submitSession, 'ACTIVE_ORDER', receipt.activeOrderId)
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
     ncrCreateVisible.value = false
-    await load()
     ElMessage.success('不合格审批已发起，偏差已转审关闭')
+    isCurrent = ncrCreateGuard.capture()
+    await load()
+    if (isCurrent() && error.value) throw new Error(error.value)
   } catch (error: any) {
-    if (id === props.id && sequence === loadSequence) ncrCreateError.value = error?.response?.data?.msg || '不合格审批发起失败，请重试'
+    if (isCurrent()) ncrCreateError.value = writeSucceeded ? `不合格审批已发起，回执校验或详情刷新失败：${error?.message}` : error?.response?.data?.msg || error?.message || '不合格审批发起失败，请重试'
   } finally {
-    if (id === props.id && sequence === loadSequence) ncrCreateLoading.value = false
+    if (isCurrent()) ncrCreateLoading.value = false
   }
 }
 const applyHandling = (record?: DeviationHandlingRespVO) => {
@@ -412,25 +429,31 @@ const applyHandling = (record?: DeviationHandlingRespVO) => {
 }
 const loadHandling = async () => {
   if (!detail.value) return
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = router.currentRoute.value.fullPath
   const id = props.id
   const sequence = ++handlingSequence
+  const isCurrent = () => approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === handlingSequence
   handlingLoading.value = true
   handlingError.value = ''
   try {
-    const record = await getDeviationHandling(id)
-    if (id !== props.id || sequence !== handlingSequence) return
+    const record = await getDeviationHandling(id, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     applyHandling(record)
   } catch {
-    if (id !== props.id || sequence !== handlingSequence) return
+    if (!isCurrent()) return
     resetHandling()
     handlingError.value = '偏差处理记录加载失败，请重试'
   } finally {
-    if (id === props.id && sequence === handlingSequence) handlingLoading.value = false
+    if (isCurrent()) handlingLoading.value = false
   }
 }
 const loadNcrReviewDetail = async () => {
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = router.currentRoute.value.fullPath
   const id = props.id
   const sequence = ++reviewSequence
+  const isCurrent = () => approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === reviewSequence
   const reviewId = detail.value?.nonconformanceReviewId
   if (!props.readonly || detail.value?.closeReason !== 'TRANSFERRED_TO_NCR' || !reviewId) {
     ncrReviewDetail.value = undefined
@@ -445,8 +468,8 @@ const loadNcrReviewDetail = async () => {
   ncrReviewDetail.value = undefined
   ncrSignatureEvidence.value = undefined
   try {
-    const review = await getNonconformanceReview(reviewId)
-    if (id !== props.id || sequence !== reviewSequence) return
+    const review = await getNonconformanceReview(reviewId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     ncrReviewDetail.value = review
     if (review.reviewStatus !== 'pending_review') {
       try {
@@ -458,10 +481,10 @@ const loadNcrReviewDetail = async () => {
       }
     }
   } catch (cause: any) {
-    if (id !== props.id || sequence !== reviewSequence) return
+    if (!isCurrent()) return
     ncrReviewError.value = cause?.response?.data?.msg || '关联不合格评审详情加载失败，请重试'
   } finally {
-    if (id === props.id && sequence === reviewSequence) ncrReviewLoading.value = false
+    if (isCurrent()) ncrReviewLoading.value = false
   }
 }
 const saveHandling = async () => {
@@ -564,6 +587,8 @@ const closeHandling = async () => {
   }
 }
 const load = async () => {
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = router.currentRoute.value.fullPath
   const id = props.id
   const sequence = ++loadSequence
   handlingSequence++
@@ -588,14 +613,14 @@ const load = async () => {
   error.value = ''
   handlingError.value = ''
   try {
-    const record = await getDeviation(id)
-    if (id !== props.id || sequence !== loadSequence) return
+    const record = await getDeviation(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === loadSequence })
+    if (!approvalInvalidation.isCurrent(sessionKey) || routeKey !== router.currentRoute.value.fullPath || id !== props.id || sequence !== loadSequence) return
     detail.value = record
     await Promise.all([loadHandling(), loadNcrReviewDetail()])
   } catch {
-    if (id === props.id && sequence === loadSequence) error.value = '偏差详情加载失败，请重试'
+    if (approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === loadSequence) error.value = '偏差详情加载失败，请重试'
   } finally {
-    if (id === props.id && sequence === loadSequence) loading.value = false
+    if (approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && id === props.id && sequence === loadSequence) loading.value = false
   }
 }
 watch(() => props.id, load, { immediate: true })

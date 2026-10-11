@@ -10,4 +10,5 @@ public interface MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort {
 
     /** Reads and locks the immutable Flow-4 receipt for an active order. */
     MesFlow6CompletionBackfillReceipt getByActiveOrderId(Long activeOrderId, Long tenantId);
+    MesEdhrVerifiedCompletionReceiptFact requireVerifiedByReceiptId(Long receiptId, Long tenantId);
 }

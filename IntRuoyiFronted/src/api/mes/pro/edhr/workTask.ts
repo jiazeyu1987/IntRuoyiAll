@@ -2,6 +2,7 @@ import request from '@/config/axios'
 
 interface EdhrWorkTaskRequestOptions {
   ignoreErrorMessage?: boolean
+  isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean
 }
 
 export const EDHR_WORK_TASK_TYPE_FILL = 'FILL'
@@ -146,65 +147,91 @@ export const getEdhrWorkTaskMyPage = async (
   })
 }
 
-export const getEdhrWorkTaskDonePage = async (params: EdhrWorkTaskPageReqVO) => {
+export const getEdhrWorkTaskDonePage = async (params: EdhrWorkTaskPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrWorkTaskRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/done-page',
     params
   })
 }
 
-export const getEdhrWorkTaskCandidateTodoPage = async (params: EdhrWorkTaskPageReqVO) => {
+export const getEdhrWorkTaskCandidateTodoPage = async (params: EdhrWorkTaskPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrWorkTaskRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/candidate-todo-page',
     params
   })
 }
 
-export const getEdhrWorkTaskStats = async () => {
+export const getEdhrWorkTaskStats = async (options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskStatsRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/stats'
   })
 }
 
-export const getEdhrRouteArchiveRule = async (routeId: number) => {
+export const getEdhrRouteArchiveRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-archive-rule',
     params: { routeId }
   })
 }
 
-export const saveEdhrRouteArchiveRule = async (data: EdhrWorkTaskArchiveRuleReqVO) => {
+export const saveEdhrRouteArchiveRule = async (data: EdhrWorkTaskArchiveRuleReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-archive-rule',
     data
   })
 }
 
-export const getEdhrRouteCloseRule = async (routeId: number) => {
+export const getEdhrRouteCloseRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-close-rule',
     params: { routeId }
   })
 }
 
-export const saveEdhrRouteCloseRule = async (data: EdhrWorkTaskCloseRuleReqVO) => {
+export const saveEdhrRouteCloseRule = async (data: EdhrWorkTaskCloseRuleReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-close-rule',
     data
   })
 }
 
-export const getEdhrRouteReleaseApprovalRule = async (routeId: number) => {
+export const getEdhrRouteReleaseApprovalRule = async (routeId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-release-approval-rule',
     params: { routeId }
   })
 }
 
 export const saveEdhrRouteReleaseApprovalRule = async (
-  data: EdhrWorkTaskReleaseApprovalRuleReqVO
-) => {
+  data: EdhrWorkTaskReleaseApprovalRuleReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrWorkTaskAssignmentRuleRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/route-release-approval-rule',
     data
   })
@@ -212,9 +239,11 @@ export const saveEdhrRouteReleaseApprovalRule = async (
 
 export const completeEdhrCandidateSignatureTask = async (
   workTaskId: string,
-  executionId: string
-) => {
+  executionId: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<boolean>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-work-task/candidate-signature/complete',
     params: { workTaskId, executionId }
   })

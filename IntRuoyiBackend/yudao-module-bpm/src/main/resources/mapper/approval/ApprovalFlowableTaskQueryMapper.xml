@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.bpm.dal.mysql.approval.ApprovalFlowableTaskQueryMapper">
+  <sql id="source">
+    <choose><when test="done">ACT_HI_TASKINST</when><otherwise>ACT_RU_TASK</otherwise></choose> t
+    LEFT JOIN ACT_HI_PROCINST p ON p.PROC_INST_ID_=t.PROC_INST_ID_ AND p.TENANT_ID_=t.TENANT_ID_
+    LEFT JOIN ACT_RE_PROCDEF d ON d.ID_=t.PROC_DEF_ID_
+    LEFT JOIN bpm_approval_process_ownership o ON o.tenant_id=#{tenant} AND CAST(o.process_instance_id AS BINARY)=CAST(t.PROC_INST_ID_ AS BINARY)
+    LEFT JOIN dcc_registration_certificate_bpm_binding rb ON rb.tenant_id=#{tenant}
+      AND rb.bpm_process_instance_id=t.PROC_INST_ID_ AND rb.deleted=0
+    LEFT JOIN dcc_registration_certificate_access_request rr ON rr.tenant_id=#{tenant}
+      AND rr.id=rb.request_id AND rr.bpm_process_instance_id=t.PROC_INST_ID_ AND rr.deleted=0
+    LEFT JOIN dcc_registration_certificate c ON c.tenant_id=#{tenant} AND c.id=rr.certificate_id AND c.deleted=0
+    LEFT JOIN dcc_registration_certificate_version cv ON cv.tenant_id=#{tenant} AND cv.id=c.current_version_id AND cv.certificate_id=c.id AND cv.deleted=0
+    LEFT JOIN dcc_registration_certificate_snapshot cs ON cs.tenant_id=#{tenant} AND cs.id=c.current_snapshot_id AND cs.version_id=cv.id AND cs.deleted=0
+  </sql>
+  <sql id="registrationCandidate">
+    rr.id IS NOT NULL AND rb.business_key=p.BUSINESS_KEY_ AND rb.status='RUNNING' AND rr.status='BPM_BOUND'
+    AND EXISTS (SELECT 1 FROM bpm_approval_selected_candidate sc WHERE sc.tenant_id=#{tenant}
+      AND sc.process_instance_id=t.PROC_INST_ID_ AND sc.user_id=#{userId} AND sc.selection_kind='REGISTRATION_CERTIFICATE')
+    AND ((rr.request_type='UPLOAD_CERTIFICATE' AND #{registrationUpload})
+      OR (rr.request_type='DOWNLOAD_FILE' AND #{registrationDownload}))
+  </sql>
+  <sql id="authorized">
+    t.TENANT_ID_=#{tenantText}
+    <if test="taskId != null">AND t.ID_=#{taskId}</if>
+    <if test="registrationOnly != null and registrationOnly">AND (<include refid="registrationCandidate"/>)</if>
+    <choose><when test="done">
+      AND t.END_TIME_ IS NOT NULL AND (t.TASK_DEF_KEY_ IS NULL OR t.TASK_DEF_KEY_ != #{startNode})
+      <if test="!global">AND t.ASSIGNEE_=#{userText}</if>
+    </when><otherwise>
+      AND t.SUSPENSION_STATE_=1
+      <if test="!global">
+        AND (t.ASSIGNEE_=#{userText} OR (t.ASSIGNEE_ IS NULL AND EXISTS (
+          SELECT 1 FROM ACT_RU_IDENTITYLINK il WHERE il.TASK_ID_=t.ID_
+          <choose><when test="candidateGroups != null">
+            AND il.TYPE_='candidate' AND (il.USER_ID_=#{userText}
+            <if test="candidateGroups.size() > 0">OR il.GROUP_ID_ IN
+              <foreach collection="candidateGroups" item="g" open="(" close=")" separator=",">#{g}</foreach>
+            </if>)
+          </when><otherwise>
+            AND (il.USER_ID_=#{userText} OR il.GROUP_ID_ IN (SELECT m.GROUP_ID_ FROM ACT_ID_MEMBERSHIP m WHERE m.USER_ID_=#{userText}))
+          </otherwise></choose>
+        )) OR (<include refid="registrationCandidate"/>))
+      </if>
+    </otherwise></choose>
+    <if test="keyword != null">
+      AND (LOWER(t.NAME_) LIKE #{keyword} ESCAPE '!' OR LOWER(t.PROC_INST_ID_) LIKE #{keyword} ESCAPE '!'
+        OR LOWER(CAST(rr.id AS CHAR)) LIKE #{keyword} ESCAPE '!'
+        OR LOWER(CAST(rr.certificate_id AS CHAR)) LIKE #{keyword} ESCAPE '!'
+        OR LOWER(rr.request_key) LIKE #{keyword} ESCAPE '!'
+        OR LOWER(cv.certificate_no) LIKE #{keyword} ESCAPE '!' OR LOWER(cs.product_name) LIKE #{keyword} ESCAPE '!')
+    </if>
+  </sql>
+  <sql id="partition">
+    <choose><when test="projection == 'DCC_TASK'">AND o.projection_code='DCC_TASK'</when>
+      <otherwise>AND o.projection_code IN ('NATIVE_BPM','NATIVE_FORM','NATIVE_BUSINESS','NATIVE_EXTERNAL_EDHR')</otherwise>
+    </choose>
+  </sql>
+  <select id="countBrokenProvenance" resultType="long">
+    SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/>
+    AND (o.id IS NULL OR p.PROC_INST_ID_ IS NULL OR d.ID_ IS NULL
+      OR CAST(o.process_definition_id AS BINARY) != CAST(t.PROC_DEF_ID_ AS BINARY)
+      OR CAST(o.process_definition_key AS BINARY) != CAST(d.KEY_ AS BINARY)
+      OR NOT (CAST(o.business_key AS BINARY) &lt;=&gt; CAST(p.BUSINESS_KEY_ AS BINARY)) OR d.TENANT_ID_ != #{tenantText}
+      OR (o.authority_type='REGISTRATION_REQUEST' AND (rr.id IS NULL OR o.authority_id != CAST(rr.id AS CHAR)))
+      OR (o.authority_type='BUSINESS_REQUEST' AND NOT EXISTS (SELECT 1 FROM bpm_business_approval_request br
+        WHERE br.tenant_id=#{tenant} AND br.process_instance_id=t.PROC_INST_ID_ AND CAST(br.id AS CHAR)=o.authority_id
+          AND br.process_definition_key=d.KEY_ AND br.object_version=o.authority_version))
+      OR (o.authority_type='FORM_ACTION' AND NOT EXISTS (SELECT 1 FROM bpm_form_action_instance f
+        WHERE f.tenant_id=#{tenant} AND f.bpm_process_instance_id=t.PROC_INST_ID_ AND CAST(f.id AS CHAR)=o.authority_id
+          AND f.object_version=o.authority_version))
+      OR (o.authority_type='CONTROLLED_FILE' AND NOT EXISTS (SELECT 1 FROM dcc_controlled_file f
+        WHERE f.tenant_id=#{tenant} AND CAST(f.id AS CHAR)=o.authority_id
+          <if test="!done">AND f.process_instance_id=t.PROC_INST_ID_ AND f.process_definition_key=d.KEY_
+            AND CAST(f.version_no AS BINARY)=CAST(o.authority_version AS BINARY)</if>))
+      OR (o.authority_type='OA_LEAVE' AND NOT EXISTS (SELECT 1 FROM bpm_oa_leave f WHERE f.tenant_id=#{tenant}
+        AND CAST(f.id AS CHAR)=o.authority_id <if test="!done">AND f.process_instance_id=t.PROC_INST_ID_</if>))
+      OR (o.authority_type='CRM_CONTRACT' AND NOT EXISTS (SELECT 1 FROM crm_contract f WHERE f.tenant_id=#{tenant}
+        AND CAST(f.id AS CHAR)=o.authority_id <if test="!done">AND f.process_instance_id=t.PROC_INST_ID_</if>))
+      OR (o.authority_type='CRM_RECEIVABLE' AND NOT EXISTS (SELECT 1 FROM crm_receivable f WHERE f.tenant_id=#{tenant}
+        AND CAST(f.id AS CHAR)=o.authority_id <if test="!done">AND f.process_instance_id=t.PROC_INST_ID_</if>))
+      OR (SELECT COUNT(*) FROM dcc_registration_certificate_bpm_binding x WHERE x.tenant_id=#{tenant}
+        AND x.bpm_process_instance_id=t.PROC_INST_ID_ AND x.deleted=0)>1
+      OR (SELECT COUNT(*) FROM bpm_business_approval_request x WHERE x.tenant_id=#{tenant}
+        AND x.process_instance_id=t.PROC_INST_ID_)>1
+      OR (SELECT COUNT(*) FROM bpm_form_action_instance x WHERE x.tenant_id=#{tenant}
+        AND x.bpm_process_instance_id=t.PROC_INST_ID_)>1)
+  </select>
+  <select id="ownerships" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.approval.BpmApprovalProcessOwnershipDO">
+    SELECT DISTINCT o.* FROM <include refid="source"/> WHERE <include refid="authorized"/>
+  </select>
+  <select id="count" resultType="long">
+    SELECT COUNT(DISTINCT t.ID_) FROM <include refid="source"/> WHERE <include refid="authorized"/> <include refid="partition"/>
+  </select>
+  <select id="window" resultType="string">
+    SELECT DISTINCT t.ID_, <choose><when test="done">t.END_TIME_</when><otherwise>t.CREATE_TIME_</otherwise></choose> AS sort_time
+    FROM <include refid="source"/> WHERE <include refid="authorized"/> <include refid="partition"/>
+    ORDER BY sort_time DESC, CAST(t.ID_ AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <sql id="initiated">
+    FROM ACT_HI_PROCINST p WHERE p.TENANT_ID_=#{tenantText}
+    <if test="!global">AND p.START_USER_ID_=#{userText}</if>
+    <if test="keyword != null">AND LOWER(p.NAME_) LIKE #{keyword} ESCAPE '!'</if>
+  </sql>
+  <select id="countInitiated" resultType="long">SELECT COUNT(*) <include refid="initiated"/></select>
+  <select id="windowInitiated" resultType="string">
+    SELECT p.PROC_INST_ID_ <include refid="initiated"/>
+    ORDER BY p.START_TIME_ DESC,CAST(p.PROC_INST_ID_ AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <sql id="copied">
+    FROM bpm_process_instance_copy c WHERE c.tenant_id=#{tenant} AND c.deleted=0
+    <if test="!global">AND c.user_id=#{userId}</if>
+    <if test="keyword != null">AND LOWER(c.process_instance_name) LIKE #{keyword} ESCAPE '!'</if>
+  </sql>
+  <select id="countCopied" resultType="long">SELECT COUNT(*) <include refid="copied"/></select>
+  <select id="windowCopied" resultType="cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO">
+    SELECT c.* <include refid="copied"/> ORDER BY c.create_time DESC,CAST(CAST(c.id AS CHAR) AS BINARY) ASC LIMIT #{limit} OFFSET #{offset}
+  </select>
+</mapper>

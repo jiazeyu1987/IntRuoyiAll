@@ -17,7 +17,6 @@ import cn.iocoder.yudao.module.signature.api.dto.*;
 import cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO;
 import cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
-import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
@@ -50,7 +49,13 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         security = mockStatic(SecurityFrameworkUtils.class);
         security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
-        signatures = new MesSignaturePersistenceFixture(records, mock(AdminUserApi.class), mock(GxpAuditService.class));
+        var operator = new cn.iocoder.yudao.framework.security.core.LoginUser();
+        operator.setId(99L); operator.setTenantId(1L); operator.setUserType(2);
+        operator.setInfo(java.util.Map.of("username", "device-99",
+                cn.iocoder.yudao.framework.security.core.LoginUser.INFO_KEY_NICKNAME, "Device operator"));
+        security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(operator);
+        signatures = new MesSignaturePersistenceFixture(records, mock(AdminUserApi.class),
+                new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
     }
     @AfterEach void clearRuntime() { security.close(); TenantContextHolder.clear(); }
 
@@ -59,9 +64,9 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "PRODUCTION_SUBMIT",
                 null, null, null, null, null, null, null, context.SOURCE_TYPE, context.activeOrderId(),
                 context.sourceName(), null, null, null, null, null);
-        var signed = signatures.writer.signAuthorized(new ElectronicSignatureCommand("MES", "PRODUCTION_SUBMIT",
+        var signed = signatures.transactions.execute(status -> signatures.writer.signAuthorized(new ElectronicSignatureCommand("MES", "PRODUCTION_SUBMIT",
                 "MES_BATCH_RECORD", subject, DigestUtil.sha256Hex(subject), "test-only", "production",
-                "source-signature", null, null), new AuthorizedSignatureIdentity("MES_EMPLOYEE_PROFILE", 7L, "Frozen signer B"), () -> {});
+                "source-signature", null, null), new AuthorizedSignatureIdentity("MES_EMPLOYEE_PROFILE", 7L, "Frozen signer B"), () -> {}));
         var eventWriter = new cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventServiceImpl();
         org.springframework.test.util.ReflectionTestUtils.setField(eventWriter, "processPoolEventMapper", events);
         org.springframework.test.util.ReflectionTestUtils.setField(eventWriter, "processPoolMapper", pools);
@@ -92,6 +97,7 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO mes_pro_process_pool_team_employee_profile VALUES(7,1,'Current different name','Current different name',false)");
         var binding = new MesProductionSubmissionReadBinding(orders, snapshots, allocations);
         var reader = new MesSubmissionSignatureIdentityReader(signatures.query, events, null, binding);
+        org.springframework.test.util.ReflectionTestUtils.setField(reader, "verifiedSignatureFacts", signatures.verifiedFacts);
         var display = reader.read(signed.signatureId(), eventId, 101L, "PRODUCTION_SUBMIT");
         assertEquals("Frozen signer B", display.getSignerName());
         var applications = mock(MesProcessPoolActiveOrderReleaseApplicationMapper.class);
@@ -111,6 +117,7 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
                 pqcAuthorization,applications,orders,signatures.query,null,detailService,materials);
         var evidenceReader = new MesActiveOrderSignatureEvidenceService(detailService, pqcDetails, details, signatures.query,
                 events, null, null, null, binding, null, null, null, null, null);
+        org.springframework.test.util.ReflectionTestUtils.setField(evidenceReader, "verifiedSignatureFacts", signatures.verifiedFacts);
         for (var detail : List.of(detailService.getDetail(99L,101L), details.getDetail(800L))) {
             assertEquals(eventId,detail.getProcesses().get(0).getSubmissions().get(0).getEventId());
             assertEquals("Current different name",detail.getProcesses().get(0).getSubmissions().get(0).getSubmitterName());
@@ -186,17 +193,17 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
                 signatures.bpm(99L,2001L,"approved",cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR,"OTHER_TASK"))) {
             assertTrue(signoff.findVerifiedSignatureId(2001L,99L,wrongSource.getSubjectId(),wrongSource.getEvidenceHash(),"approved").isEmpty());
         }
-        var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setId(701L).setActiveOrderId(801L)
+        var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setId(701L).setActiveOrderId(801L).setWorkOrderId(301L)
                 .setBatchExecutionId(901L).setReleaseTransactionId(1001L).setReleaseApprovalWorkTaskId(2001L)
                 .setApplicationStatus("RELEASED");
         application.setTenantId(1L);
-        var transaction = new MesProEdhrReleaseTransactionDO().setId(1001L).setBatchExecutionId(901L)
+        var transaction = new MesProEdhrReleaseTransactionDO().setId(1001L).setBatchExecutionId(901L).setWorkOrderId(301L)
                 .setReleaseStatus("RELEASED").setApprovedBy(99L).setApprovalOpinion("approved")
                 .setApprovalSignatureId(signed.getUnifiedSignatureId()).setApprovalSignoffEvidenceHash(signed.getEvidenceHash());
-        var task = new MesProEdhrWorkTaskDO().setId(2001L).setBatchExecutionId(901L).setTaskType("RELEASE_APPROVE")
+        var task = new MesProEdhrWorkTaskDO().setId(2001L).setBatchExecutionId(901L).setWorkOrderId(301L).setTaskType("RELEASE_APPROVE")
                 .setBusinessScopeType("RELEASE_TRANSACTION").setBusinessScopeId(1001L).setCandidateSourceType("ROLE_GROUP")
                 .setCandidateUserSnapshot("99").setResponsibilitySourceKey(MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE).setStatus("DONE");
-        var batch = new MesProEdhrBatchExecutionDO().setId(901L).setTenantId(1L);
+        var batch = new MesProEdhrBatchExecutionDO().setId(901L).setWorkOrderId(301L).setTenantId(1L);
         var applications = mock(MesProcessPoolActiveOrderReleaseApplicationMapper.class);
         var transactions = mock(MesProEdhrReleaseTransactionMapper.class);
         var tasks = mock(MesProEdhrWorkTaskMapper.class);
@@ -212,6 +219,7 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
                         .setActorUserId(99L).setActorName("Manager"))));
         var reader = new MesActiveOrderSignatureEvidenceService(null, null, details, signatures.query,
                 null, null, null, null, null, applications, transactions, tasks, batches, signoff);
+        org.springframework.test.util.ReflectionTestUtils.setField(reader, "verifiedSignatureFacts", signatures.verifiedFacts);
         assertEquals("VALID", reader.getBatch(901L, null, signed.getUnifiedSignatureId()).verification().verificationStatus());
         task.setBusinessScopeId(1002L);
         assertThrows(IllegalStateException.class, () -> reader.getBatch(901L, null, signed.getUnifiedSignatureId()));
@@ -227,6 +235,28 @@ class MesSa07Sa08SignatureContractTest extends BaseDbUnitTest {
                 () -> reader.getBatch(901L, null, signed.getUnifiedSignatureId()));
         TenantContextHolder.setTenantId(2L);
         assertTrue(signoff.findVerifiedSignatureId(2001L, 99L, signed.getSubjectId(), signed.getEvidenceHash(), "approved").isEmpty());
+    }
+
+    @Test void realQueryRequiresCreationAuditAndRejectsItsTamperedHash() {
+        var signed = signatures.bpm(99L, 2001L, "approved");
+        Long id = signed.getUnifiedSignatureId();
+        assertEquals("VALID", signatures.query.verifyEvidence(id).verificationStatus());
+        var original = signatures.auditRows.selectSignatureCreationEvents(1L, id.toString()).get(0);
+        doReturn(List.of()).when(signatures.auditRows).selectSignatureCreationEvents(1L, id.toString());
+        var missing = signatures.query.verifyEvidence(id);
+        assertEquals("INCOMPLETE", missing.verificationStatus());
+        assertEquals("MISSING", missing.auditBindingStatus());
+        assertTrue(missing.reasonCodes().contains("AUDIT_LINK_MISSING"));
+        var tampered = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO();
+        org.springframework.beans.BeanUtils.copyProperties(original, tampered);
+        tampered.setEventHash("0".repeat(64));
+        doReturn(List.of(tampered)).when(signatures.auditRows).selectSignatureCreationEvents(1L, id.toString());
+        var mismatch = signatures.query.verifyEvidence(id);
+        assertEquals("MISMATCH", mismatch.verificationStatus());
+        assertEquals("MISMATCH", mismatch.auditBindingStatus());
+        assertTrue(mismatch.reasonCodes().contains("AUDIT_INTEGRITY_FAILED"));
+        doReturn(List.of(original)).when(signatures.auditRows).selectSignatureCreationEvents(1L, id.toString());
+        assertEquals("VALID", signatures.query.verifyEvidence(id).verificationStatus());
     }
 
     private static MesProcessPoolActiveOrderDO order(long id, long work) {

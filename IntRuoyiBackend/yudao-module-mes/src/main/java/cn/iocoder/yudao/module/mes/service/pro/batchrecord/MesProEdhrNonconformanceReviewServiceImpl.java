@@ -105,6 +105,29 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonc
 @Service
 @Validated
 public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonconformanceReviewService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact fact;
+        try {
+            fact = verifiedSignatureFacts.requireVerifiedFact(id);
+        } catch (cn.iocoder.yudao.framework.common.exception.ServiceException rejectedSignature) {
+            if (!java.util.Objects.equals(rejectedSignature.getCode(),
+                    cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID.getCode()))
+                throw rejectedSignature;
+            var rejectedSource = exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            rejectedSource.initCause(rejectedSignature);
+            throw rejectedSource;
+        }
+        try {
+            return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(
+                    fact, TenantContextHolder.getRequiredTenantId());
+        } catch (IllegalArgumentException malformedContent) {
+            var rejectedSource = exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
+            rejectedSource.initCause(malformedContent);
+            throw rejectedSource;
+        }
+    }
+
 
     private static final Set<String> SUPPORTED_SOURCE_TYPES = Set.of(SOURCE_TYPE_PQC_SUBMISSION, SOURCE_TYPE_PQC_RELEASE);
     private static final Set<String> SUPPORTED_DISPOSITIONS =
@@ -671,11 +694,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 || !subject.equals(record.getSubjectId()) || !Objects.equals(expected.subjectVersion(), record.getSubjectVersion())
                 || !Objects.equals(reason, record.getReason()) || !"VALID".equals(record.getVerificationStatus())
                 || StrUtil.isBlank(record.getCanonicalContentJson()) || StrUtil.isBlank(record.getContentHash())
-                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(record.getCanonicalContentJson()))) {
+                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(verifiedContent(record.getId()).businessContentJson()))) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         }
         // Native JSON storage may change formatting; use the signature kernel's canonical verification protocol.
-        var verification = signatureQueryService.verifyEvidence(signatureId);
+        var verification = verifiedContent(signatureId).signatureFact().verification();
         if (verification == null || !Objects.equals(signatureId, verification.signatureId())
                 || !"VALID".equals(verification.verificationStatus())
                 || !Objects.equals(record.getContentHash(), verification.storedContentHash())
@@ -926,11 +949,11 @@ public class MesProEdhrNonconformanceReviewServiceImpl implements MesProEdhrNonc
                 new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(
                         signature.getActorId(), "MES", action, "MES_BATCH_RECORD", subject,
                         signature.getSubjectVersion(), review.getNonconformanceReason()));
-        if (!Objects.equals(JsonUtils.parseTree(signature.getCanonicalContentJson()),
+        if (!Objects.equals(JsonUtils.parseTree(verifiedContent(signature.getId()).businessContentJson()),
                 JsonUtils.parseTree(expected.canonicalContentJson()))) {
             throw exception(PRO_EDHR_NONCONFORMANCE_REVIEW_SOURCE_INVALID);
         }
-        var verification = signatureQueryService.verifyEvidence(signatureId);
+        var verification = verifiedContent(signatureId).signatureFact().verification();
         if (verification == null || !Objects.equals(verification.signatureId(), signatureId)
                 || !"VALID".equals(verification.verificationStatus())
                 || !Objects.equals(signature.getContentHash(), verification.storedContentHash())

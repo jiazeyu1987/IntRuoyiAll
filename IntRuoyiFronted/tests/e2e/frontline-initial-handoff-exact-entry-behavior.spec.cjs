@@ -12,7 +12,7 @@ const taskId='1900000000000000001',otherTaskId='1900000000000000002'
 function task(mode='production',active='413',id=taskId){const pqc=mode==='pqc',type=pqc?'PQC_HANDOFF':'PRODUCTION_HANDOFF',source=pqc?'55':active,key=pqc?'pqcTaskId':'cycleId';return{id,activeOrderId:active,workOrderId:'274',routeProcessId:pqc?'91':undefined,taskType:type,sourceType:pqc?'PQC_INSPECTION_TASK':'ACTIVE_ORDER',sourceId:source,roundId:source,status:'TODO',actionUrl:(pqc?'/mes/pro/feedback/edhr-batch-pqc-fill':'/mes/pro/feedback/edhr-batch-production-fill')+'?activeOrderId='+active+'&'+key+'='+source+'&handoffTaskId='+id+'&roundId='+source+'&handoffType='+type}}
 const query=t=>Object.fromEntries(new URL(t.actionUrl,'http://localhost:8081').searchParams)
 const order=active=>({activeOrderId:Number(active),workOrderId:274,routeId:98})
-function harness(mode='production',initial=task(mode)){
+function harness(mode='production',initial=task(mode),selectionPorts=()=>({})){
  const route=vue.reactive({query:query(initial)}),state=vue.reactive({}),selectedId=vue.ref(),calls=[],errors=[];let context={task:initial,current:true,processable:true};let orders=[order('414'),order('413')]
  let processes=mode==='pqc'?[{activeOrderId:413,qaProcessId:31,pqcTaskOptions:[{pqcTaskId:54,inspectionRuleKey:'FIRST'},{pqcTaskId:55,inspectionRuleKey:'PATROL_AM'}]}]:[{activeOrderId:413,routeProcessId:91,processId:15}]
  const values={ref:vue.ref,computed:vue.computed,route,deviceState:state,isPqcMode:vue.ref(mode==='pqc'),activePqcTaskOptionId:selectedId,payloadPreview:vue.ref(),employeeTemplateCode:vue.ref(),selectedPqcInspectionRuleKey:vue.ref(),currentLoginUserId:vue.ref(344),
@@ -21,6 +21,7 @@ function harness(mode='production',initial=task(mode)){
  selectFrontlineProductionActiveOrder:async(_,o)=>{calls.push(['order',o.activeOrderId]);state.selectedActiveOrder=o;return processes},selectFrontlinePqcActiveOrder:async(_,o)=>{calls.push(['order',o.activeOrderId]);state.selectedActiveOrder=o;return processes},
  handleSelectProcess:async p=>{calls.push(['process',p.routeProcessId]);state.selectedProcess=p;state.selectedEmployee={userId:342}},
  clearPqcExecutionSelection:()=>{selectedId.value=undefined},getPqcTaskOptions:p=>p.pqcTaskOptions,selectFrontlinePqcProcess:async(_,p)=>{calls.push(['qaProcess',p.qaProcessId]);state.selectedProcess=p},applyProcessToContext:()=>{},applyPqcTaskOptionToDraft:o=>{calls.push(['pqcTask',o.pqcTaskId]);selectedId.value=o.pqcTaskId},findCurrentLoginEmployee:()=>({userId:344}),handleSelectEmployee:async e=>{state.selectedEmployee=e},showFrontlineError:e=>errors.push(e.message||e)}
+ Object.assign(values,selectionPorts({state,selectedId,calls}) || {})
  const code=ts.transpileModule(body,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
  const page=Function(...Object.keys(values),code+';return {initialHandoffTask,initialHandoffLoading,initialHandoffInvalid,hasInitialHandoffQuery,isInitialHandoffBlocked,initializeInitialHandoffSelection};')(...Object.values(values))
  return{page,route,state,selectedId,calls,errors,setContext:v=>context=v,setOrders:v=>orders=v,setProcesses:v=>processes=v}
@@ -44,4 +45,52 @@ test('失效交接在真实签名打开与确认方法入口阻止业务动作',
  const errors=[],code=ts.transpileModule(statements,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
  const handlers=Function('hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},{value:true},e=>errors.push(e))
  await handlers.handleValidate();await handlers.handleConfirmPqcSubmit();assert.equal(errors.length,2);assert.ok(errors.every(e=>e.includes('交接任务已失效')))
+})
+
+async function assertSubmissionBlocked(h){
+ const statements=ast.statements.filter(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>['handleValidate','handleConfirmPqcSubmit'].includes(d.name.getText(ast)))).map(s=>s.getText(ast)).join('\n')
+ const errors=[],code=ts.transpileModule(statements,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+ const handlers=Function('hasReturnNotification','isInitialHandoffBlocked','showFrontlineError',code+';return {handleValidate,handleConfirmPqcSubmit};')({value:false},h.page.isInitialHandoffBlocked,e=>errors.push(e))
+ await handlers.handleValidate();await handlers.handleConfirmPqcSubmit()
+ assert.equal(errors.length,2);assert.ok(errors.every(e=>e.includes('交接任务已失效')))
+ // No other dependencies are injected: reaching any signature/submit work would throw.
+}
+for(const mode of ['production','pqc'])for(const defect of ['missing-order','wrong-order','missing-process','missing-employee'])test(`${mode}末尾真实选择缺失或错配 ${defect} 明确阻断签名和提交`,async()=>{
+ const h=harness(mode,task(mode),({state})=>{
+  const selectOrder=async(_,o)=>{state.selectedActiveOrder=defect==='missing-order'?undefined:defect==='wrong-order'?order('414'):o;return mode==='pqc'?[{activeOrderId:413,qaProcessId:31,pqcTaskOptions:[{pqcTaskId:55,inspectionRuleKey:'PATROL_AM'}]}]:[{activeOrderId:413,routeProcessId:91,processId:15}]}
+  return{selectFrontlineProductionActiveOrder:selectOrder,selectFrontlinePqcActiveOrder:selectOrder,
+   handleSelectProcess:async p=>{state.selectedProcess=defect==='missing-process'?undefined:p;state.selectedEmployee=defect==='missing-employee'?undefined:{userId:342}},
+   selectFrontlinePqcProcess:async(_,p)=>{state.selectedProcess=defect==='missing-process'?undefined:p},handleSelectEmployee:async e=>{state.selectedEmployee=defect==='missing-employee'?undefined:e}}
+ })
+ await h.page.initializeInitialHandoffSelection();assert.deepEqual(h.errors,['原交接定位未完成，禁止提交。']);assert.equal(h.state.selectedActiveOrder,undefined);assert.equal(h.state.selectedProcess,undefined);assert.equal(h.state.selectedEmployee,undefined);assert.equal(h.page.initialHandoffLoading.value,false)
+ await assertSubmissionBlocked(h)
+})
+test('生产正式路线校验清空选中订单后，末尾不得采用请求初始订单',async()=>{
+ const statement=ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>d.name.getText(ast)==='handleSelectProcess')).getText(ast)
+ const h=harness('production',task(),({state})=>{
+  const values={isPqcMode:{value:false},deviceState:state,isFrontlinePqcProcess:()=>false,isFrontlineProductionProcess:()=>true,selectedPqcInspectionRuleKey:{value:undefined},closePicker:()=>{},
+   selectFrontlineProcess:async(_,p)=>{state.selectedProcess=p},applyProcessToContext:()=>{},context:{workOrderId:274},employeeTemplateCode:{value:undefined},payloadPreview:{value:undefined},pqcSubmitResultUncertain:{value:false},findInitialEmployee:()=>({userId:342}),handleSelectEmployee:async e=>{state.selectedEmployee=e}}
+  const code=ts.transpileModule(statement,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+  const handleSelectProcess=Function(...Object.keys(values),'let processSelectionRequestId=0;'+code+';return handleSelectProcess;')(...Object.values(values))
+  return{handleSelectProcess}
+ })
+ h.setProcesses([{activeOrderId:413,routeId:99,routeProcessId:91,processId:15}])
+ await h.page.initializeInitialHandoffSelection();assert.deepEqual(h.errors,['原交接定位未完成，禁止提交。']);await assertSubmissionBlocked(h)
+})
+test('PQC员工切换失败和source选项错配保持明确阻断',async()=>{
+ for(const fail of ['employee','source']){
+  const h=harness('pqc',task('pqc'),({state,selectedId})=>({handleSelectEmployee:async e=>{if(fail==='employee')throw Error('formal employee switch failed');state.selectedEmployee=e;selectedId.value=54}}))
+  await h.page.initializeInitialHandoffSelection();assert.deepEqual(h.errors,[fail==='employee'?'formal employee switch failed':'原交接定位未完成，禁止提交。']);await assertSubmissionBlocked(h)
+ }
+})
+for(const mode of ['production','pqc'])test(`${mode}最后选择await迟到后保留B的epoch和loading`,async()=>{
+ let resolveA,enteredA;const entered=new Promise(ok=>enteredA=ok),pending=new Promise(ok=>resolveA=ok)
+ const h=harness(mode,task(mode),({state})=>{
+  const finalSelection=async value=>{if(state.selectedActiveOrder.activeOrderId===413){enteredA();await pending;return}state.selectedEmployee=mode==='pqc'?value:{userId:342};if(mode==='production')state.selectedProcess=value}
+  return mode==='pqc'?{handleSelectEmployee:finalSelection}:{handleSelectProcess:finalSelection}
+ })
+ const first=h.page.initializeInitialHandoffSelection();await entered
+ const b=task(mode,'414',otherTaskId);h.route.query=query(b);h.setOrders([order('414')]);h.setContext({task:b,current:true,processable:true});h.setProcesses(mode==='pqc'?[{activeOrderId:414,qaProcessId:32,pqcTaskOptions:[{pqcTaskId:55,inspectionRuleKey:'PATROL_AM'}]}]:[{activeOrderId:414,routeProcessId:92,processId:16}])
+ await h.page.initializeInitialHandoffSelection();resolveA();await first
+ assert.equal(h.page.initialHandoffTask.value.id,otherTaskId);assert.equal(h.state.selectedActiveOrder.activeOrderId,414);assert.equal(h.page.isInitialHandoffBlocked.value,false);assert.equal(h.page.initialHandoffLoading.value,false);assert.deepEqual(h.errors,[])
 })

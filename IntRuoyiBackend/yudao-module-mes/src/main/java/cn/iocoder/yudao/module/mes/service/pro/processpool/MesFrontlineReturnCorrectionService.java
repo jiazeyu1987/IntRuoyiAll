@@ -42,6 +42,11 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @RequiredArgsConstructor
 public class MesFrontlineReturnCorrectionService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
     private final MesProProcessPoolEventMapper events;
     private final MesProcessPoolActiveOrderMapper activeOrders;
     private final MesProcessPoolSubmissionReviewMapper reviews;
@@ -168,11 +173,9 @@ public class MesFrontlineReturnCorrectionService {
                 && Objects.equals(evidence.actorId(),actor) && "MES".equals(evidence.moduleCode())
                 && "MES_BATCH_RECORD".equals(evidence.subjectType()) && evidence.signedAt()!=null
                 && "VALID".equals(evidence.verificationStatus()), "ownReturn.signatureSource");
-        JsonNode identity=object(evidence.canonicalContentJson(),"ownReturn.signatureContent").get("signatureIdentity");
-        require(identity != null && identity.isObject() && "SYSTEM_USER".equals(identity.path("domain").asText())
-                && Objects.equals(longValue(identity.get("tenantId"),"ownReturn.identityTenant"),event.getTenantId())
-                && Objects.equals(longValue(identity.get("signerId"),"ownReturn.identitySigner"),actor)
-                && Objects.equals(longValue(identity.get("operatorId"),"ownReturn.identityOperator"),event.getDeviceAccountId()),
+        var identity = verifiedContent(evidence.id()).identity();
+        require("SYSTEM_USER".equals(identity.domain()) && Objects.equals(identity.tenantId(), event.getTenantId())
+                && Objects.equals(identity.signerId(), actor) && Objects.equals(identity.operatorId(), event.getDeviceAccountId()),
                 "ownReturn.systemUserIdentity");
         if ("PRODUCTION".equals(type)) {
             require("SYSTEM_USER".equals(payload.path("signatureIdentityDomain").asText())

@@ -73,14 +73,28 @@ import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web
 import dayjs from 'dayjs'
 import DeviationDetail from './DeviationDetail.vue'
 import { createCriticalDeviationReview } from '@/api/mes/pro/edhr/nonconformanceReview'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 
 const message = useMessage()
+const approvalInvalidation = useApprovalCenterInvalidationStore()
+const route = useRoute()
 const loading = ref(false)
 const rows = ref<DeviationRespVO[]>([])
 const selectedCritical = ref<DeviationRespVO[]>([])
 const batchNcrVisible = ref(false)
 const batchNcrLoading = ref(false)
 const batchNcrForm = reactive({ nonconformanceReason: '', remark: '', signaturePassword: '' })
+const batchNcrGuard = createFormalActionGuard(() => JSON.stringify([
+  approvalInvalidation.syncSession().key, route.fullPath,
+  selectedCritical.value.map(row => [row.id, row.batchExecutionId])
+]))
+const resetBatchNcrContext = () => { batchNcrGuard.invalidate(); batchNcrLoading.value = false; batchNcrForm.signaturePassword = '' }
+watch(batchNcrVisible, resetBatchNcrContext, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { resetBatchNcrContext(); batchNcrVisible.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetBatchNcrContext(); batchNcrVisible.value = false }, { flush: 'sync' })
+onDeactivated(resetBatchNcrContext)
+onBeforeUnmount(resetBatchNcrContext)
 const total = ref(0)
 const activeStatus = ref<'ALL' | 'OPEN' | 'CLOSED'>('ALL')
 const detailVisible = ref(false)
@@ -131,20 +145,25 @@ const createRules: FormRules = {
 
 const load = async () => {
   const serial = ++requestSerial
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const isCurrent = () => serial === requestSerial && routeKey === route.fullPath && approvalInvalidation.isCurrent(sessionKey)
   loading.value = true
   try {
-    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt?.[0], initiatedAtEnd: query.initiatedAt?.[1], status: activeStatus.value === 'ALL' ? undefined : activeStatus.value })
-    if (serial !== requestSerial) return
+    const data = await getDeviationPage({ ...query, initiatedAtStart: query.initiatedAt?.[0], initiatedAtEnd: query.initiatedAt?.[1], status: activeStatus.value === 'ALL' ? undefined : activeStatus.value }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return false
     rows.value = data.list || []
     total.value = data.total || 0
+    return true
   } catch (error: any) {
-    if (serial !== requestSerial) return
+    if (!isCurrent()) return false
     rows.value = []
     const status = error?.response?.status
     message.error(status === 403 ? '当前账号没有偏差查询权限' : status === 401 ? '登录状态已失效，请重新登录' : '偏差查询失败，请重试')
-  } finally { loading.value = false }
+    return false
+  } finally { if (isCurrent()) loading.value = false }
 }
-const quickFilter = useTableQuickFilter('mes.pro.edhr.deviation.main', filterDefinitions, query, load)
+const quickFilter = useTableQuickFilter('mes.pro.edhr.deviation.main', filterDefinitions, query, async () => { await load() })
 const handleSortChange = (state: { key?: string; prop?: string; order?: 'ascending' | 'descending' | null }) => {
   query.sortField = state.key || state.prop || ''
   query.sortOrder = state.order === 'ascending' ? 'asc' : state.order === 'descending' ? 'desc' : undefined
@@ -161,6 +180,7 @@ const handleSelectionChange = (selection: DeviationRespVO[]) => {
   selectedCritical.value = batchIds.length <= 1 ? eligible : []
 }
 const openBatchNcr = () => {
+  resetBatchNcrContext()
   if (!selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   batchNcrForm.nonconformanceReason = ''
   batchNcrForm.remark = ''
@@ -168,27 +188,37 @@ const openBatchNcr = () => {
   batchNcrVisible.value = true
 }
 const submitBatchNcr = async () => {
+  if (batchNcrLoading.value) return
   const reason = batchNcrForm.nonconformanceReason.trim()
   const password = batchNcrForm.signaturePassword.trim()
   if (!reason || !password || !selectedCritical.value.length || !selectedCritical.value.every(isCriticalOpen)) return
   const batchExecutionId = selectedCritical.value[0].batchExecutionId
+  const payload = {
+    batchExecutionId, deviationIds: selectedCritical.value.map(row => row.id),
+    nonconformanceReason: reason, remark: batchNcrForm.remark.trim() || undefined,
+    idempotencyKey: `EDHR_DEVIATION_NCR_BATCH_${batchExecutionId}_${Date.now()}`, signaturePassword: password
+  }
+  let isCurrent = batchNcrGuard.capture()
+  const submitSession = approvalInvalidation.syncSession()
+  let writeSucceeded = false
   batchNcrLoading.value = true
   try {
-    await createCriticalDeviationReview({
-      batchExecutionId,
-      deviationIds: selectedCritical.value.map(row => row.id),
-      nonconformanceReason: reason,
-      remark: batchNcrForm.remark.trim() || undefined,
-      idempotencyKey: `EDHR_DEVIATION_NCR_BATCH_${batchExecutionId}_${Date.now()}`,
-      signaturePassword: password
-    })
+    const receipt = await createCriticalDeviationReview(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    if (String(receipt.batchExecutionId) !== String(payload.batchExecutionId) || !receipt.activeOrderId) throw new Error('转审已成功，但正式回执缺少本批次的活跃订单身份，请刷新核对')
+    const event = approvalInvalidation.captureHandoffReceiptSuccess(submitSession, 'ACTIVE_ORDER', receipt.activeOrderId)
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
     batchNcrVisible.value = false
     selectedCritical.value = []
-    await load()
+    isCurrent = batchNcrGuard.capture()
     message.success('不合格审批已发起，所选偏差已转审关闭')
+    const loaded = await load()
+    if (isCurrent() && loaded === false) throw new Error('列表读取失败')
   } catch (error: any) {
-    message.error(error?.response?.data?.msg || '不合格审批发起失败，请重试')
-  } finally { batchNcrLoading.value = false }
+    if (!isCurrent()) return
+    message.error(writeSucceeded ? `不合格审批已发起，回执校验或列表刷新失败：${error?.message}` : error?.response?.data?.msg || error?.message || '不合格审批发起失败，请重试')
+  } finally { if (isCurrent()) batchNcrLoading.value = false }
 }
 const loadBatchOptions = async (search = '') => {
   batchLoading.value = true

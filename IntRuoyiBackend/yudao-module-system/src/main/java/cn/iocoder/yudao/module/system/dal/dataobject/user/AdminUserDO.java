@@ -55,6 +55,9 @@ public class AdminUserDO extends TenantBaseDO {
      * 密码凭据状态：ACTIVE-可用，INITIAL-初始凭据，RESET_REQUIRED-重置后必须改密
      */
     private String passwordCredentialStatus;
+    /** Immutable generation and database-maintained credential/security revision for V2 signing. */
+    private String signatureCredentialGeneration;
+    private Long signatureCredentialVersion;
     /**
      * 用户昵称
      */

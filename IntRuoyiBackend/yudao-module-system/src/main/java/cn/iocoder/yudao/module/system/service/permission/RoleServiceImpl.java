@@ -48,6 +48,9 @@ import static cn.iocoder.yudao.module.system.enums.LogRecordConstants.*;
 public class RoleServiceImpl implements RoleService {
 
     @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
+    @Resource
     private PermissionService permissionService;
 
     @Resource
@@ -62,6 +65,8 @@ public class RoleServiceImpl implements RoleService {
     @LogRecord(type = SYSTEM_ROLE_TYPE, subType = SYSTEM_ROLE_CREATE_SUB_TYPE, bizNo = "{{#role.id}}",
             success = SYSTEM_ROLE_CREATE_SUCCESS)
     public Long createRole(RoleSaveReqVO createReqVO, Integer type) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         // 1. 校验角色
         validateRoleDuplicate(createReqVO.getName(), createReqVO.getCode(), null);
         roleCategoryService.validateRoleCategoryEnabled(createReqVO.getCategoryId());
@@ -71,7 +76,8 @@ public class RoleServiceImpl implements RoleService {
                 .setType(ObjectUtil.defaultIfNull(type, RoleTypeEnum.CUSTOM.getType()))
                 .setStatus(ObjUtil.defaultIfNull(createReqVO.getStatus(), CommonStatusEnum.ENABLE.getStatus()))
                 .setDataScope(DataScopeEnum.ALL.getScope()); // 默认可查看所有数据。原因是，可能一些项目不需要项目权限
-        roleMapper.insert(role);
+        if (roleMapper.insert(role) != 1) throw new IllegalStateException("APPROVAL_ROLE_CREATE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("role", role);
@@ -79,10 +85,13 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.ROLE, key = "#updateReqVO.id")
     @LogRecord(type = SYSTEM_ROLE_TYPE, subType = SYSTEM_ROLE_UPDATE_SUB_TYPE, bizNo = "{{#updateReqVO.id}}",
             success = SYSTEM_ROLE_UPDATE_SUCCESS)
     public void updateRole(RoleSaveReqVO updateReqVO) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         // 1.1 校验是否可以更新
         RoleDO role = validateRoleForUpdate(updateReqVO.getId());
         // 1.2 校验角色的唯一字段是否重复
@@ -91,7 +100,8 @@ public class RoleServiceImpl implements RoleService {
 
         // 2. 更新到数据库
         RoleDO updateObj = BeanUtils.toBean(updateReqVO, RoleDO.class);
-        roleMapper.updateById(updateObj);
+        if (roleMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_ROLE_UPDATE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable(DiffParseFunction.OLD_OBJECT, BeanUtils.toBean(role, RoleSaveReqVO.class));
@@ -99,8 +109,11 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.ROLE, key = "#id")
     public void updateRoleDataScope(Long id, Integer dataScope, Set<Long> dataScopeDeptIds) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         // 校验是否可以更新
         validateRoleForUpdate(id);
 
@@ -109,7 +122,8 @@ public class RoleServiceImpl implements RoleService {
         updateObject.setId(id);
         updateObject.setDataScope(dataScope);
         updateObject.setDataScopeDeptIds(dataScopeDeptIds);
-        roleMapper.updateById(updateObject);
+        if (roleMapper.updateById(updateObject) != 1) throw new IllegalStateException("APPROVAL_ROLE_SCOPE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @Override
@@ -118,13 +132,16 @@ public class RoleServiceImpl implements RoleService {
     @LogRecord(type = SYSTEM_ROLE_TYPE, subType = SYSTEM_ROLE_DELETE_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_ROLE_DELETE_SUCCESS)
     public void deleteRole(Long id) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         // 1. 校验是否可以更新
         RoleDO role = validateRoleForUpdate(id);
 
         // 2.1 标记删除
-        roleMapper.deleteById(id);
+        if (roleMapper.deleteById(id) != 1) throw new IllegalStateException("APPROVAL_ROLE_DELETE_ROW_COUNT");
         // 2.2 删除相关数据
         permissionService.processRoleDeleted(id);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("role", role);
@@ -133,13 +150,19 @@ public class RoleServiceImpl implements RoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteRoleList(List<Long> ids) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        if (ids == null || ids.isEmpty() || new HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("APPROVAL_ROLE_DELETE_IDENTITIES_REQUIRED");
+        }
         // 1. 校验是否可以删除
         ids.forEach(this::validateRoleForUpdate);
 
         // 2.1 标记删除
-        roleMapper.deleteByIds(ids);
+        if (roleMapper.deleteByIds(ids) != ids.size()) throw new IllegalStateException("APPROVAL_ROLE_DELETE_ROW_COUNT");
         // 2.2 删除相关数据
         ids.forEach(id -> permissionService.processRoleDeleted(id));
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     /**

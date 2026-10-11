@@ -38,6 +38,11 @@ public interface ApprovalTaskProvider {
 
     PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context);
 
+    default PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        throw new UnsupportedOperationException("APPROVAL_INTERNAL_WINDOW_UNSUPPORTED: " + getModuleCode());
+    }
+
     List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context);
 
     default void review(ApprovalTaskReviewContext context) {

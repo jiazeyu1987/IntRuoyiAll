@@ -42,6 +42,12 @@ public interface MesProEdhrWorkTaskService {
 
     Long countApprovalCenterTodoDuplicateTasks(MesProEdhrWorkTaskPageReqVO reqVO, boolean globalView);
 
+    PageResult<MesProEdhrWorkTaskRespVO> getApprovalCenterPrefix(MesProEdhrWorkTaskPageReqVO filters,
+                                                               boolean globalView, boolean done, long limit);
+
+    PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedPrefix(
+            MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long limit);
+
     MesProEdhrWorkTaskStatsRespVO getStats();
 
     MesProEdhrWorkTaskAssignmentRuleRespVO getArchiveRuleByRoute(Long routeId);

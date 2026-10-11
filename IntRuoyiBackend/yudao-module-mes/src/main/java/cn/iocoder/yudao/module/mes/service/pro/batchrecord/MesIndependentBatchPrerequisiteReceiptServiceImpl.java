@@ -44,6 +44,9 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
 
     @Resource
     private MesIndependentBatchPrerequisiteReceiptStore store;
+    @Resource private MesEdhrSourceCreationAuditWriter creationWriter;
+    @Resource private MesEdhrSourceCreationVerificationService creationVerifier;
+    @Resource private MesEdhrSourceCreationBindingStore creationBindings;
 
     @Resource
     private MesProWorkOrderService workOrderService;
@@ -77,27 +80,29 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
                                                         Long tenantId, Long actorUserId) {
         requireBackendIdentity(tenantId, actorUserId);
         validateIssueCommand(command);
+        creationWriter.acquireLedgerLock();
         String resolvedIssuerSystem = requireConfigured(issuerSystem);
         String secret = requireConfigured(signingSecret);
         workOrderService.validateWorkOrderExistsForUpdate(command.getWorkOrderId());
+        MesIndependentBatchPrerequisiteReceiptDO existing = store.selectByIdempotencyKey(
+                tenantId, command.getEntryType(), command.getIdempotencyKey());
         MesIndependentBatchPrerequisiteReceipt candidate = buildReceipt(command, tenantId, actorUserId,
-                resolvedIssuerSystem, LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS));
+                resolvedIssuerSystem, existing == null ? LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS) : existing.getIssuedAt());
         String payload = MesIndependentBatchPrerequisiteReceiptCanonicalizer.canonicalPayload(candidate);
         candidate.setPayloadHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(payload));
         candidate.setSignature(sign(payload, secret));
         candidate.setReceiptHash(MesIndependentBatchPrerequisiteReceiptCanonicalizer.sha256(
                 candidate.getPayloadHash() + "|" + candidate.getSignature()));
-        MesIndependentBatchPrerequisiteReceiptDO existing = store.selectByIdempotencyKey(
-                tenantId, candidate.getEntryType(), candidate.getIdempotencyKey());
         if (existing != null) {
-            if (!candidate.getPayloadHash().equals(existing.getPayloadHash())
-                    || !candidate.getSourceContextHash().equals(existing.getSourceContextHash())) {
+            creationVerifier.requireIndependentCreation(tenantId, existing.getReceiptId());
+            if (!creationWriter.issueRequest(toDO(candidate, payload)).equals(creationWriter.issueRequest(existing))) {
                 throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_IDEMPOTENCY_CONFLICT);
             }
             return toReceipt(existing);
         }
         MesIndependentBatchPrerequisiteReceiptDO data = toDO(candidate, payload);
         store.insert(data);
+        creationWriter.issue(data);
         return candidate;
     }
 
@@ -120,6 +125,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
         }
         if (!tenantId.equals(data.getTenantId())) throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_TENANT_MISMATCH);
         MesIndependentBatchPrerequisiteReceipt receipt = toReceipt(data);
+        creationVerifier.requireIndependentCreation(tenantId, data.getReceiptId());
         if (!ENTRY_TYPES.contains(receipt.getEntryType()) || !receipt.getEntryType().equals(command.getEntryType())) {
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID);
         }
@@ -163,6 +169,14 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
 
     @Override
     @Transactional(readOnly = true)
+    public MesEdhrVerifiedIndependentReceiptFact getCreationVerifiedByReceiptId(Long tenantId, String receiptId,
+            String entryType, String sourceSnapshotHash) {
+        return new MesEdhrVerifiedIndependentReceiptFact(getVerifiedByReceiptId(tenantId, receiptId, entryType, sourceSnapshotHash),
+                creationVerifier.requireIndependentCreation(tenantId, receiptId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public MesIndependentBatchPrerequisiteReceipt getVerifiedByReceiptId(Long tenantId, String receiptId,
                                                                          String entryType, String sourceSnapshotHash) {
         return verify(new MesIndependentBatchPrerequisiteReceiptVerifyCommand()
@@ -179,6 +193,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
         if (command == null || blank(command.getReceiptId()) || blank(command.getReason())) {
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
         }
+        creationWriter.acquireLedgerLock();
         MesIndependentBatchPrerequisiteReceiptDO data = store.selectByReceiptId(tenantId, command.getReceiptId());
         if (data == null) {
             MesIndependentBatchPrerequisiteReceiptDO unscoped = store.selectByReceiptIdUnscoped(command.getReceiptId());
@@ -187,12 +202,23 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
             }
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PREREQUISITE_MISSING);
         }
-        if (!STATUS_ISSUED.equals(data.getStatus()) || data.getRevokedAt() != null) {
-            throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED);
+        MesEdhrSourceCreationEvidence creation = creationVerifier.requireIndependentCreation(tenantId, data.getReceiptId());
+        if (STATUS_REVOKED.equals(data.getStatus())) {
+            String priorReason = data.getRevocationReason();
+            data.setRevocationReason(command.getReason());
+            String requestHash = MesEdhrSourceCreationCodec.encodeRevokeRequestV1(creationWriter.revokeRequest(data, actorUserId)).sha256();
+            data.setRevocationReason(priorReason);
+            var bindings = creationBindings.readBySourceRow(tenantId, "INDEPENDENT_REVOKE_V1", data.getId());
+            if (bindings.size() != 1 || !bindings.get(0).fact().requestHash().equals(requestHash))
+                throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_IDEMPOTENCY_CONFLICT);
+            return toReceipt(data);
         }
-        data.setStatus(STATUS_REVOKED).setRevokedAt(LocalDateTime.now(clock))
+        if (!STATUS_ISSUED.equals(data.getStatus()) || data.getRevokedAt() != null)
+            throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED);
+        data.setStatus(STATUS_REVOKED).setRevokedAt(LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS))
                 .setRevocationReason(command.getReason());
         store.update(data);
+        creationWriter.revoke(data, actorUserId, creation);
         return toReceipt(data);
     }
 
@@ -265,7 +291,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
                     .setIssuedAt(value.getIssuedAt()).setExpiresAt(value.getExpiresAt()).setRevokedAt(value.getRevokedAt())
                     .setRevocationReason(value.getRevocationReason()).setCredentialVersion(value.getCredentialVersion())
                     .setStatus(value.getStatus()).setCanonicalPayload(canonicalPayload)
-                    .setSourceEvidenceJson(JsonUtils.getObjectMapper().writeValueAsString(value.getSourceEvidence()))
+                    .setSourceEvidenceJson(new com.fasterxml.jackson.databind.ObjectMapper().setSerializationInclusion(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS).writeValueAsString(value.getSourceEvidence()))
                     .setReceiptHash(value.getReceiptHash()).setPayloadHash(value.getPayloadHash())
                     .setSignature(value.getSignature()).setAuditEventId(value.getAuditEventId())
                     .setIdempotencyKey(value.getIdempotencyKey());
@@ -309,7 +335,7 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
     }
 
     private void requireBackendIdentity(Long tenantId, Long actorUserId) {
-        if (tenantId == null || actorUserId == null || actorUserId <= 0) {
+        if (tenantId == null || tenantId <= 0 || actorUserId == null || actorUserId <= 0) {
             throw exception(PRO_EDHR_INDEPENDENT_RECEIPT_PERMISSION_DENIED);
         }
     }

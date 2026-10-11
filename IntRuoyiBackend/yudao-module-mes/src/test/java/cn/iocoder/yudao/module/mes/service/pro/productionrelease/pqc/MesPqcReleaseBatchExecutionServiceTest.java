@@ -108,6 +108,11 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        ReflectionTestUtils.setField(service, "contentBatchMapper", batches);
+        lenient().when(batches.selectByTenantIdAndIdForUpdate(TENANT_ID, BATCH_EXECUTION_ID)).thenReturn(
+            new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO().setId(BATCH_EXECUTION_ID).setTenantId(TENANT_ID));
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(applicationMapper.selectByIdForUpdate(APPLICATION_ID)).thenReturn(application());
         lenient().when(applicationMapper.selectById(APPLICATION_ID)).thenReturn(application());
@@ -263,6 +268,11 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        ReflectionTestUtils.setField(service, "contentBatchMapper", batches);
+        lenient().when(batches.selectByTenantIdAndIdForUpdate(TENANT_ID, BATCH_EXECUTION_ID)).thenReturn(
+            new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO().setId(BATCH_EXECUTION_ID).setTenantId(TENANT_ID));
         ReflectionTestUtils.setField(service, "affectedStates", affectedStates);
         lenient().when(batchExecutionPort.openOrCreate(any())).thenReturn(BATCH_EXECUTION_ID);
         lenient().when(reportStageInitializer.initializeRequiredReportStage(any())).thenReturn(

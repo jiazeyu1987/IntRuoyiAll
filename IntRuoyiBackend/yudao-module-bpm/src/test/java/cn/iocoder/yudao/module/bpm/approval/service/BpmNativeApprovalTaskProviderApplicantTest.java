@@ -33,6 +33,7 @@ class BpmNativeApprovalTaskProviderApplicantTest {
     private BpmProcessInstanceService processInstanceService;
     private BpmTaskService taskService;
     private BpmNativeApprovalTaskProvider provider;
+    private ApprovalFlowableTaskQueryService centerQuery;
 
     @BeforeEach
     void setUp() {
@@ -45,12 +46,30 @@ class BpmNativeApprovalTaskProviderApplicantTest {
                 mock(org.flowable.engine.TaskService.class),
                 mock(PermissionApi.class),
                 mock(RoleApi.class));
+        centerQuery=mock(ApprovalFlowableTaskQueryService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(provider,"centerQuery",centerQuery);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var requests = mock(cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalRequestMapper.class);
+        var forms = mock(cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper.class);
+        var definitions = mock(cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService.class);
+        var definition = mock(org.flowable.engine.repository.ProcessDefinition.class);
+        when(definition.getKey()).thenReturn("ordinary-native-test-process");
+        when(definitions.getProcessDefinition("native-test-definition")).thenReturn(definition);
+        when(requests.selectOwnershipByTenantAndProcessId(eq(1L), any())).thenReturn(List.of());
+        when(forms.selectOwnershipByTenantAndProcessId(eq(1L), any())).thenReturn(List.of());
+        var policy = new cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy(requests,
+                forms, definitions, processInstanceService,
+                mock(cn.iocoder.yudao.module.bpm.approval.service.ownership.EdhrEngineOwnershipReader.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(provider, "ownershipPolicy", policy);
     }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
 
     @Test
     void pageTodoUsesRuntimeProcessInitiator() {
         Task task = todoTask("task-todo-applicant", "pi-todo-applicant");
-        when(taskService.getTaskTodoPage(eq(100L), any()))
+        when(centerQuery.todo(any(),eq("BPM")))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         ProcessInstance processInstance = mock(ProcessInstance.class);
         when(processInstance.getStartUserId()).thenReturn("151");
@@ -61,12 +80,13 @@ class BpmNativeApprovalTaskProviderApplicantTest {
                 ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, null, 1, 10)).getList().get(0);
 
         assertEquals(151L, summary.getInitiatorUserId());
+        org.junit.jupiter.api.Assertions.assertNull(summary.getBusinessContextTags());
     }
 
     @Test
     void pageTodoUsesFormalProcessStartUserVariableWhenRuntimeStartUserIsBlank() {
         Task task = todoTask("task-todo-applicant-variable", "pi-todo-applicant-variable");
-        when(taskService.getTaskTodoPage(eq(100L), any()))
+        when(centerQuery.todo(any(),eq("BPM")))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         ProcessInstance processInstance = mock(ProcessInstance.class);
         when(processInstance.getStartUserId()).thenReturn(null);
@@ -91,7 +111,7 @@ class BpmNativeApprovalTaskProviderApplicantTest {
         when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
         when(task.getEndTime()).thenReturn(new Date(1782180300000L));
         when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
-        when(taskService.getTaskDonePage(eq(100L), any()))
+        when(centerQuery.done(any(),eq("BPM")))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         HistoricProcessInstance processInstance = mock(HistoricProcessInstance.class);
         when(processInstance.getId()).thenReturn("pi-done-applicant");
@@ -110,7 +130,7 @@ class BpmNativeApprovalTaskProviderApplicantTest {
     @Test
     void pageTodoFailsWhenRuntimeProcessInstanceIsMissing() {
         Task task = todoTask("task-todo-missing", "pi-todo-missing");
-        when(taskService.getTaskTodoPage(eq(100L), any()))
+        when(centerQuery.todo(any(),eq("BPM")))
                 .thenReturn(new PageResult<>(List.of(task), 1L));
         when(processInstanceService.getProcessInstanceMap(Set.of("pi-todo-missing")))
                 .thenReturn(Map.of());
@@ -124,6 +144,7 @@ class BpmNativeApprovalTaskProviderApplicantTest {
 
     private static Task todoTask(String taskId, String processInstanceId) {
         Task task = mock(Task.class);
+        when(task.getProcessDefinitionId()).thenReturn("native-test-definition");
         when(task.getId()).thenReturn(taskId);
         when(task.getName()).thenReturn("待办审批");
         when(task.getTaskDefinitionKey()).thenReturn("approveTask");

@@ -136,6 +136,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     // Domain/task regression: auxiliary audit is a collaborator; its callbacks must execute.
     @MockitoBean private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);

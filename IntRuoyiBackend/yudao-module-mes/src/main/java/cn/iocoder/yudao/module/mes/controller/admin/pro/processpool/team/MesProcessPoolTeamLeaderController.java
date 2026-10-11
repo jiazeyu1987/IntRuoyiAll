@@ -900,6 +900,7 @@ public class MesProcessPoolTeamLeaderController {
         return success(Boolean.TRUE);
     }
 
+
     @GetMapping("/employee-profile/audit/list")
     @Operation(summary = "查询当前生产组长生产人员档案操作追溯")
     @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
@@ -1360,7 +1361,9 @@ public class MesProcessPoolTeamLeaderController {
                 .setSignatureId(signature.getSignatureId())
                 .setSignerName(signature.getSignerName())
                 .setSignedAt(signature.getSignedAt())
-                .setRole(signature.getRole());
+                .setRole(signature.getRole())
+                .setSignerNameStatus(signature.getSignerNameStatus())
+                .setVerification(signature.getVerification());
     }
 
     private static MesTeamLeaderActiveOrderDetailRespVO.PqcProductionReleaseSummary
@@ -1430,6 +1433,7 @@ public class MesProcessPoolTeamLeaderController {
             MesTeamLeaderActiveOrderReleaseApplicationResult result) {
         return new MesTeamLeaderActiveOrderReleaseApplyRespVO()
                 .setApplicationId(result.getApplicationId())
+                .setRequestIdempotencyKey(result.getRequestIdempotencyKey())
                 .setActiveOrderId(result.getActiveOrderId())
                 .setWorkOrderId(result.getWorkOrderId())
                 .setWorkOrderCode(result.getWorkOrderCode())

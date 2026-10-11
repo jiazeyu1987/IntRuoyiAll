@@ -376,6 +376,7 @@ export interface Stage1ActiveOrderCompleteSimulationRespVO {
 
 export interface TeamLeaderActiveOrderListRequestOptions {
   ignoreErrorMessage?: boolean
+  isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean
 }
 
 export interface TeamLeaderVoidedActiveOrderPageReqVO extends PageParam {
@@ -539,8 +540,10 @@ export interface TeamLeaderActiveOrderClearanceConfirmationRespVO {
 export interface TeamLeaderActiveOrderSignatureDetailRespVO {
   signatureId?: number
   signerName?: string
-  signedAt?: string | number
+  signedAt?: string | number | null
   role: string
+  signerNameStatus?: 'VERIFIED_SNAPSHOT' | 'NOT_RECORDED' | 'UNVERIFIED_SNAPSHOT'
+  verification?: import('../edhr/activeOrderSignature').ActiveOrderSignatureEvidence['verification']
 }
 
 export interface TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO {
@@ -826,7 +829,7 @@ export interface TeamLeaderActiveOrderRespVO {
 }
 
 export interface TeamLeaderActiveOrderReleaseApplyReqVO {
-  activeOrderId: number
+  activeOrderId: number | string
   idempotencyKey: string
   applyRemark?: string
   confirmNoReplenishmentInfo?: boolean
@@ -853,6 +856,7 @@ export interface TeamLeaderActiveOrderReleaseFailureRespVO {
 
 export interface TeamLeaderActiveOrderReleaseApplyRespVO {
   applicationId: string
+  requestIdempotencyKey?: string | null
   activeOrderId: string
   workOrderId: string
   workOrderCode?: string | null
@@ -1090,7 +1094,8 @@ export const getTeamLeaderActiveOrderList = async (
 ) => {
   return await request.get<TeamLeaderActiveOrderRespVO[]>({
     url: '/mes/pro/process-pool/team-leader/active-order/list',
-    ignoreErrorMessage: options.ignoreErrorMessage
+    ignoreErrorMessage: options.ignoreErrorMessage,
+    isRequestContextCurrent: options.isRequestContextCurrent
   })
 }
 
@@ -1103,8 +1108,11 @@ export const getTeamLeaderVoidedActiveOrderPage = async (
   })
 }
 
-export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number | string) => {
+export const getTeamLeaderActiveOrderDetail = async (activeOrderId: number | string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/process-pool/team-leader/active-order/detail',
     params: { activeOrderId }
   })
@@ -1164,20 +1172,25 @@ export const deleteActiveOrderDossierFile = async (data: ActiveOrderDossierFileD
 }
 
 export const applyTeamLeaderActiveOrderRelease = async (
-  data: TeamLeaderActiveOrderReleaseApplyReqVO
+  data: TeamLeaderActiveOrderReleaseApplyReqVO,
+  options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }
 ) => {
   return await request.post<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/apply',
     data,
     timeout: 180000,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     ignoreErrorMessage: true
   })
 }
 
-export const getTeamLeaderActiveOrderRelease = async (activeOrderId: number | string) => {
+export const getTeamLeaderActiveOrderRelease = async (activeOrderId: number | string, options?: { isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<TeamLeaderActiveOrderReleaseApplyRespVO>({
     url: '/mes/pro/process-pool/team-leader/active-order/release/get',
     params: { activeOrderId },
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     ignoreErrorMessage: true
   })
 }

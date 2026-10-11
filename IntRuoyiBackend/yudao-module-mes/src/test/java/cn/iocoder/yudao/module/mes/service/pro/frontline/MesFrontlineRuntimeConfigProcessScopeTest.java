@@ -38,7 +38,7 @@ class MesFrontlineRuntimeConfigProcessScopeTest {
                 "loss validator must validate all loss details from the maximized runtime snapshot");
         int materialValidation = submitService.indexOf("materialSubmissionValidator.validate(");
         int processValidation = submitService.indexOf("lossReasonSnapshot = validateEmptyMaterialSubmission(");
-        int signatureWrite = submitService.indexOf("signatureService.recordProductionSubmitSignature(");
+        int signatureWrite = submitService.indexOf("productionSignatures.record(");
         assertTrue(materialValidation >= 0 && processValidation >= 0 && signatureWrite > materialValidation
                         && signatureWrite > processValidation && materialValidator.contains("detailTotal.compareTo(lossQuantity) != 0")
                         && submitService.contains("materialSubmissionValidator.validateProcessPayload("),

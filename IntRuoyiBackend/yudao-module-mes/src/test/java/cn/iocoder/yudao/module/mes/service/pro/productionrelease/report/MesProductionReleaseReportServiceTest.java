@@ -86,6 +86,12 @@ class MesProductionReleaseReportServiceTest {
                 applicationMapper, workTaskMapper, batchTaskMapper, nonconformanceReviewService, reportNodePort,
                 managerStageInitializer, auditRecorder,
                 Clock.fixed(Instant.parse("2026-08-16T00:00:00Z"), ZoneOffset.UTC));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "gxpAuditService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        var contentBatches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "contentBatchMapper", contentBatches);
+        org.mockito.Mockito.lenient().when(contentBatches.selectByTenantIdAndIdForUpdate(TENANT_ID, BATCH_EXECUTION_ID))
+            .thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO().setId(BATCH_EXECUTION_ID).setTenantId(TENANT_ID));
         when(workTaskMapper.selectReleaseReportByBatchTaskId(BATCH_TASK_ID)).thenReturn(workTask());
         when(applicationMapper.selectByBatchExecutionIdForUpdate(BATCH_EXECUTION_ID)).thenReturn(application());
         when(batchTaskMapper.selectByIdForUpdate(BATCH_TASK_ID)).thenReturn(batchTask(

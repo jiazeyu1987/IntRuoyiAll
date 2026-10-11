@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
@@ -44,6 +46,9 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
     private final MesTeamLeaderActiveOrderPickListCompletionSourceService pickListCompletionSourceService;
     private final MesActiveOrderTransferTraceService activeOrderTransferTraceService;
     private final MesPqcProcessInspectionAggregationService processInspectionAggregationService;
+
+    @Resource
+    private MesEdhrSourceCreationVerificationService creationVerifier;
 
     @Resource
     private GxpAuditService gxpAuditService;
@@ -144,6 +149,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                     throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT,
                             activeOrder.getId(), command.getIdempotencyKey());
                 }
+                creationVerifier.requireCompletionTransactionId(existing.getTenantId(), existing.getId());
                 return toResult(existing);
             }
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_IDEMPOTENCY_CONFLICT, activeOrder.getId(),
@@ -221,15 +227,29 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
         receipt.setCompletedBy(leaderUserId);
         receipt.setCreateTime(completedAt);
         receipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(receipt));
-        if (receiptMapper.insert(receipt) <= 0 || receipt.getId() == null) {
+        if (receiptMapper.insert(receipt) != 1 || receipt.getId() == null || receipt.getId() <= 0) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
         }
-        appendCompletionGxpAudit(activeOrder, receipt, affectedRowsBefore);
+        MesProcessPoolActiveOrderCompletionReceiptDO persisted =
+                receiptMapper.selectByIdAndTenantId(receipt.getId(), receipt.getTenantId());
+        if (persisted == null || !java.util.Objects.equals(receipt.getId(), persisted.getId())
+                || !java.util.Objects.equals(receipt.getTenantId(), persisted.getTenantId())
+                || !java.util.Objects.equals(receipt.getReceiptHash(), persisted.getReceiptHash())
+                || !receipt.getReceiptHash().equals(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(persisted))) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_PERSISTENCE_FAILED, activeOrder.getId());
+        }
+        GxpAuditAppendResult main = appendCompletionGxpAudit(activeOrder, persisted, affectedRowsBefore);
+        var proof = creationVerifier.requireCompletionCreation(persisted.getTenantId(), persisted.getId());
+        if (proof == null || !java.util.Objects.equals(main.eventId(), proof.creationEventId())
+                || !java.util.Objects.equals(main.eventHash(), proof.creationEventHash())) {
+            throw new IllegalStateException("Completion main audit readback does not match append result");
+        }
+        creationVerifier.requireCompletionTransactionId(persisted.getTenantId(), persisted.getId());
         handoffService.productionLeaderContinued(activeOrder.getId(), leaderUserId, receipt.getId());
         return toResult(receipt);
     }
 
-    private void appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
+    private GxpAuditAppendResult appendCompletionGxpAudit(MesProcessPoolActiveOrderDO activeOrder,
                                           MesProcessPoolActiveOrderCompletionReceiptDO receipt,
                                           String affectedRowsBefore) {
         var affectedManifest = MesCompletionAffectedRowAudit.append(gxpAuditService, receipt, affectedRowsBefore,
@@ -278,7 +298,7 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
             links.add(new GxpAuditRelation("SOURCE", "LOSS_REPORT",
                     String.valueOf(receipt.getLossRecordId()), null, receipt.getLossSourceHash()));
         }
-        gxpAuditService.append(GxpAuditCommand.builder()
+        GxpAuditAppendResult result = gxpAuditService.append(GxpAuditCommand.builder()
                 .eventSchemaVersion(2)
                 .operationId("mes.active-order.complete")
                 .subjectId("ACTIVE_ORDER:" + activeOrder.getId())
@@ -307,6 +327,18 @@ public class MesTeamLeaderActiveOrderCompletionServiceImpl implements MesTeamLea
                         String.valueOf(receipt.getId()), String.valueOf(receipt.getCompletedVersion()),
                         receipt.getReceiptHash(), "COMPLETION")))
                 .build());
+        if (result == null || result.eventId() == null || result.eventId() <= 0
+                || result.ledgerSequence() == null || result.ledgerSequence() <= 0
+                || result.eventHash() == null || result.eventHash().isBlank() || result.replayed()) {
+            throw new IllegalStateException("Completion main audit did not return a new persisted event binding");
+        }
+        for (var part : (List<Map<String, Object>>) affectedManifest.get("parts")) {
+            if (result.eventId().equals(part.get("eventId"))
+                    || result.ledgerSequence() <= ((Number) part.get("ledgerSequence")).longValue()) {
+                throw new IllegalStateException("Completion main audit must follow all affected-row events");
+            }
+        }
+        return result;
     }
 
     private static void validateDraft(Long activeOrderId, MesTeamLeaderActiveOrderCompletionBackfillDraft draft) {

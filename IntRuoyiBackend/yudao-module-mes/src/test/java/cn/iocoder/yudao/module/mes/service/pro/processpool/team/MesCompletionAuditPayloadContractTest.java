@@ -40,8 +40,7 @@ class MesCompletionAuditPayloadContractTest {
     @BeforeEach
     void setUp() {
         audits = mock(GxpAuditService.class);
-        when(audits.append(any())).thenReturn(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
-                881L, 1L, "fragment-audit-hash", false));
+
         affected = mock(MesReleaseAffectedStateCollector.class);
         service = new MesTeamLeaderActiveOrderCompletionServiceImpl(mock(MesProcessPoolActiveOrderMapper.class),
                 mock(MesProcessPoolActiveOrderCompletionReceiptMapper.class),
@@ -114,6 +113,13 @@ class MesCompletionAuditPayloadContractTest {
 
     private GxpAuditCommand append(MesProcessPoolActiveOrderCompletionReceiptDO receipt) {
         clearInvocations(audits);
+        // Deterministic bindings per invocation preserve the size comparison while
+        // modelling a distinct main event sequenced after the affected-row event.
+        when(audits.append(any())).thenReturn(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                        881L, 1L, "fragment-audit-hash", false),
+                new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                        882L, 2L, "main-audit-hash", false));
         ReflectionTestUtils.invokeMethod(service, "appendCompletionGxpAudit", order, receipt,
                 JsonUtils.toJsonString(beforeRows));
         var captor = ArgumentCaptor.forClass(GxpAuditCommand.class);

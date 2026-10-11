@@ -19,6 +19,9 @@ public class BpmProcessInstanceCreateReqDTO {
      */
     @NotEmpty(message = "流程定义的标识不能为空")
     private String processDefinitionKey;
+
+    /** Server-owned formal authority, never inferred from variables. */
+    private ApprovalProcessAuthorityDTO approvalAuthority;
     /**
      * 变量实例（动态表单）
      */

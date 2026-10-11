@@ -266,6 +266,10 @@ class MesPqcCorrectionMysqlTransactionTest {
         GxpAuditService writer = transactional(writerTarget, null);
         GxpAuditService audited = new GxpAuditService() {
             public void acquireLedgerLock() { writer.acquireLedgerLock(); }
+            public void assertLedgerLockHeld() { writer.assertLedgerLockHeld(); }
+            public Long reserveEventId(String operationId, String subjectId, String sourceLocator, String idempotencyKey) {
+                return writer.reserveEventId(operationId, subjectId, sourceLocator, idempotencyKey);
+            }
             public GxpAuditAppendResult append(GxpAuditCommand input) {
                 GxpAuditAppendResult result = writer.append(input);
                 if (OPERATION.equals(input.getOperationId())) {

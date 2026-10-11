@@ -1567,7 +1567,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return snapshot;
     }
 
-    private String buildPqcInspectionEventRawPayload(MesFrontlinePqcSubmitCommand command,
+    public static String buildPqcInspectionEventRawPayload(MesFrontlinePqcSubmitCommand command,
                                                      List<MesPqcInspectionPieceDetailDO> pieceDetails,
                                                      String inspectionResult) {
         Map<String, Object> payload = new LinkedHashMap<>(command.getRawPayload());
@@ -1603,7 +1603,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         return JsonUtils.toJsonString(payload);
     }
 
-    private List<Map<String, Object>> buildPqcItemDetailsSnapshot(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
+    private static List<Map<String, Object>> buildPqcItemDetailsSnapshot(List<MesPqcInspectionPieceDetailDO> pieceDetails) {
         Map<String, Map<String, Object>> snapshotByItem = new LinkedHashMap<>();
         for (MesPqcInspectionPieceDetailDO detail : pieceDetails) {
             String itemCode = detail.getItemCode();

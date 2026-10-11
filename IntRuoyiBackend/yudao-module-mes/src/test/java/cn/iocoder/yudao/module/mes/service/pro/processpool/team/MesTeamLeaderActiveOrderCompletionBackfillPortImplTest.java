@@ -34,6 +34,7 @@ import java.util.List;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -146,6 +147,23 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
         var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
+        // Unit boundary for receipt creation; actual audit/readback closure is exercised
+        // by the isolated real-source producer. Tie this proof to the captured main binding.
+        var creationVerifier = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "creationVerifier", creationVerifier);
+        when(creationVerifier.requireCompletionCreation(1L, 177L)).thenAnswer(call -> {
+            var receipt = stored.get();
+            assertNotNull(receipt);
+            var main = auditBindings.get(auditBindings.size() - 1);
+            return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "COMPLETION_V1", receipt.getId(), receipt.getId().toString(),
+                    receipt.getCompletedVersion().toString(), receipt.getReceiptHash(),
+                    main.eventId(), main.eventHash());
+        });
+        when(creationVerifier.requireCompletionTransactionId(1L, 177L))
+                .thenReturn("unit-completion-main-transaction");
+        when(receipts.selectByIdAndTenantId(177L, 1L)).thenAnswer(call -> stored.get());
         when(affected.captureCompletion(10L, 30L)).thenAnswer(call -> java.util.Map.of(
                 "completionReceipts", stored.get() == null ? List.of() : List.of(stored.get())));
         when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);

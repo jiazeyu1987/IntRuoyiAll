@@ -93,8 +93,10 @@ export const getEdhrTrackingPage = async (params: EdhrTrackingPageReqVO) => {
   })
 }
 
-export const getEdhrTrackingTimeline = async (executionId: number) => {
+export const getEdhrTrackingTimeline = async (executionId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean }) => {
   return await request.get<EdhrTrackingEventVO[]>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
     url: '/mes/pro/batch-record-execution/tracking-timeline',
     params: { executionId }
   })

@@ -22,6 +22,9 @@ public class MesPqcProductionReleaseDecisionRespVO {
     private String status;
     private String rejectReason;
     private String udiControlDocumentNo;
+    // Read-only identity from the persisted formal decision; historical absence is preserved.
+    private String decisionIdempotencyKey;
+    private String decisionPayloadHash;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long batchExecutionId;

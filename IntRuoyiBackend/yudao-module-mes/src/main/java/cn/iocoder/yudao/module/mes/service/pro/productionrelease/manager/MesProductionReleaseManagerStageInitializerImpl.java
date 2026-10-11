@@ -40,6 +40,7 @@ import java.util.Objects;
 @Service
 public class MesProductionReleaseManagerStageInitializerImpl
         implements MesProductionReleaseManagerStageInitializer {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
 
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper;
@@ -49,6 +50,9 @@ public class MesProductionReleaseManagerStageInitializerImpl
     private final MesProductionReleaseRequiredCandidateResolver candidateResolver;
     private final MesProductionReleaseBusinessReadinessService businessReadinessService;
     @Resource private MesReleaseTaskNotificationService notificationService;
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService audit;
+    @Resource private MesProEdhrReleaseServiceImpl releaseFacts;
+    @Resource private MesEdhrManagedHandoffMaterialAssociationStore handoffAssociations;
 
     public MesProductionReleaseManagerStageInitializerImpl(
             MesProcessPoolActiveOrderReleaseApplicationMapper applicationMapper,
@@ -70,6 +74,18 @@ public class MesProductionReleaseManagerStageInitializerImpl
     public MesProductionReleaseManagerStageInitializationResult initializeManagerReleaseStage(
             MesProductionReleaseManagerStageInitializationCommand command) {
         requireCommand(command);
+        if (command.getReportEvidences() == null || command.getSourceWorkTaskId() == null
+                || command.getSourceActorId() == null || command.getSourceExpectedApplicationVersion() == null
+                || StrUtil.isBlank(command.getSourceIdempotencyKey()) || StrUtil.isBlank(command.getSourcePayloadHash())
+                || !("MANAGED_PQC_APPROVE".equals(command.getSourceMethod()) || "MANAGED_REPORT_COMPLETE".equals(command.getSourceMethod()))
+                || ("MANAGED_PQC_APPROVE".equals(command.getSourceMethod()) != isActiveOrderFormalFacts(command))
+                || command.getReportEvidences().size() != (isActiveOrderFormalFacts(command) ? 0 : 4))
+            throw new IllegalStateException("MANAGER_HANDOFF_SOURCE_DECLARATION_REQUIRED");
+        audit.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        var lockedBatch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), command.getBatchExecutionId());
+        if (lockedBatch == null || !Objects.equals(lockedBatch.getTenantId(), TenantContextHolder.getRequiredTenantId()))
+            throw new IllegalStateException("MANAGER_STAGE_BATCH_REQUIRED");
         lifecycleGuard.requireReleaseAllowed(command.getBatchExecutionId());
         MesProcessPoolActiveOrderReleaseApplicationDO application = applicationMapper.selectById(command.getApplicationId());
         String expectedApplicationStatus = isActiveOrderFormalFacts(command)
@@ -126,28 +142,28 @@ public class MesProductionReleaseManagerStageInitializerImpl
 
         MesProEdhrReleaseTransactionDO transaction = buildTransaction(
                 batch, application, command.getReportSnapshotHash(), businessReadiness);
+        String priorRaw = existingTransaction == null ? null : releaseFacts.captureManagerPriorPrecheck(existingTransaction);
+        String priorState = existingTransaction == null ? "ABSENT" : existingTransaction.getReleaseStatus();
+        String priorVersion = existingTransaction == null ? null : existingTransaction.getVersion().toString();
         if (existingTransaction != null) {
-            com.alibaba.fastjson.JSONObject snapshot = JSON.parseObject(transaction.getPrecheckSnapshotJson());
-            Map<String, Object> prior = new java.util.LinkedHashMap<>();
-            prior.put("transactionId", existingTransaction.getId());
-            prior.put("status", existingTransaction.getReleaseStatus());
-            prior.put("version", existingTransaction.getVersion());
-            prior.put("snapshotJson", existingTransaction.getPrecheckSnapshotJson());
-            snapshot.put("standalonePrecheck", prior);
             transaction.setId(existingTransaction.getId())
                     .setReleaseCode(existingTransaction.getReleaseCode())
-                    .setVersion(Math.addExact(existingTransaction.getVersion(), 1))
-                    .setPrecheckSnapshotJson(JSON.toJSONString(snapshot));
+                    .setVersion(Math.addExact(existingTransaction.getVersion(), 1));
             if (releaseTransactionMapper.updateById(transaction) != 1) {
                 throw new IllegalStateException("standalone precheck promotion failed");
             }
         } else if (releaseTransactionMapper.insert(transaction) != 1 || transaction.getId() == null) {
             throw new IllegalStateException("manager release transaction insert failed");
         }
+        transaction = releaseFacts.produceManagerPrecheck(transaction, batch);
+        transaction.setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL);
+        if (releaseTransactionMapper.updateById(transaction) != 1) throw new IllegalStateException("manager pending transition failed");
+        var material = releaseFacts.requireManagerReadyMaterialFact(batch);
         MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, application, transaction, candidates);
         if (workTaskMapper.insert(workTask) != 1 || workTask.getId() == null) {
             throw new IllegalStateException("manager release work task insert failed");
         }
+        appendHandoff(command, application, transaction, workTask, candidates, businessReadiness, material, priorRaw, priorState, priorVersion);
         if (isActiveOrderFormalFacts(command)) {
             workTask.setActionUrl("/mes/pro/feedback/edhr-batch-execution?batchExecutionId=" + batch.getId()
                     + "&releaseTransactionId=" + transaction.getId() + "&workTaskId=" + workTask.getId()
@@ -187,6 +203,14 @@ public class MesProductionReleaseManagerStageInitializerImpl
                     "complete manager-stage command is required",
                     "complete and freeze the release evidence first");
         }
+        if (command.getSourceActorId() == null || command.getSourceActorId() <= 0 || command.getSourceWorkTaskId() == null
+                || command.getSourceWorkTaskId() <= 0 || command.getSourceExpectedApplicationVersion() == null
+                || command.getSourceExpectedApplicationVersion() < 0 || command.getSourceIdempotencyKey() == null
+                || command.getSourceIdempotencyKey().isBlank() || command.getSourcePayloadHash() == null
+                || !command.getSourcePayloadHash().matches("[0-9a-f]{64}")
+                || !Objects.equals(command.getSourceActorId(), cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId())
+                || !(isActiveOrderFormalFacts(command) ? "MANAGED_PQC_APPROVE" : "MANAGED_REPORT_COMPLETE").equals(command.getSourceMethod()))
+            throw new IllegalStateException("HANDOFF_SOURCE_CONTEXT_REQUIRED");
         if (isActiveOrderFormalFacts(command)) {
             if (!MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(command.getReportSnapshotHash())) {
                 throw blocker(null, MesReleaseFlowBlockerType.REPORT_SNAPSHOT_CHANGED,
@@ -249,16 +273,10 @@ public class MesProductionReleaseManagerStageInitializerImpl
                 .setReworkStatus(businessReadiness.reworkStatus())
                 .setScrapStatus(businessReadiness.scrapStatus())
                 .setInventoryStatus(businessReadiness.inventoryStatus())
-                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL)
+                .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_REQUIRED)
                 .setRequiredCheckCount(businessReadiness.requiredCheckCount())
                 .setFailedCheckCount(businessReadiness.failedCheckCount())
                 .setBlockingCheckCount(businessReadiness.blockingCheckCount())
-                .setLastPrecheckAt(now)
-                .setPrecheckSnapshotJson(JSON.toJSONString(Map.of(
-                        "applicationId", application.getId(),
-                        "reportSnapshotHash", reportSnapshotHash,
-                        "businessReadinessSnapshotHash", businessReadiness.snapshotHash(),
-                        "businessReadinessSnapshotJson", businessReadiness.snapshotJson())))
                 .setVersion(1)
                 .setRemark(MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(reportSnapshotHash)
                         ? "active order formal fact manager approval"
@@ -314,5 +332,70 @@ public class MesProductionReleaseManagerStageInitializerImpl
                         .setObjectId(application == null ? null : String.valueOf(application.getId()))
                         .setReason(reason)
                         .setSuggestion(suggestion))));
+    }
+
+    private void appendHandoff(MesProductionReleaseManagerStageInitializationCommand c,
+            MesProcessPoolActiveOrderReleaseApplicationDO app, MesProEdhrReleaseTransactionDO tx,
+            MesProEdhrWorkTaskDO task, MesProductionReleaseRoleCandidates candidates,
+            MesProductionReleaseBusinessReadiness readiness,
+            cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialGateFact material,
+            String priorRaw, String priorState, String priorVersion) {
+        var nodes = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        var request = nodes.objectNode().put("codecVersion", "MES-OC-JSON-V1").put("sourceMethod", c.getSourceMethod())
+                .put("tenantId", tenant).put("applicationId", app.getId()).put("batchExecutionId", app.getBatchExecutionId())
+                .put("sourceWorkTaskId", c.getSourceWorkTaskId()).put("sourceActorId", c.getSourceActorId())
+                .put("sourceExpectedApplicationVersion", c.getSourceExpectedApplicationVersion())
+                .put("sourceIdempotencyKey", c.getSourceIdempotencyKey()).put("sourcePayloadHash", c.getSourcePayloadHash())
+                .put("initializedApplicationVersion", c.getExpectedApplicationVersion()).put("reportSnapshotHash", c.getReportSnapshotHash());
+        var reportHashes = nodes.arrayNode();
+        c.getReportEvidences().stream().sorted(java.util.Comparator.comparing(e -> e.getNodeType())).forEach(e ->
+                reportHashes.add(nodes.objectNode().put("type", e.getNodeType()).put("ownerHash", cn.hutool.crypto.digest.DigestUtil.sha256Hex(e.toPayloadJson()))));
+        request.set("reportEvidenceOwnerHashes", reportHashes);
+        var requestEncoded = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationCodec.encodeManagedHandoffRequestV1(request);
+        String associationId = java.util.UUID.randomUUID().toString();
+        var proof = material.provenance(); var receipt = material.ownerReceipt();
+        var payload = nodes.objectNode().put("codecVersion", "MES-OC-JSON-V1")
+                .put("associationProtocol", "MANAGED_HANDOFF_MATERIAL_ASSOCIATION_V1").put("associationId", associationId).put("associationVersion", 1)
+                .put("tenantId", tenant).put("applicationId", app.getId()).put("batchExecutionId", app.getBatchExecutionId())
+                .put("releaseTransactionId", tx.getId()).put("releaseTransactionVersion", tx.getVersion()).put("managerWorkTaskId", task.getId())
+                .put("sourceActorId", c.getSourceActorId()).put("sourceWorkTaskId", c.getSourceWorkTaskId())
+                .put("sourceExpectedApplicationVersion", c.getSourceExpectedApplicationVersion()).put("initializedApplicationVersion", c.getExpectedApplicationVersion())
+                .put("sourceMethod", c.getSourceMethod()).put("sourceIdempotencyKey", c.getSourceIdempotencyKey()).put("sourcePayloadHash", c.getSourcePayloadHash())
+                .put("handoffRequestHash", requestEncoded.sha256()).put("reportSnapshotHash", c.getReportSnapshotHash())
+                .put("businessReadinessSnapshotJsonRaw", readiness.snapshotJson()).put("businessReadinessSnapshotHash", cn.hutool.crypto.digest.DigestUtil.sha256Hex(readiness.snapshotJson()))
+                .put("managerCandidateSnapshotHash", candidates.candidateSnapshotHash()).put("precheckSnapshotHash", cn.hutool.crypto.digest.DigestUtil.sha256Hex(tx.getPrecheckSnapshotJson()))
+                .put("materialSourceRowId", proof.sourceRowId()).put("materialReceiptId", receipt.getReceiptId()).put("materialVersion", receipt.getVersion())
+                .put("materialReceiptHash", receipt.getReceiptHash()).put("materialManifestHash", receipt.getManifestHash()).put("sourceSnapshotHash", receipt.getSourceSnapshotHash())
+                .put("materialCreationEventId", proof.creationEventId()).put("materialCreationEventHash", proof.creationEventHash());
+        var encoded = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationCodec.encodeManagedHandoffMaterialAssociationV1(payload);
+        var before = nodes.objectNode().put("codecVersion", "MES-OC-JSON-V1");
+        if(priorRaw==null)before.putNull("priorReleaseStateRaw");else before.put("priorReleaseStateRaw", priorRaw);
+        var after = nodes.objectNode().put("codecVersion", "MES-OC-JSON-V1").put("associationHash", encoded.sha256()); after.set("associationPayload", payload);
+        String key = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationCodec.managedHandoffAuditKey(tenant, app.getId(),
+                c.getSourceMethod(), c.getSourceWorkTaskId(), c.getSourceExpectedApplicationVersion(), c.getSourceIdempotencyKey());
+        var event = audit.append(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.builder()
+                .eventSchemaVersion(2).operationId("mes.market-release.manager-stage.initialize").subjectId("RELEASE_TRANSACTION:"+tx.getId())
+                .subjectVersion(tx.getVersion().toString()).reason("正式上游证据移交管理者审批").reasonCode("MES_MANAGER_STAGE_INITIALIZE").reasonSource("SYSTEM")
+                .requestId(key).idempotencyKey(key).resultStatus("SUCCESS").sourceType("SERVICE_METHOD")
+                .sourceLocator("cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerStageInitializerImpl#initializeManagerReleaseStage")
+                .beforeState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder().state(priorState).objectVersion(priorVersion)
+                        .canonicalJson(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationCodec.encodeDedicatedObject(before).canonicalJson()).build())
+                .afterState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder().state("PENDING_APPROVAL").objectVersion(tx.getVersion().toString())
+                        .canonicalJson(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationCodec.encodeDedicatedObject(after).canonicalJson()).build())
+                .links(List.of(
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SUBJECT","RELEASE_TRANSACTION",tx.getId().toString(),tx.getVersion().toString(),null),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","RELEASE_APPLICATION",app.getId().toString(),c.getExpectedApplicationVersion().toString(),c.getReportSnapshotHash()),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","WORK_TASK",c.getSourceWorkTaskId().toString(),null,c.getSourcePayloadHash()),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","MANAGER_RELEASE_WORK_TASK",task.getId().toString(),null,candidates.candidateSnapshotHash()),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","EDHR_MATERIAL_GATE_RECEIPT",proof.sourceRowId().toString(),proof.sourceVersion(),proof.sourceHash()),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","GXP_AUDIT_EVENT",proof.creationEventId().toString(),null,proof.creationEventHash()),
+                        new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation("SOURCE","MANAGED_HANDOFF_MATERIAL_ASSOCIATION",associationId,"1",encoded.sha256())))
+                .evidences(List.of(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditEvidence("MANAGED_HANDOFF_MATERIAL_ASSOCIATION",associationId,"1",encoded.sha256(),"MANAGER_HANDOFF"))).build());
+        handoffAssociations.insert(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesEdhrManagedHandoffMaterialAssociationDO()
+                .setTenantId(tenant).setAssociationId(associationId).setApplicationId(app.getId()).setReleaseTransactionId(tx.getId()).setManagerWorkTaskId(task.getId())
+                .setSourceMethod(c.getSourceMethod()).setSourceWorkTaskId(c.getSourceWorkTaskId()).setSourceExpectedApplicationVersion(c.getSourceExpectedApplicationVersion())
+                .setSourceIdempotencyKey(c.getSourceIdempotencyKey()).setHandoffKey(key).setHandoffRequestJson(requestEncoded.canonicalJson())
+                .setAssociationPayloadJson(encoded.canonicalJson()).setAssociationHash(encoded.sha256()),event);
     }
 }

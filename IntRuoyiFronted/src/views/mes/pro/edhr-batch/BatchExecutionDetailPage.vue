@@ -13,6 +13,9 @@
         <el-empty v-else description="当前批次不存在，暂无偏差" />
       </section>
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert v-if="releaseSubmitReadPending" :title="releaseSignatureError || '放行申请已提交，详情尚未读取完成。'" type="warning" :closable="false">
+        <el-button :loading="releaseSignatureSubmitting" @click="retryReleaseSubmitRead">重试读取结果</el-button>
+      </el-alert>
       <el-alert
         v-if="releaseActionError"
         :title="releaseActionError"
@@ -1597,6 +1600,9 @@ import {
   submitEdhrRelease,
   type EdhrReleaseCheckItemVO
 } from '@/api/mes/pro/edhr/release'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import {
   simulateStage6IdiData,
   type TeamLeaderActiveOrderDetailRespVO
@@ -4355,18 +4361,21 @@ const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
   clearTaskPreview()
   if (!shouldLoadTaskPreview(task)) return
   const requestSerial = taskPreviewRequestSerial
+  const batchRequestSerial = batchDetailRequestSerial
+  const contextKey = releaseUiContextKey()
+  const isCurrent = () => requestSerial === taskPreviewRequestSerial && !isStaleBatchDetailRequest(batchRequestSerial) && contextKey === releaseUiContextKey() && selectedTaskId.value === String(task.id)
   taskPreviewLoading.value = true
   try {
-    const preview = await getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id)
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
+    const preview = await getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (isCurrent()) {
       selectedTaskPreview.value = preview
     }
   } catch (error) {
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
+    if (isCurrent()) {
       taskPreviewError.value = resolveErrorMessage(error, '表单只读预览加载失败。')
     }
   } finally {
-    if (requestSerial === taskPreviewRequestSerial) {
+    if (isCurrent()) {
       taskPreviewLoading.value = false
     }
   }
@@ -4501,13 +4510,13 @@ const autoOpenRouteFormFromRoute = async () => {
   await handleOpenTask(routeQueryTask)
 }
 
-const loadReviewTimeline = async (requestSerial?: number) => {
+const loadReviewTimeline = async (requestSerial = batchDetailRequestSerial) => {
   if (isStaleBatchDetailRequest(requestSerial)) return
   reviewLoading.value = true
   reviewError.value = ''
   const previousSelectedExecutionId = selectedExecutionId.value
   try {
-    const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
+    const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId(), { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
     // 辅助查询晚返回时，保留用户已选择的工序或放行步骤。
@@ -4575,7 +4584,7 @@ const cancelDeferredBatchDetailSecondaryLoad = () => {
 const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: number) => {
   secondaryLoadError.value = ''
   try {
-    const nextWorkbench = await getEdhrBatchWorkbench(id)
+    const nextWorkbench = await getEdhrBatchWorkbench(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = nextWorkbench
     await loadReviewTimeline(requestSerial)
@@ -4608,7 +4617,7 @@ const loadInlineActiveOrderSubmissionDetail = async (
   }
   inlineActiveOrderSubmissionDetailLoading.value = true
   try {
-    const nextDetail = await getEdhrBatchActiveOrderDetail({ batchExecutionId: batch.id })
+    const nextDetail = await getEdhrBatchActiveOrderDetail({ batchExecutionId: batch.id }, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     if (!nextDetail.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法展示一线提交表单')
@@ -4663,7 +4672,7 @@ const loadProductionReleaseReportCandidates = async (
       status: EDHR_WORK_TASK_STATUS_TODO,
       nodeTypes: [...EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES],
       batchExecutionId: normalizedBatchExecutionId
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     const candidates = (page.list || []).filter(
       (workTask) => workTask.businessScopeType === 'RELEASE_REPORT_NODE'
@@ -4710,7 +4719,7 @@ const loadDetail = async () => {
     const id = assertBatchExecutionId()
     workbench.value = undefined
     reviewTimeline.value = undefined
-    const nextDetail = await getEdhrBatchExecution(id)
+    const nextDetail = await getEdhrBatchExecution(id, { ignoreErrorMessage: true, isRequestContextCurrent: () => !isStaleBatchDetailRequest(requestSerial) })
     if (isStaleBatchDetailRequest(requestSerial)) return
     detail.value = nextDetail
     void loadInlineActiveOrderSubmissionDetail(nextDetail, requestSerial)
@@ -5077,8 +5086,13 @@ const handleReleasePrecheck = async () => {
   }
 }
 
+let releaseCheckReadGeneration = 0
 const loadReleaseCheckItems = async () => {
+  const generation = ++releaseCheckReadGeneration
+  const requestSerial = batchDetailRequestSerial
+  const contextKey = releaseUiContextKey()
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
+  const isCurrent = () => generation === releaseCheckReadGeneration && !isStaleBatchDetailRequest(requestSerial) && contextKey === releaseUiContextKey() && releaseTransactionId === workbench.value?.releaseSummary?.releaseTransactionId
   if (!releaseTransactionId) {
     releaseCheckItems.value = []
     return
@@ -5092,21 +5106,18 @@ const loadReleaseCheckItems = async () => {
       releaseTransactionId,
       itemStatus: 'OPEN',
       checkResult: ''
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     releaseCheckItems.value = page.list || []
   } catch (error) {
+    if (!isCurrent()) return
     releaseCheckItems.value = []
     const errorText = resolveErrorMessage(error, '放行预检项加载失败。')
     showReleaseActionError(errorText)
     message.error(errorText)
   } finally {
-    releaseCheckLoading.value = false
+    if (isCurrent()) releaseCheckLoading.value = false
   }
-}
-
-const openReleaseCheckGroup = async () => {
-  selectReleaseProcess()
-  await loadReleaseCheckItems()
 }
 
 const openTraceRecordGroup = () => {
@@ -5132,7 +5143,55 @@ const openFieldResponsibility = async (entry: TraceRecordFieldResponsibilityEntr
   })
 }
 
+const releaseActionContextKey = () => JSON.stringify([approvalInvalidation.syncSession().key, route.query.id])
+const releaseUiContextKey = () => JSON.stringify([releaseActionContextKey(), route.fullPath])
+const releaseSignatureGuard = createFormalActionGuard(releaseUiContextKey)
+const releaseReturnGuard = createFormalActionGuard(releaseUiContextKey)
+const releaseSubmitReceipts = createFormalWriteReceiptState<Awaited<ReturnType<typeof submitEdhrRelease>>>()
+const releaseSubmitReceiptRevision = ref(0)
+const resetReleaseActionContexts = () => {
+  releaseSignatureGuard.invalidate(); releaseReturnGuard.invalidate()
+  releaseSignatureSubmitting.value = false; releaseReturnSubmitting.value = false
+  releaseSignatureForm.password = ''; releaseTransactionForm.password = ''
+}
+watch(releaseSignatureConfirmVisible, () => { releaseSignatureGuard.invalidate(); releaseSignatureSubmitting.value = false; releaseSignatureForm.password = '' }, { flush: 'sync' })
+watch(releaseReturnDialogVisible, () => { releaseReturnGuard.invalidate(); releaseReturnSubmitting.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetReleaseActionContexts(); releaseSignatureConfirmVisible.value = false; releaseReturnDialogVisible.value = false }, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { batchDetailRequestSerial++; resetReleaseActionContexts(); releaseSignatureConfirmVisible.value = false; releaseReturnDialogVisible.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { batchDetailRequestSerial++ }, { flush: 'sync' })
+onDeactivated(() => { batchDetailRequestSerial++; resetReleaseActionContexts() })
+onBeforeUnmount(() => { batchDetailRequestSerial++; resetReleaseActionContexts() })
+const releaseSubmitReadPending = computed(() => { void releaseSubmitReceiptRevision.value; return releaseSubmitReceipts.has(releaseActionContextKey()) })
+const reconcileReleaseSubmitRead = async (isCurrent: () => boolean) => {
+  await loadDetail()
+  if (!isCurrent()) return false
+  if (loadError.value) throw new Error(loadError.value)
+  cancelDeferredBatchDetailSecondaryLoad()
+  await loadBatchDetailSecondaryData(assertBatchExecutionId(), batchDetailRequestSerial)
+  if (!isCurrent()) return false
+  if (secondaryLoadError.value) throw new Error(secondaryLoadError.value)
+  const receipt = releaseSubmitReceipts.get(releaseActionContextKey())
+  if (!receipt?.releaseTransactionId || String(workbench.value?.releaseSummary?.releaseTransactionId) !== String(receipt.releaseTransactionId)) throw new Error('放行事务读取与已提交回执不一致，请重试读取。')
+  return true
+}
+const retryReleaseSubmitRead = async () => {
+  if (releaseSignatureSubmitting.value || !releaseSubmitReadPending.value) return
+  const key = releaseActionContextKey()
+  const isCurrent = releaseSignatureGuard.capture()
+  releaseSignatureSubmitting.value = true
+  try {
+    if (!(await reconcileReleaseSubmitRead(isCurrent))) return
+    releaseSubmitReceipts.reconcile(key); releaseSubmitReceiptRevision.value++
+    releaseSignatureError.value = ''
+  } catch (error) {
+    if (isCurrent()) releaseSignatureError.value = `放行申请已提交，详情刷新失败：${resolveErrorMessage(error, '请重试读取。')}`
+  } finally { if (isCurrent()) releaseSignatureSubmitting.value = false }
+}
+
 const openReleaseSignatureConfirmDialog = async () => {
+  if (releaseSubmitReceipts.isWriting(releaseActionContextKey())) return
+  if (releaseSubmitReadPending.value) { await retryReleaseSubmitRead(); return }
+  releaseSignatureGuard.invalidate()
   releaseSignatureError.value = ''
   if (!ensureViewedReleaseStageWritable('放行')) return
   if (!canSubmitRelease.value) {
@@ -5141,8 +5200,9 @@ const openReleaseSignatureConfirmDialog = async () => {
     message.error(releaseSignatureError.value)
     return
   }
+  const isCurrent = releaseSignatureGuard.capture()
   const pendingAttachmentsSaved = await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease()
-  if (!pendingAttachmentsSaved) return
+  if (!isCurrent() || !pendingAttachmentsSaved) return
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
   if (!releaseTransactionId) {
     releaseSignatureError.value = '当前批次缺少放行事务，无法执行放行动作。'
@@ -5163,18 +5223,35 @@ const runReleaseSignatureConfirmAction = async (
   action: () => Promise<unknown>,
   successText: string
 ) => {
+  if (releaseSignatureSubmitting.value || releaseSubmitReadPending.value) return
+  const key = releaseActionContextKey()
+  let isCurrent = releaseSignatureGuard.capture()
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(workbench.value!.releaseSummary!.releaseTransactionId) })
+  if (!releaseSubmitReceipts.begin(key)) return
+  releaseSubmitReceiptRevision.value++
+  let writeSucceeded = false
   releaseSignatureSubmitting.value = true
   releaseSignatureError.value = ''
   try {
-    await action()
+    const receipt = await action()
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    releaseSubmitReceipts.complete(key, receipt as Awaited<ReturnType<typeof submitEdhrRelease>>)
+    releaseSubmitReceiptRevision.value++
+    if (!isCurrent()) return
     releaseSignatureConfirmVisible.value = false
+    isCurrent = releaseSignatureGuard.capture()
+    releaseSignatureSubmitting.value = true
     message.success(successText)
-    await loadDetail()
+    if (await reconcileReleaseSubmitRead(isCurrent)) { releaseSubmitReceipts.reconcile(key); releaseSubmitReceiptRevision.value++ }
   } catch (error) {
-    releaseSignatureError.value = resolveErrorMessage(error, '当前批次放行失败。')
+    if (!isCurrent()) return
+    releaseSignatureError.value = writeSucceeded ? `放行申请已提交，详情刷新失败：${resolveErrorMessage(error, '请重试读取。')}` : resolveErrorMessage(error, '当前批次放行申请失败。')
     message.error(releaseSignatureError.value)
   } finally {
-    releaseSignatureSubmitting.value = false
+    releaseSubmitReceipts.settle(key)
+    releaseSubmitReceiptRevision.value++
+    if (isCurrent()) releaseSignatureSubmitting.value = false
   }
 }
 
@@ -5183,15 +5260,17 @@ const submitReleaseByOwnerSignature = async (releaseTransactionId: string) => {
   if (!password) {
     throw new Error('负责人电子签名密码不能为空。')
   }
-  await submitEdhrRelease({
+  return await submitEdhrRelease({
     releaseTransactionId,
     idempotencyKey: releaseTransactionForm.idempotencyKey.trim(),
     password,
     submitReason: releaseTransactionForm.approvalOpinion.trim() || '负责人电子签名放行'
-  })
+  }, { ignoreErrorMessage: true, isRequestContextCurrent: releaseSignatureGuard.capture() , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
 }
 
 const confirmReleaseSignatureSubmit = async () => {
+  if (releaseSubmitReadPending.value) { await retryReleaseSubmitRead(); return }
+  if (releaseSignatureSubmitting.value) return
   if (!ensureViewedReleaseStageWritable('放行确认')) return
   releaseSignatureError.value = ''
   const releaseTransactionId = workbench.value?.releaseSummary?.releaseTransactionId
@@ -5217,11 +5296,13 @@ const confirmReleaseSignatureSubmit = async () => {
   releaseTransactionForm.withdrawReason = ''
   await runReleaseSignatureConfirmAction(
     () => submitReleaseByOwnerSignature(releaseTransactionId),
-    '放行已完成'
+    '放行申请已提交'
   )
 }
 
 const openReleaseReturnDialog = () => {
+  releaseReturnGuard.invalidate()
+  releaseReturnSubmitting.value = false
   releaseReturnError.value = ''
   if (!ensureViewedReleaseStageWritable('放行退回')) return
   if (!canReturnRelease.value) {
@@ -5240,6 +5321,7 @@ const openReleaseReturnDialog = () => {
 }
 
 const submitReleaseReturn = async () => {
+  if (releaseReturnSubmitting.value) return
   if (!ensureViewedReleaseStageWritable('放行退回')) return
   releaseReturnError.value = ''
   if (!canReturnRelease.value) {
@@ -5258,20 +5340,29 @@ const submitReleaseReturn = async () => {
     return
   }
   releaseReturnSubmitting.value = true
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(releaseTransactionId) })
+  let isCurrent = releaseReturnGuard.capture()
+  let writeSucceeded = false
   try {
     await rejectEdhrRelease({
       releaseTransactionId,
       idempotencyKey: buildReleaseIdempotencyKey('reject'),
       rejectReason: releaseReturnForm.rejectReason.trim()
-    })
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
     releaseReturnDialogVisible.value = false
+    isCurrent = releaseReturnGuard.capture()
     message.success('放行已退回')
     await loadDetail()
+    if (isCurrent() && loadError.value) throw new Error(loadError.value)
   } catch (error) {
-    releaseReturnError.value = resolveErrorMessage(error, '放行退回失败。')
+    if (!isCurrent()) return
+    releaseReturnError.value = writeSucceeded ? `放行退回已成功，详情刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '放行退回失败。')
     message.error(releaseReturnError.value)
   } finally {
-    releaseReturnSubmitting.value = false
+    if (isCurrent()) releaseReturnSubmitting.value = false
   }
 }
 

@@ -675,7 +675,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
             instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
             instance.setBpmProcessInstanceId(processInstanceId);
-            actionInstanceMapper.updateById(instance);
+            if (actionInstanceMapper.updateById(instance) != 1) throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
             recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
             persistCurrentActiveTaskPermissions(instance);
             domainInstance.setStatus(FormInstanceStatus.IN_APPROVAL);
@@ -1060,6 +1060,7 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
         reqDTO.setProcessDefinitionKey(policy.getBpmProcessKey());
         reqDTO.setBusinessKey(BUSINESS_KEY_PREFIX + instance.getInstanceCode());
+        reqDTO.setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_FORM","FORM_ACTION",instance.getId().toString(),instance.getObjectVersion(),"FORM_ACTION_SUBMIT",reqDTO.getBusinessKey()));
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("formInstanceId", instance.getId());
         variables.put("objectId", instance.getObjectId());

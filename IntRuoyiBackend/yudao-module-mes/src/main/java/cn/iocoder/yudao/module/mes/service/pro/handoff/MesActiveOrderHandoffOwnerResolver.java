@@ -24,6 +24,11 @@ import static cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHand
 /** Resolves system identities only from formal tenant-scoped responsibility records. */
 @Service
 public class MesActiveOrderHandoffOwnerResolver {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
     @Resource private AdminUserMapper users;
     @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService leaderScopes;
     @Resource private PermissionApi permissions;
@@ -66,14 +71,14 @@ public class MesActiveOrderHandoffOwnerResolver {
         var raw=JsonUtils.parseTree(event.getRawPayload());
         if("PRODUCTION_SUBMIT".equals(event.getEventType())) {
             require(!Boolean.TRUE.equals(event.getSimulated())&&productionEvidence.isValidForEvent(event),"交接禁止使用模拟或无法核验的生产提交签名");
-            var signature=signatureQuery.getById(event.getSignatureId());require(signature!=null,"原生产统一签名不存在");
-            var identity=JsonUtils.parseTree(signature.canonicalContentJson()).path("signatureIdentity");
-            String domain=identity.path("domain").asText();
-            require(Set.of("SYSTEM_USER","MES_EMPLOYEE_PROFILE").contains(domain)
-                    &&domain.equals(raw.path("signatureIdentityDomain").asText())
-                    &&identity.path("tenantId").isIntegralNumber()&&Objects.equals(identity.path("tenantId").longValue(),tenant())
-                    &&identity.path("signerId").isIntegralNumber()&&Objects.equals(identity.path("signerId").longValue(),event.getActualEmployeeId())
-                    &&identity.path("operatorId").isIntegralNumber()&&Objects.equals(identity.path("operatorId").longValue(),event.getDeviceAccountId()),
+            var projection = verifiedContent(event.getSignatureId());
+            var identity = projection.identity();
+            String domain = identity.domain();
+            require(Set.of("SYSTEM_USER", "MES_EMPLOYEE_PROFILE").contains(domain)
+                    && domain.equals(raw.path("signatureIdentityDomain").asText())
+                    && Objects.equals(identity.tenantId(), tenant())
+                    && Objects.equals(identity.signerId(), event.getActualEmployeeId())
+                    && Objects.equals(identity.operatorId(), event.getDeviceAccountId()),
                     "生产原签名身份域、签名人与正式操作者不一致");
             if("SYSTEM_USER".equals(domain)) identityUser(event.getActualEmployeeId());
             // Existing PROFILE signatures have no system account. Preserve that formal business domain;

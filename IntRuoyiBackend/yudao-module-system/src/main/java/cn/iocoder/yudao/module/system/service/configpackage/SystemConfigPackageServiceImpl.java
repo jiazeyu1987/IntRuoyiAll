@@ -81,6 +81,9 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CONFIG_PAC
 @Service
 public class SystemConfigPackageServiceImpl implements SystemConfigPackageService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator approvalAuthority;
+
     private static final String FORMAT_VERSION = "1";
     private static final String PASSWORD_POLICY_PRESERVE = "preserve_existing_passwords";
     private static final String PASSWORD_POLICY_RESTORE = "restore_password_hashes";
@@ -230,6 +233,10 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         if (!Boolean.TRUE.equals(precheck.getValid())) {
             throw exception(CONFIG_PACKAGE_REFERENCE_MISSING, String.join("；", precheck.getBlockingErrors()));
         }
+        // Restore can remove and recreate an identity at the same numeric id. Lock every physical
+        // target identity before qualification locks; INSERT triggers issue fresh generations.
+        userMapper.selectAllTenantIdentitiesForUpdate(TenantContextHolder.getRequiredTenantId());
+        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
         Snapshot beforeSnapshot = loadCurrentSnapshot(true);
         String currentSnapshotSha256 = hashSnapshot(beforeSnapshot.sheets(), true);
         if (!StrUtil.equals(currentSnapshotSha256, targetSnapshotSha256)
@@ -260,6 +267,7 @@ public class SystemConfigPackageServiceImpl implements SystemConfigPackageServic
         Snapshot afterSnapshot = loadCurrentSnapshot(true);
         String afterSnapshotSha256 = hashSnapshot(afterSnapshot.sheets(), true);
         appendImportAudit(pkg, currentSnapshotSha256, afterSnapshotSha256, counts);
+        approvalAuthority.incrementLockedTenants(lockedAuthority);
         return new SystemConfigPackageImportRespVO()
                 .setRestored(true)
                 .setTargetSnapshotSha256(currentSnapshotSha256)

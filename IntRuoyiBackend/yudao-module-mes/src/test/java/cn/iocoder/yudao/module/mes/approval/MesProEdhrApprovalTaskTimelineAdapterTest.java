@@ -31,6 +31,30 @@ class MesProEdhrApprovalTaskTimelineAdapterTest {
     @InjectMocks
     private MesProEdhrApprovalTaskAdapter adapter;
 
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper persisted;
+    @Mock private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper executions;
+
+    @org.junit.jupiter.api.BeforeEach
+    void injectFormalReader() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var finalReader = new MesEdhrExecutionFinalOutcomeReader(executions,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordApprovalSnapshotMapper.class),
+                persisted, org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class));
+        var reader = new MesEdhrApprovalOutcomeReader(persisted,
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper.class),
+                org.mockito.Mockito.mock(MesManagerReleaseCompletedActorResolver.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class),
+                org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService.class),
+                finalReader);
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter,"outcomeReader",reader);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+
     @Test
     void listTimelineMapsWorkTasksToUnifiedTimelineEntries() {
         MesProEdhrWorkTaskDO current = MesProEdhrWorkTaskDO.builder()
@@ -38,6 +62,7 @@ class MesProEdhrApprovalTaskTimelineAdapterTest {
                 .taskCode("EDHR-WT-66")
                 .taskType("REVIEW")
                 .executionId(880L)
+                .workOrderId(93L)
                 .processName("终检")
                 .status("DONE")
                 .assigneeUserId(100L)
@@ -46,6 +71,8 @@ class MesProEdhrApprovalTaskTimelineAdapterTest {
                 .build();
         current.setCreateTime(LocalDateTime.parse("2026-06-23T10:20:00"));
         when(workTaskService.getApprovalCenterTimelineTasks(66L, 880L, false)).thenReturn(List.of(current));
+        when(persisted.selectOne(any())).thenReturn(current);
+        when(executions.selectOne(any())).thenReturn(null);
 
         List<ApprovalTaskTimelineEntry> entries = adapter.listTimeline(
                 ApprovalTaskTimelineQueryContext.of(100L, ApprovalModuleCode.EDHR,
@@ -53,8 +80,12 @@ class MesProEdhrApprovalTaskTimelineAdapterTest {
 
         assertEquals(1, entries.size());
         assertEquals("EDHR:EDHR_WORK_TASK:66", entries.get(0).getId());
-        assertEquals("审批通过", entries.get(0).getActionLabel());
-        assertEquals("REAL_WORK_TASK", entries.get(0).getEvidenceType());
+        assertEquals("任务已完成", entries.get(0).getActionLabel());
+        assertEquals("UNKNOWN", entries.get(0).getDecisionState());
+        org.junit.jupiter.api.Assertions.assertNull(entries.get(0).getApprovalResult());
+        org.junit.jupiter.api.Assertions.assertNull(entries.get(0).getActorUserId());
+        org.junit.jupiter.api.Assertions.assertNull(entries.get(0).getEvidenceType());
+        assertEquals(current.getCompletedAt(),entries.get(0).getTaskCompletedAt());
     }
 
     @Test
@@ -66,5 +97,15 @@ class MesProEdhrApprovalTaskTimelineAdapterTest {
                         "EDHR_WORK_TASK", "66", "66", "880")));
 
         assertEquals("APPROVAL_TIMELINE_SOURCE_REQUIRED: EDHR work task timeline is empty", ex.getMessage());
+    }
+
+    @Test void mismatchedOrNonCanonicalTimelineIdentityFailsBeforeService() {
+        for (String id : List.of("066","-66","0")) {
+            assertThrows(IllegalArgumentException.class,() -> adapter.listTimeline(
+                    ApprovalTaskTimelineQueryContext.of(100L,ApprovalModuleCode.EDHR,"EDHR_WORK_TASK",id,id,"880")));
+        }
+        assertThrows(IllegalArgumentException.class,() -> adapter.listTimeline(
+                ApprovalTaskTimelineQueryContext.of(100L,ApprovalModuleCode.EDHR,"EDHR_WORK_TASK","66","67","880")));
+        org.mockito.Mockito.verifyNoInteractions(workTaskService);
     }
 }

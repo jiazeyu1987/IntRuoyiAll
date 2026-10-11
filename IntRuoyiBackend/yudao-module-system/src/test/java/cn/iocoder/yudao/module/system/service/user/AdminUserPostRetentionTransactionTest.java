@@ -19,6 +19,9 @@ import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostServiceImpl;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.service.permission.GlobalApprovalAuthorityCoordinator;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
@@ -74,6 +77,7 @@ public class AdminUserPostRetentionTransactionTest extends UserPostRetentionTest
         userService.updateUser(request(user, Set.of(10L, 20L)));
         assertEquals("changed@example.test", userMapper.selectById(user.getId()).getEmail());
         assertStorage(user, Set.of(10L, 20L));
+        verify(approvalAuthority).incrementLockedAuthorityRevision(user.getTenantId(), 1L);
         assertEquals(retained, userPostMapper.selectById(retained.getId()));
         assertProtectedFields(user);
         verifyNoInteractions(permissionService, oauth2TokenService, passwordEncoder);
@@ -413,6 +417,8 @@ abstract class UserPostRetentionTestSupport extends BaseDbUnitTest {
     @MockitoSpyBean protected UserPostMapper userPostMapper;
     @MockitoBean protected DeptService deptService;
     @MockitoBean protected PermissionService permissionService;
+    @MockitoBean protected ApprovalAuthorityApi approvalAuthority;
+    @MockitoBean protected GlobalApprovalAuthorityCoordinator globalApprovalAuthority;
     @MockitoBean protected PasswordEncoder passwordEncoder;
     @MockitoBean protected TenantService tenantService;
     @MockitoBean protected ConfigApi configApi;
@@ -423,6 +429,8 @@ abstract class UserPostRetentionTestSupport extends BaseDbUnitTest {
     @BeforeEach
     void prepareFixtures() {
         jdbc = new JdbcTemplate(dataSource);
+        when(approvalAuthority.lockTenantApprovalAuthority(anyLong())).thenAnswer(invocation ->
+                new ApprovalAuthorityRevisionDTO(invocation.getArgument(0), 1L));
         when(passwordEncoder.encode(anyString())).thenReturn("synthetic-encoded-fixture");
         for (long id : new long[]{10, 20, 30, 40, 50}) {
             jdbc.update("INSERT INTO system_post(id,code,name,sort,status,deleted,tenant_id) VALUES(?,?,?,0,?,?,?)",

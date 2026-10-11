@@ -277,10 +277,16 @@ class MesProEdhrNcrManagerDispositionTest {
                             .contentHash(hash).evidenceHash("manager-disposition-evidence").verificationStatus("VALID").build();
                     signature.setTenantId(122L);
                     when(signatureRecordMapper.selectById(9000L)).thenReturn(signature);
+                    // Independent verified Query-port input for the NCR consumer contract only.
+                    // Time/audit prerequisites are supplied by this mock, not verified from the
+                    // incomplete signature fixture; verifiedAt does not supply its signedAt.
                     when(signatureQueryService.verifyEvidence(9000L)).thenReturn(
                             new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
                                     9000L, "VALID", hash, hash, "manager-disposition-evidence",
-                                    "manager-disposition-evidence", "SHA-256", null));
+                                    "manager-disposition-evidence", "SHA-256", null,
+                                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT",
+                                    "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT", List.of(),
+                                    LocalDateTime.of(2026, 10, 7, 9, 0), "V1"));
                     return 9000L;
                 });
         FileDO file = new FileDO();
@@ -398,6 +404,16 @@ class MesProEdhrNcrManagerDispositionTest {
         when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
 
         MesProEdhrWorkTaskServiceImpl realWorkTaskService = new MesProEdhrWorkTaskServiceImpl();
+        managerTask.setBatchExecutionId(2L);
+        ReflectionTestUtils.setField(realWorkTaskService, "sourceLedger", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        ReflectionTestUtils.setField(realWorkTaskService, "sourceAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        var lockBatches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        var lockReleases = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper.class);
+        ReflectionTestUtils.setField(realWorkTaskService, "batchExecutionMapper", lockBatches);
+        ReflectionTestUtils.setField(realWorkTaskService, "releaseTransactionMapper", lockReleases);
+        when(lockBatches.selectByTenantIdAndIdForUpdate(122L, 2L)).thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO().setId(2L).setTenantId(122L));
+        when(lockReleases.selectByIdForUpdate(transactionId)).thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO().setId(transactionId).setBatchExecutionId(2L));
+        when(workTaskMapper.selectByIdAndTenantForUpdate(managerTaskId, 122L)).thenReturn(managerTask);
         ReflectionTestUtils.setField(realWorkTaskService, "workTaskMapper", workTaskMapper);
         ReflectionTestUtils.setField(realWorkTaskService, "permissionApi", permissionApi);
         var auxiliaryAudit = org.mockito.Mockito.mock(MesWorkTaskAuxiliaryAudit.class);

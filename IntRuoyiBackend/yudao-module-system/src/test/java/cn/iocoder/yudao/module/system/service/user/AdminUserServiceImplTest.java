@@ -37,6 +37,8 @@ import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.dept.PostService;
 import cn.iocoder.yudao.module.system.service.oauth2.OAuth2TokenService;
 import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -108,6 +110,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private PermissionService permissionService;
     @MockitoBean
+    private ApprovalAuthorityApi approvalAuthority;
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
     @MockitoBean
     private TenantService tenantService;
@@ -123,6 +127,8 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         // mock 初始化密码
         when(configApi.getConfigValueByKey(USER_INIT_PASSWORD_KEY)).thenReturn(TEST_INIT_PASSWORD);
         TenantContextHolder.setTenantId(1L);
+        when(approvalAuthority.lockTenantApprovalAuthority(1L))
+                .thenReturn(new ApprovalAuthorityRevisionDTO(1L, 1L));
     }
 
     @Test
@@ -851,6 +857,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         AdminUserServiceImpl service = new AdminUserServiceImpl();
         ReflectionTestUtils.setField(service, "userMapper", mapper);
         ReflectionTestUtils.setField(service, "oauth2TokenService", oauth2TokenService);
+        ReflectionTestUtils.setField(service, "approvalAuthority", approvalAuthority);
         LocalDateTime now = LocalDateTime.now().withNano(0);
         when(mapper.selectListByPendingLifecycleDeactivation(now, 20)).thenReturn(List.of(
                 new AdminUserDO().setId(3L), new AdminUserDO().setId(2L), new AdminUserDO().setId(1L)));
@@ -869,13 +876,16 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
                 .execute(status -> service.processDueLifecycleDeactivations(now, 20));
 
         assertEquals(1, count);
-        var order = inOrder(mapper, oauth2TokenService);
+        var order = inOrder(mapper, approvalAuthority, oauth2TokenService);
         order.verify(mapper).selectListByPendingLifecycleDeactivation(now, 20);
         order.verify(mapper).selectPermissionSubjectForUpdate(1L, 1L);
         order.verify(mapper).selectPermissionSubjectForUpdate(1L, 2L);
         order.verify(mapper).selectPermissionSubjectForUpdate(1L, 3L);
+        order.verify(approvalAuthority).lockTenantApprovalAuthority(1L);
         order.verify(mapper).update(isNull(), any());
         order.verify(oauth2TokenService).removeAccessToken(3L, UserTypeEnum.ADMIN.getValue());
+        order.verify(approvalAuthority).incrementLockedAuthorityRevision(1L, 1L);
+        verify(approvalAuthority, times(1)).incrementLockedAuthorityRevision(1L, 1L);
         verify(mapper, times(1)).update(isNull(), any());
         verify(oauth2TokenService, never()).removeAccessToken(1L, UserTypeEnum.ADMIN.getValue());
         verify(oauth2TokenService, never()).removeAccessToken(2L, UserTypeEnum.ADMIN.getValue());

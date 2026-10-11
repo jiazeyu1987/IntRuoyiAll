@@ -42,6 +42,83 @@ import java.util.List;
 import java.util.Map;
 
 class MesPqcReleaseOrderDetailServiceTest {
+    @org.junit.jupiter.api.BeforeEach void setTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"RENAMED", "DELETED", "DISABLED", "UNAVAILABLE"})
+    void systemUserV1SnapshotDoesNotDependOnCurrentDirectory(String directoryState) {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var fixture = new FormalSourceFixture("CLOSED", true);
+            var original = signatureEvidence(66L, 77L, releaseSubjectId(88L, 8L), LocalDateTime.of(2026, 10, 4, 12, 30));
+            var content = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(original.canonicalContentJson());
+            content.set("signatureIdentity", cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                    cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of(
+                            "domain", "SYSTEM_USER", "signerId", 77L, "operatorId", 77L,
+                            "tenantId", 1L, "displayName", "签署时正式姓名"))));
+            var evidence = new ElectronicSignatureEvidenceDTO(original.id(), original.moduleCode(), original.actionCode(), original.subjectType(),
+                    original.subjectId(), original.subjectVersion(), original.actorId(), original.meaningCode(), original.meaningLabel(),
+                    original.reason(), original.signedAt(), original.timeEvidenceId(), "SESSION_PLUS_SELECTED_USER_PASSWORD",
+                    original.contentHash(), original.evidenceHash(), original.algorithm(), original.keyVersion(), original.policyVersion(),
+                    original.verificationStatus(), original.processInstanceId(), original.taskId(), original.nodeCode(), original.nodeOrder(),
+                    content.toString(), original.beforeContentJson(), original.afterContentJson(), original.fieldDiffJson(),
+                    "签署时正式姓名", original.timeZone());
+            fixture.approve(evidence);
+            if (directoryState.equals("DELETED")) doReturn(null).when(fixture.users).getUser(77L);
+            else if (!directoryState.equals("UNAVAILABLE")) doReturn(new AdminUserDO().setId(77L).setNickname("当前新名")
+                    .setStatus(directoryState.equals("DISABLED") ? 1 : 0)).when(fixture.users).getUser(77L);
+            assertEquals("签署时正式姓名", fixture.service.get(7L, 8L).detail().getPqcProductionRelease().getSignature().getSignerName());
+            verifyNoInteractions(fixture.users);
+        } finally {
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+        }
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"RENAMED", "DELETED", "DISABLED", "UNAVAILABLE"})
+    void ordinaryV1MissingNameNeverUsesCurrentDirectory(String directoryState) {
+        var fixture = new FormalSourceFixture("CLOSED", true);
+        var evidence = signatureEvidence(66L, 77L, releaseSubjectId(88L, 8L), LocalDateTime.of(2026, 10, 4, 12, 30));
+        fixture.approve(evidence);
+        if (directoryState.equals("DELETED")) {
+            doReturn(null).when(fixture.users).getUser(77L);
+        } else if (!directoryState.equals("UNAVAILABLE")) {
+            doReturn(new AdminUserDO().setId(77L).setNickname("当前新名")
+                    .setStatus(directoryState.equals("DISABLED") ? 1 : 0)).when(fixture.users).getUser(77L);
+        }
+        assertEquals("未记录", fixture.service.get(7L, 8L).detail().getPqcProductionRelease().getSignature().getSignerName());
+        verifyNoInteractions(fixture.users);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PQC_RELEASE", "APPROVE", "用户首行\r\n次行\t\"说明\"\\原文"})
+    void releasedDetailAcceptsExplicitUserSourceWithTheFullOriginalIdentity(String opinion) {
+        var fixture = new FormalSourceFixture("CLOSED", true);
+        String subject = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(releaseSubjectId(88L, 8L), opinion);
+        fixture.approve(signatureEvidence(66L, 77L, subject, LocalDateTime.of(2026, 10, 4, 12, 30), opinion));
+        assertEquals(66L, fixture.service.get(7L, 8L).detail().getPqcProductionRelease().getSignature().getSignatureId());
+    }
+
+    @Test
+    void releasedDetailRejectsUnknownSourceAndForeignOriginalIdentity() {
+        var fixture = new FormalSourceFixture("CLOSED", true);
+        String foreign = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(releaseSubjectId(88L, 9L), "同意放行");
+        fixture.approve(signatureEvidence(66L, 77L, foreign, LocalDateTime.of(2026, 10, 4, 12, 30)));
+        assertThrows(RuntimeException.class, () -> fixture.service.get(7L, 8L));
+        String valid = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(releaseSubjectId(88L, 8L), "同意放行");
+        var evidence = signatureEvidence(66L, 77L, valid, LocalDateTime.of(2026, 10, 4, 12, 30));
+        String decoded = new String(java.util.Base64.getUrlDecoder().decode(valid), java.nio.charset.StandardCharsets.UTF_8);
+        String unknown = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                decoded.replace("MES_OPINION_SOURCE_V1:USER", "MES_OPINION_SOURCE_V9:USER").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(evidence));
+        json.put("subjectId", unknown);
+        when(fixture.signatures.getById(66L)).thenReturn(cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                json.toString(), ElectronicSignatureEvidenceDTO.class));
+        assertThrows(RuntimeException.class, () -> fixture.service.get(7L, 8L));
+    }
     @Test
     void rejectsBeforeReadingOrderSources() {
         var auth = mock(MesPqcProductionReleaseService.class);
@@ -116,14 +193,16 @@ class MesPqcReleaseOrderDetailServiceTest {
         when(signatures.getById(66L)).thenReturn(signatureEvidence(66L, 77L, subjectId, signedAt));
         when(signatures.verifyEvidence(66L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(66L, "VALID", "content-hash", "content-hash",
-                        "evidence-hash", "evidence-hash", "SHA-256", "v1"));
-        when(users.getUser(77L)).thenReturn(new AdminUserDO().setId(77L).setNickname("王放行"));
+                        "evidence-hash", "evidence-hash", "SHA-256", "v1", "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT",
+                        "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT", List.of(), signedAt, "V1"));
+        when(users.getUser(77L)).thenThrow(new IllegalStateException("当前目录不可用"));
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
         when(detail.getArchivedFormalDetail(10L)).thenReturn(result);
         when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(java.util.List.of(), 0L));
 
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
+        bindReadAssociation(service, applications.selectById(8L), result, signatures.getById(66L), null);
         var summary = service.get(7L, 8L).detail().getPqcProductionRelease();
 
         assertNotNull(summary);
@@ -131,7 +210,8 @@ class MesPqcReleaseOrderDetailServiceTest {
         assertEquals("已生产放行", summary.getStatusLabel());
         assertNotNull(summary.getSignature());
         assertEquals(66L, summary.getSignature().getSignatureId());
-        assertEquals("王放行", summary.getSignature().getSignerName());
+        assertEquals("未记录", summary.getSignature().getSignerName());
+        verifyNoInteractions(users);
         assertEquals(signedAt, summary.getSignature().getSignedAt());
         assertEquals(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 summary.getSignature().getRole());
@@ -167,19 +247,22 @@ class MesPqcReleaseOrderDetailServiceTest {
         when(signatures.getById(9001L)).thenReturn(signatureEvidence(9001L, 1L, subjectId, signedAt));
         when(signatures.verifyEvidence(9001L)).thenReturn(
                 new ElectronicSignatureVerificationDTO(9001L, "VALID", "content-hash", "content-hash",
-                        "evidence-hash", "evidence-hash", "SHA-256", "v1"));
-        when(users.getUser(1L)).thenReturn(new AdminUserDO().setId(1L).setNickname("管理员"));
+                        "evidence-hash", "evidence-hash", "SHA-256", "v1", "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT",
+                        "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT", List.of(), signedAt, "V1"));
+        when(users.getUser(1L)).thenThrow(new IllegalStateException("账号已删除"));
         var result = new MesTeamLeaderActiveOrderDetail();
         result.setWorkOrderCode("WO-11");
         when(detail.getArchivedFormalDetail(1009200145L)).thenReturn(result);
         when(materials.getPage(any())).thenReturn(new cn.iocoder.yudao.framework.common.pojo.PageResult<>(java.util.List.of(), 0L));
 
         var service = new MesPqcReleaseOrderDetailService(auth, applications, orders, signatures, users, detail, materials);
+        bindReadAssociation(service, applications.selectById(56L), result, signatures.getById(9001L), null);
         var summary = service.get(7L, 56L).detail().getPqcProductionRelease();
 
         assertNotNull(summary);
         assertEquals(9001L, summary.getSignature().getSignatureId());
-        assertEquals("管理员", summary.getSignature().getSignerName());
+        assertEquals("未记录", summary.getSignature().getSignerName());
+        verifyNoInteractions(users);
         assertEquals(signedAt, summary.getSignature().getSignedAt());
     }
 
@@ -286,9 +369,10 @@ class MesPqcReleaseOrderDetailServiceTest {
         var result = fixture.service.get(7L, 8L);
         assertEquals("RELEASED", result.detail().getPqcProductionRelease().getStatus());
         assertEquals(66L, result.detail().getPqcProductionRelease().getSignature().getSignatureId());
-        assertEquals("王放行", result.detail().getPqcProductionRelease().getSignature().getSignerName());
+        assertEquals("未记录", result.detail().getPqcProductionRelease().getSignature().getSignerName());
+        verifyNoInteractions(fixture.users);
         assertEquals(signedAt, result.detail().getPqcProductionRelease().getSignature().getSignedAt());
-        verify(fixture.signatures).verifyEvidence(66L);
+        verify(fixture.signatures, times(2)).verifyEvidence(66L);
     }
 
     @Test
@@ -296,8 +380,7 @@ class MesPqcReleaseOrderDetailServiceTest {
         var fixture = new FormalSourceFixture("CLOSED", true);
         fixture.approve(signatureEvidence(66L, 77L, releaseSubjectId(88L, 9L),
                 LocalDateTime.of(2026, 10, 4, 12, 30)));
-        assertEquals("PQC_RELEASE_SIGNATURE_RECORD_MISSING",
-                assertThrows(IllegalStateException.class, () -> fixture.service.get(7L, 8L)).getMessage());
+        assertThrows(ServiceException.class, () -> fixture.service.get(7L, 8L));
         verifyNoInteractions(fixture.materials, fixture.users);
         verify(fixture.signatures, never()).verifyEvidence(any());
     }
@@ -328,6 +411,7 @@ class MesPqcReleaseOrderDetailServiceTest {
         final MesProcessPoolActiveOrderDO order;
         final MesProcessPoolActiveOrderProcessSnapshotDO processSnapshot;
         final MesPqcReleaseOrderDetailService service;
+        final MesTeamLeaderActiveOrderDetailServiceImpl detail;
 
         FormalSourceFixture(String activeStatus, boolean deleted) {
             order = MesProcessPoolActiveOrderDO.builder().id(10L).workOrderId(11L).leaderUserId(99L)
@@ -365,7 +449,7 @@ class MesPqcReleaseOrderDetailServiceTest {
             var items = mock(MesMdItemMapper.class);
             var frozenMaterials = new MesFrontlineProcessMaterialServiceImpl(
                     new ActiveOrderSnapshotResolver(orders), processSnapshots, versions, workOrders, items);
-            var detail = new MesTeamLeaderActiveOrderDetailServiceImpl(orders, rows, frozenMaterials,
+            detail = new MesTeamLeaderActiveOrderDetailServiceImpl(orders, rows, frozenMaterials,
                     mock(MesPqcInspectionTaskMapper.class), mock(MesPqcProcessInspectionAggregateDetailMapper.class),
                     mock(MesQaInspectionRegulationProcessMapper.class),
                     mock(ErpKingdeeProductionReplenishmentListItemMapper.class),
@@ -386,23 +470,61 @@ class MesPqcReleaseOrderDetailServiceTest {
                     .setApplicationId(8L).setStatus("RELEASED").setDecision("APPROVE").setSignatureId(66L));
             when(signatures.getById(66L)).thenReturn(signature);
             when(signatures.verifyEvidence(66L)).thenReturn(new ElectronicSignatureVerificationDTO(
-                    66L, "VALID", "content-hash", "content-hash", "evidence-hash", "evidence-hash", "SHA-256", "v1"));
-            when(users.getUser(77L)).thenReturn(new AdminUserDO().setId(77L).setNickname("王放行"));
+                    66L, "VALID", "content-hash", "content-hash", "evidence-hash", "evidence-hash", "SHA-256", "v1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK",
+                    "NOT_BOUND", "CONSISTENT", List.of(), signature.signedAt(), "V1"));
+            when(users.getUser(77L)).thenThrow(new IllegalStateException("当前目录不可用"));
+            var application = applications.selectById(8L);
+            bindReadAssociation(service, application, null, signature, detail);
+            when(applications.selectLatestByActiveOrderId(10L)).thenReturn(application);
         }
+    }
+
+    private static void bindReadAssociation(MesPqcReleaseOrderDetailService service,
+            MesProcessPoolActiveOrderReleaseApplicationDO application, MesTeamLeaderActiveOrderDetail projectedDetail,
+            ElectronicSignatureEvidenceDTO signature, MesTeamLeaderActiveOrderDetailServiceImpl detailService) {
+        var at = LocalDateTime.of(2026, 10, 4, 12, 30);
+        application.setTenantId(1L);
+        application.setPqcDecision("APPROVE").setPqcDecidedBy(signature.actorId()).setPqcDecidedAt(at)
+                .setPqcReleaseWorkTaskId(700L).setApplicationStatus("RELEASED")
+                .setDossierSummaryJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of(
+                        "applicationId", application.getId(), "pqcReleaseWorkTaskId", 700L,
+                        "batchExecutionId", application.getBatchExecutionId(), "decidedBy", signature.actorId(),
+                        "signatureId", signature.id(), "decision", "APPROVE")));
+        var tasks = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper.class);
+        var batches = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        when(tasks.selectOne(any())).thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO()
+                .setId(700L).setTaskType("PQC_PRODUCTION_RELEASE").setBusinessScopeType("RELEASE_APPLICATION")
+                .setBusinessScopeId(application.getId()).setWorkOrderId(application.getWorkOrderId())
+                .setBatchExecutionId(application.getBatchExecutionId()).setStatus("DONE").setReason("APPROVE").setCompletedAt(at));
+        when(batches.selectOne(any())).thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO()
+                .setId(application.getBatchExecutionId()).setWorkOrderId(application.getWorkOrderId()).setTenantId(1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "workTaskMapper", tasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "batchMapper", batches);
+        if (detailService != null) {
+            org.springframework.test.util.ReflectionTestUtils.setField(detailService, "workTaskMapper", tasks);
+            org.springframework.test.util.ReflectionTestUtils.setField(detailService, "batchExecutionMapper", batches);
+        }
+        if (projectedDetail != null) projectedDetail.setActiveOrderId(application.getActiveOrderId()).setWorkOrderId(application.getWorkOrderId());
     }
 
     private static ElectronicSignatureEvidenceDTO signatureEvidence(
             Long id, Long actorId, String subjectId, LocalDateTime signedAt) {
+        return signatureEvidence(id, actorId, subjectId, signedAt, "同意放行");
+    }
+
+    private static ElectronicSignatureEvidenceDTO signatureEvidence(
+            Long id, Long actorId, String subjectId, LocalDateTime signedAt, String opinion) {
         return new ElectronicSignatureEvidenceDTO(id,
                 MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
                 MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE,
                 subjectId,
-                "subject-v1",
+                MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
                 actorId,
                 MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 "PQC放行",
-                "同意放行",
+                opinion,
                 signedAt,
                 "SERVER_CLOCK:" + signedAt,
                 "SESSION_PLUS_PASSWORD",
@@ -416,7 +538,10 @@ class MesPqcReleaseOrderDetailServiceTest {
                 null,
                 null,
                 null,
-                "{}",
+                new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                        new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(actorId, "MES", "PQC_RELEASE",
+                                "MES_BATCH_RECORD", subjectId, MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
+                                opinion)).canonicalContentJson(),
                 null,
                 null,
                 null,

@@ -38,6 +38,8 @@ import java.util.Set;
 
 @Service
 public class MesProductionReleaseReportServiceImpl implements MesProductionReleaseReportService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
 
     public static final String BUSINESS_SCOPE_RELEASE_REPORT_NODE = "RELEASE_REPORT_NODE";
     private static final String TASK_TYPE_FILL = "FILL";
@@ -131,6 +133,8 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
     public MesProductionReleaseReportNodeCompleteResult complete(
             Long actorUserId, MesProductionReleaseReportNodeCompleteCommand command) {
         requireCommand(actorUserId, command);
+        gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         MesProEdhrWorkTaskDO workTask = requireReleaseReportWorkTask(command.getBatchTaskId());
         MesProcessPoolActiveOrderReleaseApplicationDO application =
@@ -181,7 +185,10 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
                                     .setBatchExecutionId(application.getBatchExecutionId())
                                     .setReportSnapshotHash(reportSnapshotHash)
                                     .setReportEvidences(completedEvidences)
-                                    .setExpectedApplicationVersion(application.getVersion()));
+                                    .setExpectedApplicationVersion(application.getVersion())
+                                    .setSourceMethod("MANAGED_REPORT_COMPLETE").setSourceWorkTaskId(workTask.getId())
+                                    .setSourceActorId(actorUserId).setSourceExpectedApplicationVersion(command.getExpectedVersion())
+                                    .setSourceIdempotencyKey(idempotencyKey).setSourcePayloadHash(payloadHash));
             requireManagerStageResult(application, managerStage);
             if (applicationMapper.handoffReportsToManager(
                     application.getId(), application.getVersion(), reportSnapshotHash,
@@ -225,7 +232,14 @@ public class MesProductionReleaseReportServiceImpl implements MesProductionRelea
         return workTask;
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper contentBatchMapper;
     private MesProcessPoolActiveOrderReleaseApplicationDO requireApplicationForUpdate(Long batchExecutionId) {
+        gxpAuditService.acquireLedgerLock();
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        approvalAuthority.lockTenantApprovalAuthority(tenantId);
+        var batch = contentBatchMapper.selectByTenantIdAndIdForUpdate(tenantId, batchExecutionId);
+        if (batch == null || !java.util.Objects.equals(batch.getTenantId(), tenantId))
+            throw new IllegalStateException("REPORT_BATCH_REQUIRED");
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 applicationMapper.selectByBatchExecutionIdForUpdate(batchExecutionId);
         if (application == null) {

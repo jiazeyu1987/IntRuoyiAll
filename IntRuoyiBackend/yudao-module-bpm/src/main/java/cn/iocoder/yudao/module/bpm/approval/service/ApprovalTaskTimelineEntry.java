@@ -45,4 +45,21 @@ public class ApprovalTaskTimelineEntry {
     private String evidenceType;
 
     private String domainReferenceId;
+
+    private String taskOutcome;
+    private LocalDateTime taskCreatedAt;
+    private LocalDateTime taskCompletedAt;
+    /** Persisted business-task completer; never inferred from assignee or decision state. */
+    private Long taskCompletedByUserId;
+    private String businessStatus;
+    private String sourceStatus;
+    private cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult approvalResult;
+    private String decisionState;
+    private String decisionSourceStatus;
+    private String approvalRemark;
+    private String sourceRemark;
+    private String terminationReason;
+    private Long decisionActorUserId;
+    private LocalDateTime decisionAt;
+    private String evidenceId;
 }

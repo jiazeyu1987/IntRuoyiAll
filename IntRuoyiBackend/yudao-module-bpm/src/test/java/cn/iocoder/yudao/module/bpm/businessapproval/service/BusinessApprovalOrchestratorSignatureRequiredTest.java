@@ -94,6 +94,11 @@ class BusinessApprovalOrchestratorSignatureRequiredTest {
         }
 
         @Override
+        public AdminUserRespDTO lockSignatureIdentity(Long id) {
+            throw new AssertionError("Identity locking belongs to the unified signature kernel");
+        }
+
+        @Override
         public List<AdminUserRespDTO> getUserListBySubordinate(Long id) {
             return List.of();
         }

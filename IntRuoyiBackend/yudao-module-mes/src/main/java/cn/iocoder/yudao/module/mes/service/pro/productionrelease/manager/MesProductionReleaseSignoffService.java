@@ -93,6 +93,10 @@ public class MesProductionReleaseSignoffService {
         if (task == null || application == null || transaction == null || batch == null
                 || !positive(task.getId()) || !positive(application.getId())
                 || !positive(transaction.getId()) || !positive(batch.getId())
+                || !positive(application.getWorkOrderId())
+                || !Objects.equals(application.getWorkOrderId(), task.getWorkOrderId())
+                || !Objects.equals(application.getWorkOrderId(), transaction.getWorkOrderId())
+                || !Objects.equals(application.getWorkOrderId(), batch.getWorkOrderId())
                 || !Objects.equals(application.getTenantId(), tenant) || !Objects.equals(batch.getTenantId(), tenant)
                 || application.getActiveOrderId() == null || application.getActiveOrderId() <= 0
                 || !Objects.equals(application.getReleaseApprovalWorkTaskId(), task.getId())

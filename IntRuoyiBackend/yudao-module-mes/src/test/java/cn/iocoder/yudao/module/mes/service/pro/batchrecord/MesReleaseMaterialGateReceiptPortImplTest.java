@@ -28,9 +28,25 @@ class MesReleaseMaterialGateReceiptPortImplTest {
     @Mock
     private MesProEdhrMaterialGateReceiptMapper mapper;
 
+    @org.junit.jupiter.api.BeforeEach void tenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(TENANT_ID);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+    private MesReleaseMaterialGateReceiptPortImpl adapter() {
+        var adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
+        org.mockito.Mockito.lenient().when(batches.selectByTenantIdAndIdForUpdate(TENANT_ID, BATCH_ID))
+            .thenReturn(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO().setId(BATCH_ID).setTenantId(TENANT_ID));
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter, "batchExecutionMapper", batches);
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter, "creationWriter", org.mockito.Mockito.mock(MesEdhrSourceCreationAuditWriter.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(adapter, "creationVerifier", org.mockito.Mockito.mock(MesEdhrSourceCreationVerificationService.class));
+        return adapter;
+    }
     @Test
     void persistReadyWritesImmutableReceiptAndCanReadItBack() {
-        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesReleaseMaterialGateReceiptPortImpl adapter = adapter();
         MesProEdhrFourMaterialGateResult gate = readyResult();
         when(mapper.selectLatestByBatchExecutionId(TENANT_ID, BATCH_ID)).thenReturn(null);
         when(mapper.insert(any(MesProEdhrMaterialGateReceiptDO.class))).thenAnswer(invocation -> {
@@ -52,7 +68,7 @@ class MesReleaseMaterialGateReceiptPortImplTest {
 
     @Test
     void readRejectsWrongTenantSourceOrTamperedHash() {
-        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesReleaseMaterialGateReceiptPortImpl adapter = adapter();
         MesProEdhrMaterialGateReceiptDO row = rowFrom(readyResult(), "source-hash");
         when(mapper.selectByReceiptId(TENANT_ID, BATCH_ID, "MATERIALS-88-1")).thenReturn(row);
 
@@ -63,7 +79,7 @@ class MesReleaseMaterialGateReceiptPortImplTest {
 
     @Test
     void persistReadyRejectsTamperedExistingReceiptInsteadOfReusingIt() {
-        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesReleaseMaterialGateReceiptPortImpl adapter = adapter();
         MesProEdhrMaterialGateReceiptDO tampered = rowFrom(readyResult(), "source-hash");
         tampered.setReceiptHash("tampered");
         when(mapper.selectLatestByBatchExecutionId(TENANT_ID, BATCH_ID)).thenReturn(tampered);
@@ -76,7 +92,7 @@ class MesReleaseMaterialGateReceiptPortImplTest {
 
     @Test
     void persistReadyRejectsDuplicateMaterialTypesEvenWhenTheCountLooksComplete() {
-        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesReleaseMaterialGateReceiptPortImpl adapter = adapter();
         MesProEdhrFourMaterialGateResult gate = duplicateTypeResult();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
@@ -121,7 +137,7 @@ class MesReleaseMaterialGateReceiptPortImplTest {
 
     private MesProEdhrMaterialGateReceiptDO rowFrom(MesProEdhrFourMaterialGateResult result,
                                                       String sourceSnapshotHash) {
-        MesReleaseMaterialGateReceiptPortImpl adapter = new MesReleaseMaterialGateReceiptPortImpl(mapper);
+        MesReleaseMaterialGateReceiptPortImpl adapter = adapter();
         when(mapper.selectLatestByBatchExecutionId(TENANT_ID, BATCH_ID)).thenReturn(null);
         when(mapper.insert(any(MesProEdhrMaterialGateReceiptDO.class))).thenAnswer(invocation -> {
             MesProEdhrMaterialGateReceiptDO row = invocation.getArgument(0);

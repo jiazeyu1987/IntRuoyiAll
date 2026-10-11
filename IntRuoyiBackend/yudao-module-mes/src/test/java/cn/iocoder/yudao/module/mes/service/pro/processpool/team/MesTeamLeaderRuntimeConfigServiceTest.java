@@ -77,6 +77,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     private PasswordEncoder passwordEncoder;
 
     private MesTeamLeaderRuntimeConfigService service;
+    private MesProcessPoolTeamEmployeeProfileDO insertedCredential;
 
     @BeforeEach
     void setUp() {
@@ -87,22 +88,60 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 employeeProfileMapper, scopeMapper, deviceMapper, processDeviceMapper, parameterRuleMapper,
                 routeProcessMapper, defectReasonMapper, auditMapper,
                 adminUserApi, passwordEncoder);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var authority = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        lenient().when(authority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "qualificationAuthority", authority);
+        lenient().when(employeeProfileMapper.selectSignatureIdentityForUpdate(org.mockito.ArgumentMatchers.eq(1L), any())).thenAnswer(call -> {
+            Long id = call.getArgument(1);
+            var profile = insertedCredential != null && id.equals(insertedCredential.getId())
+                    ? insertedCredential : employeeProfileMapper.selectById(id);
+            if (profile == null) return null;
+            var copy = new MesProcessPoolTeamEmployeeProfileDO();
+            org.springframework.beans.BeanUtils.copyProperties(profile, copy);
+            profile = copy;
+            profile.setTenantId(1L);
+            if (profile.getSignatureCredentialGeneration() == null) profile.setSignatureCredentialGeneration("fixture-generation");
+            if (profile.getSignatureCredentialVersion() == null) profile.setSignatureCredentialVersion(1L);
+            return profile;
+        });
+        lenient().when(adminUserApi.lockSignatureIdentity(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(call -> adminUserApi.getUser(call.getArgument(0)));
+        lenient().when(employeeProfileMapper.selectSignaturePasswordHistory(1L, 8801L)).thenReturn(List.of());
+        lenient().when(employeeProfileMapper.insertSignaturePasswordHistory(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(8801L), org.mockito.ArgumentMatchers.nullable(String.class), any())).thenReturn(1);
+        lenient().when(employeeProfileMapper.writeSignatureFailures(1L, 8801L, 0, null, null)).thenReturn(1);
+    }
+
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+
+    @Test
+    void weakTemporarySignatureCredentialIsRejectedBeforeIdentityOrDomainWrites() {
+        var failure = assertThrows(IllegalArgumentException.class, () -> service.createTemporaryEmployee(
+                MesTeamTemporaryEmployeeCreateReqBO.builder().leaderUserId(3001L)
+                        .displayName("临时工甲").signaturePassword("weak").build()));
+        assertEquals("SIGNATURE_PASSWORD_TOO_WEAK", failure.getMessage());
+        verify(employeeProfileMapper, never()).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        verify(passwordEncoder, never()).encode(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
     @Test
     void shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit() {
         when(employeeProfileMapper.selectList(any())).thenReturn(List.of());
-        when(passwordEncoder.encode("sign-123")).thenReturn("bcrypt-temp-sign");
+        when(passwordEncoder.encode("TestOnly-Sign7!2026")).thenReturn("bcrypt-temp-sign");
         when(scopeMapper.selectProductionEmployeeScope(3001L, 8801L)).thenReturn(null);
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            insertedCredential = invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            insertedCredential.setId(8801L);
             return 1;
         });
 
         Long profileId = service.createTemporaryEmployee(MesTeamTemporaryEmployeeCreateReqBO.builder()
                 .leaderUserId(3001L)
                 .displayName("临时工甲")
-                .signaturePassword("sign-123")
+                .signaturePassword("TestOnly-Sign7!2026")
                 .build());
 
         assertEquals(8801L, profileId);
@@ -213,7 +252,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 MesTeamTemporaryEmployeeCreateReqBO.builder()
                         .leaderUserId(3001L)
                         .displayName("张三")
-                        .signaturePassword("sign-123")
+                        .signaturePassword("TestOnly-Sign7!2026")
                         .build()));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_EMPLOYEE_DISPLAY_NAME_DUPLICATE.getCode(),
@@ -253,12 +292,21 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 .employeeType("TEMPORARY")
                 .enabled(Boolean.TRUE)
                 .build());
-        when(passwordEncoder.encode("new-sign")).thenReturn("bcrypt-new-sign");
+        when(passwordEncoder.encode("TestOnly-Reset8!2026")).thenReturn("bcrypt-new-sign");
+        when(employeeProfileMapper.updateById(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(call -> {
+            var update = call.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            var stored = employeeProfileMapper.selectById(update.getId());
+            stored.setSignatureCredentialStatus(update.getSignatureCredentialStatus());
+            stored.setSignaturePasswordHash(update.getSignaturePasswordHash());
+            stored.setSignaturePasswordUpdatedAt(update.getSignaturePasswordUpdatedAt());
+            stored.setSignatureCredentialVersion(2L);
+            return 1;
+        });
 
         service.resetTemporaryEmployeeSignaturePassword(MesTeamTempSignaturePasswordResetReqBO.builder()
                 .leaderUserId(3001L)
                 .employeeProfileId(8801L)
-                .signaturePassword("new-sign")
+                .signaturePassword("TestOnly-Reset8!2026")
                 .build());
 
         ArgumentCaptor<MesProcessPoolTeamEmployeeProfileDO> updateCaptor =
@@ -280,7 +328,7 @@ class MesTeamLeaderRuntimeConfigServiceTest {
                 MesTeamTempSignaturePasswordResetReqBO.builder()
                         .leaderUserId(3001L)
                         .employeeProfileId(8802L)
-                        .signaturePassword("new-sign")
+                        .signaturePassword("TestOnly-Reset8!2026")
                         .build()));
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_FORMAL_SIGNATURE_PASSWORD_MANAGED_BY_USER.getCode(),
                 ex.getCode());
@@ -351,7 +399,8 @@ class MesTeamLeaderRuntimeConfigServiceTest {
     @Test
     void shouldCreateTemporaryEmployeeWithoutSystemUser() {
         when(employeeProfileMapper.insert(any(MesProcessPoolTeamEmployeeProfileDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class).setId(8801L);
+            insertedCredential = invocation.getArgument(0, MesProcessPoolTeamEmployeeProfileDO.class);
+            insertedCredential.setId(8801L);
             return 1;
         });
 

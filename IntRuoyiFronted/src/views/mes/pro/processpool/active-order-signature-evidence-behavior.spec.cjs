@@ -6,8 +6,11 @@ const ts = require('typescript')
 const vue = require('vue')
 
 function load(file, names, dependencies) {
-  const source = fs.readFileSync(file, 'utf8').replace(/^import .*\n/gm, '').replace(/export /g, '')
-  const code = ts.transpileModule(source + `\nreturn {${names.join(',')}}`, {
+  const source = fs.readFileSync(file, 'utf8')
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
+  const body = ast.statements.filter(statement => !ts.isImportDeclaration(statement))
+    .map(statement => statement.getText(ast).replace(/^export\s+/, '')).join('\n')
+  const code = ts.transpileModule(body + `\nreturn {${names.join(',')}}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2020 }
   }).outputText
   return new Function(...Object.keys(dependencies), code)(...Object.values(dependencies))

@@ -28,6 +28,60 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     String TASK_TYPE_ARCHIVE = "ARCHIVE";
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
     String ARCHIVE_TODO_EXCLUDED_BATCH_STATUS_SQL = "40, 50, 60";
+
+    /** One work-task identity for A (assigned approvals) OR B (candidate signatures). */
+    default LambdaQueryWrapperX<MesProEdhrWorkTaskDO> approvalCenterQuery(
+            MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status) {
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query = baseMyFilterWrapper(req);
+        query.apply("tenant_id = {0}", tenant)
+                .eq(MesProEdhrWorkTaskDO::getDeleted, false);
+        if (done) {
+            query.in(MesProEdhrWorkTaskDO::getTaskType, "REVIEW", "APPROVE", "RELEASE_APPROVE", "PQC_PRODUCTION_RELEASE")
+                    .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE);
+            return applyDoneTaskVisibility(query, actor);
+        }
+        query.eq(MesProEdhrWorkTaskDO::getStatus, status).and(union -> union
+                .and(assigned -> {
+                    assigned.in(MesProEdhrWorkTaskDO::getTaskType, APPROVAL_CENTER_TASK_TYPES);
+                    if (actor != null) assigned.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, actor);
+                    assigned.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (30,40,50,60)))", tenant);
+                })
+                .or(candidate -> {
+                    if (actor != null) candidate.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
+                            "%," + actor + ",%");
+                    // Preserve ARCHIVE's existing closed-batch exception within B only.
+                    candidate.apply("(batch_execution_id IS NULL OR batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (30,40,50,60))"
+                            + " OR (task_type = 'ARCHIVE' AND batch_execution_id NOT IN"
+                            + " (SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0"
+                            + " AND tenant_id = {0} AND status IN (40,50,60))))", tenant);
+                    if (req.getNodeTypes() != null && !req.getNodeTypes().isEmpty()) {
+                        if (!PRODUCTION_RELEASE_REPORT_NODE_TYPES.containsAll(req.getNodeTypes())) {
+                            candidate.apply("1 = 0");
+                        } else {
+                            String nodes = req.getNodeTypes().stream().distinct().map(node -> "'" + node + "'")
+                                    .collect(java.util.stream.Collectors.joining(","));
+                            candidate.apply("batch_task_id IN (SELECT id FROM mes_pro_edhr_batch_execution_task"
+                                    + " WHERE tenant_id = {0} AND deleted = 0 AND node_type IN (" + nodes + "))", tenant);
+                        }
+                    }
+                }));
+        return query;
+    }
+
+    default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterPrefix(
+            MesProEdhrWorkTaskPageReqVO req, Long actor, Long tenant, boolean done, String status, long limit) {
+        if (limit < 1) throw new IllegalArgumentException("QUERY_WINDOW_RANGE_UNSUPPORTED");
+        long total = selectCount(approvalCenterQuery(req, actor, tenant, done, status));
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> query = approvalCenterQuery(req, actor, tenant, done, status);
+        String time = done ? "completed_at" : "create_time";
+        query.last("ORDER BY " + time + " IS NULL ASC, " + time
+                + " DESC, CAST(id AS BINARY) ASC LIMIT " + limit);
+        return new PageResult<>(selectList(query), total);
+    }
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
@@ -117,8 +171,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                        String status) {
         LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
                 baseApprovalCenterWrapper(reqVO, assigneeUserId))
-                .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status);
+        applyProductionReleaseNodeTypeFilter(wrapper, reqVO.getNodeTypes());
         if (candidateUserId != null) {
             String candidateToken = "," + candidateUserId + ",";
             wrapper.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%");
@@ -405,7 +459,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                         .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                         .apply("EXISTS (SELECT 1 FROM mes_pro_process_pool_active_order_release_application pa"
                                 + " JOIN system_users pu ON pu.id = pa.pqc_decided_by AND pu.tenant_id = pa.tenant_id"
-                                + " AND pu.deleted = 0 AND pu.status = 0"
+                                + " AND pu.deleted = 0"
                                 + " WHERE pa.id = mes_pro_edhr_work_task.business_scope_id"
                                 + " AND pa.pqc_release_work_task_id = mes_pro_edhr_work_task.id"
                                 + " AND pa.work_order_id = mes_pro_edhr_work_task.work_order_id"
@@ -418,7 +472,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 + " AND CAST(pa.pqc_decision AS BINARY) = CAST(mes_pro_edhr_work_task.reason AS BINARY)"
                                 + " AND ((pa.pqc_decision = 'APPROVE' AND pa.application_status IN"
                                 + " ('REPORT_UPLOAD_PENDING','MANAGER_RELEASE_PENDING','RELEASED','NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID'))"
-                                + " OR (pa.pqc_decision = 'REJECT' AND pa.application_status = 'PQC_RELEASE_REJECTED'"
+                                + " OR (pa.pqc_decision = 'REJECT' AND pa.application_status IN ('PQC_RELEASE_REJECTED','NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID')"
                                 + " AND pa.pqc_reject_reason IS NOT NULL AND TRIM(pa.pqc_reject_reason) <> ''))"
                                 + " AND (pa.application_status NOT IN ('NONCONFORMANCE_REWORK','NONCONFORMANCE_VOID') OR EXISTS"
                                 + " (SELECT 1 FROM mes_pro_edhr_nonconformance_review nr WHERE nr.id = pa.qa_closure_review_id"
@@ -436,7 +490,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 + " JOIN mes_pro_process_pool_active_order_release_application pa ON pa.qa_closure_review_id = nr.id"
                                 + " AND pa.tenant_id = nr.tenant_id AND pa.deleted = 0"
                                 + " JOIN system_users qu ON qu.id = nr.qa_user_id AND qu.tenant_id = nr.tenant_id"
-                                + " AND qu.deleted = 0 AND qu.status = 0"
+                                + " AND qu.deleted = 0"
                                 + " WHERE nr.id = mes_pro_edhr_work_task.review_source_id AND nr.deleted = 0"
                                 + " AND nr.tenant_id = mes_pro_edhr_work_task.tenant_id"
                                 + " AND nr.review_status = 'closed' AND nr.qa_user_id = {0}"

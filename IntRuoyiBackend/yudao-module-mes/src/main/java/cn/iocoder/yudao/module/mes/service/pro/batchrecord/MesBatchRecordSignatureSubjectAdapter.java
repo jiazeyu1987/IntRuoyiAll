@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureActionDefinition;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -18,6 +19,7 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
     public static final String MODULE_CODE = "MES";
     public static final String SUBJECT_TYPE = "MES_BATCH_RECORD";
     static final String POLICY_VERSION = "mes-batch-record-signature-v1";
+    private static final String OPINION_SOURCE_PREFIX = "MES_OPINION_SOURCE_V1:";
 
     @Override
     public String moduleCode() {
@@ -63,11 +65,20 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
 
     @Override
     public SignatureSubjectSnapshot loadAndAuthorize(SignatureSubjectCommand command) {
-        DecodedSubject decoded = decodeSubjectId(command.subjectId());
+        DecodedSubject decoded = decodeFrozenSubject(command.subjectId());
+        String canonicalJson = canonicalBusinessContent(command.subjectId(), command.actionCode(), command.reason());
+        return new SignatureSubjectSnapshot(SUBJECT_TYPE, command.subjectId(), subjectVersion(command.subjectId()),
+                canonicalJson, null, null, null, decoded.processInstanceId(), decoded.bpmTaskId(),
+                decoded.bpmTaskDefinitionKey(), nodeOrder(decoded.bpmTaskDefinitionKey()));
+    }
+
+    public static String canonicalBusinessContent(String subjectId, String actionCode, String reason) {
+        DecodedSubject decoded = decodeFrozenSubject(subjectId);
+        if (decoded.opinionSource() != null) verifiedUserOpinion(subjectId, actionCode, reason);
         String canonicalJson = "{"
                 + "\"adapter\":\"MES_BATCH_RECORD\","
                 + "\"executionId\":\"" + json(decoded.executionId()) + "\","
-                + "\"actionType\":\"" + json(command.actionCode()) + "\","
+                + "\"actionType\":\"" + json(actionCode) + "\","
                 + "\"processInstanceId\":\"" + json(decoded.processInstanceId()) + "\","
                 + "\"bpmTaskId\":\"" + json(decoded.bpmTaskId()) + "\","
                 + "\"bpmTaskDefinitionKey\":\"" + json(decoded.bpmTaskDefinitionKey()) + "\","
@@ -79,15 +90,14 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 + "\"reviewSourceId\":\"" + json(decoded.reviewSourceId()) + "\","
                 + "\"reviewSourceName\":\"" + json(decoded.reviewSourceName()) + "\","
                 + "\"approvalResult\":\"" + json(decoded.approvalResult()) + "\","
-                + "\"reason\":\"" + json(command.reason()) + "\","
+                + "\"reason\":\"" + json(reason) + "\","
                 + "\"fieldAuditRevision\":\"" + json(decoded.fieldAuditRevision()) + "\","
                 + "\"fieldAuditHeadHash\":\"" + json(decoded.fieldAuditHeadHash()) + "\","
                 + "\"cellValuesHash\":\"" + json(decoded.cellValuesHash()) + "\","
                 + "\"signatureChallengeHash\":\"" + json(decoded.signatureChallengeHash()) + "\""
+                + (decoded.opinionSource() == null ? "" : ",\"opinionSource\":\"" + json(decoded.opinionSource()) + "\"")
                 + "}";
-        return new SignatureSubjectSnapshot(SUBJECT_TYPE, command.subjectId(), subjectVersion(command.subjectId()),
-                canonicalJson, null, null, null, decoded.processInstanceId(), decoded.bpmTaskId(),
-                decoded.bpmTaskDefinitionKey(), nodeOrder(decoded.bpmTaskDefinitionKey()));
+        return canonicalJson;
     }
 
     public static String encodeSubjectId(Long executionId, String actionType, String processInstanceId, String bpmTaskId,
@@ -106,8 +116,41 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
     }
 
-    static String subjectVersion(String subjectId) {
+    public static String subjectVersion(String subjectId) {
         return sha256(subjectId);
+    }
+
+    /** An explicit V1 opinion fact; historical 17-part subjects are never rewritten. */
+    public static String withOpinionSource(String subjectId, String opinion) {
+        DecodedSubject subject = decodeFrozenSubject(subjectId);
+        if (subject.opinionSource() != null || !("PQC_RELEASE".equals(subject.actionType())
+                || "APPROVE".equals(subject.actionType()))) {
+            throw new IllegalArgumentException("MES_SIGNATURE_OPINION_SOURCE_INVALID");
+        }
+        String payload = new String(Base64.getUrlDecoder().decode(subjectId), StandardCharsets.UTF_8);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString((payload + "\n" + OPINION_SOURCE_PREFIX
+                + (opinion == null || opinion.isBlank() ? "SYSTEM" : "USER")).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Call only after the persisted signature's identity, canonical content and hashes have been verified. */
+    public static String verifiedUserOpinion(String subjectId, String action, String reason) {
+        DecodedSubject subject = decodeFrozenSubject(subjectId);
+        if (!action.equals(subject.actionType())) throw new IllegalArgumentException("MES_SIGNATURE_OPINION_ACTION_CONFLICT");
+        if (subject.opinionSource() == null) return null;
+        if ("USER".equals(subject.opinionSource())) {
+            if (reason == null || reason.isBlank()) throw new IllegalArgumentException("MES_SIGNATURE_USER_OPINION_REQUIRED");
+            return reason;
+        }
+        if (!action.equals(reason)) throw new IllegalArgumentException("MES_SIGNATURE_SYSTEM_REASON_CONFLICT");
+        return null;
+    }
+
+    public static String subjectWithoutOpinionSource(String subjectId) {
+        DecodedSubject subject = decodeFrozenSubject(subjectId);
+        if (subject.opinionSource() == null) return subjectId;
+        String payload = new String(Base64.getUrlDecoder().decode(subjectId), StandardCharsets.UTF_8);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                payload.substring(0, payload.lastIndexOf('\n')).getBytes(StandardCharsets.UTF_8));
     }
 
     private static SignatureActionDefinition action(String actionCode, String meaningLabel) {
@@ -115,15 +158,24 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
                 POLICY_VERSION);
     }
 
-    private static DecodedSubject decodeSubjectId(String subjectId) {
+    public static DecodedSubject decodeFrozenSubject(String subjectId) {
         String payload = new String(Base64.getUrlDecoder().decode(subjectId), StandardCharsets.UTF_8);
         String[] values = payload.split("\n", -1);
-        if (values.length != 17) {
+        if (values.length != 17 && values.length != 18) {
             throw new IllegalArgumentException("MES_SIGNATURE_SUBJECT_INVALID");
+        }
+        String source = null;
+        if (values.length == 18) {
+            if (!("PQC_RELEASE".equals(values[1]) || "APPROVE".equals(values[1]))
+                    || !(OPINION_SOURCE_PREFIX.concat("USER").equals(values[17])
+                    || OPINION_SOURCE_PREFIX.concat("SYSTEM").equals(values[17]))) {
+                throw new IllegalArgumentException("MES_SIGNATURE_OPINION_SOURCE_INVALID");
+            }
+            source = values[17].substring(OPINION_SOURCE_PREFIX.length());
         }
         return new DecodedSubject(values[0], values[1], values[2], values[3], values[4], values[5], values[6],
                 values[7], values[8], values[9], values[10], values[11], values[12], values[13], values[14],
-                values[15], values[16]);
+                values[15], values[16], source);
     }
 
     private static Integer nodeOrder(String taskDefinitionKey) {
@@ -131,7 +183,8 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
     }
 
     private static String json(String value) {
-        return value(value).replace("\\", "\\\\").replace("\"", "\\\"");
+        String encoded = JsonUtils.toJsonString(value(value));
+        return encoded.substring(1, encoded.length() - 1);
     }
 
     private static String value(Object value) {
@@ -151,11 +204,11 @@ public class MesBatchRecordSignatureSubjectAdapter implements ElectronicSignatur
         }
     }
 
-    private record DecodedSubject(String executionId, String actionType, String processInstanceId, String bpmTaskId,
+    public record DecodedSubject(String executionId, String actionType, String processInstanceId, String bpmTaskId,
                                   String bpmTaskDefinitionKey, String bpmTaskName, String signatureCellKey,
                                   String signatureRowIndex, String signatureColumnIndex, String reviewSourceType,
                                   String reviewSourceId, String reviewSourceName, String approvalResult,
                                   String fieldAuditRevision, String fieldAuditHeadHash, String cellValuesHash,
-                                  String signatureChallengeHash) {
+                                  String signatureChallengeHash, String opinionSource) {
     }
 }

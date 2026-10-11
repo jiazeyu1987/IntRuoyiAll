@@ -9,6 +9,9 @@ import java.util.List;
 @Builder
 public class GxpAuditCommand {
 
+    /** Internal server reservation; append verifies its exact tenant/transaction/source/request ownership. */
+    private Long reservedEventId;
+
     private Integer eventSchemaVersion;
     private String operationId;
     private String subjectId;

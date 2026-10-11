@@ -44,6 +44,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 @Service
 public class MesProBatchRecordExecutionAttachmentServiceImpl implements MesProBatchRecordExecutionAttachmentService {
 
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
     private static final int EXECUTION_STATUS_DRAFT = 0;
     private static final Pattern SHA256_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
     private static final List<String> ATTACHMENT_COMPONENT_FLAGS = List.of("upload-file", "upload-image", "upload-images");
@@ -64,7 +67,7 @@ public class MesProBatchRecordExecutionAttachmentServiceImpl implements MesProBa
     public MesProBatchRecordExecutionAttachmentPrepareUploadResult prepareUpload(
             MesProBatchRecordExecutionAttachmentPrepareUploadCommand command) {
         requirePrepareUploadCommand(command);
-        MesProBatchRecordExecutionDO execution = executionMapper.selectByIdForUpdate(command.getExecutionId());
+        MesProBatchRecordExecutionDO execution = lockAttachmentExecution(command.getExecutionId());
         validateEditableWorkTask(execution, command.getWorkTaskId(), command.getOperatorId());
         String directory = "edhr/executions/" + execution.getId() + "/attachments";
         String sha256 = sha256(command.getContent());
@@ -112,7 +115,7 @@ public class MesProBatchRecordExecutionAttachmentServiceImpl implements MesProBa
     @Transactional(rollbackFor = Exception.class)
     public Long voidAttachment(MesProBatchRecordExecutionAttachmentVoidCommand command) {
         requireVoidCommand(command);
-        MesProBatchRecordExecutionDO execution = executionMapper.selectByIdForUpdate(command.getExecutionId());
+        MesProBatchRecordExecutionDO execution = lockAttachmentExecution(command.getExecutionId());
         MesProEdhrWorkTaskDO workTask = validateEditableWorkTask(execution, command.getWorkTaskId(),
                 command.getOperatorId());
         MesProBatchRecordExecutionAttachmentDO latest = requireLatestAttachment(execution.getId(),
@@ -154,10 +157,25 @@ public class MesProBatchRecordExecutionAttachmentServiceImpl implements MesProBa
         return insertAttachment(attachment);
     }
 
+    private MesProBatchRecordExecutionDO lockAttachmentExecution(Long executionId) {
+        sourceLedger.acquireLedgerLock();
+        Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        sourceAuthority.lockTenantApprovalAuthority(tenantId);
+        MesProBatchRecordExecutionDO observed = executionMapper.selectById(executionId);
+        if (observed == null || observed.getBatchExecutionId() == null)
+            throw new IllegalStateException("ATTACHMENT_BATCH_EXECUTION_REQUIRED");
+        var batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, observed.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getTenantId(), tenantId))
+            throw new IllegalStateException("ATTACHMENT_BATCH_TENANT_MISMATCH");
+        MesProBatchRecordExecutionDO locked = executionMapper.selectByIdForUpdate(executionId);
+        if (locked == null || !Objects.equals(locked.getBatchExecutionId(), observed.getBatchExecutionId()))
+            throw new IllegalStateException("ATTACHMENT_BATCH_EXECUTION_CHANGED");
+        return locked;
+    }
     private Long appendFileAttachmentEvent(MesProBatchRecordExecutionAttachmentBindCommand command,
                                            String action,
                                            boolean requireExistingGroup) {
-        MesProBatchRecordExecutionDO execution = executionMapper.selectByIdForUpdate(command.getExecutionId());
+        MesProBatchRecordExecutionDO execution = lockAttachmentExecution(command.getExecutionId());
         MesProEdhrWorkTaskDO workTask = validateEditableWorkTask(execution, command.getWorkTaskId(),
                 command.getOperatorId());
         validateAttachmentFieldRule(execution, command);
@@ -312,7 +330,7 @@ public class MesProBatchRecordExecutionAttachmentServiceImpl implements MesProBa
                 || execution.getClosedAt() != null) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
-        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectByIdAndTenantForUpdate(workTaskId, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         boolean goldenFingerMode = goldenFingerPermissionService.hasGoldenFingerPermission(operatorId);
         if (workTask == null
                 || !Objects.equals(workTask.getExecutionId(), execution.getId())

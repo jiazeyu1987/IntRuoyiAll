@@ -69,6 +69,20 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineDeviceAccountContextService contextService;
     @Resource
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
+    @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEmployeeSignaturePasswordChangeFacade employeeSignatureCredentials;
+    @GetMapping("/employee-profile/signature-qualification")
+    @Operation(summary="读取当前生产范围员工签名资格")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEmployeeSignatureCredentialService.Qualification> employeeSignatureQualification(@RequestParam Long activeOrderId,@RequestParam Long routeId,@RequestParam Long routeProcessId,@RequestParam Long processId,@RequestParam Long employeeProfileId,@RequestParam String identityDomain) {
+        return success(employeeSignatureCredentials.qualification(activeOrderId,routeId,routeProcessId,processId,employeeProfileId,identityDomain));
+    }
+    @PostMapping("/employee-profile/signature-password/change")
+    @Operation(summary="员工校验原签名密码并设置个人签名密码")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    public CommonResult<Boolean> changeEmployeeSignaturePassword(@Valid @RequestBody cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesEmployeeSignaturePasswordChangeReqVO request) {
+        employeeSignatureCredentials.change(request);
+        return success(Boolean.TRUE);
+    }
     @Resource
     private MesFrontlinePqcContextService pqcContextService;
     @Resource

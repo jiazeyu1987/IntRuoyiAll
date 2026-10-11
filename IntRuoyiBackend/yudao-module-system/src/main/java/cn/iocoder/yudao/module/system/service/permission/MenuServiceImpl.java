@@ -40,6 +40,9 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 public class MenuServiceImpl implements MenuService {
 
     @Resource
+    private GlobalApprovalAuthorityCoordinator approvalAuthority;
+
+    @Resource
     private MenuMapper menuMapper;
     @Resource
     private PermissionService permissionService;
@@ -48,9 +51,11 @@ public class MenuServiceImpl implements MenuService {
     private TenantService tenantService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST, key = "#createReqVO.permission",
             condition = "#createReqVO.permission != null")
     public Long createMenu(MenuSaveVO createReqVO) {
+        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
         // 校验父菜单存在
         validateParentMenu(createReqVO.getParentId(), null);
         // 校验菜单（自己）
@@ -60,15 +65,18 @@ public class MenuServiceImpl implements MenuService {
         // 插入数据库
         MenuDO menu = BeanUtils.toBean(createReqVO, MenuDO.class);
         initMenuProperty(menu);
-        menuMapper.insert(menu);
+        if (menuMapper.insert(menu) != 1) throw new IllegalStateException("APPROVAL_MENU_CREATE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(lockedAuthority);
         // 返回
         return menu.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为 permission 如果变更，涉及到新老两个 permission。直接清理，简单有效
     public void updateMenu(MenuSaveVO updateReqVO) {
+        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
         // 校验更新的菜单是否存在
         if (menuMapper.selectById(updateReqVO.getId()) == null) {
             throw exception(MENU_NOT_EXISTS);
@@ -82,7 +90,8 @@ public class MenuServiceImpl implements MenuService {
         // 更新到数据库
         MenuDO updateObj = BeanUtils.toBean(updateReqVO, MenuDO.class);
         initMenuProperty(updateObj);
-        menuMapper.updateById(updateObj);
+        if (menuMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_MENU_UPDATE_ROW_COUNT");
+        approvalAuthority.incrementLockedTenants(lockedAuthority);
     }
 
     @Override
@@ -90,6 +99,7 @@ public class MenuServiceImpl implements MenuService {
     @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为此时不知道 id 对应的 permission 是多少。直接清理，简单有效
     public void deleteMenu(Long id) {
+        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
         // 校验是否还有子菜单
         if (menuMapper.selectCountByParentId(id) > 0) {
             throw exception(MENU_EXISTS_CHILDREN);
@@ -99,9 +109,10 @@ public class MenuServiceImpl implements MenuService {
             throw exception(MENU_NOT_EXISTS);
         }
         // 标记删除
-        menuMapper.deleteById(id);
+        if (menuMapper.deleteById(id) != 1) throw new IllegalStateException("APPROVAL_MENU_DELETE_ROW_COUNT");
         // 删除授予给角色的权限
         permissionService.processMenuDeleted(id);
+        approvalAuthority.incrementLockedTenants(lockedAuthority);
     }
 
     @Override
@@ -109,6 +120,11 @@ public class MenuServiceImpl implements MenuService {
     @CacheEvict(value = RedisKeyConstants.PERMISSION_MENU_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为 Spring Cache 不支持按照 ids 批量删除
     public void deleteMenuList(List<Long> ids) {
+        var lockedAuthority = approvalAuthority.lockGlobalRoleTenants();
+        if (ids == null || ids.isEmpty() || ids.stream().anyMatch(id -> id == null || id <= 0)
+                || new HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("APPROVAL_MENU_DELETE_IDENTITIES_REQUIRED");
+        }
         // 校验是否还有子菜单
         ids.forEach(id -> {
             if (menuMapper.selectCountByParentId(id) > 0) {
@@ -117,9 +133,10 @@ public class MenuServiceImpl implements MenuService {
         });
 
         // 标记删除
-        menuMapper.deleteByIds(ids);
+        if (menuMapper.deleteByIds(ids) != ids.size()) throw new IllegalStateException("APPROVAL_MENU_DELETE_ROW_COUNT");
         // 删除授予给角色的权限
         ids.forEach(id -> permissionService.processMenuDeleted(id));
+        approvalAuthority.incrementLockedTenants(lockedAuthority);
     }
 
     @Override

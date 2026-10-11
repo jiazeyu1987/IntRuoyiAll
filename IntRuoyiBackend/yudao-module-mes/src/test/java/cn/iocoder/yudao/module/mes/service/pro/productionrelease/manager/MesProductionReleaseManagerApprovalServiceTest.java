@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.ArgumentCaptor;
@@ -59,6 +60,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -97,6 +100,108 @@ class MesProductionReleaseManagerApprovalServiceTest {
     void tearDown() {
         TimeZone.setDefault(originalTimeZone);
         TenantContextHolder.clear();
+    }
+
+    @Test
+    void preflightAcceptsFrozenManagerCandidateWithoutSignatureOrWrites() {
+        Fixture fixture = fixture();
+        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(List.of(fixture.application()));
+
+        service.preflightApprovalCenterReview(ACTOR_USER_ID, fixture.workTask(), fixture.transaction(), fixture.batch());
+
+        verify(applicationMapper).selectListByReleaseTransactionId(1001L);
+        verifyNoMoreInteractions(applicationMapper);
+        verifyNoInteractions(signoffService, auditRecorder, releaseTransactionMapper, releaseEventMapper,
+                workTaskMapper, batchExecutionMapper, batchTaskMapper, candidateResolver, businessReadinessService);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, 302L})
+    void preflightRejectsMissingZeroOrDifferentApplicationWorkOrderBeforeSignoff(Long applicationWorkOrderId) {
+        Fixture fixture = fixture();
+        fixture.application().setWorkOrderId(applicationWorkOrderId);
+        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(List.of(fixture.application()));
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> service.preflightApprovalCenterReview(
+                        ACTOR_USER_ID, fixture.workTask(), fixture.transaction(), fixture.batch()));
+
+        assertEquals("EDHR_MARKET_RELEASE_SIGNATURE_BINDING_INVALID", failure.getMessage());
+        assertEquals(applicationWorkOrderId, fixture.application().getWorkOrderId());
+        verify(applicationMapper).selectListByReleaseTransactionId(1001L);
+        verifyNoMoreInteractions(applicationMapper);
+        verifyNoInteractions(signoffService, auditRecorder, releaseTransactionMapper, releaseEventMapper,
+                workTaskMapper, batchExecutionMapper, batchTaskMapper, candidateResolver, businessReadinessService);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(longs = {0L, 302L})
+    void formalPreparationRechecksApplicationWorkOrderAfterValidPreflight(Long applicationWorkOrderId) {
+        Fixture fixture = fixture();
+        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(List.of(fixture.application()));
+        service.preflightApprovalCenterReview(ACTOR_USER_ID, fixture.workTask(), fixture.transaction(), fixture.batch());
+        fixture.application().setWorkOrderId(applicationWorkOrderId);
+        stubApproval(fixture);
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
+
+        assertEquals("EDHR_MARKET_RELEASE_SIGNATURE_BINDING_INVALID", failure.getMessage());
+        assertEquals(applicationWorkOrderId, fixture.application().getWorkOrderId());
+        verifyNoInteractions(signoffService, auditRecorder);
+        verify(applicationMapper, never()).releaseFromManager(any(), any(), any(), any(), any());
+        verify(releaseTransactionMapper, never()).approveProductionRelease(
+                any(), any(), any(), any(), any(), any(), any(), any());
+        verify(workTaskMapper, never()).completeManagerReleaseTask(any(), any(), any());
+        verify(releaseEventMapper, never()).insert(any(MesProEdhrReleaseTransactionEventDO.class));
+    }
+
+    @Test
+    void formalPreparationRechecksPendingStateAfterSuccessfulPreflight() {
+        Fixture fixture = fixture();
+        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(List.of(fixture.application()));
+        service.preflightApprovalCenterReview(ACTOR_USER_ID, fixture.workTask(), fixture.transaction(), fixture.batch());
+        fixture.application().setApplicationStatus(MesReleaseFlowStatus.RELEASED);
+        when(applicationMapper.selectByReleaseTransactionIdForUpdate(1001L)).thenReturn(fixture.application());
+        when(releaseTransactionMapper.selectByIdForUpdate(1001L)).thenReturn(fixture.transaction());
+
+        assertThrows(MesReleaseFlowBlockerException.class,
+                () -> service.prepareForFinalization(ACTOR_USER_ID, fixture.command()));
+
+        verifyNoInteractions(signoffService, auditRecorder, workTaskMapper);
+        verify(applicationMapper, never()).releaseFromManager(any(), any(), any(), any(), any());
+        verify(releaseTransactionMapper, never()).approveProductionRelease(
+                any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"candidate", "task", "tenant", "applicationStatus", "transactionStatus", "taskStatus", "role", "duplicate", "missing"})
+    void preflightRejectsInvalidManagedQualificationWithoutSignatureOrWrites(String failure) {
+        Fixture fixture = fixture();
+        MesProEdhrWorkTaskDO task = fixture.workTask();
+        MesProEdhrReleaseTransactionDO transaction = fixture.transaction();
+        switch (failure) {
+            case "candidate" -> task.setAssigneeUserId(ACTOR_USER_ID).setCandidateUserSnapshot("9999");
+            case "task" -> fixture.application().setReleaseApprovalWorkTaskId(2002L);
+            case "tenant" -> fixture.application().setTenantId(2L);
+            case "applicationStatus" -> fixture.application().setApplicationStatus(MesReleaseFlowStatus.RELEASED);
+            case "transactionStatus" -> transaction.setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_RELEASED);
+            case "taskStatus" -> task.setStatus(MesProEdhrWorkTaskStatus.DONE);
+            case "role" -> task.setResponsibilitySourceKey("OTHER_ROLE");
+        }
+        when(applicationMapper.selectListByReleaseTransactionId(1001L)).thenReturn(
+                "missing".equals(failure) ? List.of() : "duplicate".equals(failure)
+                        ? List.of(fixture.application(), fixture.application()) : List.of(fixture.application()));
+
+        assertThrows(RuntimeException.class, () -> service.preflightApprovalCenterReview(
+                ACTOR_USER_ID, task, transaction, fixture.batch()));
+
+        verify(applicationMapper).selectListByReleaseTransactionId(1001L);
+        verifyNoMoreInteractions(applicationMapper);
+        verifyNoInteractions(signoffService, auditRecorder, releaseTransactionMapper, releaseEventMapper,
+                workTaskMapper, batchExecutionMapper, batchTaskMapper, candidateResolver, businessReadinessService);
     }
 
     @ParameterizedTest
@@ -397,6 +502,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         MesProcessPoolActiveOrderReleaseApplicationDO application = new MesProcessPoolActiveOrderReleaseApplicationDO()
                 .setId(701L)
                 .setActiveOrderId(801L)
+                .setWorkOrderId(301L)
                 .setBatchExecutionId(901L)
                 .setReleaseTransactionId(1001L)
                 .setReleaseApprovalWorkTaskId(2001L)
@@ -486,6 +592,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         MesProEdhrReleaseTransactionDO transaction() {
             return new MesProEdhrReleaseTransactionDO()
                     .setId(1001L)
+                    .setWorkOrderId(301L)
                     .setBatchExecutionId(901L)
                     .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL)
                     .setVersion(3);
@@ -498,6 +605,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         MesProEdhrWorkTaskDO workTask() {
             return new MesProEdhrWorkTaskDO()
                     .setId(2001L)
+                    .setWorkOrderId(301L)
                     .setTaskType("RELEASE_APPROVE")
                     .setBatchExecutionId(901L)
                     .setBusinessScopeType("RELEASE_TRANSACTION")
@@ -510,7 +618,7 @@ class MesProductionReleaseManagerApprovalServiceTest {
         }
 
         MesProEdhrBatchExecutionDO batch() {
-            return new MesProEdhrBatchExecutionDO().setId(901L).setTenantId(1L).setRouteId(501L);
+            return new MesProEdhrBatchExecutionDO().setId(901L).setTenantId(1L).setWorkOrderId(301L).setRouteId(501L);
         }
 
         java.time.LocalDateTime now() {

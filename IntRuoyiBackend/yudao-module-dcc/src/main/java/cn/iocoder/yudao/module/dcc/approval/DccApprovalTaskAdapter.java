@@ -141,83 +141,31 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .toList();
     }
 
-    private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
-        VisibleWindow window = visibleWindow(context);
-        List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        long visibleTotal = 0L;
-        long sourceOffset = 0L;
-        int sourcePageNo = 1;
-        while (true) {
-            PageResult<Task> page = requireSourcePage(
-                    bpmTaskService.getTaskTodoPage(resolveQueryUserId(context),
-                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
-                    "TODO", sourcePageNo);
-            if (page.getList().isEmpty()) {
-                if (sourceOffset < page.getTotal()) {
-                    throw sourcePageInconsistent("TODO", sourcePageNo, sourceOffset, page.getTotal());
-                }
-                break;
-            }
-            Map<String, ProcessInstance> processInstanceMap = processInstanceService.getProcessInstanceMap(
-                    toProcessInstanceIds(page.getList(), Task::getProcessInstanceId));
-            for (Task task : page.getList()) {
-                ProcessInstance processInstance = requireProcessInstance(processInstanceMap,
-                        task.getProcessInstanceId());
-                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
-                    continue;
-                }
-                if (window.contains(visibleTotal)) {
-                    summaries.add(toSummary(task, processInstance));
-                }
-                visibleTotal++;
-            }
-            sourceOffset += page.getList().size();
-            if (sourceOffset >= page.getTotal()) {
-                break;
-            }
-            sourcePageNo++;
-        }
-        return new PageResult<>(summaries, visibleTotal);
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.service.ApprovalFlowableTaskQueryService centerQuery;
+
+    @Override
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
     }
 
+    private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
+        var page=centerQuery.todo(context,"DCC_TASK");
+        var processes=processInstanceService.getProcessInstanceMap(toProcessInstanceIds(page.getList(),Task::getProcessInstanceId));
+        var rows=page.getList().stream().map(task->Objects.requireNonNull(toSummary(task,
+                requireProcessInstance(processes,task.getProcessInstanceId())),"APPROVAL_DCC_FORMAL_PROJECTION_MISMATCH")).toList();
+        return new PageResult<>(rows,page.getTotal());
+    }
     private PageResult<ApprovalTaskSummary> pageDone(ApprovalTaskQueryContext context) {
-        VisibleWindow window = visibleWindow(context);
-        List<ApprovalTaskSummary> summaries = new ArrayList<>();
-        long visibleTotal = 0L;
-        long sourceOffset = 0L;
-        int sourcePageNo = 1;
-        while (true) {
-            PageResult<HistoricTaskInstance> page = requireSourcePage(
-                    bpmTaskService.getTaskDonePage(resolveQueryUserId(context),
-                            toBpmTaskPageReqVO(context, sourcePageNo, SOURCE_PAGE_SIZE)),
-                    "DONE", sourcePageNo);
-            if (page.getList().isEmpty()) {
-                if (sourceOffset < page.getTotal()) {
-                    throw sourcePageInconsistent("DONE", sourcePageNo, sourceOffset, page.getTotal());
-                }
-                break;
-            }
-            Map<String, HistoricProcessInstance> processInstanceMap =
-                    processInstanceService.getHistoricProcessInstanceMap(
-                            toProcessInstanceIds(page.getList(), HistoricTaskInstance::getProcessInstanceId));
-            for (HistoricTaskInstance task : page.getList()) {
-                HistoricProcessInstance processInstance = requireHistoricProcessInstance(processInstanceMap,
-                        task.getProcessInstanceId());
-                if (!isDccControlledFileBusinessKey(requireBusinessKey(processInstance.getBusinessKey()))) {
-                    continue;
-                }
-                if (window.contains(visibleTotal)) {
-                    summaries.add(toSummary(task, processInstance));
-                }
-                visibleTotal++;
-            }
-            sourceOffset += page.getList().size();
-            if (sourceOffset >= page.getTotal()) {
-                break;
-            }
-            sourcePageNo++;
+        var page=centerQuery.done(context,"DCC_TASK");
+        if (page.getList().isEmpty()) {
+            return new PageResult<>(List.of(), page.getTotal());
         }
-        return new PageResult<>(summaries, visibleTotal);
+        var processes=processInstanceService.getHistoricProcessInstanceMap(toProcessInstanceIds(page.getList(),HistoricTaskInstance::getProcessInstanceId));
+        var rows=page.getList().stream().map(task->Objects.requireNonNull(toSummary(task,
+                requireHistoricProcessInstance(processes,task.getProcessInstanceId())),"APPROVAL_DCC_FORMAL_PROJECTION_MISMATCH")).toList();
+        return new PageResult<>(rows,page.getTotal());
     }
 
     private BpmTaskPageReqVO toBpmTaskPageReqVO(ApprovalTaskQueryContext context, int pageNo, int pageSize) {

@@ -122,15 +122,21 @@ export interface EdhrApprovalActionRespVO {
   rejectedAt?: string
 }
 
-export const getEdhrApprovalPendingPage = async (params: EdhrApprovalPageReqVO) => {
+export const getEdhrApprovalPendingPage = async (params: EdhrApprovalPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrApprovalRowVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/batch-record-execution/approval-pending-page',
     params
   })
 }
 
-export const getEdhrApprovalDonePage = async (params: EdhrApprovalPageReqVO) => {
+export const getEdhrApprovalDonePage = async (params: EdhrApprovalPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrApprovalRowVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/batch-record-execution/approval-done-page',
     params
   })
@@ -139,23 +145,31 @@ export const getEdhrApprovalDonePage = async (params: EdhrApprovalPageReqVO) => 
 export const getEdhrApprovalDetail = async (
   executionId: EdhrRouteId,
   workTaskId: EdhrRouteId,
-  bpmTaskId?: string
-) => {
+  bpmTaskId?: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrApprovalDetailVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/batch-record-execution/approval-detail',
     params: { id: executionId, bpmTaskId, workTaskId }
   })
 }
 
-export const approveEdhrExecution = async (data: EdhrApprovalActionReqVO) => {
+export const approveEdhrExecution = async (data: EdhrApprovalActionReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.put<EdhrApprovalActionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/batch-record-execution/approve',
     data
   })
 }
 
-export const rejectEdhrExecution = async (data: EdhrRejectReqVO) => {
+export const rejectEdhrExecution = async (data: EdhrRejectReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.put<EdhrApprovalActionRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/batch-record-execution/reject',
     data
   })

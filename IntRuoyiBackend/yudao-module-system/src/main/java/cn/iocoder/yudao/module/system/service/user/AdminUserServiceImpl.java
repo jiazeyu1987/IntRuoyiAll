@@ -82,6 +82,15 @@ import static cn.iocoder.yudao.module.system.enums.LogRecordConstants.*;
 @Slf4j
 public class AdminUserServiceImpl implements AdminUserService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
+    private AdminUserDO lockSignatureIdentity(Long userId) {
+        AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
+        if (user == null || Boolean.TRUE.equals(user.getDeleted())) throw exception(USER_NOT_EXISTS);
+        return user;
+    }
+
     static final String USER_INIT_PASSWORD_KEY = "system.user.init-password";
 
     static final String USER_REGISTER_ENABLED_KEY = "system.user.register-enabled";
@@ -132,6 +141,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             success = SYSTEM_USER_CREATE_SUCCESS)
     public Long createUser(UserSaveReqVO createReqVO) {
         validatePostIds(createReqVO.getPostIds(), false);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         // 1.1 校验账户配合
         tenantService.handleTenantInfo(tenant -> {
             long count = userMapper.selectCount();
@@ -150,7 +160,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.setPassword(encodePassword(createReqVO.getPassword())); // 加密密码
         user.setPasswordUpdateTime(LocalDateTime.now());
         user.setPasswordCredentialStatus("RESET_REQUIRED");
-        userMapper.insert(user);
+        if (userMapper.insert(user) != 1 || user.getId() == null || user.getId() <= 0) {
+            throw new IllegalStateException("APPROVAL_USER_CREATE_ROW_COUNT");
+        }
         // 2.2 插入关联岗位
         if (CollectionUtil.isNotEmpty(user.getPostIds())) {
             userPostMapper.insertBatch(convertList(user.getPostIds(),
@@ -158,11 +170,13 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         // 3. 记录操作日志上下文
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         LogRecordContext.putVariable("user", user);
         return user.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long registerUser(AuthRegisterReqVO registerReqVO) {
         // 1.1 校验是否开启注册
         if (ObjUtil.notEqual(configApi.getConfigValueByKey(USER_REGISTER_ENABLED_KEY), "true")) {
@@ -201,6 +215,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         Set<Long> targetPostIds = new TreeSet<>(updateReqVO.getPostIds());
         // 用户、有效关联、正式岗位依次取当前锁定读，禁止混用外层事务旧快照。
         AdminUserDO oldUser = lockUserForPostEdit(updateReqVO.getId());
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         UserPostSnapshot snapshot = lockAndValidateUserPosts(oldUser, targetPostIds);
         // 既有停用岗位由编辑快照校验；通用新增岗位启用校验保持原合同。
         validateUserForCreateOrUpdate(updateReqVO.getId(), updateReqVO.getUsername(),
@@ -215,6 +230,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         // 2.2 更新岗位
         updateUserPost(oldUser.getId(), snapshot.postIds(), targetPostIds);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable(DiffParseFunction.OLD_OBJECT, BeanUtils.toBean(oldUser, UserSaveReqVO.class));
@@ -371,8 +387,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void recordUserLoginFailure(Long id) {
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime windowStartTime = user.getLoginFailureWindowStartTime();
         int failureCount = Optional.ofNullable(user.getLoginFailureCount()).orElse(0);
@@ -393,8 +410,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void resetUserLoginFailure(Long id) {
-        validateUserExists(id);
+        lockSignatureIdentity(id);
         userMapper.update(null, Wrappers.lambdaUpdate(AdminUserDO.class)
                 .eq(AdminUserDO::getId, id)
                 .set(AdminUserDO::getLoginFailureCount, 0)
@@ -404,13 +422,14 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     @LogRecord(type = SYSTEM_USER_TYPE, subType = SYSTEM_USER_UNLOCK_SUB_TYPE, bizNo = "{{#id}}",
             success = SYSTEM_USER_UNLOCK_SUCCESS)
     public void resetUserLoginFailure(Long id, String reason) {
         if (StrUtil.isBlank(reason)) {
             throw exception(USER_UNLOCK_REASON_REQUIRED);
         }
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
         resetUserLoginFailure(id);
         LogRecordContext.putVariable("user", user);
     }
@@ -451,19 +470,23 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateUserProfile(Long id, UserProfileUpdateReqVO reqVO) {
+        lockSignatureIdentity(id);
         // 校验正确性
         validateUserExists(id);
         validateEmailUnique(id, reqVO.getEmail());
         validateMobileUnique(id, reqVO.getMobile());
         // 执行更新
-        userMapper.update(new AdminUserDO(), Wrappers.<AdminUserDO>lambdaUpdate()
+        if (userMapper.update(new AdminUserDO(), Wrappers.<AdminUserDO>lambdaUpdate()
                 .eq(AdminUserDO::getId, id)
                 .set(reqVO.getNickname() != null, AdminUserDO::getNickname, reqVO.getNickname())
                 .set(reqVO.getEmail() != null, AdminUserDO::getEmail, reqVO.getEmail())
                 .set(reqVO.getMobile() != null, AdminUserDO::getMobile, reqVO.getMobile())
                 .set(reqVO.getSex() != null, AdminUserDO::getSex, reqVO.getSex())
-                .set(reqVO.getAvatar() != null, AdminUserDO::getAvatar, reqVO.getAvatar()));
+                .set(reqVO.getAvatar() != null, AdminUserDO::getAvatar, reqVO.getAvatar())) != 1) {
+            throw new IllegalStateException("SIGNATURE_USER_PROFILE_UPDATE_ROW_COUNT");
+        }
     }
 
     @Override
@@ -481,7 +504,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPassword(encodePassword(reqVO.getNewPassword())); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("ACTIVE");
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("SIGNATURE_PASSWORD_UPDATE_ROW_COUNT");
         oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
     }
 
@@ -501,7 +524,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         updateObj.setPassword(encodePassword(password)); // 加密密码
         updateObj.setPasswordUpdateTime(LocalDateTime.now());
         updateObj.setPasswordCredentialStatus("RESET_REQUIRED");
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("SIGNATURE_PASSWORD_UPDATE_ROW_COUNT");
         oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
 
         // 3. 记录操作日志上下文
@@ -513,6 +536,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     public void updateUserStatus(Long id, Integer status) {
         // 校验用户存在
         AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), id);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         if (CommonStatusEnum.isEnable(status) && user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_DEACTIVATED_ENABLE_FORBIDDEN, user.getLifecycleDocumentNo());
         }
@@ -520,7 +544,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO updateObj = new AdminUserDO();
         updateObj.setId(id);
         updateObj.setStatus(status);
-        userMapper.updateById(updateObj);
+        if (userMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_USER_UPDATE_ROW_COUNT");
+
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 如果是禁用用户，则删除其 Token 信息
         if (CommonStatusEnum.isDisable(status)) {
@@ -532,6 +558,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional(rollbackFor = Exception.class)
     public void recordUserLifecycleDeactivation(UserLifecycleDeactivateReqVO reqVO) {
         AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), reqVO.getId());
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         if (user.getLifecycleDeactivatedTime() != null) {
             throw exception(USER_LIFECYCLE_ALREADY_DEACTIVATED, user.getLifecycleDocumentNo());
         }
@@ -553,6 +580,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             updateWrapper.set(AdminUserDO::getStatus, CommonStatusEnum.DISABLE.getStatus());
         }
         userMapper.update(null, updateWrapper);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         if (due && !CommonStatusEnum.isDisable(user.getStatus())) {
             oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
         }
@@ -567,12 +595,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (limit <= 0) {
             throw exception(USER_LIFECYCLE_PROCESS_LIMIT_INVALID);
         }
-        List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit);
-        // 候选仅提供 ID；统一按 ID 加锁，锁后当前读才决定是否执行。
-        List<Long> userIds = users.stream().map(AdminUserDO::getId).sorted().toList();
+        List<AdminUserDO> users = userMapper.selectListByPendingLifecycleDeactivation(now, limit).stream()
+                .sorted(Comparator.comparing(AdminUserDO::getId)).map(user -> lockSignatureIdentity(user.getId())).toList();
+        if (users.isEmpty()) return 0;
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         int processedCount = 0;
-        for (Long userId : userIds) {
-            AdminUserDO user = lockUserForSessionMutation(TenantContextHolder.getRequiredTenantId(), userId);
+        for (AdminUserDO user : users) {
             if (user.getLifecycleDeactivatedTime() != null
                     || user.getLifecycleDocumentType() == null || user.getLifecycleDocumentNo() == null
                     || user.getLifecycleEffectiveTime() == null || user.getLifecycleEffectiveTime().isAfter(now)) {
@@ -581,6 +609,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             if (applyLifecycleDeactivation(user)) {
                 processedCount++;
             }
+        }
+        if (processedCount > 0) {
+            approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         }
         return processedCount;
     }
@@ -626,7 +657,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             success = SYSTEM_USER_DELETE_SUCCESS)
     public void deleteUser(Long id) {
         // 1. 校验用户存在
-        AdminUserDO user = validateUserExists(id);
+        AdminUserDO user = lockSignatureIdentity(id);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
 
         // 2.1 删除用户
         userMapper.deleteById(id);
@@ -634,6 +666,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         permissionService.processUserDeleted(id);
         // 2.2 删除用户岗位
         userPostMapper.deleteByUserId(id);
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
         LogRecordContext.putVariable("user", user);
@@ -645,6 +678,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (CollUtil.isEmpty(ids)) {
             throw exception(USER_DELETE_LIST_IS_EMPTY);
         }
+        ids.stream().distinct().sorted().forEach(this::lockSignatureIdentity);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
         // 1. 批量删除用户
         userMapper.deleteByIds(ids);
 
@@ -653,6 +688,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             permissionService.processUserDeleted(id);
             userPostMapper.deleteByUserId(id);
         });
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @Override
@@ -1025,6 +1061,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         validatePasswordStrength(initPassword);
 
         // 2. 遍历，逐个创建 or 更新
+        importUsers.stream().map(row -> userMapper.selectByCanonicalUsernameIncludingDeleted(
+                        TenantContextHolder.getRequiredTenantId(), canonicalizeUsername(row.getUsername())))
+                .filter(Objects::nonNull).filter(row -> !Boolean.TRUE.equals(row.getDeleted()))
+                .map(AdminUserDO::getId).distinct().sorted().forEach(this::lockSignatureIdentity);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         UserImportRespVO respVO = UserImportRespVO.builder().createUsernames(new ArrayList<>())
                 .updateUsernames(new ArrayList<>()).failureUsernames(new LinkedHashMap<>()).build();
         AtomicInteger index = new AtomicInteger(1);
@@ -1090,6 +1132,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw exception(USER_IMPORT_INIT_PASSWORD);
         }
         validatePasswordStrength(initPassword);
+        var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         UserDingTalkImportRespVO respVO = UserDingTalkImportRespVO.builder()
                 .createUsernames(new ArrayList<>())

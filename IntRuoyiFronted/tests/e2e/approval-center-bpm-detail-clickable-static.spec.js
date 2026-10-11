@@ -7,8 +7,8 @@ const approvalCenter = fs.readFileSync(path.join(root, 'src/views/approval-cente
 
 assert.match(
   approvalCenter,
-  /const resolveDecisionDetailRoute = \(row: ApprovalTaskSummaryVO\) => \{[\s\S]*?return row\.decisionDetailRoute \|\| row\.detailRoute[\s\S]*?\}/,
-  '审批中心主详情入口必须在业务详情缺失时仍打开 BPM 流程详情，不能把 BPM-only 行禁用。'
+  /const resolveDecisionDetailRoute = \(row: ApprovalTaskSummaryVO\) => \{[\s\S]*?return row\.decisionDetailRoute[\s\S]*?return row\.moduleCode !== 'BPM' \? row\.detailRoute : undefined/,
+  'BPM 业务详情只能使用正式决策入口；其它模块保留原详情入口。'
 )
 
 assert.doesNotMatch(

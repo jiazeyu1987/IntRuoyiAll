@@ -43,6 +43,9 @@ final class MesCompletionAffectedRowAudit {
         }
         parts.add(current); // Empty states also use the same explicit fragment contract.
         List<Map<String, Object>> manifestParts = new ArrayList<>();
+        Set<Long> eventIds = new HashSet<>();
+        Set<String> eventHashes = new HashSet<>();
+        long previousSequence = 0;
         for (int i = 0; i < parts.size(); i++) {
             var part = parts.get(i);
             GxpAuditAppendResult result = audit.append(GxpAuditCommand.builder()
@@ -64,10 +67,13 @@ final class MesCompletionAffectedRowAudit {
                     .evidences(List.of(new GxpAuditEvidence("FORMAL_COMPLETION_RECEIPT", String.valueOf(receipt.getId()),
                             String.valueOf(receipt.getCompletedVersion()), receipt.getReceiptHash(), "COMPLETION")))
                     .build());
-            if (result == null || result.eventId() == null || result.ledgerSequence() == null
-                    || result.eventHash() == null || result.eventHash().isBlank()) {
+            if (result == null || result.eventId() == null || result.eventId() <= 0
+                    || result.ledgerSequence() == null || result.ledgerSequence() <= previousSequence
+                    || result.replayed() || !eventIds.add(result.eventId())
+                    || result.eventHash() == null || result.eventHash().isBlank() || !eventHashes.add(result.eventHash())) {
                 throw new IllegalStateException("Completion affected-row audit did not return a persisted event binding");
             }
+            previousSequence = result.ledgerSequence();
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("partIndex", i); item.put("eventId", result.eventId());
             item.put("ledgerSequence", result.ledgerSequence()); item.put("eventHash", result.eventHash());

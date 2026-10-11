@@ -296,7 +296,6 @@ type CatalogResponse = Awaited<ReturnType<typeof getReverseTraceCatalog>>
 const categoryCatalogs = ref<Partial<Record<ReverseTraceCategory, CatalogResponse>>>({})
 const categoryLoading = ref<Partial<Record<ReverseTraceCategory, boolean>>>({})
 const categoryErrors = ref<Partial<Record<ReverseTraceCategory, string>>>({})
-const loadingCatalog = computed(() => Object.values(categoryLoading.value).some(Boolean))
 const catalogVersion = ref('')
 const querying = ref(false)
 const loadingEvidence = ref(false)

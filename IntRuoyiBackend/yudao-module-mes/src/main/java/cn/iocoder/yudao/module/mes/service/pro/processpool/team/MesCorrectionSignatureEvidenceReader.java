@@ -30,6 +30,21 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class MesCorrectionSignatureEvidenceReader {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        final cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact fact;
+        try { fact = verifiedSignatureFacts.requireVerifiedFact(id); }
+        catch (cn.iocoder.yudao.framework.common.exception.ServiceException e) {
+            if (!Objects.equals(e.getCode(), cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID.getCode())) throw e;
+            throw new IllegalStateException("CORRECTION_EVIDENCE_INVALID:修订签名完整性核验失败", e);
+        }
+        try {
+            return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(fact, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("CORRECTION_EVIDENCE_INVALID:修订规范签名正文不一致", e);
+        }
+    }
+
     private final MesProProcessPoolEventRevisionDiffMapper diffs;
     private final ElectronicSignatureQueryService signatures;
     private final GxpAuditEventMapper audits;
@@ -89,6 +104,8 @@ public class MesCorrectionSignatureEvidenceReader {
                 && Objects.equals(evidence.contentHash(), verified.calculatedContentHash())
                 && Objects.equals(evidence.evidenceHash(), verified.storedEvidenceHash())
                 && Objects.equals(evidence.evidenceHash(), verified.calculatedEvidenceHash()), "修订签名完整性核验失败");
+        var frozenIdentity = verifiedContent(evidence.id()).identity();
+        if (frozenIdentity != null) check(Objects.equals(frozenIdentity.displayName(), snapshot.getActorName()), "修订冻结签名姓名不一致");
         String operation = production ? "mes.production-report.correct" : "mes.pqc-inspection.correct";
         String request = (production ? "MES-PRODUCTION-CORRECTION:" : "MES-PQC-CORRECTION:") + revision.getId();
         var rows = audits.selectList(new LambdaQueryWrapperX<GxpAuditEventDO>().eq(GxpAuditEventDO::getTenantId, tenant)
@@ -140,7 +157,7 @@ public class MesCorrectionSignatureEvidenceReader {
                 && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(subject), evidence.subjectVersion()), "修订签名属于另一业务挑战");
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
                 evidence.actorId(), "MES", "FIELD_CHANGE", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
-        check(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson())), "修订规范签名正文不一致");
+        check(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson())), "修订规范签名正文不一致");
         return new Verified(evidence, verified, snapshot.getActorName(), List.copyOf(changes));
     }
 

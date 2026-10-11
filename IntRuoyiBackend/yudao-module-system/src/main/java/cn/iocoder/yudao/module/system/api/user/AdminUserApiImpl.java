@@ -5,19 +5,25 @@ import cn.hutool.core.util.ObjUtil;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.dal.mysql.dept.UserPostMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
@@ -36,6 +42,27 @@ public class AdminUserApiImpl implements AdminUserApi {
     private DeptService deptService;
     @Resource
     private UserPostMapper userPostMapper;
+    @Resource
+    private AdminUserMapper userMapper;
+
+    @Override
+    @DataPermission(enable = false)
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public AdminUserRespDTO lockSignatureIdentity(Long id) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("SIGNATURE_IDENTITY_ID_REQUIRED");
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("SIGNATURE_IDENTITY_TRANSACTION_REQUIRED");
+        }
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        AdminUserDO user = userMapper.selectPermissionSubjectForUpdate(tenantId, id);
+        if (user == null || !Objects.equals(user.getId(), id)
+                || !Objects.equals(user.getTenantId(), tenantId) || Boolean.TRUE.equals(user.getDeleted())) {
+            throw new IllegalStateException("SIGNATURE_IDENTITY_NOT_FOUND");
+        }
+        cn.iocoder.yudao.module.system.service.signature.SignatureIdentityLockContext
+                .registerSystemIdentityLock(tenantId, id);
+        return BeanUtils.toBean(user, AdminUserRespDTO.class);
+    }
 
     @Override
     @DataPermission(enable = false) // 忽略数据权限，避免因为过滤，导致无法查询用户。类似：https://github.com/YunaiV/ruoyi-vue-pro/issues/1051

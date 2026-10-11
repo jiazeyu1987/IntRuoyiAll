@@ -37,6 +37,7 @@ function harness(options = {}) {
     resolveRouteQueryTaskSelection: () => options.openRouteForm ? tasks[0] : undefined,
     resolveDefaultTaskSelection: () => tasks[0],
     route: { query: { openRouteForm: options.openRouteForm ? '1' : '0' } },
+    releaseUiContextKey: () => JSON.stringify(['timeline-selection-test-session', context.route.query]),
     parseRouteQueryText: value => String(value || ''),
     canAutoOpenRouteFormTask: () => true,
     resolveRouteFormAutoOpenKey: () => '900000001252:12655',

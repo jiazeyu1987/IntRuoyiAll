@@ -166,12 +166,21 @@ class MesFrontlineReturnCorrectionServiceTest {
         return evidence(domain,actor,"PRODUCTION_SUBMIT");
     }
     static ElectronicSignatureEvidenceDTO evidence(String domain,Long actor,String action) {
+        String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+                176L, action, null, null, null, null, null, null, null,
+                "PRODUCTION_SUBMIT".equals(action) ? "MES_PRO_PROCESS_POOL_EVENT" : "MES_PQC_INSPECTION_TASK",
+                "PRODUCTION_SUBMIT".equals(action) ? 176L : 51L, "提交来源", action, null, null, null, null);
+        String version = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject);
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.canonicalBusinessContent(subject, action, "reason"));
+        var identity = body.putObject("signatureIdentity");
+        identity.put("domain", domain).put("tenantId", 1L).put("signerId", actor).put("operatorId", 342L);
+        String canonical = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(body);
         return new ElectronicSignatureEvidenceDTO(11L,"MES",action,"MES_BATCH_RECORD",
-                "subject","version",actor,"meaning","提交","reason",LocalDateTime.now(),
-                "clock","SESSION_PLUS_PASSWORD","content","evidence","SHA-256","v1","v1","VALID",
-                null,null,null,null,
-                "{\"signatureIdentity\":{\"domain\":\""+domain+"\",\"tenantId\":1,\"signerId\":"+actor+",\"operatorId\":342}}",
-                null,null,null,"actor","Asia/Shanghai");
+                subject,version,actor,"meaning","提交","reason",LocalDateTime.of(2026, 10, 7, 9, 0),
+                "clock", "SYSTEM_USER".equals(domain) ? "SESSION_PLUS_SELECTED_USER_PASSWORD" : "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD",
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical),"evidence","SHA-256","v1","v1","VALID",
+                null,null,null,null,canonical,null,null,null,"actor","Asia/Shanghai");
     }
 
     static class Fixture {
@@ -206,6 +215,10 @@ class MesFrontlineReturnCorrectionServiceTest {
             when(revisions.selectListByEventId(176L)).thenReturn(List.of());
             when(revisions.selectListByEventIdForUpdate(176L)).thenReturn(List.of());
             when(signatures.getById(11L)).thenAnswer(i->evidence);
+            when(signatures.verifyEvidence(11L)).thenAnswer(call -> new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    11L, "VALID", evidence.contentHash(), evidence.contentHash(), evidence.evidenceHash(), evidence.evidenceHash(),
+                    "SHA-256", "v1", "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT",
+                    "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 9, 1), "V1"));
             when(productionEvidence.isValidForEvent(event)).thenReturn(true);
             when(releaseState.findReleasedActiveOrderIdsForUpdate(List.of(413L))).thenReturn(Set.of());
             var pending=new MesActiveOrderHandoffTaskDO().setId(1900000000000000001L).setActiveOrderId(413L).setWorkOrderId(990274L);
@@ -213,6 +226,7 @@ class MesFrontlineReturnCorrectionServiceTest {
             when(handoff.findOwnReturn(176L,91L,342L)).thenReturn(pending);
             service=new MesFrontlineReturnCorrectionService(events,activeOrders,reviews,revisions,tasks,pieces,
                     signatures,productionEvidence,pqcReader,nonconformance,releaseState,handoff);
+            cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatures, 1L);
             org.springframework.test.util.ReflectionTestUtils.setField(service,"gxpAuditService",audit);
         }
     }

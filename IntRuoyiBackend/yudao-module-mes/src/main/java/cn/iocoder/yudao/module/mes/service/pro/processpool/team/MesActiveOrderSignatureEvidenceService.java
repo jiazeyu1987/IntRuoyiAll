@@ -2,6 +2,9 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.exception.ErrorCode;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
@@ -53,6 +56,11 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 @Service
 @RequiredArgsConstructor
 public class MesActiveOrderSignatureEvidenceService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
     @Resource private MesActiveOrderCorrectionEvidenceService correctionEvidence;
     private static final ErrorCode IDENTITY_INVALID = new ErrorCode(1_040_760_450, "签名证据查询身份无效");
     private static final ErrorCode NOT_RELATED = new ErrorCode(1_040_760_451, "签名不属于当前订单正式记录");
@@ -153,21 +161,36 @@ public class MesActiveOrderSignatureEvidenceService {
         if (evidence == null || !Objects.equals(evidence.id(), signatureId)
                 || !Objects.equals(evidence.moduleCode(), MesBatchRecordSignatureSubjectAdapter.MODULE_CODE)
                 || !Objects.equals(evidence.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)
-                || evidence.actorId() == null || evidence.signedAt() == null
+                || evidence.actorId() == null
+                || (evidence.signedAt() == null && !"PQC_RELEASE".equals(evidence.actionCode()))
                 || evidence.subjectId() == null || evidence.subjectId().isBlank()
                 || evidence.canonicalContentJson() == null || evidence.canonicalContentJson().isBlank()) {
             throw exception(EVIDENCE_INVALID);
         }
-        JSONObject content = JSON.parseObject(evidence.canonicalContentJson());
+        var diagnostic = signatureQueryService.verifyEvidence(evidence.id());
+        requireVerification(evidence, diagnostic);
+        JSONObject content = JSON.parseObject("PQC_RELEASE".equals(evidence.actionCode())
+                ? evidence.canonicalContentJson() : diagnosticBusinessContent(evidence, diagnostic));
         String[] subject = new String(Base64.getUrlDecoder().decode(evidence.subjectId()), StandardCharsets.UTF_8)
                 .split("\n", -1);
-        if (content == null || subject.length != 17 || evidence.actionCode() == null
+        if (content == null || (subject.length != 17 && subject.length != 18) || evidence.actionCode() == null
+                || (subject.length == 18 && !"PQC_RELEASE".equals(evidence.actionCode()))
                 || !Objects.equals(subject[1], evidence.actionCode())
                 || !Objects.equals(content.getString("actionType"), evidence.actionCode())
                 || !Objects.equals(subject[0], content.getString("executionId"))
                 || !Objects.equals(subject[9], content.getString("reviewSourceType"))
                 || !Objects.equals(subject[10], content.getString("reviewSourceId"))) {
             throw exception(EVIDENCE_INVALID);
+        }
+        if ("PQC_RELEASE".equals(evidence.actionCode())) {
+            var application = applicationMapper.selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderReleaseApplicationDO>()
+                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getId, Long.valueOf(subject[10]))
+                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getTenantId, TenantContextHolder.getRequiredTenantId())
+                    .eq(MesProcessPoolActiveOrderReleaseApplicationDO::getDeleted, false));
+            if (application == null) throw exception(EVIDENCE_INVALID);
+            requirePqcReadBinding(detail, application,
+                    readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId()),
+                    readPqcBatch(batchMapper, application.getBatchExecutionId()), evidence);
         }
         String correctionSignerName = null;
         for (Binding binding : related) {
@@ -185,18 +208,8 @@ public class MesActiveOrderSignatureEvidenceService {
                 throw exception(EVIDENCE_INVALID);
             }
         }
-        ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
-        if (verification == null || !Objects.equals(verification.signatureId(), signatureId)
-                || !Objects.equals(verification.storedContentHash(), evidence.contentHash())
-                || !Objects.equals(verification.storedEvidenceHash(), evidence.evidenceHash())
-                || verification.verificationStatus() == null
-                || !Set.of("VALID", "MISMATCH").contains(verification.verificationStatus())) {
-            throw exception(VERIFICATION_INVALID);
-        }
-        String calculatedStatus = Objects.equals(verification.storedContentHash(), verification.calculatedContentHash())
-                && Objects.equals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash())
-                ? "VALID" : "MISMATCH";
-        if (!Objects.equals(calculatedStatus, verification.verificationStatus())) throw exception(VERIFICATION_INVALID);
+        ElectronicSignatureVerificationDTO verification = diagnostic;
+        requireVerification(evidence, verification);
         String signerName;
         if (Set.of("PRODUCTION_SUBMIT", "PQC_SUBMIT").contains(evidence.actionCode())) {
             signerName = MesSubmissionSignatureIdentityReader.frozenName(evidence);
@@ -204,10 +217,200 @@ public class MesActiveOrderSignatureEvidenceService {
             // The correction reader has verified the persisted revision/review signature snapshot and audit association.
             signerName = correctionSignerName;
             if (signerName == null || signerName.isBlank()) throw exception(EVIDENCE_INVALID);
+        } else if ("PQC_RELEASE".equals(evidence.actionCode())) {
+            signerName = pqcReadProjection(evidence, verification).getSignerName();
         } else {
             signerName = related.get(0).signerName();
         }
         return new Result(detail.getActiveOrderId(), signerName, evidence, verification);
+    }
+
+    private String diagnosticBusinessContent(ElectronicSignatureEvidenceDTO evidence, ElectronicSignatureVerificationDTO verification) {
+        var projection = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.readDiagnosticContent(
+                evidence, verification, TenantContextHolder.getRequiredTenantId());
+        var content = JSON.parseObject(projection.businessContentJson());
+        if (projection.identity() != null) content.put("signatureIdentity", JSON.parseObject(evidence.canonicalContentJson()).getJSONObject("signatureIdentity"));
+        return content.toJSONString();
+    }
+    public static MesProEdhrWorkTaskDO readPqcTask(
+            MesProEdhrWorkTaskMapper mapper, Long taskId) {
+        requirePositive(taskId);
+        return mapper.selectOne(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                .eq(MesProEdhrWorkTaskDO::getId, taskId)
+                .eq(MesProEdhrWorkTaskDO::getDeleted, false)
+                .apply("tenant_id = {0}", TenantContextHolder.getRequiredTenantId()));
+    }
+
+    public static MesProEdhrBatchExecutionDO readPqcBatch(
+            MesProEdhrBatchExecutionMapper mapper, Long batchId) {
+        requirePositive(batchId);
+        return mapper.selectOne(new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .eq(MesProEdhrBatchExecutionDO::getId, batchId)
+                .eq(MesProEdhrBatchExecutionDO::getDeleted, false)
+                .apply("tenant_id = {0}", TenantContextHolder.getRequiredTenantId()));
+    }
+
+    /** Both formal consumers bind the complete subject to the persisted decision and receipt. */
+    static void requirePqcIdentity(MesTeamLeaderActiveOrderDetail detail,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrWorkTaskDO task,
+            MesProEdhrBatchExecutionDO batch,
+            ElectronicSignatureEvidenceDTO evidence) {
+        requirePqcReadBinding(detail, application, task, batch, evidence);
+        if (!"VALID".equals(evidence.verificationStatus()) || evidence.signedAt() == null
+                || evidence.contentHash() == null || evidence.contentHash().isBlank()
+                || evidence.evidenceHash() == null || evidence.evidenceHash().isBlank()) throw exception(EVIDENCE_INVALID);
+    }
+
+    /** Read association only; this does not authorize a formal action or certify signature validity. */
+    public static void requirePqcReadBinding(MesTeamLeaderActiveOrderDetail detail,
+            MesProcessPoolActiveOrderReleaseApplicationDO application,
+            MesProEdhrWorkTaskDO task,
+            MesProEdhrBatchExecutionDO batch,
+            ElectronicSignatureEvidenceDTO evidence) {
+        if (application == null || task == null || batch == null || evidence == null
+                || !positive(application.getId()) || !positive(application.getBatchExecutionId())
+                || !positive(application.getWorkOrderId()) || !positive(application.getPqcDecidedBy())
+                || !Objects.equals(TenantContextHolder.getRequiredTenantId(), application.getTenantId())
+                || Boolean.TRUE.equals(application.getDeleted()) || Boolean.TRUE.equals(task.getDeleted()) || Boolean.TRUE.equals(batch.getDeleted())
+                || !Objects.equals(detail.getActiveOrderId(), application.getActiveOrderId())
+                || !Objects.equals(detail.getWorkOrderId(), application.getWorkOrderId())
+                || !Objects.equals(batch.getId(), application.getBatchExecutionId())
+                || !Objects.equals(TenantContextHolder.getRequiredTenantId(), batch.getTenantId())
+                || !Objects.equals(batch.getWorkOrderId(), application.getWorkOrderId())
+                || !Objects.equals(task.getId(), application.getPqcReleaseWorkTaskId())
+                || !Objects.equals(task.getBusinessScopeId(), application.getId())
+                || !"RELEASE_APPLICATION".equals(task.getBusinessScopeType())
+                || !"PQC_PRODUCTION_RELEASE".equals(task.getTaskType()) || !"DONE".equals(task.getStatus())
+                || !"APPROVE".equals(task.getReason()) || !"APPROVE".equals(application.getPqcDecision())
+                || application.getApplicationStatus() == null
+                || !Set.of("REPORT_UPLOAD_PENDING", "MANAGER_RELEASE_PENDING", "RELEASED", "NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID")
+                        .contains(application.getApplicationStatus())
+                || task.getCompletedAt() == null || !Objects.equals(task.getCompletedAt(), application.getPqcDecidedAt())
+                || !Objects.equals(task.getBatchExecutionId(), application.getBatchExecutionId())
+                || !Objects.equals(task.getWorkOrderId(), application.getWorkOrderId())
+                || !Objects.equals(evidence.actorId(), application.getPqcDecidedBy())
+                || !"MES".equals(evidence.moduleCode()) || !"MES_BATCH_RECORD".equals(evidence.subjectType())
+                || !"PQC_RELEASE".equals(evidence.actionCode())
+                || evidence.authenticationMethod() == null
+                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD").contains(evidence.authenticationMethod()))
+            throw exception(EVIDENCE_INVALID);
+        var receipt = JsonUtils.parseTree(application.getDossierSummaryJson());
+        if (receipt == null || !receipt.isObject()
+                || !exactId(receipt.path("applicationId"), application.getId())
+                || !exactId(receipt.path("pqcReleaseWorkTaskId"), task.getId())
+                || !exactId(receipt.path("batchExecutionId"), batch.getId())
+                || !exactId(receipt.path("decidedBy"), evidence.actorId())
+                || !exactId(receipt.path("signatureId"), evidence.id())
+                || !"APPROVE".equals(receipt.path("decision").asText())) throw exception(EVIDENCE_INVALID);
+        String originalSubject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(batch.getId(), "PQC_RELEASE",
+                null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", application.getId(),
+                "PQC生产放行", "PQC_RELEASE", null, null, null, null);
+        if (!Objects.equals(originalSubject, MesBatchRecordSignatureSubjectAdapter.subjectWithoutOpinionSource(evidence.subjectId()))
+                || !Objects.equals(MesBatchRecordSignatureSubjectAdapter.subjectVersion(evidence.subjectId()), evidence.subjectVersion()))
+            throw exception(EVIDENCE_INVALID);
+        requirePqcCanonical(evidence);
+    }
+
+    /** Call only after the persisted application/task/receipt association has been checked. */
+    public static MesTeamLeaderActiveOrderDetail.SignatureDetail pqcReadProjection(ElectronicSignatureEvidenceDTO evidence,
+            cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact fact) {
+        var projection = requirePqcCanonical(evidence, fact);
+        if ("V1".equals(fact.verification().evidenceFormatVersion())) return pqcReadProjection(evidence, fact.verification());
+        return new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(fact.id())
+                .setSignerName(projection.identity().displayName()).setSignerNameStatus("VERIFIED_SNAPSHOT")
+                .setSignedAt(fact.signedAt()).setRole("PQC_RELEASE").setVerification(fact.verification());
+    }
+    public static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent requirePqcCanonical(
+            ElectronicSignatureEvidenceDTO evidence, cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact fact) {
+        if (evidence == null || fact == null || !Objects.equals(evidence.id(), fact.id())
+                || !Objects.equals(evidence.contentHash(), fact.contentHash()) || !Objects.equals(evidence.evidenceHash(), fact.evidenceHash())
+                || !"PQC_RELEASE".equals(fact.actionCode())) throw exception(EVIDENCE_INVALID);
+        var projection = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(fact, TenantContextHolder.getRequiredTenantId());
+        if ("V1".equals(fact.verification().evidenceFormatVersion())) { requirePqcCanonical(evidence); return projection; }
+        if (projection.identity() == null || !"SYSTEM_USER".equals(projection.identity().domain())) throw exception(EVIDENCE_INVALID);
+        return projection;
+    }
+    public static MesTeamLeaderActiveOrderDetail.SignatureDetail pqcReadProjection(
+            ElectronicSignatureEvidenceDTO evidence, ElectronicSignatureVerificationDTO verification) {
+        // This diagnostic reader consumes the registered historical V1 PQC producer.
+        // Protocol comes from persisted-fact verification, never from business JSON keys.
+        if (verification == null || !"V1".equals(verification.evidenceFormatVersion())) throw exception(EVIDENCE_INVALID);
+        requirePqcCanonical(evidence);
+        requireVerification(evidence, verification);
+        boolean snapshot = "SNAPSHOT".equals(evidence.identitySnapshotStatus());
+        boolean verified = "VALID".equals(verification.verificationStatus());
+        String nameStatus = snapshot ? verified ? "VERIFIED_SNAPSHOT" : "UNVERIFIED_SNAPSHOT" : "NOT_RECORDED";
+        String name = !snapshot ? "未记录" : !verified ? "签时姓名未核验"
+                : JsonUtils.parseTree(evidence.canonicalContentJson()).path("signatureIdentity").path("displayName").asText();
+        return new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(evidence.id())
+                .setSignerName(name).setSignerNameStatus(nameStatus).setSignedAt(evidence.signedAt())
+                .setRole("PQC_RELEASE").setVerification(verification);
+    }
+
+    /** Exact kernel V1 SYSTEM_USER snapshot; no directory, audit name or employee-domain substitution. */
+    public static void requirePqcCanonical(ElectronicSignatureEvidenceDTO evidence) {
+        var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
+                evidence.actorId(), evidence.moduleCode(), evidence.actionCode(), evidence.subjectType(),
+                evidence.subjectId(), evidence.subjectVersion(), evidence.reason()));
+        var actual = JsonUtils.parseTree(evidence.canonicalContentJson());
+        if (actual == null || !actual.isObject()) throw exception(EVIDENCE_INVALID);
+        var expectedContent = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(expected.canonicalContentJson());
+        var identity = actual.get("signatureIdentity");
+        if ("SESSION_PLUS_SELECTED_USER_PASSWORD".equals(evidence.authenticationMethod())) {
+            if (identity == null || !identity.isObject() || identity.size() != 5
+                    || !"SYSTEM_USER".equals(identity.path("domain").asText())
+                    || !numericId(identity.get("signerId"), evidence.actorId())
+                    || !numericId(identity.get("tenantId"), TenantContextHolder.getRequiredTenantId())
+                    || !positiveJsonId(identity.get("operatorId"))
+                    || !identity.path("displayName").isTextual() || identity.path("displayName").asText().isBlank())
+                throw exception(EVIDENCE_INVALID);
+            expectedContent.set("signatureIdentity", identity);
+        } else if (!"SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod()) || identity != null) {
+            throw exception(EVIDENCE_INVALID);
+        }
+        if (!expectedContent.equals(actual))
+            throw exception(EVIDENCE_INVALID);
+        MesBatchRecordSignatureSubjectAdapter.verifiedUserOpinion(evidence.subjectId(), evidence.actionCode(), evidence.reason());
+    }
+
+    private static boolean positiveJsonId(com.fasterxml.jackson.databind.JsonNode node) {
+        return node != null && node.isIntegralNumber() && node.canConvertToLong() && node.longValue() > 0;
+    }
+
+    private static boolean numericId(com.fasterxml.jackson.databind.JsonNode node, Long id) {
+        return positiveJsonId(node) && Objects.equals(node.longValue(), id);
+    }
+
+    private static boolean exactId(com.fasterxml.jackson.databind.JsonNode node, Long id) {
+        return positive(id) && (node.isIntegralNumber() || node.isTextual()) && Objects.equals(id.toString(), node.asText());
+    }
+
+    public static void requireVerification(ElectronicSignatureEvidenceDTO evidence, ElectronicSignatureVerificationDTO verification) {
+        if (verification == null || !Objects.equals(verification.signatureId(), evidence.id())
+                || !Objects.equals(verification.storedContentHash(), evidence.contentHash())
+                || !Objects.equals(verification.storedEvidenceHash(), evidence.evidenceHash())
+                || !Objects.equals(verification.algorithm(), evidence.algorithm()) || !Objects.equals(verification.keyVersion(), evidence.keyVersion())
+                || !"LOCAL_DIGEST_TIME_AND_CREATION_AUDIT".equals(verification.verificationScope())
+                || !"NOT_BOUND".equals(verification.timeTrustStatus()) || verification.verifiedAt() == null
+                || verification.evidenceFormatVersion() == null
+                || !Set.of("V1", "V2", "UNSUPPORTED").contains(verification.evidenceFormatVersion())
+                || verification.timeSource() == null || !Set.of("SERVER_CLOCK", "UNKNOWN").contains(verification.timeSource()))
+            throw exception(VERIFICATION_INVALID);
+        List<String> dimensions = Arrays.asList(verification.digestStatus(), verification.timeConsistencyStatus(), verification.auditBindingStatus());
+        if (dimensions.stream().anyMatch(s -> s == null || !Set.of("CONSISTENT", "MISSING", "MISMATCH").contains(s)))
+            throw exception(VERIFICATION_INVALID);
+        boolean hashesMatch = evidence.contentHash() != null && !evidence.contentHash().isBlank()
+                && evidence.evidenceHash() != null && !evidence.evidenceHash().isBlank()
+                && Objects.equals(evidence.contentHash(), verification.calculatedContentHash())
+                && Objects.equals(evidence.evidenceHash(), verification.calculatedEvidenceHash());
+        if ("CONSISTENT".equals(verification.digestStatus()) && !hashesMatch) throw exception(VERIFICATION_INVALID);
+        if ("UNSUPPORTED".equals(verification.evidenceFormatVersion()) && !"MISMATCH".equals(verification.digestStatus()))
+            throw exception(VERIFICATION_INVALID);
+        if ("CONSISTENT".equals(verification.timeConsistencyStatus()) && !"SERVER_CLOCK".equals(verification.timeSource()))
+            throw exception(VERIFICATION_INVALID);
+        String overall = dimensions.contains("MISMATCH") ? "MISMATCH" : dimensions.contains("MISSING") ? "INCOMPLETE" : "VALID";
+        if (!Objects.equals(overall, verification.verificationStatus())) throw exception(VERIFICATION_INVALID);
     }
 
     private Result readBpmMarketRelease(MesTeamLeaderActiveOrderDetail detail, List<Binding> bindings,
@@ -233,8 +436,9 @@ public class MesActiveOrderSignatureEvidenceService {
                 || !Objects.equals(marketSignoff.findVerifiedSignatureId(task.getId(), transaction.getApprovedBy(),
                         evidence.subjectId(), transaction.getApprovalSignoffEvidenceHash(), transaction.getApprovalOpinion())
                         .orElse(null), evidence.id())) throw exception(EVIDENCE_INVALID);
-        return new Result(detail.getActiveOrderId(), bindings.get(0).signerName(), evidence,
-                signatureQueryService.verifyEvidence(evidence.id()));
+        var verification = verifiedSignatureFacts.requireVerifiedFact(evidence.id()).verification();
+        requireVerification(evidence, verification);
+        return new Result(detail.getActiveOrderId(), bindings.get(0).signerName(), evidence, verification);
     }
 
     private static void add(List<Binding> bindings, MesTeamLeaderActiveOrderDetail.SignatureDetail signature,
@@ -335,7 +539,7 @@ public class MesActiveOrderSignatureEvidenceService {
                 evidence.subjectVersion(), evidence.reason()));
         if (!Objects.equals(expectedSubject, evidence.subjectId())
                 || !Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(expectedSubject), evidence.subjectVersion())
-                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson()))) {
+                || !JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson()))) {
             throw exception(EVIDENCE_INVALID);
         }
         requireCorrectionAudit(evidence, event, review, revision, snapshot.getLong("supersededReviewId"),
@@ -412,16 +616,13 @@ public class MesActiveOrderSignatureEvidenceService {
                 var event = eventMapper.selectById(eventId);
                 if (event != null && Objects.equals(event.getSignatureId(), evidence.id())) {
                     if (!Objects.equals(event.getSignatureUserId(), evidence.actorId())) throw exception(EVIDENCE_INVALID);
-                    var signatureIdentity = content.getJSONObject("signatureIdentity");
+                    var signatureIdentity = JSON.parseObject(content.getString("signatureIdentity"));
                     if (signatureIdentity != null) {
                         var payload = JSON.parseObject(event.getRawPayload());
-                        String domain = binding.actions().contains("PQC_SUBMIT") ? "SYSTEM_USER"
-                                : payload == null ? null : payload.getString("signatureIdentityDomain");
-                        if (!Objects.equals(domain, signatureIdentity.getString("domain"))
+                        String domain = binding.actions().contains("PQC_SUBMIT") ? "SYSTEM_USER" : payload == null ? null : payload.getString("signatureIdentityDomain");
+                        if (!Objects.equals(domain, signatureIdentity.getString("domain")) || !Objects.equals(event.getTenantId(), signatureIdentity.getLong("tenantId"))
                                 || !Objects.equals(event.getSignatureUserId(), signatureIdentity.getLong("signerId"))
-                                || !Objects.equals(event.getDeviceAccountId(), signatureIdentity.getLong("operatorId"))) {
-                            throw exception(EVIDENCE_INVALID);
-                        }
+                                || !Objects.equals(event.getDeviceAccountId(), signatureIdentity.getLong("operatorId"))) throw exception(EVIDENCE_INVALID);
                     }
                     if (binding.actions().contains("PRODUCTION_SUBMIT")
                             && MesProductionSubmitSignatureContext.SOURCE_TYPE.equals(subject[9])) {

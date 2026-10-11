@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+// Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesCorrectionSignatureEvidenceReaderTest {
     @AfterEach void clear() { TenantContextHolder.clear(); }
     @Test void immutableHistoricalRevisionReadsFrozenSignerWithoutCurrentAccountOrCurrentPayload() {
@@ -44,7 +45,9 @@ class MesCorrectionSignatureEvidenceReaderTest {
             case "snapshot" -> f.revision.setRevisionSignatureSnapshot("{}");
             case "missingSignature" -> when(f.signatures.getById(11L)).thenReturn(null);
             case "canonical" -> f.stubEvidence("{\"actionType\":\"PQC_SUBMIT\"}");
-            case "hash" -> when(f.signatures.verifyEvidence(11L)).thenReturn(new ElectronicSignatureVerificationDTO(11L,"VALID","content","changed","evidence","evidence","SHA-256","1"));
+            case "hash" -> when(f.signatures.verifyEvidence(11L)).thenReturn(new ElectronicSignatureVerificationDTO(11L,"VALID","content","changed","evidence","evidence","SHA-256","1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                    "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
             case "auditTenant" -> f.audit.setTenantId(2L);
             case "auditSource" -> f.audit.setSourceLocator("another.writer#correct");
             case "auditSignature" -> f.audit.setSignatureRecordId("12");
@@ -58,6 +61,11 @@ class MesCorrectionSignatureEvidenceReaderTest {
             case "duplicateDiff" -> when(f.diffs.selectListByRevisionIds(List.of(10L))).thenReturn(List.of(f.diff,f.diff));
             case "simulated" -> f.event.setSimulated(true);
             default -> throw new AssertionError(broken);
+        }
+        if ("hash".equals(broken)) {
+            var port = (cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService) org.springframework.test.util.ReflectionTestUtils.getField(f.reader, "verifiedSignatureFacts");
+            doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID, "签名事实未通过完整核验")).when(port).requireVerifiedFact(11L);
         }
         var failure = assertThrows(IllegalStateException.class, () -> f.reader.require(f.event, f.revision));
         assertTrue(failure.getMessage().startsWith("CORRECTION_EVIDENCE_INVALID:"));
@@ -76,7 +84,7 @@ class MesCorrectionSignatureEvidenceReaderTest {
         assertEquals("冻结本人", f.reader.read(f.event, f.revision).signerName());
         assertEquals(f.challenge, MesProBatchRecordExecutionFieldAuditHasher.sha256("1|"
                 + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(persisted) + "|核对记录"));
-        verify(f.signatures).verifyEvidence(11L);
+        verify(f.signatures, times(3)).verifyEvidence(11L);
     }
 
     @ParameterizedTest @org.junit.jupiter.params.provider.MethodSource("canonicalPayloadChanges")
@@ -138,6 +146,7 @@ class MesCorrectionSignatureEvidenceReaderTest {
         final String subject;
         Fixture() { this("{\"outputQuantity\":11}", false); }
         Fixture(String afterPayload, boolean pqc) {
+            cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(reader, signatures, 1L);
             revision.setAfterPayload(afterPayload);
             var before = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(afterPayload);
             before.put("outputQuantity", 10);
@@ -151,7 +160,9 @@ class MesCorrectionSignatureEvidenceReaderTest {
             when(diffs.selectListByRevisionIds(List.of(10L))).thenReturn(List.of(diff));
             var canonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(7L,"MES","FIELD_CHANGE","MES_BATCH_RECORD",subject,MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),"核对记录")).canonicalContentJson();
             stubEvidence(canonical);
-            when(signatures.verifyEvidence(11L)).thenReturn(new ElectronicSignatureVerificationDTO(11L,"VALID","content","content","evidence","evidence","SHA-256","1"));
+            when(signatures.verifyEvidence(11L)).thenReturn(new ElectronicSignatureVerificationDTO(11L,"VALID","content","content","evidence","evidence","SHA-256","1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                    "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
             audit.setId(40L);audit.setTenantId(1L);audit.setOperationId("mes.production-report.correct");audit.setSubjectId("MES_PROCESS_POOL_EVENT:1");
             audit.setRequestId("MES-PRODUCTION-CORRECTION:10");audit.setActorId(7L);audit.setSignatureRecordId("11");audit.setSignatureContentHash("content");
             audit.setReason("核对记录");audit.setReasonSource("USER");audit.setReasonCode("MES_PRODUCTION_REPORT_CORRECT");audit.setResultStatus("SUCCESS");audit.setEventSchemaVersion(2);
@@ -167,7 +178,7 @@ class MesCorrectionSignatureEvidenceReaderTest {
         }
         void stubEvidence(String canonical) {
             when(signatures.getById(11L)).thenReturn(new ElectronicSignatureEvidenceDTO(11L,"MES","FIELD_CHANGE","MES_BATCH_RECORD",subject,
-                    MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),7L,"CHANGE","更正","核对记录",time,null,"PASSWORD","content","evidence","SHA-256","1","1","VALID",
+                    MesProBatchRecordExecutionFieldAuditHasher.sha256(subject),7L,"CHANGE","更正","核对记录",time,null,"SESSION_PLUS_PASSWORD","content","evidence","SHA-256","1","1","VALID",
                     null,null,null,null,canonical,null,null,null,"当前名字不同"));
         }
         void pqc() {

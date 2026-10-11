@@ -4114,11 +4114,14 @@
 </template>
 
 <script setup lang="ts">
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
 import { watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { handoffNavigationContext } from '@/api/mes/pro/handoff'
-import { resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
+import { isClosedHandoffCompletion, resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TableMultiFilter from '@/components/TableMultiFilter/index.vue'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
@@ -4955,6 +4958,7 @@ const pagedPqcPersonnelRows = computed(() => {
 })
 
 const canReviewSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
   !isProductionLeader.value &&
   !row.released &&
@@ -4973,15 +4977,18 @@ const requiresOwnProductionReturnCorrection = (row: ProcessPoolTimelineEventVO) 
 }
 
 const canCorrectSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   !(isProductionReportHistoryTab.value || isPqcFormHistoryTab.value) &&
   !requiresOwnProductionReturnCorrection(row) &&
   (isProductionLeader.value || !row.released) &&
   Boolean(row.id)
 
 const canAllocateSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   isProductionLeader.value && !isProductionReportHistoryTab.value && Boolean(row.id)
 
 const canRejectProductionSubmission = (row: ProcessPoolTimelineEventVO) =>
+  route.query.handoffReadOnly !== '1' &&
   isProductionLeader.value &&
   !isProductionReportHistoryTab.value &&
   row.submissionReviewStatus !== 'REJECTED' &&
@@ -6156,7 +6163,7 @@ const resetTemporarySignaturePassword = async (row: TeamProductionEmployeeRespVO
       employeeProfileId: requirePositiveNumber(row.id, '生产人员档案ID不能为空'),
       signaturePassword: String(result.value || '')
     })
-    ElMessage.success('临时工签名密码已重置')
+    ElMessage.success('临时凭据已设置，员工首次使用须更换')
     await refreshProductionPersonnel()
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
@@ -6171,10 +6178,16 @@ const resetReviewAllocation = () => {
   allocationSaveIdempotencyState.value = undefined
 }
 
+let activeOrderReadGeneration = 0
 const loadActiveOrders = async () => {
+  const generation = ++activeOrderReadGeneration
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeLeaderTab.value])
+  const isCurrent = () => generation === activeOrderReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, activeLeaderTab.value])
   activeOrderLoading.value = true
   try {
-    activeOrderOptions.value = await getTeamLeaderActiveOrderList()
+    const orders = await getTeamLeaderActiveOrderList({ ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    activeOrderOptions.value = orders
     const maxPage = Math.max(
       1,
       Math.ceil(filteredActiveOrderRows.value.length / activeOrderQuery.pageSize)
@@ -6183,10 +6196,11 @@ const loadActiveOrders = async () => {
       activeOrderQuery.pageNo = maxPage
     }
   } catch (error) {
+    if (!isCurrent()) return
     activeOrderOptions.value = []
     throw error
   } finally {
-    activeOrderLoading.value = false
+    if (isCurrent()) activeOrderLoading.value = false
   }
 }
 
@@ -8644,22 +8658,29 @@ const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   }
 }
 
+let submissionReadGeneration = 0
 async function getSubmissionList() {
+  const generation = ++submissionReadGeneration
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildSubmissionParams()])
+  const isCurrent = () => generation === submissionReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildSubmissionParams()])
   loading.value = true
   loadError.value = ''
   try {
     const data = await getTeamLeaderSubmissionPage(buildSubmissionParams())
+    if (!isCurrent()) return
     const list = data.list || []
     await enrichSubmissionMaterialNames(list)
+    if (!isCurrent()) return
     submissionList.value = list
     submissionTotal.value = data.total || 0
   } catch (error) {
+    if (!isCurrent()) return
     submissionList.value = []
     submissionTotal.value = 0
     loadError.value = resolveErrorMessage(error, '班组长提交看板加载失败')
     ElMessage.error(loadError.value)
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
@@ -8845,7 +8866,16 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   await loadSubmissionDetail(eventId)
 }
 
+const leaderReviewGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, reviewEvent.value?.id, reviewDialogMode.value]))
+const resetLeaderReviewContext = () => { leaderReviewGuard.invalidate(); reviewSubmitting.value = false; reviewForm.reviewSignaturePassword = '' }
+watch(reviewVisible, resetLeaderReviewContext, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetLeaderReviewContext(); reviewVisible.value = false }, { flush: 'sync' })
+onBeforeUnmount(resetLeaderReviewContext)
+onDeactivated(resetLeaderReviewContext)
+watch(() => approvalInvalidation.syncSession().key, () => { resetLeaderReviewContext(); reviewVisible.value = false }, { flush: 'sync' })
+
 const openReview = async (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (route.query.handoffReadOnly === '1' || !canReviewSubmission(event)) {
     ElMessage.error('已完成复核的提交不能重复复核')
@@ -8864,10 +8894,12 @@ const openReview = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
+  const isCurrent = leaderReviewGuard.capture()
   if (isProductionLeader.value) {
     try {
       await loadActiveOrders()
     } catch (error) {
+    if (!isCurrent()) return
       ElMessage.error(resolveErrorMessage(error, '活跃订单加载失败'))
     }
   }
@@ -8890,6 +8922,7 @@ const openPqcSubmissionNonconformanceReview = (row: ProcessPoolTimelineEventVO) 
 }
 
 const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canRejectProductionSubmission(event)) {
     ElMessage.error('已放行或已处理的生产报工不能驳回')
@@ -8905,6 +8938,7 @@ const openProductionReject = (event: ProcessPoolTimelineEventVO) => {
 }
 
 const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
+  resetLeaderReviewContext()
   requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
   if (!canAllocateSubmission(event)) {
     ElMessage.error('当前报工不在可分配列表中')
@@ -8917,6 +8951,7 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
   reviewVisible.value = true
+  const isCurrent = leaderReviewGuard.capture()
   try {
     const [snapshot] = await Promise.all([
       getCurrentTeamLeaderReportAllocation(
@@ -8925,9 +8960,11 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
       ),
       loadActiveOrders()
     ])
+    if (!isCurrent()) return
     applyAllocationSnapshot(snapshot)
     prefillSelectedOrderAllocation(event, snapshot)
   } catch (error) {
+    if (!isCurrent()) return
     ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
   }
 }
@@ -8944,8 +8981,14 @@ const requireProductionDisplayedReview = () => {
 }
 
 const submitReview = async () => {
+  if (reviewSubmitting.value) return
+  let isCurrent = leaderReviewGuard.capture()
+  const mode = reviewDialogMode.value
+  const status = reviewForm.reviewStatus
+  const productionLeader = isProductionLeader.value
   const eventId = requirePositiveNumber(reviewEvent.value?.id, '工序池提交事件编号不能为空')
-  if (reviewForm.reviewStatus === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
+  const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId)
+  if (status === 'REJECTED' && !reviewForm.reviewRemark.trim()) {
     ElMessage.error('退回复核必须填写复核说明')
     return
   }
@@ -8954,7 +8997,7 @@ const submitReview = async () => {
   try {
     const leaderType = resolveCurrentLeaderType()
     const reviewRemark = reviewForm.reviewRemark.trim() || undefined
-    if (reviewDialogMode.value === 'REJECTION') {
+    if (mode === 'REJECTION') {
       const reviewSignaturePayload = buildReviewSignaturePayload()
       await reviewTeamLeaderSubmission({
         leaderType: 'PRODUCTION',
@@ -8964,8 +9007,8 @@ const submitReview = async () => {
         reviewRemark,
         ...reviewSignaturePayload
       })
-    } else if (isProductionLeader.value && reviewForm.reviewStatus === 'APPROVED') {
-      if (reviewDialogMode.value === 'ALLOCATION') {
+    } else if (productionLeader && status === 'APPROVED') {
+      if (mode === 'ALLOCATION') {
         const allocations = buildAllocationSubmitLines()
         const reviewSignaturePayload = buildReviewSignaturePayload()
         const snapshot = await confirmTeamLeaderReportAllocation({
@@ -8986,6 +9029,9 @@ const submitReview = async () => {
           ...reviewSignaturePayload,
           allocations
         })
+        writeCompleted = true
+        approvalInvalidation.publishEdhrSuccess(approvalEvent)
+        if (!isCurrent()) return
         applyAllocationSnapshot(snapshot)
       } else {
         const reviewSignaturePayload = buildReviewSignaturePayload()
@@ -9005,40 +9051,45 @@ const submitReview = async () => {
       await reviewTeamLeaderSubmission({
         leaderType,
         eventId,
-        reviewStatus: reviewForm.reviewStatus,
+        reviewStatus: status,
         expectedReviews: reviewEvent.value?.expectedReviews,
         reviewRemark,
         ...reviewSignaturePayload
       })
     }
     writeCompleted = true
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (!isCurrent()) return
     ElMessage.success(
-      reviewDialogMode.value === 'ALLOCATION'
+      mode === 'ALLOCATION'
         ? '分配已保存'
-        : reviewDialogMode.value === 'REJECTION'
+        : mode === 'REJECTION'
           ? '生产报工已驳回'
           : '复核已提交'
     )
     reviewVisible.value = false
+    isCurrent = leaderReviewGuard.capture()
     if (
-      isProductionLeader.value &&
-      (reviewForm.reviewStatus === 'APPROVED' || reviewDialogMode.value === 'REJECTION')
+      productionLeader &&
+      (status === 'APPROVED' || mode === 'REJECTION')
     ) {
       await Promise.all([getSubmissionList(), loadActiveOrders()])
     } else {
       await getSubmissionList()
     }
   } catch (error) {
-    if (reviewDialogMode.value === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
+    if (!isCurrent()) return
+    if (mode === 'ALLOCATION' && isReportAllocationVersionConflict(error)) {
       try {
         const latest = await getCurrentTeamLeaderReportAllocation(
           eventId,
           resolveCurrentLeaderType()
         )
+        if (!isCurrent()) return
         applyAllocationSnapshot(latest)
         ElMessage.error('分配版本已更新，已加载最新分配，请确认后重新保存')
       } catch (refreshError) {
-        ElMessage.error(resolveErrorMessage(refreshError, '分配版本冲突，最新分配加载失败'))
+        if (isCurrent()) ElMessage.error(resolveErrorMessage(refreshError, '分配版本冲突，最新分配加载失败'))
       }
       return
     }
@@ -9046,18 +9097,18 @@ const submitReview = async () => {
       resolveErrorMessage(
         error,
         writeCompleted
-          ? reviewDialogMode.value === 'ALLOCATION'
+          ? mode === 'ALLOCATION'
             ? '分配已保存，但列表刷新失败'
-            : reviewDialogMode.value === 'REJECTION'
+            : mode === 'REJECTION'
               ? '生产报工已驳回，但列表刷新失败'
               : '复核已提交，但列表刷新失败'
-          : reviewDialogMode.value === 'REJECTION'
+          : mode === 'REJECTION'
             ? '生产报工驳回失败'
             : '复核提交失败'
       )
     )
   } finally {
-    reviewSubmitting.value = false
+    if (isCurrent()) reviewSubmitting.value = false
   }
 }
 
@@ -9387,10 +9438,13 @@ const buildPqcCorrectionRequest = () => {
 }
 
 const submitCorrection = async () => {
-  requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
+  const eventId = requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
+  const approvalEvent = correctionEvent.value?.submissionReviewStatus === 'REJECTED'
+    ? approvalInvalidation.captureHandoffSourceSuccess('PROCESS_POOL_EVENT', eventId) : undefined
   const valid = await correctionFormRef.value?.validate?.().catch(() => false)
   if (valid === false) return
   correctionSubmitting.value = true
+  let writeSucceeded = false
   try {
     const isPqcCorrection = correctionForm.correctionMode === 'PQC'
     if (isPqcCorrection) {
@@ -9398,6 +9452,9 @@ const submitCorrection = async () => {
     } else {
       await correctProcessPoolProductionReport(buildProductionCorrectionRequest())
     }
+    if (approvalEvent) approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    writeSucceeded = true
+    if (approvalEvent && !approvalInvalidation.isCurrent(approvalEvent.session.key)) return
     ElMessage.success(
       isPqcCorrection ? 'PQC表单修改已提交，修改日志已记录' : '修改已提交，修改日志已记录'
     )
@@ -9407,7 +9464,7 @@ const submitCorrection = async () => {
     ElMessage.error(
       resolveErrorMessage(
         error,
-        correctionForm.correctionMode === 'PQC' ? 'PQC表单修改失败' : '报工修改失败'
+        writeSucceeded ? '更正已成功，但列表刷新失败' : correctionForm.correctionMode === 'PQC' ? 'PQC表单修改失败' : '报工修改失败'
       )
     )
   } finally {
@@ -9619,10 +9676,12 @@ const submitAddActiveOrder = async () => {
   let writeCompleted = false
   try {
     const workOrderId = await requireSelectedActiveOrderCandidateWorkOrderId()
+    const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('WORK_ORDER', workOrderId)
     const receipt = await addTeamLeaderActiveOrder({
       workOrderId
     })
     writeCompleted = true
+    if (receipt.action === 'ADD') approvalInvalidation.publishEdhrSuccess(approvalEvent)
     requirePositiveNumber(receipt.activeOrderId, '活跃订单提交回执缺少订单ID')
     const successMessage = activeOrderCommitSuccessMessage(receipt.action)
     ElMessage.success(successMessage)
@@ -9686,9 +9745,32 @@ const resolveActiveOrderReleaseFailure = (
   return blockersAreComplete ? (candidate as TeamLeaderActiveOrderReleaseFailureRespVO) : undefined
 }
 
-const isDefinitiveActiveOrderReleaseBusinessFailure = (error: unknown) => {
-  const code = (error as { code?: unknown } | null)?.code
-  return typeof code === 'number' && Number.isFinite(code)
+const isActiveOrderReleaseTransportTimeout = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { isAxiosError?: unknown; code?: unknown; response?: unknown; request?: unknown }
+  return candidate.isAxiosError === true && candidate.response == null && candidate.request != null &&
+    (candidate.code === 'ECONNABORTED' || candidate.code === 'ETIMEDOUT')
+}
+
+const requireActiveOrderReleaseIdentity = (value: unknown, message: string): string => {
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) return value
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) return String(value)
+  throw new Error(message)
+}
+
+const freezeActiveOrderReleaseRequest = (row: TeamLeaderActiveOrderRespVO) => {
+  const session = approvalInvalidation.syncSession()
+  const activeOrderId = requireActiveOrderReleaseIdentity(row.id, '活跃订单记录ID缺失或不精确')
+  return Object.freeze({
+    rowId: row.id,
+    activeOrderId,
+    workOrderId: requireActiveOrderReleaseIdentity(row.workOrderId, '正式工单ID缺失或不精确'),
+    routeId: requireActiveOrderReleaseIdentity(row.routeId, '正式路线ID缺失或不精确'),
+    routeVersionId: requireActiveOrderReleaseIdentity(row.routeVersionId, '正式路线版本ID缺失或不精确'),
+    idempotencyKey: getOrCreateActiveOrderReleaseIdempotencyKey(row),
+    session,
+    approvalEvent: approvalInvalidation.captureHandoffReceiptSuccess(session, 'ACTIVE_ORDER', activeOrderId)
+  })
 }
 
 const applyActiveOrderReleaseReceiptToRow = (
@@ -9703,53 +9785,63 @@ const applyActiveOrderReleaseReceiptToRow = (
 }
 
 const confirmActiveOrderReleaseApplicationReceipt = async (
-  row: TeamLeaderActiveOrderRespVO
+  request: ReturnType<typeof freezeActiveOrderReleaseRequest>,
+  isCurrent: () => boolean
 ): Promise<TeamLeaderActiveOrderReleaseApplyRespVO> => {
-  const receipt = await getTeamLeaderActiveOrderRelease(row.id)
-  assertActiveOrderReleaseApplicationReceipt(receipt, row.id)
+  const receipt = await getTeamLeaderActiveOrderRelease(request.activeOrderId, { isRequestContextCurrent: isCurrent })
+  assertActiveOrderReleaseApplicationReceipt(receipt, request.activeOrderId)
+  if (!receipt.requestIdempotencyKey || receipt.requestIdempotencyKey !== request.idempotencyKey) {
+    throw new Error('正式回执的请求幂等键与本次申请不一致或缺失')
+  }
+  for (const field of ['workOrderId', 'routeId', 'routeVersionId'] as const) {
+    if (requireActiveOrderReleaseIdentity(receipt[field], '正式回执来源ID缺失或不精确') !== request[field]) {
+      throw new Error('正式回执的工单或路线版本与本次申请不一致')
+    }
+  }
   return receipt
 }
 
 const recoverUncertainActiveOrderReleaseApplication = async (
-  row: TeamLeaderActiveOrderRespVO,
-  writeError: unknown
-) => {
+  request: ReturnType<typeof freezeActiveOrderReleaseRequest>,
+  writeError: unknown,
+  isCurrent: () => boolean
+): Promise<TeamLeaderActiveOrderReleaseApplyRespVO | undefined> => {
   let receipt: TeamLeaderActiveOrderReleaseApplyRespVO
   try {
-    receipt = await confirmActiveOrderReleaseApplicationReceipt(row)
+    receipt = await confirmActiveOrderReleaseApplicationReceipt(request, isCurrent)
   } catch (confirmationError) {
-    releaseApplicationLocks.set(row.id, 'UNCERTAIN')
+    if (!isCurrent()) return
+    releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
-      `申请响应不确定，正式回执确认失败，请人工核对后刷新页面：` +
-      `写入错误 ${resolveErrorMessage(writeError, '申请响应异常')}；` +
-      `回执错误 ${resolveErrorMessage(confirmationError, '正式回执确认失败')}`
+      `申请响应不确定，回执未能确认本次请求：${resolveErrorMessage(confirmationError, '回执确认失败')}；写入错误：${resolveErrorMessage(writeError, '响应异常')}`
     ElMessage.error(releaseApplicationUncertainMessage.value)
     return
   }
-
-  releaseApplicationIdempotencyKeys.delete(row.id)
-  applyActiveOrderReleaseReceiptToRow(row, receipt)
-  releaseApplicationLocks.set(row.id, 'RECOVERED')
-  releaseApplicationUncertainMessage.value = ''
-  ElMessage.warning(
-    `申请响应异常，但正式回执已确认：${formatActiveOrderReleaseStatus(receipt.status)}`
-  )
+  // The formal write belongs to the frozen session/source even if the UI has moved on.
+  approvalInvalidation.publishEdhrSuccess(request.approvalEvent)
+  return receipt
 }
+
+const leaderReleaseGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath]))
+watch(() => route.fullPath, () => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined }, { flush: 'sync' })
+onBeforeUnmount(() => leaderReleaseGuard.invalidate())
+onDeactivated(() => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined })
+watch(() => approvalInvalidation.syncSession().key, () => { leaderReleaseGuard.invalidate(); releaseApplicationSubmittingId.value = undefined }, { flush: 'sync' })
 
 const assertActiveOrderReleaseApplicationReceipt = (
   result: TeamLeaderActiveOrderReleaseApplyRespVO,
   activeOrderId: number | string,
   requireInitialStatus = false
 ) => {
-  if (String(result.activeOrderId) !== String(activeOrderId)) {
+  if (!result || requireActiveOrderReleaseIdentity(result.activeOrderId, '放行申请回执缺少活跃订单ID') !== requireActiveOrderReleaseIdentity(activeOrderId, '原活跃订单ID缺失或不精确')) {
     throw new Error('放行申请回执的活跃订单与当前订单不一致')
   }
-  requirePositiveNumber(result.applicationId, '放行申请回执缺少申请记录ID')
-  requirePositiveNumber(result.workOrderId, '放行申请回执缺少生产工单ID')
-  requirePositiveNumber(result.routeId, '放行申请回执缺少工艺路线ID')
-  requirePositiveNumber(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
-  requirePositiveNumber(result.batchExecutionId, '放行申请回执缺少P2批次执行ID')
-  requirePositiveNumber(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
+  requireActiveOrderReleaseIdentity(result.applicationId, '放行申请回执缺少申请记录ID')
+  requireActiveOrderReleaseIdentity(result.workOrderId, '放行申请回执缺少生产工单ID')
+  requireActiveOrderReleaseIdentity(result.routeId, '放行申请回执缺少工艺路线ID')
+  requireActiveOrderReleaseIdentity(result.routeVersionId, '放行申请回执缺少工艺路线版本ID')
+  requireActiveOrderReleaseIdentity(result.batchExecutionId, '放行申请回执缺少P2批次执行ID')
+  requireActiveOrderReleaseIdentity(result.pqcReleaseWorkTaskId, '放行申请回执缺少PQC放行待办ID')
   if (!isActiveOrderReleaseStatus(result.status)) {
     throw new Error(`不支持的放行申请状态：${String(result.status)}`)
   }
@@ -9759,73 +9851,93 @@ const assertActiveOrderReleaseApplicationReceipt = (
   if (!result.sourceSnapshotHash?.trim()) {
     throw new Error('放行申请回执缺少正式来源快照哈希')
   }
-  requirePositiveNumber(result.version, '放行申请回执缺少正式版本号')
+  if (!Number.isSafeInteger(result.version) || result.version <= 0) {
+    throw new Error('放行申请回执缺少精确正式版本号')
+  }
   if (!result.appliedAt) throw new Error('放行申请回执缺少申请时间')
 }
 
 const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRespVO) => {
-  if (activeOrderTestResetSubmitting.value) return
-  if (!canApplyActiveOrderRelease(row)) {
+  if (activeOrderTestResetSubmitting.value || releaseApplicationSubmittingId.value !== undefined) return
+  leaderReleaseGuard.invalidate()
+  const guardIsCurrent = leaderReleaseGuard.capture()
+  let frozenSourceKey = ''
+  const rowSourceKey = () => JSON.stringify([String(row.id), String(row.workOrderId), String(row.routeId), String(row.routeVersionId), row.version])
+  const isCurrent = () => guardIsCurrent() && (!frozenSourceKey || frozenSourceKey === rowSourceKey())
+  if (!canApplyActiveOrderRelease(row) || isActiveOrderReleaseApplicationLocked(row.id)) {
     ElMessage.warning(resolveActiveOrderReleaseApplyDisabledReason(row))
     return
   }
+  let request: ReturnType<typeof freezeActiveOrderReleaseRequest>
   try {
+    request = freezeActiveOrderReleaseRequest(row)
+    frozenSourceKey = rowSourceKey()
     await ElMessageBox.confirm(
       '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。',
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
   } catch (confirmationAction) {
+    if (!isCurrent()) return
     if (confirmationAction === 'cancel' || confirmationAction === 'close') return
     ElMessage.error(resolveErrorMessage(confirmationAction, '申请确认弹窗打开失败'))
     return
   }
-  if (activeOrderTestResetSubmitting.value) return
-  const activeOrderId = requirePositiveNumber(row.id, '活跃订单记录ID不能为空')
-  const idempotencyKey = getOrCreateActiveOrderReleaseIdempotencyKey(row)
+  if (!isCurrent() || activeOrderTestResetSubmitting.value) return
   releaseApplicationSubmittingId.value = row.id
+  releaseApplicationLocks.set(request.rowId, 'UNCERTAIN')
   releaseApplicationBlockers.value = []
   releaseApplicationUncertainMessage.value = ''
   let result: TeamLeaderActiveOrderReleaseApplyRespVO | undefined
+  let recovered = false
   try {
     result = await applyWithNoReplenishmentConfirmation(
       (confirmNoReplenishmentInfo) => applyTeamLeaderActiveOrderRelease({
-        activeOrderId,
-        idempotencyKey,
+        activeOrderId: request.activeOrderId,
+        idempotencyKey: request.idempotencyKey,
         applyRemark: '生产组长提交生产放行申请',
         confirmNoReplenishmentInfo
-      }),
+      }, { isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()}),
       () => ElMessageBox.confirm(
         '完成时未查到生产补料单。确认后将按无正式损耗完成订单；取消则不完成。',
         '确认无补料信息',
         { type: 'warning', confirmButtonText: '确认无补料信息', cancelButtonText: '取消' }
       ),
-      (error) => resolveErrorMessage(error, '生产完工失败')
+      (error) => resolveErrorMessage(error, '生产完工失败'),
+      isCurrent
     )
     if (!result) {
+      if (!isCurrent()) return
+      releaseApplicationLocks.delete(request.rowId)
       releaseApplicationSubmittingId.value = undefined
       return
     }
+    approvalInvalidation.publishEdhrSuccess(request.approvalEvent)
+    if (!isCurrent()) return
   } catch (writeError) {
-    const failure = resolveActiveOrderReleaseFailure(writeError)
-    if (failure) {
-      releaseApplicationBlockers.value = failure.blockers
-      releaseApplicationLocks.delete(row.id)
-      releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, failure.blockers[0].reason))
-    } else if (isDefinitiveActiveOrderReleaseBusinessFailure(writeError)) {
-      releaseApplicationLocks.delete(row.id)
-      releaseApplicationUncertainMessage.value = ''
-      ElMessage.error(resolveErrorMessage(writeError, '生产完工或放行申请失败'))
+    if (isActiveOrderReleaseTransportTimeout(writeError)) {
+      // A stale UI must not suppress read-only confirmation or its original cache event.
+      recovered = true
+      result = await recoverUncertainActiveOrderReleaseApplication(request, writeError, isCurrent)
+      if (!isCurrent()) return
+      if (!result) {
+        releaseApplicationSubmittingId.value = undefined
+        return
+      }
     } else {
-      await recoverUncertainActiveOrderReleaseApplication(row, writeError)
+      if (!isCurrent()) return
+      const failure = resolveActiveOrderReleaseFailure(writeError)
+      releaseApplicationBlockers.value = failure?.blockers ?? []
+      releaseApplicationLocks.delete(request.rowId)
+      releaseApplicationUncertainMessage.value = ''
+      ElMessage.error(resolveErrorMessage(writeError, failure?.blockers[0].reason ?? '生产完工或放行申请失败'))
+      releaseApplicationSubmittingId.value = undefined
+      return
     }
-    releaseApplicationSubmittingId.value = undefined
-    return
   }
 
   try {
-    assertActiveOrderReleaseApplicationReceipt(result, row.id, true)
+    assertActiveOrderReleaseApplicationReceipt(result, request.activeOrderId, !recovered)
   } catch (receiptError) {
     releaseApplicationLocks.set(row.id, 'UNCERTAIN')
     releaseApplicationUncertainMessage.value =
@@ -9843,18 +9955,20 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
   ElMessage.success('完工已完成：P2已生成，P3已推送至PQC生产放行')
   try {
     await loadActiveOrders()
-    const refreshedReceipt = activeOrderOptions.value.find((candidate) => candidate.id === row.id)
+    if (!isCurrent()) return
+    const refreshedReceipt = activeOrderOptions.value.find((candidate) => String(candidate.id) === request.activeOrderId)
     if (refreshedReceipt) {
       applyActiveOrderReleaseReceiptToRow(refreshedReceipt, result)
       releaseApplicationLocks.delete(row.id)
       releaseApplicationUncertainMessage.value = ''
     }
   } catch (refreshError) {
+    if (!isCurrent()) return
     releaseApplicationLocks.set(row.id, 'CONFIRMED_REFRESH_FAILED')
     releaseApplicationUncertainMessage.value = `申请已提交，但列表刷新失败：${resolveErrorMessage(refreshError, '列表刷新失败')}`
     ElMessage.error(releaseApplicationUncertainMessage.value)
   } finally {
-    releaseApplicationSubmittingId.value = undefined
+    if (isCurrent()) releaseApplicationSubmittingId.value = undefined
   }
 }
 
@@ -10483,7 +10597,11 @@ const requireProductionHandoffDetail = (
     (task.sourceType === 'PROCESS_POOL_EVENT_SIGNED_REVISION' && !context.profileLeaderCorrection &&
       selected.submissionReviewStatus === 'PENDING')
   )
-  if (!originalAllocations.length && !awaitingReallocation) throw new Error('原周期正式生产分配不存在')
+  const completedRejection = !context.processable && task.status === 'DONE' &&
+    route.query.handoffReadOnly === '1' && selected.submissionReviewStatus === 'REJECTED' &&
+    positiveIdentity(task.completedBy) && positiveIdentity(task.completionSourceId) &&
+    task.completedAt != null && Number.isFinite(new Date(task.completedAt).getTime())
+  if (!originalAllocations.length && !awaitingReallocation && !completedRejection) throw new Error('原周期正式生产分配不存在')
 }
 
 let handoffNavigationEpoch = 0
@@ -10500,8 +10618,12 @@ const navigateToLeaderHandoff = async () => {
     const target = resolveActiveOrderHandoffTarget({ actionUrl: context.task.actionUrl, handoffTaskId: context.task.id, handoffType: context.task.taskType, activeOrderId: context.task.activeOrderId })
     if (!target || Object.entries(target.query).some(([key, value]) => route.query[key] !== value)
       || Object.keys(route.query).some(key => !(key in target.query) && key !== 'handoffReadOnly')) throw new Error('页面参数与原交接任务不一致')
-    if (!context.current || context.task.status === 'CANCELED') throw new Error('旧周期交接已失效，禁止办理新周期')
+    const closedDone = isClosedHandoffCompletion(context)
+    if ((!context.current && !closedDone) || context.task.status === 'CANCELED') throw new Error('旧周期交接已失效，禁止办理新周期')
+    if (route.query.handoffReadOnly !== undefined && route.query.handoffReadOnly !== '1') throw new Error('交接只读参数无效')
+    if (context.processable && route.query.handoffReadOnly === '1') throw new Error('待处理交接不能冒充完成历史')
     if (!context.processable && route.query.handoffReadOnly !== '1') throw new Error('该交接已完成，仅允许查看原结果')
+    if (!context.processable && !isClosedHandoffCompletion({ ...context, current: false })) throw new Error('交接完成事实缺失，禁止推断历史结果')
     if (context.task.taskType === 'QA_DECISION_HANDOFF') {
       if (!isProductionLeader.value) throw new Error('该交接仅供原生产组长接手')
       await loadActiveOrders()

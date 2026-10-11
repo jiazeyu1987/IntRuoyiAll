@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -78,10 +79,13 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderActiveOrderDetailService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper recordChangeEventMapper;
     @jakarta.annotation.Resource
     private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchExecutionMapper;
+    @jakarta.annotation.Resource
+    private MesProEdhrWorkTaskMapper workTaskMapper;
 
     private static final Function<MesTeamLeaderActiveOrderDetailReadDO, BigDecimal> READ_ROW_REQUIRED_QUANTITY =
             MesTeamLeaderActiveOrderDetailReadDO::getRequiredQuantity;
@@ -165,7 +169,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !MesTeamLeaderActiveOrderServiceImpl.STATUS_ACTIVE.equals(activeOrder.getActiveStatus())) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        return buildDetail(activeOrder, activeOrderId, false);
+        return buildDetail(activeOrder, activeOrderId, false, PqcSignaturePurpose.READ_PROJECTION);
     }
 
     @Override
@@ -174,7 +178,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        return buildDetail(activeOrder, activeOrderId, false);
+        return buildDetail(activeOrder, activeOrderId, false, PqcSignaturePurpose.FORMAL_CONSUMPTION);
     }
 
     @Override
@@ -183,11 +187,11 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         if (activeOrder == null) {
             throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
         }
-        return buildDetail(activeOrder, activeOrderId, true);
+        return buildDetail(activeOrder, activeOrderId, true, PqcSignaturePurpose.READ_PROJECTION);
     }
 
     private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
-                                                       boolean archivedFormalSource) {
+                                                        boolean archivedFormalSource, PqcSignaturePurpose signaturePurpose) {
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = archivedFormalSource && "REWORKED".equals(activeOrder.getBusinessStatus())
                 ? detailReadMapper.selectArchivedReworkByActiveOrderId(activeOrderId, activeOrder.getTenantId())
                 : detailReadMapper.selectByActiveOrderId(activeOrderId);
@@ -234,7 +238,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setOperationFacts(resolveOperationFacts(activeOrderId))
                 .setReworkSource(resolveReworkSource(activeOrder));
         attachPickListMetadata(detail, activeOrderId);
-        attachPqcProductionRelease(detail, application);
+        attachPqcProductionRelease(detail, application, signaturePurpose);
         return detail;
     }
 
@@ -592,57 +596,43 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return null;
     }
 
+    private enum PqcSignaturePurpose { READ_PROJECTION, FORMAL_CONSUMPTION }
+
     private void attachPqcProductionRelease(MesTeamLeaderActiveOrderDetail detail,
-                                            MesProcessPoolActiveOrderReleaseApplicationDO application) {
-        if (application == null
-                || !"APPROVE".equals(application.getPqcDecision())
-                || application.getBatchExecutionId() == null
+            MesProcessPoolActiveOrderReleaseApplicationDO application, PqcSignaturePurpose purpose) {
+        if (application == null || !"APPROVE".equals(application.getPqcDecision())) return;
+        if (application.getBatchExecutionId() == null
                 || application.getBatchExecutionId() <= 0
                 || application.getDossierSummaryJson() == null
                 || application.getDossierSummaryJson().isBlank()) {
-            return;
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECEIPT_MISSING");
         }
         JSONObject dossier = JSON.parseObject(application.getDossierSummaryJson());
         Long signatureId = dossier == null ? null : dossier.getLong("signatureId");
         if (signatureId == null || signatureId <= 0) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
-        String subjectId = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
-                application.getBatchExecutionId(),
-                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
-                null, null, null, null, null, null, null,
-                "PQC_RELEASE_APPLICATION", application.getId(), "PQC生产放行",
-                MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
-                null, null, null, null);
         ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
-        if (signature == null
-                || !Objects.equals(signature.subjectId(), subjectId)
-                || !Objects.equals(signature.actionCode(), MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)
-                || !Objects.equals(signature.verificationStatus(), "VALID")
-                || signature.actorId() == null
-                || signature.signedAt() == null) {
+        if (signature == null || !Objects.equals(signature.id(), signatureId)) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
         }
+        var task = MesActiveOrderSignatureEvidenceService.readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId());
+        var batch = MesActiveOrderSignatureEvidenceService.readPqcBatch(batchExecutionMapper, application.getBatchExecutionId());
+        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application, task, batch, signature);
         ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
-        if (verification == null
-                || !Objects.equals(verification.signatureId(), signatureId)
-                || !Objects.equals(verification.verificationStatus(), "VALID")
-                || !Objects.equals(verification.storedEvidenceHash(), signature.evidenceHash())
-                || !Objects.equals(verification.calculatedEvidenceHash(), signature.evidenceHash())) {
-            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
-        }
-        AdminUserDO signer = adminUserService.getUser(signature.actorId());
-        if (signer == null || signer.getNickname() == null || signer.getNickname().isBlank()) {
-            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTOR_MISSING");
+        MesActiveOrderSignatureEvidenceService.requireVerification(signature, verification);
+        if (purpose == PqcSignaturePurpose.FORMAL_CONSUMPTION) {
+            MesActiveOrderSignatureEvidenceService.requirePqcIdentity(detail, application, task, batch, signature);
+            MesActiveOrderSignatureEvidenceService.requirePqcCanonical(signature, verifiedSignatureFacts.requireVerifiedFact(signatureId));
+            if (!"VALID".equals(verification.verificationStatus())
+                    || !Objects.equals(verification.calculatedEvidenceHash(), signature.evidenceHash())) {
+                throw new IllegalStateException("PQC_RELEASE_SIGNATURE_VERIFICATION_NOT_VALID");
+            }
         }
         detail.setPqcProductionRelease(new MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary()
                 .setStatus(application.getApplicationStatus())
                 .setStatusLabel("已生产放行")
-                .setSignature(new MesTeamLeaderActiveOrderDetail.SignatureDetail()
-                        .setSignatureId(signature.id())
-                        .setSignerName(signer.getNickname())
-                        .setSignedAt(signature.signedAt())
-                        .setRole(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)));
+                .setSignature(MesActiveOrderSignatureEvidenceService.pqcReadProjection(signature, verification)));
     }
 
     private FormalInputSourceSnapshot resolveInputSourceSnapshot(MesProcessPoolActiveOrderDO activeOrder,

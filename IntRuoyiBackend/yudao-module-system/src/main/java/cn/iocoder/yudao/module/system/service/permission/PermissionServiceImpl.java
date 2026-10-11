@@ -59,6 +59,9 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 @Slf4j
 public class PermissionServiceImpl implements PermissionService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
     private static final Pattern LOG_PERMISSION_PATTERN = Pattern.compile("(^|[:\\-])log([:\\-]|$)");
 
     @Resource
@@ -247,6 +250,7 @@ public class PermissionServiceImpl implements PermissionService {
 
     private void applyRoleMenu(PermissionCommandProtocol.Command command, Long roleId, Set<Long> menuIds) {
         if (command.replayed()) return;
+        var authority = approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
         requirePermissionRole(command.tenantId(), roleId);
         // 获得角色拥有菜单编号
         Set<Long> dbMenuIds = convertSet(roleMenuMapper.selectPermissionRowsForUpdate(command.tenantId(), roleId), RoleMenuDO::getMenuId);
@@ -269,6 +273,7 @@ public class PermissionServiceImpl implements PermissionService {
             roleMenuMapper.deleteListByRoleIdAndMenuIds(roleId, deleteMenuIds);
         }
         var persisted = convertSet(roleMenuMapper.selectPermissionRowsForUpdate(command.tenantId(), roleId), RoleMenuDO::getMenuId);
+        approvalAuthority.incrementLockedAuthorityRevision(command.tenantId(), authority.revision());
         permissionCommandProtocol.finish(command,
                 permissionSetState("roleId", roleId, "menuIds", beforeMenuIds),
                 permissionSetState("roleId", roleId, "menuIds", persisted));
@@ -342,6 +347,10 @@ public class PermissionServiceImpl implements PermissionService {
                 reason, idempotencyKey, permissionSetState("userId", userId, "roleIds", Set.of(roleId)),
                 tenantId, "system:tenant:create");
         if (command.replayed()) return;
+        if (adminUserMapper.selectPermissionSubjectForUpdate(tenantId, userId) == null) {
+            throw new IllegalStateException("Permission user subject not found in tenant");
+        }
+        approvalAuthority.lockTenantApprovalAuthority(tenantId);
         TenantDO tenant = tenantMapper.selectById(tenantId);
         RoleDO role = roleMapper.selectPermissionSubjectForUpdate(tenantId, roleId);
         if (tenant == null || !Objects.equals(userId, tenant.getContactUserId()) || role == null
@@ -376,6 +385,7 @@ public class PermissionServiceImpl implements PermissionService {
         if (adminUserMapper.selectPermissionSubjectForUpdate(command.tenantId(), userId) == null) {
             throw new IllegalStateException("Permission user subject not found in tenant");
         }
+        var authority = approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
         // 获得角色拥有角色编号
         Set<Long> dbRoleIds = convertSet(userRoleMapper.selectPermissionRowsForUpdate(command.tenantId(), userId),
                 UserRoleDO::getRoleId);
@@ -403,6 +413,7 @@ public class PermissionServiceImpl implements PermissionService {
             userRoleMapper.deleteListByUserIdAndRoleIdIds(userId, deleteMenuIds);
         }
         var persisted = convertSet(userRoleMapper.selectPermissionRowsForUpdate(command.tenantId(), userId), UserRoleDO::getRoleId);
+        approvalAuthority.incrementLockedAuthorityRevision(command.tenantId(), authority.revision());
         permissionCommandProtocol.finish(command,
                 permissionSetState("userId", userId, "roleIds", beforeRoleIds),
                 permissionSetState("userId", userId, "roleIds", persisted));
@@ -526,6 +537,7 @@ public class PermissionServiceImpl implements PermissionService {
         var command = permissionCommandProtocol.begin("system.permission.role-data-scope.assign", roleId,
                 reason, idempotencyKey, requested);
         if (command.replayed()) return;
+        approvalAuthority.lockTenantApprovalAuthority(command.tenantId());
         RoleDO beforeRole = requirePermissionRole(command.tenantId(), roleId);
         Map<String, Object> beforeState = roleDataScopeState(beforeRole);
         roleService.updateRoleDataScope(roleId, dataScope, dataScopeDeptIds);
