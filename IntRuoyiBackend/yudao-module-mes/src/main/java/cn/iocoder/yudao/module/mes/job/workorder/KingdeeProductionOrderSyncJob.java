@@ -58,14 +58,15 @@ public class KingdeeProductionOrderSyncJob implements JobHandler, ErpKingdeeFull
                 .triggerType(ErpKingdeeSyncTriggerTypeEnum.FULL)
                 .windowEnd(windowEnd)
                 .build(), context -> {
-            MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFullSkipExisting();
+            MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFull();
             resultReference.set(result);
             return ErpKingdeeSyncRunResult.success(context.getWindowEnd(), result.getCreatedCount(),
-                    0, result.getSkippedCount(), 0);
+                    result.getUpdatedCount() + result.getFinishedCount() + result.getCanceledCount(), result.getSkippedCount(), 0);
         });
         MesKingdeeProductionOrderSyncResult result = resultReference.get();
-        return String.format("ERP production order full sync: created=%d, skipped=%d",
-                result.getCreatedCount(), result.getSkippedCount());
+        return String.format("ERP production order full sync: created=%d, updated=%d, finished=%d, canceled=%d, skipped=%d",
+                result.getCreatedCount(), result.getUpdatedCount(), result.getFinishedCount(),
+                result.getCanceledCount(), result.getSkippedCount());
     }
 
 }

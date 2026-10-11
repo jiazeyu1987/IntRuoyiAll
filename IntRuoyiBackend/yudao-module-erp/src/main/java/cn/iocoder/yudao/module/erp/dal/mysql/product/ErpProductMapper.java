@@ -18,6 +18,17 @@ import java.util.List;
 @Mapper
 public interface ErpProductMapper extends BaseMapperX<ErpProductDO> {
 
+    default int updateErpMaterialSnapshot(ErpProductDO row) {
+        return update(new ErpProductDO(), new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ErpProductDO>()
+                .eq(ErpProductDO::getId, row.getId())
+                .set(ErpProductDO::getName, row.getName())
+                .set(ErpProductDO::getCategoryId, row.getCategoryId())
+                .set(ErpProductDO::getUnitId, row.getUnitId())
+                .set(ErpProductDO::getStatus, row.getStatus())
+                .set(ErpProductDO::getStandard, row.getStandard()));
+    }
+
+
     default PageResult<ErpProductDO> selectPage(ErpProductPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<ErpProductDO>()
                 .likeIfPresent(ErpProductDO::getName, reqVO.getName())

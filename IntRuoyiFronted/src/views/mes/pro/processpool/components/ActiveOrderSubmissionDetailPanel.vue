@@ -1626,6 +1626,14 @@
               </el-upload>
             </div>
             <el-alert
+              v-if="auditScopeTypeValue === 'BATCH' && detail?.activeOrderStatus?.status === 'NOT_APPLIED'"
+              title="尚未申请放行，资料暂不可查询"
+              type="info"
+              :closable="false"
+              show-icon
+              data-active-order-dossier-application-pending
+            />
+            <el-alert
               v-if="dossierFileError"
               :title="dossierFileError"
               type="error"
@@ -1633,6 +1641,7 @@
               show-icon
             />
             <el-table
+              v-if="auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED'"
               v-loading="dossierFileLoading"
               :data="resolveDossierFileCategory(category.key).files"
               size="small"
@@ -1683,7 +1692,10 @@
               </el-table-column>
             </el-table>
             <el-empty
-              v-if="!dossierFileLoading && !resolveDossierFileCategory(category.key).files.length"
+              v-if="
+                (auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED') &&
+                !dossierFileLoading && !resolveDossierFileCategory(category.key).files.length
+              "
               :image-size="56"
               description="暂无文件"
             />
@@ -2453,6 +2465,8 @@ const activeOrderStatusTagType = computed(() => {
 const activeOrderDossierMutationLockReason = computed(() => {
   if (props.readOnly) return '已办任务详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
+  if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
+    return '尚未申请放行，资料暂不可查询'
   if (status === 'RELEASED') return '已上市放行，资料文件仅可查看'
   if (status === 'VOIDED') return '已作废，资料文件仅可查看'
   return ''
@@ -4374,6 +4388,7 @@ const resolveDossierReadContext = (): {
   if (hasActiveOrderId && String(queryId) !== String(activeOrderId)) {
     throw new Error('批次资料查询与当前详情的活跃订单身份不一致。')
   }
+  if (props.detail?.activeOrderStatus?.status === 'NOT_APPLIED') return undefined
   const batchQuery: EdhrBatchActiveOrderDossierQuery = hasBatchId
     ? { batchExecutionId: queryId as number | string }
     : { activeOrderId: queryId as number | string }
@@ -4626,6 +4641,7 @@ watch(
 watch(
   () => [
     props.detail?.activeOrderId,
+    props.detail?.activeOrderStatus?.status,
     props.pqcReleaseApplicationId,
     auditScopeTypeValue.value,
     auditScopeIdValue.value,

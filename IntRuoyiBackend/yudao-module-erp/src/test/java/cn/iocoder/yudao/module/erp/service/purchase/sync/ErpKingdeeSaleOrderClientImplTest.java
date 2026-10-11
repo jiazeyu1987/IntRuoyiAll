@@ -40,9 +40,8 @@ class ErpKingdeeSaleOrderClientImplTest {
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andExpect(content().string(containsString("FMaterialId.FNumber+%3C%3E+%27%27")))
                 .andRespond(withSuccess("""
-                        [[348963,"908XSDD00103","2026-03-12T00:00:00","C","A","A","C000637","重庆普傲医疗器械有限公司","MAT-001","产品A",10,840.7,950,13,9500],
-                         [348963,"908XSDD00103","2026-03-12T00:00:00","C","A","A","C000637","重庆普傲医疗器械有限公司","MAT-002","产品B",2,10,11.3,13,22.6]]
-                        """, MediaType.APPLICATION_JSON));
+[[348963, "908XSDD00103", "2026-03-12T00:00:00", "C", "A", "A", "C000637", "重庆普傲医疗器械有限公司", "MAT-001", "产品A", 10, 840.7, 950, 13, 9500, "PCS", 1093, 8407, "ERP line remark", 0, 0, 8407, 1093, 9500, "100", "ERP header remark", "PCS", 10], [348963, "908XSDD00103", "2026-03-12T00:00:00", "C", "A", "A", "C000637", "重庆普傲医疗器械有限公司", "MAT-002", "产品B", 2, 10, 11.3, 13, 22.6, "PCS", 1093, 8407, "ERP line remark", 0, 0, 8407, 1093, 9500, "101", "ERP header remark", "PCS", 2]]
+""", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeSaleOrder> orders = client.fetchSaleOrders(properties);
 
@@ -77,8 +76,8 @@ class ErpKingdeeSaleOrderClientImplTest {
                 .andExpect(content().string(containsString("FModifyDate+ASC")))
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andRespond(withSuccess("""
-                        [[348963,"908XSDD00103","2026-03-12T00:00:00","C","B","A","C000637","重庆普傲医疗器械有限公司","MAT-001","产品A",10,840.7,950,13,9500,"2026-01-01 09:00:00"]]
-                        """, MediaType.APPLICATION_JSON));
+[[348963, "908XSDD00103", "2026-03-12T00:00:00", "C", "B", "A", "C000637", "重庆普傲医疗器械有限公司", "MAT-001", "产品A", 10, 840.7, 950, 13, 9500, "PCS", 1093, 8407, "ERP line remark", 0, 0, 8407, 1093, 9500, "100", "ERP header remark", "PCS", 10, "2026-01-01 09:00:00"]]
+""", MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeSaleOrder> orders = client.fetchSaleOrdersModifiedBetween(properties,
                 LocalDateTime.of(2026, 1, 1, 8, 30, 0),
@@ -104,4 +103,27 @@ class ErpKingdeeSaleOrderClientImplTest {
         return properties;
     }
 
+
+    @Test
+    void incrementalReadsAllPagesWhenConfiguredLimitFallsInsideOneDocument() {
+        RestTemplate rest = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(rest).build();
+        var properties = buildProperties("https://k3.example.com/K3Cloud"); properties.getSaleOrder().setQueryLimit(1);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[[348963, \"908XSDD00103\", \"2026-03-12T00:00:00\", \"C\", \"B\", \"A\", \"C000637\", \"重庆普傲医疗器械有限公司\", \"MAT-001\", \"产品A\", 10, 840.7, 950, 13, 9500, \"PCS\", 1093, 8407, \"ERP line remark\", 0, 0, 8407, 1093, 9500, \"101\", \"ERP header remark\", \"PCS\", 10, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(withSuccess("[[348963, \"908XSDD00103\", \"2026-03-12T00:00:00\", \"C\", \"B\", \"A\", \"C000637\", \"重庆普傲医疗器械有限公司\", \"MAT-001\", \"产品A\", 10, 840.7, 950, 13, 9500, \"PCS\", 1093, 8407, \"ERP line remark\", 0, 0, 8407, 1093, 9500, \"102\", \"ERP header remark\", \"PCS\", 10, \"2026-01-01 09:00:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
+                .andRespond(withSuccess("[]",MediaType.APPLICATION_JSON));
+        var rows = new ErpKingdeeSaleOrderClientImpl(rest).fetchSaleOrdersModifiedBetween(properties,
+                LocalDateTime.of(2026,1,1,0,0),LocalDateTime.of(2026,1,2,0,0));
+        assertEquals(1, rows.size());
+        assertEquals(2, rows.get(0).getLines().size());
+        assertEquals("102", rows.get(0).getLines().get(1).getEntryId());
+        server.verify();
+    }
 }

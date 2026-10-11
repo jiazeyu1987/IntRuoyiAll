@@ -44,7 +44,6 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
             "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
     private static final int PAGE_LIMIT = 1000;
     private static final int INITIAL_QUERY_DAYS = 365;
-    private static final int INITIAL_QUERY_LIMIT = 5000;
     private static final String MODIFY_TIME_FIELD = "FModifyDate";
     private static final String FIELD_KEYS = String.join(",",
             "FID",
@@ -80,10 +79,9 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         properties.validateBaseConfig();
         String cookieHeader = login(properties);
         int startRow = 0;
-        int remaining = INITIAL_QUERY_LIMIT;
         Map<String, ErpKingdeeStockMove> moveMap = new LinkedHashMap<>();
-        while (remaining > 0) {
-            int pageLimit = Math.min(PAGE_LIMIT, remaining);
+        while (true) {
+            int pageLimit = PAGE_LIMIT;
             JsonNode rows = executeBillQuery(properties, cookieHeader, startRow, pageLimit);
             if (!rows.isArray()) {
                 throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "STK_TransferDirect response is not an array");
@@ -96,7 +94,6 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
                 break;
             }
             startRow += rows.size();
-            remaining -= rows.size();
         }
         return new ArrayList<>(moveMap.values());
     }
@@ -159,7 +156,7 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
         query.put("FormId", FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString", "(FBillNo <> '') and (FDate >= '" + startDate + "' and FDate < '" + nextDay + "')");
-        query.put("OrderString", "FModifyDate DESC");
+        query.put("OrderString", "FModifyDate DESC,FID DESC,FBillEntry_FEntryID ASC");
         query.put("StartRow", startRow);
         query.put("Limit", limit);
         return postQuery(properties, cookieHeader, query, "STK_TransferDirect ExecuteBillQuery response");
@@ -178,7 +175,9 @@ public class ErpKingdeeStockMoveClientImpl implements ErpKingdeeStockMoveClient 
                 .startRow(startRow)
                 .limit(PAGE_LIMIT)
                 .build();
-        return postQuery(properties, cookieHeader, spec.toQuery(windowStart, windowEnd),
+        var query = spec.toQuery(windowStart, windowEnd);
+        query.put("OrderString", "FModifyDate ASC,FID ASC,FBillEntry_FEntryID ASC");
+        return postQuery(properties, cookieHeader, query,
                 "STK_TransferDirect incremental ExecuteBillQuery response");
     }
 

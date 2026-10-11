@@ -482,6 +482,36 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordFieldChangeDraftSaveReturnsActualSessionEvidenceWithoutPasswordOrSubmitSignature() {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            when(adminUserService.getUser(99L)).thenReturn(snapshotUser("QA"));
+            stubActorSnapshot();
+            var saved = new java.util.concurrent.atomic.AtomicReference<MesProBatchRecordExecutionSignatureDO>();
+            when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
+                var row = invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class);
+                row.setId(779L);
+                saved.set(row);
+                return 1;
+            });
+            when(signatureMapper.selectById(779L)).thenAnswer(invocation -> saved.get());
+            var result = signatureService.recordFieldChangeDraftSave(
+                    new MesProBatchRecordExecutionFieldAuditSignatureCommand().setExecutionId(900L)
+                            .setReasonCategory("OTHER").setReasonText("正式数量来源")
+                            .setSignatureChallengeHash("a".repeat(64)));
+            assertEquals("DRAFT_SESSION", result.getSignatureMode());
+            assertEquals(Boolean.FALSE, result.getPasswordVerified());
+            assertEquals("DRAFT_SESSION", saved.get().getSignatureMode());
+            assertEquals(Boolean.FALSE, saved.get().getPasswordVerified());
+            assertEquals("FIELD_CHANGE", saved.get().getActionType());
+            assertEquals("登录会话保存；未执行电子签名", saved.get().getAuthorizationBasis());
+            org.mockito.Mockito.verifyNoInteractions(adminUserApi, electronicSignatureService, passwordEncoder);
+            verify(gxpAuditService).acquireLedgerLock();
+            verify(gxpAuditService).append(any());
+        }
+    }
+
+    @Test
     void recordFieldChangeSignature_success() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -502,6 +532,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals(777L, result.getSignatureId());
             assertEquals(99L, result.getActorId());
             assertEquals("QA", result.getActorName());
+            assertEquals("PASSWORD", result.getSignatureMode());
+            assertEquals(Boolean.TRUE, result.getPasswordVerified());
             ArgumentCaptor<ElectronicSignatureCommand> captor =
                     ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
             verify(adminUserApi).reauthenticateForSignature(99L, "secret");

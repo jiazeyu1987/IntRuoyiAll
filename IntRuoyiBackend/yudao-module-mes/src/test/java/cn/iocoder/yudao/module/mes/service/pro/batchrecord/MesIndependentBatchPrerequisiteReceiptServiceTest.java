@@ -2,7 +2,10 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptDO;
+import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -12,6 +15,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_ENTRY_RECEIPT_EXPIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_ALREADY_REVOKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_INDEPENDENT_RECEIPT_HASH_INVALID;
@@ -22,17 +27,26 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatc
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
 class MesIndependentBatchPrerequisiteReceiptServiceTest {
 
     private final InMemoryStore store = new InMemoryStore();
+    private final MesProWorkOrderService workOrderService = mock(MesProWorkOrderService.class);
     private final MesIndependentBatchPrerequisiteReceiptServiceImpl service =
             new MesIndependentBatchPrerequisiteReceiptServiceImpl(store,
                     Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC), "mes-test", "test-secret");
 
+    @BeforeEach
+    void injectWorkOrderService() {
+        ReflectionTestUtils.setField(service, "workOrderService", workOrderService);
+    }
+
     @Test
     void issueVerifyAndRepeatedVerifyUsePersistedCanonicalEvidence() {
         MesIndependentBatchPrerequisiteReceipt receipt = service.issue(command(), 1L, 9L);
+        verify(workOrderService).validateWorkOrderExistsForUpdate(22L);
         assertNotNull(receipt.getReceiptId());
         assertEquals(64, receipt.getPayloadHash().length());
         assertEquals(receipt.getPayloadHash(),
@@ -48,6 +62,7 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
                 new MesIndependentBatchPrerequisiteReceiptServiceImpl(precisionStore,
                         Clock.fixed(Instant.parse("2026-08-23T00:00:00.987654321Z"), ZoneOffset.UTC),
                         "mes-test", "test-secret");
+        ReflectionTestUtils.setField(precisionService, "workOrderService", workOrderService);
 
         MesIndependentBatchPrerequisiteReceipt receipt = precisionService.issue(command(), 1L, 9L);
 
@@ -83,6 +98,16 @@ class MesIndependentBatchPrerequisiteReceiptServiceTest {
 
         ServiceException error = assertThrows(ServiceException.class, () -> service.issue(issueCommand, 1L, 9L));
         assertEquals(PRO_EDHR_INDEPENDENT_RECEIPT_INVALID.getCode(), error.getCode());
+    }
+
+    @Test
+    void deletedWorkOrderCannotReceivePrerequisiteReceipt() {
+        doThrow(exception(PRO_WORK_ORDER_NOT_EXISTS)).when(workOrderService).validateWorkOrderExistsForUpdate(22L);
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.issue(command(), 1L, 9L));
+
+        assertEquals(PRO_WORK_ORDER_NOT_EXISTS.getCode(), error.getCode());
+        assertTrue(store.byReceipt.isEmpty());
     }
 
     @Test

@@ -87,16 +87,19 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     private MesWmProductProduceLineService produceLineService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFeedback(MesProFeedbackSaveReqVO createReqVO) {
         return createFeedbackInternal(createReqVO, false);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFeedbackWithScheduleSnapshot(MesProFeedbackSaveReqVO createReqVO) {
         return createFeedbackInternal(createReqVO, true);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFrontlineFeedback(MesProFeedbackSaveReqVO createReqVO) {
         validateFrontlineFeedbackData(createReqVO);
         MesProFeedbackDO feedback = BeanUtils.toBean(createReqVO, MesProFeedbackDO.class)
@@ -120,6 +123,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateFeedback(MesProFeedbackSaveReqVO updateReqVO) {
         // 1.1 校验存在 + 草稿状态
         MesProFeedbackDO existing = validateFeedbackStatusPrepare(updateReqVO.getId());
@@ -343,7 +347,7 @@ public class MesProFeedbackServiceImpl implements MesProFeedbackService {
         validateFeedbackQuantity(reqVO, routeProcess);
 
         // 3. 校验工单已确认
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
         if (ObjUtil.notEqual(workOrder.getProductId(), reqVO.getItemId())) {
             throw exception(PRO_WORK_ORDER_PRODUCT_MISMATCH);
         }

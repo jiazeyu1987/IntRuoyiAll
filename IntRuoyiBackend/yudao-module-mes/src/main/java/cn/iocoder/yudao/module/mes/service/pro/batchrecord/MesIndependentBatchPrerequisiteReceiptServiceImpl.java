@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesIndependentBatchPrerequisiteReceiptDO;
+import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,9 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
     @Resource
     private MesIndependentBatchPrerequisiteReceiptStore store;
 
+    @Resource
+    private MesProWorkOrderService workOrderService;
+
     @Value("${mes.pro.edhr.independent-receipt.issuer-system:}")
     private String issuerSystem;
     @Value("${mes.pro.edhr.independent-receipt.signing-secret:}")
@@ -68,13 +72,14 @@ public class MesIndependentBatchPrerequisiteReceiptServiceImpl
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public MesIndependentBatchPrerequisiteReceipt issue(MesIndependentBatchPrerequisiteReceiptIssueCommand command,
                                                         Long tenantId, Long actorUserId) {
         requireBackendIdentity(tenantId, actorUserId);
         validateIssueCommand(command);
         String resolvedIssuerSystem = requireConfigured(issuerSystem);
         String secret = requireConfigured(signingSecret);
+        workOrderService.validateWorkOrderExistsForUpdate(command.getWorkOrderId());
         MesIndependentBatchPrerequisiteReceipt candidate = buildReceipt(command, tenantId, actorUserId,
                 resolvedIssuerSystem, LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS));
         String payload = MesIndependentBatchPrerequisiteReceiptCanonicalizer.canonicalPayload(candidate);

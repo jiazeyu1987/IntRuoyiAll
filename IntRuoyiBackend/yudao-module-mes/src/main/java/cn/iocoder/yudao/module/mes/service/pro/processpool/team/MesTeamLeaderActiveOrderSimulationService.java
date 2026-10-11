@@ -366,6 +366,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         payload.put("routeProcessId", snapshot.getRouteProcessId());
         payload.put("processId", snapshot.getProcessId());
         payload.put("outputQuantity", quantity);
+        payload.put("lossQuantity", BigDecimal.ZERO);
         payload.put("lossDetails", List.of());
         payload.put("source", "active-order-simulate-completion");
         putSimulationMetadata(payload, simulationStage, simulationRunId);

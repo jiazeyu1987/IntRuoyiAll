@@ -25,6 +25,9 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED;
+
 @Service
 @Validated
 public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineService {
@@ -227,6 +230,12 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
             List<ProcessPoolTimelineEventReadDO> groupedPayloads = StrUtil.isBlank(row.getPqcSubmissionGroupId())
                     ? List.of()
                     : eventPayloadsByGroupId.getOrDefault(row.getPqcSubmissionGroupId().trim(), List.of());
+            if (reqVO.getEventIds() != null && (groupedPayloads.stream()
+                    .anyMatch(member -> !reqVO.getEventIds().contains(member.getId()))
+                    || (StrUtil.isNotBlank(row.getPqcSubmissionGroupId()) && groupedPayloads.stream()
+                    .noneMatch(member -> Objects.equals(row.getId(), member.getId()))))) {
+                throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "PQC复核组");
+            }
             if (!groupedPayloads.isEmpty()) {
                 row.setExpectedReviews(groupedPayloads.stream().map(this::displayedReviewContext).toList());
             }

@@ -418,6 +418,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProBatchRecordExecutionService singleExecutionService;
     @Resource
+    private MesProEdhrCompletionSourceBackfillService completionSourceBackfillService;
+    @Resource
     private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
     @Resource
     private MesProBatchRecordCellLinkService cellLinkService;
@@ -844,13 +846,54 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
         workTaskService.createInitialFillTask(latest);
         MesProEdhrBatchProvisioningRecordDO provisioningRecord = createProvisioningRecord(latest, provisionCommand);
+        String openMetadata = materializeProvisionedCompletionSources(latest, insertedTasks, provisionCommand,
+                provisioningRecord.getId());
         EdhrBatchExecutionRespVO result = toResp(latest);
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(latest.getId()), "OPEN",
                 "创建并打开 eDHR 批次", latest.getId(), null, null, latest.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
+                "SUCCESS", null, null, openMetadata, true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return result;
+    }
+
+    private String materializeProvisionedCompletionSources(MesProEdhrBatchExecutionDO batch,
+            List<MesProEdhrBatchExecutionTaskDO> tasks, MesBatchExecutionProvisionCommand command, Long provisioningId) {
+        if (command == null || !("ACTIVE_ORDER_COMPLETION".equals(command.getEntryType())
+                || "ACTIVE_ORDER_PQC".equals(command.getEntryType()))) {
+            return entryAuditMetadata(command, provisioningId);
+        }
+        List<MesProEdhrBatchExecutionTaskDO> lockedTasks = new ArrayList<>();
+        for (MesProEdhrBatchExecutionTaskDO task : MesProEdhrCompletionSourceBackfillService
+                .selectProvisionedQuantityTasks(batch, tasks)) {
+            MesProEdhrBatchExecutionTaskDO locked = batchTaskMapper.selectByIdForUpdate(task.getId());
+            if (locked == null || !Objects.equals(task.getId(), locked.getId())) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                        "正式数量任务锁定身份不一致，taskId=" + task.getId());
+            }
+            lockedTasks.add(locked);
+        }
+        completionSourceBackfillService.validateProvisionedQuantityTasks(batch, lockedTasks, command);
+        List<Map<String, Object>> sources = new ArrayList<>();
+        for (MesProEdhrBatchExecutionTaskDO task : lockedTasks) {
+            var source = completionSourceBackfillService.materializeProvisioned(batch, task, command);
+            if (source == null || !("APPLIED".equals(source.status()) && source.executionId() != null
+                    && source.appliedFieldCount() != null && source.appliedFieldCount() > 0
+                    || "SKIPPED_NO_SOURCE_RULES".equals(source.status()) && source.executionId() == null
+                    && Integer.valueOf(0).equals(source.appliedFieldCount()))) {
+                throw exception(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_RELEASE_SOURCE_REQUIRED,
+                        "完工来源物化未形成明确审计或无数量规则结论，taskId=" + task.getId());
+            }
+            Map<String, Object> sourceEvidence = new LinkedHashMap<>();
+            sourceEvidence.put("taskId", source.taskId());
+            sourceEvidence.put("status", source.status());
+            sourceEvidence.put("executionId", source.executionId());
+            sourceEvidence.put("appliedFieldCount", source.appliedFieldCount());
+            sources.add(sourceEvidence);
+        }
+        JSONObject metadata = JSON.parseObject(entryAuditMetadata(command, provisioningId));
+        metadata.put("completionSourceMaterializations", sources);
+        return metadata.toJSONString();
     }
 
     private MesBatchExecutionProvisionCommand toProvisionCommand(EdhrBatchExecutionOpenOrCreateReqVO reqVO) {
@@ -1129,11 +1172,13 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
         workTaskService.createInitialFillTask(latest);
         MesProEdhrBatchProvisioningRecordDO provisioningRecord = createProvisioningRecord(latest, provisionCommand);
+        String openMetadata = materializeProvisionedCompletionSources(latest, insertedTasks, provisionCommand,
+                provisioningRecord.getId());
         recordOperationAudit("PRODUCTION_RELEASE_APPLICATION", String.valueOf(command.getApplicationId()),
                 "BATCH_EXECUTION_CREATED_FROM_RELEASE", "PQC 批准后创建申请唯一批次", latest.getId(),
                 null, null, latest.getRouteId(), null, null, null,
                 "mes:pro-production-release:pqc-approve", "ALLOW", "SUCCESS",
-                null, null, entryAuditMetadata(provisionCommand, provisioningRecord.getId()), true);
+                null, null, openMetadata, true);
         publishBatchProvisioned(latest, provisionCommand, provisioningRecord.getId());
         return latest.getId();
     }
@@ -1388,13 +1433,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (provisionCommand != null) {
             requireExistingProvisioning(existing, provisionCommand);
         }
+        String sourceMetadata = materializeProvisionedCompletionSources(existing,
+                batchTaskMapper.selectListByBatchExecutionId(existing.getId()), provisionCommand, null);
         syncIfActive(existing);
         existing = batchExecutionMapper.selectById(existing.getId());
         EdhrBatchExecutionRespVO result = toResp(existing);
         recordOperationAudit("BATCH_EXECUTION", String.valueOf(existing.getId()), "OPEN",
                 auditReason, existing.getId(), null, null, existing.getRouteId(), null,
                 null, null, "mes:pro-edhr-batch-execution:create", "ALLOW",
-                "SUCCESS", null, null, entryAuditMetadata(provisionCommand), true);
+                "SUCCESS", null, null, sourceMetadata, true);
         return result;
     }
 
@@ -2985,6 +3032,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         : resolveTaskBatchRecordReportName(batchRecord, report))
                 .setBatchRecordDefinitionId(resolvedReport.definitionId())
                 .setBatchRecordVersionId(resolvedReport.versionId())
+                .setMaterialSourceSnapshotHash(materialSourceSnapshotHash)
                 .setBatchRecordSort(batchRecord.getReportSort())
                 .setInstanceScope(resolveInstanceScope(batchRecord.getInstanceScope()))
                 .setSharedFormKey(StrUtil.blankToDefault(StrUtil.trim(batchRecord.getSharedFormKey()), null))
@@ -3949,8 +3997,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 bindTraditionalExecution(task, execution);
                 persistTraditionalExecutionBinding(task);
             }
+            completionSourceBackfillService.materialize(batch, task);
             return cellLinkAutoPersist;
         }
+        completionSourceBackfillService.materialize(batch, task);
         return null;
     }
 
@@ -4255,10 +4305,18 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .findFirst()
                 .orElseThrow(() -> exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_EXISTS));
         batchExecutionVisibilityService.requireVisibleBatch(batch, tasks, currentUserId());
+        MesProEdhrCompletionSourceBackfillService.ReadResult sourceMaterialization =
+                completionSourceBackfillService.preview(batch, task);
         if (task.getExecutionId() != null) {
             EdhrBatchExecutionReviewTimelineRespVO.ExecutionReview review = toExecutionReview(task);
             if (review == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_EXISTS);
+            }
+            if (Integer.valueOf(MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT).equals(review.getStatus())) {
+                String visibleCells = sourceMaterialization != null
+                        && "APPLIED".equals(sourceMaterialization.evidence().getStatus())
+                        ? sourceMaterialization.cellValuesJson() : "[]";
+                review.getFormViewModel().setCellValuesJson(visibleCells).setRemark(null).setSignatureCellMarkers(List.of());
             }
             return new EdhrBatchExecutionTaskPreviewRespVO()
                     .setBatchExecutionId(batchExecutionId)
@@ -4266,7 +4324,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     .setExecutionId(task.getExecutionId())
                     .setTaskStatus(task.getStatus())
                     .setExecutionCreated(true)
-                    .setFormViewModel(review.getFormViewModel());
+                    .setFormViewModel(review.getFormViewModel())
+                    .setCompletionSourceMaterialization(sourceMaterialization == null ? null : sourceMaterialization.evidence());
         }
         if (isDynamicRouteFormTask(task)) {
             return buildDynamicRouteFormTaskPreview(batchExecutionId, task);
@@ -4290,6 +4349,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setTaskId(taskId)
                 .setTaskStatus(task.getStatus())
                 .setExecutionCreated(false)
+                .setCompletionSourceMaterialization(sourceMaterialization == null ? null : sourceMaterialization.evidence())
                 .setFormViewModel(new EdhrBatchExecutionReviewTimelineRespVO.FormViewModel()
                         .setSheetLayoutJson(runtimeSnapshot.sheetLayoutJson())
                         .setMetaJson(runtimeSnapshot.metaJson())
@@ -7916,9 +7976,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .setSheetLayoutJson(execution.getSheetLayoutJson())
                         .setMetaJson(execution.getMetaJson())
                         .setExecutionSnapshotJson(execution.getExecutionSnapshotJson())
-                        .setCellValuesJson(execution.getCellValuesJson())
-                        .setRemark(execution.getRemark())
-                        .setSignatureCellMarkers(resolveSignatureCellMarkers(execution, task, persistedExecutionOnly)))
+                        .setCellValuesJson(Objects.equals(execution.getStatus(), MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT)
+                                ? "[]" : execution.getCellValuesJson())
+                        .setRemark(Objects.equals(execution.getStatus(), MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT)
+                                ? null : execution.getRemark())
+                        .setSignatureCellMarkers(Objects.equals(execution.getStatus(), MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_DRAFT)
+                                ? List.of() : resolveSignatureCellMarkers(execution, task, persistedExecutionOnly)))
                 .setFieldAuditSummary(toFieldAuditSummary(execution, auditBatches))
                 .setSignatureSummary(toSignatureSummary(executionSignatures))
                 .setSignatureRecords(executionSignatures.stream()

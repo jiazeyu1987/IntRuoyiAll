@@ -63,6 +63,7 @@ public class MesWmOutsourceReceiptServiceImpl implements MesWmOutsourceReceiptSe
     private MesProWorkOrderService workOrderService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createOutsourceReceipt(MesWmOutsourceReceiptSaveReqVO createReqVO) {
         // 校验数据
         validateOutsourceReceiptSaveData(null, createReqVO);
@@ -75,6 +76,7 @@ public class MesWmOutsourceReceiptServiceImpl implements MesWmOutsourceReceiptSe
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateOutsourceReceipt(MesWmOutsourceReceiptSaveReqVO updateReqVO) {
         // 校验存在 + 草稿状态
         validateOutsourceReceiptExistsAndDraft(updateReqVO.getId());
@@ -312,7 +314,7 @@ public class MesWmOutsourceReceiptServiceImpl implements MesWmOutsourceReceiptSe
         vendorService.validateVendorExistsAndEnable(reqVO.getVendorId());
         // 校验外协工单存在
         if (reqVO.getWorkOrderId() != null) {
-            workOrderService.validateWorkOrderConfirmed(reqVO.getWorkOrderId());
+            workOrderService.validateWorkOrderConfirmedForUpdate(reqVO.getWorkOrderId());
         }
     }
 

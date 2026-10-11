@@ -3885,6 +3885,76 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completionSourceOpenerCreatesDraftWithoutGenericPrefillAndPreservesOrdinaryExistingSubmittedBehavior() {
+        var request = completionSourceRequest();
+        var response = executionService.openOrCreateForCompletionSource(request);
+        assertTrue(response.getCreated());
+        assertEquals(0, response.getStatus());
+        assertNull(response.getCellLinkAutoPersist());
+        verify(cellLinkAutoPersistService, never()).autoPersist(any());
+        assertEquals(response.getId(), executionService.openOrCreateForCompletionSource(request).getId());
+        executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(response.getId()).setStatus(1));
+        assertThrows(ServiceException.class, () -> executionService.openOrCreateForCompletionSource(request));
+        var ordinary = executionService.openOrCreateByContext(request);
+        assertFalse(ordinary.getCreated());
+        assertEquals(1, ordinary.getStatus());
+        var prefill = org.mockito.ArgumentCaptor.forClass(BatchRecordCellLinkAutoPersistCommand.class);
+        verify(cellLinkAutoPersistService).autoPersist(prefill.capture());
+        assertEquals("EXECUTION_OPEN_OR_CREATE_EXISTING", prefill.getValue().getTrigger());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"binding", "hash", "tenant", "pending"})
+    void completionSourceOpenerRejectsBadFrozenBindingTenantAndUnapprovedVersion(String invalid) {
+        var request = completionSourceRequest();
+        switch (invalid) {
+            case "binding" -> request.setRouteBindingId(999L);
+            case "hash" -> request.setRouteBindingSnapshotHash("different");
+            case "tenant" -> TenantContextHolder.setTenantId(2L);
+            case "pending" -> {
+                var task = edhrBatchExecutionTaskMapper.selectById(request.getTaskId());
+                versionMapper.updateById(new MesProBatchRecordVersionDO().setId(task.getBatchRecordVersionId())
+                        .setStatus("PENDING_APPROVAL"));
+            }
+        }
+        try {
+            assertThrows(ServiceException.class, () -> executionService.openOrCreateForCompletionSource(request));
+        } finally {
+            TenantContextHolder.setTenantId(1L);
+        }
+        assertEquals(0L, executionMapper.selectCount());
+        verify(cellLinkAutoPersistService, never()).autoPersist(any());
+    }
+
+    private MesProBatchRecordExecutionOpenOrCreateByContextReqVO completionSourceRequest() {
+        TenantContextHolder.setTenantId(1L);
+        var work = insertWorkOrder();
+        var process = MesProRouteProcessDO.builder().routeId(1001L).processId(2002L).sort(1).build();
+        routeProcessMapper.insert(process);
+        var report = report("report-completion-source");
+        reportMapper.insert(report);
+        var batch = new MesProEdhrBatchExecutionDO().setBatchExecutionCode("EDHR-SOURCE")
+                .setWorkOrderId(work.getId()).setWorkOrderCode(work.getCode()).setBatchCode("BATCH-SOURCE")
+                .setRouteId(1001L).setTenantId(1L).setStatus(0).setTaskTotal(1).setTaskApprovedCount(0).setBlockedCount(0);
+        edhrBatchExecutionMapper.insert(batch);
+        var task = new MesProEdhrBatchExecutionTaskDO().setBatchExecutionId(batch.getId())
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(process.getId()).setRouteProcessSort(1).setProcessId(2002L)
+                .setBatchRecordReportId(report.getReportId()).setBatchRecordDefinitionId(report.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(report.getBatchRecordVersionId()).setRouteBindingId(5001L)
+                .setRouteBindingSnapshotHash("binding-source").setInstanceScope("PROCESS")
+                .setRecordCategory("BATCH_RECORD").setFormSlotType("MAIN").setStatus(10).setRequiredFlag(true);
+        edhrBatchExecutionTaskMapper.insert(task);
+        when(jimuReportGateway.getReportJson(report.getReportId())).thenReturn(sampleEditableReportJson());
+        return new MesProBatchRecordExecutionOpenOrCreateByContextReqVO().setWorkOrderId(work.getId())
+                .setRouteId(1001L).setRouteProcessId(process.getId()).setProcessId(2002L)
+                .setBatchExecutionId(batch.getId()).setTaskId(task.getId()).setBatchRecordReportId(report.getReportId())
+                .setBatchCode(batch.getBatchCode()).setRouteBindingId(task.getRouteBindingId())
+                .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash()).setInstanceScope("PROCESS")
+                .setRecordCategory("BATCH_RECORD").setFormSlotType("MAIN");
+    }
+
+    @Test
     void openOrCreateByContext_autoPersistsCellLinksOnNewExecutionAndReturnsSummary() {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()

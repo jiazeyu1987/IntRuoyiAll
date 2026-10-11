@@ -301,6 +301,15 @@
               删除工序
             </el-button>
           </div>
+          <el-button
+            v-if="routeFlowWriteControlsDisabled"
+            :aria-pressed="showAllReadOnlyProcessFields"
+            data-flow-action="show-all-process-detail-fields"
+            size="small"
+            @click="showAllReadOnlyProcessFields = !showAllReadOnlyProcessFields"
+          >
+            {{ showAllReadOnlyProcessFields ? '仅看关注字段' : '查看全部字段' }}
+          </el-button>
           <div class="route-flow-graph-designer__process-detail-field-picker">
             <el-select
               v-model="selectedProcessDetailFieldToAdd"
@@ -1033,6 +1042,28 @@
               <strong v-else :title="formatProcessDetailText(selectedProcessDetailField.value)">
                 {{ formatProcessDetailText(selectedProcessDetailField.value) }}
               </strong>
+            </div>
+            <el-input
+              v-if="selectedProcessDetailField.key === 'productionProcessConfig' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
+              :model-value="formatPublishedProductionProcessConfig()"
+              data-route-process-setting-field="published-production-process-config-json"
+              aria-label="已发布生产配置，只读"
+              readonly
+              type="textarea"
+              :autosize="{ minRows: 12, maxRows: 24 }"
+            />
+            <div
+              v-if="selectedProcessDetailField.key === 'deviceParameters' && !selectedProcessDetailField.loading && !isProcessDetailFieldEditable(selectedProcessDetailField.key)"
+              data-flow-panel="published-route-process-devices"
+            >
+              <section v-for="device in selectedRouteProcessDeviceParameterDevices" :key="device.deviceId">
+                <strong>{{ formatRouteProcessDeviceParameterDeviceLabel(device) }}</strong>
+                <span>设备标识：{{ device.deviceId }}</span>
+                <p v-for="parameter in device.parameters || []" :key="parameter.parameterCode">
+                  {{ parameter.parameterCode }} / {{ parameter.parameterName }} / {{ parameter.valueType }}：{{ formatRouteProcessDeviceParameterValue(parameter) }}
+                </p>
+              </section>
+              <p v-if="!selectedRouteProcessDeviceParameterDevices.length">当前工序未关联设备参数</p>
             </div>
             <div
               v-if="selectedProcessDetailField.links?.length"
@@ -2553,6 +2584,7 @@ const processDetailInterestReady = ref(false)
 const processDetailInterestAvailable = ref(true)
 const selectedProcessDetailFieldToAdd = ref<ProcessDetailFieldKey>()
 const selectedProcessDetailFieldKeys = ref<ProcessDetailFieldKey[]>([])
+const showAllReadOnlyProcessFields = ref(false)
 const selectedProcessDetailFieldKey = ref<ProcessDetailFieldKey>()
 const releaseApprovalRuleLoading = ref(false)
 const releaseApprovalRuleSaving = ref(false)
@@ -3510,6 +3542,14 @@ const ensureProductionProcessConfigJsonDraft = (node?: RouteFlowNodeVO) => {
     productionProcessConfigJsonBaselines[routeProcessId] = text
   }
   return productionProcessConfigJsonDrafts[routeProcessId]
+}
+
+const formatPublishedProductionProcessConfig = () => {
+  const config = findProductionProcessConfig(selectedRouteProcessId.value)
+  if (!config) {
+    throw new Error('已发布生产配置尚未读取，不能显示配置明细。')
+  }
+  return JSON.stringify(config, null, 2)
 }
 
 const updateProductionProcessConfigJsonDraft = (
@@ -5192,7 +5232,9 @@ const isProcessDetailFieldEditable = (fieldKey: ProcessDetailFieldKey) =>
   isDraftCandidateEdit.value &&
   PROCESS_DETAIL_EDITABLE_FIELD_KEYS.has(fieldKey)
 const selectedProcessDetailFields = computed(() =>
-  selectedProcessDetailFieldKeys.value
+  (routeFlowWriteControlsDisabled.value && showAllReadOnlyProcessFields.value
+    ? processDetailFieldOptions.value.map((field) => field.key)
+    : selectedProcessDetailFieldKeys.value)
     .map((key) => processDetailFieldOptionMap.value.get(key))
     .filter((field): field is ProcessDetailFieldOption => Boolean(field))
 )
@@ -5332,11 +5374,15 @@ const selectProcessDetailField = (
   fieldKey: ProcessDetailFieldKey,
   options: { persist?: boolean } = {}
 ) => {
-  if (!selectedProcessDetailFieldKeys.value.includes(fieldKey)) {
+  if (!selectedProcessDetailFields.value.some((field) => field.key === fieldKey)) {
     throw new Error(`字段明细选择失败：配置项不存在 fieldKey=${fieldKey}`)
   }
   selectedProcessDetailFieldKey.value = fieldKey
-  if (options.persist && selectedRouteProcessId.value !== null) {
+  if (
+    options.persist &&
+    selectedRouteProcessId.value !== null &&
+    selectedProcessDetailFieldKeys.value.includes(fieldKey)
+  ) {
     persistRouteFlowLastSelection({
       routeProcessId: selectedRouteProcessId.value,
       detailFieldKey: fieldKey

@@ -48,6 +48,8 @@ import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcItemEquipme
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -160,6 +162,49 @@ class MesTeamLeaderActiveOrderSimulationServiceTest {
 
         assertEquals(0, new BigDecimal("25").compareTo(value));
         assertEquals("25", textValue);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void simulatedProductionShouldPersistExplicitZeroLossForFormalQuantitySource(boolean hasOutputMaterial) {
+        MesProcessPoolActiveOrderDO order = activeOrder();
+        MesProcessPoolActiveOrderProcessSnapshotDO snapshot = processSnapshot(5001L, 6001L);
+        MesProRouteVersionDO version = MesProRouteVersionDO.builder()
+                .id(448L).routeId(922119L)
+                .routeSnapshotJson("{\"routeId\":922119,\"configSnapshots\":{\"batchUseConfigs\":["
+                        + "{\"routeProcessId\":5001,\"inputMaterialIds\":[],\"outputMaterialIds\":"
+                        + (hasOutputMaterial ? "[1002]" : "[]") + "}]}}")
+                .build();
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(routeProcess(5001L, 6001L, 801L));
+        if (hasOutputMaterial) {
+            when(itemMapper.selectById(1002L)).thenReturn(material(1002L, "OUTPUT-001", "中间产物"));
+        }
+        when(feedbackMapper.insert(any(MesProFeedbackDO.class))).thenAnswer(invocation -> {
+            invocation.getArgument(0, MesProFeedbackDO.class).setId(5001L);
+            return 1;
+        });
+        when(signatureService.recordStage1SimulationSignature(any(), any(), any(), any(), any())).thenReturn(10001L);
+        when(processPoolEventService.createEvent(any())).thenReturn(7001L);
+
+        Long eventId = org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "createProductionSubmitEvent", order, version, snapshot, new BigDecimal("10"),
+                3001L, "STAGE1", "STAGE1-QUANTITY-SOURCE");
+
+        assertEquals(7001L, eventId);
+        ArgumentCaptor<MesProcessPoolCreateEventReqDTO> eventCaptor = ArgumentCaptor.forClass(MesProcessPoolCreateEventReqDTO.class);
+        verify(processPoolEventService).createEvent(eventCaptor.capture());
+        com.fasterxml.jackson.databind.JsonNode payload = cn.iocoder.yudao.framework.common.util.json.JsonUtils
+                .parseTree(eventCaptor.getValue().getRawPayload());
+        assertTrue(payload.has("lossQuantity"), "Formal completion requires an explicit top-level loss source");
+        assertTrue(payload.get("lossQuantity").isNumber());
+        assertEquals(0, BigDecimal.ZERO.compareTo(payload.get("lossQuantity").decimalValue()));
+        assertEquals(0, new BigDecimal("10").compareTo(payload.get("outputQuantity").decimalValue()));
+        assertEquals(hasOutputMaterial ? 1 : 0, payload.path("materialDetails").size());
+        ArgumentCaptor<MesProFeedbackDO> feedbackCaptor = ArgumentCaptor.forClass(MesProFeedbackDO.class);
+        verify(feedbackMapper).insert(feedbackCaptor.capture());
+        assertEquals(0, BigDecimal.ZERO.compareTo(feedbackCaptor.getValue().getUnqualifiedQuantity()));
+        assertEquals(0, new BigDecimal("10").compareTo(feedbackCaptor.getValue().getQualifiedQuantity()));
     }
 
     @Test

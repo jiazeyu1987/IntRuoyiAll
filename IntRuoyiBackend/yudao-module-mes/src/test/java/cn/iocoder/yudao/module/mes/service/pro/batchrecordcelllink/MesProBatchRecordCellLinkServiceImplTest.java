@@ -70,6 +70,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
@@ -293,7 +294,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
 
         assertMissingProcessPoolSourceField(result, "allocatedQuantity", "放行分配数量");
         assertMissingProcessPoolSourceField(result, "lossReasonCodeSnapshot", "损耗原因编码");
-        assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
+        assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
+        assertProcessPoolSourceField(result, "operatorUserId", "生产提交操作账号", "NUMBER", null);
         assertProcessPoolSourceField(result, "totalQuantity", "本次报工总量", "NUMBER", null);
         assertMissingProcessPoolSourceField(result, "laborScrapQuantity", "本次报工工废数量");
         assertMissingProcessPoolSourceField(result, "materialScrapQuantity", "本次报工料废数量");
@@ -764,7 +766,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
-    void getWorkbenchContext_rejectsSelectedProcessWithoutActiveFormalDeviceBinding() {
+    void getWorkbenchContext_exposesQuantityButNoDeviceFieldsWithoutActiveFormalDeviceBinding() {
         MesProBatchRecordReportDO targetReport = report("target-report", "粗洗工序生产记录", 2001L, 3001L);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(147L)).thenReturn(List.of(
                 MesRouteDccProjectBindingDO.builder()
@@ -796,14 +798,18 @@ class MesProBatchRecordCellLinkServiceImplTest {
         lenient().when(processDeviceMapper.selectList(any())).thenReturn(List.of());
         lenient().when(deviceParameterRuleMapper.selectList(any())).thenReturn(List.of());
 
-        ServiceException ex = assertThrows(ServiceException.class, () ->
+        BatchRecordCellLinkWorkbenchContextRespVO result =
                 service.getWorkbenchContext(null, null, null, "PROCESS_POOL_REPORT",
-                        null, null, 5001L, null, 147L));
+                        null, null, 5001L, null, 147L);
 
-        assertEquals(
-                MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PROCESS_POOL_DEVICE_MISSING
-                        .getCode(),
-                ex.getCode());
+        assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
+        assertProcessPoolSourceField(result, "lossQuantity", "本次报工损耗数量", "NUMBER", null);
+        assertFalse(result.getSourceFields().stream()
+                .filter(field -> "PROCESS_POOL_REPORT".equals(field.getSourceType()))
+                .anyMatch(field -> field.getFieldCode().startsWith("selectedDevice.")
+                        || field.getFieldCode().startsWith("deviceMeteringValidity.")
+                        || field.getFieldCode().startsWith("deviceParameterReadings.")));
+        verify(deviceParameterRuleMapper, never()).selectList(any());
     }
 
     @Test
@@ -981,7 +987,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals(5001L, result.getForms().get(0).getRouteProcessId());
         assertProcessPoolSourceField(result, "outputQuantity", "本次报工产出数量", "NUMBER", null);
         assertProcessPoolSourceField(result, "totalQuantity", "本次报工总量", "NUMBER", null);
-        assertMissingProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工");
+        assertProcessPoolSourceField(result, "actualEmployeeId", "实际操作员工", "NUMBER", null);
+        assertProcessPoolSourceField(result, "operatorUserId", "生产提交操作账号", "NUMBER", null);
         assertProcessPoolSourceField(result, "serverSubmitTime", "提交时间", "STRING", null);
         assertProcessPoolSourceField(result, "selectedDevice.deviceName", "选用设备名称", "STRING", null);
         assertProcessPoolSourceField(result, "deviceMeteringValidity.inMeteringValidityPeriod",
@@ -1005,6 +1012,229 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void saveRules_preservesBothFormalProcessesWhenSavingWholeRouteVersionScope() {
+        stubProcessPoolSaveContext();
+        MesProBatchRecordReportDO nextReport = report("next-report", "组装工序生产记录", 2001L, 3001L);
+        when(reportMapper.selectByReportId("next-report")).thenReturn(nextReport);
+        when(reportService.getCellRules("next-report")).thenReturn(targetCellRules().setReportId("next-report"));
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                formalRouteProcess(5001L, 9001L, "target-report"),
+                formalRouteProcess(5002L, 9001L, "next-report")));
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        BatchRecordCellLinkRulesSaveReqVO request = processPoolRuleSaveRequest("outputQuantity", "SUM")
+                .setRouteProcessId(5002L)
+                .setRules(List.of(
+                        quantityRule("target-report", "outputQuantity", 1),
+                        quantityRule("target-report", "outputQuantity", 10),
+                        quantityRule("target-report", "lossQuantity", 11),
+                        quantityRule("next-report", "outputQuantity", 1),
+                        quantityRule("next-report", "outputQuantity", 10),
+                        quantityRule("next-report", "lossQuantity", 11)));
+
+        service.saveRules(request);
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        assertEquals(List.of(5001L, 5001L, 5001L, 5002L, 5002L, 5002L),
+                captor.getValue().stream().map(MesProBatchRecordCellLinkRuleDO::getRouteProcessId).toList());
+        assertEquals(List.of("outputQuantity", "outputQuantity", "lossQuantity",
+                        "outputQuantity", "outputQuantity", "lossQuantity"),
+                captor.getValue().stream().map(MesProBatchRecordCellLinkRuleDO::getSourceFieldCode).toList());
+        assertEquals(List.of("SUM", "SUM", "SUM", "SUM", "SUM", "SUM"),
+                captor.getValue().stream().map(MesProBatchRecordCellLinkRuleDO::getAggregationStrategy).toList());
+        verify(routeFlowProcessBatchRecordMapper, never()).selectListByBatchRecordReportIds(any());
+    }
+
+    @Test
+    void saveRules_rejectsMissingFormalTargetBindingInsteadOfUsingTopLevelProcess() {
+        stubProcessPoolSaveContext();
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                formalRouteProcess(5002L, 9001L, "another-report"),
+                formalRouteProcess(6001L, 9002L, "target-report")));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.saveRules(
+                processPoolRuleSaveRequest("outputQuantity", "SUM").setRouteProcessId(5002L)));
+
+        assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED
+                .getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("正式工序绑定缺失"));
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+        verify(ruleMapper, never()).insertBatch(any());
+    }
+
+    @Test
+    void saveRules_rejectsAmbiguousFormalTargetBindingEvenWithSelectedProcess() {
+        stubProcessPoolSaveContext();
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                formalRouteProcess(5001L, 9001L, "target-report"),
+                formalRouteProcess(5002L, 9001L, "target-report")));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.saveRules(
+                processPoolRuleSaveRequest("outputQuantity", "SUM").setRouteProcessId(5002L)));
+
+        assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED
+                .getCode(), error.getCode());
+        assertTrue(error.getMessage().contains("正式工序绑定不唯一"));
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+        verify(ruleMapper, never()).insertBatch(any());
+    }
+
+    @Test
+    void saveRules_rejectsTargetFromDifferentBatchRecordVersionBeforeResolvingProcess() {
+        stubProcessPoolSaveContext();
+        when(reportMapper.selectByReportId("target-report"))
+                .thenReturn(report("target-report", "粗洗工序生产记录", 2001L, 3002L));
+
+        ServiceException error = assertThrows(ServiceException.class, () -> service.saveRules(
+                processPoolRuleSaveRequest("outputQuantity", "SUM").setRouteProcessId(5001L)));
+
+        assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS
+                .getCode(), error.getCode());
+        verify(routeProcessMapper, never()).selectListByRouteId(any());
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+    }
+
+    @Test
+    void saveRules_acceptsSharedWorkOrderTargetWithoutRouteOrProcessBinding() {
+        stubProcessPoolSaveContext();
+        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of());
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        BatchRecordCellLinkRuleSaveItemReqVO workOrderRule = quantityRule("target-report", "quantity", 1)
+                .setSourceType("PRODUCTION_WORK_ORDER").setSourceReportId("PRODUCTION_WORK_ORDER");
+
+        service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM")
+                .setRouteId(null).setRouteProcessId(null).setRules(List.of(workOrderRule)));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        assertEquals("PRODUCTION_WORK_ORDER", captor.getValue().get(0).getSourceType());
+        assertEquals(null, captor.getValue().get(0).getRouteId());
+        assertEquals(null, captor.getValue().get(0).getRouteProcessId());
+        verify(routeProcessMapper, never()).selectListByRouteId(any());
+    }
+
+    @Test
+    void saveRules_acceptsSharedWorkOrderTargetWithRouteButDoesNotInventProcessIdentity() {
+        stubProcessPoolSaveContext();
+        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of());
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        BatchRecordCellLinkRuleSaveItemReqVO workOrderRule = quantityRule("target-report", "quantity", 1)
+                .setSourceType("PRODUCTION_WORK_ORDER").setSourceReportId("PRODUCTION_WORK_ORDER");
+
+        service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM")
+                .setRouteProcessId(5002L).setRules(List.of(workOrderRule)));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        assertEquals(9001L, captor.getValue().get(0).getRouteId());
+        assertEquals(null, captor.getValue().get(0).getRouteProcessId());
+        verify(routeProcessMapper, never()).selectListByRouteId(any());
+    }
+
+    @Test
+    void saveRules_acceptsSharedBatchRecordCellTargetWithoutRouteOrProcessBinding() {
+        stubProcessPoolSaveContext();
+        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of());
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        BatchRecordCellLinkRuleSaveItemReqVO sharedCellRule = quantityRule("target-report", null, 10)
+                .setSourceType("BATCH_RECORD_CELL").setSourceReportId("target-report")
+                .setSourceRowIndex(1).setSourceColumnIndex(2);
+
+        service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM")
+                .setRouteId(null).setRouteProcessId(null).setRules(List.of(sharedCellRule)));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        assertEquals("BATCH_RECORD_CELL", captor.getValue().get(0).getSourceType());
+        assertEquals(null, captor.getValue().get(0).getRouteProcessId());
+        verify(routeProcessMapper, never()).selectListByRouteId(any());
+    }
+
+    @Test
+    void saveRules_separatesSharedAndProcessTargetIdentityWhenSharedRuleComesFirst() {
+        assertSharedAndProcessTargetIdentity(false);
+    }
+
+    @Test
+    void saveRules_separatesSharedAndProcessTargetIdentityWhenProcessRuleComesFirst() {
+        assertSharedAndProcessTargetIdentity(true);
+    }
+
+    private void assertSharedAndProcessTargetIdentity(boolean processFirst) {
+        stubProcessPoolSaveContext();
+        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(List.of());
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        BatchRecordCellLinkRuleSaveItemReqVO workOrderRule = quantityRule("target-report", "quantity", 1)
+                .setSourceType("PRODUCTION_WORK_ORDER").setSourceReportId("PRODUCTION_WORK_ORDER");
+        BatchRecordCellLinkRuleSaveItemReqVO processRule = quantityRule("target-report", "outputQuantity", 10);
+
+        service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM").setRouteProcessId(5002L)
+                .setRules(processFirst ? List.of(processRule, workOrderRule) : List.of(workOrderRule, processRule)));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        Map<String, MesProBatchRecordCellLinkRuleDO> rows = new LinkedHashMap<>();
+        captor.getValue().forEach(row -> rows.put(row.getSourceType(), row));
+        assertEquals(null, rows.get("PRODUCTION_WORK_ORDER").getRouteProcessId());
+        assertEquals(5001L, rows.get("PROCESS_POOL_REPORT").getRouteProcessId());
+    }
+
+    @Test
+    void saveRules_acceptsOutputAndLossQuantityWithoutDeviceBinding() {
+        stubProcessPoolSaveContext();
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+
+        service.saveRules(processPoolRuleSaveRequest("outputQuantity", "SUM")
+                .setRules(List.of(quantityRule("target-report", "outputQuantity", 1),
+                        quantityRule("target-report", "lossQuantity", 10))));
+
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper).insertBatch(captor.capture());
+        assertEquals(List.of("outputQuantity", "lossQuantity"), captor.getValue().stream()
+                .map(MesProBatchRecordCellLinkRuleDO::getSourceFieldCode).toList());
+        assertEquals(List.of(5001L, 5001L), captor.getValue().stream()
+                .map(MesProBatchRecordCellLinkRuleDO::getRouteProcessId).toList());
+        verify(deviceParameterRuleMapper, never()).selectList(any());
+    }
+
+    @Test
+    void saveRules_rejectsDeviceAndParameterFieldsWithoutDeviceBinding() {
+        stubProcessPoolSaveContext();
+        when(processDeviceMapper.selectList(any())).thenReturn(List.of());
+        for (String fieldCode : List.of("selectedDevice.deviceId", "selectedDevice.deviceCode",
+                "selectedDevice.deviceCode@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
+                "deviceMeteringValidity.inMeteringValidityPeriod@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
+                "deviceParameterReadings.pressure.value@deviceGroup:" + DEVICE_GROUP_SCOPE_UV)) {
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> service.saveRules(processPoolRuleSaveRequest(fieldCode, "LAST")));
+            assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED
+                    .getCode(), error.getCode());
+        }
+        verify(ruleMapper, never()).deleteByScope("ROUTE_VERSION", 3001L);
+        verify(ruleMapper, never()).insertBatch(any());
+        verify(deviceParameterRuleMapper, never()).selectList(any());
+    }
+
+    private BatchRecordCellLinkRuleSaveItemReqVO quantityRule(String reportId, String fieldCode, int rowIndex) {
+        return new BatchRecordCellLinkRuleSaveItemReqVO()
+                .setSourceType("PROCESS_POOL_REPORT")
+                .setSourceReportId("PROCESS_POOL_REPORT")
+                .setSourceRowIndex(-1)
+                .setSourceColumnIndex(-1)
+                .setSourceFieldCode(fieldCode)
+                .setTargetReportId(reportId)
+                .setTargetRowIndex(rowIndex)
+                .setTargetColumnIndex(2)
+                .setAggregationStrategy("SUM");
+    }
+
+    private MesProRouteProcessDO formalRouteProcess(Long id, Long routeId, String reportId) {
+        return MesProRouteProcessDO.builder().id(id).routeId(routeId).processId(7101L)
+                .batchRecordReportId(reportId).build();
+    }
+
+    @Test
     void saveRules_acceptsProcessPoolReportFieldWithExplicitAggregation() {
         stubProcessPoolSaveContext();
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
@@ -1025,6 +1255,52 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("扩张压力", row.getSourceFieldName());
         assertEquals("SUM", row.getAggregationStrategy());
         assertEquals("1:2", row.getTargetCellKey());
+    }
+
+    @Test
+    void saveRules_acceptsSeparateFormalOperatorAndEmployeeFields() {
+        stubProcessPoolSaveContext();
+        when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
+        service.saveRules(processPoolRuleSaveRequest("operatorUserId", "LAST"));
+        service.saveRules(processPoolRuleSaveRequest("actualEmployeeId", "LAST"));
+        ArgumentCaptor<List<MesProBatchRecordCellLinkRuleDO>> captor = ArgumentCaptor.forClass(List.class);
+        verify(ruleMapper, org.mockito.Mockito.times(2)).insertBatch(captor.capture());
+        assertEquals(List.of("operatorUserId", "actualEmployeeId"), captor.getAllValues().stream()
+                .map(rows -> rows.get(0).getSourceFieldCode()).toList());
+        for (var rows : captor.getAllValues()) {
+            var rule = rows.get(0);
+            assertEquals("PROCESS_POOL_REPORT", rule.getSourceType());
+            assertEquals("NUMBER", rule.getSourceValueType());
+            assertEquals(5001L, rule.getRouteProcessId());
+            assertEquals(3001L, rule.getBatchRecordVersionId());
+            assertEquals("LAST", rule.getAggregationStrategy());
+        }
+    }
+
+    @Test
+    void saveRules_rejectsNumericAggregationForOperatorAndEmployeeIdentities() {
+        stubProcessPoolSaveContext();
+        for (String field : List.of("operatorUserId", "actualEmployeeId")) {
+            for (String strategy : List.of("SUM", "MIN", "MAX")) {
+                ServiceException error = assertThrows(ServiceException.class,
+                        () -> service.saveRules(processPoolRuleSaveRequest(field, strategy)));
+                assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED
+                        .getCode(), error.getCode());
+            }
+        }
+        verify(ruleMapper, never()).insertBatch(any());
+    }
+
+    @Test
+    void saveRules_doesNotTreatOperatorOrEmployeeIdentityAsASignatureUser() {
+        stubProcessPoolSaveContext();
+        for (String field : List.of("operatorUserId", "actualEmployeeId")) {
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> service.saveRules(processPoolRuleSaveRequest(field, "LAST", 20, 2)));
+            assertEquals(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE
+                    .getCode(), error.getCode());
+        }
+        verify(ruleMapper, never()).insertBatch(any());
     }
 
     @Test
@@ -1110,6 +1386,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("首检 / 泄漏测试 / 第1件 / 实测值", row.getSourceFieldName());
         assertEquals("process-inspection-report", row.getTargetReportId());
         assertEquals("1:2", row.getTargetCellKey());
+        verify(routeProcessMapper, never()).selectListByRouteId(any());
     }
 
     @Test
@@ -1145,12 +1422,9 @@ class MesProBatchRecordCellLinkServiceImplTest {
     @Test
     void saveRules_resolvesProcessParameterFromRequestedRouteWhenReportIsSharedAcrossRoutes() {
         stubProcessPoolSaveContext();
-        MesProRouteFlowProcessBatchRecordDO currentRouteBinding =
-                routeBinding(5001L, 3001L, "target-report");
-        MesProRouteFlowProcessBatchRecordDO otherRouteBinding =
-                routeBinding(6001L, 3001L, "target-report").setRouteId(9002L);
-        when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
-                .thenReturn(List.of(currentRouteBinding, otherRouteBinding));
+        when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(List.of(
+                formalRouteProcess(5001L, 9001L, "target-report"),
+                formalRouteProcess(6001L, 9002L, "target-report")));
         when(ruleMapper.selectListByScope("ROUTE_VERSION", 3001L)).thenReturn(List.of());
 
         service.saveRules(processPoolRuleSaveRequest(
@@ -1160,6 +1434,7 @@ class MesProBatchRecordCellLinkServiceImplTest {
         verify(ruleMapper).insertBatch(captor.capture());
         MesProBatchRecordCellLinkRuleDO row = captor.getValue().get(0);
         assertEquals(9001L, row.getRouteId());
+        assertEquals(5001L, row.getRouteProcessId());
         assertEquals("deviceParameterReadings.pressure.value@deviceGroup:" + DEVICE_GROUP_SCOPE_UV,
                 row.getSourceFieldCode());
         assertEquals("扩张压力", row.getSourceFieldName());
@@ -1997,6 +2272,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
         lenient().when(reportService.getCellRules("target-report")).thenReturn(targetCellRules());
         lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any())).thenReturn(
                 List.of(routeBinding(5001L, 3001L, "target-report")));
+        lenient().when(routeProcessMapper.selectListByRouteId(9001L)).thenReturn(
+                List.of(formalRouteProcess(5001L, 9001L, "target-report")));
         lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(5001L)).thenReturn(MesProRouteProcessDO.builder()
                 .id(5001L)
                 .routeId(9001L)
@@ -2025,7 +2302,10 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .thenReturn(List.of(targetReport));
         lenient().when(reportService.getCellRules("process-inspection-report")).thenReturn(targetCellRules());
         lenient().when(routeFlowProcessBatchRecordMapper.selectListByBatchRecordReportIds(any()))
-                .thenReturn(List.of());
+                .thenReturn(List.of(routeBinding(5001L, 3001L, "process-inspection-report")
+                        .setFormSlotType("PROCESS_INSPECTION")
+                        .setRecordCategory("INTERNAL_RECORD")
+                        .setInstanceScope("BATCH_SHARED")));
     }
 
     private void stubPublishedQaForRouteProcess(Long routeProcessId, Long versionId,

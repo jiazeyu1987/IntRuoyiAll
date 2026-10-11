@@ -61,6 +61,7 @@ import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditRelation;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseUpstreamStatePort;
+import cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationCommand;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationAction;
 import cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseFinalizationValidator;
@@ -894,7 +895,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
         boolean managedActiveOrderFinalRelease = isManagedActiveOrderFinalRelease(transaction, command);
         if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)
-                && !isManagedActiveOrderCreatedBatchFinalRelease(batch, transaction, command)) {
+                && !isManagedActiveOrderOpenBatchFinalRelease(batch, transaction, command)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         String aggregateHash = DigestUtil.sha256Hex(String.join(":",
@@ -913,12 +914,22 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
     }
 
-    private boolean isManagedActiveOrderCreatedBatchFinalRelease(MesProEdhrBatchExecutionDO batch,
-                                                                  MesProEdhrReleaseTransactionDO transaction,
-                                                                  MesReleaseFinalizationCommand command) {
-        return batch != null
-                && Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
-                && isManagedActiveOrderFinalRelease(transaction, command);
+    private boolean isManagedActiveOrderOpenBatchFinalRelease(MesProEdhrBatchExecutionDO batch,
+                                                               MesProEdhrReleaseTransactionDO transaction,
+                                                               MesReleaseFinalizationCommand command) {
+        if (batch == null || !isManagedActiveOrderFinalRelease(transaction, command)) {
+            return false;
+        }
+        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)) {
+            return true;
+        }
+        // Quantity materialization starts the evidence tasks; production release remains governed by formal facts.
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS)) {
+            return false;
+        }
+        MesProcessPoolActiveOrderReleaseApplicationDO application = resolveReleaseApplication(transaction);
+        return application != null
+                && MesProductionReleaseFormalFactSnapshots.isActiveOrderFactsSnapshot(application.getReportSnapshotHash());
     }
 
     private boolean isManagedActiveOrderFinalRelease(MesProEdhrReleaseTransactionDO transaction,

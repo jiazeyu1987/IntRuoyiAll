@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExec
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.mes.service.pro.productionrelease.MesReleaseAffectedStateCollector;
+import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,6 +68,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     private GxpAuditService gxpAuditService;
     @Mock
     private MesReleaseAffectedStateCollector affectedStateCollector;
+    @Mock
+    private MesActiveOrderHandoffService handoffService;
 
     private MesTeamLeaderSubmissionReviewService service;
 
@@ -74,7 +77,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     void setUp() {
         service = new MesTeamLeaderSubmissionReviewServiceImpl(scopeService, eventMapper, reviewMapper,
                 processInspectionAggregationService);
-        { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
+        ReflectionTestUtils.setField(service, "handoffService", handoffService);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "returnCorrectionResolver", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver.class)); }
         ReflectionTestUtils.setField(service, "signatureService", signatureService);
         ReflectionTestUtils.setField(service, "nonconformanceReviewService", org.mockito.Mockito.mock(
@@ -104,8 +107,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         Long reviewId = service.reviewSubmission(displayed(reviewReq()));
 
         assertEquals(7001L, reviewId);
-        verify(scopeService).assertCanAccessEmployee(3001L,
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
+        verify(handoffService).assertCanReviewPqcEvent(1001L, null, 3001L);
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
@@ -202,17 +205,18 @@ class MesTeamLeaderSubmissionReviewServiceTest {
     }
 
     @Test
-    void shouldRejectReviewForOutOfScopeEmployee() {
+    void shouldRejectPqcReviewOutsideFrozenResponsibilityBeforeSignature() {
         when(eventMapper.selectByIdForUpdate(1001L)).thenReturn(event());
         doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "员工"))
-                .when(scopeService).assertCanAccessEmployee(3001L,
-                        MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 2001L);
+                .when(handoffService).assertCanReviewPqcEvent(1001L, null, 3001L);
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED.getCode(), ex.getCode());
         assertEquals("班组长不在该员工的负责范围内", ex.getMessage());
         verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
     }
 
     @Test
@@ -258,6 +262,7 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(reviewMapper).insert(any(MesProcessPoolSubmissionReviewDO.class));
         verify(reviewMapper, never()).updateById(any(MesProcessPoolSubmissionReviewDO.class));
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7010L);
+        verify(handoffService).assertCanReviewPqcEvent(1001L, 8001L, 3001L);
     }
 
     @Test
@@ -386,8 +391,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         Long reviewId = service.reviewSubmission(displayed(reviewReq()));
 
         assertEquals(7003L, reviewId);
-        verify(scopeService).assertCanAccessEmployee(3001L,
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 3001L);
+        verify(handoffService).assertCanReviewPqcEvent(1001L, null, 3001L);
+        verify(scopeService, never()).assertCanAccessEmployee(any(), any(), any());
         ArgumentCaptor<MesProcessPoolSubmissionReviewDO> reviewCaptor =
                 ArgumentCaptor.forClass(MesProcessPoolSubmissionReviewDO.class);
         verify(reviewMapper).insert(reviewCaptor.capture());
@@ -421,6 +426,23 @@ class MesTeamLeaderSubmissionReviewServiceTest {
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1001L, 7001L);
         verify(processInspectionAggregationService).aggregateApprovedPqcSubmission(1002L, 7002L);
         verify(gxpAuditService, org.mockito.Mockito.times(2)).append(any(GxpAuditCommand.class));
+        verify(handoffService).assertCanReviewPqcEvent(1001L, null, 3001L);
+        verify(handoffService).assertCanReviewPqcEvent(1002L, null, 3001L);
+    }
+
+    @Test
+    void shouldRejectGroupWithUnownedFrozenSiblingBeforeAnySignatureOrReview() {
+        prepareSubmissionGroup(false);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            if (Long.valueOf(1002L).equals(invocation.getArgument(0))) {
+                throw exception(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "PQC复核事件");
+            }
+            return null;
+        }).when(handoffService).assertCanReviewPqcEvent(any(), any(), any());
+        assertThrows(ServiceException.class, () -> service.reviewSubmission(displayed(reviewReq())));
+        verify(reviewMapper, never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
+        verify(signatureService, never()).recordTeamLeaderReviewSignature(any(), any(), any(), any(MesTeamLeaderReviewSignatureContext.class));
+        verify(processInspectionAggregationService, never()).aggregateApprovedPqcSubmission(any(), any());
     }
 
     @Test
@@ -524,7 +546,8 @@ class MesTeamLeaderSubmissionReviewServiceTest {
                     : cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_NONCONFORMANCE_REVIEW_FROZEN_ACTION_LOCKED.getCode(), freezeFailure.getCode());
             verify(signatureService,never()).recordTeamLeaderReviewSignature(any(),any(),any(),any(MesTeamLeaderReviewSignatureContext.class));
             verify(reviewMapper,never()).insert(any(MesProcessPoolSubmissionReviewDO.class));
-            org.mockito.Mockito.verifyNoInteractions(processInspectionAggregationService,ReflectionTestUtils.getField(service,"handoffService"));
+            org.mockito.Mockito.verifyNoInteractions(processInspectionAggregationService);
+            verify(handoffService, never()).reviewed(any(), any());
         }
     }
 

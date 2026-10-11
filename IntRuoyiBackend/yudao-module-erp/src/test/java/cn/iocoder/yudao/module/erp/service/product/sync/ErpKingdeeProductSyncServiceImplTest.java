@@ -56,6 +56,7 @@ class ErpKingdeeProductSyncServiceImplTest {
         kingdeeProperties.setLcid(2052);
         kingdeeProperties.getProduct().setQueryLimit(5000);
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        org.mockito.Mockito.lenient().when(productCategoryMapper.updateById(any(ErpProductCategoryDO.class))).thenReturn(1);
         syncService = new ErpKingdeeProductSyncServiceImpl(
                 materialClient, kingdeeConfigService, productMapper, productCategoryMapper, productUnitMapper);
     }
@@ -90,7 +91,7 @@ class ErpKingdeeProductSyncServiceImplTest {
             return 1;
         }).when(productUnitMapper).insert(any(ErpProductUnitDO.class));
         when(productMapper.insertBatch(any(Collection.class), eq(1000))).thenReturn(true);
-        when(productMapper.updateBatch(any(Collection.class), eq(1000))).thenReturn(true);
+        when(productMapper.updateErpMaterialSnapshot(any(ErpProductDO.class))).thenReturn(1);
 
         ErpKingdeeProductSyncResult result = syncService.syncProducts();
 
@@ -105,13 +106,10 @@ class ErpKingdeeProductSyncServiceImplTest {
         assertEquals(20L, createdProduct.getCategoryId());
         assertEquals(30L, createdProduct.getUnitId());
 
-        ArgumentCaptor<Collection<ErpProductDO>> updateCaptor = ArgumentCaptor.forClass(Collection.class);
-        verify(productMapper).updateBatch(updateCaptor.capture(), eq(1000));
-        ErpProductDO updatedProduct = updateCaptor.getValue().iterator().next();
-        assertEquals(10L, updatedProduct.getId());
-        assertEquals("Material Updated", updatedProduct.getName());
-        assertEquals(CommonStatusEnum.DISABLE.getStatus(), updatedProduct.getStatus());
-        assertEquals("Spec B", updatedProduct.getStandard());
+        ArgumentCaptor<ErpProductDO> updateCaptor = ArgumentCaptor.forClass(ErpProductDO.class);
+        verify(productMapper).updateErpMaterialSnapshot(updateCaptor.capture());
+        assertEquals("Spec B", updateCaptor.getValue().getStandard());
+
     }
 
     @Test

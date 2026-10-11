@@ -67,6 +67,24 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
     }
 
     @Test
+    void missingAuthoritativeEmployeeNeverUsesClientRawIdentityInTheWriter() {
+        when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
+                .thenReturn(List.of(binding()));
+        when(executionService.openOrCreateByContext(any()))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(8801L));
+        when(executionMapper.selectById(8801L)).thenReturn(execution());
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 401L, "BR-FORM-A"))
+                .thenReturn(List.of(ruleWithoutAggregationStrategy(1L, "actualEmployeeId", 5, 2,
+                        MesProBatchRecordExecutionFieldAuditValueType.NUMBER)));
+        var command = command();
+        command.getEvent().setActualEmployeeId(null).setRawPayload("{\"actualEmployeeId\":999}");
+        command.setSourceEvents(List.of(command.getEvent()));
+        ServiceException error = assertThrows(ServiceException.class, () -> service.backfillCompletedProcess(command));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED.getCode(), error.getCode());
+        verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
+    }
+
+    @Test
     void shouldBackfillReportPayloadFieldsThroughFormalBatchRecordBindingAndCellRules() {
         when(bindingMapper.selectListByRouteProcessIdsAndUseType(List.of(5001L), "BATCH"))
                 .thenReturn(List.of(binding()));
@@ -84,7 +102,8 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
                         .setFieldAuditHeadHash("after-head")
                         .setChangedFieldCount(2));
 
-        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(command());
+        MesTeamLeaderBatchRecordBackfillResult result = service.backfillCompletedProcess(command()
+                .setIdempotencyKey("a".repeat(64)).setSourceAuditReasonText("正式完工来源回填|untrusted-text"));
 
         assertEquals(8801L, result.getExecutionId());
         assertEquals(2, result.getAppliedFieldCount());
@@ -92,6 +111,7 @@ class MesTeamLeaderBatchRecordBackfillServiceTest {
         ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> openCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
         verify(executionService).openOrCreateByContext(openCaptor.capture());
+        verify(executionService, never()).openOrCreateForCompletionSource(any());
         MesProBatchRecordExecutionOpenOrCreateByContextReqVO openReq = openCaptor.getValue();
         assertEquals(9001L, openReq.getWorkOrderId());
         assertEquals(7001L, openReq.getRouteId());

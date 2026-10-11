@@ -404,11 +404,7 @@
                   align="center"
                   v-bind="sortColumnAttrs('createTime')"
                 />
-                <el-table-column
-                  v-if="showRemovedScheduleOrders"
-                  label="删除信息"
-                  min-width="240"
-                >
+                <el-table-column v-if="showRemovedScheduleOrders" label="删除信息" min-width="240">
                   <template #default="{ row }">
                     <div class="schedule-order-pool__removed-info">
                       <span>{{ formatDateTime(row.removedFromScheduleTime) }}</span>
@@ -422,7 +418,9 @@
                 <el-table-column label="操作" width="190" align="center" fixed="right">
                   <template #default="{ row }">
                     <div class="schedule-order-pool__row-actions">
-                      <el-button link type="primary" @click="openProcessDialog(row)">查看</el-button>
+                      <el-button link type="primary" @click="openProcessDialog(row)"
+                        >查看</el-button
+                      >
                       <el-button
                         v-if="!row.removedFromSchedule && row.frozen"
                         v-hasPermi="['mes:pro-schedule-order:update']"
@@ -540,6 +538,16 @@
                     @click="submitWorkOrderAdmission"
                   >
                     <Icon icon="ep:check" class="mr-5px" /> 选中工单加入排产工单池
+                  </el-button>
+                  <el-button
+                    v-if="hasErpWorkOrderCleanupPermission"
+                    type="danger"
+                    plain
+                    :loading="erpWorkOrderCleanupAnalyzing"
+                    :disabled="erpWorkOrderCleanupDeleting"
+                    @click="analyzeErpMissingWorkOrders"
+                  >
+                    <Icon icon="ep:delete" class="mr-5px" /> 清理 ERP 不存在工单
                   </el-button>
                   <UserTableColumnSettings
                     class="schedule-order-pool__tab-column-settings"
@@ -1061,9 +1069,7 @@
 
     <Dialog
       v-model="manualFinishDialogVisible"
-      :title="
-        manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单完成' : '撤销排产工单完成'
-      "
+      :title="manualFinishDialogMode === 'MANUAL_FINISH' ? '排产工单完成' : '撤销排产工单完成'"
       width="460px"
     >
       <el-alert
@@ -1098,9 +1104,7 @@
             :rows="3"
             maxlength="500"
             :placeholder="
-              manualFinishDialogMode === 'MANUAL_FINISH'
-                ? '请填写完成原因'
-                : '请填写撤销完成原因'
+              manualFinishDialogMode === 'MANUAL_FINISH' ? '请填写完成原因' : '请填写撤销完成原因'
             "
           />
         </el-form-item>
@@ -2122,6 +2126,73 @@
       </div>
     </Dialog>
 
+    <el-dialog
+      v-model="erpWorkOrderCleanupDialogVisible"
+      title="确认清理 ERP 不存在工单"
+      width="900px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!erpWorkOrderCleanupDeleting"
+      :show-close="!erpWorkOrderCleanupDeleting"
+    >
+      <template v-if="erpWorkOrderCleanupPreview">
+        <el-alert
+          :title="`已核对全部同步工单中的 ${erpWorkOrderCleanupPreview.analyzedCount} 个 ERP 来源工单，发现 ${erpWorkOrderCleanupPreview.missingWorkOrders.length} 个在当前 ERP 环境中不存在；其中 ${erpWorkOrderCleanupDeletableItems.length} 个可删除。`"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+        <p>
+          确认后将删除可清理的系统生产工单、BOM 和 ERP 同步关联。已进入排产或生产流程的工单保留。
+        </p>
+        <p v-if="erpWorkOrderCleanupPreview.unverifiableCount > 0">
+          另有 {{ erpWorkOrderCleanupPreview.unverifiableCount }} 个工单缺少完整 ERP
+          同步关联，无法核对，保留不删除。
+        </p>
+        <el-alert
+          v-if="erpWorkOrderCleanupError"
+          :title="erpWorkOrderCleanupError"
+          type="error"
+          :closable="false"
+        />
+        <el-table
+          :data="erpWorkOrderCleanupPreview.missingWorkOrders"
+          row-key="workOrderId"
+          max-height="420"
+          border
+        >
+          <el-table-column label="工单编码" prop="workOrderCode" min-width="170" />
+          <el-table-column label="ERP 订单编号" prop="sourceBillNo" min-width="170" />
+          <el-table-column label="处理结果" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.deletable ? 'danger' : 'info'">{{
+                row.deletable ? '待删除' : '保留'
+              }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="说明" min-width="260">
+            <template #default="{ row }">{{
+              row.deletable ? 'ERP 中不存在，且无排产或生产记录' : row.retainReason
+            }}</template>
+          </el-table-column>
+        </el-table>
+      </template>
+      <template #footer>
+        <el-button
+          :disabled="erpWorkOrderCleanupDeleting"
+          @click="erpWorkOrderCleanupDialogVisible = false"
+          >取消</el-button
+        >
+        <el-button
+          type="danger"
+          :loading="erpWorkOrderCleanupDeleting"
+          :disabled="erpWorkOrderCleanupDeletableItems.length === 0 || !!erpWorkOrderCleanupError"
+          @click="confirmDeleteErpMissingWorkOrders"
+        >
+          确认删除 {{ erpWorkOrderCleanupDeletableItems.length }} 个工单
+        </el-button>
+      </template>
+    </el-dialog>
+
     <Dialog v-model="materialShortageDialogVisible" title="物料缺料明细" width="720px">
       <el-table
         :data="materialShortageIssues"
@@ -2148,6 +2219,7 @@ import { dateFormatter, formatDate, formatDateTimeValue } from '@/utils/formatTi
 import {
   MesProScheduleOrderApi,
   type MesProScheduleOrderAdmissionDiffRowVO,
+  type MesProWorkOrderErpCleanupPreview,
   type MesProScheduleOrderDailyCompareVO,
   type MesProScheduleOrderIssueActionVO,
   type MesProScheduleOrderPreflightIssueVO,
@@ -2641,6 +2713,19 @@ const workOrderAdmissionSaving = ref(false)
 const workOrderAdmissionList = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const selectedWorkOrders = ref<MesProScheduleOrderAdmissionDiffRowVO[]>([])
 const workOrderAdmissionTotal = ref(0)
+const erpWorkOrderCleanupAnalyzing = ref(false)
+const erpWorkOrderCleanupDeleting = ref(false)
+const erpWorkOrderCleanupDialogVisible = ref(false)
+const erpWorkOrderCleanupPreview = ref<MesProWorkOrderErpCleanupPreview>()
+const erpWorkOrderCleanupError = ref('')
+const hasErpWorkOrderCleanupPermission = computed(
+  () =>
+    checkPermi(['mes:pro-schedule-order:admission-diff']) &&
+    checkPermi(['mes:pro-work-order:delete'])
+)
+const erpWorkOrderCleanupDeletableItems = computed(
+  () => erpWorkOrderCleanupPreview.value?.missingWorkOrders.filter((item) => item.deletable) || []
+)
 const routeBindingDialogVisible = ref(false)
 const routeBindingOptionsLoading = ref(false)
 const routeBindingOptionsError = ref('')
@@ -3815,9 +3900,7 @@ const submitManualFinishAction = async () => {
   }
   if (!manualFinishReason.value.trim()) {
     message.warning(
-      manualFinishDialogMode.value === 'MANUAL_FINISH'
-        ? '完成原因不能为空'
-        : '撤销完成原因不能为空'
+      manualFinishDialogMode.value === 'MANUAL_FINISH' ? '完成原因不能为空' : '撤销完成原因不能为空'
     )
     return
   }
@@ -4220,6 +4303,65 @@ const getAdmissionCellClassName = ({ column }: { column: { property?: string } }
   return wrapColumns.has(column.property || '')
     ? 'schedule-order-pool__admission-table__cell--wrap'
     : ''
+}
+
+const analyzeErpMissingWorkOrders = async () => {
+  erpWorkOrderCleanupAnalyzing.value = true
+  erpWorkOrderCleanupPreview.value = undefined
+  erpWorkOrderCleanupError.value = ''
+  try {
+    const preview = await MesProScheduleOrderApi.analyzeErpMissingWorkOrders()
+    erpWorkOrderCleanupPreview.value = preview
+    if (preview.missingWorkOrders.length === 0) {
+      if (preview.unverifiableCount > 0) {
+        message.warning(
+          `已核对 ${preview.analyzedCount} 个工单，未发现 ERP 不存在的工单；${preview.unverifiableCount} 个工单缺少完整同步关联，无法核对，保留不删除`
+        )
+      } else {
+        message.success(`已核对 ${preview.analyzedCount} 个工单，未发现 ERP 不存在的工单，无需清理`)
+      }
+      return
+    }
+    erpWorkOrderCleanupDialogVisible.value = true
+  } catch (error) {
+    message.error(`分析失败，未执行删除：${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    erpWorkOrderCleanupAnalyzing.value = false
+  }
+}
+
+const confirmDeleteErpMissingWorkOrders = async () => {
+  const preview = erpWorkOrderCleanupPreview.value
+  if (
+    !preview ||
+    erpWorkOrderCleanupDeletableItems.value.length === 0 ||
+    erpWorkOrderCleanupDeleting.value ||
+    erpWorkOrderCleanupError.value
+  )
+    return
+  erpWorkOrderCleanupDeleting.value = true
+  try {
+    const deletedCount = await MesProScheduleOrderApi.deleteErpMissingWorkOrders({
+      environmentKey: preview.environmentKey,
+      items: erpWorkOrderCleanupDeletableItems.value.map((item) => ({
+        workOrderId: item.workOrderId,
+        syncRecordId: item.syncRecordId,
+        sourceFid: item.sourceFid,
+        sourceBillNo: item.sourceBillNo,
+        sourceMaterialNumber: item.sourceMaterialNumber
+      }))
+    })
+    erpWorkOrderCleanupDialogVisible.value = false
+    message.success(`已删除 ${deletedCount} 个 ERP 不存在的工单`)
+    selectedWorkOrders.value = []
+    workOrderAdmissionQueryParams.pageNo = 1
+    await getWorkOrderAdmissionList()
+  } catch (error) {
+    erpWorkOrderCleanupError.value = `清理失败：${error instanceof Error ? error.message : String(error)}。请关闭弹框后重新分析。`
+    message.error(erpWorkOrderCleanupError.value)
+  } finally {
+    erpWorkOrderCleanupDeleting.value = false
+  }
 }
 
 const submitWorkOrderAdmission = async () => {
@@ -4923,9 +5065,7 @@ onMounted(async () => {
 
 <style scoped>
 .schedule-order-pool {
-  height: calc(
-    100vh - var(--top-tool-height) - var(--tags-view-height) - 32px
-  );
+  height: calc(100vh - var(--top-tool-height) - var(--tags-view-height) - 32px);
   min-height: 0;
 }
 

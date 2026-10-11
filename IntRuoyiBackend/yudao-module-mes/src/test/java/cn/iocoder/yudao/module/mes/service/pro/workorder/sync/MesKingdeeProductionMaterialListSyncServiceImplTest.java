@@ -78,6 +78,8 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of(
                         new MesProWorkOrderDO().setId(501L).setCode("CODXMO20260").setProductId(20L)
                 ));
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(
+                new MesProWorkOrderDO().setId(501L).setCode("CODXMO20260").setProductId(20L));
         when(itemMapper.selectByCode("AW.106.03.08.10")).thenReturn(new MesMdItemDO().setId(20L).setCode("AW.106.03.08.10"));
         when(itemMapper.selectByCode("A001.02.014.300")).thenReturn(new MesMdItemDO().setId(30L));
         when(workOrderBomMapper.selectListByWorkOrderId(501L)).thenReturn(List.of(
@@ -116,6 +118,8 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of(
                         new MesProWorkOrderDO().setId(501L).setCode("CODXMO20260").setProductId(20L)
                 ));
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(
+                new MesProWorkOrderDO().setId(501L).setCode("CODXMO20260").setProductId(20L));
         when(itemMapper.selectByCode("AW.106.03.08.10")).thenReturn(new MesMdItemDO().setId(20L).setCode("AW.106.03.08.10"));
         when(itemMapper.selectByCode("A001.02.014.300")).thenReturn(new MesMdItemDO().setId(30L));
         when(workOrderBomMapper.selectListByWorkOrderId(501L)).thenReturn(List.of(
@@ -212,6 +216,8 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
         when(workOrderBomMapper.selectListByWorkOrderId(502L))
                 .thenReturn(List.of(new MesProWorkOrderBomDO().setId(602L).setItemId(30L)));
 
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(tenant1WorkOrder);
+        when(workOrderMapper.selectByIdForUpdate(502L)).thenReturn(tenant122WorkOrder);
         List<MesKingdeeProductionMaterialListDO> insertedRows = new ArrayList<>();
         org.mockito.Mockito.doAnswer(invocation -> {
             MesKingdeeProductionMaterialListDO target = invocation.getArgument(0);
@@ -244,6 +250,7 @@ class MesKingdeeProductionMaterialListSyncServiceImplTest {
                 codes != null && codes.contains("CODXMO20260")))).thenReturn(List.of(
                         targetWorkOrder
                 ));
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(targetWorkOrder);
         when(itemMapper.selectByCode("AW.106.03.08.10")).thenReturn(new MesMdItemDO().setId(20L).setCode("AW.106.03.08.10"));
         when(itemMapper.selectByCode("A001.02.014.300")).thenReturn(new MesMdItemDO().setId(30L));
         when(workOrderBomMapper.selectListByWorkOrderId(501L)).thenReturn(List.of(

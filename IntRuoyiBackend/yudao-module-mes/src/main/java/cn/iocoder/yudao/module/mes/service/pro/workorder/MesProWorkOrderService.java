@@ -51,6 +51,9 @@ public interface MesProWorkOrderService {
      */
     MesProWorkOrderDO validateWorkOrderExists(Long id);
 
+    /** 校验并锁定工单，调用方必须在事务中执行关联数据写入。 */
+    MesProWorkOrderDO validateWorkOrderExistsForUpdate(Long id);
+
     /**
      * 获得生产工单
      *
@@ -108,6 +111,9 @@ public interface MesProWorkOrderService {
      * @return 工单
      */
     MesProWorkOrderDO validateWorkOrderConfirmed(Long id);
+
+    /** 写入工单关联前锁定并校验已确认状态；调用方须处于事务中。 */
+    MesProWorkOrderDO validateWorkOrderConfirmedForUpdate(Long id);
 
     /**
      * 确认工单（草稿 → 已确认）

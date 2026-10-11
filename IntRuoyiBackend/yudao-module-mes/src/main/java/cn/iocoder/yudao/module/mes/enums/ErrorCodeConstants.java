@@ -219,6 +219,7 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_SCHEDULE_ORDER_REASON_REQUIRED = new ErrorCode(1_040_270_009, "操作原因不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_BATCH_REQUIRED = new ErrorCode(1_040_270_010, "排产工单不能为空");
     ErrorCode PRO_SCHEDULE_ORDER_DELETE_BLOCKED = new ErrorCode(1_040_270_011, "排产工单存在已报工或已完成记录，不能删除");
+    ErrorCode PRO_WORK_ORDER_ERP_CLEANUP_BLOCKED = new ErrorCode(1_040_270_030, "ERP 不存在工单清理失败");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_SCHEDULE_CONFIG_REQUIRED = new ErrorCode(1_040_270_012, "排产工单缺少路线排产策略配置，processId={}");
     ErrorCode PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED = new ErrorCode(1_040_270_013, "排产资源缺少班次小时配置，routeProcessId={}, workstationId={}");
     ErrorCode PRO_SCHEDULE_ORDER_ROUTE_FLOW_CONFIG_REQUIRED = new ErrorCode(1_040_270_014, "排产工单缺少智能排产流程配置，processId={}");

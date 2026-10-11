@@ -174,6 +174,8 @@ class MesFrontlinePqcContextServiceTest {
     private GxpAuditService gxpAuditService;
     private MesFrontlinePqcContextService service;
     private boolean actualPersonnelScopes;
+    private boolean selfSubmission;
+    private boolean foreignPersonnelScope;
 
     @Test
     void rejectedOldPersonnelEnableKeepsActualUniqueOwnerAndAllowsBSubmissionAndAssignment() throws Exception {
@@ -506,7 +508,7 @@ class MesFrontlinePqcContextServiceTest {
                 .thenReturn(List.of());
         when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
                 .thenReturn(List.of(pqcEmployeeScope(loginUserId, actualEmployeeId)));
-        when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(actualEmployeeId)));
+        when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(loginUserId), enabledUser(actualEmployeeId)));
         when(pieceDetailMapper.selectLatestSelectedEquipmentByActualEmployeeAndItemCode(actualEmployeeId, "ID-001"))
                 .thenReturn(MesPqcInspectionPieceDetailDO.builder()
                         .selectedEquipmentId(1101L)
@@ -532,7 +534,7 @@ class MesFrontlinePqcContextServiceTest {
     void submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType(
             String inspectionType, String ruleKey, String shiftCode, String workState) {
         long loginUserId = 3001L;
-        long actualEmployeeId = 3002L;
+        long actualEmployeeId = selfSubmission ? loginUserId : 3002L;
         long pqcTaskId = 9101L;
         long pqcEventId = 9401L;
         long signatureId = 9301L;
@@ -553,7 +555,9 @@ class MesFrontlinePqcContextServiceTest {
                         productionSubmitEvent(9203L, 30002L, 40002L)));
         if (!actualPersonnelScopes) {
             when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
-                    .thenReturn(List.of(pqcEmployeeScope(loginUserId, actualEmployeeId)));
+                    .thenReturn(selfSubmission ? (foreignPersonnelScope
+                            ? List.of(pqcEmployeeScope(4001L, 4002L)) : List.of())
+                            : List.of(pqcEmployeeScope(loginUserId, actualEmployeeId)));
         }
         when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(loginUserId), enabledUser(actualEmployeeId)));
         when(regulationProcessMapper.selectById(QA_PROCESS_ID)).thenReturn(MesQaInspectionRegulationProcessDO.builder()
@@ -662,8 +666,8 @@ class MesFrontlinePqcContextServiceTest {
         Map<?, ?> performedBy = JsonUtils.parseObject(audit.getPerformedBy(), Map.class);
         assertEquals(String.valueOf(actualEmployeeId), String.valueOf(performedBy.get("actorId")));
         assertEquals("SYSTEM_USER", performedBy.get("actorType"));
-        assertEquals("user-3002", performedBy.get("username"));
-        assertEquals("员工3002", performedBy.get("displayName"));
+        assertEquals("user-" + actualEmployeeId, performedBy.get("username"));
+        assertEquals("员工" + actualEmployeeId, performedBy.get("displayName"));
         assertEquals(audit.getPerformedBy(), MesFrontlineAuditIdentity.persistedPqc(
                 JsonUtils.parseObject(request.getSignatureSnapshot(), Map.class).get("performedBy"), actualEmployeeId));
         assertTrue(!JsonUtils.toJsonString(audit).contains("sign-123"));
@@ -674,6 +678,57 @@ class MesFrontlinePqcContextServiceTest {
         assertTrue(audit.getAfterState().getCanonicalJson().contains("\"taskStatus\":\"SUBMITTED\""));
         assertTrue(audit.getAfterState().getCanonicalJson().contains("\"submittedEventId\":" + pqcEventId));
         assertTrue(audit.getAfterState().getCanonicalJson().contains("\"submittedContentHash\""));
+    }
+
+    @Test
+    void unassignedSelfCanSubmitEveryInspectionTypeWithOwnFormalSignature() {
+        selfSubmission = true;
+        for (Arguments identity : adjustableTaskIdentities().filter(a -> "confirmed".equals(a.get()[3])).toList()) {
+            // Each invocation gets a fresh service and collaborators, as ordinary parameterized tests do.
+            setUp();
+            submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType(
+                    (String) identity.get()[0], (String) identity.get()[1], (String) identity.get()[2], "confirmed");
+        }
+    }
+
+    @Test
+    void unrelatedTeamDoesNotBlockSelfFormalSubmission() {
+        selfSubmission = true;
+        foreignPersonnelScope = true;
+        submitPqcInspectionPermitsAdjustedActualQuantityForEveryInspectionType("FIRST", "FIRST", "FIRST", "confirmed");
+    }
+
+    @Test
+    void ownSubmittedReceiptRemainsReadableAfterTeamAssignmentRemoved() {
+        long userId = 3001L;
+        long taskId = 9101L;
+        long eventId = 9401L;
+        LocalDateTime time = LocalDateTime.of(2026, 8, 19, 15, 30);
+        var task = pendingTask(taskId).setTaskStatus("SUBMITTED").setSubmittedEventId(eventId)
+                .setSubmittedContentHash("formal-content-hash");
+        var event = MesProProcessPoolEventDO.builder().id(eventId).actualEmployeeId(userId)
+                .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
+                .feedbackSourceType("MES_PQC_INSPECTION_TASK").feedbackSourceId(taskId)
+                .signatureId(9301L).serverSubmitTime(time).build();
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of());
+        when(adminUserApi.getUserList(any())).thenReturn(List.of(enabledUser(userId), enabledUser(3002L)));
+        when(pqcTaskMapper.selectById(taskId)).thenReturn(task);
+        when(processPoolEventMapper.selectListPqcByTaskId("MES_PQC_INSPECTION_TASK", taskId))
+                .thenReturn(List.of(event));
+        when(processPoolEventMapper.selectById(eventId)).thenReturn(event);
+        when(pqcRecordMapper.selectByEventId(eventId)).thenReturn(MesProProcessPoolPqcRecordDO.builder()
+                .id(9501L).eventId(eventId).signatureId(9301L).serverSubmitTime(time)
+                .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS).build());
+
+        var receipt = service.getSubmittedPqcInspection(userId, taskId).orElseThrow();
+        assertEquals(eventId, receipt.pqcEventId());
+        assertEquals("formal-content-hash", receipt.payloadHash());
+        event.setActualEmployeeId(3002L);
+        ServiceException error = assertThrows(ServiceException.class,
+                () -> service.getSubmittedPqcInspection(userId, taskId));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants
+                .PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND.getCode(), error.getCode());
     }
 
     @Test

@@ -37,6 +37,9 @@ import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import cn.iocoder.yudao.module.mes.service.pro.scheduleorder.MesProScheduleOrderService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderErpCleanupService;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProWorkOrderErpCleanupReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProWorkOrderErpCleanupPreviewRespVO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.servlet.http.HttpServletResponse;
@@ -66,6 +69,26 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MesProScheduleOrderControllerTest {
+    @Mock
+    private MesProWorkOrderErpCleanupService workOrderErpCleanupService;
+
+    @Test
+    void erpCleanupEndpointsRequireBothListAndWorkOrderDeletionPermissions() throws NoSuchMethodException {
+        var preview = new MesProWorkOrderErpCleanupPreviewRespVO();
+        when(workOrderErpCleanupService.analyze()).thenReturn(preview);
+        assertEquals(preview, controller.analyzeErpMissingWorkOrders().getData());
+        var request = new MesProWorkOrderErpCleanupReqVO();
+        when(workOrderErpCleanupService.deleteMissing(request)).thenReturn(2);
+        assertEquals(2, controller.deleteErpMissingWorkOrders(request).getData());
+        String permissions = "@ss.hasPermission('mes:pro-schedule-order:admission-diff') && @ss.hasPermission('mes:pro-work-order:delete')";
+        assertEquals(permissions, MesProScheduleOrderController.class.getMethod("analyzeErpMissingWorkOrders")
+                .getAnnotation(PreAuthorize.class).value());
+        var method = MesProScheduleOrderController.class.getMethod("deleteErpMissingWorkOrders", MesProWorkOrderErpCleanupReqVO.class);
+        assertEquals(permissions, method.getAnnotation(PreAuthorize.class).value());
+        assertArrayEquals(new cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum[]{
+                cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.DELETE},
+                method.getAnnotation(ApiAccessLog.class).operateType());
+    }
 
     @Mock
     private MesProScheduleOrderService scheduleOrderService;

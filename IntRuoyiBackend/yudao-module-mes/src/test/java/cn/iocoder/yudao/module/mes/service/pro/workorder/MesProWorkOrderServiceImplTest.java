@@ -105,6 +105,28 @@ class MesProWorkOrderServiceImplTest {
     }
 
     @Test
+    void validateWorkOrderConfirmedForUpdate_shouldReadCurrentStateWithLock() {
+        MesProWorkOrderDO current = new MesProWorkOrderDO().setId(901L)
+                .setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(workOrderMapper.selectByIdForUpdate(901L)).thenReturn(current);
+        assertEquals(current, workOrderService.validateWorkOrderConfirmedForUpdate(901L));
+        verify(workOrderMapper).selectByIdForUpdate(901L);
+        verify(workOrderMapper, never()).selectById(901L);
+    }
+
+    @Test
+    void validateWorkOrderConfirmedForUpdate_shouldRejectDeletedWorkOrder() {
+        assertThrows(RuntimeException.class, () -> workOrderService.validateWorkOrderConfirmedForUpdate(901L));
+    }
+
+    @Test
+    void validateWorkOrderConfirmedForUpdate_shouldRejectChangedStatus() {
+        when(workOrderMapper.selectByIdForUpdate(901L)).thenReturn(new MesProWorkOrderDO().setId(901L)
+                .setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus()));
+        assertThrows(RuntimeException.class, () -> workOrderService.validateWorkOrderConfirmedForUpdate(901L));
+    }
+
+    @Test
     void updateTemporaryFreeze_shouldFreezeNonWhitelistWorkOrdersAndClearOpenTasks() {
         MesProScheduleCalendarRuleDO rule = MesProScheduleCalendarRuleDO.builder()
                 .id(1L)
@@ -280,7 +302,7 @@ class MesProWorkOrderServiceImplTest {
         request.setCode("WO-203");
         request.setProductId(20L);
         request.setQuantity(new BigDecimal("60"));
-        when(workOrderMapper.selectById(203L)).thenReturn(old);
+        when(workOrderMapper.selectByIdForUpdate(203L)).thenReturn(old);
         when(workOrderMapper.selectByCode("WO-203")).thenReturn(old);
 
         workOrderService.updateWorkOrder(request);

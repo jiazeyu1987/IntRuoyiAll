@@ -513,6 +513,13 @@
                 aria-label="已填写正式批记录"
                 data-edhr-formal-batch-record
               >
+                <el-alert
+                  v-if="selectedCompletionSourceMessage"
+                  :title="selectedCompletionSourceMessage"
+                  :type="selectedTaskPreview?.completionSourceMaterialization?.status === 'CONFIGURATION_MISSING' ? 'error' : 'info'"
+                  :closable="false"
+                  show-icon
+                />
                 <section
                   v-if="effectiveDetailPreviewAssistMode"
                   class="edhr-batch-detail__assist-preview"
@@ -1575,6 +1582,7 @@ import {
   type EdhrStage4DossierUploadSimulationRespVO,
   type MesProductionReleaseReportNodeCompleteRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
+import { resolveCompletionSourceDraftPreview } from './completionSourcePreview'
 import {
   EDHR_PRODUCTION_RELEASE_REPORT_NODE_TYPES,
   EDHR_WORK_TASK_STATUS_TODO,
@@ -1647,6 +1655,11 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
+const canQueryProductionReleaseReportCandidates = computed(
+  () =>
+    userStore.permissions.has('mes:pro-edhr-work-task:query') ||
+    userStore.permissions.has('*:*:*')
+)
 const BATCH_DETAIL_PAGE_BODY_CLASS = 'edhr-batch-detail-page'
 const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const FLOW_TRANSFER_PERMISSION = 'mes:pro-edhr-flow-intervention:transfer'
@@ -1985,11 +1998,23 @@ const selectedExecution = computed(() => {
   )
 })
 const EMPTY_FORM_CELL_VALUES_JSON = '[]'
+const selectedCompletionSourceDraftPreview = computed(() =>
+  resolveCompletionSourceDraftPreview(selectedTaskPreview.value)
+)
+const selectedCompletionSourceMessage = computed(() => {
+  if (selectedExecution.value) return ''
+  const evidence = selectedTaskPreview.value?.completionSourceMaterialization
+  if (evidence?.status === 'CONFIGURATION_MISSING') return evidence.message || '缺少正式生产来源映射'
+  if (selectedCompletionSourceDraftPreview.value) return '生产事实已回填，表单尚未提交'
+  if (evidence?.status === 'PENDING') return evidence.message || '正式生产来源尚未回填'
+  return ''
+})
 const selectedEmptyTaskPreviewFormViewModel = computed<
   EdhrBatchExecutionReviewFormViewModel | undefined
 >(() => {
   const formViewModel = selectedTaskPreview.value?.formViewModel
   if (!formViewModel) return undefined
+  if (selectedCompletionSourceDraftPreview.value) return selectedCompletionSourceDraftPreview.value
   return {
     ...formViewModel,
     cellValuesJson: EMPTY_FORM_CELL_VALUES_JSON,
@@ -3608,7 +3633,8 @@ const isProductionReleaseReportNode = (row?: EdhrBatchExecutionTaskRespVO) =>
   Boolean(row?.nodeType && productionReleaseReportNodeTypeSet.has(row.nodeType))
 
 const resolveProductionReleaseReportWorkTask = (row?: EdhrBatchExecutionTaskRespVO) => {
-  if (!row || !isProductionReleaseReportNode(row)) return undefined
+  if (!canQueryProductionReleaseReportCandidates.value || !row || !isProductionReleaseReportNode(row))
+    return undefined
   return productionReleaseReportWorkTasks.value.find(
     (workTask) =>
       workTask.businessScopeType === 'RELEASE_REPORT_NODE' &&
@@ -3721,6 +3747,8 @@ const normalizeTaskAccessReason = (reason?: string | null) => {
 
 const resolveTaskGateText = (row: EdhrBatchExecutionTaskRespVO) => {
   if (isProductionReleaseReportNode(row)) {
+    if (!canQueryProductionReleaseReportCandidates.value)
+      return '当前账号没有报告候选任务查询权限'
     if (productionReleaseReportCandidateLoading.value) return '正在核对当前报告候选权限'
     if (productionReleaseReportCandidateError.value)
       return productionReleaseReportCandidateError.value
@@ -4296,6 +4324,7 @@ const resolveArchiveStatusSummary = () => {
 
 let taskPreviewRequestSerial = 0
 let taskPreviewFrameId: number | undefined
+let batchTaskSelectionChanged = false
 
 const cancelDeferredTaskPreviewLoad = () => {
   if (taskPreviewFrameId === undefined) return
@@ -4355,6 +4384,7 @@ const deferTaskPreviewLoad = (task: EdhrBatchExecutionTaskRespVO) => {
 }
 
 const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
+  batchTaskSelectionChanged = true
   clearTaskPreview()
   selectedReleaseStep.value = false
   viewedReleaseStageKey.value = undefined
@@ -4368,13 +4398,18 @@ const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
   }
 }
 
-const selectReleaseProcess = () => {
+const applyReleaseProcessSelection = () => {
   clearTaskPreview()
   selectedReleaseStep.value = true
   viewedReleaseStageKey.value = undefined
   selectedTaskId.value = ''
   selectedExecutionId.value = ''
   void loadReleaseCheckItems()
+}
+
+const selectReleaseProcess = () => {
+  batchTaskSelectionChanged = true
+  applyReleaseProcessSelection()
 }
 
 watch(actualReleaseStageKey, (_nextStageKey, previousStageKey) => {
@@ -4406,13 +4441,15 @@ const hasBatchLevelWorkTaskRouteContext = () =>
   Boolean(parsePositiveRouteQueryId(route.query.workTaskId)) && !resolveRouteQueryTaskSelection()
 
 const applyRouteFocus = () => {
+  if (batchTaskSelectionChanged) return
   const focus = resolveDetailFocus()
   if (focus === 'process') {
     processDetailDialogVisible.value = true
     return
   }
   if (focus === 'precheck' || focus === 'approval') {
-    void openReleaseCheckGroup()
+    applyReleaseProcessSelection()
+    viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
   }
 }
 
@@ -4424,7 +4461,7 @@ const resolveDefaultTaskSelection = () =>
 const applyInitialBatchTaskSelection = () => {
   const focus = resolveDetailFocus()
   if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-    selectReleaseProcess()
+    applyReleaseProcessSelection()
     viewedReleaseStageKey.value =
       focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
     return
@@ -4454,6 +4491,7 @@ const resolveRouteFormAssistUserId = (row: EdhrBatchExecutionTaskRespVO) => {
 }
 
 const autoOpenRouteFormFromRoute = async () => {
+  if (batchTaskSelectionChanged) return
   if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
   const routeQueryTask = resolveRouteQueryTaskSelection()
   if (!routeQueryTask || !canAutoOpenRouteFormTask(routeQueryTask)) return
@@ -4472,9 +4510,11 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
+    // 辅助查询晚返回时，保留用户已选择的工序或放行步骤。
+    if (batchTaskSelectionChanged) return
     const focus = resolveDetailFocus()
     if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-      selectReleaseProcess()
+      applyReleaseProcessSelection()
       viewedReleaseStageKey.value =
         focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
@@ -4506,10 +4546,11 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
     reviewTimeline.value = undefined
+    if (batchTaskSelectionChanged) return
     selectedExecutionId.value = ''
     const focus = resolveDetailFocus()
     if (focus === 'precheck' || focus === 'approval' || hasBatchLevelWorkTaskRouteContext()) {
-      selectReleaseProcess()
+      applyReleaseProcessSelection()
       viewedReleaseStageKey.value =
         focus === 'precheck' ? 'precheck' : focus === 'approval' ? 'release-approval' : undefined
       return
@@ -4543,12 +4584,13 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     if (selectedReleaseStep.value) {
       await loadReleaseCheckItems()
     }
+    if (isStaleBatchDetailRequest(requestSerial)) return
     await autoOpenRouteFormFromRoute()
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = undefined
     reviewTimeline.value = undefined
-    clearTaskPreview()
+    if (!batchTaskSelectionChanged) clearTaskPreview()
     secondaryLoadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
   }
 }
@@ -4604,9 +4646,10 @@ const loadProductionReleaseReportCandidates = async (
   requestSerial = batchDetailRequestSerial
 ) => {
   const hasReportNodes = (detail.value?.tasks || []).some(isProductionReleaseReportNode)
-  if (!hasReportNodes) {
+  if (!canQueryProductionReleaseReportCandidates.value || !hasReportNodes) {
     productionReleaseReportWorkTasks.value = []
     productionReleaseReportCandidateError.value = ''
+    productionReleaseReportCandidateLoading.value = false
     return
   }
   productionReleaseReportCandidateLoading.value = true
@@ -4657,6 +4700,7 @@ const loadProductionReleaseReportCandidates = async (
 
 const loadDetail = async () => {
   const requestSerial = ++batchDetailRequestSerial
+  batchTaskSelectionChanged = false
   cancelDeferredBatchDetailSecondaryLoad()
   clearTaskPreview()
   loading.value = true

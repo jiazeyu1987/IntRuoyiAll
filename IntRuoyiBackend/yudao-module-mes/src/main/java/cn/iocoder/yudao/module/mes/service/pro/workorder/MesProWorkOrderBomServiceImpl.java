@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.mes.service.md.item.MesMdProductBomService;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -58,6 +59,7 @@ public class MesProWorkOrderBomServiceImpl implements MesProWorkOrderBomService 
     private MesMdProductBomService productBomService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createWorkOrderBom(MesProWorkOrderBomSaveReqVO createReqVO) {
         // 校验数据
         validateWorkOrderBomSaveData(createReqVO);
@@ -69,6 +71,7 @@ public class MesProWorkOrderBomServiceImpl implements MesProWorkOrderBomService 
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateWorkOrderBom(MesProWorkOrderBomSaveReqVO updateReqVO) {
         // 校验存在
         validateWorkOrderBomExists(updateReqVO.getId());
@@ -97,7 +100,7 @@ public class MesProWorkOrderBomServiceImpl implements MesProWorkOrderBomService 
 
     private void validateWorkOrderBomSaveData(MesProWorkOrderBomSaveReqVO reqVO) {
         // 校验工单存在
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExistsForUpdate(reqVO.getWorkOrderId());
         // DONE @AI：增加注释
         // 校验物料存在
         itemService.validateItemExists(reqVO.getItemId());

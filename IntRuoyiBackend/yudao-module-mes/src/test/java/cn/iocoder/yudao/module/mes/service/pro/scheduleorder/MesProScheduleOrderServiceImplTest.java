@@ -3262,7 +3262,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setPriorityNo(10);
         reqVO.setRemark("first schedule order");
 
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
         when(scheduleOrderMapper.selectMaxCodeByPrefix(anyString())).thenReturn(null);
         when(routeProductMapper.selectByItemId(20L)).thenReturn(routeProduct);
@@ -3404,7 +3404,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(120L);
         reqVO.setPromiseDate(LocalDate.of(2026, 8, 30));
 
-        when(workOrderMapper.selectById(120L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(120L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(120L))).thenReturn(List.of());
         when(scheduleOrderMapper.selectMaxCodeByPrefix(anyString())).thenReturn(null);
         when(routeProductMapper.selectByItemId(220L)).thenReturn(routeProduct);
@@ -3479,7 +3479,7 @@ class MesProScheduleOrderServiceImplTest {
         stubSimpleSchedulableWorkOrder(100L, "MO-100", 20L, 30L, 300L, 40L, 700L, 800L, "B010", "首道工序");
         MesProWorkOrderDO workOrder = workOrder(100L, "MO-100", 20L);
         workOrder.setQuantity(new BigDecimal("100.000000"));
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(30L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
                 .thenReturn(List.of(MesProRouteFlowProcessConfigDO.builder()
                         .routeFlowConfigId(30L)
@@ -3593,7 +3593,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderIds(List.of(100L));
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder(100L, "MO-100", 20L));
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder(100L, "MO-100", 20L));
         when(syncRecordMapper.selectByWorkOrderId(100L)).thenReturn(null);
 
         ServiceException exception = assertThrows(ServiceException.class,
@@ -3612,7 +3612,7 @@ class MesProScheduleOrderServiceImplTest {
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
         MesProWorkOrderDO workOrder = workOrder(100L, "MO-100", 20L);
         workOrder.setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus());
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrders(reqVO));
@@ -3633,9 +3633,9 @@ class MesProScheduleOrderServiceImplTest {
         notConfirmed.setStatus(MesProWorkOrderStatusEnum.PREPARE.getStatus());
         MesProWorkOrderDO erpMissing = workOrder(102L, "MO-102", 22L);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L, 101L, 102L))).thenReturn(List.of());
-        when(workOrderMapper.selectById(100L)).thenReturn(frozen);
-        when(workOrderMapper.selectById(101L)).thenReturn(notConfirmed);
-        when(workOrderMapper.selectById(102L)).thenReturn(erpMissing);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(frozen);
+        when(workOrderMapper.selectByIdForUpdate(101L)).thenReturn(notConfirmed);
+        when(workOrderMapper.selectByIdForUpdate(102L)).thenReturn(erpMissing);
         when(syncRecordMapper.selectByWorkOrderId(102L)).thenReturn(null);
 
         ServiceException exception = assertThrows(ServiceException.class,
@@ -3660,8 +3660,8 @@ class MesProScheduleOrderServiceImplTest {
         frozen.setTemporaryFrozen(Boolean.TRUE);
         MesProWorkOrderDO routeMissing = workOrder(104L, "MO-104", 998L);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(103L, 104L))).thenReturn(List.of());
-        when(workOrderMapper.selectById(103L)).thenReturn(frozen);
-        when(workOrderMapper.selectById(104L)).thenReturn(routeMissing);
+        when(workOrderMapper.selectByIdForUpdate(103L)).thenReturn(frozen);
+        when(workOrderMapper.selectByIdForUpdate(104L)).thenReturn(routeMissing);
         when(routeProductMapper.selectByItemId(998L)).thenReturn(null);
 
         ServiceException exception = assertThrows(ServiceException.class,
@@ -3756,7 +3756,7 @@ class MesProScheduleOrderServiceImplTest {
                 .temporaryFrozen(Boolean.FALSE)
                 .build();
         MesProScheduleOrderDO existing = MesProScheduleOrderDO.builder().id(900L).workOrderId(100L).build();
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of(existing));
 
         ServiceException exception = assertThrows(ServiceException.class,
@@ -3775,7 +3775,7 @@ class MesProScheduleOrderServiceImplTest {
                 () -> scheduleOrderService.createFromWorkOrder(reqVO));
 
         assertEquals(PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED.getCode(), exception.getCode());
-        verify(workOrderMapper, never()).selectById(100L);
+        verify(workOrderMapper, never()).selectByIdForUpdate(100L);
     }
 
     @Test
@@ -3825,7 +3825,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(100L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 10));
 
-        when(workOrderMapper.selectById(100L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(100L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(100L))).thenReturn(List.of());
         when(scheduleOrderMapper.selectMaxCodeByPrefix(anyString())).thenReturn(null);
         when(routeProductMapper.selectByItemId(20L)).thenReturn(routeProduct);
@@ -3898,7 +3898,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(106L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 6));
 
-        when(workOrderMapper.selectById(106L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(106L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(106L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(26L)).thenReturn(routeProduct);
         when(routeMapper.selectById(36L)).thenReturn(route);
@@ -3927,7 +3927,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(126L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 16));
 
-        when(workOrderMapper.selectById(126L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(126L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(126L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(46L)).thenReturn(routeProduct);
         when(routeMapper.selectById(56L)).thenReturn(route);
@@ -3966,7 +3966,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(116L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 16));
 
-        when(workOrderMapper.selectById(116L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(116L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(116L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(36L)).thenReturn(routeProduct);
         when(routeMapper.selectById(46L)).thenReturn(route);
@@ -4001,7 +4001,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(107L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 7));
 
-        when(workOrderMapper.selectById(107L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(107L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(107L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(27L)).thenReturn(routeProduct);
         when(routeMapper.selectById(37L)).thenReturn(route);
@@ -4034,7 +4034,7 @@ class MesProScheduleOrderServiceImplTest {
         reqVO.setWorkOrderId(108L);
         reqVO.setPromiseDate(LocalDate.of(2026, 7, 8));
 
-        when(workOrderMapper.selectById(108L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(108L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(108L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(28L)).thenReturn(routeProduct);
         when(routeMapper.selectById(38L)).thenReturn(route);
@@ -4092,7 +4092,7 @@ class MesProScheduleOrderServiceImplTest {
                 .id(309L).routeId(39L).processId(49L).sort(1).workstationId(509L).build();
         MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder().id(709L).routeId(39L).versionNo("V1").active(Boolean.TRUE).build();
 
-        when(workOrderMapper.selectById(109L)).thenReturn(workOrder);
+        when(workOrderMapper.selectByIdForUpdate(109L)).thenReturn(workOrder);
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(109L))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(29L)).thenReturn(routeProduct);
         when(routeMapper.selectById(39L)).thenReturn(route);
@@ -4182,7 +4182,7 @@ class MesProScheduleOrderServiceImplTest {
                 .versionNo("V1")
                 .active(Boolean.TRUE)
                 .build();
-        when(workOrderMapper.selectById(workOrderId)).thenReturn(workOrder(workOrderId, workOrderCode, productId));
+        when(workOrderMapper.selectByIdForUpdate(workOrderId)).thenReturn(workOrder(workOrderId, workOrderCode, productId));
         when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(workOrderId))).thenReturn(List.of());
         when(routeProductMapper.selectByItemId(productId)).thenReturn(routeProduct);
         when(routeMapper.selectById(routeId)).thenReturn(route);

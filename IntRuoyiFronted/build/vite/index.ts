@@ -9,7 +9,7 @@ import { ViteEjsPlugin } from 'vite-plugin-ejs'
 import ElementPlus from 'unplugin-element-plus/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import { createElementPlusResolver } from './elementPlusResolver'
 import viteCompression from 'vite-plugin-compression'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons-ng'
@@ -56,7 +56,7 @@ export function createVitePlugins(isBuild = false) {
       // Do not regenerate tracked d.ts files during dev/build; the plugin uses
       // fs/promises here and can trip EMFILE on Windows under large workspaces.
       dts: autoImportDts,
-      resolvers: [ElementPlusResolver()],
+      resolvers: [createElementPlusResolver()],
       eslintrc: {
         enabled: false, // Default `false`
         filepath: './.eslintrc-auto-import.json', // Default `./.eslintrc-auto-import.json`
@@ -67,7 +67,7 @@ export function createVitePlugins(isBuild = false) {
       // 禁用自动生成到 tracked 文件，避免 dev/build 期间持续污染 auto-components.d.ts
       dts: false,
       // 自定义组件的解析器
-      resolvers: [ElementPlusResolver()],
+      resolvers: [createElementPlusResolver()],
       globs: ["src/components/**/**.{vue, md}", '!src/components/DiyEditor/components/mobile/**']
     }),
     EslintPlugin({

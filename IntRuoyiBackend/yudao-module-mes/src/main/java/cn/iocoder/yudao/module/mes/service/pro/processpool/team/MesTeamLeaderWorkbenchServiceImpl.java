@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineService;
+import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 
@@ -25,6 +27,9 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
     private final MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     private final ProcessPoolTimelineService timelineService;
 
+    @Resource
+    private MesActiveOrderHandoffService handoffService;
+
     public MesTeamLeaderWorkbenchServiceImpl(MesTeamLeaderScopeService scopeService,
                                              MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService,
                                              ProcessPoolTimelineService timelineService) {
@@ -41,16 +46,15 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
             throw exception(PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED, "submissionPage");
         }
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(leaderType)) {
-            Set<Long> responsibleEmployeeIds = scopeService.listResponsibleEmployeeIds(leaderUserId, leaderType);
-            if (reqVO.getEmployeeUserId() != null) {
-                scopeService.assertCanAccessEmployee(leaderUserId, leaderType, reqVO.getEmployeeUserId());
-            }
-            if (responsibleEmployeeIds.isEmpty()) {
+            Set<Long> reviewEventIds = handoffService.listOwnPqcReviewEventIds(leaderUserId);
+            if (reviewEventIds.isEmpty()) {
                 return PageResult.empty();
             }
-            reqVO.setEmployeeUserIds(responsibleEmployeeIds);
+            reqVO.setEventIds(reviewEventIds);
+            reqVO.setEmployeeUserIds(null);
             reqVO.setEventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION);
         } else if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
+            reqVO.setEventIds(null);
             Set<Long> processIds = listAuthorizedProcessIds(leaderUserId);
             if (processIds.isEmpty()) {
                 return PageResult.empty();
@@ -76,12 +80,16 @@ public class MesTeamLeaderWorkbenchServiceImpl implements MesTeamLeaderWorkbench
     @Override
     public ProcessPoolTimelineDetailRespVO getSubmissionDetail(Long leaderUserId, String leaderType, Long eventId) {
         validateLeaderContext(leaderUserId, leaderType);
+        if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(leaderType)
+                && !handoffService.listOwnPqcReviewEventIds(leaderUserId).contains(eventId)) {
+            throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "PQC复核事件");
+        }
         ProcessPoolTimelineDetailRespVO detail = timelineService.getTimelineDetail(eventId);
         if (MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION.equals(leaderType)) {
             if (!listAuthorizedProcessIds(leaderUserId).contains(detail.getProcessId())) {
                 throw exception(PRO_PROCESS_POOL_TEAM_TARGET_SCOPE_DENIED, "工序报工");
             }
-        } else {
+        } else if (!MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC.equals(leaderType)) {
             scopeService.assertCanAccessEmployee(leaderUserId, leaderType, detail.getActualEmployeeUserId());
         }
         return detail;

@@ -118,6 +118,8 @@ class ErpKingdeeStockSyncServiceImplTest {
         ErpKingdeeInventoryRow zeroRow = buildInventoryRow("LOT001", BigDecimal.ZERO);
         when(inventoryClient.fetchInventoryRowsModifiedBetween(kingdeeProperties, windowStart, windowEnd))
                 .thenReturn(List.of(zeroRow));
+        when(inventoryClient.fetchInventoryGroup(kingdeeProperties, "MAT-001", "892", "CK001"))
+                .thenReturn(List.of(zeroRow));
         when(warehouseSyncRecordMapper.selectBySourceKey("892", "CK001"))
                 .thenReturn(new ErpKingdeeWarehouseSyncRecordDO().setWarehouseId(30L));
         when(productMapper.selectListByBarCodes(any(Collection.class)))
@@ -150,5 +152,26 @@ class ErpKingdeeStockSyncServiceImplTest {
         row.setUnitName("PCS");
         row.setLotNumber(lotNumber);
         return row;
+    }
+
+    @Test
+    void incrementalStock_preservesQuantityOfUnchangedLotsAndDeduplicatesAffectedGroups() {
+        LocalDateTime start = LocalDateTime.of(2026, 10, 1, 0, 0), end = start.plusHours(1);
+        ErpKingdeeInventoryRow changed = buildInventoryRow("CHANGED", new BigDecimal("2"));
+        when(inventoryClient.fetchInventoryRowsModifiedBetween(kingdeeProperties, start, end))
+                .thenReturn(List.of(changed, buildInventoryRow("ZERO", BigDecimal.ZERO)));
+        when(inventoryClient.fetchInventoryGroup(kingdeeProperties, "MAT-001", "892", "CK001"))
+                .thenReturn(List.of(changed, buildInventoryRow("UNCHANGED", new BigDecimal("8"))));
+        when(warehouseSyncRecordMapper.selectBySourceKey("892", "CK001"))
+                .thenReturn(new ErpKingdeeWarehouseSyncRecordDO().setWarehouseId(30L));
+        when(productMapper.selectListByBarCodes(any(Collection.class)))
+                .thenReturn(List.of(new ErpProductDO().setId(20L).setBarCode("MAT-001")));
+        when(stockMapper.selectByProductIdAndWarehouseId(20L, 30L))
+                .thenReturn(new ErpStockDO().setId(99L));
+        syncService.syncStocksModifiedBetween(start, end);
+        ArgumentCaptor<ErpStockDO> row = ArgumentCaptor.forClass(ErpStockDO.class);
+        verify(stockMapper).updateById(row.capture());
+        assertEquals(new BigDecimal("10"), row.getValue().getCount());
+        verify(inventoryClient).fetchInventoryGroup(kingdeeProperties, "MAT-001", "892", "CK001");
     }
 }

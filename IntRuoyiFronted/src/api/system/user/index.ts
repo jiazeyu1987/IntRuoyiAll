@@ -138,8 +138,8 @@ export const recordUserLifecycleDeactivation = (data: UserLifecycleDeactivateReq
 }
 
 // 解锁用户
-export const unlockUser = (id: number) => {
-  return request.put({ url: '/system/user/unlock?id=' + id })
+export const unlockUser = (id: number, reason: string) => {
+  return request.put({ url: '/system/user/unlock', params: { id, reason } })
 }
 
 // 获取用户精简信息列表

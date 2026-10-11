@@ -72,13 +72,111 @@ function dossierHarness(props = {}, overrides = {}) {
     ...overrides
   }
   const names = ['dossierFiles', 'dossierFileLoading', 'dossierFileError', 'dossierFileUploadingKey', 'dossierPreviewDialogVisible', 'selectedDossierPreviewSource', 'selectedDossierPreviewTitle',
-    'createDossierRequestContext', 'dossierRequestContext', 'recordScope', 'auditScopeTypeValue', 'auditScopeIdValue', 'resolveDossierReadContext', 'loadDossierFiles']
+    'createDossierRequestContext', 'dossierRequestContext', 'recordScope', 'auditScopeTypeValue', 'auditScopeIdValue', 'activeOrderDossierMutationLockReason', 'activeOrderDossierMutationLocked', 'resolveDossierReadContext', 'loadDossierFiles']
   const values = compileDeclarations(panel, names, context, text => {
     return (text.startsWith('watch(') && text.includes('void loadDossierFiles()')) ||
       (text.startsWith('onBeforeUnmount(') && text.includes('dossierRequestContext.invalidate()'))
   })
   return { ...values, props: reactiveProps, reads, writes, unmount: () => { stops.forEach(stop => stop()); unmounted.forEach(callback => callback()) } }
 }
+
+test('BATCH NOT_APPLIED defers dossier query and exposes the application prerequisite without fake empty success', async () => {
+  const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'NOT_APPLIED' } }, auditScopeType: 'BATCH', auditScopeId: { batchExecutionId: '900000001225' } })
+  try {
+    await tick()
+    assert.deepEqual(h.reads, [])
+    assert.equal(h.dossierFiles.value, undefined)
+    assert.equal(h.dossierFileLoading.value, false)
+    assert.equal(h.dossierFileError.value, '')
+    assert.equal(h.activeOrderDossierMutationLocked.value, true)
+    assert.match(h.activeOrderDossierMutationLockReason.value, /尚未申请放行/)
+    const alert = panel.template.content.match(/<el-alert\b[^>]*data-active-order-dossier-application-pending[^>]*\/>/)?.[0]
+    assert.ok(alert, '未申请不是暂无文件，须在实际资料区域明确显示前置条件')
+    assert.match(alert, /NOT_APPLIED/)
+    assert.match(alert, /尚未申请放行，资料暂不可查询/)
+    const table = panel.template.content.match(/<el-table\b[^>]*:data="resolveDossierFileCategory\(category.key\).files"[^>]*>/)?.[0]
+    assert.match(table, /v-if=[\s\S]*NOT_APPLIED/)
+    const empty = panel.template.content.match(/<el-empty\b[^>]*description="暂无文件"[^>]*\/>/)?.[0]
+    assert.match(empty, /NOT_APPLIED/)
+  } finally { h.unmount() }
+})
+
+test('same batch application-state transition resumes the original query without changing identity', async () => {
+  const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'NOT_APPLIED' } }, auditScopeType: 'BATCH', auditScopeId: { batchExecutionId: '900000001225' } })
+  try {
+    await tick(); assert.equal(h.reads.length, 0)
+    h.props.detail.activeOrderStatus.status = 'PQC_RELEASE_PENDING'
+    await tick()
+    assert.deepEqual(h.reads, [['BATCH', { batchExecutionId: '900000001225' }]])
+    assert.deepEqual(h.dossierFiles.value, files())
+    assert.equal(h.activeOrderDossierMutationLocked.value, false)
+  } finally { h.unmount() }
+})
+
+test('TEAM owner NOT_APPLIED keeps its independent preapplication dossier reader', async () => {
+  const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'NOT_APPLIED' } }, auditScopeType: 'TEAM' })
+  try {
+    await tick()
+    assert.deepEqual(h.reads, [['TEAM_OR_PQC', { activeOrderId: '1009200409', applicationId: undefined }]])
+    assert.deepEqual(h.dossierFiles.value, files('legacy'))
+    assert.equal(h.activeOrderDossierMutationLocked.value, false)
+  } finally { h.unmount() }
+})
+
+test('only explicit BATCH NOT_APPLIED defers; pending, approved, absent status and PQC retain strict queries', async () => {
+  for (const status of ['PQC_RELEASE_PENDING', 'REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED', undefined]) {
+    const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: status ? { status } : undefined, pqcProductionRelease: null }, auditScopeType: 'BATCH', auditScopeId: { batchExecutionId: '900000001225' } })
+    try { await tick(); assert.deepEqual(h.reads, [['BATCH', { batchExecutionId: '900000001225' }]], String(status)) } finally { h.unmount() }
+  }
+  const pqc = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'NOT_APPLIED' } }, auditScopeType: 'PQC', pqcReleaseApplicationId: '299' })
+  try { await tick(); assert.deepEqual(pqc.reads, [['TEAM_OR_PQC', { activeOrderId: '1009200409', applicationId: '299' }]]) } finally { pqc.unmount() }
+})
+
+test('NOT_APPLIED cannot conceal malformed BATCH identity or downgrade to an owner reader', async () => {
+  for (const auditScopeId of [{}, { batchExecutionId: '0' }, { batchExecutionId: '900000001225', activeOrderId: '1009200409' }, { activeOrderId: '1009200410' }]) {
+    const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'NOT_APPLIED' } }, auditScopeType: 'BATCH', auditScopeId })
+    try { await tick(); assert.equal(h.reads.length, 0); assert.ok(h.dossierFileError.value) } finally { h.unmount() }
+  }
+})
+
+test('transition to NOT_APPLIED clears stale dossier and preview and invalidates an in-flight response', async () => {
+  for (const rejectOld of [false, true]) {
+    const old = deferred()
+    const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'PQC_RELEASE_PENDING' } }, auditScopeType: 'BATCH', auditScopeId: { batchExecutionId: '900000001225' } }, { getEdhrBatchActiveOrderDossierFiles: () => old.promise })
+    try {
+      await tick()
+      h.dossierFiles.value = files('stale')
+      h.dossierPreviewDialogVisible.value = true
+      h.selectedDossierPreviewSource.value = { fileId: 902 }
+      h.selectedDossierPreviewTitle.value = 'stale.pdf'
+      h.dossierFileUploadingKey.value = 'OTHER_FILE'
+      h.props.detail.activeOrderStatus.status = 'NOT_APPLIED'
+      await tick()
+      assert.equal(h.dossierFiles.value, undefined)
+      assert.equal(h.dossierFileLoading.value, false)
+      assert.equal(h.dossierPreviewDialogVisible.value, false)
+      assert.equal(h.selectedDossierPreviewSource.value, null)
+      assert.equal(h.selectedDossierPreviewTitle.value, '')
+      assert.equal(h.dossierFileUploadingKey.value, '')
+      rejectOld ? old.reject(new Error('stale 403')) : old.resolve(files('late'))
+      await tick()
+      assert.equal(h.dossierFiles.value, undefined)
+      assert.equal(h.dossierFileError.value, '')
+      assert.equal(h.dossierFileLoading.value, false)
+    } finally { h.unmount() }
+  }
+})
+
+test('authorized-phase backend 403 remains visible and never switches reader', async () => {
+  const reads = []
+  const h = dossierHarness({ detail: { ...detail(), activeOrderStatus: { status: 'PQC_RELEASE_PENDING' } }, auditScopeType: 'BATCH', auditScopeId: { batchExecutionId: '900000001225' } }, { getEdhrBatchActiveOrderDossierFiles: async query => { reads.push(query); throw new Error('403 正式批次资料无权限') } })
+  try {
+    await tick(); assert.equal(reads.length, 1)
+    assert.equal(h.reads.length, 0)
+    assert.equal(h.dossierFileError.value, '403 正式批次资料无权限')
+    assert.equal(h.dossierFiles.value, undefined)
+  } finally { h.unmount() }
+})
 
 test('HISTORY-DOSSIER01: actual history child scope reads owned batch dossier without team-leader request', async () => {
   const props = historyPanelProps()

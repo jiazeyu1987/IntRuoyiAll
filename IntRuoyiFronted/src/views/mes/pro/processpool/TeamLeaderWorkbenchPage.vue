@@ -945,6 +945,9 @@
                 {{ resolvePqcInspectionTypeText(row.inspectionType) }} / 第
                 {{ row.roundNo || '--' }} 轮
               </span>
+              <div data-pqc-leader-original-event-ids>
+                原提交事件：{{ formatSubmissionSourceEventIds(row).split(' ').join('、') }}
+              </div>
             </template>
           </el-table-column>
           <el-table-column
@@ -959,6 +962,7 @@
                 <span
                   v-for="item in resolvePqcInspectionItemItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.valueText }}
@@ -1019,6 +1023,7 @@
                 <span
                   v-for="item in resolvePqcEquipmentNumberItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1041,6 +1046,7 @@
                 <span
                   v-for="item in resolvePqcAcceptanceStandardItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1060,6 +1066,7 @@
                 <span
                   v-for="item in resolvePqcInspectionMethodItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="item.key"
                   class="team-leader-workbench__structured-pill"
                 >
                   {{ item.label }}：{{ item.valueText }}
@@ -1105,6 +1112,7 @@
                 <div
                   v-for="item in resolveSubmissionParameterItems(row)"
                   :key="item.key"
+                  :data-pqc-inspection-item-code="activeLeaderTab === 'PQC' ? item.key : undefined"
                   class="team-leader-workbench__parameter-item"
                 >
                   <span class="team-leader-workbench__parameter-label">{{ item.label }}</span>

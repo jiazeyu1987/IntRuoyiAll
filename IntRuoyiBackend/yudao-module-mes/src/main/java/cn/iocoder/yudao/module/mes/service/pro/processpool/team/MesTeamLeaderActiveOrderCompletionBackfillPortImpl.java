@@ -604,6 +604,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
             frozen.put("rawPayload", event.getRawPayload());
             frozen.put("payloadContentHash", sha256(event.getRawPayload()));
             frozen.put("actualEmployeeId", event.getActualEmployeeId());
+            frozen.put("deviceAccountId", event.getDeviceAccountId());
             frozen.put("signatureId", event.getSignatureId());
             frozen.put("signatureUserId", event.getSignatureUserId());
             frozen.put("signatureSnapshot", event.getSignatureSnapshot());

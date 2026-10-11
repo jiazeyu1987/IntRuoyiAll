@@ -68,7 +68,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
-                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}");
+                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
+                .setDeviceAccountId(341L).setActualEmployeeId(342L).setSignatureUserId(342L);
         event.setTenantId(1L);
         var review = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(601L).setEventId(401L).setLeaderUserId(20L)
                 .setLeaderType("PRODUCTION").setReviewStatus("APPROVED").setReviewedAt(java.time.LocalDateTime.of(2026, 9, 24, 9, 0))
@@ -345,6 +346,25 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 () -> port.prepare(20L, order(), command()));
 
         org.mockito.Mockito.verifyNoInteractions(productIssueDetailMapper, lossSourceReader, backfillMapper);
+    }
+
+    @Test
+    void formalSnapshotFreezesAuthenticatedOperatorSeparatelyFromEmployeeAndSignature() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var first = port.prepare(20L, order(), command());
+        var event = JsonUtils.parseTree(first.getFormalSourceSnapshotJson())
+                .path("productionFacts").path("events").get(0);
+        assertEquals(341L, event.path("deviceAccountId").asLong());
+        assertEquals(342L, event.path("actualEmployeeId").asLong());
+        assertEquals(342L, event.path("signatureUserId").asLong());
+        var changed = new MesProProcessPoolEventDO().setId(401L)
+                .setWorkOrderId(30L).setRouteId(40L).setRouteProcessId(101L).setProcessId(1L)
+                .setEventType("PRODUCTION_SUBMIT").setRawPayload("{}").setDeviceAccountId(345L)
+                .setActualEmployeeId(342L).setSignatureUserId(342L);
+        changed.setTenantId(1L);
+        when(eventMapper.selectByIdForUpdateNowait(401L)).thenReturn(changed);
+        var second = port.prepare(20L, order(), command());
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.getSourceSnapshotHash(), second.getSourceSnapshotHash());
     }
 
     @Test

@@ -1530,15 +1530,47 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(batch.getId(), approved.getBatchExecutionId());
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 10})
     @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract.sql", "/sql/sa07-read-contract.sql"})
-    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract-clean.sql", "/sql/sa07-read-contract-clean.sql"}, executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract-clean.sql", "/sql/sa07-read-contract-clean.sql"},
+            statements = {"DELETE FROM mes_pro_process_pool_active_order_release_application WHERE id = 5081",
+                    "DELETE FROM mes_pro_process_pool_active_order_process_snapshot WHERE active_order_id = 8081"},
+            executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
     @org.springframework.test.context.jdbc.SqlMergeMode(org.springframework.test.context.jdbc.SqlMergeMode.MergeMode.MERGE)
-    void managedActiveOrderApprovalArchivesCreatedBatchAndAppendsDecisionToItsOriginWithoutArchiveTaskRule() throws Exception {
+    void managedActiveOrderApprovalArchivesOpenBatchAndPreservesQuantityDrafts(int initialStatus) throws Exception {
         var jdbc = new JdbcTemplate(dataSource);
         cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
         var batch = insertCreatedBatch("BATCH-MANAGED-ACTIVE-ORDER");
         var precheck = insertPendingApprovalRelease(batch);
+        var quantityDrafts = new java.util.ArrayList<MesProBatchRecordExecutionDO>();
+        if (initialStatus == MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS) {
+            for (int i = 0; i < 10; i++) {
+                Long executionId = randomLongId();
+                var quantityTask = insertApprovedOrdinaryTask(batch.getId(), executionId);
+                batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO().setId(quantityTask.getId())
+                        .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT));
+                var draft = MesProBatchRecordExecutionDO.builder().id(executionId)
+                        .executionCode("QUANTITY-" + i).workOrderId(batch.getWorkOrderId())
+                        .workOrderCode(batch.getWorkOrderCode()).batchExecutionId(batch.getId())
+                        .taskId(quantityTask.getId()).routeProcessId(quantityTask.getRouteProcessId())
+                        .batchRecordReportId(quantityTask.getBatchRecordReportId()).batchCode(batch.getBatchCode())
+                        .status(0).sheetLayoutJson("{\"rows\":{}}")
+                        .cellValuesJson("[{\"rowIndex\":1,\"columnIndex\":1,\"value\":\"10\"}]")
+                        .cellValuesHash("a".repeat(64)).fieldAuditRevision(1L)
+                        .fieldAuditHeadHash("b".repeat(64)).build();
+                executionMapper.insert(draft);
+                quantityDrafts.add(executionMapper.selectById(executionId));
+            }
+            var actualBatchService = new MesProEdhrBatchExecutionServiceImpl();
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "batchTaskMapper", batchTaskMapper);
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "executionMapper", executionMapper);
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "batchExecutionMapper", batchExecutionMapper);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(actualBatchService, "syncBatchStatus", batch);
+            assertEquals(initialStatus, batchExecutionMapper.selectById(batch.getId()).getStatus(),
+                    "actual quantity DRAFT tasks project batch IN_PROGRESS");
+        }
+        long batchRecordSignatures = signatureMapper.selectCount();
         var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7981L);
         batch.setTenantId(1L); batchExecutionMapper.updateById(batch);
         TenantContextHolder.setTenantId(1L);
@@ -1639,6 +1671,21 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             request.setWorkTaskId(task.getId()).setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             TenantContextHolder.setTenantId(1L);
+            for (int forbiddenStatus : List.of(15, 25, 50, 60)) {
+                batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                        .setId(batch.getId()).setStatus(forbiddenStatus));
+                ServiceException error = assertThrows(ServiceException.class, () -> releaseService.approve(request));
+                assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), error.getCode());
+                assertEquals(forbiddenStatus, batchExecutionMapper.selectById(batch.getId()).getStatus());
+                assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+                assertEquals("MANAGER_RELEASE_PENDING", actualApplications.selectById(application.getId()).getApplicationStatus());
+                assertEquals("TODO", actualWorkTasks.selectById(task.getId()).getStatus());
+                assertEquals(0L, releaseDecisionMapper.selectCount());
+                assertEquals(0L, actualOperationAudits.selectCount());
+                verify(upstreamStatePort, never()).closeAfterRelease(any());
+            }
+            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId()).setStatus(initialStatus));
             when(workTaskService.getReleaseApprovalTaskForReview(task.getId(),null)).thenReturn(task);
             // Assemble the actual adapter's required dependencies from the real persistence graph.
             // Constructor dependencies such as the completed-actor resolver remain real components.
@@ -1688,6 +1735,12 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         }
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
                 batchExecutionMapper.selectById(batch.getId()).getStatus());
+        for (var draft : quantityDrafts) {
+            assertEquals(draft, executionMapper.selectById(draft.getId()), "quantity values, audit head and DRAFT status remain unchanged");
+            assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT,
+                    batchTaskMapper.selectById(draft.getTaskId()).getStatus());
+        }
+        assertEquals(batchRecordSignatures, signatureMapper.selectCount(), "market release does not sign quantity drafts");
         var released = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
         assertEquals("RELEASED", released.getReleaseStatus());
         assertEquals(signatureId, released.getApprovalSignatureId());
@@ -1762,6 +1815,57 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .findFirst().orElseThrow();
         assertEquals("上市放行已完成正式审批", approvalAudit.getReason());
         assertEquals("SYSTEM", approvalAudit.getReasonSource());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MANUAL", "SCHEDULED", "ACTIVE_ORDER_COMPLETION"})
+    void approveRejectsInProgressBatchWithoutManagedActiveOrderApplication(String entryType) {
+        var batch = insertReadyToCloseBatch("BATCH-UNMANAGED-IN-PROGRESS");
+        var precheck = insertPendingApprovalRelease(batch);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7907L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(task);
+        var request = approvalRequest(precheck, batch, task, "unmanaged-in-progress", "verified-signoff", "上市放行")
+                .setEntryType(entryType);
+        if ("ACTIVE_ORDER_COMPLETION".equals(entryType)) {
+            request.setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setActiveOrderId(8081L)
+                    .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
+                    .setCompletionBackfillReceiptId("completion-81").setCompletionEventId("completion-event-81")
+                    .setPickListBindingId("6081").setPickListId(7081L);
+            var pickSource = new MesBatchExecutionPickListSource().setPickListBindingId(6081L).setPickListId(7081L)
+                    .setBindingVersion(1L).setSourceSnapshotHash("pick-snapshot-81");
+            org.mockito.Mockito.doAnswer(invocation -> {
+                MesReleaseFinalizationCommand command = invocation.getArgument(0);
+                command.setPickListSources(List.of(pickSource));
+                return new MesReleaseFinalizationEvidence().setMaterialGateReceipt(command.getMaterialGateReceipt())
+                        .setCompletionBackfillReceipt(new CompletionBackfillReceipt().setReceiptId("completion-81")
+                                .setTenantId(1L).setActiveOrderId(8081L).setWorkOrderId(command.getWorkOrderId())
+                                .setPickListSources(List.of(pickSource)).setSourceSnapshotHash(command.getSourceSnapshotHash())
+                                .setCompletionVersion(1).setCompletionTransactionId("completion-tx-81")
+                                .setCompletionEventId("completion-event-81").setBatchRecordId(81L).setProcessInspectionId(82L)
+                                .setBatchRecordSourceIds(List.of(81L)).setProcessInspectionSourceIds(List.of(82L))
+                                .setHasActualLoss(false).setLossDecision("NO_LOSS").setLossReportStatus("NOT_REQUIRED")
+                                .setReceiptHash("completion-hash-81").setIdempotencyKey("completion-idem-81")
+                                .setAuditEventId("completion-audit-81").setStatus("BACKFILL_SUCCEEDED")
+                                .setIssuedAt(LocalDateTime.now()));
+            }).when(authoritativeContextPort).require(any());
+        } else {
+            request.setOrigin(MesReleaseOrigin.valueOf(entryType));
+            request.getIndependentPrerequisiteReceipt().setEntryType(entryType);
+        }
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException error = assertThrows(ServiceException.class, () -> releaseService.approve(request));
+            assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), error.getCode());
+        }
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        assertEquals(0L, releaseDecisionMapper.selectCount());
+        verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
+        verify(workTaskService, never()).createArchiveTaskAfterBatchClose(any());
+        verify(upstreamStatePort, never()).closeAfterRelease(any());
     }
 
     @Test

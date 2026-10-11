@@ -148,7 +148,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/active-orders")
     @Operation(summary = "获得 PQC 当前活跃订单")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<List<MesFrontlineActiveOrderRespVO>> getPqcActiveOrders() {
         return success(pqcContextService.listActiveOrders().stream()
                 .map(MesFrontlineDeviceAccountController::toActiveOrderRespVO)
@@ -157,7 +157,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/active-order/processes")
     @Operation(summary = "获得 PQC 活跃订单所属 DCC 项目的 QA 工序")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<List<MesFrontlinePqcProcessRespVO>> getPqcActiveOrderProcesses(
             @RequestParam("activeOrderId") @NotNull Long activeOrderId,
             @RequestParam(value = "actualEmployeeId", required = false) Long actualEmployeeId) {
@@ -167,7 +167,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/personnel")
     @Operation(summary = "获得 PQC 员工和 PQC 组长")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<List<MesFrontlineEmployeeCandidateRespVO>> getPqcPersonnel() {
         return success(pqcContextService.listPqcEmployeeCandidates(getLoginUserId()).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
@@ -176,7 +176,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/pqc/switch-employee")
     @Operation(summary = "PQC 切换实际填写员工")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlinePqcSwitchEmployeeRespVO> switchPqcActualEmployee(
             @Valid @RequestBody MesFrontlinePqcSwitchEmployeeReqVO reqVO) {
         MesFrontlinePqcEmployeeSwitchResult result = pqcContextService.switchPqcActualEmployee(getLoginUserId(),
@@ -187,7 +187,7 @@ public class MesFrontlineDeviceAccountController {
 
     @GetMapping("/pqc/submit-receipt")
     @Operation(summary = "只读确认 PQC 正式提交回执")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlinePqcSubmitRespVO> getPqcSubmitReceipt(
             @RequestParam("pqcTaskId") @NotNull Long pqcTaskId) {
         return success(pqcContextService.getSubmittedPqcInspection(getLoginUserId(), pqcTaskId)
@@ -197,7 +197,7 @@ public class MesFrontlineDeviceAccountController {
 
     @PostMapping("/pqc/submit")
     @Operation(summary = "PQC 检验提交到工序池")
-    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlinePqcSubmitRespVO> submitPqcInspection(
             @Valid @RequestBody MesFrontlinePqcSubmitReqVO reqVO) {
         Long loginUserId = getLoginUserId();

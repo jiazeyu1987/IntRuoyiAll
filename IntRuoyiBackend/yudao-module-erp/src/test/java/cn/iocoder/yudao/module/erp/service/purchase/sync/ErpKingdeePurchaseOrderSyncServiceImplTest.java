@@ -72,6 +72,8 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
     void setUp() {
         kingdeeProperties = buildConfiguredProperties();
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        org.mockito.Mockito.lenient().when(productUnitMapper.selectByName("PCS"))
+                .thenReturn(new ErpProductUnitDO().setId(40L).setName("PCS"));
         syncService = new ErpKingdeePurchaseOrderSyncServiceImpl(
                 kingdeePurchaseOrderClient, kingdeeConfigService, syncRecordMapper, purchaseOrderMapper, purchaseOrderService,
                 supplierMapper, supplierSyncRecordMapper, productMapper, productCategoryMapper, productUnitMapper);
@@ -94,6 +96,8 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         verify(purchaseOrderService).createPurchaseOrder(orderCaptor.capture());
         ErpPurchaseOrderSaveReqVO createReqVO = orderCaptor.getValue();
         assertEquals(10L, createReqVO.getSupplierId());
+        assertEquals(new BigDecimal("10"), createReqVO.getDepositPrice());
+        assertEquals(new BigDecimal("60.12"), createReqVO.getKingdeeAmounts().getTotalAmount());
         assertEquals(LocalDateTime.of(2026, 5, 12, 9, 30), createReqVO.getOrderTime());
         assertEquals(1, createReqVO.getItems().size());
         assertEquals(20L, createReqVO.getItems().get(0).getProductId());
@@ -245,6 +249,7 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         doAnswer(invocation -> {
             ErpProductUnitDO unit = invocation.getArgument(0);
             unit.setId(40L);
+            when(productUnitMapper.selectByName("PCS")).thenReturn(unit);
             return 1;
         }).when(productUnitMapper).insert(any(ErpProductUnitDO.class));
         doAnswer(invocation -> {
@@ -260,6 +265,8 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         verify(purchaseOrderService).createPurchaseOrder(orderCaptor.capture());
         ErpPurchaseOrderSaveReqVO createReqVO = orderCaptor.getValue();
         assertEquals(10L, createReqVO.getSupplierId());
+        assertEquals(new BigDecimal("10"), createReqVO.getDepositPrice());
+        assertEquals(new BigDecimal("60.12"), createReqVO.getKingdeeAmounts().getTotalAmount());
         assertEquals(20L, createReqVO.getItems().get(0).getProductId());
         verify(supplierMapper).insert(any(ErpSupplierDO.class));
         verify(supplierSyncRecordMapper).insert(any(ErpKingdeeSupplierSyncRecordDO.class));
@@ -288,9 +295,15 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
 
     private static ErpKingdeePurchaseOrder buildKingdeeOrder(String fid, String billNo, String materialNumber) {
         ErpKingdeePurchaseOrder.Line line = new ErpKingdeePurchaseOrder.Line();
+        line.setUnitName("PCS");
+        line.setPriceUnitName("PCS");
+        line.setNetAmount(new BigDecimal("53.20"));
+        line.setTaxAmount(new BigDecimal("6.92"));
+        line.setTotalAmount(new BigDecimal("60.12"));
         line.setMaterialNumber(materialNumber);
         line.setMaterialName("Material A");
         line.setQuantity(new BigDecimal("3.500"));
+        line.setPriceUnitQuantity(line.getQuantity());
         line.setPrice(new BigDecimal("15.20"));
         line.setTaxPercent(new BigDecimal("13"));
         line.setRemark("Line remark");
@@ -304,6 +317,11 @@ class ErpKingdeePurchaseOrderSyncServiceImplTest {
         order.setCancelStatus("A");
         order.setSupplierNumber("SUP-001");
         order.setSupplierName("Supplier A");
+        order.setDiscountAmount(BigDecimal.ZERO);
+        order.setDepositAmount(new BigDecimal("10"));
+        order.setTotalProductAmount(new BigDecimal("53.20"));
+        order.setTotalTaxAmount(new BigDecimal("6.92"));
+        order.setTotalAmount(new BigDecimal("60.12"));
         order.setLines(List.of(line));
         return order;
     }

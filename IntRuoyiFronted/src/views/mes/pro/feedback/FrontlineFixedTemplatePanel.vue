@@ -2833,6 +2833,15 @@ const isProductionMaterialCompletionEntered = (materialKey: string) =>
     : productionMaterialDrafts[materialKey]?.outputQuantity !== undefined
 
 const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) => {
+  const duplicatedName = configuredProductionMaterials.value.filter(
+    (candidate) => candidate.materialName === material.materialName
+  ).length > 1
+  if (duplicatedName && !material.materialCode?.trim()) {
+    throw new Error('同名输出物料缺少正式物料编码，不能区分填写页签')
+  }
+  const materialLabel = duplicatedName
+    ? `${material.materialName} / ${material.materialCode}`
+    : material.materialName
   const materialDraft = material.key === selectedProductionMaterialKey.value
     ? {
         outputQuantity: productionDraft.outputQuantity,
@@ -2841,11 +2850,11 @@ const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) =>
     : productionMaterialDrafts[material.key]
   const outputQuantity = materialDraft?.outputQuantity
   if (outputQuantity === undefined) {
-    return material.materialName
+    return materialLabel
   }
   const lossQuantity = Object.values(materialDraft.defectQuantities)
     .reduce((total, quantity) => total + quantity, 0)
-  return `${material.materialName}(${outputQuantity}/${lossQuantity})`
+  return `${materialLabel}(${outputQuantity}/${lossQuantity})`
 }
 
 const activeProductionDevice = computed(() =>

@@ -88,7 +88,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND;
-import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_PERSONNEL_EMPTY;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_REGULATION_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_RESULT_CONTRACT_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_FRONTLINE_PQC_ROUTE_PROCESS_EMPTY;
@@ -1230,31 +1229,23 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
         requireValue(loginUserId, "loginUserId");
         List<MesProcessPoolTeamLeaderScopeDO> scopes = scopeMapper.selectActiveScopesByLeaderType(LEADER_TYPE_PQC);
         Set<Long> userIds = new LinkedHashSet<>();
+        // An enabled login user may sign their own PQC work without a team assignment.
+        userIds.add(loginUserId);
         boolean loginUserIsLeader = scopes.stream().anyMatch(scope -> scope != null
                 && Boolean.TRUE.equals(scope.getEnabled())
                 && Objects.equals(scope.getLeaderUserId(), loginUserId));
-        boolean loginUserIsEmployee = false;
         for (MesProcessPoolTeamLeaderScopeDO scope : scopes) {
             if (scope == null || !Boolean.TRUE.equals(scope.getEnabled())) {
                 continue;
             }
-            boolean employeeMatchesLogin = SCOPE_TYPE_EMPLOYEE.equals(scope.getScopeType())
-                    && Objects.equals(scope.getEmployeeUserId(), loginUserId);
-            loginUserIsEmployee = loginUserIsEmployee || employeeMatchesLogin;
             if (loginUserIsLeader && Objects.equals(scope.getLeaderUserId(), loginUserId)
                     && SCOPE_TYPE_EMPLOYEE.equals(scope.getScopeType()) && scope.getEmployeeUserId() != null) {
                 userIds.add(scope.getEmployeeUserId());
             }
         }
-        if (loginUserIsLeader || loginUserIsEmployee) {
-            userIds.add(loginUserId);
-        }
-        if (userIds.isEmpty()) {
-            throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, loginUserId);
-        }
         List<AdminUserRespDTO> users = adminUserApi.getUserList(userIds);
         if (CollUtil.isEmpty(users)) {
-            throw exception(PRO_FRONTLINE_PQC_PERSONNEL_EMPTY);
+            throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, loginUserId);
         }
         Map<Long, MesFrontlineEmployeeCandidate> candidateByUserId = new LinkedHashMap<>();
         for (AdminUserRespDTO user : users) {
@@ -1266,7 +1257,7 @@ public class MesFrontlinePqcContextServiceImpl implements MesFrontlinePqcContext
                         new MesFrontlineEmployeeCandidate(user.getId(), user.getUsername(), user.getNickname()));
             }
         }
-        if (candidateByUserId.isEmpty()) {
+        if (!candidateByUserId.containsKey(loginUserId)) {
             throw exception(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND, loginUserId);
         }
         return candidateByUserId.values().stream()

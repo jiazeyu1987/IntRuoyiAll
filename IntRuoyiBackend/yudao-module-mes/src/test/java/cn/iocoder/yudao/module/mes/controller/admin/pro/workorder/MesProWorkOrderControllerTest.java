@@ -128,12 +128,12 @@ class MesProWorkOrderControllerTest {
                 .quantityScheduled(BigDecimal.ZERO)
                 .workshopName("组装车间")
                 .bomVersion("BOM-2026-01")
-                .pickMode("直接领料")
-                .auxiliaryCode("K20260113")
-                .businessStatus("424")
+                .pickMode("是")
+                .auxiliaryCode("MAT-MNEMONIC-001")
+                .businessStatus("4")
                 .drawingNumber("255ACSXXXX")
                 .refNo("REF-2026-001")
-                .scheduleStatus("未排产")
+                .scheduleStatus("1")
                 .plannedStartTime(LocalDateTime.of(2026, 3, 25, 0, 0))
                 .plannedEndTime(LocalDateTime.of(2026, 3, 26, 0, 0))
                 .temporaryFrozen(Boolean.FALSE)
@@ -164,12 +164,12 @@ class MesProWorkOrderControllerTest {
         assertEquals("泵体 20ml", row.getProductSpecification());
         assertEquals("组装车间", row.getWorkshopName());
         assertEquals("BOM-2026-01", row.getBomVersion());
-        assertEquals("直接领料", row.getPickMode());
-        assertEquals("K20260113", row.getAuxiliaryCode());
-        assertEquals("424", row.getBusinessStatus());
+        assertEquals("是", row.getPickMode());
+        assertEquals("MAT-MNEMONIC-001", row.getAuxiliaryCode());
+        assertEquals("4", row.getBusinessStatus());
         assertEquals("255ACSXXXX", row.getDrawingNumber());
         assertEquals("REF-2026-001", row.getRefNo());
-        assertEquals("未排产", row.getScheduleStatus());
+        assertEquals("1", row.getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), row.getPlannedStartTime());
         assertEquals(LocalDateTime.of(2026, 3, 26, 0, 0), row.getPlannedEndTime());
     }

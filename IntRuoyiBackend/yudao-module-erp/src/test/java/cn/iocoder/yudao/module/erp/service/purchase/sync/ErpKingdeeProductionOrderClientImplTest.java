@@ -26,6 +26,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class ErpKingdeeProductionOrderClientImplTest {
 
+    private static final String EXPECTED_SAVE_FIELDS_JSON = "[\"FPrdOrgId\",\"FMaterialId\",\"FUnitId\",\"FQty\","
+            + "\"FPlanStartDate\",\"FPlanFinishDate\",\"FSrcBillNo\",\"FLot\",\"FBillNo\",\"FDate\"]";
+
     @Test
     void fetchProductionOrders_usesConfiguredEndpointAndParsesRows() {
         RestTemplate restTemplate = new RestTemplate();
@@ -50,6 +53,9 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FMaterialId.F_PAEZ_REFNO")))
                 .andExpect(content().string(containsString("FPrdOrgId.FNumber")))
                 .andExpect(content().string(containsString("FPrdOrgId.FName")))
+                .andExpect(content().string(containsString("FISBACKFLUSH")))
+                .andExpect(content().string(containsString("FMaterialId.FMnemonicCode")))
+                .andExpect(content().string(containsString("FScheduleStatus")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_Remark1"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FBizStatus"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("F_PAEZ_PaiChanStatus"))))
@@ -60,7 +66,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
-                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01","255ACSXXXX","REF-2026-001","100","生产组织"]]
+                        [[310119,"881MO091049","A","2026-03-25T00:00:00","A001.01.053.001","ABS","TR558A",1.0,"2026-03-25T00:00:00","2026-03-25T00:00:00"," ","1","kg","千克","BATCH-001","组装车间","BOM-2026-01","255ACSXXXX","REF-2026-001","100","生产组织",true,"SHAQ002-1","1"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
@@ -75,14 +81,14 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("BATCH-001", orders.get(0).getBatchNumber());
         assertEquals("组装车间", orders.get(0).getWorkshopName());
         assertEquals("BOM-2026-01", orders.get(0).getBomVersion());
-        assertNull(orders.get(0).getPickMode());
-        assertNull(orders.get(0).getAuxiliaryCode());
-        assertNull(orders.get(0).getBusinessStatus());
+        assertEquals("是", orders.get(0).getPickMode());
+        assertEquals("SHAQ002-1", orders.get(0).getAuxiliaryCode());
+        assertEquals("1", orders.get(0).getBusinessStatus());
         assertEquals("255ACSXXXX", orders.get(0).getDrawingNumber());
         assertEquals("REF-2026-001", orders.get(0).getRefNo());
         assertEquals("100", orders.get(0).getProductionOrgNumber());
         assertEquals("生产组织", orders.get(0).getProductionOrgName());
-        assertNull(orders.get(0).getScheduleStatus());
+        assertEquals("1", orders.get(0).getScheduleStatus());
         server.verify();
     }
 
@@ -99,7 +105,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDate+%3E%3D+%272025-06-10%27")))
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
                 .andRespond(withSuccess("""
-                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","","","","",""]]
+                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","","","","",false,null,null]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
@@ -109,6 +115,10 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("123123123", orders.get(0).getBillNo());
         assertEquals(LocalDateTime.of(2026, 3, 19, 0, 0), orders.get(0).getBillDate());
         assertEquals("2", orders.get(0).getStatus());
+        assertEquals("否", orders.get(0).getPickMode());
+        assertEquals("", orders.get(0).getAuxiliaryCode());
+        assertEquals("2", orders.get(0).getBusinessStatus());
+        assertEquals("", orders.get(0).getScheduleStatus());
         server.verify();
     }
 
@@ -126,7 +136,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FDate+%3C%3D+%272026-06-10%27")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
-                        [[310121,"881MO101245","C","2026-08-20T00:00:00","A011.002.1085","1.5-2.7F管胚","0.80*1.18*1000mm",100.0,"","","","5","支","支","","中试车间1","BOM-2026-08"]]
+                        [[310121,"881MO101245","C","2026-08-20T00:00:00","A011.002.1085","1.5-2.7F管胚","0.80*1.18*1000mm",100.0,"","","","5","支","支","","中试车间1","BOM-2026-08","","","","",null,"",""]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersByBillDateRange(
@@ -135,6 +145,8 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals(1, orders.size());
         assertEquals("881MO101245", orders.get(0).getBillNo());
         assertEquals("5", orders.get(0).getStatus());
+        assertEquals("5", orders.get(0).getBusinessStatus());
+        assertNull(orders.get(0).getPickMode());
         server.verify();
     }
 
@@ -156,7 +168,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FBillNo+%3C%3E+%27%27")))
                 .andExpect(content().string(containsString("FMaterialId.FNumber+%3C%3E+%27%27")))
                 .andRespond(withSuccess("""
-                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","DRAWING-001","REF-001","100","生产组织","2026-06-12T08:30:00"]]
+                        [[310121,"123123123","C","2026-03-19T00:00:00","A001.01.053.001","ABS","TR558A-MNP-1",12.0,"","","","2","Pcs","Pcs","","","","DRAWING-001","REF-001","100","生产组织",false,"MNEMONIC-001","2","2026-06-12T08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders = client.fetchProductionOrdersModifiedBetween(properties,
@@ -166,6 +178,9 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals(1, orders.size());
         assertEquals("123123123", orders.get(0).getBillNo());
         assertEquals(LocalDateTime.of(2026, 6, 12, 8, 30), orders.get(0).getSourceModifyTime());
+        assertEquals("否", orders.get(0).getPickMode());
+        assertEquals("MNEMONIC-001", orders.get(0).getAuxiliaryCode());
+        assertEquals("2", orders.get(0).getScheduleStatus());
         server.verify();
     }
 
@@ -188,7 +203,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(containsString("FPrdOrgId.FNumber")))
                 .andExpect(content().string(containsString("FDocumentStatus+%3C%3E+%27Z%27")))
                 .andRespond(withSuccess("""
-                        [[310119,"WO-001","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-WO-001","","","","","100","生产组织"]]
+                        [[310119,"WO-001","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-WO-001","","","","","100","生产组织",true,"WO-MEMO","1"]]
                         """, MediaType.APPLICATION_JSON));
 
         ErpKingdeeProductionOrder order = client.getProductionOrderByBillNo(properties, "WO-001");
@@ -200,6 +215,10 @@ class ErpKingdeeProductionOrderClientImplTest {
         assertEquals("千克", order.getUnitName());
         assertEquals("BATCH-WO-001", order.getBatchNumber());
         assertEquals("100", order.getProductionOrgNumber());
+        assertEquals("是", order.getPickMode());
+        assertEquals("WO-MEMO", order.getAuxiliaryCode());
+        assertEquals("1", order.getBusinessStatus());
+        assertEquals("1", order.getScheduleStatus());
         server.verify();
     }
 
@@ -219,7 +238,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FDocumentStatus+%3C%3E+%27Z%27"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("FStatus+%3C%3E+%275%27"))))
                 .andRespond(withSuccess("""
-                        [[310122,"WO-VOID","Z","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-VOID","","","","","","",""]]
+                        [[310122,"WO-VOID","Z","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"2026-06-12T08:00:00","2026-06-12T08:00:00","SO-001","1","kg","千克","BATCH-VOID","","","","","","",null,"",""]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeProductionOrder> orders =
@@ -232,7 +251,7 @@ class ErpKingdeeProductionOrderClientImplTest {
     }
 
     @Test
-    void getProductionOrderByBillNo_acceptsMinimalDuplicateCheckRow() {
+    void getProductionOrderByBillNo_rejectsTruncatedRow() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
         ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
@@ -247,12 +266,46 @@ class ErpKingdeeProductionOrderClientImplTest {
                         [[310123,"WO-MIN","A","2026-06-12T08:00:00","MAT-001","ABS","TR558A",12,"","","","1"]]
                         """, MediaType.APPLICATION_JSON));
 
-        ErpKingdeeProductionOrder order = client.getProductionOrderByBillNo(properties, "WO-MIN");
+        RuntimeException error = assertThrows(RuntimeException.class,
+                () -> client.getProductionOrderByBillNo(properties, "WO-MIN"));
+        assertThat(error.getMessage()).contains("expected=24", "actual=12");
+        server.verify();
+    }
 
-        assertEquals("310123", order.getFid());
-        assertEquals("WO-MIN", order.getBillNo());
-        assertEquals("MAT-001", order.getMaterialNumber());
-        assertEquals("1", order.getStatus());
+    @Test
+    void getProductionOrderByBillNo_rejectsInvalidBackflushType() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        expectLogin(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("""
+                        [[310119,"WO-INVALID","C","2026-06-12T00:00:00","MAT-001","物料","规格",12,"","","","4","kg","千克","","","","","","100","生产组织","yes","助记码","1"]]
+                        """, MediaType.APPLICATION_JSON));
+
+        RuntimeException error = assertThrows(RuntimeException.class,
+                () -> client.getProductionOrderByBillNo(buildProperties("https://k3.example.com"), "WO-INVALID"));
+
+        assertThat(error.getMessage()).contains("FISBACKFLUSH is not a boolean");
+        server.verify();
+    }
+
+    @Test
+    void fetchProductionOrdersModifiedBetween_rejectsMissingModifyTime() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        ErpKingdeeProductionOrderClientImpl client = new ErpKingdeeProductionOrderClientImpl(restTemplate);
+        expectLogin(server);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(withSuccess("""
+                        [[310119,"WO-INVALID","C","2026-06-12T00:00:00","MAT-001","物料","规格",12,"","","","4","kg","千克","","","","","","100","生产组织",true,"助记码","1",null]]
+                        """, MediaType.APPLICATION_JSON));
+
+        RuntimeException error = assertThrows(RuntimeException.class,
+                () -> client.fetchProductionOrdersModifiedBetween(buildProperties("https://k3.example.com"),
+                        LocalDateTime.of(2026, 6, 12, 0, 0), LocalDateTime.of(2026, 6, 13, 0, 0)));
+
+        assertThat(error.getMessage()).contains("FModifyDate is blank");
         server.verify();
     }
 
@@ -324,7 +377,7 @@ class ErpKingdeeProductionOrderClientImplTest {
                     int entryOrgIndex = decodedBody.indexOf("\"FTreeEntity\":[{\"FPrdOrgId\"");
                     int entryMaterialIndex = decodedBody.indexOf("\"FMaterialId\"", entryOrgIndex);
                     assertThat(decodedBody)
-                            .contains("\"NeedUpDateFields\":[]")
+                            .contains("\"NeedUpDateFields\":" + EXPECTED_SAVE_FIELDS_JSON)
                             .contains("\"FTreeEntity\":[{")
                             .contains("\"FPrdOrgId\":{\"FNumber\":\"100\"}")
                             .contains("\"FMaterialId\":{\"FNumber\":\"MAT-001\"}")
@@ -382,7 +435,12 @@ class ErpKingdeeProductionOrderClientImplTest {
         server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andExpect(content().string(containsString("%22FPrdOrgId%22%3A%7B%22FNumber%22%3A%22100%22%7D")))
-                .andExpect(content().string(containsString("%22NeedUpDateFields%22%3A%5B%5D")))
+                .andExpect(request -> {
+                    String body = URLDecoder.decode(
+                            ((org.springframework.mock.http.client.MockClientHttpRequest) request)
+                                    .getBodyAsString(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
+                    assertThat(body).contains("\"NeedUpDateFields\":" + EXPECTED_SAVE_FIELDS_JSON);
+                })
                 .andRespond(withSuccess("""
                         {"Result":{"ResponseStatus":{"IsSuccess":true,"SuccessEntitys":[{"Id":310119,"Number":"WO-001"}]}}}
                         """, MediaType.APPLICATION_JSON));
@@ -590,8 +648,8 @@ class ErpKingdeeProductionOrderClientImplTest {
 
         assertThat(exception.getMessage())
                 .contains("PRD_MO Save payload summary")
-                .contains("needUpdateFields=[]")
-                .contains("entryFieldOrder=[FPrdOrgId, FMaterialId")
+                .contains("needUpdateFields=[FPrdOrgId, FMaterialId, FUnitId, FQty, FPlanStartDate, FPlanFinishDate, FSrcBillNo, FLot, FBillNo, FDate]")
+                .contains("entryProductionOrgNumber=100")
                 .contains("productionOrgNumber=100")
                 .contains("materialNumber=MAT-001")
                 .contains("entryKey=FTreeEntity");

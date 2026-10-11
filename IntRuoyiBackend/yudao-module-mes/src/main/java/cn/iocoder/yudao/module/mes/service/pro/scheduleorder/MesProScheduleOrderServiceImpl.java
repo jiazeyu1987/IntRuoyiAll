@@ -272,7 +272,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         if (requirePromiseDate && reqVO.getPromiseDate() == null) {
             throw exception(PRO_SCHEDULE_ORDER_PROMISE_DATE_REQUIRED);
         }
-        MesProWorkOrderDO workOrder = workOrderMapper.selectById(reqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(reqVO.getWorkOrderId());
         if (workOrder == null) {
             throw exception(PRO_WORK_ORDER_NOT_EXISTS);
         }
@@ -329,6 +329,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         List<Long> workOrderIds = reqVO.getWorkOrderIds().stream()
                 .filter(Objects::nonNull)
                 .distinct()
+                .sorted()
                 .toList();
         if (CollUtil.isEmpty(workOrderIds)) {
             throw exception(PRO_SCHEDULE_ORDER_BATCH_REQUIRED);
@@ -357,7 +358,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             try {
                 scheduleOrderIds.add(createFromWorkOrder(singleReqVO, false));
             } catch (ServiceException exception) {
-                MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
+                MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(workOrderId);
                 admissionIssues.add(new BatchAdmissionIssue(
                         workOrderId,
                         exception.getCode() == null ? PRO_SCHEDULE_ORDER_BATCH_ADMISSION_BLOCKED.getCode()
@@ -2751,7 +2752,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                                                                     Map<Long, MesProScheduleOrderDO> existingScheduleOrderMap) {
         List<BatchAdmissionIssue> issues = new ArrayList<>();
         for (Long workOrderId : workOrderIds) {
-            MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
+            MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(workOrderId);
             MesProScheduleOrderDO existingScheduleOrder = existingScheduleOrderMap.get(workOrderId);
             String workOrderCode = resolveBatchWorkOrderCode(workOrder, workOrderId);
             if (existingScheduleOrder != null) {

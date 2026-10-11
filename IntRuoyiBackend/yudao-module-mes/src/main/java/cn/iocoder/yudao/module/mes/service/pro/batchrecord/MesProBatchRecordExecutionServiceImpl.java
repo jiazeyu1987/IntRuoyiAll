@@ -428,6 +428,42 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Transactional(rollbackFor = Exception.class)
     public MesProBatchRecordExecutionOpenOrCreateByContextRespVO openOrCreateByContext(
             MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO) {
+        ContextExecution opened = openContextExecution(reqVO);
+        BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
+                new BatchRecordCellLinkAutoPersistCommand().setExecutionId(opened.execution().getId())
+                        .setTrigger(opened.created() ? "EXECUTION_CREATE" : "EXECUTION_OPEN_OR_CREATE_EXISTING"));
+        return buildOpenOrCreateResp(opened.execution(), opened.created()).setCellLinkAutoPersist(autoPersist);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordExecutionOpenOrCreateByContextRespVO openOrCreateForCompletionSource(
+            MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO) {
+        if (reqVO == null || reqVO.getBatchExecutionId() == null || reqVO.getTaskId() == null
+                || reqVO.getRouteBindingId() == null || !INSTANCE_SCOPE_PROCESS.equals(reqVO.getInstanceScope())
+                || !"BATCH_RECORD".equals(reqVO.getRecordCategory()) || !"MAIN".equals(reqVO.getFormSlotType())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID);
+        }
+        MesProEdhrBatchExecutionDO batch = edhrBatchExecutionMapper.selectById(reqVO.getBatchExecutionId());
+        MesProEdhrBatchExecutionTaskDO task = batchExecutionTaskMapper.selectByIdForUpdate(reqVO.getTaskId());
+        if (batch == null || task == null
+                || !Objects.equals(TenantContextHolder.getRequiredTenantId(), batch.getTenantId())
+                || !Objects.equals(batch.getId(), task.getBatchExecutionId())
+                || !Objects.equals(reqVO.getRouteBindingId(), task.getRouteBindingId())
+                || !Objects.equals(reqVO.getRouteBindingSnapshotHash(), task.getRouteBindingSnapshotHash())
+                || !Objects.equals(reqVO.getInstanceScope(), task.getInstanceScope())
+                || !Objects.equals(reqVO.getRecordCategory(), task.getRecordCategory())
+                || !Objects.equals(reqVO.getFormSlotType(), task.getFormSlotType())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_TASK_CONTEXT_INVALID);
+        }
+        ContextExecution opened = openContextExecution(reqVO);
+        if (!Objects.equals(EXECUTION_STATUS_DRAFT, opened.execution().getStatus())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        }
+        return buildOpenOrCreateResp(opened.execution(), opened.created());
+    }
+
+    private ContextExecution openContextExecution(MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO) {
         MesProWorkOrderDO workOrder = requireWorkOrder(reqVO.getWorkOrderId());
         String instanceScope = resolveExecutionInstanceScope(reqVO.getInstanceScope());
         String sharedFormKey = StrUtil.blankToDefault(StrUtil.trim(reqVO.getSharedFormKey()), null);
@@ -451,11 +487,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                         workOrder.getId(), routeProcess.getId(), batchRecordReportId, batchCode,
                         ACTIVE_EXECUTION_STATUSES);
         if (existing != null) {
-            BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
-                    new BatchRecordCellLinkAutoPersistCommand()
-                            .setExecutionId(existing.getId())
-                            .setTrigger("EXECUTION_OPEN_OR_CREATE_EXISTING"));
-            return buildOpenOrCreateResp(existing, false).setCellLinkAutoPersist(autoPersist);
+            return new ContextExecution(existing, false);
         }
         if (!frozenTaskContext) {
             validateLatestPublishedBatchRecordReport(report);
@@ -512,12 +544,10 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setId(execution.getId())
                 .setExecutionCode(executionCode)
                 .setRevisionRootExecutionId(execution.getId()));
-        BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
-                new BatchRecordCellLinkAutoPersistCommand()
-                        .setExecutionId(execution.getId())
-                        .setTrigger("EXECUTION_CREATE"));
-        return buildOpenOrCreateResp(execution, true).setCellLinkAutoPersist(autoPersist);
+        return new ContextExecution(execution, true);
     }
+
+    private record ContextExecution(MesProBatchRecordExecutionDO execution, boolean created) { }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

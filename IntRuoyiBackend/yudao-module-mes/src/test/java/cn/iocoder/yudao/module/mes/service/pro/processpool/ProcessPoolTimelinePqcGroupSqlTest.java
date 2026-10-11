@@ -15,6 +15,7 @@ import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,6 +24,35 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ProcessPoolTimelinePqcGroupSqlTest {
     private static final String NAMESPACE = "cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper";
     private static final Path XML = Path.of("src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml");
+
+    @Test
+    void frozenReviewEventScopeFiltersRealCountAndPageAndEmptyScopeReturnsNothing() throws Exception {
+        try (Connection db = database()) {
+            event(db, 1, 101, "a"); event(db, 1, 102, "a");
+            event(db, 1, 103, "b"); event(db, 1, 104, null); event(db, 2, 999, null);
+            var params = request("PENDING", 1, 20);
+            var req = (ProcessPoolTimelinePageReqVO) params.get("reqVO");
+            assertScopedRows(db, params, 3, List.of("104:PENDING", "103:PENDING", "102:PENDING"));
+            req.setEventIds(Set.of(101L, 102L, 104L, 999L));
+            assertScopedRows(db, params, 2, List.of("104:PENDING", "102:PENDING"));
+            req.setPageSize(1); req.setPageNo(2);
+            assertScopedRows(db, params, 2, List.of("102:PENDING"));
+            req.setEventIds(Set.of());
+            assertScopedRows(db, params, 0, List.of());
+            req.setEventIds(null); req.setPageNo(1); req.setPageSize(20);
+            assertScopedRows(db, params, 3, List.of("104:PENDING", "103:PENDING", "102:PENDING"));
+        }
+    }
+
+    private static void assertScopedRows(Connection db, Map<String, Object> params, long total,
+                                         List<String> expected) throws Exception {
+        assertEquals(expected, rows(db, params));
+        BoundSql count = configuration().getMappedStatement(NAMESPACE + ".selectTimelineCount").getBoundSql(params);
+        try (var statement = db.prepareStatement(count.getSql() + " AND pool_event.tenant_id = 1")) {
+            bind(statement, count, params);
+            try (var result = statement.executeQuery()) { result.next(); assertEquals(total, result.getLong(1)); }
+        }
+    }
 
     @Test
     void approvedNewestMemberMustNotHideOlderPendingMembers() throws Exception {

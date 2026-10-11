@@ -129,6 +129,61 @@ class MesFrontlinePqcEmployeeSwitchServiceTest {
     }
 
     @Test
+    void unassignedEnabledLoginUserCanFillTheFormalTaskAsSelf() {
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of());
+
+        assertEquals(List.of(LOGIN_USER_ID), service.listPqcEmployeeCandidates(LOGIN_USER_ID).stream()
+                .map(MesFrontlineEmployeeCandidate::userId).toList());
+        MesFrontlinePqcEmployeeSwitchResult result = service.switchPqcActualEmployee(LOGIN_USER_ID,
+                ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, LOGIN_USER_ID);
+        assertEquals(LOGIN_USER_ID, result.template().actualEmployeeId());
+        verify(adminUserApi, org.mockito.Mockito.atLeastOnce()).getUserList(java.util.Set.of(LOGIN_USER_ID));
+    }
+
+    @Test
+    void anotherLeadersTeamDoesNotRestrictSelfOrAuthorizeItsEmployees() {
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of(employeeScope(ACTUAL_EMPLOYEE_ID).setLeaderUserId(200L)));
+
+        assertEquals(LOGIN_USER_ID, service.switchPqcActualEmployee(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, LOGIN_USER_ID).actualEmployeeId());
+        ServiceException error = assertThrows(ServiceException.class, () -> service.requirePqcEmployee(
+                LOGIN_USER_ID, ACTUAL_EMPLOYEE_ID));
+        assertEquals(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND.getCode(), error.getCode());
+    }
+
+    @Test
+    void disabledOrMissingLoginUserCannotUseAnEnabledTeamMemberToEnterTask() {
+        AdminUserRespDTO disabled = user(LOGIN_USER_ID);
+        disabled.setStatus(CommonStatusEnum.DISABLE.getStatus());
+        for (List<AdminUserRespDTO> users : List.of(List.of(disabled, user(ACTUAL_EMPLOYEE_ID)),
+                List.of(user(ACTUAL_EMPLOYEE_ID)), List.<AdminUserRespDTO>of())) {
+            when(adminUserApi.getUserList(any())).thenReturn(users);
+            ServiceException error = assertThrows(ServiceException.class,
+                    () -> service.switchPqcActualEmployee(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                            REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, ACTUAL_EMPLOYEE_ID));
+            assertEquals(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND.getCode(), error.getCode());
+        }
+        verify(taskMapper, never()).selectById(PQC_TASK_ID);
+    }
+
+    @Test
+    void selfCandidateStillRejectsMismatchedTaskAndCannotImpersonateAnotherUser() {
+        when(scopeMapper.selectActiveScopesByLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
+                .thenReturn(List.of());
+        ServiceException otherUser = assertThrows(ServiceException.class,
+                () -> service.switchPqcActualEmployee(LOGIN_USER_ID, ACTIVE_ORDER_ID,
+                        REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, ACTUAL_EMPLOYEE_ID));
+        assertEquals(PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND.getCode(), otherUser.getCode());
+        verify(taskMapper, never()).selectById(PQC_TASK_ID);
+        ServiceException otherTask = assertThrows(ServiceException.class,
+                () -> service.switchPqcActualEmployee(LOGIN_USER_ID, ACTIVE_ORDER_ID + 1,
+                        REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, LOGIN_USER_ID));
+        assertEquals(PRO_FRONTLINE_PQC_TASK_IDENTITY_MISMATCH.getCode(), otherTask.getCode());
+    }
+
+    @Test
     void switchesOnlyWithExplicitActiveOrderVersionProcessTaskEmployeeIdentityAndAuthorization() {
         MesFrontlinePqcEmployeeSwitchResult result = service.switchPqcActualEmployee(LOGIN_USER_ID,
                 ACTIVE_ORDER_ID, REGULATION_VERSION_ID, QA_PROCESS_ID, PQC_TASK_ID, ACTUAL_EMPLOYEE_ID);

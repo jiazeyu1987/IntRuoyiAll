@@ -275,7 +275,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         // mock 模板匹配
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
@@ -326,7 +326,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         // mock 任务
         MesProTaskDO task = new MesProTaskDO();
         task.setId(taskId);
@@ -379,7 +379,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         // mock 模板匹配
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
@@ -429,7 +429,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);
@@ -471,7 +471,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);
@@ -519,7 +519,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);
@@ -567,7 +567,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);
@@ -622,7 +622,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);
@@ -682,7 +682,7 @@ public class MesQcIpqcServiceImplTest extends BaseDbUnitTest {
         workOrder.setId(workOrderId);
         workOrder.setProductId(productId);
         when(workOrderService.validateWorkOrderExists(workOrderId)).thenReturn(workOrder);
-        when(workOrderService.validateWorkOrderConfirmed(workOrderId)).thenReturn(workOrder);
+        when(workOrderService.validateWorkOrderConfirmedForUpdate(workOrderId)).thenReturn(workOrder);
         MesQcTemplateItemDO templateItem = new MesQcTemplateItemDO();
         templateItem.setTemplateId(templateId);
         when(templateItemService.getRequiredTemplateByItemIdAndType(eq(productId), anyInt())).thenReturn(templateItem);

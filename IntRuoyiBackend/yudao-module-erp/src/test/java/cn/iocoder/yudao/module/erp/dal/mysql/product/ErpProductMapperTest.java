@@ -19,6 +19,20 @@ class ErpProductMapperTest extends BaseDbUnitTest {
     private ErpProductMapper productMapper;
 
     @Test
+    void erpSnapshotClearsSpecificationAndPreservesLocalPricesAndRemark() {
+        ErpProductDO existing = buildProduct("旧物料", "CLEAR-SPEC");
+        existing.setPurchasePrice(new BigDecimal("123.45"));
+        productMapper.insert(existing);
+        assertEquals(1, productMapper.updateErpMaterialSnapshot(new ErpProductDO()
+                .setId(existing.getId()).setName("新物料").setCategoryId(1L).setUnitId(1L).setStatus(0).setStandard(null)));
+        ErpProductDO actual = productMapper.selectById(existing.getId());
+        org.junit.jupiter.api.Assertions.assertNull(actual.getStandard());
+        assertEquals("新物料", actual.getName());
+        assertEquals("备注", actual.getRemark());
+        assertEquals(0, actual.getPurchasePrice().compareTo(new BigDecimal("123.45")));
+    }
+
+    @Test
     void selectPage_filtersByBarCode() {
         productMapper.insert(buildProduct("PTCA球囊扩张导管A", "YXN.037.011.1004"));
         productMapper.insert(buildProduct("PTCA球囊扩张导管B", "YXN.037.011.1005"));

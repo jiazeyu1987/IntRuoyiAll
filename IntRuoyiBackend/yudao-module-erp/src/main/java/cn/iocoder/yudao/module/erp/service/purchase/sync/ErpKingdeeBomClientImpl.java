@@ -49,10 +49,15 @@ public class ErpKingdeeBomClientImpl implements ErpKingdeeBomClient {
             "FMATERIALIDCHILD.FName",
             "FMATERIALIDCHILD.FSpecification",
             "FNUMERATOR",
-            "FDENOMINATOR");
+            "FDENOMINATOR",
+            "FChildUnitId.FName",
+            "FBOMCATEGORY",
+            "FTreeEntity_FEntryID",
+            "FTreeEntity_FSeq",
+            "FQty");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + ",FModifyDate";
-    private static final int FIELD_COUNT = 11;
-    private static final int INDEX_SOURCE_MODIFY_TIME = 11;
+    private static final int FIELD_COUNT = 16;
+    private static final int INDEX_SOURCE_MODIFY_TIME = 16;
     private static final DateTimeFormatter KINGDEE_DATE_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -154,37 +159,44 @@ public class ErpKingdeeBomClientImpl implements ErpKingdeeBomClient {
         query.put("FormId", ErpKingdeeBomLine.FORM_ID);
         query.put("FieldKeys", FIELD_KEYS);
         query.put("FilterString", filterString);
-        query.put("OrderString", "FID DESC");
+        query.put("OrderString", "FID DESC,FTreeEntity_FEntryID ASC");
         query.put("StartRow", 0);
         query.put("Limit", properties.getBom().getQueryLimit());
 
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("data", JsonUtils.toJsonString(query));
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
-                new HttpEntity<>(body, buildFormHeaders(cookieHeader)),
-                String.class);
-        JsonNode responseJson = parseJson(response.getBody(), "ENG_BOM ExecuteBillQuery response");
-        if (responseJson.isObject()) {
-            throw exception(KINGDEE_PURCHASE_ORDER_REQUEST_FAIL, responseJson.toString());
-        }
-        return responseJson;
+        return executeBillQuery(properties, cookieHeader, query);
     }
 
     private JsonNode executeBillQuery(ErpKingdeeProperties properties,
                                       String cookieHeader,
                                       Map<String, Object> query) {
-        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("data", JsonUtils.toJsonString(query));
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
-                new HttpEntity<>(body, buildFormHeaders(cookieHeader)),
-                String.class);
-        JsonNode responseJson = parseJson(response.getBody(), "ENG_BOM ExecuteBillQuery response");
-        if (responseJson.isObject()) {
-            throw exception(KINGDEE_PURCHASE_ORDER_REQUEST_FAIL, responseJson.toString());
+        com.fasterxml.jackson.databind.node.ArrayNode result = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+        int offset = 0;
+        query.put("Limit", Math.min(1000, ((Number) query.get("Limit")).intValue()));
+        query.put("OrderString", query.get("FieldKeys").equals(INCREMENTAL_FIELD_KEYS)
+                ? "FModifyDate ASC,FID ASC,FTreeEntity_FEntryID ASC" : "FID ASC,FTreeEntity_FEntryID ASC");
+        while (true) {
+            query.put("StartRow", offset);
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("data", JsonUtils.toJsonString(query));
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    buildServiceUrl(properties.getBaseUrl(), QUERY_SERVICE),
+                    new HttpEntity<>(body, buildFormHeaders(cookieHeader)), String.class);
+            JsonNode rows = parseJson(response.getBody(), "ENG_BOM ExecuteBillQuery response");
+            if (!rows.isArray()) {
+                throw exception(KINGDEE_PURCHASE_ORDER_REQUEST_FAIL, rows.toString());
+            }
+            if (rows.isEmpty()) { break; }
+            for (JsonNode row : rows) {
+                int expected = query.get("FieldKeys").equals(INCREMENTAL_FIELD_KEYS) ? FIELD_COUNT + 1 : FIELD_COUNT;
+                if (!row.isArray() || row.size() != expected) {
+                    throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "ENG_BOM row field count mismatch");
+                }
+                result.add(row);
+            }
+            offset += rows.size();
+            if (rows.size() < ((Number) query.get("Limit")).intValue()) { break; }
         }
-        return responseJson;
+        return result;
     }
 
     private ErpKingdeeBomLine buildLine(JsonNode row) {
@@ -200,7 +212,19 @@ public class ErpKingdeeBomClientImpl implements ErpKingdeeBomClient {
         line.setChildMaterialNumber(requiredText(row, 6, "FMATERIALIDCHILD.FNumber"));
         line.setChildMaterialName(requiredText(row, 7, "FMATERIALIDCHILD.FName"));
         line.setChildMaterialSpecification(optionalText(row, 8));
-        line.setChildUnitName(null);
+        line.setChildUnitName(requiredText(row, 11, "FChildUnitId.FName"));
+        line.setBomType(switch (requiredText(row, 12, "FBOMCATEGORY")) {
+            case "1" -> "标准BOM";
+            case "2" -> "配置BOM";
+            default -> throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "unsupported BOM category");
+        });
+        line.setEntryId(requiredText(row, 13, "FTreeEntity_FEntryID"));
+        try {
+            line.setLineNo(Integer.valueOf(requiredText(row, 14, "FTreeEntity_FSeq")));
+        } catch (NumberFormatException ex) {
+            throw exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID, "invalid BOM entry sequence");
+        }
+        line.setParentQuantity(parsePositiveDecimal(requiredText(row, 15, "FQty"), "FQty"));
         line.setNumerator(parsePositiveDecimal(requiredText(row, 9, "FNUMERATOR"), "FNUMERATOR"));
         line.setDenominator(parsePositiveDecimal(requiredText(row, 10, "FDENOMINATOR"), "FDENOMINATOR"));
         if (row.size() > INDEX_SOURCE_MODIFY_TIME) {

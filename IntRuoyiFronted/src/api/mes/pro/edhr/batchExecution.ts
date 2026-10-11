@@ -708,6 +708,20 @@ export interface EdhrBatchExecutionTaskPreviewRespVO {
   taskStatus?: number
   executionCreated?: boolean
   formViewModel?: EdhrBatchExecutionReviewFormViewModel
+  completionSourceMaterialization?: EdhrCompletionSourceMaterialization
+}
+
+export interface EdhrCompletionSourceMaterialization {
+  status: 'APPLIED' | 'PENDING' | 'CONFIGURATION_MISSING'
+  message?: string
+  receiptId?: string
+  executionId?: string
+  auditBatchId?: string
+  executionStatus?: number
+  sourceSnapshotHash?: string
+  mappingHash?: string
+  fieldAuditHeadHash?: string
+  appliedFieldCount?: number
 }
 
 export interface EdhrBatchExecutionReviewFieldAuditSummary {

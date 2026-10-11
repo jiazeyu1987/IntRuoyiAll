@@ -78,10 +78,11 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
             "FEntryWorkShopId.FNumber",
             "FEntryWorkShopId.FName",
             "FStockStatusId.FNumber",
-            "FStockStatusId.FName");
+            "FStockStatusId.FName",
+            "FPPBomEntryId");
     private static final String INCREMENTAL_FIELD_KEYS = FIELD_KEYS + "," + MODIFY_TIME_FIELD;
-    private static final int FIELD_COUNT = 31;
-    private static final int INCREMENTAL_FIELD_COUNT = 32;
+    private static final int FIELD_COUNT = 32;
+    private static final int INCREMENTAL_FIELD_COUNT = 33;
     private static final List<DateTimeFormatter> DATE_TIME_FORMATTERS = Arrays.asList(
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
             DateTimeFormatter.ofPattern("yyyy/M/d H:mm:ss"),
@@ -106,6 +107,19 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
             }
             fetchFullChunk(properties, cookieHeader, chunkStart, chunkEndExclusive, result);
             chunkStart = chunkEndExclusive;
+        }
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                String id = line.getProductionMaterialListEntryId();
+                if (id != null && !id.isBlank() && !"0".equals(id)) { ids.add(id); }
+            }
+        }
+        var sequences = new ErpKingdeeProductionMaterialLineResolver(restTemplate).resolve(properties, cookieHeader, ids);
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                line.setProductionMaterialListLineNo(sequences.get(line.getProductionMaterialListEntryId()));
+            }
         }
         return new ArrayList<>(result.values());
     }
@@ -149,6 +163,19 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
                 break;
             }
             startRow += rows.size();
+        }
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                String id = line.getProductionMaterialListEntryId();
+                if (id != null && !id.isBlank() && !"0".equals(id)) { ids.add(id); }
+            }
+        }
+        var sequences = new ErpKingdeeProductionMaterialLineResolver(restTemplate).resolve(properties, cookieHeader, ids);
+        for (var order : result.values()) {
+            for (var line : order.getLines()) {
+                line.setProductionMaterialListLineNo(sequences.get(line.getProductionMaterialListEntryId()));
+            }
         }
         return new ArrayList<>(result.values());
     }
@@ -253,7 +280,7 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
                     result.computeIfAbsent(fid, ignored -> buildHeader(row));
             if (incremental && replenishmentList.getSourceModifyTime() == null) {
                 replenishmentList.setSourceModifyTime(parseDateTime(
-                        requiredText(row, 31, MODIFY_TIME_FIELD), MODIFY_TIME_FIELD));
+                        requiredText(row, 32, MODIFY_TIME_FIELD), MODIFY_TIME_FIELD));
             }
             replenishmentList.getLines().add(buildLine(row));
         }
@@ -297,6 +324,7 @@ public class ErpKingdeeProductionReplenishmentListClientImpl implements ErpKingd
         line.setWorkshopName(optionalText(row, 28));
         line.setStockStatusNumber(optionalText(row, 29));
         line.setStockStatusName(optionalText(row, 30));
+        line.setProductionMaterialListEntryId(optionalText(row, 31));
         return line;
     }
 
