@@ -7,7 +7,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 const api = read('src/api/erp/production/replenishment-list/index.ts')
 const page = read('src/views/erp/production/replenishment-list/index.vue')
-const profile = read('src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue')
+const profile = read('src/views/erp/sync/config/components/TableAutoSyncSetting.vue')
 const syncPage = read('src/views/erp/sync/index.vue')
 
 for (const token of [

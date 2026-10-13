@@ -544,6 +544,24 @@ const mergeStaticRoutesWithDynamicRoutes = (
   permissionControlledRoutes: AppRouteRecordRaw[] = []
 ) => {
   const mergedStaticRoutes = cloneDeep(staticRoutes)
+  // A published module menu owns its config leaf. Do not leave a second static
+  // shell with the same named leaf, or merge a dynamic leaf into its own parent.
+  const configNames = new Set(['MesEdhrGlobalConfig', 'ErpTableAutoSyncConfig', 'DccRegistrationCertificateConfig', 'InfraBasicConfig'])
+  const publishedConfigNames = new Set<string>()
+  const collectConfigNames = (routes: AppRouteRecordRaw[]) => {
+    for (const route of routes) {
+      if (configNames.has(String(route.name))) publishedConfigNames.add(String(route.name))
+      if (route.children?.length) collectConfigNames(route.children)
+    }
+  }
+  collectConfigNames(dynamicRoutes)
+  for (let index = mergedStaticRoutes.length - 1; index >= 0; index--) {
+    const route = mergedStaticRoutes[index]
+    if (route.children?.some(child => publishedConfigNames.has(String(child.name))) &&
+        String(route.name).endsWith('ConfigRoot')) {
+      mergedStaticRoutes.splice(index, 1)
+    }
+  }
   const controlledStaticRoutes = cloneDeep(permissionControlledRoutes)
   const authorizedStaticRoutes: AppRouteRecordRaw[] = []
   const dynamicRoutesToAdd: AppRouteRecordRaw[] = []

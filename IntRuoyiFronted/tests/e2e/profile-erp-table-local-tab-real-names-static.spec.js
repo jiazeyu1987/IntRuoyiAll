@@ -5,7 +5,7 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '../..')
 const componentPath = path.join(
   root,
-  'src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue'
+  'src/views/erp/sync/config/components/TableAutoSyncSetting.vue'
 )
 const component = fs.readFileSync(componentPath, 'utf8')
 const syncTypesStart = component.indexOf('const syncTypes: ProfileErpSyncType[] = [')

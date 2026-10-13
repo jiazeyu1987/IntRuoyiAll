@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import type { FormInstance, FormRules } from 'element-plus'
+import { hasExplicitConfigPermission } from '@/utils/businessConfigAccess'
 import {
   getRegistrationCertificateReminderConfig,
   updateRegistrationCertificateReminderConfig,
@@ -73,9 +74,11 @@ const thresholds: Array<{ key: ThresholdKey; label: string }> = [
 ]
 
 const message = useMessage()
+const emit = defineEmits<{ success: [] }>()
 const dialogVisible = ref(false)
 const loading = ref(false)
 const saving = ref(false)
+const loaded = ref(false)
 const formRef = ref<FormInstance>()
 const userOptions = ref<UserVO[]>([])
 const formData = reactive({
@@ -92,7 +95,12 @@ const formRules: FormRules = Object.fromEntries(
 )
 
 const open = async () => {
+  if (!hasExplicitConfigPermission('dcc:registration-certificate:config:query')) {
+    message.error('无权查看通知设置。')
+    return
+  }
   dialogVisible.value = true
+  loaded.value = false
   loading.value = true
   try {
     const [config, users] = await Promise.all([
@@ -109,6 +117,7 @@ const open = async () => {
         config.thresholdRecipientUserIds[key] || []
       )
     }
+    loaded.value = true
   } catch (error) {
     dialogVisible.value = false
     throw error
@@ -118,8 +127,17 @@ const open = async () => {
 }
 
 const submit = async () => {
+  if (loading.value || saving.value || !loaded.value) return
+  if (!hasExplicitConfigPermission('dcc:registration-certificate:config:update')) {
+    message.error('无权修改通知设置。')
+    return
+  }
   const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (!valid || loading.value || saving.value || !loaded.value) return
+  if (!hasExplicitConfigPermission('dcc:registration-certificate:config:update')) {
+    message.error('无权修改通知设置。')
+    return
+  }
   saving.value = true
   try {
     const updated = await updateRegistrationCertificateReminderConfig({
@@ -136,6 +154,7 @@ const submit = async () => {
     formData.rowVersion = updated.rowVersion
     message.success('通知设置已保存')
     dialogVisible.value = false
+    emit('success')
   } finally {
     saving.value = false
   }

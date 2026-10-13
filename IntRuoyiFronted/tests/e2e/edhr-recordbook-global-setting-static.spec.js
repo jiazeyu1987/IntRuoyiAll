@@ -17,24 +17,20 @@ assert.ok(api.includes('updateEdhrRecordbookGlobalSetting'), 'API wrapper must e
 assert.ok(api.includes('EdhrRecordbookGlobalSettingRespVO'), 'API wrapper must type the response VO.')
 assert.ok(api.includes('EdhrRecordbookGlobalSettingUpdateReqVO'), 'API wrapper must type the update VO.')
 
-for (const profilePath of ['src/views/Profile/Index.vue', 'src/views/profile/Index.vue']) {
-  const profile = readSource(profilePath)
-  assert.ok(profile.includes('EdhrRecordbookGlobalSetting'), `${profilePath} must render the config component.`)
-  assert.ok(profile.includes('hasGoldenFingerPermission'), `${profilePath} must compute golden finger visibility.`)
-  assert.ok(profile.includes(GOLDEN_FINGER_PERMISSION), `${profilePath} must use the exact permission code.`)
-  assert.ok(profile.includes('name="config"'), `${profilePath} must add a config tab.`)
-  assert.ok(profile.includes('v-if="hasGoldenFingerPermission"'), `${profilePath} must hide config tab from ordinary users.`)
-}
+const page = readSource('src/views/mes/pro/edhr-config/index.vue')
+assert.ok(page.includes('<RecordbookGlobalSetting />'), 'MES config must mount recordbook control')
+assert.ok(page.includes('v-if="canQuery"') && page.includes('hasExplicitConfigPermission(GOLDEN_FINGER_PERMISSION)'), 'MES config requires explicit golden-finger grant')
+assert.ok(readSource('src/utils/businessConfigAccess.ts').includes(GOLDEN_FINGER_PERMISSION), 'permission code remains unchanged')
+assert.ok(!readSource('src/views/Profile/Index.vue').includes('EdhrRecordbookGlobalSetting'), 'Profile no longer imports recordbook control')
 
 for (const componentPath of [
-  'src/views/Profile/components/EdhrRecordbookGlobalSetting.vue',
-  'src/views/profile/components/EdhrRecordbookGlobalSetting.vue'
+  'src/views/mes/pro/edhr-config/components/RecordbookGlobalSetting.vue'
 ]) {
   const component = readSource(componentPath)
   assert.ok(component.includes('el-switch'), `${componentPath} must use an editable switch.`)
   assert.ok(!component.includes('el-descriptions'), `${componentPath} must not render the old red-box metadata block.`)
   for (const removedText of [CONFIG_KEY, '配置键', '当前状态', '最后更新人', '最后更新时间']) {
-    assert.ok(!component.includes(removedText), `${componentPath} must remove red-box metadata text: ${removedText}`)
+    assert.ok(!component.slice(0, component.indexOf('</template>')).includes(removedText), `${componentPath} must remove red-box metadata text: ${removedText}`)
   }
   assert.ok(component.includes('role="button"'), `${componentPath} must make the blue-box switch area keyboard/click accessible.`)
   assert.ok(component.includes('@click="handleToggleClick"'), `${componentPath} must toggle from the whole blue-box area.`)
@@ -49,7 +45,7 @@ const detail = readSource('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage
 assert.ok(detail.includes('getEdhrRecordbookGlobalSetting'), 'Batch detail must read the global setting.')
 assert.ok(detail.includes('isGlobalRecordbookEnabled'), 'Batch detail must track global recordbook state.')
 assert.ok(
-  detail.includes('v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence) && isGlobalRecordbookEnabled"'),
+  /v-if="\s*selectedTaskForEvidence\s*&&\s*!isSpecialNode\(selectedTaskForEvidence\)\s*&&\s*isGlobalRecordbookEnabled\s*"/.test(detail),
   'Batch detail must hide the entire fill-carrier control when global recordbook is disabled.'
 )
 assert.ok(

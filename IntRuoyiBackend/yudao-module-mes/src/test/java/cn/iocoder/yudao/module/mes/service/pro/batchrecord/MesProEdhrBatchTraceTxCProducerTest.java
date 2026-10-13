@@ -21,7 +21,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.lang.reflect.InvocationTargetException;
@@ -59,7 +58,7 @@ class MesProEdhrBatchTraceTxCProducerTest {
                     mock(MesProEdhrBatchTraceOutboxEventMapper.class),
                     mock(MesProEdhrBatchTraceabilityService.class),
                     mock(ApplicationEventPublisher.class),
-                    mock(PlatformTransactionManager.class),
+                    mock(MesProEdhrBatchTraceTransactionService.class),
                     mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class),
                     mock(MesIndependentBatchPrerequisiteReceiptPort.class),
                     mock(MesProEdhrBatchProvisioningRecordMapper.class));
@@ -111,7 +110,7 @@ class MesProEdhrBatchTraceTxCProducerTest {
                     outboxEventMapper,
                     mock(MesProEdhrBatchTraceabilityService.class),
                     mock(ApplicationEventPublisher.class),
-                    mock(PlatformTransactionManager.class),
+                    mock(MesProEdhrBatchTraceTransactionService.class),
                     mock(MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort.class),
                     mock(MesIndependentBatchPrerequisiteReceiptPort.class),
                     mock(MesProEdhrBatchProvisioningRecordMapper.class));

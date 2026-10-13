@@ -1,142 +1,139 @@
 package cn.iocoder.yudao.server.profileworkbench;
 
-import cn.iocoder.yudao.module.system.api.profileworkbench.*;
-import org.springframework.beans.BeanUtils;
+import cn.iocoder.yudao.module.system.api.workbench.*;
+import cn.iocoder.yudao.module.system.dal.mysql.profileworkbench.WorkbenchVisibilityVersionMapper;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import com.baomidou.dynamic.datasource.annotation.DS;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
+import static cn.iocoder.yudao.module.system.api.workbench.WorkbenchFailure.*;
 
-@Service
+@Service @DS("master")
 public class ProfileWorkbenchTodoReadTransaction {
     private static final int CHUNK_SIZE = 100;
     private static final long BUDGET_NANOS = 10_000_000_000L;
-    private final Map<ProfileWorkbenchTodoSourceId, ProfileWorkbenchTodoSource> sources;
-    public ProfileWorkbenchTodoReadTransaction(List<ProfileWorkbenchTodoSource> beans) {
-        EnumMap<ProfileWorkbenchTodoSourceId, ProfileWorkbenchTodoSource> registered = new EnumMap<>(ProfileWorkbenchTodoSourceId.class);
-        for (ProfileWorkbenchTodoSource source : beans) {
-            if (registered.put(source.sourceId(), source) != null) throw new IllegalStateException("Duplicate workbench source");
-        }
-        if (registered.size() != ProfileWorkbenchTodoSourceId.values().length) throw new IllegalStateException("Missing workbench source");
-        sources = Collections.unmodifiableMap(registered);
+    private final WorkbenchSourceRegistry registry;
+    private final WorkbenchVisibilityVersionMapper versions;
+    private final WorkbenchQueryTokens tokens;
+    public ProfileWorkbenchTodoReadTransaction(WorkbenchSourceRegistry registry, WorkbenchVisibilityVersionMapper versions, WorkbenchQueryTokens tokens) {
+        this.registry = registry; this.versions = versions; this.tokens = tokens;
     }
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ, timeout = 10, rollbackFor = Exception.class)
-    public ProfileWorkbenchTodoCountRespVO count(ProfileWorkbenchTodoQueryDTO query, List<ProfileWorkbenchTodoSourceId> ids, long start) {
-        long total = 0;
-        for (ProfileWorkbenchTodoSourceId id : ids) total = Math.addExact(total, checkedCount(sources.get(id), query, start));
-        checkBudget(start);
-        return new ProfileWorkbenchTodoCountRespVO(total, LocalDateTime.now());
+    @Transactional(propagation=Propagation.REQUIRES_NEW,readOnly=true,isolation=Isolation.REPEATABLE_READ,timeout=10,rollbackFor=Exception.class)
+    public WorkbenchContextResponse issue(long tenant, long user, WorkbenchContextRequest request, List<String> ids, long start) {
+        long version = shared(tenant, user); checkBudget(start);
+        var issued = tokens.issue(tenant, user, version, request.registryRevision(), ids, request.querySpec(), request.contextEpoch());
+        tokens.requireAlive(issued.claim()); checkBudget(start);
+        return new WorkbenchContextResponse(3, request.registryRevision(), ids, request.contextEpoch(), Long.toString(version),
+            issued.queryVersion(), issued.claim().expiresAt(), issued.claim().querySpec());
     }
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ, timeout = 10, rollbackFor = Exception.class)
-    public ProfileWorkbenchTodoPageRespVO page(ProfileWorkbenchTodoQueryDTO query, List<ProfileWorkbenchTodoSourceId> ids,
-            int pageNo, int pageSize, long start) {
-        if (pageNo < 1 || pageSize < 10 || pageSize > 100) throw new IllegalArgumentException("Invalid workbench page bounds");
-        Comparator<ProfileWorkbenchTodoRowDTO> comparator = ProfileWorkbenchTodoSortContract.comparator(query);
-        long business = 0, hidden = 0, total = 0;
-        EnumMap<ProfileWorkbenchTodoSourceId, Long> filteredCounts = new EnumMap<>(ProfileWorkbenchTodoSourceId.class);
-        ProfileWorkbenchTodoQueryDTO base = new ProfileWorkbenchTodoQueryDTO();
-        base.setUserId(query.getUserId()); base.setTenantId(query.getTenantId());
-        ProfileWorkbenchTodoQueryDTO hiddenQuery = new ProfileWorkbenchTodoQueryDTO();
-        BeanUtils.copyProperties(base, hiddenQuery); hiddenQuery.setVisibility("hidden");
-        for (ProfileWorkbenchTodoSourceId id : ids) {
-            ProfileWorkbenchTodoSource source = sources.get(id);
-            long baseCount = checkedCount(source, base, start);
-            long hiddenCount = checkedCount(source, hiddenQuery, start);
-            long count = checkedCount(source, query, start);
-            if (hiddenCount > baseCount || count > ("hidden".equals(query.getVisibility()) ? hiddenCount : baseCount - hiddenCount))
-                throw new IllegalStateException("Inconsistent workbench source counts");
-            business = Math.addExact(business, baseCount); hidden = Math.addExact(hidden, hiddenCount);
-            total = Math.addExact(total, count); filteredCounts.put(id, count);
+    private long shared(long tenant, long user) {
+        Long value = versions.shared(tenant, user);
+        if (value == null || value < 1) throw VISIBILITY_CONTEXT_MISSING.exception();
+        return value;
+    }
+    private QueryContext query(WorkbenchQueryTokens.Claim claim) {
+        tokens.requireAlive(claim);
+        if (shared(claim.tenant(), claim.user()) != claim.visibilityVersion()) throw VISIBILITY_VERSION_CONFLICT.exception();
+        return claim.querySpec().context(claim.tenant(), claim.user(), claim.visibilityVersion());
+    }
+    private record Totals(long business, long hidden, long filtered, Map<String, Long> bySource) { }
+    private Totals totals(QueryContext q, List<String> ids, long start) {
+        long business = 0, hidden = 0, filtered = 0;
+        Map<String, Long> counts = new HashMap<>();
+        for (String id : ids) {
+            SourceAdapter source = registry.require(id);
+            long all = checkedCount(source, q.partition(null), start);
+            long hiddenCount = checkedCount(source, q.partition("hidden"), start);
+            long selected = checkedCount(source, q, start);
+            if (hiddenCount > all || selected > ("hidden".equals(q.getVisibility()) ? hiddenCount : all - hiddenCount)) throw SOURCE_CONTRACT_INVALID.exception();
+            try { business = Math.addExact(business, all); hidden = Math.addExact(hidden, hiddenCount); filtered = Math.addExact(filtered, selected); }
+            catch (ArithmeticException failure) { throw SOURCE_CONTRACT_INVALID.exception(failure); }
+            counts.put(id, selected);
         }
-        long maxPage = total == 0 ? 1 : (total - 1) / pageSize + 1;
+        // HTTP counts are JSON numbers consumed as exact JavaScript integers, not NumberSerializer strings.
+        if (business >= 9_007_199_254_740_991L || hidden >= 9_007_199_254_740_991L || filtered >= 9_007_199_254_740_991L)
+            throw SOURCE_CONTRACT_INVALID.exception();
+        return new Totals(business, hidden, filtered, counts);
+    }
+    @Transactional(propagation=Propagation.REQUIRES_NEW,readOnly=true,isolation=Isolation.REPEATABLE_READ,timeout=10,rollbackFor=Exception.class)
+    public ProfileWorkbenchTodoCountRespVO count(String token, WorkbenchQueryTokens.Claim claim, long start) {
+        QueryContext q = query(claim); Totals totals = totals(q, claim.sources(), start);
+        tokens.requireAlive(claim); checkBudget(start);
+        return new ProfileWorkbenchTodoCountRespVO(3, claim.registryRevision(), token, claim.contextEpoch(), Long.toString(claim.visibilityVersion()),
+            totals.filtered, totals.business, totals.hidden, LocalDateTime.now());
+    }
+    @Transactional(propagation=Propagation.REQUIRES_NEW,readOnly=true,isolation=Isolation.REPEATABLE_READ,timeout=10,rollbackFor=Exception.class)
+    public ProfileWorkbenchTodoPageRespVO page(String token, WorkbenchQueryTokens.Claim claim, int pageNo, int pageSize, long start) {
+        if (pageNo < 1 || pageSize < 10 || pageSize > 100) throw INVALID_QUERY.exception();
+        QueryContext q = query(claim); Comparator<TaskSummary> comparator = SortContract.comparator(q);
+        Totals totals = totals(q, claim.sources(), start);
+        long maxPage = totals.filtered == 0 ? 1 : (totals.filtered - 1) / pageSize + 1;
         int effective = (int) Math.min(pageNo, maxPage);
         long offset = Math.multiplyExact((long) effective - 1, pageSize);
-        PriorityQueue<SourceBuffer> heap = new PriorityQueue<>((a, b) -> comparator.compare(a.head(), b.head()));
-        for (ProfileWorkbenchTodoSourceId id : ids) {
-            if (filteredCounts.get(id) > 0) {
-                SourceBuffer buffer = new SourceBuffer(sources.get(id), filteredCounts.get(id), query, comparator, start);
-                buffer.load();
-                if (buffer.rows.isEmpty()) throw new IllegalStateException("Count predicted missing workbench rows");
-                heap.add(buffer);
-            }
+        int expectedSize = (int) Math.min(pageSize, Math.max(0, totals.filtered - offset));
+        PriorityQueue<SourceBuffer> heap = new PriorityQueue<>((a,b) -> comparator.compare(a.head(), b.head()));
+        for (String id : claim.sources()) if (totals.bySource.get(id) > 0) {
+            SourceBuffer buffer = new SourceBuffer(registry.require(id), totals.bySource.get(id), q, start);
+            buffer.load(); heap.add(buffer);
         }
-        int expectedSize = (int) Math.min(pageSize, Math.max(0, total - offset));
-        long consumed = 0;
-        List<ProfileWorkbenchTodoRowDTO> result = new ArrayList<>(expectedSize);
-        ProfileWorkbenchTodoRowDTO previous = null;
+        long consumed = 0; TaskSummary previous = null; List<TaskSummary> rows = new ArrayList<>(expectedSize);
         while (consumed < offset + expectedSize) {
             checkBudget(start);
-            if (heap.isEmpty()) throw new IllegalStateException("Workbench source ended before counted prefix");
-            SourceBuffer buffer = heap.remove();
-            ProfileWorkbenchTodoRowDTO row = buffer.head();
-            if (previous != null && comparator.compare(previous, row) >= 0) throw new IllegalStateException("Duplicate or unordered workbench row");
-            previous = row;
-            if (consumed >= offset) {
-                row.setNavigation(buffer.source.navigation(row));
-                result.add(row);
-            }
-            consumed++;
-            buffer.index++;
-            buffer.consumed++;
+            if (heap.isEmpty()) throw SOURCE_CONTRACT_INVALID.exception();
+            SourceBuffer buffer = heap.remove(); TaskSummary row = buffer.head();
+            if (previous != null && comparator.compare(previous,row) >= 0) throw SOURCE_CONTRACT_INVALID.exception();
+            previous = row; if (consumed >= offset) rows.add(row);
+            consumed++; buffer.index++; buffer.consumed++;
             if (buffer.index < buffer.rows.size()) heap.add(buffer);
-            else if (buffer.hasNext && consumed < offset + expectedSize) {
-                buffer.load(); heap.add(buffer);
-            } else if (!buffer.hasNext && buffer.consumed != buffer.expected) {
-                throw new IllegalStateException("Workbench source count differs from exhausted rows");
-            }
+            else if (buffer.hasNext && consumed < offset + expectedSize) { buffer.load(); heap.add(buffer); }
+            else if (!buffer.hasNext && buffer.consumed != buffer.expected) throw SOURCE_CONTRACT_INVALID.exception();
         }
-        checkBudget(start);
-        return new ProfileWorkbenchTodoPageRespVO(List.copyOf(result), total, business, hidden, effective, pageSize, LocalDateTime.now());
+        tokens.requireAlive(claim); checkBudget(start);
+        return new ProfileWorkbenchTodoPageRespVO(3, claim.registryRevision(), token, claim.contextEpoch(), Long.toString(claim.visibilityVersion()),
+            List.copyOf(rows), totals.filtered, totals.business, totals.hidden, effective, pageSize, LocalDateTime.now());
     }
-    private static long checkedCount(ProfileWorkbenchTodoSource source, ProfileWorkbenchTodoQueryDTO query, long start) {
-        checkBudget(start);
-        long count = source.count(query);
-        checkBudget(start);
-        if (count < 0) throw new IllegalStateException("Invalid workbench count");
-        return count;
+    private static long checkedCount(SourceAdapter source, QueryContext q, long start) {
+        checkBudget(start); q.validate(); long value;
+        try { value = source.count(q); }
+        catch (ServiceException failure) { throw failure; }
+        catch (RuntimeException failure) { throw SOURCE_QUERY_FAILED.exception(failure); }
+        checkBudget(start); if (value < 0) throw SOURCE_CONTRACT_INVALID.exception(); return value;
     }
-    private static void checkBudget(long start) {
-        if (System.nanoTime() - start >= BUDGET_NANOS) throw new IllegalStateException("Workbench query exceeded ten-second budget");
-    }
+    static void checkBudget(long start) { if (System.nanoTime() - start >= BUDGET_NANOS) throw QUERY_BUDGET_EXCEEDED.exception(); }
     private static final class SourceBuffer {
-        final ProfileWorkbenchTodoSource source;
-        final long expected;
-        final ProfileWorkbenchTodoQueryDTO query;
-        final Comparator<ProfileWorkbenchTodoRowDTO> comparator;
-        final long start;
-        List<ProfileWorkbenchTodoRowDTO> rows = List.of();
-        ProfileWorkbenchTodoRowDTO after;
-        int index;
-        long consumed;
-        boolean hasNext;
-        SourceBuffer(ProfileWorkbenchTodoSource source, long expected, ProfileWorkbenchTodoQueryDTO query,
-                Comparator<ProfileWorkbenchTodoRowDTO> comparator, long start) {
-            this.source = source; this.expected = expected; this.query = query; this.comparator = comparator; this.start = start;
-        }
-        ProfileWorkbenchTodoRowDTO head() { return rows.get(index); }
+        final SourceAdapter source; final long expected; final QueryContext q; final long start;
+        List<TaskSummary> rows = List.of(); ChunkCursor after; int index; long consumed; boolean hasNext;
+        SourceBuffer(SourceAdapter source, long expected, QueryContext q, long start) { this.source=source;this.expected=expected;this.q=q;this.start=start; }
+        TaskSummary head() { return rows.get(index); }
         void load() {
-            checkBudget(start);
-            ProfileWorkbenchTodoChunkDTO chunk = source.readChunk(query, after, CHUNK_SIZE);
+            checkBudget(start); TaskChunk chunk;
+            try { chunk = source.readChunk(q, after, CHUNK_SIZE); }
+            catch (ServiceException failure) { throw failure; }
+            catch (RuntimeException failure) { throw SOURCE_QUERY_FAILED.exception(failure); }
             checkBudget(start);
             if (chunk == null || chunk.rows() == null || chunk.rows().isEmpty() || chunk.rows().size() > CHUNK_SIZE
-                    || (chunk.hasNext() && chunk.rows().size() != CHUNK_SIZE))
-                throw new IllegalStateException("Invalid workbench chunk");
-            ProfileWorkbenchTodoRowDTO last = after;
-            for (ProfileWorkbenchTodoRowDTO row : chunk.rows()) {
-                if (row == null || row.getSourceId() != source.sourceId() || row.getNumericId() == null || row.getNumericId() <= 0
-                        || !Long.toString(row.getNumericId()).equals(row.getBusinessId())
-                        || !(source.sourceId().label + ":" + row.getBusinessId()).equals(row.getTaskKey())
-                        || !source.sourceId().label.equals(row.getSource()) || !source.sourceId().taskType.equals(row.getTaskType())
-                        || row.getDetail() == null || row.getStatusLabel() == null)
-                    throw new IllegalStateException("Invalid canonical workbench row");
-                if (last != null && comparator.compare(last, row) >= 0) throw new IllegalStateException("Workbench chunk cursor did not advance");
-                last = row;
+                    || (chunk.hasNext() && chunk.rows().size() != CHUNK_SIZE)) throw SOURCE_CONTRACT_INVALID.exception();
+            ChunkCursor last = after;
+            for (TaskSummary row : chunk.rows()) {
+                if (row == null || row.getClass() != TaskSummary.class || !source.sourceId().equals(row.getSourceId())
+                        || row.getBusinessId() == null || row.getBusinessId().isBlank() || row.getBusinessId().length() > 80
+                        || !(source.sourceId() + ":" + row.getBusinessId()).equals(row.getTaskKey()) || row.getTaskKey().length() > 160
+                        || row.getRowOrderKey() == null || row.getRowOrderKey().isEmpty()
+                        || !source.descriptor().label().equals(row.getSource()) || !source.descriptor().taskType().equals(row.getTaskType())
+                        || row.getDetail() == null || row.getStatusLabel() == null || row.getAction() == null
+                        || !source.descriptor().actionKind().equals(row.getAction().actionKind())
+                        || row.getAction().payloadVersion() != source.descriptor().payloadVersion()) throw SOURCE_CONTRACT_INVALID.exception();
+                RowOrderContract.validate(row.getRowOrderKey());
+                row.setSourceRank(source.descriptor().sortRank());
+                SortContract.validateTime(row.getCreatedAt()); SortContract.validateTime(row.getDueAt());
+                if (last != null && SortContract.compare(last,row.cursor(),q) >= 0) throw SOURCE_CONTRACT_INVALID.exception();
+                last = row.cursor();
             }
-            if (chunk.after() == null || !last.equals(chunk.after())) throw new IllegalStateException("Invalid workbench end cursor");
+            if (!Objects.equals(last,chunk.after())) throw SOURCE_CONTRACT_INVALID.exception();
             long fetchedEnd = Math.addExact(consumed, chunk.rows().size());
-            if (fetchedEnd > expected || (chunk.hasNext() ? fetchedEnd >= expected : fetchedEnd != expected))
-                throw new IllegalStateException("Workbench chunk disagrees with exact count");
+            if (fetchedEnd > expected || (chunk.hasNext() ? fetchedEnd >= expected : fetchedEnd != expected)) throw SOURCE_CONTRACT_INVALID.exception();
             rows = chunk.rows(); after = last; hasNext = chunk.hasNext(); index = 0;
         }
     }

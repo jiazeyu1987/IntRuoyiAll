@@ -262,9 +262,9 @@ export interface EdhrProductionReleaseReportNodeCompleteReqVO {
 }
 
 export interface EdhrBatchExecutionTaskOpenRespVO {
-  taskId: number
-  executionId?: number
-  workTaskId?: number
+  taskId: EdhrRouteId
+  executionId?: EdhrRouteId
+  workTaskId?: EdhrRouteId
   assistUserId?: number
   routeProcessId?: number
   batchRecordReportId?: string

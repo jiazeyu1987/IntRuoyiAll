@@ -37,9 +37,6 @@ import lombok.RequiredArgsConstructor;
 import jakarta.annotation.Resource;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -87,7 +84,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private final MesProEdhrBatchTraceOutboxEventMapper outboxEventMapper;
     private final MesProEdhrBatchTraceabilityService traceabilityService;
     private final ApplicationEventPublisher eventPublisher;
-    private final PlatformTransactionManager transactionManager;
+    private final MesProEdhrBatchTraceTransactionService traceTransactions;
     private final MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completionReceiptPort;
     private final MesIndependentBatchPrerequisiteReceiptPort independentReceiptPort;
     private final MesProEdhrBatchProvisioningRecordMapper provisioningRecordMapper;
@@ -113,7 +110,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
         }
         Long tenantId = requireCurrentTenant();
         try {
-            MesProEdhrBatchTraceTxCResult result = independentTransaction().execute(status -> {
+            MesProEdhrBatchTraceTxCResult result = traceTransactions.execute(status -> {
                 unifiedAudit.acquireLedgerLock();
                 String before = captureAuditState(command, tenantId);
                 MesProEdhrBatchTraceOutboxEventDO byEvent = outboxEventMapper.selectByEventId(command.getEventId());
@@ -166,7 +163,7 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
     private MesProEdhrBatchTraceTxCResult persistFailureInNewTransaction(
             MesProEdhrBatchTraceTxCCommand command, String reasonCode, String reason) {
         Long tenantId = requireCurrentTenant();
-        MesProEdhrBatchTraceTxCResult result = independentTransaction().execute(status -> {
+        MesProEdhrBatchTraceTxCResult result = traceTransactions.execute(status -> {
             unifiedAudit.acquireLedgerLock();
             String before = captureAuditState(command, tenantId);
             MesProEdhrBatchTraceTxCResult failure = persistFailure(command, reasonCode, reason);
@@ -178,12 +175,6 @@ public class MesProEdhrBatchTraceTxCProducer implements MesProEdhrBatchTraceTxCI
             return failure;
         });
         return Objects.requireNonNull(result, "Tx-C failure transaction returned no result");
-    }
-
-    private TransactionTemplate independentTransaction() {
-        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        return transaction;
     }
 
     private Long requireCurrentTenant() {
