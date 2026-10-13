@@ -177,7 +177,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
+import { computed, ref, watch, onBeforeUnmount, onDeactivated } from 'vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 import { checkPermi } from '@/utils/permission'
 import {
   listOwnReturns,
@@ -203,6 +207,31 @@ const reason = ref(''),
   password = ref(''),
   errorText = ref('')
 let originalValues = ''
+let contextGeneration = 0
+const resetContext = () => {
+  contextGeneration++
+  visible.value = false
+  busy.value = false
+  rows.value = []
+  draft.value = undefined
+  result.value = undefined
+  reason.value = ''
+  password.value = ''
+  errorText.value = ''
+  originalValues = ''
+}
+const captureContext = () => {
+  const generation = contextGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = router.currentRoute.value.fullPath
+  const mode = props.mode
+  return () => generation === contextGeneration && visible.value &&
+    approvalInvalidation.isCurrent(sessionKey) && routeKey === router.currentRoute.value.fullPath && mode === props.mode
+}
+watch(() => [approvalInvalidation.contextKey, router.currentRoute.value.fullPath, props.mode], resetContext, { flush: 'sync' })
+watch(visible, (value) => { if (!value) resetContext() }, { flush: 'sync' })
+onBeforeUnmount(resetContext)
+onDeactivated(resetContext)
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
 const businessValues = (detail: OwnReturnDetail) => JSON.stringify(detail.production ?? detail.pqc)
 const isBoolean = (item: OwnReturnPqcItem) => item.resultType === 'BOOLEAN'
@@ -217,6 +246,7 @@ const close = () => {
 }
 const back = () => {
   if (!busy.value) {
+    contextGeneration++
     draft.value = undefined
     password.value = ''
     reason.value = ''
@@ -229,6 +259,7 @@ const open = async () => {
     errorText.value = '没有读取本人退回待办的权限'
     return
   }
+  resetContext()
   visible.value = true
   draft.value = undefined
   result.value = undefined
@@ -237,12 +268,15 @@ const open = async () => {
   errorText.value = ''
   busy.value = true
   rows.value = []
+  const isCurrent = captureContext()
   try {
-    rows.value = await listOwnReturns(leaderType.value)
+    const loaded = await listOwnReturns(leaderType.value, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    rows.value = loaded
   } catch (error) {
-    errorText.value = errorMessage(error)
+    if (isCurrent()) errorText.value = errorMessage(error)
   } finally {
-    busy.value = false
+    if (isCurrent()) busy.value = false
   }
 }
 const choose = async (row: OwnReturnRow) => {
@@ -251,6 +285,8 @@ const choose = async (row: OwnReturnRow) => {
     errorText.value = '没有读取本人退回表单的权限'
     return
   }
+  contextGeneration++
+  const isCurrent = captureContext()
   busy.value = true
   draft.value = undefined
   result.value = undefined
@@ -258,11 +294,13 @@ const choose = async (row: OwnReturnRow) => {
   password.value = ''
   reason.value = ''
   try {
-    const detail = await getOwnReturnDetail(row, leaderType.value)
+    const selectedRow = { ...row }
+    const detail = await getOwnReturnDetail(selectedRow, leaderType.value, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     if (
       !detail?.row ||
       ['returnTaskId', 'eventId', 'activeOrderId', 'rejectedReviewId', 'expectedRevisionId'].some(
-        (key) => detail.row[key as keyof OwnReturnRow] !== row[key as keyof OwnReturnRow]
+        (key) => detail.row[key as keyof OwnReturnRow] !== selectedRow[key as keyof OwnReturnRow]
       )
     )
       throw Error('退回轮次已变化，请重新打开待办')
@@ -271,15 +309,16 @@ const choose = async (row: OwnReturnRow) => {
     draft.value = JSON.parse(JSON.stringify(detail))
     originalValues = businessValues(detail)
   } catch (error) {
-    errorText.value = errorMessage(error)
+    if (isCurrent()) errorText.value = errorMessage(error)
   } finally {
-    busy.value = false
+    if (isCurrent()) busy.value = false
   }
 }
 const openTask = async (query: Record<string, unknown>) => {
   if (busy.value) return
+  const previousGeneration = contextGeneration
   await open()
-  if (!visible.value || errorText.value) return
+  if (contextGeneration !== previousGeneration + 1 || !visible.value || errorText.value) return
   const queryId = (key: string) =>
     typeof query[key] === 'string' && /^[1-9]\d*$/.test(query[key] as string)
       ? (query[key] as string)
@@ -342,9 +381,10 @@ const resubmit = async () => {
     password.value = ''
     return
   }
+  const isCurrent = captureContext()
   busy.value = true
   try {
-    const detail = draft.value,
+    const detail: OwnReturnDetail = JSON.parse(JSON.stringify(draft.value)),
       context = {
         activeOrderId: detail.row.activeOrderId,
         rejectedReviewId: detail.row.rejectedReviewId,
@@ -355,12 +395,14 @@ const resubmit = async () => {
       changeReason: reason.value.trim(),
       signaturePassword: password.value
     }
+    const approvalEvent = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'ACTIVE_ORDER_HANDOFF', sourceTaskId: String(detail.row.returnTaskId), businessSourceType: 'PROCESS_POOL_EVENT', businessSourceId: String(detail.row.eventId) })
+    const options = { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvent.session.key) }
     const saved =
       props.mode === 'production'
         ? await resubmitOwnProduction({
             ...context,
             correction: { ...JSON.parse(JSON.stringify(detail.production!)), ...signed }
-          })
+          }, options)
         : await resubmitOwnPqc({
             ...context,
             correction: {
@@ -374,7 +416,7 @@ const resubmit = async () => {
                 sampleValues: [...item.sampleValues]
               }))
             }
-          })
+          }, options)
     if (
       !saved ||
       saved.eventId !== detail.row.eventId ||
@@ -382,14 +424,16 @@ const resubmit = async () => {
       !saved.changes?.length
     )
       throw Error('重提结果缺少正式修订或业务差异，请核对后操作')
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (!isCurrent()) return
     result.value = saved
     rows.value = rows.value.filter((row) => row.eventId !== saved.eventId)
     emit('corrected', saved)
   } catch (error) {
-    errorText.value = errorMessage(error)
+    if (isCurrent()) errorText.value = errorMessage(error)
   } finally {
-    password.value = ''
-    busy.value = false
+    if (isCurrent()) password.value = ''
+    if (isCurrent()) busy.value = false
   }
 }
 defineExpose({ open, openTask })

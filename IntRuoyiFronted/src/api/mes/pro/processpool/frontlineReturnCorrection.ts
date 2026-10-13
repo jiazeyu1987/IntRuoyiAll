@@ -4,6 +4,8 @@ import type {
   ProcessPoolPqcInspectionCorrectionReqVO
 } from './eventRevision'
 
+type RequestContextOptions = { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }
+
 export type ReturnLeaderType = 'PRODUCTION' | 'PQC'
 export interface OwnReturnRow {
   returnTaskId: string
@@ -42,13 +44,15 @@ export interface OwnReturnCorrectionResult {
   revisionId: number
   changes: { fieldName: string; beforeValue: string; afterValue: string }[]
 }
-export const listOwnReturns = (leaderType: ReturnLeaderType) =>
+export const listOwnReturns = (leaderType: ReturnLeaderType, options?: RequestContextOptions) =>
   request.get<OwnReturnRow[]>({
+    ...options,
     url: '/mes/pro/frontline-return-correction/list',
     params: { leaderType }
   })
-export const getOwnReturnDetail = (row: OwnReturnRow, leaderType: ReturnLeaderType) =>
+export const getOwnReturnDetail = (row: OwnReturnRow, leaderType: ReturnLeaderType, options?: RequestContextOptions) =>
   request.get<OwnReturnDetail>({
+    ...options,
     url: '/mes/pro/frontline-return-correction/detail',
     params: {
       eventId: row.eventId,
@@ -63,16 +67,20 @@ type OwnReturnContext = Pick<
   'activeOrderId' | 'rejectedReviewId' | 'expectedRevisionId'
 >
 export const resubmitOwnProduction = (
-  data: OwnReturnContext & { correction: ProcessPoolProductionReportCorrectionReqVO }
+  data: OwnReturnContext & { correction: ProcessPoolProductionReportCorrectionReqVO },
+  options?: RequestContextOptions
 ) =>
   request.post<OwnReturnCorrectionResult>({
+    ...options,
     url: '/mes/pro/frontline-return-correction/production/resubmit',
     data
   })
 export const resubmitOwnPqc = (
-  data: OwnReturnContext & { correction: ProcessPoolPqcInspectionCorrectionReqVO }
+  data: OwnReturnContext & { correction: ProcessPoolPqcInspectionCorrectionReqVO },
+  options?: RequestContextOptions
 ) =>
   request.post<OwnReturnCorrectionResult>({
+    ...options,
     url: '/mes/pro/frontline-return-correction/pqc/resubmit',
     data
   })

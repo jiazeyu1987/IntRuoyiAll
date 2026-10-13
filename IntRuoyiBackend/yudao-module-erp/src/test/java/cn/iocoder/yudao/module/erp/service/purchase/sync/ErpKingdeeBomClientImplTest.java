@@ -41,7 +41,7 @@ class ErpKingdeeBomClientImplTest {
                 .andExpect(content().string(containsString("FDocumentStatus+%3D+%27C%27")))
                 .andExpect(content().string(containsString("%22Limit%22%3A200")))
                 .andRespond(withSuccess("""
-                        [[310119,"YXN.069.001.1012_V1","C","MAT-001","Parent Product","Spec P","A001.02.070.105","Lace Wire","0.66","2","1"]]
+[[310119, "YXN.069.001.1012_V1", "C", "MAT-001", "Parent Product", "Spec P", "A001.02.070.105", "Lace Wire", "0.66", "2", "1", "Pcs", "1", "100", 1, 1]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeBomLine> lines = client.fetchApprovedBomByParentMaterialNumber(properties, "MAT-001");
@@ -71,7 +71,7 @@ class ErpKingdeeBomClientImplTest {
         server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withSuccess("""
-                        [[310119,"YXN.069.001.1012_V1","C","MAT-001","Parent Product","Spec P","A001.02.070.105","Lace Wire","0.66","bad","1"]]
+[[310119, "YXN.069.001.1012_V1", "C", "MAT-001", "Parent Product", "Spec P", "A001.02.070.105", "Lace Wire", "0.66", "bad", "1", "Pcs", "1", "100", 1, 1]]
                         """, MediaType.APPLICATION_JSON));
 
         assertThrows(RuntimeException.class,
@@ -101,7 +101,7 @@ class ErpKingdeeBomClientImplTest {
                 .andExpect(content().string(containsString("FModifyDate+%3C+%272026-06-12+09%3A00%3A00%27")))
                 .andExpect(content().string(containsString("FModifyDate+ASC")))
                 .andRespond(withSuccess("""
-                        [[310119,"YXN.069.001.1012_V1","C","MAT-001","Parent Product","Spec P","A001.02.070.105","Lace Wire","0.66","2","1","2026-06-12T08:30:00"]]
+[[310119, "YXN.069.001.1012_V1", "C", "MAT-001", "Parent Product", "Spec P", "A001.02.070.105", "Lace Wire", "0.66", "2", "1", "Pcs", "1", "100", 1, 1, "2026-06-12T08:30:00"]]
                         """, MediaType.APPLICATION_JSON));
 
         List<ErpKingdeeBomLine> lines = client.fetchBomLinesModifiedBetween(properties,
@@ -125,4 +125,26 @@ class ErpKingdeeBomClientImplTest {
         return properties;
     }
 
+
+    @Test
+    void incrementalReadsAllPagesWhenConfiguredLimitFallsInsideOneDocument() {
+        RestTemplate rest = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(rest).build();
+        var properties = buildProperties("https://k3.example.com/K3Cloud", 1);
+        server.expect(requestTo("https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(withSuccess("{\"LoginResultType\":1}", MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.SET_COOKIE, "session=test"));
+        String url = "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc";
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A0")))
+                .andRespond(withSuccess("[[310119, \"YXN.069.001.1012_V1\", \"C\", \"MAT-001\", \"Parent Product\", \"Spec P\", \"A001.02.070.105\", \"Lace Wire\", \"0.66\", \"2\", \"1\", \"Pcs\", \"1\", \"101\", 1, 1, \"2026-06-12T08:30:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A1")))
+                .andRespond(withSuccess("[[310119, \"YXN.069.001.1012_V1\", \"C\", \"MAT-001\", \"Parent Product\", \"Spec P\", \"A001.02.070.105\", \"Lace Wire\", \"0.66\", \"2\", \"1\", \"Pcs\", \"1\", \"102\", 2, 1, \"2026-06-12T08:30:00\"]]",MediaType.APPLICATION_JSON));
+        server.expect(requestTo(url)).andExpect(content().string(containsString("%22StartRow%22%3A2")))
+                .andRespond(withSuccess("[]",MediaType.APPLICATION_JSON));
+        var rows = new ErpKingdeeBomClientImpl(rest).fetchBomLinesModifiedBetween(properties,
+                LocalDateTime.of(2026,1,1,0,0),LocalDateTime.of(2026,1,2,0,0));
+        assertEquals(2, rows.size());
+        assertEquals("102", rows.get(1).getEntryId());
+        server.verify();
+    }
 }

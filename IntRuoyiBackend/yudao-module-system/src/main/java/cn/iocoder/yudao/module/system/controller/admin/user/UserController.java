@@ -179,6 +179,14 @@ public class UserController {
         return success(UserConvert.INSTANCE.convert(user, dept));
     }
 
+    @GetMapping("/get-for-update")
+    @Operation(summary = "获得用户编辑详情")
+    @Parameter(name = "id", description = "编号", required = true, example = "1024")
+    @PreAuthorize("@ss.hasPermission('system:user:query')")
+    public CommonResult<UserEditRespVO> getUserForUpdate(@RequestParam("id") Long id) {
+        return success(userService.getUserForUpdate(id));
+    }
+
     @GetMapping("/export-excel")
     @Operation(summary = "导出用户")
     @PreAuthorize("@ss.hasPermission('system:user:export')")

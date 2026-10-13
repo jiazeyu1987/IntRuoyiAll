@@ -12,6 +12,9 @@ import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSubmissionSignatureIdentityReader;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.pqc.MesPqcInspectionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import java.util.*;
@@ -21,6 +24,11 @@ import static cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHand
 /** Resolves system identities only from formal tenant-scoped responsibility records. */
 @Service
 public class MesActiveOrderHandoffOwnerResolver {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(verifiedSignatureFacts.requireVerifiedFact(id), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+    }
+
     @Resource private AdminUserMapper users;
     @Resource private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderScopeService leaderScopes;
     @Resource private PermissionApi permissions;
@@ -31,11 +39,18 @@ public class MesActiveOrderHandoffOwnerResolver {
     @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSignatureEvidenceService productionEvidence;
     @Resource private cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService signatureQuery;
     @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper orders;
+    @Resource private MesActiveOrderHandoffTaskMapper handoffTasks;
 
     public void user(Long id,String permission) {
         identityUser(id);
         require(permissions.hasAnyPermissions(id,permission),
                 "交接负责人缺少岗位办理权限："+permission);
+    }
+
+    public void qualifiedPqcSubmitter(Long id) {
+        identityUser(id);
+        require(permissions.hasAnyPermissions(id,"mes:pro-feedback:create")
+                ||permissions.hasAnyRoles(id,"pqc_permission","pqc_leader_permission"),"PQC本人提交缺少正式岗位办理权限");
     }
 
     private void identityUser(Long id) {
@@ -56,14 +71,14 @@ public class MesActiveOrderHandoffOwnerResolver {
         var raw=JsonUtils.parseTree(event.getRawPayload());
         if("PRODUCTION_SUBMIT".equals(event.getEventType())) {
             require(!Boolean.TRUE.equals(event.getSimulated())&&productionEvidence.isValidForEvent(event),"交接禁止使用模拟或无法核验的生产提交签名");
-            var signature=signatureQuery.getById(event.getSignatureId());require(signature!=null,"原生产统一签名不存在");
-            var identity=JsonUtils.parseTree(signature.canonicalContentJson()).path("signatureIdentity");
-            String domain=identity.path("domain").asText();
-            require(Set.of("SYSTEM_USER","MES_EMPLOYEE_PROFILE").contains(domain)
-                    &&domain.equals(raw.path("signatureIdentityDomain").asText())
-                    &&identity.path("tenantId").isIntegralNumber()&&Objects.equals(identity.path("tenantId").longValue(),tenant())
-                    &&identity.path("signerId").isIntegralNumber()&&Objects.equals(identity.path("signerId").longValue(),event.getActualEmployeeId())
-                    &&identity.path("operatorId").isIntegralNumber()&&Objects.equals(identity.path("operatorId").longValue(),event.getDeviceAccountId()),
+            var projection = verifiedContent(event.getSignatureId());
+            var identity = projection.identity();
+            String domain = identity.domain();
+            require(Set.of("SYSTEM_USER", "MES_EMPLOYEE_PROFILE").contains(domain)
+                    && domain.equals(raw.path("signatureIdentityDomain").asText())
+                    && Objects.equals(identity.tenantId(), tenant())
+                    && Objects.equals(identity.signerId(), event.getActualEmployeeId())
+                    && Objects.equals(identity.operatorId(), event.getDeviceAccountId()),
                     "生产原签名身份域、签名人与正式操作者不一致");
             if("SYSTEM_USER".equals(domain)) identityUser(event.getActualEmployeeId());
             // Existing PROFILE signatures have no system account. Preserve that formal business domain;
@@ -122,7 +137,7 @@ public class MesActiveOrderHandoffOwnerResolver {
     public void assertPqcLeaderCorrector(MesProProcessPoolEventDO event,Long actor) {
         require("PQC_INSPECTION".equals(event.getEventType()),"组长PQC补正必须来自正式PQC事件");
         user(actor,"mes:pro-process-pool:event-revision:update");
-        leaderScopes.assertCanAccessEmployee(actor,"PQC",event.getActualEmployeeId());
+        require(frozenPqcHandoff(event).handlerLeaderUserIds().contains(actor),"当前账号不是原PQC任务冻结的责任组长");
     }
 
     public Long productionLeader(MesProcessPoolActiveOrderDO order) {
@@ -154,6 +169,85 @@ public class MesActiveOrderHandoffOwnerResolver {
     public Long pqcLeader(MesProProcessPoolEventDO event) {
         pqcTask(event);
         return pqcLeaderFor(event.getActualEmployeeId(),pqcEmployeeScopes());
+    }
+
+    public record FrozenPqcHandoff(MesActiveOrderHandoffTaskDO task,List<Long> handlerLeaderUserIds) { }
+
+    /** Submission ownership comes from the original task, never from today's employee scopes. */
+    public FrozenPqcHandoff frozenPqcHandoff(MesProProcessPoolEventDO event) {
+        var pqc=pqcTask(event);
+        var order=orders.selectById(pqc.getActiveOrderId());
+        require(order!=null&&Objects.equals(order.getTenantId(),tenant())
+                &&Objects.equals(order.getWorkOrderId(),pqc.getWorkOrderId())
+                &&Objects.equals(order.getRouteId(),pqc.getRouteId()),"PQC冻结责任不属于原正式工单与路线");
+        var rows=handoffTasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
+                .eq(MesActiveOrderHandoffTaskDO::getActiveOrderId,pqc.getActiveOrderId())
+                .eq(MesActiveOrderHandoffTaskDO::getTaskType,"PQC_HANDOFF")
+                .eq(MesActiveOrderHandoffTaskDO::getSourceType,"PQC_INSPECTION_TASK")
+                .eq(MesActiveOrderHandoffTaskDO::getSourceId,pqc.getId()));
+        require(rows!=null&&rows.size()==1,"PQC正式任务必须具有唯一原交接冻结责任");
+        var task=rows.get(0);
+        require(task!=null&&Objects.equals(task.getTenantId(),tenant())
+                &&Objects.equals(task.getActiveOrderId(),pqc.getActiveOrderId())
+                &&Objects.equals(task.getWorkOrderId(),pqc.getWorkOrderId())
+                &&Objects.equals(task.getRouteProcessId(),pqc.getRouteProcessId())
+                &&"PQC_HANDOFF".equals(task.getTaskType())&&"PQC_INSPECTION_TASK".equals(task.getSourceType())
+                &&Objects.equals(task.getSourceId(),pqc.getId())&&Objects.equals(task.getRoundId(),pqc.getId())
+                &&("TODO".equals(task.getStatus())||("DONE".equals(task.getStatus())
+                    &&Objects.equals(task.getCompletionSourceId(),event.getId()))),"PQC原交接与正式提交任务不一致");
+        var snapshot=JsonUtils.parseTree(task.getResponsibilitySnapshotJson());
+        require(snapshot!=null&&snapshot.isObject(),"PQC原交接冻结责任快照缺失");
+        require("SYSTEM_USER".equals(snapshot.path("identityDomain").asText())
+                &&sameId(snapshot,"activeOrderId",pqc.getActiveOrderId())&&sameId(snapshot,"workOrderId",pqc.getWorkOrderId())
+                &&sameId(snapshot,"routeId",pqc.getRouteId())&&sameId(snapshot,"routeProcessId",pqc.getRouteProcessId())
+                &&sameId(snapshot,"processId",pqc.getProcessId())&&sameId(snapshot,"sourceId",pqc.getId())
+                &&sameId(snapshot,"roundId",pqc.getId())&&"PQC_INSPECTION_TASK".equals(snapshot.path("sourceType").asText())
+                &&frozenIds(snapshot.path("userIds")).equals(candidates(task.getCandidateUserSnapshot())),"PQC原交接冻结身份不一致");
+        var handlers=frozenIds(snapshot.path("handlerLeaderUserIds"));
+        var rule=snapshot.path("pqcAssignmentRule");
+        require(rule.path("ruleId").isIntegralNumber()&&rule.path("ruleId").longValue()>0
+                &&"ROUTE".equals(rule.path("scopeType").asText())&&sameId(rule,"scopeId",pqc.getRouteId())
+                &&"PQC_HANDOFF".equals(rule.path("taskType").asText())
+                &&Set.of("USER","ROLE_GROUP").contains(rule.path("candidateSourceType").asText())
+                &&rule.path("candidateSourceId").isIntegralNumber()&&rule.path("candidateSourceId").longValue()>0
+                &&Objects.equals(rule.path("candidateUserSnapshot").asText(),task.getCandidateUserSnapshot())
+                &&handlers.equals(frozenIds(rule.path("handlerLeaderUserIds"))),"PQC冻结派发规则与办理责任冲突");
+        handlers.forEach(id->user(id,"mes:pro-process-pool-team-leader:review"));
+        return new FrozenPqcHandoff(task,handlers);
+    }
+
+    public List<Long> frozenPqcReviewers(MesProProcessPoolEventDO event,MesActiveOrderHandoffTaskDO task) {
+        var pqc=pqcTask(event);var original=frozenPqcHandoff(event);
+        require(task!=null&&Objects.equals(task.getTenantId(),tenant())&&"PQC_REVIEW".equals(task.getTaskType())
+                &&Objects.equals(task.getActiveOrderId(),pqc.getActiveOrderId())&&Objects.equals(task.getWorkOrderId(),pqc.getWorkOrderId())
+                &&Objects.equals(task.getRouteProcessId(),pqc.getRouteProcessId())&&Objects.equals(task.getSourceId(),event.getId())
+                &&Set.of("PROCESS_POOL_EVENT",EVENT_SIGNED_REVISION).contains(task.getSourceType())
+                &&Set.of("TODO","DONE").contains(task.getStatus()),"PQC复核任务与原事件不一致");
+        var snapshot=JsonUtils.parseTree(task.getResponsibilitySnapshotJson());var handlers=candidates(task.getCandidateUserSnapshot());
+        require(snapshot!=null&&snapshot.isObject(),"PQC复核冻结责任快照缺失");
+        require("SYSTEM_USER".equals(snapshot.path("identityDomain").asText())
+                &&sameId(snapshot,"activeOrderId",pqc.getActiveOrderId())&&sameId(snapshot,"workOrderId",pqc.getWorkOrderId())
+                &&sameId(snapshot,"routeProcessId",pqc.getRouteProcessId())&&sameId(snapshot,"processId",pqc.getProcessId())
+                &&sameId(snapshot,"pqcTaskId",pqc.getId())&&sameId(snapshot,"qaProcessId",pqc.getQaProcessId())
+                &&sameId(snapshot,"routeVersionId",pqc.getRouteVersionId())&&sameId(snapshot,"regulationVersionId",pqc.getRegulationVersionId())
+                &&sameId(snapshot,"sourceId",event.getId())&&sameId(snapshot,"roundId",task.getRoundId())
+                &&Objects.equals(snapshot.path("sourceType").asText(),task.getSourceType())
+                &&frozenIds(snapshot.path("userIds")).equals(handlers)
+                &&original.handlerLeaderUserIds().containsAll(handlers)
+                &&(!"PROCESS_POOL_EVENT".equals(task.getSourceType())
+                    ||(Objects.equals(task.getRoundId(),event.getId())&&handlers.equals(original.handlerLeaderUserIds()))),
+                "PQC复核冻结办理责任与原任务冲突");
+        handlers.forEach(id->user(id,"mes:pro-process-pool-team-leader:review"));
+        return handlers;
+    }
+
+    private static boolean sameId(JsonNode node,String field,Long expected) {
+        return expected!=null&&node.path(field).isIntegralNumber()&&Objects.equals(node.path(field).longValue(),expected);
+    }
+    private static List<Long> frozenIds(JsonNode node) {
+        require(node.isArray()&&!node.isEmpty(),"PQC冻结办理责任集合缺失");var ids=new TreeSet<Long>();
+        for(var value:node)require(value.isIntegralNumber()&&value.longValue()>0&&ids.add(value.longValue()),"PQC冻结办理责任身份无效或重复");
+        return List.copyOf(ids);
     }
 
     public String productionEmployees(MesProcessPoolActiveOrderDO order) {

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.approval.service.signature;
 
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureSubjectAdapter;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureActionDefinition;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -79,7 +80,8 @@ public class BpmApprovalSignatureSubjectAdapter implements ElectronicSignatureSu
     }
 
     private static String json(String value) {
-        return value(value).replace("\\", "\\\\").replace("\"", "\\\"");
+        String jsonString = JsonUtils.toJsonString(value(value));
+        return jsonString.substring(1, jsonString.length() - 1);
     }
 
     private static String value(String value) {

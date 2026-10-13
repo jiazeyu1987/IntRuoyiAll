@@ -12,6 +12,10 @@ public class ErpKingdeeBomLine {
 
     private String fid;
     private String bomVersion;
+    private String entryId;
+    private Integer lineNo;
+    private String bomType;
+    private BigDecimal parentQuantity;
     private String parentMaterialNumber;
     private String parentMaterialName;
     private String parentMaterialSpecification;

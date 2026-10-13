@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderSourceTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderCompletionReceiptMapper;
 import lombok.RequiredArgsConstructor;
@@ -90,11 +91,11 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFullSkipExisting() {
+    public MesKingdeeProductionOrderSyncResult syncWorkOrdersFull() {
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         return syncProductionOrders(kingdeeProperties,
-                productionOrderClient.fetchProductionOrders(kingdeeProperties), true);
+                productionOrderClient.fetchProductionOrders(kingdeeProperties), false);
     }
 
     @Override
@@ -103,13 +104,13 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         ErpKingdeeProperties kingdeeProperties = kingdeeConfigService.getEffectiveProperties();
         kingdeeProperties.validateBaseConfig();
         List<ErpKingdeeProductionOrder> productionOrders = fetchProductionOrders(kingdeeProperties, context);
-        return syncProductionOrders(kingdeeProperties, productionOrders, false);
+        return syncProductionOrders(kingdeeProperties, productionOrders, true);
     }
 
     private MesKingdeeProductionOrderSyncResult syncProductionOrders(
             ErpKingdeeProperties kingdeeProperties,
             List<ErpKingdeeProductionOrder> productionOrders,
-            boolean skipExisting) {
+            boolean verifyInactiveOrders) {
         // The outer transaction can update other orders before later cancelling a void order.
         // Acquire the shared audit ledger before its first business read/write lock.
         gxpAuditService.acquireLedgerLock();
@@ -132,14 +133,13 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             }
             MesKingdeeProductionOrderSyncRecordDO syncRecord = selectSyncRecord(productionOrder);
             MesProWorkOrderDO existingWorkOrder = resolveExistingWorkOrder(syncRecord, sourceKey, workOrderCode);
-            if (skipExisting && existingWorkOrder != null) {
-                result.addSkipped(sourceKey);
-                continue;
-            }
             Long productId = ensureMesItem(productionOrder);
             if (existingWorkOrder == null) {
                 Long workOrderId = workOrderService.createWorkOrder(buildCreateReqVO(productionOrder, productId));
-                workOrderMapper.updateById(buildErpSnapshotUpdate(workOrderId, productionOrder));
+                if (workOrderMapper.updateById(buildErpSnapshotUpdate(workOrderId, productionOrder)) != 1) {
+                    throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                            "ERP同步写入生产工单字段失败: workOrderId=" + workOrderId);
+                }
                 updateWorkOrderStatus(workOrderId);
                 saveOrUpdateSyncRecord(syncRecord, productionOrder, workOrderId);
                 result.addCreated(workOrderId);
@@ -153,7 +153,7 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
             result.addUpdated(existingWorkOrder.getId());
             finishWorkOrderIfKingdeeFinished(productionOrder, existingWorkOrder, result);
         }
-        if (!skipExisting) {
+        if (verifyInactiveOrders) {
             syncInactiveWorkOrders(kingdeeProperties, result, processedWorkOrderCodes);
         }
         return result;
@@ -190,7 +190,10 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         if (!hasWorkOrderChanged(existingWorkOrder, updated)) {
             return;
         }
-        workOrderMapper.updateById(updated);
+        if (workOrderMapper.updateErpSnapshot(updated) != 1) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "ERP同步更新生产工单失败: workOrderId=" + existingWorkOrder.getId());
+        }
         createScheduleOrderDiffIfNeeded(existingWorkOrder, updated);
     }
 
@@ -307,6 +310,20 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     private Long ensureMesItem(ErpKingdeeProductionOrder productionOrder) {
         MesMdItemDO item = selectItemByCode(productionOrder);
         if (item != null) {
+            Long unitMeasureId = ensureUnitMeasure(productionOrder);
+            if (!Objects.equals(item.getName(), productionOrder.getMaterialName())
+                    || !Objects.equals(item.getSpecification(), productionOrder.getMaterialSpecification())
+                    || !Objects.equals(item.getUnitMeasureId(), unitMeasureId)) {
+                int updated = itemMapper.update(new MesMdItemDO(), new LambdaUpdateWrapper<MesMdItemDO>()
+                        .eq(MesMdItemDO::getId, item.getId())
+                        .set(MesMdItemDO::getName, productionOrder.getMaterialName())
+                        .set(MesMdItemDO::getSpecification, productionOrder.getMaterialSpecification())
+                        .set(MesMdItemDO::getUnitMeasureId, unitMeasureId));
+                if (updated != 1) {
+                    throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                            "ERP同步更新产品失败: materialNumber=" + productionOrder.getMaterialNumber());
+                }
+            }
             return item.getId();
         }
         item = new MesMdItemDO();
@@ -363,17 +380,24 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     }
 
     private Long ensureUnitMeasure(ErpKingdeeProductionOrder productionOrder) {
-        String unitCode = StrUtil.blankToDefault(productionOrder.getUnitCode(), productionOrder.getUnitName());
-        String unitName = StrUtil.blankToDefault(productionOrder.getUnitName(), unitCode);
-        if (StrUtil.isBlank(unitCode) || StrUtil.isBlank(unitName)) {
+        String unitCode = StrUtil.trimToNull(productionOrder.getUnitCode());
+        String unitName = StrUtil.trimToNull(productionOrder.getUnitName());
+        if (unitCode == null || unitName == null) {
             throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
-                    "production order unit is blank for material " + productionOrder.getMaterialNumber());
+                    (unitCode == null ? "FUnitId.FNumber" : "FUnitId.FName")
+                            + " is blank for material " + productionOrder.getMaterialNumber());
         }
         MesMdUnitMeasureDO unitMeasure = selectUnitMeasureByCode(unitCode, productionOrder);
         if (unitMeasure == null) {
             unitMeasure = selectUnitMeasureByName(unitName, productionOrder);
         }
         if (unitMeasure != null) {
+            if (!Objects.equals(unitMeasure.getName(), unitName)
+                    && unitMeasureMapper.updateById(new MesMdUnitMeasureDO()
+                    .setId(unitMeasure.getId()).setName(unitName)) != 1) {
+                throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                        "ERP同步更新计量单位失败: unitCode=" + unitCode);
+            }
             return unitMeasure.getId();
         }
         unitMeasure = new MesMdUnitMeasureDO();
@@ -411,7 +435,10 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
         MesProWorkOrderDO update = new MesProWorkOrderDO()
                 .setId(workOrderId)
                 .setStatus(MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
-        workOrderMapper.updateById(update);
+        if (workOrderMapper.updateById(update) != 1) {
+            throw ServiceExceptionUtil.exception(KINGDEE_PRODUCTION_ORDER_RESPONSE_INVALID,
+                    "ERP同步更新生产工单状态失败: workOrderId=" + workOrderId);
+        }
     }
 
     private String buildWorkOrderCode(ErpKingdeeProductionOrder productionOrder) {
@@ -488,7 +515,9 @@ public class MesKingdeeProductionOrderSyncServiceImpl implements MesKingdeeProdu
     }
 
     private boolean hasWorkOrderChanged(MesProWorkOrderDO existingWorkOrder, MesProWorkOrderDO updatedWorkOrder) {
-        return !Objects.equals(existingWorkOrder.getName(), updatedWorkOrder.getName())
+        return !Objects.equals(existingWorkOrder.getCode(), updatedWorkOrder.getCode())
+                || !Objects.equals(existingWorkOrder.getType(), updatedWorkOrder.getType())
+                || !Objects.equals(existingWorkOrder.getName(), updatedWorkOrder.getName())
                 || !Objects.equals(existingWorkOrder.getOrderSourceType(), updatedWorkOrder.getOrderSourceType())
                 || !Objects.equals(existingWorkOrder.getOrderSourceCode(), updatedWorkOrder.getOrderSourceCode())
                 || !Objects.equals(existingWorkOrder.getDemandBillNo(), updatedWorkOrder.getDemandBillNo())

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.bpm.approval.service.signature;
 
 import cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
@@ -10,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
+import java.util.Arrays;
 
 @Service
 public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureRecordService {
@@ -31,6 +33,12 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         Objects.requireNonNull(context, "APPROVAL_REVIEW_CONTEXT_REQUIRED");
         Objects.requireNonNull(context.getModuleCode(), "APPROVAL_MODULE_REQUIRED");
         Objects.requireNonNull(context.getResult(), "APPROVAL_REVIEW_RESULT_REQUIRED");
+        String reason = context.getReason() == null ? null
+                : context.getReason().replaceAll(
+                        "^[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+|[\\p{javaWhitespace}\\p{javaSpaceChar}\\x00-\\x20\\uFEFF]+$", "");
+        if (reason == null || reason.isEmpty()) {
+            throw new IllegalArgumentException("APPROVAL_REVIEW_REASON_REQUIRED");
+        }
         if (context.getSourceTaskType() == null || context.getSourceTaskType().isBlank()) {
             throw new NullPointerException("APPROVAL_SOURCE_TASK_TYPE_REQUIRED");
         }
@@ -59,8 +67,8 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
                 subjectId,
                 subjectVersion,
                 context.getSignaturePassword().trim(),
-                trimToNull(context.getReason()) == null ? context.getResult().name() : context.getReason().trim(),
-                idempotencyKey(context, imageSnapshot),
+                reason,
+                idempotencyKey(context, imageSnapshot, reason),
                 null,
                 null));
         signatureImageSnapshotProvider.markReferenced(imageSnapshot.getImageId());
@@ -93,18 +101,20 @@ public class ApprovalSignatureRecordServiceImpl implements ApprovalSignatureReco
         return value.trim();
     }
 
-    private static String idempotencyKey(ApprovalTaskReviewContext context, ApprovalSignatureImageSnapshot imageSnapshot) {
-        return "BPM|" + context.getModuleCode().name()
-                + "|" + trimToNull(context.getSourceTaskType())
-                + "|" + trimToNull(context.getSourceTaskId())
-                + "|" + trimToNull(context.getBusinessKey())
-                + "|" + trimToNull(context.getProcessInstanceId())
-                + "|" + context.getLoginUserId()
-                + "|" + context.getResult().name()
-                + "|" + trimToNull(context.getReason())
-                + "|" + imageSnapshot.getImageId()
-                + "|" + imageSnapshot.getVersionNo()
-                + "|" + sha256(signatureImagePayload(imageSnapshot));
+    private static String idempotencyKey(ApprovalTaskReviewContext context, ApprovalSignatureImageSnapshot imageSnapshot,
+                                         String reason) {
+        // JSON array boundaries distinguish null, literal "null" and delimiters in user input.
+        // Store the full reason in the signature; only its idempotency identity is digested.
+        String material = JsonUtils.toJsonString(Arrays.asList(
+                context.getModuleCode().name(), trimToNull(context.getSourceTaskType()),
+                trimToNull(context.getSourceTaskId()), trimToNull(context.getBusinessKey()),
+                trimToNull(context.getProcessInstanceId()), context.getLoginUserId(),
+                context.getResult().name(), reason, imageSnapshot.getImageId(), imageSnapshot.getVersionNo(),
+                imageSnapshot.getFileId(), requireText(imageSnapshot.getFileUrl(), "APPROVAL_SIGNATURE_IMAGE_URL_REQUIRED"),
+                trimToNull(imageSnapshot.getSha256()), trimToNull(imageSnapshot.getContentType()),
+                imageSnapshot.getFileSize(), trimToNull(imageSnapshot.getImageStatus()),
+                trimToNull(imageSnapshot.getVerifiedStatus())));
+        return "BPM_APPROVAL_REVIEW_V1|" + sha256(material);
     }
 
     static String signatureImagePayload(ApprovalSignatureImageSnapshot imageSnapshot) {

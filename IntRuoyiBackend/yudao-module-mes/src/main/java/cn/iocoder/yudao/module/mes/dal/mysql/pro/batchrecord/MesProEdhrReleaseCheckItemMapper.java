@@ -11,6 +11,15 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface MesProEdhrReleaseCheckItemMapper extends BaseMapperX<MesProEdhrReleaseCheckItemDO> {
 
+    default java.util.List<MesProEdhrReleaseCheckItemDO> selectCurrentOpen(Long releaseId, boolean locked) {
+        var query = new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>()
+                .eq(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, releaseId)
+                .eq(MesProEdhrReleaseCheckItemDO::getItemStatus, "OPEN")
+                .orderByAsc(MesProEdhrReleaseCheckItemDO::getId);
+        if (locked) query.last("FOR UPDATE");
+        return selectList(query);
+    }
+
     default PageResult<MesProEdhrReleaseCheckItemDO> selectPage(MesProEdhrReleaseCheckItemPageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>()
                 .eqIfPresent(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, reqVO.getReleaseTransactionId())

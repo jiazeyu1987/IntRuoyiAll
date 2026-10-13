@@ -54,16 +54,48 @@ class MesProductionReleaseManagerStageInitializerTest {
 
     private MesProductionReleaseManagerStageInitializerImpl initializer;
 
+    private MesProductionReleaseManagerStageInitializationCommand command() {
+        return new MesProductionReleaseManagerStageInitializationCommand()
+            .setSourceMethod("MANAGED_REPORT_COMPLETE").setSourceWorkTaskId(99L).setSourceActorId(8101L)
+            .setSourceExpectedApplicationVersion(3).setSourceIdempotencyKey("report-complete-test")
+            .setSourcePayloadHash("a".repeat(64)).setReportEvidences(evidences());
+    }
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         initializer = new MesProductionReleaseManagerStageInitializerImpl(
                 applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper,
                 candidateResolver, businessReadinessService);
+        ReflectionTestUtils.setField(initializer, "audit", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        ReflectionTestUtils.setField(initializer, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        org.mockito.Mockito.lenient().when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(1L, 901L))
+            .thenAnswer(invocation -> { var row = batch(); row.setTenantId(1L); return row; });
         ReflectionTestUtils.setField(initializer, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
         ReflectionTestUtils.setField(initializer, "notificationService",
                 org.mockito.Mockito.mock(MesReleaseTaskNotificationService.class));
-        // URL binding occurs only in active-order cases; old four-report cases intentionally do not use it.
+        var facts = org.mockito.Mockito.mock(MesProEdhrReleaseServiceImpl.class);
+        ReflectionTestUtils.setField(initializer, "releaseFacts", facts);
+        org.mockito.Mockito.lenient().when(facts.produceManagerPrecheck(any(MesProEdhrReleaseTransactionDO.class), any(MesProEdhrBatchExecutionDO.class)))
+            .thenAnswer(invocation -> {
+                MesProEdhrReleaseTransactionDO tx = invocation.getArgument(0);
+                tx.setRequiredCheckCount(10).setFailedCheckCount(0).setBlockingCheckCount(0);
+                return tx;
+            });
+        org.mockito.Mockito.lenient().when(facts.captureManagerPriorPrecheck(any(MesProEdhrReleaseTransactionDO.class))).thenReturn("{}");
+        var material = new cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceipt()
+            .setReceiptId("MATERIALS-901-1").setBatchExecutionId(901L).setVersion(1).setReceiptHash("b".repeat(64))
+            .setManifestHash("c".repeat(64)).setSourceSnapshotHash("d".repeat(64));
+        var proof = new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+            "MATERIAL_GATE_V1", 12L, material.getReceiptId(), "1", material.getReceiptHash(), 13L, "e".repeat(64));
+        org.mockito.Mockito.lenient().when(facts.requireManagerReadyMaterialFact(any(MesProEdhrBatchExecutionDO.class)))
+            .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialGateFact(material, proof));
+        var audit = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class);
+        org.mockito.Mockito.lenient().when(audit.append(any(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class)))
+            .thenReturn(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(21L, 1L, "f".repeat(64), false));
+        ReflectionTestUtils.setField(initializer, "audit", audit);
+        ReflectionTestUtils.setField(initializer, "handoffAssociations", org.mockito.Mockito.mock(MesEdhrManagedHandoffMaterialAssociationStore.class));
+        org.mockito.Mockito.lenient().when(releaseTransactionMapper.updateById(any(MesProEdhrReleaseTransactionDO.class))).thenReturn(1);
+        // Domain precheck and source proof are explicit ports; actual appendHandoff codec still executes.
         org.mockito.Mockito.lenient().when(workTaskMapper.updateById(any(MesProEdhrWorkTaskDO.class))).thenReturn(1);
     }
 
@@ -74,13 +106,18 @@ class MesProductionReleaseManagerStageInitializerTest {
 
     @Test void pendingVoidStopsManagerStageBeforeAnyApplicationOrTaskWrite() {
         var guard = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class);
+        ReflectionTestUtils.setField(initializer, "audit", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class));
+        ReflectionTestUtils.setField(initializer, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
+        org.mockito.Mockito.lenient().when(batchExecutionMapper.selectByTenantIdAndIdForUpdate(1L, 901L))
+            .thenAnswer(invocation -> { var row = batch(); row.setTenantId(1L); return row; });
         ReflectionTestUtils.setField(initializer, "lifecycleGuard", guard);
         org.mockito.Mockito.doThrow(new IllegalStateException("pending formal VOID")).when(guard).requireReleaseAllowed(901L);
         assertThrows(IllegalStateException.class, () -> initializer.initializeManagerReleaseStage(
-                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
-                        .setBatchExecutionId(901L).setReportSnapshotHash("hash")
+                command().setApplicationId(701L)
+                        .setBatchExecutionId(901L).setReportSnapshotHash("2".repeat(64))
                         .setReportEvidences(evidences()).setExpectedApplicationVersion(4)));
-        org.mockito.Mockito.verifyNoInteractions(applicationMapper, batchExecutionMapper, releaseTransactionMapper, workTaskMapper);
+        org.mockito.Mockito.verify(batchExecutionMapper).selectByTenantIdAndIdForUpdate(1L, 901L);
+        org.mockito.Mockito.verifyNoInteractions(applicationMapper, releaseTransactionMapper, workTaskMapper);
     }
 
     @Test
@@ -94,7 +131,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
-                        List.of(8101L, 8102L), "manager-candidate-hash"));
+                        List.of(8101L, 8102L), "1".repeat(64)));
         when(businessReadinessService.resolveBusinessReadinessChecks(any()))
                 .thenReturn(passReadiness());
         AtomicLong ids = new AtomicLong(1000L);
@@ -110,7 +147,7 @@ class MesProductionReleaseManagerStageInitializerTest {
         });
 
         MesProductionReleaseManagerStageInitializationResult result = initializer.initializeManagerReleaseStage(
-                new MesProductionReleaseManagerStageInitializationCommand()
+                command()
                         .setApplicationId(701L)
                         .setBatchExecutionId(901L)
                         .setReportSnapshotHash(reportSnapshotHash)
@@ -119,7 +156,7 @@ class MesProductionReleaseManagerStageInitializerTest {
 
         assertNotNull(result.getReleaseTransactionId());
         assertNotNull(result.getManagerReleaseWorkTaskId());
-        assertEquals("manager-candidate-hash", result.getManagerCandidateSnapshotHash());
+        assertEquals("1".repeat(64), result.getManagerCandidateSnapshotHash());
         ArgumentCaptor<MesProEdhrReleaseTransactionDO> transactionCaptor =
                 ArgumentCaptor.forClass(MesProEdhrReleaseTransactionDO.class);
         verify(releaseTransactionMapper).insert(transactionCaptor.capture());
@@ -130,7 +167,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 transactionCaptor.getValue().getDeviationStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
                 transactionCaptor.getValue().getReworkStatus());
-        assertEquals(6, transactionCaptor.getValue().getRequiredCheckCount());
+        assertEquals(10, transactionCaptor.getValue().getRequiredCheckCount());
         assertEquals(0, transactionCaptor.getValue().getFailedCheckCount());
         assertEquals(0, transactionCaptor.getValue().getBlockingCheckCount());
         org.junit.jupiter.api.Assertions.assertTrue(
@@ -145,7 +182,7 @@ class MesProductionReleaseManagerStageInitializerTest {
         assertEquals("ROLE_GROUP", task.getCandidateSourceType());
         assertEquals(77L, task.getCandidateSourceId());
         assertEquals("8101,8102", task.getCandidateUserSnapshot());
-        assertEquals("manager-candidate-hash", task.getResponsibilitySourceVersion());
+        assertEquals("1".repeat(64), task.getResponsibilitySourceVersion());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -170,7 +207,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(77L,
                         MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
-                        List.of(8101L, 8102L), "manager-candidate-hash"));
+                        List.of(8101L, 8102L), "1".repeat(64)));
         org.mockito.Mockito.lenient().when(businessReadinessService.resolveBusinessReadinessChecks(any()))
                 .thenReturn(passReadiness());
         org.mockito.Mockito.lenient().when(releaseTransactionMapper.insert(any(MesProEdhrReleaseTransactionDO.class)))
@@ -185,7 +222,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 });
 
         MesProductionReleaseManagerStageInitializationResult result = initializer.initializeManagerReleaseStage(
-                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
+                command().setApplicationId(701L)
                         .setBatchExecutionId(901L).setReportSnapshotHash(snapshotHash)
                         .setReportEvidences(reports).setExpectedApplicationVersion(4));
 
@@ -216,7 +253,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 new MesProEdhrReleaseTransactionDO().setId(990L).setBatchExecutionId(901L)
                         .setReleaseStatus("PENDING_APPROVAL").setVersion(2));
         assertThrows(MesReleaseFlowBlockerException.class, () -> initializer.initializeManagerReleaseStage(
-                new MesProductionReleaseManagerStageInitializationCommand().setApplicationId(701L)
+                command().setApplicationId(701L)
                         .setBatchExecutionId(901L).setExpectedApplicationVersion(4).setReportEvidences(reports)
                         .setReportSnapshotHash(MesProductionReleaseReportSnapshots.hash(application, reports))));
         verify(releaseTransactionMapper).selectByIdForUpdate(990L);
@@ -252,7 +289,7 @@ class MesProductionReleaseManagerStageInitializerTest {
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
-                        List.of(8101L, 8102L), "manager-candidate-hash"));
+                        List.of(8101L, 8102L), "1".repeat(64)));
         when(businessReadinessService.resolveActiveOrderFormalFactsReadiness(any(), any()))
                 .thenReturn(passReadiness());
         AtomicLong ids = new AtomicLong(1000L);
@@ -268,12 +305,12 @@ class MesProductionReleaseManagerStageInitializerTest {
         });
 
         MesProductionReleaseManagerStageInitializationResult result = initializer.initializeManagerReleaseStage(
-                new MesProductionReleaseManagerStageInitializationCommand()
+                command()
                         .setApplicationId(701L)
                         .setBatchExecutionId(901L)
                         .setReportSnapshotHash(formalFactsHash)
                         .setExpectedApplicationVersion(5)
-                        .setActiveOrderFormalFacts(true));
+                        .setActiveOrderFormalFacts(true).setSourceMethod("MANAGED_PQC_APPROVE").setReportEvidences(List.of()));
 
         assertNotNull(result.getReleaseTransactionId());
         assertNotNull(result.getManagerReleaseWorkTaskId());
@@ -292,13 +329,13 @@ class MesProductionReleaseManagerStageInitializerTest {
                 MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE))
                 .thenReturn(new MesProductionReleaseRoleCandidates(
                         77L, MesProductionReleaseRoleCodes.MANAGEMENT_REPRESENTATIVE,
-                        List.of(8101L, 8102L), "manager-candidate-hash"));
+                        List.of(8101L, 8102L), "1".repeat(64)));
         when(businessReadinessService.resolveBusinessReadinessChecks(any()))
                 .thenReturn(blockingReadiness());
 
         MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class,
                 () -> initializer.initializeManagerReleaseStage(
-                        new MesProductionReleaseManagerStageInitializationCommand()
+                        command()
                                 .setApplicationId(701L)
                                 .setBatchExecutionId(901L)
                                 .setReportSnapshotHash(reportSnapshotHash)

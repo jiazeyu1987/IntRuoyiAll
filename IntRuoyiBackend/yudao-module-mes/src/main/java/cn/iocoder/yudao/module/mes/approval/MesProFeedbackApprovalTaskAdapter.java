@@ -137,7 +137,14 @@ public class MesProFeedbackApprovalTaskAdapter implements ApprovalTaskProvider {
                     ? fact.reviewerId() : row.getApproveUserId())) continue;
             summaries.add(fact == null ? toSummary(row) : toFormalSummary(row, fact));
         }
-        return pageRows(summaries, context.getPageNo(), context.getPageSize());
+        return cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow.from(context).slice(
+                cn.iocoder.yudao.module.bpm.approval.service.ApprovalCenterServiceImpl.sortRows(summaries,context.getViewType()));
+    }
+
+    @Override
+    public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,
+            cn.iocoder.yudao.module.bpm.approval.service.ApprovalQueryWindow window) {
+        return page(context.withWindow(window));
     }
 
     @Override

@@ -304,7 +304,7 @@ const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialT
     if (id) {
       formData.value = await ProRouteApi.getRoute(id)
     }
-    if (id && initialTab === 'basic') {
+    if (id && initialTab === 'basic' && !isHeaderReadonly.value) {
       await ensureOwnerLeaderCandidatesLoaded()
     }
     shouldTriggerFlowAutoLayout = activeTab.value === 'flow'

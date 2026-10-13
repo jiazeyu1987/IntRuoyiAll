@@ -264,11 +264,12 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         verify(feedbackMapper,never()).updateCorrectedProductionReport(any(),any(),any(),any(),any(),any(),any());
     }
 
-    @Test
-    void signedLossCorrectionSynchronizesFormalFeedbackAndMaterialFacts() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {2, 12})
+    void signedLossCorrectionSynchronizesFormalFeedbackAndMaterialFacts(int independentLoss) {
         when(eventMapper.selectByIdForUpdate(176L)).thenReturn(eventWithZeroLossMaterialFacts());
         when(fragmentMapper.selectListByEventIdForUpdate(176L)).thenReturn(List.of(fragment()));
-        when(lossReasonValidator.requireEnabledLossReason(928611L, 8301L, new BigDecimal("2")))
+        when(lossReasonValidator.requireEnabledLossReason(928611L, 8301L, BigDecimal.valueOf(independentLoss)))
                 .thenReturn(new cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesFrontlineLossReasonSnapshot(
                         8301L, "LOSS-01", "正常损耗"));
         when(signatureService.recordFieldChangeSignature(any())).thenReturn(newSignature());
@@ -277,14 +278,14 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 .setOutputQuantity(new BigDecimal("4"))
                 .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
                         .setReasonId(8301L)
-                        .setQuantity(new BigDecimal("2"))))
+                        .setQuantity(BigDecimal.valueOf(independentLoss))))
                 .setMaterialDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
                         .setMaterialId(3401L)
                         .setOutputQuantity(new BigDecimal("4"))
-                        .setLossQuantity(new BigDecimal("2"))
+                        .setLossQuantity(BigDecimal.valueOf(independentLoss))
                         .setLossDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.LossDetailCommand()
                                 .setReasonId(8301L)
-                                .setQuantity(new BigDecimal("2"))))));
+                                .setQuantity(BigDecimal.valueOf(independentLoss))))));
 
         assertEquals(708L, service.correct(command));
 
@@ -292,18 +293,18 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                 ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
         verify(revisionService).updateProductionReportRecord(revisionCaptor.capture());
         MesProcessPoolEventRevisionUpdateReqBO revision = revisionCaptor.getValue();
-        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossQuantity\":2"));
+        org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossQuantity\":" + independentLoss));
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"hasActualLoss\":true"));
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"zeroLossConfirmed\":false"));
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload().contains("\"lossDecision\":\"REQUIRED\""));
         org.junit.jupiter.api.Assertions.assertTrue(revision.getAfterPayload()
-                .contains("\"materialId\":3401,\"materialCode\":\"A001.02.034.202\",\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":2"));
+                .contains("\"materialId\":3401,\"materialCode\":\"A001.02.034.202\",\"materialName\":\"弹簧\",\"outputQuantity\":4,\"lossQuantity\":" + independentLoss));
         verify(feedbackMapper, times(3)).selectListByIdsForUpdate(List.of(5101L));
-        verify(feedbackMapper).updateCorrectedProductionReport(5101L, new BigDecimal("6"),
-                new BigDecimal("4"), new BigDecimal("2"), 8301L, "LOSS-01", "正常损耗");
+        verify(feedbackMapper).updateCorrectedProductionReport(5101L, BigDecimal.valueOf(4L + independentLoss),
+                new BigDecimal("4"), BigDecimal.valueOf(independentLoss), 8301L, "LOSS-01", "正常损耗");
         verify(feedbackMaterialMapper, times(3)).selectListByFeedbackIdForUpdate(5101L);
         verify(feedbackMaterialMapper).updateCorrectedMaterialFact(6101L, new BigDecimal("4"),
-                new BigDecimal("2"), "[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\",\"reasonName\":\"正常损耗\",\"quantity\":2}]", null, "[]");
+                BigDecimal.valueOf(independentLoss), "[{\"reasonId\":8301,\"reasonCode\":\"LOSS-01\",\"reasonName\":\"正常损耗\",\"quantity\":" + independentLoss + "}]", null, "[]");
     }
 
     @Test

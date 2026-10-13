@@ -29,6 +29,8 @@ import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService;
+import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -48,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Import({ElectronicSignatureServiceImpl.class, ElectronicSignatureQueryServiceImpl.class,
+        SignatureCreationVerificationService.class,
         ElectronicSignatureComplianceReviewService.class, ElectronicSignatureTrustedTimeService.class, ElectronicSignatureSealService.class, ElectronicSignaturePrivilegedAuditService.class, ElectronicSignatureArchiveRecoveryService.class, ElectronicSignatureServiceImplTest.TestAdapterConfiguration.class})
 public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
 
@@ -81,6 +84,14 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
     private AdminUserApi adminUserApi;
     @MockitoBean
     private GxpAuditService gxpAuditService;
+    // The writer's mocked append does not create an audit fact. These query checks must report INCOMPLETE.
+    @MockitoBean
+    private GxpAuditEventMapper auditEventMapper;
+
+    @org.junit.jupiter.api.BeforeEach
+    void noCreationFactWasPersistedByTheMockedAppend() {
+        when(auditEventMapper.selectSignatureCreationEvents(anyLong(), anyString())).thenReturn(java.util.List.of());
+    }
 
     @Test
     void selectedSignerAuthenticatesOwnPasswordAndRetainsLoginOperator() {
@@ -95,7 +106,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             var persisted = com.alibaba.fastjson.JSON.parseObject(evidence.canonicalContentJson()).getJSONObject("signatureIdentity");
             assertEquals(101L, persisted.getLong("operatorId"));
             assertEquals("SYSTEM_USER", persisted.getString("domain"));
-            assertEquals("VALID", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
+            assertEquals("INCOMPLETE", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
             assertEquals(result.signatureId(), signatureService.signAuthorized(buildCommand("selected-202", "V1", "production"), identity, null).signatureId());
         }
     }
@@ -110,7 +121,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             verify(authenticate).run();
             verifyNoInteractions(adminUserApi);
             assertEquals("临时工", signatureQueryService.getById(result.signatureId()).actorDisplayName());
-            assertEquals("VALID", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
+            assertEquals("INCOMPLETE", signatureQueryService.verifyEvidence(result.signatureId()).verificationStatus());
             var system = new cn.iocoder.yudao.module.signature.api.dto.AuthorizedSignatureIdentity("SYSTEM_USER", 202L, "系统员工");
             assertServiceException(() -> signatureService.signAuthorized(buildCommand("profile-202", "V1", "production"), system, null), ESIGN_DUPLICATE_IDEMPOTENCY_KEY);
         }
@@ -284,11 +295,14 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
             ElectronicSignatureEvidenceDTO item = evidence.get(0);
             assertEquals(signed.signatureId(), item.id());
             assertEquals("APPROVE", item.actionCode());
-            assertEquals("张三", item.actorDisplayName());
+            assertNull(item.actorDisplayName());
+            assertEquals("MISSING", item.identitySnapshotStatus());
+            verify(adminUserApi, never()).getUser(101L);
             assertEquals("{\"name\":\"record\",\"version\":\"V1\"}", item.canonicalContentJson());
 
             ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());
-            assertEquals("VALID", verification.verificationStatus());
+            assertEquals("INCOMPLETE", verification.verificationStatus());
+            assertEquals("MISSING", verification.auditBindingStatus());
             assertEquals(verification.storedContentHash(), verification.calculatedContentHash());
             assertEquals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash());
         }
@@ -306,7 +320,7 @@ public class ElectronicSignatureServiceImplTest extends BaseDbUnitTest {
                     .setCanonicalContentJson("{\"version\": \"V1\", \"name\": \"record\"}"));
 
             ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signed.signatureId());
-            assertEquals("VALID", verification.verificationStatus());
+            assertEquals("INCOMPLETE", verification.verificationStatus());
             assertEquals(verification.storedContentHash(), verification.calculatedContentHash());
             assertEquals(verification.storedEvidenceHash(), verification.calculatedEvidenceHash());
         }

@@ -31,6 +31,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
     @Schema(description = "实际填写员工编号集合", hidden = true)
     private Set<Long> employeeUserIds;
 
+    @Schema(description = "服务端授权的事件编号集合", hidden = true)
+    private Set<Long> eventIds;
+
     @Schema(description = "工序编号", example = "6001")
     private Long processId;
 

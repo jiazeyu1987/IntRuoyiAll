@@ -31,6 +31,12 @@ public class BpmProcessInstanceBusinessApprovalStarter implements BusinessApprov
         BpmProcessInstanceCreateReqDTO reqDTO = new BpmProcessInstanceCreateReqDTO();
         reqDTO.setProcessDefinitionKey(processDefinitionKey);
         reqDTO.setBusinessKey("BUSINESS_APPROVAL:" + request.getRequestId());
+        boolean edhr="MES".equals(request.getContext().getSystemCode())
+                && "EDHR_BATCH_EXECUTION".equals(request.getContext().getObjectType())
+                && "SUBMIT_REVIEW".equals(request.getContext().getActionCode());
+        reqDTO.setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(request.getTenantId(),
+                edhr?"NATIVE_EXTERNAL_EDHR":"NATIVE_BUSINESS","BUSINESS_REQUEST",request.getRequestId().toString(),
+                request.getContext().getObjectVersion(),edhr?"EDHR_BUSINESS_APPROVAL_SUBMIT":"BUSINESS_APPROVAL_SUBMIT",reqDTO.getBusinessKey()));
         reqDTO.setVariables(variables == null ? Map.of() : new LinkedHashMap<>(variables));
         reqDTO.setStartUserSelectAssignees(request.getContext().getStartUserSelectAssignees());
         return processInstanceApi.createProcessInstance(request.getContext().getApplicantUserId(), reqDTO);

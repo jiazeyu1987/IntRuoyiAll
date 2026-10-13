@@ -568,6 +568,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 .setSignatureId(unifiedSignature.signatureId())
                 .setActorId(actorId)
                 .setActorName(user.getNickname())
+                .setSignatureMode(SIGNATURE_MODE_PASSWORD)
+                .setPasswordVerified(Boolean.TRUE)
                 .setSignedAt(unifiedSignature.signedAt())
                 .setSelectedSignedAt(signatureTimeEvidence.selectedSignedAt())
                 .setSignatureDisplayAt(unifiedSignature.signedAt())
@@ -640,6 +642,8 @@ public class MesProBatchRecordExecutionSignatureService {
                 .setSignatureId(signature.getId())
                 .setActorId(actorId)
                 .setActorName(user.getNickname())
+                .setSignatureMode(SIGNATURE_MODE_DRAFT_SESSION)
+                .setPasswordVerified(Boolean.FALSE)
                 .setSignedAt(signedAt)
                 .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
                 .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
@@ -823,6 +827,11 @@ public class MesProBatchRecordExecutionSignatureService {
                 processInstanceId, bpmTaskId, bpmTaskDefinitionKey, bpmTaskName, signatureCellKey,
                 signatureRowIndex, signatureColumnIndex, reviewSourceType, reviewSourceId, reviewSourceName,
                 approvalResult, fieldAuditRevision, fieldAuditHeadHash, cellValuesHash, signatureChallengeHash);
+        boolean hasOpinionSource = ACTION_PQC_RELEASE.equals(actionType) || ACTION_APPROVE.equals(actionType);
+        String userOpinion = StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.trim(comment));
+        if (hasOpinionSource) {
+            subjectId = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(subjectId, userOpinion);
+        }
         ElectronicSignatureCommand command = new ElectronicSignatureCommand(
                 MesBatchRecordSignatureSubjectAdapter.MODULE_CODE,
                 actionType,
@@ -831,7 +840,10 @@ public class MesProBatchRecordExecutionSignatureService {
                 MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId),
                 password,
                 StrUtil.blankToDefault(StrUtil.trim(reason), StrUtil.blankToDefault(StrUtil.trim(comment), actionType)),
-                (ACTION_PRODUCTION_SUBMIT.equals(actionType)
+                hasOpinionSource ? "MES_OPINION_V1|" + actorId + "|" + actionType + "|"
+                        + DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                            java.util.Arrays.asList(subjectId, userOpinion)))
+                : (ACTION_PRODUCTION_SUBMIT.equals(actionType)
                         || (ACTION_TEAM_LEADER_REVIEW.equals(actionType)
                             && MesTeamLeaderReviewSignatureContext.SOURCE_TYPE.equals(reviewSourceType)
                             && approvalResult != null && cellValuesHash != null))

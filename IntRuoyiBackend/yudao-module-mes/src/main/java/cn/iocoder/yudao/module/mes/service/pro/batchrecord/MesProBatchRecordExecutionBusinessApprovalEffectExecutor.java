@@ -56,6 +56,10 @@ public class MesProBatchRecordExecutionBusinessApprovalEffectExecutor implements
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private BpmTaskService bpmTaskService;
+    @Resource
+    private MesEdhrFinalApprovalReceiptVerifier finalApprovalReceiptVerifier;
+    @Resource
+    private cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore requestStore;
 
     @Override
     public String getExecutorCode() {
@@ -175,42 +179,51 @@ public class MesProBatchRecordExecutionBusinessApprovalEffectExecutor implements
                                                         Long actorUserId) {
         requireSubmitReviewContext(context);
         MesProBatchRecordExecutionDO execution = requireExecutionWithStatus(context,
-                MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_SUBMITTED);
+                MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_APPROVED);
         Long executionId = execution.getId();
         String processInstanceId = requireProcessInstanceId(request);
-        if (!StrUtil.equals(processInstanceId, execution.getProcessInstanceId())) {
-            throw contextInvalid("MES batch record execution process instance mismatched: executionId="
-                    + executionId + ", requestProcessInstanceId=" + processInstanceId
-                    + ", executionProcessInstanceId=" + execution.getProcessInstanceId());
+        var persistedRequest = requestStore.findByProcessInstanceId(processInstanceId)
+                .orElseThrow(() -> contextInvalid("MES final approval formal request missing"));
+        Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        if (request.getRequestId() == null || !Objects.equals(request.getRequestId(), persistedRequest.getRequestId())
+                || !Objects.equals(tenant, context.getTenantId()) || !Objects.equals(tenant, request.getTenantId())
+                || !Objects.equals(tenant, persistedRequest.getTenantId()) || request.getContext() == null
+                || persistedRequest.getContext() == null
+                || !Objects.equals(context.getTenantId(), request.getContext().getTenantId())
+                || !Objects.equals(context.getSystemCode(), request.getContext().getSystemCode())
+                || !Objects.equals(context.getObjectType(), request.getContext().getObjectType())
+                || !Objects.equals(context.getActionCode(), request.getContext().getActionCode())
+                || !Objects.equals(context.getVariables(), request.getContext().getVariables())
+                || !Objects.equals(context.getObjectId(), request.getContext().getObjectId())
+                || !Objects.equals(context.getObjectVersion(), request.getContext().getObjectVersion())
+                || !Objects.equals(context.getTenantId(), persistedRequest.getContext().getTenantId())
+                || !Objects.equals(context.getSystemCode(), persistedRequest.getContext().getSystemCode())
+                || !Objects.equals(context.getActionCode(), persistedRequest.getContext().getActionCode())
+                || !Objects.equals(context.getObjectType(), persistedRequest.getContext().getObjectType())
+                || !Objects.equals(context.getVariables(), persistedRequest.getContext().getVariables())
+                || !Objects.equals(context.getObjectId(), persistedRequest.getContext().getObjectId())
+                || !Objects.equals(context.getObjectVersion(), persistedRequest.getContext().getObjectVersion())
+                || !Objects.equals(context.getObjectVersion(), String.valueOf(execution.getRevisionNo()))
+                || !Objects.equals(EXECUTOR_CODE, request.getEffectExecutorCode())
+                || !Objects.equals(EXECUTOR_CODE, persistedRequest.getEffectExecutorCode())
+                || !Objects.equals(PROCESS_DEFINITION_KEY, request.getProcessDefinitionKey())
+                || !Objects.equals(request.getProcessDefinitionKey(), persistedRequest.getProcessDefinitionKey())
+                || !Objects.equals(request.getProcessDefinitionKey(), execution.getProcessDefinitionKey())
+                || !Objects.equals(processInstanceId, execution.getProcessInstanceId())
+                || !Objects.equals(processInstanceId, persistedRequest.getProcessInstanceId())) {
+            throw contextInvalid("MES final approval request/tenant/execution/process identity conflict: executionId=" + executionId);
         }
-        MesProBatchRecordApprovalSnapshotDO snapshot = requireSubmittedSnapshot(executionId, processInstanceId);
-        String currentBpmTaskId = requireSnapshotBpmTaskId(snapshot, executionId);
-        MesProEdhrWorkTaskDO reviewTask = workTaskService.getActiveReviewTaskByBpmTaskId(executionId,
-                currentBpmTaskId);
-        if (reviewTask == null) {
-            throw reviewTaskContextInvalid("executionId=" + executionId
-                    + ", bpmTaskId=" + currentBpmTaskId + ", reviewTask=missing");
+        MesProBatchRecordApprovalSnapshotDO snapshot = approvalSnapshotMapper.selectByExecutionId(executionId);
+        if (snapshot == null) {
+            throw contextInvalid("MES final approval snapshot missing: executionId=" + executionId);
         }
-        Long approverUserId = requireActorUserId(actorUserId);
-        MesProEdhrWorkTaskDO completedReviewTask = workTaskService.completeOneReviewTask(reviewTask.getId(),
-                executionId);
-        LocalDateTime now = LocalDateTime.now();
-        requireUpdated(approvalSnapshotMapper.approveAndClearCurrentBpmTask(new MesProBatchRecordApprovalSnapshotDO()
-                        .setId(snapshot.getId())
-                        .setApprovalStatus(STATUS_APPROVED)
-                        .setApprovedBy(approverUserId)
-                        .setApprovedAt(now)
-                        .setClosedAt(now)),
-                "approve batch record execution snapshot");
-        requireUpdated(executionMapper.updateById(new MesProBatchRecordExecutionDO()
-                        .setId(executionId)
-                        .setStatus(MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_APPROVED)
-                        .setApprovedBy(approverUserId)
-                        .setApprovedAt(now)
-                        .setClosedAt(now)),
-                "approve batch record execution");
-        executionMapper.clearActiveContextKey(executionId);
-        workTaskService.createNextFillAfterReview(completedReviewTask);
+        Map<String, Object> variables = requireVariables(context);
+        if (!Objects.equals(requireLong(variables, "submitSignatureId"), snapshot.getSubmitSignatureId())
+                || !Objects.equals(requireString(variables, "approvalSnapshotHash"), snapshot.getSnapshotHash())
+                || !Objects.equals(requireString(variables, "approvalSnapshotJson"), snapshot.getSnapshotJson())) {
+            throw contextInvalid("MES final approval formal request/snapshot conflict: executionId=" + executionId);
+        }
+        finalApprovalReceiptVerifier.requireCompleted(execution, snapshot, requireActorUserId(actorUserId));
         return BusinessApprovalEffectResult.completed(STATUS_APPROVED);
     }
 
@@ -393,26 +406,6 @@ public class MesProBatchRecordExecutionBusinessApprovalEffectExecutor implements
                     "MES batch record execution approval process instance is required");
         }
         return StrUtil.trim(processInstanceId);
-    }
-
-    private MesProBatchRecordApprovalSnapshotDO requireSubmittedSnapshot(Long executionId,
-                                                                         String processInstanceId) {
-        MesProBatchRecordApprovalSnapshotDO snapshot = approvalSnapshotMapper.selectByExecutionId(executionId);
-        if (snapshot == null
-                || !STATUS_SUBMITTED.equals(snapshot.getApprovalStatus())
-                || !StrUtil.equals(processInstanceId, snapshot.getProcessInstanceId())) {
-            throw contextInvalid("MES batch record execution approval snapshot is invalid: executionId="
-                    + executionId + ", processInstanceId=" + processInstanceId);
-        }
-        return snapshot;
-    }
-
-    private String requireSnapshotBpmTaskId(MesProBatchRecordApprovalSnapshotDO snapshot, Long executionId) {
-        String bpmTaskId = snapshot == null ? null : snapshot.getCurrentBpmTaskId();
-        if (StrUtil.isBlank(bpmTaskId)) {
-            throw reviewTaskContextInvalid("executionId=" + executionId + ", currentBpmTaskId=missing");
-        }
-        return StrUtil.trim(bpmTaskId);
     }
 
     private Long requireActorUserId(Long actorUserId) {

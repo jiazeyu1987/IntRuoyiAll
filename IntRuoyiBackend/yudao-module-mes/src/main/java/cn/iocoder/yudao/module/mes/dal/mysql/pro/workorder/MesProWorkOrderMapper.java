@@ -162,6 +162,34 @@ public interface MesProWorkOrderMapper extends BaseMapperX<MesProWorkOrderDO> {
                 .setSql("quantity_produced = IFNULL(quantity_produced, 0) + " + incrQuantityProduced));
     }
 
+    /** Refresh only the ERP-owned snapshot, including explicit empty source values. */
+    default int updateErpSnapshot(MesProWorkOrderDO snapshot) {
+        return update(new MesProWorkOrderDO(), new LambdaUpdateWrapper<MesProWorkOrderDO>()
+                .eq(MesProWorkOrderDO::getId, snapshot.getId())
+                .set(MesProWorkOrderDO::getCode, snapshot.getCode())
+                .set(MesProWorkOrderDO::getName, snapshot.getName())
+                .set(MesProWorkOrderDO::getType, snapshot.getType())
+                .set(MesProWorkOrderDO::getOrderSourceType, snapshot.getOrderSourceType())
+                .set(MesProWorkOrderDO::getOrderSourceCode, snapshot.getOrderSourceCode())
+                .set(MesProWorkOrderDO::getDemandBillNo, snapshot.getDemandBillNo())
+                .set(MesProWorkOrderDO::getProductId, snapshot.getProductId())
+                .set(MesProWorkOrderDO::getMaterialSpecification, snapshot.getMaterialSpecification())
+                .set(MesProWorkOrderDO::getQuantity, snapshot.getQuantity())
+                .set(MesProWorkOrderDO::getBatchCode, snapshot.getBatchCode())
+                .set(MesProWorkOrderDO::getWorkshopName, snapshot.getWorkshopName())
+                .set(MesProWorkOrderDO::getBomVersion, snapshot.getBomVersion())
+                .set(MesProWorkOrderDO::getPickMode, snapshot.getPickMode())
+                .set(MesProWorkOrderDO::getAuxiliaryCode, snapshot.getAuxiliaryCode())
+                .set(MesProWorkOrderDO::getBusinessStatus, snapshot.getBusinessStatus())
+                .set(MesProWorkOrderDO::getDrawingNumber, snapshot.getDrawingNumber())
+                .set(MesProWorkOrderDO::getRefNo, snapshot.getRefNo())
+                .set(MesProWorkOrderDO::getScheduleStatus, snapshot.getScheduleStatus())
+                .set(MesProWorkOrderDO::getPlannedStartTime, snapshot.getPlannedStartTime())
+                .set(MesProWorkOrderDO::getPlannedEndTime, snapshot.getPlannedEndTime())
+                .set(MesProWorkOrderDO::getRequestDate, snapshot.getRequestDate())
+                .set(MesProWorkOrderDO::getRemark, snapshot.getRemark()));
+    }
+
     default void updateBatchCodeIfBlank(Long id, String batchCode) {
         update(null, new LambdaUpdateWrapper<MesProWorkOrderDO>()
                 .eq(MesProWorkOrderDO::getId, id)

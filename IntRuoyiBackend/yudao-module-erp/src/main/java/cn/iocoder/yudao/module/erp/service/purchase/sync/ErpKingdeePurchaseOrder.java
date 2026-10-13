@@ -21,15 +21,28 @@ public class ErpKingdeePurchaseOrder {
     private String cancelStatus;
     private String supplierNumber;
     private String supplierName;
+    private String remark;
+    private BigDecimal discountAmount;
+    private BigDecimal depositAmount;
+    private BigDecimal totalProductAmount;
+    private BigDecimal totalTaxAmount;
+    private BigDecimal totalAmount;
     private List<Line> lines = new ArrayList<>();
 
     @Data
     public static class Line {
 
+        private String entryId;
+        private String unitName;
+        private String priceUnitName;
+        private BigDecimal priceUnitQuantity;
+        private BigDecimal netAmount;
+        private BigDecimal taxAmount;
         private String materialNumber;
         private String materialName;
         private BigDecimal quantity;
         private BigDecimal price;
+        private BigDecimal totalAmount;
         private BigDecimal taxPercent;
         private String remark;
 

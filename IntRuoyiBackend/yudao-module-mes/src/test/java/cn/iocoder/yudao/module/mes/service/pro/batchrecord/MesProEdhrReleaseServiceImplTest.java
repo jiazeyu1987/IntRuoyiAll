@@ -172,6 +172,21 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         verify(gxpAuditService).append(audit.capture());
         var persisted = m8WorkTaskMapper.selectById(created.get().getId());
         assertNotNull(persisted);
+        var association = unitSubmissionAssociations.get(unitSubmissionKey(0L, precheck.getReleaseTransactionId(), "scope-submit"));
+        assertNotNull(association);
+        var submission = terminalEventMapper.selectById(association.getSubmissionEventId());
+        assertNotNull(submission);
+        assertEquals(precheck.getReleaseTransactionId(), submission.getReleaseTransactionId());
+        assertEquals(submission.getEvidenceHash(), association.getSubmissionEvidenceHash());
+        assertEquals(persisted.getId(), association.getApprovalWorkTaskId());
+        var material = materialReceipts.getCreationVerifiedByReceiptId(0L, batch.getId(),
+                association.getMaterialReceiptId(), association.getSourceSnapshotHash());
+        assertEquals(association.getMaterialCreationEventHash(), material.provenance().creationEventHash());
+        assertEquals(material.ownerReceipt(), materialReceipts.getLatestVerified(0L, batch.getId(), association.getSourceSnapshotHash()));
+        assertThrows(IllegalStateException.class, () -> materialReceipts.getLatestVerified(2L, batch.getId(), association.getSourceSnapshotHash()));
+        assertThrows(IllegalStateException.class, () -> materialReceipts.getLatestVerified(0L, batch.getId(), "unknown-source"));
+        assertThrows(IllegalStateException.class, () -> materialReceipts.getCreationVerifiedByReceiptId(
+                0L, batch.getId(), "unknown-receipt", association.getSourceSnapshotHash()));
         var before = releaseScopeAffected(audit.getValue(), true);
         var after = releaseScopeAffected(audit.getValue(), false);
         assertTrue(before.getJSONArray("workTasks").stream().map(JSON::toJSON).map(value -> (com.alibaba.fastjson.JSONObject) value)
@@ -817,9 +832,177 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProBatchRecordExecutionSignatureService executionSignatureService;
 
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+    @MockitoBean private MesEdhrReleaseSubmissionMaterialAssociationStore submissionMaterials;
+    @MockitoBean private MesEdhrReleaseMaterialSelectionRegistry materialSelections;
+    @MockitoBean private cn.iocoder.yudao.module.mes.productionrelease.core.MesReleaseMaterialGateReceiptPort materialReceipts;
+    @MockitoBean private MesEdhrSourceCreationVerificationService sourceCreation;
+    @MockitoBean private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService centerSignatureFacts;
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService approvalCreationEvents;
+
+    // Explicit external unit-port boundary for the legacy tenant-0 release tests.
+    // It checks the real H2 batch/SUBMIT graph and the existing four-material inputs.
+    // It does not accept material creation ownership, trusted-center provenance, or
+    // the formal positive-tenant association producer; those require their own suites.
+    private final java.util.Map<Long, String> unitMaterialSources = new java.util.HashMap<>();
+    private final java.util.Map<Long, MesEdhrVerifiedMaterialGateFact> unitMaterialFacts = new java.util.HashMap<>();
+    private final java.util.Map<String, cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesEdhrReleaseSubmissionMaterialAssociationDO>
+            unitSubmissionAssociations = new java.util.HashMap<>();
+
+    private void installLegacyReleaseUnitPorts() {
+        unitMaterialSources.clear(); unitMaterialFacts.clear(); unitSubmissionAssociations.clear();
+        when(sourceCreation.requireCompletionCreation(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(sourceCreation.requireCompletionTransactionId(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(sourceCreation.requireIndependentCreation(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(sourceCreation.requireMaterialCreation(any(), any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(centerSignatureFacts.requireVerifiedFact(any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(approvalCreationEvents.requireVerifiedEvent(any(), any())).thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(materialSelections.requireCurrentVerified(any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenThrow(new IllegalStateException("TEST_SCOPE_NOT_TRUSTED_CENTER"));
+        when(batchTraceabilityService.resolveSourcePrecheck(any())).thenAnswer(call -> {
+            MesProEdhrBatchTraceSourcePrecheckCommand command = call.getArgument(0);
+            Long batchId = command.getBatchExecutionId();
+            String hash = unitMaterialSources.get(batchId);
+            if (hash == null || batchExecutionMapper.selectById(batchId) == null)
+                throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_SOURCE_UNKNOWN");
+            return new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceSourcePrecheckRespVO()
+                    .setBatchExecutionId(batchId).setSourceSnapshotHash(hash);
+        });
+        when(materialReceipts.getLatestVerified(any(), any(), any())).thenAnswer(call ->
+                requireUnitMaterialFact(call.getArgument(0), call.getArgument(1), call.getArgument(2)).ownerReceipt());
+        when(materialReceipts.getVerifiedByReceiptId(any(), any(), any(), any())).thenAnswer(call -> {
+            var fact = requireUnitMaterialFact(call.getArgument(0), call.getArgument(1), call.getArgument(3));
+            if (!java.util.Objects.equals(fact.ownerReceipt().getReceiptId(), call.getArgument(2)))
+                throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_RECEIPT_UNKNOWN");
+            return fact.ownerReceipt();
+        });
+        when(materialReceipts.getCreationVerifiedByReceiptId(any(), any(), any(), any())).thenAnswer(call -> {
+            var fact = requireUnitMaterialFact(call.getArgument(0), call.getArgument(1), call.getArgument(3));
+            if (!java.util.Objects.equals(fact.ownerReceipt().getReceiptId(), call.getArgument(2)))
+                throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_RECEIPT_UNKNOWN");
+            return fact;
+        });
+        var sequence = new java.util.concurrent.atomic.AtomicLong();
+        // Unit acknowledgement for the existing external audit port only; tests that
+        // install the actual writer or audit failure keep their explicit override.
+        when(gxpAuditService.append(any())).thenAnswer(call -> {
+            cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand command = call.getArgument(0);
+            long ordinal = sequence.incrementAndGet();
+            return new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                    ordinal, ordinal, DigestUtil.sha256Hex(JSON.toJSONString(command)), false);
+        });
+        when(submissionMaterials.build(any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            Long tenant = call.getArgument(0), task = call.getArgument(3);
+            MesProEdhrReleaseTransactionDO transaction = call.getArgument(1);
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO event = call.getArgument(2);
+            String method = call.getArgument(4);
+            MesEdhrVerifiedMaterialGateFact material = call.getArgument(5);
+            var expected = requireUnitMaterialFact(tenant, transaction.getBatchExecutionId(), material.ownerReceipt().getSourceSnapshotHash());
+            assertEquals(expected, material);
+            var persisted = terminalEventMapper.selectById(event.getId());
+            assertNotNull(persisted); assertEquals(transaction.getId(), persisted.getReleaseTransactionId());
+            assertEquals("SUBMIT", persisted.getEventType()); assertEquals(event.getEvidenceHash(), persisted.getEvidenceHash());
+            assertEquals(transaction.getSubmittedBy(), persisted.getActorUserId());
+            assertEquals(transaction.getSubmitIdempotencyKey(), persisted.getIdempotencyKey());
+            assertNotNull(task); assertTrue(task > 0);
+            var proof = material.provenance();
+            var row = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesEdhrReleaseSubmissionMaterialAssociationDO()
+                    .setTenantId(tenant).setAssociationId("TEST_EXTERNAL_SUBMISSION:" + persisted.getId())
+                    .setAssociationProtocol("TEST_EXTERNAL_UNIT_BOUNDARY").setAssociationVersion(1)
+                    .setReleaseTransactionId(transaction.getId()).setBatchExecutionId(transaction.getBatchExecutionId())
+                    .setSubmissionEventId(persisted.getId()).setSubmissionTransactionVersion(transaction.getVersion())
+                    .setApprovalWorkTaskId(task).setSourceMethod(method).setSubmitIdempotencyKey(transaction.getSubmitIdempotencyKey())
+                    .setSubmittedBy(transaction.getSubmittedBy()).setSubmissionEvidenceHash(persisted.getEvidenceHash())
+                    .setPrecheckSnapshotHash(DigestUtil.sha256Hex(transaction.getPrecheckSnapshotJson()))
+                    .setMaterialSourceRowId(proof.sourceRowId()).setMaterialReceiptId(material.ownerReceipt().getReceiptId())
+                    .setMaterialVersion(material.ownerReceipt().getVersion()).setMaterialReceiptHash(material.ownerReceipt().getReceiptHash())
+                    .setMaterialManifestHash(material.ownerReceipt().getManifestHash()).setSourceSnapshotHash(material.ownerReceipt().getSourceSnapshotHash())
+                    .setMaterialCreationEventId(proof.creationEventId()).setMaterialCreationEventHash(proof.creationEventHash());
+            String payload = JSON.toJSONString(row);
+            return row.setAssociationPayloadJson(payload).setAssociationHash(DigestUtil.sha256Hex(payload));
+        });
+        org.mockito.Mockito.doAnswer(call -> {
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesEdhrReleaseSubmissionMaterialAssociationDO row = call.getArgument(0);
+            cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult binding = call.getArgument(1);
+            assertNotNull(binding); assertFalse(binding.replayed()); assertNotNull(binding.eventId()); assertTrue(binding.eventId() > 0);
+            row.setSubmissionAuditEventId(binding.eventId()).setSubmissionAuditEventHash(binding.eventHash());
+            String key = unitSubmissionKey(row.getTenantId(), row.getReleaseTransactionId(), row.getSubmitIdempotencyKey());
+            assertEquals(null, unitSubmissionAssociations.putIfAbsent(key, row));
+            return null;
+        }).when(submissionMaterials).insert(any(), any());
+        when(submissionMaterials.requireReplay(any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            Long tenant = call.getArgument(0), release = call.getArgument(1), actor = call.getArgument(4);
+            String key = call.getArgument(2), method = call.getArgument(3), reason = call.getArgument(6);
+            cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO event = call.getArgument(5);
+            var row = unitSubmissionAssociations.get(unitSubmissionKey(tenant, release, key));
+            if (row == null || !java.util.Objects.equals(row.getSourceMethod(), method)
+                    || !java.util.Objects.equals(row.getSubmittedBy(), actor)
+                    || !java.util.Objects.equals(row.getSubmissionEventId(), event.getId())
+                    || !java.util.Objects.equals(row.getSubmissionEvidenceHash(), event.getEvidenceHash())
+                    || !java.util.Objects.equals(event.getReason(), reason))
+                throw new IllegalStateException("TEST_EXTERNAL_SUBMISSION_REPLAY_MISMATCH");
+            var persisted = terminalEventMapper.selectById(event.getId());
+            assertNotNull(persisted); assertEquals(event.getEvidenceHash(), persisted.getEvidenceHash());
+            assertEquals(reason, persisted.getReason());
+            var material = requireUnitMaterialFact(tenant, row.getBatchExecutionId(), row.getSourceSnapshotHash());
+            assertEquals(row.getMaterialReceiptId(), material.ownerReceipt().getReceiptId());
+            assertEquals(row.getMaterialCreationEventHash(), material.provenance().creationEventHash());
+            return row;
+        });
+    }
+
+    private static String unitSubmissionKey(Long tenant, Long release, String key) {
+        if (tenant == null || release == null || key == null || key.isBlank())
+            throw new IllegalStateException("TEST_EXTERNAL_SUBMISSION_KEY_REQUIRED");
+        return tenant + ":" + release + ":" + key;
+    }
+
+    private static String unitMaterialSourceHash(MesProEdhrBatchExecutionDO batch) {
+        return DigestUtil.sha256Hex(JSON.toJSONString(java.util.List.of(batch.getId(), batch.getTenantId(),
+                batch.getWorkOrderId(), batch.getRouteId(), batch.getBatchCode())));
+    }
+
+    private MesEdhrVerifiedMaterialGateFact requireUnitMaterialFact(Long tenant, Long batchId, String sourceHash) {
+        var batch = batchId == null ? null : batchExecutionMapper.selectById(batchId);
+        String expected = unitMaterialSources.get(batchId);
+        if (batch == null || !java.util.Objects.equals(batch.getTenantId(), tenant)
+                || expected == null || !expected.equals(sourceHash) || !expected.equals(unitMaterialSourceHash(batch)))
+            throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_SCOPE_MISMATCH");
+        var gate = fourMaterialGateService.requireMaterialsReady(batchId);
+        if (gate == null || !gate.ready() || !"MATERIALS_READY".equals(gate.status())
+                || gate.manifestHash() == null || gate.materials() == null || gate.materials().size() != 4
+                || !gate.materials().stream().allMatch(row -> batchId.equals(row.getBatchExecutionId()))
+                || !gate.materials().stream().map(MesProBatchRecordExecutionAttachmentDO::getAttachmentGroupKey)
+                        .collect(java.util.stream.Collectors.toSet()).equals(new java.util.HashSet<>(MesProEdhrFourMaterialGateService.REQUIRED_MATERIAL_TYPES)))
+            throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_INPUTS_MISSING");
+        var known = unitMaterialFacts.get(batchId);
+        if (known != null) {
+            if (!known.ownerReceipt().getManifestHash().equals(gate.manifestHash())
+                    || !known.ownerReceipt().getMaterialVersionSetHash().equals(DigestUtil.sha256Hex(JSON.toJSONString(gate.materials()))))
+                throw new IllegalStateException("TEST_EXTERNAL_MATERIAL_MANIFEST_CHANGED");
+            return known;
+        }
+        var receipt = new MesReleaseMaterialGateReceipt().setReceiptId("TEST_EXTERNAL_GATE:" + batchId)
+                .setBatchExecutionId(batchId).setGateStatus("MATERIALS_READY")
+                .setMaterialTypeKeys(MesReleaseMaterialGateReceipt.REQUIRED_MATERIAL_TYPES)
+                .setManifestHash(gate.manifestHash()).setSourceSnapshotHash(sourceHash)
+                .setMaterialVersionSetHash(DigestUtil.sha256Hex(JSON.toJSONString(gate.materials())))
+                .setIssuedBy(10001L).setAuditEventId("TEST_EXTERNAL_OWNER_EVENT:" + batchId).setVersion(1);
+        receipt.setReceiptHash(DigestUtil.sha256Hex(JSON.toJSONString(receipt)));
+        // The external owner fact is a named unit input, not a claim that a GxP creation
+        // event was produced here. Bind every returned field to this known batch/receipt.
+        var proof = new MesEdhrSourceCreationEvidence("TEST_EXTERNAL_MATERIAL_OWNER", batchId,
+                receipt.getReceiptId(), "1", receipt.getReceiptHash(), batchId,
+                DigestUtil.sha256Hex(receipt.getAuditEventId() + ":" + receipt.getReceiptHash()));
+        var fact = new MesEdhrVerifiedMaterialGateFact(receipt, proof);
+        unitMaterialFacts.put(batchId, fact);
+        return fact;
+    }
+
     @BeforeEach
     void setUpDossierRequirementDefaults() {
         TenantContextHolder.setTenantId(0L);
+        installLegacyReleaseUnitPorts();
         mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
         mockReleaseCompletenessSourcesAsNotApplicable();
         when(fourMaterialGateService.evaluate(any())).thenAnswer(invocation ->
@@ -1530,19 +1713,59 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(batch.getId(), approved.getBatchExecutionId());
     }
 
-    @Test
-    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract.sql", "/sql/sa07-read-contract.sql"})
-    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract-clean.sql", "/sql/sa07-read-contract-clean.sql"}, executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 10})
+    // Formal V1/V2 columns: 20261010_edhr_approval_content_v2_draft.sql:2-3.
+    // Keep both nullable, without a default; H2's existence guard supports reused test schemas.
+    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract.sql", "/sql/sa07-read-contract.sql"},
+            statements = {
+                    "ALTER TABLE system_electronic_signature ADD COLUMN IF NOT EXISTS evidence_format_version varchar(8) NULL",
+                    "ALTER TABLE system_electronic_signature ADD COLUMN IF NOT EXISTS command_hash_version varchar(8) NULL"
+            })
+    @org.springframework.test.context.jdbc.Sql(scripts = {"/sql/pqc-signature-contract-clean.sql", "/sql/sa07-read-contract-clean.sql"},
+            statements = {"DELETE FROM mes_pro_process_pool_active_order_release_application WHERE id = 5081",
+                    "DELETE FROM mes_pro_process_pool_active_order_process_snapshot WHERE active_order_id = 8081"},
+            executionPhase = org.springframework.test.context.jdbc.Sql.ExecutionPhase.AFTER_TEST_METHOD)
     @org.springframework.test.context.jdbc.SqlMergeMode(org.springframework.test.context.jdbc.SqlMergeMode.MergeMode.MERGE)
-    void managedActiveOrderApprovalArchivesCreatedBatchAndAppendsDecisionToItsOriginWithoutArchiveTaskRule() throws Exception {
+    void managedActiveOrderApprovalArchivesOpenBatchAndPreservesQuantityDrafts(int initialStatus) throws Exception {
+        String rawOpinion = "\u00a0\uFEFF  evidence checked\n  user \"opinion\" \\ kept\tsecond line\r\nlast line  \u202f";
+        String opinion = "evidence checked\n  user \"opinion\" \\ kept\tsecond line\r\nlast line";
         var jdbc = new JdbcTemplate(dataSource);
         cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.installJsonFunctions(jdbc);
         var batch = insertCreatedBatch("BATCH-MANAGED-ACTIVE-ORDER");
         var precheck = insertPendingApprovalRelease(batch);
+        var quantityDrafts = new java.util.ArrayList<MesProBatchRecordExecutionDO>();
+        if (initialStatus == MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS) {
+            for (int i = 0; i < 10; i++) {
+                Long executionId = randomLongId();
+                var quantityTask = insertApprovedOrdinaryTask(batch.getId(), executionId);
+                batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO().setId(quantityTask.getId())
+                        .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT));
+                var draft = MesProBatchRecordExecutionDO.builder().id(executionId)
+                        .executionCode("QUANTITY-" + i).workOrderId(batch.getWorkOrderId())
+                        .workOrderCode(batch.getWorkOrderCode()).batchExecutionId(batch.getId())
+                        .taskId(quantityTask.getId()).routeProcessId(quantityTask.getRouteProcessId())
+                        .batchRecordReportId(quantityTask.getBatchRecordReportId()).batchCode(batch.getBatchCode())
+                        .status(0).sheetLayoutJson("{\"rows\":{}}")
+                        .cellValuesJson("[{\"rowIndex\":1,\"columnIndex\":1,\"value\":\"10\"}]")
+                        .cellValuesHash("a".repeat(64)).fieldAuditRevision(1L)
+                        .fieldAuditHeadHash("b".repeat(64)).build();
+                executionMapper.insert(draft);
+                quantityDrafts.add(executionMapper.selectById(executionId));
+            }
+            var actualBatchService = new MesProEdhrBatchExecutionServiceImpl();
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "batchTaskMapper", batchTaskMapper);
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "executionMapper", executionMapper);
+            org.springframework.test.util.ReflectionTestUtils.setField(actualBatchService, "batchExecutionMapper", batchExecutionMapper);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(actualBatchService, "syncBatchStatus", batch);
+            assertEquals(initialStatus, batchExecutionMapper.selectById(batch.getId()).getStatus(),
+                    "actual quantity DRAFT tasks project batch IN_PROGRESS");
+        }
+        long batchRecordSignatures = signatureMapper.selectCount();
         var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7981L);
         batch.setTenantId(1L); batchExecutionMapper.updateById(batch);
         TenantContextHolder.setTenantId(1L);
-        task.setBatchExecutionId(batch.getId()).setCandidateSourceType("ROLE_GROUP").setCandidateSourceId(77L)
+        task.setBatchExecutionId(batch.getId()).setWorkOrderId(batch.getWorkOrderId()).setCandidateSourceType("ROLE_GROUP").setCandidateSourceId(77L)
                 .setCandidateUserSnapshot("10001").setResponsibilitySourceKey("MES_MANAGEMENT_REPRESENTATIVE").setStatus("TODO")
                 .setTaskCode("SA08-TASK").setAssigneeUserId(10001L).setActionUrl("/test/manager-release");
         actualWorkTasks.insert(task);
@@ -1557,7 +1780,31 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         application.setTenantId(1L);
         application.setReportSnapshotHash(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots.recomputeActiveOrderFactsSnapshot(application));
         actualApplications.insert(application);
-        var request = approvalRequest(precheck, batch, task, "APPROVAL-CENTER-APPROVE-7981", "verified-signoff", "上市放行")
+        var pqcTask = new MesProEdhrWorkTaskDO().setId(application.getPqcReleaseWorkTaskId())
+                .setTaskCode("PQC-TASK-951").setTaskType("PQC_PRODUCTION_RELEASE")
+                .setBusinessScopeType("RELEASE_APPLICATION").setBusinessScopeId(application.getId())
+                .setBatchExecutionId(batch.getId()).setWorkOrderId(batch.getWorkOrderId())
+                .setAssigneeUserId(application.getPqcDecidedBy()).setStatus("DONE").setReason("APPROVE")
+                .setCompletedAt(application.getPqcDecidedAt()).setActionUrl("/test/pqc-release");
+        actualWorkTasks.insert(pqcTask);
+        assertEquals(951L, pqcTask.getId());
+        assertEquals(application.getPqcReleaseWorkTaskId(), pqcTask.getId());
+        assertEquals(1, jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id=? WHERE id=?",
+                application.getTenantId(), pqcTask.getId()));
+        var persistedPqcTask = cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService
+                .readPqcTask(actualWorkTasks, application.getPqcReleaseWorkTaskId());
+        assertNotNull(persistedPqcTask);
+        assertEquals(application.getPqcReleaseWorkTaskId(), persistedPqcTask.getId());
+        assertEquals(application.getId(), persistedPqcTask.getBusinessScopeId());
+        assertEquals("RELEASE_APPLICATION", persistedPqcTask.getBusinessScopeType());
+        assertEquals("PQC_PRODUCTION_RELEASE", persistedPqcTask.getTaskType());
+        assertEquals(application.getBatchExecutionId(), persistedPqcTask.getBatchExecutionId());
+        assertEquals(application.getWorkOrderId(), persistedPqcTask.getWorkOrderId());
+        assertEquals(application.getPqcDecidedBy(), persistedPqcTask.getAssigneeUserId());
+        assertEquals("DONE", persistedPqcTask.getStatus());
+        assertEquals("APPROVE", persistedPqcTask.getReason());
+        assertEquals(application.getPqcDecidedAt(), persistedPqcTask.getCompletedAt());
+        var request = approvalRequest(precheck, batch, task, "APPROVAL-CENTER-APPROVE-7981", "verified-signoff", opinion)
                 .setReleaseApplicationId(5081L).setActiveOrderId(8081L)
                 .setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setEntryType("ACTIVE_ORDER_COMPLETION")
                 .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
@@ -1588,7 +1835,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                             .setAuditEventId("completion-audit-81").setStatus("BACKFILL_SUCCEEDED")
                             .setIssuedAt(LocalDateTime.now()));
         }).when(authoritativeContextPort).require(any());
-        var signatures = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignaturePersistenceFixture(actualSignatures, adminUserApi, gxpAuditService);
+        var signatures = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignaturePersistenceFixture(
+                actualSignatures, adminUserApi, new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource));
         var readiness = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadinessService.class);
         when(readiness.resolveActiveOrderFormalFactsReadiness(any(), any())).thenReturn(
                 new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadiness(
@@ -1609,14 +1857,68 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                         .setOrigins(List.of(new cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrBatchTraceabilityRespVO.Origin()
                                 .setId(9081L).setActiveOrderId(8081L).setWorkOrderId(batch.getWorkOrderId())
                                 .setSourceSnapshotHash(request.getSourceSnapshotHash()))));
+        Long pqcSignatureId;
         Long signatureId;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
-            var recorded = signatures.bpm(10001L,task.getId(),"上市放行");
+            var operator = new cn.iocoder.yudao.framework.security.core.LoginUser();
+            operator.setId(10001L); operator.setTenantId(1L); operator.setUserType(2);
+            operator.setInfo(java.util.Map.of("username", "manager-10001",
+                    cn.iocoder.yudao.framework.security.core.LoginUser.INFO_KEY_NICKNAME, "Manager"));
+            security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(operator);
+            // Explicit upstream fixture through the real kernel, not the full PQC approve workflow.
+            String pqcOpinion = "PQC upstream evidence checked\nindependent production release opinion";
+            String pqcSubject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
+                    .encodeSubjectId(batch.getId(), "PQC_RELEASE", null, null, null, null, null, null, null,
+                            "PQC_RELEASE_APPLICATION", application.getId(), "PQC生产放行", "PQC_RELEASE",
+                            null, null, null, null);
+            String pqcOpinionSubject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
+                    .withOpinionSource(pqcSubject, pqcOpinion);
+            var pqcSigned = signatures.transactions.execute(status -> signatures.writer.sign(
+                    new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand(
+                            "MES", "PQC_RELEASE", "MES_BATCH_RECORD", pqcOpinionSubject,
+                            cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
+                                    .subjectVersion(pqcOpinionSubject),
+                            "test-only", pqcOpinion, "PQC-UPSTREAM-FIXTURE-5081-951", null, null)));
+            pqcSignatureId = pqcSigned.signatureId();
+            var pqcVerified = signatures.query.verifyEvidence(pqcSignatureId);
+            assertEquals("VALID", pqcVerified.verificationStatus());
+            assertEquals("CONSISTENT", pqcVerified.digestStatus());
+            assertEquals("CONSISTENT", pqcVerified.timeConsistencyStatus());
+            assertEquals("CONSISTENT", pqcVerified.auditBindingStatus());
+            assertEquals(pqcOpinion, signatures.query.getById(pqcSignatureId).reason());
+            var pqcReceipt = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult()
+                    .setApplicationId(application.getId()).setPqcReleaseWorkTaskId(pqcTask.getId())
+                    .setBatchExecutionId(batch.getId()).setSignatureId(pqcSignatureId).setDecision("APPROVE")
+                    .setDecidedBy(application.getPqcDecidedBy()).setDecidedAt(application.getPqcDecidedAt())
+                    .setStatus(application.getApplicationStatus()).setVersion(application.getVersion())
+                    .setSourceSnapshotHash(application.getSourceSnapshotHash()).setReportSnapshotHash(application.getReportSnapshotHash())
+                    .setBatchRecordEvidenceIds(List.of()).setProcessInspectionEvidenceIds(List.of())
+                    .setProcessInspectionFormCenterInstanceIds(List.of()).setLossReportEvidenceIds(List.of())
+                    .setLossReportFormCenterInstanceIds(List.of()).setLossReportFieldAuditIds(List.of())
+                    .setLossReportFieldAuditHeadHashes(List.of()).setReportUploadTasks(List.of());
+            actualApplications.updateById(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                    .setId(application.getId()).setDossierSummaryJson(JSON.toJSONString(pqcReceipt)));
+            var storedPqcApplication = actualApplications.selectById(application.getId());
+            String formalSnapshot = cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseFormalFactSnapshots
+                    .recomputeActiveOrderFactsSnapshot(storedPqcApplication);
+            assertEquals(application.getReportSnapshotHash(), formalSnapshot);
+            actualApplications.updateById(new cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationDO()
+                    .setId(application.getId()).setReportSnapshotHash(formalSnapshot));
+            var recorded = signatures.bpm(10001L,task.getId(),rawOpinion);
             signatureId = recorded.getUnifiedSignatureId();
+            assertNotEquals(pqcSignatureId, signatureId);
+            var verified = signatures.query.verifyEvidence(signatureId);
+            assertEquals("VALID", verified.verificationStatus());
+            assertEquals("CONSISTENT", verified.digestStatus());
+            assertEquals("CONSISTENT", verified.timeConsistencyStatus());
+            assertEquals("CONSISTENT", verified.auditBindingStatus());
+            var signedOpinion = actualSignatures.selectById(signatureId);
+            assertEquals(opinion, signedOpinion.getReason());
+            assertEquals(opinion, JSON.parseObject(signedOpinion.getCanonicalContentJson()).getString("reason"));
             request.setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
             // Wrong task/source/actor/tenant/hash must not advance the persisted release graph.
-            var wrongSource = signatures.bpm(10001L,task.getId(),"上市放行",
+            var wrongSource = signatures.bpm(10001L,task.getId(),rawOpinion,
                     cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.DCC,"EDHR_WORK_TASK");
             for (String invalid : List.of("task","source","actor","tenant","hash")) {
                 request.setWorkTaskId(task.getId()).setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
@@ -1639,6 +1941,21 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             request.setWorkTaskId(task.getId()).setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash());
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
             TenantContextHolder.setTenantId(1L);
+            for (int forbiddenStatus : List.of(15, 25, 50, 60)) {
+                batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                        .setId(batch.getId()).setStatus(forbiddenStatus));
+                ServiceException error = assertThrows(ServiceException.class, () -> releaseService.approve(request));
+                assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), error.getCode());
+                assertEquals(forbiddenStatus, batchExecutionMapper.selectById(batch.getId()).getStatus());
+                assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+                assertEquals("MANAGER_RELEASE_PENDING", actualApplications.selectById(application.getId()).getApplicationStatus());
+                assertEquals("TODO", actualWorkTasks.selectById(task.getId()).getStatus());
+                assertEquals(0L, releaseDecisionMapper.selectCount());
+                assertEquals(0L, actualOperationAudits.selectCount());
+                verify(upstreamStatePort, never()).closeAfterRelease(any());
+            }
+            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId()).setStatus(initialStatus));
             when(workTaskService.getReleaseApprovalTaskForReview(task.getId(),null)).thenReturn(task);
             // Assemble the actual adapter's required dependencies from the real persistence graph.
             // Constructor dependencies such as the completed-actor resolver remain real components.
@@ -1659,18 +1976,28 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             var reviewContext = cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskReviewContext.of(10001L,
                     cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR,"EDHR_WORK_TASK",
                     String.valueOf(task.getId()),String.valueOf(task.getId()),null,
-                    cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,"上市放行",request.getPassword(),false)
+                    cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.APPROVE,opinion,request.getPassword(),false)
                     .setSignatureSubjectId(recorded.getSubjectId()).setSignatureEvidenceHash(recorded.getEvidenceHash());
             long signatureRecords = actualSignatures.selectCount();
             approvalAdapter.review(reviewContext);
             var first = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
             assertEquals(signatureId, first.getApprovalSignatureId());
+            assertEquals(signedOpinion.getReason(), reviewContext.getReason());
+            assertEquals(opinion, first.getApprovalOpinion());
+            assertEquals(opinion, actualWorkTasks.selectById(task.getId()).getRemark());
             verify(upstreamStatePort).closeAfterRelease(argThat(command ->
                     command.getActiveOrderId().equals(8081L) && command.getActiveOrderExpectedVersion().equals(5)
                             && command.getReleaseDecisionId().equals(first.getReleaseDecisionId())
                             && String.valueOf(signatureId).equals(command.getParentSignatureRecordId())));
             verify(gxpAuditService).append(argThat(a -> "mes.market-release.approve".equals(a.getOperationId())
                     && String.valueOf(signatureId).equals(a.getSignatureRecordId())));
+            var approvalAudit = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
+            verify(gxpAuditService, atLeastOnce()).append(approvalAudit.capture());
+            var marketAudit = approvalAudit.getAllValues().stream()
+                    .filter(a -> "mes.market-release.approve".equals(a.getOperationId())).findFirst().orElseThrow();
+            assertEquals(opinion, JSON.parseObject(marketAudit.getAfterState().getCanonicalJson()).getString("approvalOpinion"));
+            assertEquals("SYSTEM", marketAudit.getReasonSource());
+            assertEquals("上市放行已完成正式审批", marketAudit.getReason());
             long decisions = releaseDecisionMapper.selectCount();
             long auditCount = actualOperationAudits.selectCount();
             clearInvocations(upstreamStatePort,gxpAuditService);
@@ -1682,18 +2009,28 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
             // Verify the same record is restored on replay, rather than supplied by the incoming command.
             var replay = new MesProEdhrReleaseApproveReqVO().setReleaseTransactionId(precheck.getReleaseTransactionId())
                     .setWorkTaskId(task.getId()).setExpectedVersion(request.getExpectedVersion()).setIdempotencyKey(request.getIdempotencyKey())
-                    .setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash()).setApprovalOpinion("上市放行");
+                    .setSignoffSubjectId(recorded.getSubjectId()).setSignoffEvidenceHash(recorded.getEvidenceHash()).setApprovalOpinion(opinion);
             assertTrue(realManager.prepareForFinalization(10001L,replay).isReplayed());
             assertEquals(signatureId,replay.getSignatureId());
         }
         assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED,
                 batchExecutionMapper.selectById(batch.getId()).getStatus());
+        for (var draft : quantityDrafts) {
+            assertEquals(draft, executionMapper.selectById(draft.getId()), "quantity values, audit head and DRAFT status remain unchanged");
+            assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT,
+                    batchTaskMapper.selectById(draft.getTaskId()).getStatus());
+        }
+        assertEquals(batchRecordSignatures, signatureMapper.selectCount(), "market release does not sign quantity drafts");
         var released = releaseTransactionMapper.selectById(precheck.getReleaseTransactionId());
         assertEquals("RELEASED", released.getReleaseStatus());
         assertEquals(signatureId, released.getApprovalSignatureId());
+        assertEquals(opinion, released.getApprovalOpinion());
         var decision = releaseDecisionMapper.selectById(released.getReleaseDecisionId());
+        assertEquals(opinion, decision.getApprovalOpinion());
         assertEquals(signatureId,JSON.parseObject(decision.getAuditSnapshotJson()).getLong("signatureId"));
         var approvalEvent = terminalEventMapper.selectByReleaseTransactionIdAndEventTypeAndIdempotencyKey(released.getId(),"APPROVE",request.getIdempotencyKey());
+        assertEquals(opinion, approvalEvent.getOpinion());
+        assertEquals(opinion, JSON.parseObject(approvalEvent.getEventSnapshotJson()).getString("opinion"));
         assertEquals(signatureId,JSON.parseObject(approvalEvent.getEventSnapshotJson()).getLong("signatureId"));
         var formalAudit = actualOperationAudits.selectSuccessfulListByActiveOrderId(8081L).stream()
                 .filter(a -> "BATCH_RECORD_RELEASE_APPROVED".equals(a.getOperationType())).findFirst().orElseThrow();
@@ -1708,12 +2045,29 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO mes_pro_work_order(id,tenant_id,code) VALUES(?,1,?)",batch.getWorkOrderId(),batch.getWorkOrderCode());
         var detailService = cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesSignatureDetailFixture.detail(
                 jdbc,actualActiveOrders,actualEvents,signatures.query,null,actualApplications,releaseTransactionMapper,actualOperationAudits);
+        org.springframework.test.util.ReflectionTestUtils.setField(detailService, "workTaskMapper", actualWorkTasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(detailService, "batchExecutionMapper", batchExecutionMapper);
         var batchDetails = new MesProEdhrBatchActiveOrderDetailService(null,actualActiveOrders,detailService);
         var evidenceReader = new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService(
                 detailService,null,batchDetails,signatures.query,null,null,null,null,null,
                 actualApplications,releaseTransactionMapper,actualWorkTasks,batchExecutionMapper,
                 new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService(signatures.query));
+        org.springframework.test.util.ReflectionTestUtils.setField(evidenceReader, "verifiedSignatureFacts", signatures.verifiedFacts);
+        var preservedPqcTask = cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService
+                .readPqcTask(actualWorkTasks, application.getPqcReleaseWorkTaskId());
+        assertNotNull(preservedPqcTask);
+        assertEquals(persistedPqcTask.getId(), preservedPqcTask.getId());
+        assertEquals(persistedPqcTask.getBusinessScopeId(), preservedPqcTask.getBusinessScopeId());
+        assertEquals(persistedPqcTask.getBusinessScopeType(), preservedPqcTask.getBusinessScopeType());
+        assertEquals(persistedPqcTask.getTaskType(), preservedPqcTask.getTaskType());
+        assertEquals(persistedPqcTask.getBatchExecutionId(), preservedPqcTask.getBatchExecutionId());
+        assertEquals(persistedPqcTask.getWorkOrderId(), preservedPqcTask.getWorkOrderId());
+        assertEquals(persistedPqcTask.getAssigneeUserId(), preservedPqcTask.getAssigneeUserId());
+        assertEquals(persistedPqcTask.getStatus(), preservedPqcTask.getStatus());
+        assertEquals(persistedPqcTask.getReason(), preservedPqcTask.getReason());
+        assertEquals(persistedPqcTask.getCompletedAt(), preservedPqcTask.getCompletedAt());
         assertEquals(signatureId,detailService.getDetail(10001L,8081L).getOperationFacts().get(0).getSignatureId());
+        assertEquals(pqcSignatureId, detailService.getDetail(10001L,8081L).getPqcProductionRelease().getSignature().getSignatureId());
         assertEquals("VALID",evidenceReader.getTeam(10001L,8081L,signatureId).verification().verificationStatus());
         assertEquals("VALID",evidenceReader.getBatch(null,8081L,signatureId).verification().verificationStatus());
         assertNotNull(released.getReleaseDecisionId());
@@ -1762,6 +2116,57 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .findFirst().orElseThrow();
         assertEquals("上市放行已完成正式审批", approvalAudit.getReason());
         assertEquals("SYSTEM", approvalAudit.getReasonSource());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MANUAL", "SCHEDULED", "ACTIVE_ORDER_COMPLETION"})
+    void approveRejectsInProgressBatchWithoutManagedActiveOrderApplication(String entryType) {
+        var batch = insertReadyToCloseBatch("BATCH-UNMANAGED-IN-PROGRESS");
+        var precheck = insertPendingApprovalRelease(batch);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO().setId(batch.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        var task = releaseApprovalTask(precheck.getReleaseTransactionId(), 7907L);
+        when(workTaskService.validateReleaseApprovalTask(any(), any())).thenReturn(task);
+        var request = approvalRequest(precheck, batch, task, "unmanaged-in-progress", "verified-signoff", "上市放行")
+                .setEntryType(entryType);
+        if ("ACTIVE_ORDER_COMPLETION".equals(entryType)) {
+            request.setOrigin(MesReleaseOrigin.ACTIVE_ORDER).setActiveOrderId(8081L)
+                    .setActiveOrderExpectedVersion(5).setDualProgressCompleted(true).setThreeBackfillsSucceeded(true)
+                    .setCompletionBackfillReceiptId("completion-81").setCompletionEventId("completion-event-81")
+                    .setPickListBindingId("6081").setPickListId(7081L);
+            var pickSource = new MesBatchExecutionPickListSource().setPickListBindingId(6081L).setPickListId(7081L)
+                    .setBindingVersion(1L).setSourceSnapshotHash("pick-snapshot-81");
+            org.mockito.Mockito.doAnswer(invocation -> {
+                MesReleaseFinalizationCommand command = invocation.getArgument(0);
+                command.setPickListSources(List.of(pickSource));
+                return new MesReleaseFinalizationEvidence().setMaterialGateReceipt(command.getMaterialGateReceipt())
+                        .setCompletionBackfillReceipt(new CompletionBackfillReceipt().setReceiptId("completion-81")
+                                .setTenantId(1L).setActiveOrderId(8081L).setWorkOrderId(command.getWorkOrderId())
+                                .setPickListSources(List.of(pickSource)).setSourceSnapshotHash(command.getSourceSnapshotHash())
+                                .setCompletionVersion(1).setCompletionTransactionId("completion-tx-81")
+                                .setCompletionEventId("completion-event-81").setBatchRecordId(81L).setProcessInspectionId(82L)
+                                .setBatchRecordSourceIds(List.of(81L)).setProcessInspectionSourceIds(List.of(82L))
+                                .setHasActualLoss(false).setLossDecision("NO_LOSS").setLossReportStatus("NOT_REQUIRED")
+                                .setReceiptHash("completion-hash-81").setIdempotencyKey("completion-idem-81")
+                                .setAuditEventId("completion-audit-81").setStatus("BACKFILL_SUCCEEDED")
+                                .setIssuedAt(LocalDateTime.now()));
+            }).when(authoritativeContextPort).require(any());
+        } else {
+            request.setOrigin(MesReleaseOrigin.valueOf(entryType));
+            request.getIndependentPrerequisiteReceipt().setEntryType(entryType);
+        }
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException error = assertThrows(ServiceException.class, () -> releaseService.approve(request));
+            assertEquals(MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID.getCode(), error.getCode());
+        }
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS,
+                batchExecutionMapper.selectById(batch.getId()).getStatus());
+        assertEquals("PENDING_APPROVAL", releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        assertEquals(0L, releaseDecisionMapper.selectCount());
+        verify(workTaskService, never()).completeReleaseApprovalTask(any(), any(), any(), any());
+        verify(workTaskService, never()).createArchiveTaskAfterBatchClose(any());
+        verify(upstreamStatePort, never()).closeAfterRelease(any());
     }
 
     @Test
@@ -2381,6 +2786,9 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .closedAt(LocalDateTime.now())
                 .build();
         batchExecutionMapper.insert(batch);
+        var persisted = batchExecutionMapper.selectById(batch.getId());
+        assertNotNull(persisted);
+        unitMaterialSources.put(batch.getId(), unitMaterialSourceHash(persisted));
         return batch;
     }
 

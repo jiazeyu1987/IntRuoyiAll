@@ -181,3 +181,36 @@ test('卸载撤销完成和作废独立代际，迟到响应不能重新打开',
  const completed=deferred(),task=completedTask(),p=panel({handoffNavigationContext:()=>completed.promise},{query:completedQuery(task)});const first=p.loadHandoffResult();p.unmount();completed.resolve(completedContext(task));await first;assert.equal(p.completedResultOpen.value,false);assert.equal(p.completedResult.value,undefined);assert.equal(p.completedResultError.value,'')
  const lateVoid=deferred(),voidDone=voidTask(),q=panel({handoffNavigationContext:()=>lateVoid.promise},{query:{...navigation(null).resolveActiveOrderHandoffTarget(params(voidDone)).query,handoffReadOnly:'1'}});const second=q.loadHandoffResult();q.unmount();lateVoid.resolve(completedContext(voidDone));await second;assert.equal(q.resultOpen.value,false);assert.equal(q.result.value,undefined)
 })
+
+function notifyNavigation(){
+ const cache=new Map(),origin='http://localhost:8081'
+ function load(file){
+  if(cache.has(file))return cache.get(file).exports
+  const module={exports:{}};cache.set(file,module)
+  const code=ts.transpileModule(fs.readFileSync(path.join(root,file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText
+  const requireSource=name=>{
+   if(name.startsWith('@/utils/'))return load('src/'+name.slice(2)+'.ts')
+   if(name==='@/api/mes/pro/handoff'||name==='@/api/mes/pro/edhr/batchExecution')return{}
+   throw Error('Unexpected source dependency: '+name)
+  }
+  Function('exports','module','require','window',code)(module.exports,module,requireSource,{location:{origin}})
+  return module.exports
+ }
+ return load('src/utils/notifyMessageNavigation.ts')
+}
+test('实际通知目标过滤保留四类普通来源及原有顺序',()=>{
+ const nav=notifyNavigation(),cases=[
+  [{followupUrl:'/dcc/controlled-file/detail/71?viewer=1&from=notification'},{type:'dccPublication',label:'查看发布文件',targetId:'71'}],
+  [{notifyTargetType:'PRODUCT',notifyTargetId:72,notifyChangeRequestId:73,notifyOpen:'approval'},{type:'showroomProduct',label:'查看关联产品',targetId:72,changeRequestId:73,notifyOpen:'approval'}],
+  [{detailUrl:'/bpm/process-instance/detail?id=74'},{type:'bpmApproval',label:'去审批',query:{id:'74'}}],
+  [{actionUrl:'/mes/pro/feedback/edhr-execution/detail?id=75',workTaskId:76},{type:'edhrWorkTask',label:'处理批记录任务',actionUrl:'/mes/pro/feedback/edhr-execution/detail?id=75&workTaskId=76',path:'/mes/pro/feedback/edhr-execution/detail',query:{id:'75',workTaskId:'76'}}]
+ ]
+ for(const [templateParams,target]of cases)assert.deepEqual(nav.getNotifyMessageTargets({templateParams}),[target])
+ assert.deepEqual(nav.getNotifyMessageTargets({templateParams:Object.assign({},...cases.map(([p])=>p))}),cases.map(([,t])=>t))
+ for(const message of [undefined,null,{}, {templateParams:[]},{templateParams:{}},{templateParams:{notifyTargetType:'OTHER',detailUrl:'/wrong',actionUrl:'https://outside.example/mes/pro/feedback/edhr-execution/detail',followupUrl:'/dcc/controlled-file/detail/71?viewer=0&from=notification'}}])assert.deepEqual(nav.getNotifyMessageTargets(message),[])
+})
+test('实际通知过滤保留独立精确交接，非法交接不会降级普通目标',()=>{
+ const nav=notifyNavigation(),formal=params(returnTask()),ordinary={notifyTargetType:'PRODUCT',notifyTargetId:72,detailUrl:'/bpm/process-instance/detail?id=74',followupUrl:'/dcc/controlled-file/detail/71?viewer=1&from=notification'}
+ assert.deepEqual(nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal}}),[navigation(null).resolveActiveOrderHandoffTarget(formal)])
+ for(const change of [{handoffType:undefined},{activeOrderId:'414'},{actionUrl:formal.actionUrl+'&roundId=700'},{actionUrl:'https://outside.example'+formal.actionUrl}])assert.throws(()=>nav.getNotifyMessageTargets({templateParams:{...ordinary,...formal,...change}}))
+})

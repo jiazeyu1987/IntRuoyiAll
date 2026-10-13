@@ -202,11 +202,38 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
         ReflectionTestUtils.setField(service, "signatureRecordMapper", signatureRecordMapper);
         var signatureQuery = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
         ReflectionTestUtils.setField(service, "signatureQueryService", signatureQuery);
-        lenient().when(signatureQuery.verifyEvidence(any())).thenAnswer(call ->
-                new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
-                        call.getArgument(0), "VALID", lastSignature.getContentHash(),
-                        cn.hutool.crypto.digest.DigestUtil.sha256Hex(lastSignature.getCanonicalContentJson()),
-                        "fixture-evidence", "fixture-evidence", "SHA-256", null));
+        cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQuery, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        var persistedQuery = new cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl();
+        var projectedRows = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
+        lenient().when(projectedRows.selectById(any())).thenAnswer(call -> lastSignature);
+        ReflectionTestUtils.setField(persistedQuery, "signatureRecordMapper", projectedRows);
+        lenient().when(signatureQuery.getById(any())).thenAnswer(call -> persistedQuery.getById(call.getArgument(0)));
+        var strictPort = (cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService)
+                ReflectionTestUtils.getField(service, "verifiedSignatureFacts");
+        var domainPort = org.mockito.Mockito.mock(cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.class);
+        lenient().when(domainPort.requireVerifiedFact(any())).thenAnswer(call -> {
+            var verification = signatureQuery.verifyEvidence(call.getArgument(0));
+            if (verification != null && "MISMATCH".equals(verification.verificationStatus()))
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID,
+                        "测试签名摘要不一致");
+            return strictPort.requireVerifiedFact(call.getArgument(0));
+        });
+        ReflectionTestUtils.setField(service, "verifiedSignatureFacts", domainPort);
+        // Independent verified Query-port input for the NCR consumer contract only.
+        // Time/audit prerequisites are supplied by this mock, not verified from the
+        // incomplete signature fixture; verifiedAt does not supply its signedAt.
+        lenient().when(signatureQuery.verifyEvidence(any())).thenAnswer(call -> {
+            String calculatedHash = cn.hutool.crypto.digest.DigestUtil.sha256Hex(lastSignature.getCanonicalContentJson());
+            boolean digestMatches = java.util.Objects.equals(lastSignature.getContentHash(), calculatedHash);
+            return new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    call.getArgument(0), digestMatches ? "VALID" : "MISMATCH", lastSignature.getContentHash(),
+                    calculatedHash, "fixture-evidence", "fixture-evidence", "SHA-256", null,
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", digestMatches ? "CONSISTENT" : "MISMATCH",
+                    "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT",
+                    digestMatches ? List.of() : List.of("DIGEST_MISMATCH"),
+                    LocalDateTime.of(2026, 10, 7, 9, 0), "V1");
+        });
         lenient().when(signatureRecordMapper.selectById(any())).thenAnswer(call -> {
             var invocation = org.mockito.Mockito.mockingDetails(signatureService).getInvocations().stream()
                     .filter(i -> java.util.Set.of("recordQaDispositionSignature", "recordNonconformanceReviewCreateSignature",
@@ -231,6 +258,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                     .subjectType("MES_BATCH_RECORD").subjectId(subject)
                     .subjectVersion(MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject))
                     .actorId(21L).reason(invocation.getArgument(3)).canonicalContentJson(canonical)
+                    .authenticationMethod("SESSION_PLUS_PASSWORD").signedAt(LocalDateTime.of(2026, 10, 7, 8, 59))
                     .contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical))
                     .evidenceHash("fixture-evidence")
                     .verificationStatus("VALID").build();
@@ -1934,7 +1962,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
     private MesProcessPoolActiveOrderReleaseApplicationDO stubDispositionAuditClosure(String disposition,
                                                                                     boolean returnsResponse) {
         stubPendingReview(disposition, true, returnsResponse);
-        when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), "void".equals(disposition))).thenReturn(1);
+        lenient().when(workOrderMapper.updateTemporaryFrozenByIds(List.of(3001L), "void".equals(disposition))).thenReturn(1);
         var review = reviewMapper.selectByIdForUpdate(1001L);
         review.setSourceType("ACTIVE_ORDER").setSourceId(8101L);
         lenient().when(reviewMapper.updateById(any(MesProEdhrNonconformanceReviewDO.class))).thenAnswer(call -> {
@@ -1977,7 +2005,7 @@ class MesProEdhrNonconformanceReviewApplicationScopeTest {
                 });
         var tasks = org.mockito.Mockito.mock(MesProEdhrWorkTaskService.class);
         ReflectionTestUtils.setField(service, "workTaskService", tasks);
-        org.mockito.Mockito.doAnswer(call -> {
+        org.mockito.Mockito.lenient().doAnswer(call -> {
             manager.setStatus(MesProEdhrWorkTaskStatus.CANCELED).setReason(call.getArgument(1))
                     .setCompletedAt(LocalDateTime.of(2026, 9, 29, 14, 0));
             return null;

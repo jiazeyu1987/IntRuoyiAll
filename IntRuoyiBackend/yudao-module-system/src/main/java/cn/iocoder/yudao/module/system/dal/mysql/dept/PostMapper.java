@@ -8,10 +8,19 @@ import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @Mapper
 public interface PostMapper extends BaseMapperX<PostDO> {
+
+    default List<PostDO> selectListByIdsForUpdate(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<PostDO>()
+                .in(PostDO::getId, ids).orderByAsc(PostDO::getId).last("FOR UPDATE"));
+    }
 
     default List<PostDO> selectList(Collection<Long> ids, Collection<Integer> statuses) {
         return selectList(new LambdaQueryWrapperX<PostDO>()

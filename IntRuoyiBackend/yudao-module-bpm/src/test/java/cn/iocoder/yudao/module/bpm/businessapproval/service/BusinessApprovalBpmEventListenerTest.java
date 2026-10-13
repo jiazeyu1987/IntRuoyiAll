@@ -12,6 +12,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class BusinessApprovalBpmEventListenerTest {
 
@@ -55,6 +61,62 @@ class BusinessApprovalBpmEventListenerTest {
         assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_REQUEST_NOT_FOUND, ex.getErrorCode());
     }
 
+    @Test
+    void wrongBusinessKeyFailsBeforePendingEffectDuplicateOrTerminalReturn() {
+        for (BusinessApprovalRequestStatus status : List.of(BusinessApprovalRequestStatus.PENDING_BPM,
+                BusinessApprovalRequestStatus.APPROVED)) {
+            for (boolean duplicateKey : List.of(false, true)) {
+                for (String wrongKey : List.of("BUSINESS_APPROVAL:9999", "BUSINESS_APPROVAL:",
+                        "BUSINESS_APPROVAL:01", "BUSINESS_APPROVAL:1:extra")) {
+                    var store = pendingRequestStore("bpm-001");
+                    var validEvent = event("bpm-001", BpmProcessInstanceStatusEnum.APPROVE.getStatus());
+                    String key = !duplicateKey ? null
+                            : validEvent.getId() + ":" + validEvent.getStatus() + ":" + validEvent.getActorUserId();
+                    store.update(store.findByProcessInstanceId("bpm-001").orElseThrow().toBuilder()
+                            .status(status).lastEventKey(key).build());
+                    var executor = new RecordingExecutor("MES_ROUTE_VERSION_PUBLISH");
+                    var ex = assertThrows(BusinessApprovalException.class, () -> listener(store, executor)
+                            .onApplicationEvent(validEvent.setBusinessKey(wrongKey)));
+                    assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_EVENT_MISMATCH, ex.getErrorCode());
+                    assertEquals(status, store.findByProcessInstanceId("bpm-001").orElseThrow().getStatus());
+                    assertEquals(key, store.findByProcessInstanceId("bpm-001").orElseThrow().getLastEventKey());
+                    assertEquals(0, executor.getApprovedExecutions());
+                    assertEquals(0, executor.getRejections());
+                    assertEquals(0, executor.getCancellations());
+                }
+            }
+        }
+    }
+
+    @Test
+    void wrongStoredProcessOrDefinitionFailsBeforeAnyEffectOrStoreUpdate() {
+        var pending = pendingRequestStore("bpm-001").findByProcessInstanceId("bpm-001").orElseThrow();
+        for (var mismatch : List.of(pending.toBuilder().processInstanceId("other-process").build(),
+                pending.toBuilder().processDefinitionKey("other-definition").build(),
+                pending.toBuilder().processDefinitionKey(null).build())) {
+            var store = mock(BusinessApprovalRequestStore.class);
+            when(store.findByProcessInstanceId("bpm-001")).thenReturn(java.util.Optional.of(mismatch));
+            var executor = new RecordingExecutor("MES_ROUTE_VERSION_PUBLISH");
+            var listener = new BusinessApprovalBpmEventListener(store,
+                    new BusinessApprovalEffectExecutorRegistry(List.of(executor)));
+            var ex = assertThrows(BusinessApprovalException.class, () -> listener.onApplicationEvent(
+                    event("bpm-001", BpmProcessInstanceStatusEnum.APPROVE.getStatus())));
+            assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_EVENT_MISMATCH, ex.getErrorCode());
+            assertEquals(0, executor.getApprovedExecutions());
+            verify(store, never()).update(any());
+        }
+    }
+
+    @Test
+    void unrelatedApplicationEventsKeepTheirExistingEarlyReturn() {
+        var store = mock(BusinessApprovalRequestStore.class);
+        var registry = mock(BusinessApprovalEffectExecutorRegistry.class);
+        var listener = new BusinessApprovalBpmEventListener(store, registry);
+        listener.onApplicationEvent(event("bpm-other", BpmProcessInstanceStatusEnum.APPROVE.getStatus()).setBusinessKey(null));
+        listener.onApplicationEvent(event("bpm-other", BpmProcessInstanceStatusEnum.APPROVE.getStatus()).setBusinessKey("OTHER:1"));
+        verifyNoInteractions(store, registry);
+    }
+
     private static BusinessApprovalBpmEventListener listener(InMemoryBusinessApprovalRequestStore store,
                                                             RecordingExecutor executor) {
         return new BusinessApprovalBpmEventListener(store,
@@ -77,7 +139,7 @@ class BusinessApprovalBpmEventListenerTest {
         return new BpmProcessInstanceStatusEvent("test")
                 .setId(processInstanceId)
                 .setProcessDefinitionKey("mes-route-version-approval-v1")
-                .setBusinessKey("1001")
+                .setBusinessKey("BUSINESS_APPROVAL:1")
                 .setStatus(status)
                 .setActorUserId(501L);
     }

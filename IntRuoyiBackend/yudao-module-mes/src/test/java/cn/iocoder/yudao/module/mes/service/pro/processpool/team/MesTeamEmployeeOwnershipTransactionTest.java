@@ -25,6 +25,10 @@ import static org.mockito.Mockito.*;
 
 class MesTeamEmployeeOwnershipTransactionTest {
 
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
+
     @ParameterizedTest
     @CsvSource({"LINK,SCOPE", "LINK,AUDIT", "CREATE,SCOPE", "CREATE,AUDIT", "ENABLE,SCOPE", "ENABLE,AUDIT"})
     void downstreamFailureRollsBackProfileAndScope(String action, String failureAt) {
@@ -66,6 +70,17 @@ class MesTeamEmployeeOwnershipTransactionTest {
                 profiles, scopes, mock(MesProcessPoolTeamDeviceMapper.class), mock(MesProcessPoolTeamProcessDeviceMapper.class),
                 mock(MesProcessPoolDeviceParameterRuleMapper.class), mock(MesProRouteProcessMapper.class),
                 mock(MesProcessPoolDefectReasonMapper.class), audits, users, mock(PasswordEncoder.class));
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        var authority = mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class);
+        when(authority.lockTenantApprovalAuthority(1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(1L, 1L));
+        org.springframework.test.util.ReflectionTestUtils.setField(target, "qualificationAuthority", authority);
+        when(users.lockSignatureIdentity(7L)).thenReturn(user);
+        if ("ENABLE".equals(action)) {
+            var identity = profiles.selectById(1L);
+            identity.setTenantId(1L);
+            when(profiles.selectSignatureIdentityForUpdate(1L, 1L)).thenReturn(identity);
+        }
         ProxyFactory proxy = new ProxyFactory(target);
         proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(dataSource),
                 new AnnotationTransactionAttributeSource()));
@@ -84,9 +99,20 @@ class MesTeamEmployeeOwnershipTransactionTest {
             }
         });
         assertEquals(failureAt.toLowerCase() + "-write-failed", error.getMessage());
+        var locks = inOrder(users, authority, profiles);
+        if ("ENABLE".equals(action)) {
+            locks.verify(profiles).selectSignatureIdentityForUpdate(1L, 1L);
+            locks.verify(authority).lockTenantApprovalAuthority(1L);
+            locks.verify(profiles).updateById(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        } else {
+            locks.verify(users).lockSignatureIdentity(7L);
+            locks.verify(authority).lockTenantApprovalAuthority(1L);
+            locks.verify(profiles).insert(any(MesProcessPoolTeamEmployeeProfileDO.class));
+        }
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM employee_profile WHERE enabled=true", Integer.class));
         assertEquals("ENABLE".equals(action) ? 1 : 0,
                 jdbc.queryForObject("SELECT COUNT(*) FROM employee_profile", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM employee_scope", Integer.class));
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
     }
 }

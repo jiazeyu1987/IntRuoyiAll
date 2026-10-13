@@ -16,8 +16,8 @@ export const getPostPage = async (params: PageParam) => {
 }
 
 // 获取岗位精简信息列表
-export const getSimplePostList = async (): Promise<PostVO[]> => {
-  return await request.get({ url: '/system/post/simple-list' })
+export const getSimplePostList = async (options?: { ignoreErrorMessage?: boolean }): Promise<PostVO[]> => {
+  return await request.get({ url: '/system/post/simple-list', ignoreErrorMessage: options?.ignoreErrorMessage })
 }
 
 // 查询岗位详情

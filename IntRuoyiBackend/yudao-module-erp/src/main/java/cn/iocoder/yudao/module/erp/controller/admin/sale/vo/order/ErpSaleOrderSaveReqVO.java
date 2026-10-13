@@ -44,6 +44,10 @@ public class ErpSaleOrderSaveReqVO {
     @Schema(description = "订单清单列表")
     private List<Item> items;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Schema(hidden = true)
+    private cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeOrderAmounts kingdeeAmounts;
+
     @Data
     public static class Item {
 

@@ -80,6 +80,8 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         kingdeeProperties.setPassword("password");
         kingdeeProperties.setLcid(2052);
         when(kingdeeConfigService.getEffectiveProperties()).thenReturn(kingdeeProperties);
+        org.mockito.Mockito.lenient().when(productUnitMapper.selectByName("PCS"))
+                .thenReturn(new ErpProductUnitDO().setId(40L).setName("PCS"));
         syncService = new ErpKingdeeSaleOrderSyncServiceImpl(
                 saleOrderClient, materialDetailClient, kingdeeConfigService, syncRecordMapper, saleOrderMapper, saleOrderService,
                 customerMapper, customerSyncRecordMapper, productMapper, productCategoryMapper, productUnitMapper);
@@ -111,6 +113,7 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         doAnswer(invocation -> {
             ErpProductUnitDO unit = invocation.getArgument(0);
             unit.setId(40L);
+            when(productUnitMapper.selectByName("PCS")).thenReturn(unit);
             return 1;
         }).when(productUnitMapper).insert(any(ErpProductUnitDO.class));
         doAnswer(invocation -> {
@@ -118,7 +121,6 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
             product.setId(20L);
             return 1;
         }).when(productMapper).insert(any(ErpProductDO.class));
-        when(productMapper.selectById(20L)).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
 
         ErpKingdeeSaleOrderSyncResult result = syncService.syncSaleOrders();
 
@@ -144,7 +146,6 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
                 .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
         when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
-        when(productMapper.selectById(20L)).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
 
         ErpKingdeeSaleOrderSyncResult result = syncService.syncSaleOrders();
 
@@ -171,7 +172,6 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
                 .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
         when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
-        when(productMapper.selectById(20L)).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
 
         ErpKingdeeSaleOrderSyncResult result = syncService.syncSaleOrdersModifiedBetween(windowStart, windowEnd);
 
@@ -202,7 +202,6 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         when(customerSyncRecordMapper.selectBySourceCustomerNumber("C000637"))
                 .thenReturn(new ErpKingdeeCustomerSyncRecordDO().setCustomerId(10L));
         when(productMapper.selectByBarCode("MAT-001")).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
-        when(productMapper.selectById(20L)).thenReturn(new ErpProductDO().setId(20L).setUnitId(40L));
 
         ErpKingdeeSaleOrderSyncResult result = syncService.syncSaleOrdersModifiedBetween(windowStart, windowEnd);
 
@@ -227,9 +226,15 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
 
     private static ErpKingdeeSaleOrder buildSaleOrder() {
         ErpKingdeeSaleOrder.Line line = new ErpKingdeeSaleOrder.Line();
+        line.setUnitName("PCS");
+        line.setPriceUnitName("PCS");
+        line.setNetAmount(new BigDecimal("8407"));
+        line.setTaxAmount(new BigDecimal("1093"));
+        line.setTotalAmount(new BigDecimal("60.12"));
         line.setMaterialNumber("MAT-001");
         line.setMaterialName("Material A");
         line.setQuantity(new BigDecimal("10"));
+        line.setPriceUnitQuantity(line.getQuantity());
         line.setPrice(new BigDecimal("840.7"));
         line.setTaxPrice(new BigDecimal("950"));
         line.setTaxPercent(new BigDecimal("13"));
@@ -244,6 +249,11 @@ class ErpKingdeeSaleOrderSyncServiceImplTest {
         saleOrder.setCancelStatus("A");
         saleOrder.setCustomerNumber("C000637");
         saleOrder.setCustomerName("Customer A");
+        saleOrder.setDiscountAmount(BigDecimal.ZERO);
+        saleOrder.setDepositAmount(new BigDecimal("10"));
+        saleOrder.setTotalProductAmount(new BigDecimal("8407"));
+        saleOrder.setTotalTaxAmount(new BigDecimal("1093"));
+        saleOrder.setTotalAmount(new BigDecimal("9500"));
         saleOrder.setLines(List.of(line));
         return saleOrder;
     }

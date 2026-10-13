@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.bpm.service.task;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy;
 import cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService;
 import jakarta.annotation.Resource;
 import org.flowable.engine.repository.ProcessDefinition;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Component;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_DCC_SIGNATURE;
-import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE;
 
 @Component
 public class BpmTaskExternalSignatureGuard {
@@ -23,6 +23,8 @@ public class BpmTaskExternalSignatureGuard {
     private BpmProcessDefinitionService processDefinitionService;
     @Resource
     private FormActionInstanceMapper formActionInstanceMapper;
+    @Resource
+    private NativeApprovalOwnershipPolicy ownershipPolicy;
 
     public void assertGenericApproveOrRejectAllowed(Task task) {
         assertGenericTaskMutationAllowed(task);
@@ -40,9 +42,8 @@ public class BpmTaskExternalSignatureGuard {
                 && !isFormCenterOwnedProcess(task)) {
             throw exception(TASK_APPROVAL_REQUIRES_DCC_SIGNATURE);
         }
-        if (StrUtil.equals(definition.getKey(), EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY)
-                && !isFormCenterOwnedProcess(task)) {
-            throw exception(TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE);
+        if (StrUtil.equals(definition.getKey(), EDHR_BATCH_RECORD_PROCESS_DEFINITION_KEY)) {
+            ownershipPolicy.assertGenericMutationAllowed(task, null);
         }
     }
 

@@ -1,25 +1,12 @@
-const fs = require('fs')
-const path = require('path')
-const assert = require('assert')
+const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 
-const repoRoot = path.resolve(__dirname, '..', '..')
-const userFormPath = path.join(repoRoot, 'src', 'views', 'system', 'user', 'UserForm.vue')
-const source = fs.readFileSync(userFormPath, 'utf8')
-
-assert(
-  source.includes('const normalizeAvailablePostIds = (postIds: unknown) =>'),
-  'UserForm must normalize stale post ids before submitting user updates'
-)
-
-assert(
-  source.includes('postList.value = await PostApi.getSimplePostList()') &&
-    source.includes('formData.value.postIds = normalizeAvailablePostIds(formData.value.postIds)'),
-  'UserForm must filter loaded user postIds against the active simple post list'
-)
-
-assert(
-  source.includes('.filter((postId) => validPostIds.has(postId))'),
-  'UserForm must remove deleted or unavailable post ids instead of preserving stale values'
-)
-
-console.log('PASS: system user form filters stale post ids')
+// The former string contract required silently deleting assignments absent
+// from enabled-only candidates. UM-04 explicitly retires that behavior.
+// Keep the existing entry point, but execute the actual SFC/API regressions.
+// This entry point does not claim browser E2E or actual Element Plus tag behavior.
+const regression = path.resolve(__dirname, '../../scripts/system-user-post-retention.test.mjs')
+const result = spawnSync(process.execPath, ['--test', regression], { stdio: 'inherit' })
+if (result.error) throw result.error
+if (result.signal) throw new Error(`User post retention regression interrupted by ${result.signal}`)
+process.exitCode = result.status

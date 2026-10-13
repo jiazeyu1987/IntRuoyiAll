@@ -198,6 +198,37 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     @Override
+    public PageResult<MesProEdhrWorkTaskRespVO> getApprovalCenterPrefix(MesProEdhrWorkTaskPageReqVO filters,
+                                                                      boolean globalView, boolean done, long limit) {
+        var page = getApprovalCenterAuthorizedPrefix(filters, globalView, done, limit);
+        return new PageResult<>(page.getList().stream().map(
+                cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection::display).toList(), page.getTotal());
+    }
+
+    @Override
+    public PageResult<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection> getApprovalCenterAuthorizedPrefix(
+            MesProEdhrWorkTaskPageReqVO filters, boolean globalView, boolean done, long limit) {
+        Long userId = requireLoginUserId();
+        String status = StrUtil.blankToDefault(filters.getStatus(), MesProEdhrWorkTaskStatus.TODO);
+        if (!done && !MesProEdhrWorkTaskStatus.TODO.equals(status) && !MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        var page = workTaskMapper.selectApprovalCenterPrefix(filters,
+                globalView ? null : userId, TenantContextHolder.getRequiredTenantId(), done, status, limit);
+        Objects.requireNonNull(page.getList(), "EDHR_AUTHORIZED_PREFIX_LIST_REQUIRED");
+        var display = buildWorkTaskRespPage(page, userId);
+        if (page.getList().size() != display.getList().size()) {
+            throw new IllegalStateException("EDHR_AUTHORIZED_PREFIX_DISPLAY_SIZE_CONFLICT");
+        }
+        var rows = new ArrayList<cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection>();
+        for (int i = 0; i < page.getList().size(); i++) {
+            rows.add(new cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection(
+                    page.getList().get(i), display.getList().get(i)));
+        }
+        return new PageResult<>(rows, page.getTotal());
+    }
+
+    @Override
     public PageResult<MesProEdhrWorkTaskRespVO> getApprovalCenterDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                           boolean globalView) {
         Long assigneeUserId = globalView ? null : requireLoginUserId();
@@ -247,7 +278,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     public List<MesProEdhrWorkTaskDO> getApprovalTimelineTasks(Long workTaskId, Long executionId) {
         MesProEdhrWorkTaskDO sourceTask = requireTimelineSourceTask(workTaskId);
         ensureTimelineAccess(sourceTask);
-        Long timelineExecutionId = executionId != null ? executionId : sourceTask.getExecutionId();
+        if (executionId != null && !Objects.equals(executionId, sourceTask.getExecutionId())) {
+            throw new IllegalArgumentException("APPROVAL_TIMELINE_IDENTITY_MISMATCH: EDHR execution");
+        }
+        Long timelineExecutionId = sourceTask.getExecutionId();
         List<MesProEdhrWorkTaskDO> tasks;
         if (timelineExecutionId != null) {
             tasks = workTaskMapper.selectTimelineListByExecutionId(timelineExecutionId);
@@ -270,7 +304,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!globalView) {
             ensureTimelineAccess(sourceTask);
         }
-        Long timelineExecutionId = executionId != null ? executionId : sourceTask.getExecutionId();
+        if (executionId != null && !Objects.equals(executionId, sourceTask.getExecutionId())) {
+            throw new IllegalArgumentException("APPROVAL_TIMELINE_IDENTITY_MISMATCH: EDHR execution");
+        }
+        Long timelineExecutionId = sourceTask.getExecutionId();
         List<MesProEdhrWorkTaskDO> tasks;
         if (timelineExecutionId != null) {
             tasks = workTaskMapper.selectTimelineListByExecutionId(timelineExecutionId);
@@ -786,9 +823,16 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (workTaskId == null) {
             throw new IllegalStateException("APPROVAL_BUSINESS_KEY_REQUIRED: eDHR work task id is required");
         }
-        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectOne(
+                new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, workTaskId)
+                        .eq(MesProEdhrWorkTaskDO::getDeleted, false)
+                        .apply("tenant_id = {0}", TenantContextHolder.getRequiredTenantId()));
         if (workTask == null) {
             throw new IllegalStateException("APPROVAL_BUSINESS_OBJECT_REQUIRED: eDHR work task not found " + workTaskId);
+        }
+        if (!Objects.equals(workTaskId, workTask.getId()) || Boolean.TRUE.equals(workTask.getDeleted())) {
+            throw new IllegalStateException("APPROVAL_TIMELINE_IDENTITY_MISMATCH: EDHR source task");
         }
         return workTask;
     }
@@ -967,6 +1011,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void completeReleaseApprovalTask(Long workTaskId, Long releaseTransactionId, String result, String reason) {
+        lockReleaseTaskMutation(workTaskId, releaseTransactionId);
         MesProEdhrWorkTaskDO workTask = validateReleaseApprovalTask(workTaskId, releaseTransactionId);
         completeTask(workTask, result, reason);
     }
@@ -974,14 +1019,14 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelReleaseApprovalTask(Long releaseTransactionId, String reason) {
-        MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(null, releaseTransactionId);
+        MesProEdhrWorkTaskDO workTask = lockReleaseTaskMutation(null, releaseTransactionId);
         cancelActiveReleaseApprovalTask(workTask, reason);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelReleaseApprovalTaskById(Long workTaskId, String reason) {
-        MesProEdhrWorkTaskDO workTask = resolveReleaseApprovalTask(workTaskId, null);
+        MesProEdhrWorkTaskDO workTask = lockReleaseTaskMutation(workTaskId, null);
         cancelActiveReleaseApprovalTask(workTask, reason);
     }
 
@@ -1004,6 +1049,27 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 || MesProEdhrWorkTaskStatus.OVERDUE.equals(workTask.getStatus()));
     }
 
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
+
+    private MesProEdhrWorkTaskDO lockReleaseTaskMutation(Long taskId, Long releaseId) {
+        sourceLedger.acquireLedgerLock();
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        sourceAuthority.lockTenantApprovalAuthority(tenantId);
+        MesProEdhrWorkTaskDO observed = resolveReleaseApprovalTask(taskId, releaseId);
+        var batch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, observed.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getTenantId(), tenantId))
+            throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        var release = releaseTransactionMapper.selectByIdForUpdate(observed.getBusinessScopeId());
+        if (release == null || !Objects.equals(release.getBatchExecutionId(), batch.getId()))
+            throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        MesProEdhrWorkTaskDO locked = workTaskMapper.selectByIdAndTenantForUpdate(observed.getId(), tenantId);
+        if (locked == null || !Objects.equals(locked.getBatchExecutionId(), batch.getId())
+                || !Objects.equals(locked.getBusinessScopeId(), release.getId())
+                || !TASK_TYPE_RELEASE_APPROVE.equals(locked.getTaskType()))
+            throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        return locked;
+    }
     private MesProEdhrWorkTaskDO resolveReleaseApprovalTask(Long workTaskId, Long releaseTransactionId) {
         if (workTaskId == null && releaseTransactionId == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
@@ -1419,7 +1485,16 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrWorkTaskDO reassignFillTask(Long workTaskId, String reason) {
-        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
+        sourceLedger.acquireLedgerLock();
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        sourceAuthority.lockTenantApprovalAuthority(tenantId);
+        MesProEdhrWorkTaskDO observed = workTaskMapper.selectById(workTaskId);
+        if (observed == null) throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        var lockedBatch = batchExecutionMapper.selectByTenantIdAndIdForUpdate(tenantId, observed.getBatchExecutionId());
+        if (lockedBatch == null) throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectByIdAndTenantForUpdate(workTaskId, tenantId);
+        if (workTask == null || !Objects.equals(workTask.getBatchExecutionId(), lockedBatch.getId()))
+            throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         if (workTask == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -1453,7 +1528,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setReason(reason)
                 .setActionUrl(buildActionUrl(workTask))
                 .setRemark(StrUtil.blankToDefault(reason, "按当前工序表单权限规则重新派发"));
-        workTaskMapper.updateById(update);
+        if (workTaskMapper.updateById(update) != 1) throw new IllegalStateException("WORK_TASK_REASSIGN_WRITE_FAILED");
         MesProEdhrWorkTaskDO reassigned = workTaskMapper.selectById(workTask.getId());
         syncRuntimeTaskEntitlement(reassigned);
         boolean ownerChanged = hasTaskOwnerChanged(workTask, reassigned);

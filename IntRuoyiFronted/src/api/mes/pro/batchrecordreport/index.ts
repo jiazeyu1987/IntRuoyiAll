@@ -408,10 +408,14 @@ export const BatchRecordReportApi = {
     })
   },
 
-  submitBatchRecordVersionApproval: async (versionId: number) => {
+  submitBatchRecordVersionApproval: async (
+    versionId: number | string,
+    options: { ignoreErrorMessage?: boolean } = {}
+  ) => {
     return await request.post<BatchRecordVersionApprovalResultVO>({
       url: '/mes/pro/batch-record-report/version-approval/submit',
-      params: { versionId }
+      params: { versionId },
+      ignoreErrorMessage: options.ignoreErrorMessage
     })
   },
 
@@ -446,8 +450,15 @@ export const BatchRecordReportApi = {
     })
   },
 
-  getGeneratedReportPage: async (params: BatchRecordReportPageReqVO) => {
-    return await request.get({ url: '/mes/pro/batch-record-report/page', params })
+  getGeneratedReportPage: async (
+    params: BatchRecordReportPageReqVO,
+    options: { ignoreErrorMessage?: boolean } = {}
+  ) => {
+    return await request.get({
+      url: '/mes/pro/batch-record-report/page',
+      params,
+      ignoreErrorMessage: options.ignoreErrorMessage
+    })
   },
 
   getDesignerPath: async (reportId: string) => {

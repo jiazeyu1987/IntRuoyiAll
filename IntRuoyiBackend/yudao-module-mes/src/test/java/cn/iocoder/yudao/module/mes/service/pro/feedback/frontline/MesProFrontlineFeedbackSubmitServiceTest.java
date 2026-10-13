@@ -62,13 +62,13 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     @Mock
     private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -81,11 +81,12 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
+                null,
                 activeOrderSnapshotResolver,
                 gxpAuditService);
         { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApply(any()))
@@ -103,7 +104,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9102L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
@@ -112,7 +113,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 .setSignatureIdentityDomain("SYSTEM_USER").setSignatureEmployeeId(9102L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO).getProcessPoolEventId());
         }
 
         verify(submitAuthorizationService).authorize(argThat(command -> {
@@ -124,8 +125,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             return true;
         }));
         var signingContext = ArgumentCaptor.forClass(MesProductionSubmitSignatureContext.class);
-        verify(signatureService).recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
-                eq("一线生产报工提交"), signingContext.capture());
+        verify(signatureService).record(argThat(s -> java.util.Objects.equals(s.actorId(),9102L)
+                && "SYSTEM_USER".equals(s.domain())), signingContext.capture());
         assertEquals(new MesProductionSubmitSignatureContext(81L, 71L, 31L,
                 "P0-SUBMIT-F2-20260730-001"), signingContext.getValue());
         ArgumentCaptor<GxpAuditCommand> audit = ArgumentCaptor.forClass(GxpAuditCommand.class);
@@ -154,14 +155,14 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertEquals(801L,
-                    submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
+                    MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
                             .getProcessPoolEventId());
         }
 
@@ -203,7 +204,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
         when(autoCodeRecordService.generateAutoCode(any())).thenReturn("FB-F2-GEN");
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
@@ -213,7 +214,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            respVO = submitService.submit(reqVO);
+            respVO = MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO);
         }
         assertNotNull(reqVO.getRecordbookPayload());
 
@@ -284,14 +285,14 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request).getProcessPoolEventId());
         }
 
         assertEquals(List.of(501L, 502L), request.getMaterialDetails().stream()
@@ -317,7 +318,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
@@ -325,12 +326,12 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request).getProcessPoolEventId());
         }
 
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
-                new BigDecimal("100.500").compareTo(payload.getFeedbackQuantity()) == 0
-                        && new BigDecimal("98.000").compareTo(payload.getQualifiedQuantity()) == 0
+                new BigDecimal("103.000").compareTo(payload.getFeedbackQuantity()) == 0
+                        && new BigDecimal("100.500").compareTo(payload.getQualifiedQuantity()) == 0
                         && new BigDecimal("2.500").compareTo(payload.getUnqualifiedQuantity()) == 0));
         verify(processPoolSubmitEventService).createInitialAllocation(
                 801L, 81L, new BigDecimal("100.500"));
@@ -342,7 +343,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -351,7 +352,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request).getProcessPoolEventId());
         }
 
         verify(submitAuthorizationService).authorizeActiveOrder(9001L, 81L, 41L, 21L, 71L, 31L);
@@ -370,7 +371,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -381,7 +382,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            submitService.submit(request);
+            MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request);
         }
 
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
@@ -409,7 +410,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO request = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
@@ -417,7 +418,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(request).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request).getProcessPoolEventId());
         }
 
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
@@ -440,7 +441,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            ServiceException error = assertThrows(ServiceException.class, () -> submitService.submit(request));
+            ServiceException error = assertThrows(ServiceException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request));
             assertTrue(error.getMessage().contains("完成数量必须大于 0"));
         }
 
@@ -455,7 +456,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                    () -> submitService.submit(request));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, request));
         }
 
         verifyNoInteractions(feedbackService, feedbackMaterialService, processPoolSubmitEventService, signatureService);
@@ -470,7 +471,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
-                    () -> submitService.submit(reqVO));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verifyNoInteractions(feedbackService, processPoolSubmitEventService, signatureService);
@@ -487,8 +488,9 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
-                eq("一线生产报工提交"), any(MesProductionSubmitSignatureContext.class))).thenReturn(4001L);
+        when(signatureService.record(argThat(s -> java.util.Objects.equals(s.actorId(), 9102L)
+                        && java.util.Objects.equals(s.operatorId(), 9001L) && "SYSTEM_USER".equals(s.domain())),
+                any(MesProductionSubmitSignatureContext.class))).thenReturn(4001L);
         stubValidLossReason();
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()
                 .setActualEmployeeId(9102L)
@@ -496,12 +498,14 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 .setSignatureIdentityDomain("SYSTEM_USER");
         try(MockedStatic<SecurityFrameworkUtils> security=mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO)
+                    .getProcessPoolEventId());
         }
         verify(submitAuthorizationService).authorizeNewSubmission(9102L, "SYSTEM_USER");
         verify(submitAuthorizationService).authorizeActiveOrder(9001L, 81L, 41L, 21L, 71L, 31L);
-        verify(signatureService).recordProductionSubmitSignature(eq(9102L), eq("SYSTEM_USER"), eq("sign-123"),
-                eq("一线生产报工提交"), any(MesProductionSubmitSignatureContext.class));
+        verify(signatureService).record(argThat(s -> java.util.Objects.equals(s.actorId(), 9102L)
+                        && java.util.Objects.equals(s.operatorId(), 9001L) && "SYSTEM_USER".equals(s.domain())),
+                any(MesProductionSubmitSignatureContext.class));
         verify(feedbackService).createFrontlineFeedback(argThat(payload ->
                 Long.valueOf(9102L).equals(payload.getFeedbackUserId())));
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload ->
@@ -525,7 +529,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            respVO = submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
+            respVO = MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq());
         }
 
         assertEquals(501L, respVO.getFeedbackId());
@@ -555,7 +559,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(ServiceException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
         verifyNoInteractions(feedbackService, signatureService, autoCodeRecordService);
         verify(processPoolSubmitEventService, never()).createSubmitEvent(any());
@@ -572,7 +576,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
 
         verify(submitAuthorizationService).authorize(any());
@@ -591,7 +595,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verify(feedbackService, never()).createFrontlineFeedback(any());
@@ -605,7 +609,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verifyNoInteractions(submitAuthorizationService, feedbackService,
@@ -620,7 +624,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verifyNoInteractions(submitAuthorizationService, feedbackService,
@@ -636,7 +640,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
 
         verify(submitAuthorizationService).authorize(any());
@@ -649,7 +653,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         when(processPoolSubmitEventService.findExistingSubmitEvent(any())).thenReturn(Optional.empty());
         when(feedbackService.createFrontlineFeedback(any())).thenReturn(501L);
         when(processPoolSubmitEventService.createSubmitEvent(any())).thenReturn(801L);
-        when(signatureService.recordProductionSubmitSignature(eq(9001L), eq("SYSTEM_USER"), eq("sign-123"), eq("一线生产报工提交"), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        when(signatureService.record(org.mockito.ArgumentMatchers.argThat(s -> java.util.Objects.equals(s.actorId(), 9001L) && "SYSTEM_USER".equals(s.domain())), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
         stubValidLossReason();
 
@@ -661,7 +665,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         MesProFrontlineFeedbackSubmitRespVO respVO;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            respVO = submitService.submit(reqVO);
+            respVO = MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO);
         }
 
         assertEquals(801L, respVO.getProcessPoolEventId());
@@ -680,7 +684,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO));
         }
 
         verify(submitAuthorizationService).authorize(any());
@@ -701,8 +705,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertThrows(RuntimeException.class, () -> submitService.submit(negativeOutputReq));
-            assertThrows(RuntimeException.class, () -> submitService.submit(negativeLossReq));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, negativeOutputReq));
+            assertThrows(RuntimeException.class, () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, negativeLossReq));
         }
 
         verify(submitAuthorizationService, org.mockito.Mockito.times(2)).authorize(any());

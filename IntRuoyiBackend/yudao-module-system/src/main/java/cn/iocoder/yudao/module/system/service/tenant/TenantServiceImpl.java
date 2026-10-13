@@ -57,6 +57,12 @@ import static java.util.Collections.singleton;
 @Slf4j
 public class TenantServiceImpl implements TenantService {
 
+    @Resource
+    private cn.iocoder.yudao.module.system.dal.mysql.permission.ApprovalAuthorityRevisionMapper approvalAuthorityRevisionMapper;
+
+    @Resource
+    private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService approvalAuditService;
+
     @SuppressWarnings("SpringJavaAutowiredFieldsWarningInspection")
     @Autowired(required = false) // 由于 yudao.tenant.enable 配置项，可以关闭多租户的功能，所以这里只能不强制注入
     private TenantProperties tenantProperties;
@@ -109,9 +115,16 @@ public class TenantServiceImpl implements TenantService {
 
         // 创建租户
         TenantDO tenant = BeanUtils.toBean(createReqVO, TenantDO.class);
-        tenantMapper.insert(tenant);
+        if (tenantMapper.insert(tenant) != 1 || tenant.getId() == null || tenant.getId() <= 0) {
+            throw new IllegalStateException("APPROVAL_FORMAL_TENANT_CREATE_ROW_COUNT");
+        }
         // 创建租户的管理员
         TenantUtils.execute(tenant.getId(), () -> {
+            // Administrator provisioning writes permission audit events in this transaction.
+            approvalAuditService.acquireLedgerLock();
+            if (approvalAuthorityRevisionMapper.initializeNewTenant(tenant.getId()) != 1) {
+                throw new IllegalStateException("APPROVAL_NEW_TENANT_AUTHORITY_INITIALIZATION_FAILED");
+            }
             // 创建角色
             Long roleId = createRole(tenantPackage);
             // 创建用户，并分配角色

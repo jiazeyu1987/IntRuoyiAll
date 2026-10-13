@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessP
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamLeaderScopeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.ProcessPoolTimelineService;
+import cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,18 +36,20 @@ class MesTeamLeaderWorkbenchServiceImplTest {
     private MesRouteStartProductionLeaderAuthorizationService routeStartAuthorizationService;
     @Mock
     private ProcessPoolTimelineService timelineService;
+    @Mock
+    private MesActiveOrderHandoffService handoffService;
 
     private MesTeamLeaderWorkbenchServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new MesTeamLeaderWorkbenchServiceImpl(scopeService, routeStartAuthorizationService, timelineService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", handoffService);
     }
 
     @Test
     void shouldRestrictPqcLeaderManagementPageToPqcInspectionEvents() {
-        when(scopeService.listResponsibleEmployeeIds(7001L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC))
-                .thenReturn(Set.of(8001L, 8002L));
+        when(handoffService.listOwnPqcReviewEventIds(7001L)).thenReturn(Set.of(9001L, 9002L));
         when(timelineService.getTimelinePage(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new PageResult<ProcessPoolTimelineEventRespVO>(java.util.List.of(), 0L));
         MesTeamLeaderSubmissionPageReqVO reqVO = new MesTeamLeaderSubmissionPageReqVO()
@@ -57,8 +60,10 @@ class MesTeamLeaderWorkbenchServiceImplTest {
         ArgumentCaptor<MesTeamLeaderSubmissionPageReqVO> captor =
                 ArgumentCaptor.forClass(MesTeamLeaderSubmissionPageReqVO.class);
         verify(timelineService).getTimelinePage(captor.capture());
-        assertEquals(Set.of(8001L, 8002L), captor.getValue().getEmployeeUserIds());
+        assertEquals(Set.of(9001L, 9002L), captor.getValue().getEventIds());
+        assertNull(captor.getValue().getEmployeeUserIds());
         assertEquals(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION, captor.getValue().getEventType());
+        org.mockito.Mockito.verifyNoInteractions(scopeService);
     }
 
     @Test
@@ -155,24 +160,46 @@ class MesTeamLeaderWorkbenchServiceImplTest {
                 .setLeaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION);
         reqVO.setProcessIds(Set.of(9999L));
         reqVO.setRouteProcessIds(Set.of(9101L));
+        reqVO.setEventIds(Set.of(9999L));
 
         service.getSubmissionPage(7001L, MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION, reqVO);
 
         assertEquals(Set.of(8101L), reqVO.getProcessIds());
         assertNull(reqVO.getRouteProcessIds());
+        assertNull(reqVO.getEventIds());
     }
 
     @Test
-    void shouldKeepPqcDetailAuthorizationOnResponsibleEmployee() {
+    void shouldReadPqcDetailFromFrozenResponsibilityWithoutCurrentEmployeeScope() {
         ProcessPoolTimelineDetailRespVO detail = new ProcessPoolTimelineDetailRespVO();
         detail.setId(282242L).setActualEmployeeUserId(8001L);
         when(timelineService.getTimelineDetail(282242L)).thenReturn(detail);
+        when(handoffService.listOwnPqcReviewEventIds(7001L)).thenReturn(Set.of(282242L));
 
         assertSame(detail, service.getSubmissionDetail(7001L,
                 MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 282242L));
-        verify(scopeService).assertCanAccessEmployee(7001L,
-                MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, 8001L);
+        org.mockito.Mockito.verifyNoInteractions(scopeService);
         verify(routeStartAuthorizationService, never()).listAuthorizedRouteProcesses(
                 org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void shouldOverrideClientEventScopeAndRetainOnlyOptionalEmployeeFilter() {
+        when(handoffService.listOwnPqcReviewEventIds(7001L)).thenReturn(Set.of(282242L));
+        when(timelineService.getTimelinePage(org.mockito.ArgumentMatchers.any())).thenReturn(PageResult.empty());
+        var req = new MesTeamLeaderSubmissionPageReqVO().setLeaderType("PQC");
+        req.setEventIds(Set.of(999L)); req.setEmployeeUserIds(Set.of(888L)); req.setEmployeeUserId(8001L);
+        service.getSubmissionPage(7001L, "PQC", req);
+        assertEquals(Set.of(282242L), req.getEventIds());
+        assertNull(req.getEmployeeUserIds()); assertEquals(8001L, req.getEmployeeUserId());
+        org.mockito.Mockito.verifyNoInteractions(scopeService);
+    }
+
+    @Test
+    void shouldNotQueryTimelineOrDetailWithoutFrozenPqcResponsibility() {
+        when(handoffService.listOwnPqcReviewEventIds(7001L)).thenReturn(Set.of());
+        assertEquals(0L, service.getSubmissionPage(7001L, "PQC", new MesTeamLeaderSubmissionPageReqVO()).getTotal());
+        assertThrows(ServiceException.class, () -> service.getSubmissionDetail(7001L, "PQC", 282242L));
+        org.mockito.Mockito.verifyNoInteractions(timelineService, scopeService);
     }
 }

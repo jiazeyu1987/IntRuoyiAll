@@ -47,13 +47,13 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     @Mock
     private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -66,11 +66,12 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
+                null,
                 activeOrderSnapshotResolver,
                 gxpAuditService);
         { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
@@ -79,14 +80,14 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
                         any(), any(), any(), any(), any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any(), any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        org.mockito.Mockito.lenient().when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 
     @Test
     void submitShouldDeclareRollbackForAnyException() throws NoSuchMethodException {
         Method submit = MesProFrontlineFeedbackSubmitServiceImpl.class
-                .getMethod("submit", cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO.class);
+                .getMethod("submitAuthenticated", cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO.class, cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner.class);
 
         Transactional transactional = submit.getAnnotation(Transactional.class);
         assertNotNull(transactional);
@@ -103,7 +104,7 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
 
         verify(feedbackService).createFrontlineFeedback(any());
@@ -123,7 +124,7 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
             assertThrows(IllegalStateException.class,
-                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+                    () -> MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
         }
 
         verify(feedbackService).createFrontlineFeedback(any());

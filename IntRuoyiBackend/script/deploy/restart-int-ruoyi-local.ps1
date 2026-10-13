@@ -1213,10 +1213,13 @@ function Assert-LocalDockerRuntimePortRoute {
         [int]$Port
     )
 
-    $connection = Test-NetConnection -ComputerName $LocalDockerRuntimeHost -Port $Port -WarningAction SilentlyContinue
-    if (-not $connection.TcpTestSucceeded) {
-        Fail "LOCAL_DOCKER_PORT_SHADOWED: $Name port $Port is not reachable on $LocalDockerRuntimeHost. Local backend must use the unshadowed Docker loopback host instead of 127.0.0.1."
-    }
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $connect = $client.ConnectAsync($LocalDockerRuntimeHost, $Port)
+        if (-not $connect.Wait(5000)) { throw 'Local Docker TCP connection timed out' }
+        $null = $connect.GetAwaiter().GetResult()
+        if (-not $client.Connected) { throw 'Local Docker TCP connection failed' }
+    } finally { $client.Dispose() }
 }
 
 function Start-Frontend {
@@ -1274,40 +1277,128 @@ function Assert-OwnedBackendProcess($Process) {
     }
 }
 
+function Initialize-NativeBackendOwnership {
+    if (-not ('IntRuoyiNativeBackendOwnership' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public sealed class IntRuoyiNativeBackendProcess {
+    public int ProcessId; public string Name; public string CommandLine;
+    public long CreationDate;
+}
+public static class IntRuoyiNativeBackendOwnership {
+    [DllImport("iphlpapi.dll", SetLastError=true)] static extern uint GetExtendedTcpTable(IntPtr table, ref int size, bool order, int family, int tableClass, uint reserved);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetProcessTimes(IntPtr process, out long creation, out long exit, out long kernel, out long user);
+    [DllImport("kernel32.dll", SetLastError=true)] static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder image, ref int size);
+    [DllImport("ntdll.dll")] static extern int NtQueryInformationProcess(IntPtr process, int infoClass, IntPtr data, int size, out int needed);
+    public static int[] ListenerPids(int port) {
+        if (port < 1 || port > 65535) throw new ArgumentOutOfRangeException("port");
+        var owners = new HashSet<int>();
+        foreach (int family in new int[] { 2, 23 }) {
+            int size=0; uint status=GetExtendedTcpTable(IntPtr.Zero,ref size,false,family,3,0);
+            if (status!=122) throw new Win32Exception((int)status,"TCP inventory unavailable");
+            IntPtr buffer=Marshal.AllocHGlobal(size);
+            try {
+                status=GetExtendedTcpTable(buffer,ref size,false,family,3,0);
+                if (status!=0) throw new Win32Exception((int)status,"TCP inventory unavailable");
+                int count=Marshal.ReadInt32(buffer); int rowSize=family==2?24:56;
+                if (count<0 || 4L+(long)count*rowSize>size) throw new InvalidOperationException("Invalid TCP inventory");
+                for (int i=0;i<count;i++) {
+                    IntPtr row=IntPtr.Add(buffer,4+i*rowSize);
+                    int state=Marshal.ReadInt32(row,family==2?0:48);
+                    int portOffset=family==2?8:20;
+                    int localPort=(Marshal.ReadByte(row,portOffset)<<8)|Marshal.ReadByte(row,portOffset+1);
+                    if (state==2 && localPort==port) {
+                        int pid=Marshal.ReadInt32(row,family==2?20:52);
+                        if (pid<=0) throw new InvalidOperationException("Invalid TCP owner");
+                        owners.Add(pid);
+                    }
+                }
+            } finally { Marshal.FreeHGlobal(buffer); }
+        }
+        var result=new int[owners.Count]; owners.CopyTo(result); Array.Sort(result); return result;
+    }
+    public static IntPtr OpenVerifiedWaitHandle(int pid, long expectedCreation) {
+        IntPtr process=OpenProcess(0x100000|0x1000,false,pid);
+        if (process==IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(),"Process wait identity unavailable");
+        long creation,exit,kernel,user;
+        if (!GetProcessTimes(process,out creation,out exit,out kernel,out user)) {
+            int error=Marshal.GetLastWin32Error(); CloseHandle(process); throw new Win32Exception(error);
+        }
+        if (creation!=expectedCreation) { CloseHandle(process); throw new InvalidOperationException("Backend process identity changed before stop"); }
+        return process;
+    }
+    public static void WaitForExit(IntPtr process) {
+        uint result=WaitForSingleObject(process,10000);
+        if (result==258) throw new TimeoutException("Owned backend did not exit after stop");
+        if (result!=0) throw new Win32Exception(Marshal.GetLastWin32Error(),"Owned backend exit wait failed");
+    }
+    public static void CloseWaitHandle(IntPtr process) { if (process!=IntPtr.Zero) CloseHandle(process); }
+    public static IntRuoyiNativeBackendProcess Process(int pid) {
+        IntPtr process=OpenProcess(0x1000,false,pid);
+        if (process==IntPtr.Zero) {
+            int error=Marshal.GetLastWin32Error();
+            if (error==87) return null;
+            throw new Win32Exception(error,"Process identity unavailable");
+        }
+        try {
+            long creation,exit,kernel,user;
+            if (!GetProcessTimes(process,out creation,out exit,out kernel,out user)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            var image=new StringBuilder(32768); int imageSize=image.Capacity;
+            if (!QueryFullProcessImageName(process,0,image,ref imageSize)) throw new Win32Exception(Marshal.GetLastWin32Error());
+            int size; int status=NtQueryInformationProcess(process,60,IntPtr.Zero,0,out size);
+            if (size<IntPtr.Size+4 || (status!=unchecked((int)0xc0000004) && status!=unchecked((int)0xc0000023))) throw new InvalidOperationException("Process command line size unavailable");
+            IntPtr buffer=Marshal.AllocHGlobal(size);
+            try {
+                status=NtQueryInformationProcess(process,60,buffer,size,out size);
+                if (status!=0) throw new InvalidOperationException("Process command line unavailable");
+                int length=(ushort)Marshal.ReadInt16(buffer); IntPtr text=Marshal.ReadIntPtr(buffer,IntPtr.Size==8?8:4);
+                long start=buffer.ToInt64(),address=text.ToInt64();
+                if (length==0 || length%2!=0 || address<start || address+length>start+size) throw new InvalidOperationException("Invalid process command line");
+                return new IntRuoyiNativeBackendProcess { ProcessId=pid,Name=Path.GetFileName(image.ToString()),CreationDate=creation,CommandLine=Marshal.PtrToStringUni(text,length/2) };
+            } finally { Marshal.FreeHGlobal(buffer); }
+        } finally { CloseHandle(process); }
+    }
+}
+
+'@
+    }
+}
+
 function Stop-OwnedBackendListener {
-    # Enumerate all listeners: a successful empty inventory differs from a failed query.
-    $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop)
-    $owners = @($listeners | Where-Object LocalPort -eq $BackendPort |
-        Select-Object -ExpandProperty OwningProcess -Unique)
-    $processes = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+    Initialize-NativeBackendOwnership
+    $owners = @([IntRuoyiNativeBackendOwnership]::ListenerPids($BackendPort))
     $verified = @()
     foreach ($owner in $owners) {
-        $matches = @($processes | Where-Object ProcessId -eq $owner)
-        if ($matches.Count -ne 1 -or $owner -eq $PID) {
-            throw 'Backend listener process identity is unavailable'
-        }
-        Assert-OwnedBackendProcess $matches[0]
-        $verified += $matches[0]
+        if ($owner -eq $PID) { throw 'Backend listener process identity is unavailable' }
+        $process = [IntRuoyiNativeBackendOwnership]::Process($owner)
+        if ($null -eq $process) { throw 'Backend listener process identity is unavailable' }
+        Assert-OwnedBackendProcess $process
+        $verified += $process
     }
     foreach ($process in $verified) {
-        # Query again immediately before stopping. Exit is benign; PID reuse is not.
-        $current = @(Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ProcessId)" -ErrorAction Stop)
-        if ($current.Count -eq 0) { continue }
-        if ($current.Count -ne 1 -or $current[0].CreationDate -ne $process.CreationDate -or
-            $current[0].CommandLine -cne $process.CommandLine) {
+        $current = [IntRuoyiNativeBackendOwnership]::Process($process.ProcessId)
+        if ($null -eq $current) { continue }
+        if ($current.CreationDate -ne $process.CreationDate -or
+            $current.CommandLine -cne $process.CommandLine) {
             throw 'Backend process identity changed before stop'
         }
-        Assert-OwnedBackendProcess $current[0]
+        Assert-OwnedBackendProcess $current
+        $waitHandle = [IntRuoyiNativeBackendOwnership]::OpenVerifiedWaitHandle($process.ProcessId, $process.CreationDate)
         try {
             Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop
-        } catch {
-            $remaining = @(Get-CimInstance Win32_Process -Filter "ProcessId = $($process.ProcessId)" -ErrorAction Stop)
-            if ($remaining.Count -ne 0) { throw }
-        }
+            [IntRuoyiNativeBackendOwnership]::WaitForExit($waitHandle)
+        } finally { [IntRuoyiNativeBackendOwnership]::CloseWaitHandle($waitHandle) }
     }
-    $remainingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
-        Where-Object LocalPort -eq $BackendPort)
-    if ($remainingListeners.Count -ne 0) {
+    if (@([IntRuoyiNativeBackendOwnership]::ListenerPids($BackendPort)).Count -ne 0) {
         throw 'Backend port became occupied before launch; no additional process stopped'
     }
 }
@@ -1459,9 +1550,12 @@ function Start-Backend {
     $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
     Copy-Item -LiteralPath $artifact.Path -Destination $runtimeJar
     $null = Assert-BackendExecutableJar -Path $runtimeJar -ExpectedSha256 $artifact.Sha256
+    Write-Host 'Backend stage: verify local schema'
     Ensure-RequiredLocalMySqlSchema
+    Write-Host 'Backend stage: verify protected media configuration'
     Assert-LocalShowroomFileConfigProtected
     Assert-LocalShowroomMediaBucketConsistency
+    Write-Host 'Backend stage: verify dependency TCP routes'
     Assert-LocalDockerRuntimePortRoute -Name 'MySQL' -Port 23306
     Assert-LocalDockerRuntimePortRoute -Name 'Redis' -Port 26379
     $backendLogDir = Join-Path $RuntimeDir 'logs'
@@ -1498,6 +1592,7 @@ Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 & java @backendArgs
 "@
     $backendEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($backendScript))
+    Write-Host 'Backend stage: stop verified owned listener'
     Stop-OwnedBackendListener
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile',

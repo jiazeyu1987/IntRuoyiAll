@@ -60,6 +60,7 @@ import static org.mockito.Mockito.*;
 
 /** Exercises the actual correction review/audit producer and signature adapter against the reader. */
 @ExtendWith(MockitoExtension.class)
+// Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesPqcCorrectionSignatureEvidenceTest {
     @Mock MesTeamLeaderActiveOrderDetailService teamDetailService;
     @Mock MesPqcReleaseOrderDetailService pqcDetailService;
@@ -157,7 +158,9 @@ class MesPqcCorrectionSignatureEvidenceTest {
         lenient().when(signatureQueryService.getById(SIGNATURE)).thenAnswer(invocation -> evidence);
         lenient().when(signatureQueryService.verifyEvidence(SIGNATURE)).thenAnswer(invocation ->
                 new ElectronicSignatureVerificationDTO(SIGNATURE, "VALID", evidence.contentHash(), evidence.contentHash(),
-                        evidence.evidenceHash(), evidence.evidenceHash(), "SHA-256", "v1"));
+                        evidence.evidenceHash(), evidence.evidenceHash(), "SHA-256", "v1",
+                        "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                        "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }
@@ -185,7 +188,9 @@ class MesPqcCorrectionSignatureEvidenceTest {
         var original = signatureEvidence(743L, 341L, "TEAM_LEADER_REVIEW", "PROCESS_POOL_EVENT", EVENT, null, "批准");
         when(signatureQueryService.getById(743L)).thenReturn(original);
         when(signatureQueryService.verifyEvidence(743L)).thenReturn(new ElectronicSignatureVerificationDTO(
-                743L, "VALID", original.contentHash(), original.contentHash(), original.evidenceHash(), original.evidenceHash(), "SHA-256", "v1"));
+                743L, "VALID", original.contentHash(), original.contentHash(), original.evidenceHash(), original.evidenceHash(), "SHA-256", "v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
         assertEquals(743L, service.getTeam(341L, ACTIVE_ORDER, 743L).evidence().id());
     }
 
@@ -336,7 +341,9 @@ class MesPqcCorrectionSignatureEvidenceTest {
 
     @Test void unifiedMismatchIsReturnedInsteadOfAssumedValidForCorrection() {
         when(signatureQueryService.verifyEvidence(SIGNATURE)).thenReturn(new ElectronicSignatureVerificationDTO(
-                SIGNATURE, "MISMATCH", evidence.contentHash(), "changed", evidence.evidenceHash(), "changed", "SHA-256", "v1"));
+                SIGNATURE, "MISMATCH", evidence.contentHash(), "changed", evidence.evidenceHash(), "changed", "SHA-256", "v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
         assertEquals("MISMATCH", service.getTeam(341L, ACTIVE_ORDER, SIGNATURE).verification().verificationStatus());
     }
 
@@ -433,7 +440,9 @@ class MesPqcCorrectionSignatureEvidenceTest {
         lenient().when(signatureQueryService.getById(15059L)).thenAnswer(invocation -> evidence);
         lenient().when(signatureQueryService.verifyEvidence(15059L)).thenAnswer(invocation ->
                 new ElectronicSignatureVerificationDTO(15059L, "VALID", evidence.contentHash(), evidence.contentHash(),
-                        evidence.evidenceHash(), evidence.evidenceHash(), "SHA-256", "v1"));
+                        evidence.evidenceHash(), evidence.evidenceHash(), "SHA-256", "v1",
+                        "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                        "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
     }
 
     // Frozen exact read-only MySQL facts from root-correction15059-contract-read.json.

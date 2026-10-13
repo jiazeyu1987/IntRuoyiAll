@@ -10,7 +10,8 @@ const root = path.resolve(__dirname, '../..')
 const filename = path.join(root, 'src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue')
 const descriptor = parse(fs.readFileSync(filename, 'utf8')).descriptor
 const ast = ts.createSourceFile('leader.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-const names = new Set(['parseProductionEventQuery', 'requireProductionHandoffDetail', 'handoffNavigationEpoch', 'navigateToLeaderHandoff'])
+const names = new Set(['parseProductionEventQuery', 'requireProductionHandoffDetail', 'handoffNavigationEpoch', 'navigateToLeaderHandoff',
+  'canReviewSubmission', 'canCorrectSubmission', 'canAllocateSubmission', 'canRejectProductionSubmission'])
 const statements = ast.statements.filter(statement => ts.isVariableStatement(statement)
   && statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast))))
 for (const name of ['parseProductionEventQuery', 'handoffNavigationEpoch', 'navigateToLeaderHandoff']) {
@@ -61,13 +62,16 @@ function harness(leader = 'PRODUCTION', original = task(leader), selected = prod
   const values = { route, detail, detailVisible, handoffActiveOrderAnchor: vue.ref(),
     handoffNavigationContext: async id => { calls.push(['context', id]); return typeof context === 'function' ? context(id) : context },
     resolveActiveOrderHandoffTarget: navigation.exports.resolveActiveOrderHandoffTarget,
+    isClosedHandoffCompletion: navigation.exports.isClosedHandoffCompletion,
+    isProductionReportHistoryTab: vue.ref(false), isPqcFormHistoryTab: vue.ref(false),
+    requiresOwnProductionReturnCorrection: () => false,
     resolveCurrentLeaderType: () => leader,
     getTeamLeaderSubmissionDetail: async (id, type) => { calls.push(['detail', id, type]); return typeof response === 'function' ? response(id, type) : response },
     pqcDetailQuery: { pageNo: 5 }, activePqcModuleTab: vue.ref(), activeProductionModuleTab: vue.ref(),
     loadError: vue.ref(), resolveErrorMessage: error => error.message,
     ElMessage: { error: error => errors.push(error) }, isProductionLeader: vue.ref(leader === 'PRODUCTION'),
     loadActiveOrders: async () => { calls.push(['orders']) }, activeOrderOptions: vue.ref([]), activeOrderQuery: { pageNo: 1 } }
-  const page = Function(...Object.keys(values), code + ';return {navigateToLeaderHandoff};')(...Object.values(values))
+  const page = Function(...Object.keys(values), code + ';return {navigateToLeaderHandoff, canReviewSubmission, canCorrectSubmission, canAllocateSubmission, canRejectProductionSubmission};')(...Object.values(values))
   return { ...values, page, errors, calls, setContext: value => { context = value }, setResponse: value => { response = value } }
 }
 function rejected(h) {
@@ -85,15 +89,15 @@ test('原自然生产DTO顶层周期NULL，准确载荷和allocation5793仍打�
   assert.equal(h.detailVisible.value, true); assert.equal(h.activeProductionModuleTab.value, 'report')
   assert.deepEqual(h.calls.filter(call => call[0] === 'detail'), [['detail', 288016, 'PRODUCTION']])
 })
-test('原REJECTED已退休分配，DONE严格只读仍能查看原拒绝结果', async () => {
-  const original = task('PRODUCTION', { status: 'DONE' })
+test('原REJECTED已退休分配，正式DONE严格只读仍能查看原拒绝结果', async () => {
+  const original = task('PRODUCTION', { status: 'DONE', completedBy: 12, completionSourceId: 77, completedAt: '2026-10-07T01:00:00Z' })
   const h = harness('PRODUCTION', original, production({ submissionReviewStatus: 'REJECTED', reportAllocations: [] }))
   h.route.query.handoffReadOnly = '1'; h.setContext({ task: original, current: true, processable: false })
   await h.page.navigateToLeaderHandoff(); assert.deepEqual(h.errors, [])
   assert.equal(h.detail.value.submissionReviewStatus, 'REJECTED'); assert.equal(h.activeProductionModuleTab.value, 'reportHistory')
 })
 test('本人补正新revision round待FIFO，PENDING零CURRENT分配仍打开原event再审', async () => {
-  const original = task('PRODUCTION', { roundId: 287170 })
+  const original = task('PRODUCTION', { roundId: 287170, sourceType: 'PROCESS_POOL_EVENT_SIGNED_REVISION' })
   const h = harness('PRODUCTION', original, production({ submissionReviewStatus: 'PENDING', reportAllocations: [] }))
   await h.page.navigateToLeaderHandoff(); assert.deepEqual(h.errors, [])
   assert.equal(h.detail.value.id, 288016); assert.equal(h.detailVisible.value, true)
@@ -186,6 +190,42 @@ test('已完成任务没有严格readonly参数不能继续办理', async () => 
   const original = task('PRODUCTION', { status: 'DONE' }), h = harness('PRODUCTION', original)
   h.setContext({ task: original, current: true, processable: false }); await h.page.navigateToLeaderHandoff(); rejected(h)
   assert.equal(h.calls.filter(call => call[0] === 'detail').length, 0)
+})
+
+test('当前DONE及正式closedDone旧周期准确详情可达，全部办理资格禁用', async () => {
+  for (const leader of ['PRODUCTION', 'PQC']) {
+    for (const current of [true, false]) {
+      const original = task(leader, { status: 'DONE', completedBy: '12', completionSourceId: '77', completedAt: '2026-10-07T01:00:00Z' })
+      const selected = leader === 'PRODUCTION' ? production({ submissionReviewStatus: 'APPROVED' })
+        : { id: 288016, activeOrderId: 1009200414, submissionReviewStatus: 'APPROVED' }
+      const h = harness(leader, original, selected)
+      h.route.query.handoffReadOnly = '1'; h.setContext({ task: original, current, processable: false })
+      await h.page.navigateToLeaderHandoff(); assert.deepEqual(h.errors, [])
+      assert.equal(h.detail.value.id, 288016)
+      const otherwiseWritable = { id: 288016, submissionReviewStatus: 'PENDING' }
+      for (const eligibility of ['canReviewSubmission', 'canCorrectSubmission', 'canAllocateSubmission', 'canRejectProductionSubmission']) {
+        assert.equal(h.page[eligibility](otherwiseWritable), false, eligibility)
+      }
+      assert.deepEqual(h.calls.filter(call => call[0] === 'detail'), [['detail', 288016, leader]])
+      assert.equal(h.calls.filter(call => call[0] === 'orders').length, 0)
+    }
+  }
+})
+
+test('旧周期DONE缺正式完成事实或篡改readonly仍在读详情前拒绝', async () => {
+  const receipt = { status: 'DONE', completedBy: 12, completionSourceId: 77, completedAt: '2026-10-07T01:00:00Z' }
+  for (const change of [{ completedBy: undefined }, { completionSourceId: undefined }, { completedAt: undefined }, { completedAt: 'invalid' }]) {
+    const original = task('PRODUCTION', { ...receipt, ...change }), h = harness('PRODUCTION', original)
+    h.route.query.handoffReadOnly = '1'; h.setContext({ task: original, current: false, processable: false })
+    await h.page.navigateToLeaderHandoff(); rejected(h)
+    assert.equal(h.calls.filter(call => call[0] === 'detail').length, 0)
+  }
+  for (const value of ['', '0', ['1']]) {
+    const original = task('PRODUCTION', receipt), h = harness('PRODUCTION', original)
+    h.route.query.handoffReadOnly = value; h.setContext({ task: original, current: true, processable: false })
+    await h.page.navigateToLeaderHandoff(); rejected(h)
+    assert.equal(h.calls.filter(call => call[0] === 'detail').length, 0)
+  }
 })
 test('A详情迟到不能覆盖已经打开的B原事件', async () => {
   const h = harness(); let resolveA

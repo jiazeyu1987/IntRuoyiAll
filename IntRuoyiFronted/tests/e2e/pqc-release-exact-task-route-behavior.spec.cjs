@@ -10,27 +10,38 @@ const tick = async () => { await vue.nextTick(); for (let i = 0; i < 20; i++) aw
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
 const formalRow = (overrides = {}) => ({ applicationId: '224', pqcReleaseWorkTaskId: '2734', version: 3, viewStatus: 'PENDING', applicationStatus: 'PQC_RELEASE_PENDING', activeOrderId: '1009200409', approvalReady: true, ...overrides })
 const formalDecision = (overrides = {}) => ({ applicationId: '224', pqcReleaseWorkTaskId: '2734', decision: 'APPROVE', status: 'MANAGER_RELEASE_PENDING', version: 4, signatureId: 29024, decidedBy: '9908090346', decidedAt: 1791232971334, batchExecutionId: '900000001232', sourceSnapshotHash: 'c'.repeat(64), ...overrides })
-const formalDetail = (overrides = {}) => ({ detail: { activeOrderId: '1009200409', workOrderId: '990274', activeOrderStatus: { status: 'RELEASED' }, pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: { signatureId: 29024, role: 'PQC_RELEASE', signerName: '正式签署人', signedAt: 1791232971334 } }, ...overrides }, productionMaterialLists: [] })
+const formalVerification = (overrides = {}) => ({
+  signatureId: 29024, verificationStatus: 'VALID', digestStatus: 'CONSISTENT',
+  timeConsistencyStatus: 'CONSISTENT', auditBindingStatus: 'CONSISTENT',
+  storedContentHash: 'content', calculatedContentHash: 'content', storedEvidenceHash: 'evidence', calculatedEvidenceHash: 'evidence',
+  algorithm: 'SHA-256', keyVersion: 'v1', verificationScope: 'LOCAL_DIGEST_TIME_AND_CREATION_AUDIT',
+  timeSource: 'SERVER_CLOCK', timeTrustStatus: 'NOT_BOUND', evidenceFormatVersion: 'V1', reasonCodes: [],
+  verifiedAt: 1791232971334, ...overrides
+})
+const formalSignature = (overrides = {}) => ({ signatureId: 29024, role: 'PQC_RELEASE', signerName: '正式签署人',
+  signerNameStatus: 'VERIFIED_SNAPSHOT', signedAt: 1791232971334, verification: formalVerification(), ...overrides })
+const formalDetail = (overrides = {}) => ({ detail: { activeOrderId: '1009200409', workOrderId: '990274', activeOrderStatus: { status: 'RELEASED' }, pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: formalSignature() }, ...overrides }, productionMaterialLists: [] })
 
 function pageHarness(overrides = {}, query = { applicationId: '224', workTaskId: '2734' }) {
   const source = fs.readFileSync(path.join(root, 'src/views/mes/pro/production-release/PqcProductionReleasePage.vue'), 'utf8')
   const { descriptor } = parse(source)
   const ast = ts.createSourceFile('page.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-  const names = new Set(['loading', 'loadError', 'list', 'total', 'activeView', 'releaseDialogVisible', 'releaseSubmitting', 'releaseError', 'selectedRow', 'releaseResult', 'releaseOutcomeUncertain', 'releaseIdempotencyKeys', 'listRequestSequence', 'queryParams', 'releaseForm', 'resolveErrorMessage', 'getList', 'releaseDialogGeneration', 'openReleaseDialog', 'resetReleaseDialog', 'readPqcReleaseRouteContext', 'openPqcReleaseFromRoute', 'pqcReleaseRouteGeneration', 'detailVisible', 'detailLoading', 'detailError', 'detailRow', 'detailApplicationId', 'detailReadOnly', 'orderDetail', 'detailRequestSequence', 'clearOrderDetail', 'isExactPositiveId', 'isFormalSignedTime', 'requirePqcReleaseAuthority', 'openCompletedPqcReleaseDetail', 'hasActiveOrderDetail', 'openActiveOrderDetail', 'retryOrderDetail'])
+  const names = new Set(['loading', 'loadError', 'list', 'total', 'activeView', 'releaseDialogVisible', 'releaseSubmitting', 'releaseError', 'selectedRow', 'releaseResult', 'releaseOutcomeUncertain', 'releaseIdempotencyKeys', 'listRequestSequence', 'queryParams', 'releaseForm', 'resolveErrorMessage', 'getList', 'releaseDialogGeneration', 'openReleaseDialog', 'resetReleaseDialog', 'readPqcReleaseRouteContext', 'openPqcReleaseFromRoute', 'pqcReleaseRouteGeneration', 'detailVisible', 'detailLoading', 'detailError', 'detailRow', 'detailApplicationId', 'detailReadOnly', 'orderDetail', 'detailRequestSequence', 'clearOrderDetail', 'isExactPositiveId', 'isFormalSignedTime', 'requirePqcReleaseAuthority', 'requireCompletedPqcReleaseDetail', 'openCompletedPqcReleaseDetail', 'hasActiveOrderDetail', 'openActiveOrderDetail', 'retryOrderDetail', 'invalidatePqcReleasePage'])
   const statements = ast.statements.filter(statement => ts.isVariableStatement(statement)
-    ? statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast)))
-    : ts.isExpressionStatement(statement) && /^(onMounted|watch|onBeforeUnmount)\(/.test(statement.getText(ast)))
+    ? statement.declarationList.declarations.some(declaration => names.has(declaration.name.getText(ast)) || ['releaseRequestStates', 'releaseRequestScopeKey'].includes(declaration.name.getText(ast)))
+    : ts.isExpressionStatement(statement) && /^(onMounted|watch|onBeforeUnmount|onDeactivated)\(/.test(statement.getText(ast)))
   const mounted = [], unmounted = [], reads = [], authorityReads = [], detailReads = [], writes = []
-  const route = vue.reactive({ query })
+  const route = vue.reactive({ query, get fullPath() { return '/mes/production-release/pqc?' + new URLSearchParams(this.query).toString() } })
   const context = {
-    route, ...vue, userStore: { permissions: new Set(['mes:pro-production-release:query', 'mes:pro-production-release:pqc-approve']) },
+    route, ...vue, approvalInvalidation: { syncSession: () => ({ key: 'test-tenant-session' }) },
+    userStore: { permissions: new Set(['mes:pro-production-release:query', 'mes:pro-production-release:pqc-approve']) },
     getPqcProductionRelease: async applicationId => { authorityReads.push(applicationId); return { applicationId, pqcReleaseWorkTaskId: route.query.workTaskId, status: 'PQC_RELEASE_PENDING' } },
     getPqcProductionReleaseOrderDetail: async applicationId => { detailReads.push(applicationId); return formalDetail() },
     getPqcProductionReleasePage: async query => { reads.push(query); return { list: [formalRow()], total: 1 } },
     approvePqcProductionRelease: async request => { writes.push(request); throw Error('route entry must never approve') },
     PQC_RELEASE_VIEW_PENDING: 'PENDING', PQC_RELEASE_VIEW_RELEASED: 'RELEASED', PQC_RELEASE_VIEW_VOIDED: 'VOIDED', PQC_RELEASE_VIEW_REWORKED: 'REWORKED', PQC_RELEASE_VIEW_CONCESSION_RELEASED: 'CONCESSION_RELEASED',
     message: { error() {}, warning() {}, success() {} },
-    onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn), ...overrides
+    onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn), onDeactivated() {}, ...overrides
   }
   const code = ts.transpileModule(statements.map(statement => statement.getText(ast)).join('\n'), { compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 } }).outputText
   const page = Function(...Object.keys(context), `${code}; return { loading, loadError, list, total, selectedRow, releaseDialogVisible, releaseForm, getList, activeView, detailVisible, detailLoading, detailError, detailApplicationId, detailReadOnly, orderDetail, openPqcReleaseFromRoute, openActiveOrderDetail, retryOrderDetail };`)(...Object.values(context))
@@ -237,7 +248,26 @@ test('query permission denial and failed formal authority stay visible without a
   assert.equal(failed.reads.length, 0)
 })
 
-test('official DONE detail requires same formal signature and frozen summary before showing data', async () => {
+test('official DONE detail with explicitly MISSING time remains readable without inventing a signing time', async () => {
+  const verification = formalVerification({ verificationStatus: 'INCOMPLETE', timeConsistencyStatus: 'MISSING',
+    timeSource: 'UNKNOWN', reasonCodes: ['SIGNED_AT_MISSING'] })
+  const missingTime = formalDetail({ pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING',
+    signature: formalSignature({ signedAt: null, signerNameStatus: 'UNVERIFIED_SNAPSHOT', signerName: '签时姓名未核验', verification }) } })
+  const detailReads = []
+  const h = doneHarness({ getPqcProductionReleaseOrderDetail: async id => { detailReads.push(id); return missingTime } })
+  await h.mount()
+  assert.equal(h.page.detailVisible.value, true)
+  assert.equal(h.page.detailReadOnly.value, true)
+  assert.equal(h.page.detailError.value, '')
+  assert.equal(h.page.orderDetail.value.detail.pqcProductionRelease.signature.signedAt, null)
+  assert.equal(h.page.orderDetail.value.detail.pqcProductionRelease.signature.verification.timeConsistencyStatus, 'MISSING')
+  assert.deepEqual(h.authorityReads, ['224'])
+  assert.deepEqual(detailReads, ['224'])
+  assert.equal(h.reads.length, 0)
+  assert.equal(h.writes.length, 0)
+})
+
+test('official DONE detail rejects foreign identity and illegal CONSISTENT time with null signedAt', async () => {
   const valid = formalDetail().detail.pqcProductionRelease
   for (const detail of [
     { activeOrderId: null }, { workOrderId: null },
@@ -252,7 +282,7 @@ test('official DONE detail requires same formal signature and frozen summary bef
     assert.equal(h.page.detailVisible.value, true)
     assert.equal(h.page.detailReadOnly.value, true)
     assert.equal(h.page.orderDetail.value, undefined)
-    assert.match(h.page.detailError.value, /有效电子签名/)
+    assert.match(h.page.detailError.value, /签名关联|核验状态/)
     assert.equal(h.reads.length, 0)
     assert.equal(h.writes.length, 0)
   }
@@ -304,7 +334,7 @@ test('late DONE authority success or error cannot replace a newer exact pending 
 test('late DONE detail success or error cannot overwrite a newer DONE detail', async () => {
   for (const fail of [false, true]) {
     const old = deferred()
-    const current = formalDetail({ activeOrderId: '1009200410', pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: { signatureId: 29025, role: 'PQC_RELEASE', signerName: '新签署人', signedAt: 1791232971334 } } })
+    const current = formalDetail({ activeOrderId: '1009200410', pqcProductionRelease: { status: 'MANAGER_RELEASE_PENDING', signature: formalSignature({ signatureId: 29025, signerName: '新签署人', verification: formalVerification({ signatureId: 29025 }) }) } })
     const h = doneHarness({
       getPqcProductionRelease: async id => formalDecision({ applicationId: id, pqcReleaseWorkTaskId: id === '224' ? '2734' : '2736', signatureId: id === '224' ? 29024 : 29025 }),
       getPqcProductionReleaseOrderDetail: id => id === '224' ? old.promise : Promise.resolve(current)

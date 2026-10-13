@@ -99,6 +99,7 @@ public class MesTeamLeaderActiveOrderReleaseApplicationPersistenceService {
         }
         return new MesTeamLeaderActiveOrderReleaseApplicationResult()
                 .setApplicationId(application.getId())
+                .setRequestIdempotencyKey(application.getRequestIdempotencyKey())
                 .setActiveOrderId(application.getActiveOrderId())
                 .setWorkOrderId(application.getWorkOrderId())
                 .setWorkOrderCode(application.getWorkOrderCode())

@@ -25,6 +25,7 @@ import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -69,9 +70,10 @@ public class MesProTaskServiceImpl implements MesProTaskService {
     private MesMdAutoCodeRecordService autoCodeRecordService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createTask(MesProTaskSaveReqVO createReqVO) {
         // 1. 校验关联数据存在
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(createReqVO.getWorkOrderId());
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExistsForUpdate(createReqVO.getWorkOrderId());
         workstationService.validateWorkstationExists(createReqVO.getWorkstationId());
         routeService.validateRouteExists(createReqVO.getRouteId());
         processService.validateProcessExistsAndEnable(createReqVO.getProcessId());
@@ -91,12 +93,13 @@ public class MesProTaskServiceImpl implements MesProTaskService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateTask(MesProTaskSaveReqVO updateReqVO) {
         // 1.1 校验存在
         MesProTaskDO task = validateTaskExists(updateReqVO.getId());
         // 1.2 校验关联数据存在
         if (updateReqVO.getWorkOrderId() != null) {
-            workOrderService.validateWorkOrderExists(updateReqVO.getWorkOrderId());
+            workOrderService.validateWorkOrderExistsForUpdate(updateReqVO.getWorkOrderId());
         }
         if (updateReqVO.getWorkstationId() != null) {
             workstationService.validateWorkstationExists(updateReqVO.getWorkstationId());

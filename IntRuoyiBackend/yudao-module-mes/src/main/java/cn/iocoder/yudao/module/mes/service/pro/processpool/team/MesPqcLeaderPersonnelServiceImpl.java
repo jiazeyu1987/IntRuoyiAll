@@ -30,6 +30,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @Service
 @Validated
 public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi qualificationAuthority;
 
     private static final String PQC_PERMISSION_ROLE_CODE = "pqc_permission";
     private static final String OCCUPIED_BY_OTHER_PQC_LEADER_REASON = "已被其他PQC组长选择";
@@ -100,10 +101,13 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Long linkFormalInspector(MesPqcLeaderPersonnelLinkReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getSystemUserId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcPersonnelLink");
         }
+        adminUserApi.lockSignatureIdentity(reqBO.getSystemUserId());
+        var revision = qualificationAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         adminUserApi.validateUser(reqBO.getSystemUserId());
         assertPqcInspectorPermission(reqBO.getSystemUserId());
         if (scopeMapper.selectPqcEmployeeScope(reqBO.getLeaderUserId(), reqBO.getSystemUserId()) != null) {
@@ -117,11 +121,13 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
                 .employeeUserId(reqBO.getSystemUserId())
                 .enabled(Boolean.TRUE)
                 .build();
-        scopeMapper.insert(scope);
+        if (scopeMapper.insert(scope) != 1 || scope.getId() == null) throw new IllegalStateException("PQC_APPOINTMENT_INSERT_FAILED");
+        qualificationAuthority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
         return scope.getId();
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public void updatePersonnelStatus(MesPqcLeaderPersonnelStatusUpdateReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getScopeId() == null
                 || reqBO.getEnabled() == null) {
@@ -131,13 +137,18 @@ public class MesPqcLeaderPersonnelServiceImpl implements MesPqcLeaderPersonnelSe
         if (!isCurrentPqcEmployeeScope(scope, reqBO.getLeaderUserId())) {
             throw exception(PRO_PROCESS_POOL_TEAM_PQC_PERSONNEL_NOT_EXISTS, reqBO.getScopeId());
         }
+        adminUserApi.lockSignatureIdentity(scope.getEmployeeUserId());
+        var revision = qualificationAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        scope = scopeMapper.selectById(reqBO.getScopeId());
+        if (!isCurrentPqcEmployeeScope(scope, reqBO.getLeaderUserId())) throw new IllegalStateException("PQC_APPOINTMENT_CHANGED");
         if (Boolean.TRUE.equals(reqBO.getEnabled())) {
             assertInspectorNotOccupiedByOtherPqcLeader(reqBO.getLeaderUserId(), scope.getEmployeeUserId());
         }
-        scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder()
+        if (scopeMapper.updateById(MesProcessPoolTeamLeaderScopeDO.builder()
                 .id(scope.getId())
                 .enabled(reqBO.getEnabled())
-                .build());
+                .build()) != 1) throw new IllegalStateException("PQC_APPOINTMENT_UPDATE_FAILED");
+        qualificationAuthority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
     }
 
     private static MesPqcLeaderPersonnelBO toPersonnel(MesProcessPoolTeamLeaderScopeDO scope,

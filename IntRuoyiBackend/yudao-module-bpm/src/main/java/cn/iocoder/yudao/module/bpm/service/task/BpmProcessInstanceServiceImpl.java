@@ -136,6 +136,9 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
 
     // ========== Query 查询相关方法 ==========
 
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.bpm.approval.service.ownership.ApprovalProcessOwnershipService approvalProcessOwnershipService;
+
     @Override
     public ProcessInstance getProcessInstance(String id) {
         return runtimeService.createProcessInstanceQuery()
@@ -850,14 +853,21 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
         // 获得流程定义
         ProcessDefinition definition = processDefinitionService
                 .getProcessDefinition(createReqVO.getProcessDefinitionId());
+        if (definition == null) throw exception(PROCESS_DEFINITION_NOT_EXISTS);
         // 发起流程
         return createProcessInstance0(userId, definition, createReqVO.getVariables(), null, null,
-                createReqVO.getStartUserSelectAssignees());
+                createReqVO.getStartUserSelectAssignees(),
+                new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(
+                        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),
+                        "NATIVE_BPM","BPM_START",java.util.UUID.randomUUID().toString(),
+                        cn.hutool.crypto.digest.DigestUtil.sha256Hex(definition.getId()),"BPM_MANUAL_START",null));
     }
 
     @Override
     @DataPermission(enable = false) // 关闭数据权限，避免查询不到用户数据。相关案例：https://gitee.com/zhijiantianya/yudao-cloud/issues/ID1UYA
+    @Transactional(rollbackFor = Exception.class)
     public String createProcessInstance(Long userId, @Valid BpmProcessInstanceCreateReqDTO createReqDTO) {
+        cn.iocoder.yudao.module.bpm.approval.service.ownership.ApprovalProcessOwnershipRegistry.require(createReqDTO.getApprovalAuthority());
         return FlowableUtils.executeAuthenticatedUserId(userId, () -> {
             // 获得流程定义
             ProcessDefinition definition = processDefinitionService
@@ -865,13 +875,14 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
             // 发起流程
             return createProcessInstance0(userId, definition, createReqDTO.getVariables(), createReqDTO.getName(),
                     createReqDTO.getBusinessKey(),
-                    createReqDTO.getStartUserSelectAssignees());
+                    createReqDTO.getStartUserSelectAssignees(),createReqDTO.getApprovalAuthority());
         });
     }
 
     private String createProcessInstance0(Long userId, ProcessDefinition definition,
                                           Map<String, Object> variables, String name, String businessKey,
-                                          Map<String, List<Long>> startUserSelectAssignees) {
+                                          Map<String, List<Long>> startUserSelectAssignees,
+                                          cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO authority) {
         // 1.1 校验流程定义
         if (definition == null) {
             throw exception(PROCESS_DEFINITION_NOT_EXISTS);
@@ -926,6 +937,7 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                 : generateProcessInstanceName(userId, definition, processDefinitionInfo, variables));
         // 3.3 发起流程实例
         ProcessInstance instance = processInstanceBuilder.start();
+        approvalProcessOwnershipService.record(instance,definition,authority,startUserSelectAssignees);
         return instance.getId();
     }
 

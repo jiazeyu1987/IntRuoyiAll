@@ -12,6 +12,11 @@ import java.util.List;
 @Mapper
 public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstanceDO> {
 
+    default List<FormActionInstanceDO> selectOwnershipByTenantAndProcessId(Long tenantId, String processId) {
+        return selectList(new QueryWrapperX<FormActionInstanceDO>()
+                .eq("tenant_id", tenantId).eq("bpm_process_instance_id", processId).eq("deleted", false));
+    }
+
     default List<FormActionInstanceDO> selectSameBusinessAction(Long tenantId, String systemCode, String objectType,
             String objectId, String objectVersion, String actionCode) {
         return selectList(new QueryWrapperX<FormActionInstanceDO>()

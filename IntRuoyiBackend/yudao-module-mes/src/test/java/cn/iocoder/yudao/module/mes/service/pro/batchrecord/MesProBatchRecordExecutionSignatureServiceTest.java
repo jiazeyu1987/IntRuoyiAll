@@ -11,6 +11,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
+import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand;
 import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
@@ -85,6 +87,47 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
 
     @InjectMocks
     private MesProBatchRecordExecutionSignatureService signatureService;
+
+    @Test
+    void pqcAndFinalApprovalWritersPreserveLegalOpinionThroughActualAdapterAndCanonicalizer() throws Exception {
+        when(authorizationService.isElectronicSignatureEnabled(99L)).thenReturn(true);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser("正式审批人"));
+        stubActorSnapshot();
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L));
+        var opinions = java.util.Arrays.asList("普通中文", "第一行\n第二行", "第一行\r\n第二行", "第一段\t第二段",
+                "意见\"引号\"\\原路径", "PQC_RELEASE", "APPROVE", null);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            for (String opinion : opinions) {
+                signatureService.recordPqcReleaseSignature(99L, 900L, 700L, "secret", opinion);
+                signatureService.recordApprovalSignature(new MesProBatchRecordExecutionApprovalSignatureCommand()
+                        .setExecutionId(900L).setPassword("secret").setComment(opinion)
+                        .setProcessInstanceId("pi-900").setBpmTaskId("task-900")
+                        .setApprovalResult("APPROVE"));
+            }
+        }
+        var captor = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        verify(electronicSignatureService, times(opinions.size() * 2)).sign(captor.capture());
+        // Invoke the actual production canonicalizer; it is intentionally package-private.
+        var canonicalizer = Class.forName("cn.iocoder.yudao.module.signature.service.ElectronicSignatureJsonCanonicalizer")
+                .getDeclaredMethod("canonicalize", String.class);
+        canonicalizer.setAccessible(true);
+        for (int index = 0; index < captor.getAllValues().size(); index++) {
+            var command = captor.getAllValues().get(index);
+            String input = opinions.get(index / 2);
+            String reason = input == null ? command.actionCode() : input;
+            assertEquals(reason, command.reason());
+            var content = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
+                    99L, command.moduleCode(), command.actionCode(), command.subjectType(), command.subjectId(),
+                    command.expectedSubjectVersion(), command.reason()));
+            String canonical = (String) canonicalizer.invoke(null, content.canonicalContentJson());
+            assertEquals(reason, JsonUtils.parseTree(canonical).path("reason").asText());
+            assertEquals(input == null ? "SYSTEM" : "USER", JsonUtils.parseTree(canonical).path("opinionSource").asText());
+            assertEquals(input, MesBatchRecordSignatureSubjectAdapter.verifiedUserOpinion(command.subjectId(), command.actionCode(), reason));
+            assertTrue(command.idempotencyKey().length() <= 191);
+        }
+    }
 
     @Test
     void productionSigningIdentitySeparatesSubmissionsAndIsStableForReplay() {
@@ -482,6 +525,36 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
     }
 
     @Test
+    void recordFieldChangeDraftSaveReturnsActualSessionEvidenceWithoutPasswordOrSubmitSignature() {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            when(adminUserService.getUser(99L)).thenReturn(snapshotUser("QA"));
+            stubActorSnapshot();
+            var saved = new java.util.concurrent.atomic.AtomicReference<MesProBatchRecordExecutionSignatureDO>();
+            when(signatureMapper.insert(any(MesProBatchRecordExecutionSignatureDO.class))).thenAnswer(invocation -> {
+                var row = invocation.getArgument(0, MesProBatchRecordExecutionSignatureDO.class);
+                row.setId(779L);
+                saved.set(row);
+                return 1;
+            });
+            when(signatureMapper.selectById(779L)).thenAnswer(invocation -> saved.get());
+            var result = signatureService.recordFieldChangeDraftSave(
+                    new MesProBatchRecordExecutionFieldAuditSignatureCommand().setExecutionId(900L)
+                            .setReasonCategory("OTHER").setReasonText("正式数量来源")
+                            .setSignatureChallengeHash("a".repeat(64)));
+            assertEquals("DRAFT_SESSION", result.getSignatureMode());
+            assertEquals(Boolean.FALSE, result.getPasswordVerified());
+            assertEquals("DRAFT_SESSION", saved.get().getSignatureMode());
+            assertEquals(Boolean.FALSE, saved.get().getPasswordVerified());
+            assertEquals("FIELD_CHANGE", saved.get().getActionType());
+            assertEquals("登录会话保存；未执行电子签名", saved.get().getAuthorizationBasis());
+            org.mockito.Mockito.verifyNoInteractions(adminUserApi, electronicSignatureService, passwordEncoder);
+            verify(gxpAuditService).acquireLedgerLock();
+            verify(gxpAuditService).append(any());
+        }
+    }
+
+    @Test
     void recordFieldChangeSignature_success() {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -502,6 +575,8 @@ class MesProBatchRecordExecutionSignatureServiceTest extends BaseMockitoUnitTest
             assertEquals(777L, result.getSignatureId());
             assertEquals(99L, result.getActorId());
             assertEquals("QA", result.getActorName());
+            assertEquals("PASSWORD", result.getSignatureMode());
+            assertEquals(Boolean.TRUE, result.getPasswordVerified());
             ArgumentCaptor<ElectronicSignatureCommand> captor =
                     ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
             verify(adminUserApi).reauthenticateForSignature(99L, "secret");

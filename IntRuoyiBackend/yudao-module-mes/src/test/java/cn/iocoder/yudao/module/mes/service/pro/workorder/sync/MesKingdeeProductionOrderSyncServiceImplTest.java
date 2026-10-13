@@ -98,7 +98,15 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
                 syncRecordMapper, scheduleOrderMapper, scheduleOrderDiffMapper,
                 itemMapper, itemTypeMapper, unitMeasureMapper, activeOrderMapper, completionReceiptMapper);
         org.springframework.test.util.ReflectionTestUtils.setField(syncService,"gxpAuditService",gxpAuditService);
-
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""), MesMdItemDO.class);
+        org.mockito.Mockito.lenient().when(unitMeasureMapper.selectByCode("kg"))
+                .thenReturn(new MesMdUnitMeasureDO().setId(40L).setCode("kg").setName("千克"));
+        org.mockito.Mockito.lenient().when(itemMapper.update(any(MesMdItemDO.class), any()))
+                .thenReturn(1);
+        org.mockito.Mockito.lenient().when(workOrderMapper.updateErpSnapshot(any())).thenReturn(1);
+        org.mockito.Mockito.lenient().when(workOrderMapper.updateById(any(MesProWorkOrderDO.class))).thenReturn(1);
     }
 
     @Test
@@ -123,8 +131,153 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         lockOrder.verify(activeOrderMapper).selectAllByWorkOrderIdForUpdate(501L);
         lockOrder.verify(workOrderMapper).selectByIdForUpdate(501L);
         lockOrder.verify(completionReceiptMapper).selectFirstByWorkOrderIdForUpdate(501L);
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(scheduleOrderDiffMapper, never()).insert(any(MesProScheduleOrderDiffDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrdersFull_parsesErpResponseThroughToNewWorkOrderSnapshot() {
+        kingdeeProperties.getProductionOrder().setQueryLimit(500);
+        var restTemplate = new org.springframework.web.client.RestTemplate();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(restTemplate).build();
+        var client = new cn.iocoder.yudao.module.erp.service.purchase.sync.ErpKingdeeProductionOrderClientImpl(restTemplate);
+        syncService = new MesKingdeeProductionOrderSyncServiceImpl(client, kingdeeConfigService,
+                workOrderService, workOrderMapper, syncRecordMapper, scheduleOrderMapper, scheduleOrderDiffMapper,
+                itemMapper, itemTypeMapper, unitMeasureMapper, activeOrderMapper, completionReceiptMapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(syncService, "gxpAuditService", gxpAuditService);
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                        "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.AuthService.ValidateUser.common.kdsvc"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        "{\"LoginResultType\":1}", org.springframework.http.MediaType.APPLICATION_JSON)
+                        .header(org.springframework.http.HttpHeaders.SET_COOKIE, "kdservice-sessionid=test; Path=/"));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                        "https://k3.example.com/K3Cloud/Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess("""
+                        [[310119,"881MO091049","C","2026-03-25T00:00:00","MAT-001","Material A","Spec A",12,"2026-03-25T00:00:00","2026-03-26T00:00:00","SO-001","4","kg","千克","ERP-BATCH","组装车间","BOM-001","DRAW-001","REF-001","100","生产组织",true,"MAT-MNEMONIC","1"]]
+                        """, org.springframework.http.MediaType.APPLICATION_JSON));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(workOrderService.createWorkOrder(any())).thenReturn(501L);
+
+        assertEquals(1, syncService.syncWorkOrdersFull().getCreatedCount());
+
+        var createCaptor = ArgumentCaptor.forClass(MesProWorkOrderSaveReqVO.class);
+        verify(workOrderService).createWorkOrder(createCaptor.capture());
+        assertEquals("ERP-BATCH", createCaptor.getValue().getBatchCode());
+        assertEquals("SO-001", createCaptor.getValue().getOrderSourceCode());
+        assertEquals("Spec A", createCaptor.getValue().getMaterialSpecification());
+        var snapshotCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
+        verify(workOrderMapper, org.mockito.Mockito.times(2)).updateById(snapshotCaptor.capture());
+        var snapshot = snapshotCaptor.getAllValues().get(0);
+        assertEquals("是", snapshot.getPickMode());
+        assertEquals("MAT-MNEMONIC", snapshot.getAuxiliaryCode());
+        assertEquals("4", snapshot.getBusinessStatus());
+        assertEquals("1", snapshot.getScheduleStatus());
+        assertEquals("组装车间", snapshot.getWorkshopName());
+        assertEquals("BOM-001", snapshot.getBomVersion());
+        assertEquals("DRAW-001", snapshot.getDrawingNumber());
+        assertEquals("REF-001", snapshot.getRefNo());
+        assertEquals(LocalDateTime.of(2026, 3, 26, 0, 0), snapshot.getPlannedEndTime());
+        server.verify();
+    }
+
+    @Test
+    void syncWorkOrders_refreshesExistingProductAndUnitName() {
+        var order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L)
+                .setName("旧名称").setSpecification("旧规格").setUnitMeasureId(39L));
+        when(unitMeasureMapper.selectByCode("kg"))
+                .thenReturn(new MesMdUnitMeasureDO().setId(40L).setCode("kg").setName("旧单位名称"));
+        when(unitMeasureMapper.updateById(any(MesMdUnitMeasureDO.class))).thenReturn(1);
+        when(workOrderService.createWorkOrder(any())).thenReturn(501L);
+
+        syncService.syncWorkOrders();
+
+        var wrapperCaptor = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+        verify(itemMapper).update(any(MesMdItemDO.class), wrapperCaptor.capture());
+        var wrapper = wrapperCaptor.getValue();
+        assertTrue(wrapper.getSqlSet().contains("name="));
+        assertTrue(wrapper.getSqlSet().contains("specification="));
+        assertTrue(wrapper.getSqlSet().contains("unit_measure_id="));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue("Material A"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue("Spec A"));
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(40L));
+        var unitCaptor = ArgumentCaptor.forClass(MesMdUnitMeasureDO.class);
+        verify(unitMeasureMapper).updateById(unitCaptor.capture());
+        assertEquals(40L, unitCaptor.getValue().getId());
+        assertEquals("千克", unitCaptor.getValue().getName());
+    }
+
+    @Test
+    void syncWorkOrders_doesNotReportSuccessWhenProductUpdateFails() {
+        var order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(itemMapper.update(any(MesMdItemDO.class), any())).thenReturn(0);
+
+        var error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("更新产品失败"));
+        verify(workOrderService, never()).createWorkOrder(any());
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_doesNotReportSuccessWhenWorkOrderUpdateFails() {
+        var order = buildOrder();
+        var existing = MesProWorkOrderDO.builder().id(501L).code(order.getBillNo())
+                .productId(20L).name("旧物料").build();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(workOrderService.getWorkOrder(order.getBillNo())).thenReturn(existing);
+        when(workOrderMapper.selectByIdForUpdate(501L)).thenReturn(existing);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(workOrderMapper.updateErpSnapshot(any())).thenReturn(0);
+
+        var error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("更新生产工单失败"));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        verify(scheduleOrderDiffMapper, never()).insert(any(MesProScheduleOrderDiffDO.class));
+    }
+
+    @Test
+    void syncWorkOrders_doesNotReportSuccessWhenNewSnapshotWriteFails() {
+        var order = buildOrder();
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+        when(workOrderService.createWorkOrder(any())).thenReturn(501L);
+        when(workOrderMapper.updateById(any(MesProWorkOrderDO.class))).thenReturn(0);
+
+        var error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains("写入生产工单字段失败"));
+        verify(workOrderMapper, org.mockito.Mockito.times(1)).updateById(any(MesProWorkOrderDO.class));
+        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void syncWorkOrders_rejectsMissingUnitSourceInsteadOfSubstitutingCodeAndName(boolean missingCode) {
+        var order = buildOrder();
+        if (missingCode) {
+            order.setUnitCode(" ");
+        } else {
+            order.setUnitName(null);
+        }
+        when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any()))
+                .thenReturn(List.of(order));
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
+
+        var error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
+
+        assertTrue(error.getMessage().contains(missingCode ? "FUnitId.FNumber" : "FUnitId.FName"));
+        verify(unitMeasureMapper, never()).updateById(any(MesMdUnitMeasureDO.class));
+        verify(workOrderService, never()).createWorkOrder(any());
         verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 
@@ -143,7 +296,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         syncService.syncWorkOrders();
 
         var update = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(update.capture());
+        verify(workOrderMapper).updateErpSnapshot(update.capture());
         assertEquals("ERP-CORRECTED-BATCH", update.getValue().getBatchCode());
     }
 
@@ -166,7 +319,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         syncService.syncWorkOrders();
 
         var update = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(update.capture());
+        verify(workOrderMapper).updateErpSnapshot(update.capture());
         assertEquals("FORMAL-BATCH", update.getValue().getBatchCode());
         assertEquals("NEW-DRAWING", update.getValue().getDrawingNumber());
     }
@@ -192,7 +345,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         ServiceException error = assertThrows(ServiceException.class, syncService::syncWorkOrders);
 
         assertTrue(error.getMessage().contains("COMPLETED-WHILE-WAITING"));
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
     }
 
     @Test
@@ -200,6 +353,10 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         ErpKingdeeProductionOrder order = buildOrder();
         order.setDrawingNumber("DRAWING-001");
         order.setRefNo("REF-001");
+        order.setPickMode("是");
+        order.setAuxiliaryCode("MAT-MNEMONIC-001");
+        order.setBusinessStatus("4");
+        order.setScheduleStatus("1");
         when(productionOrderClient.fetchProductionOrdersByBillDateRange(any(), any(), any())).thenReturn(List.of(order));
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(itemMapper.selectByCode("MAT-001")).thenReturn(null);
@@ -243,6 +400,10 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertEquals(501L, updates.get(0).getId());
         assertEquals("DRAWING-001", updates.get(0).getDrawingNumber());
         assertEquals("REF-001", updates.get(0).getRefNo());
+        assertEquals("是", updates.get(0).getPickMode());
+        assertEquals("MAT-MNEMONIC-001", updates.get(0).getAuxiliaryCode());
+        assertEquals("4", updates.get(0).getBusinessStatus());
+        assertEquals("1", updates.get(0).getScheduleStatus());
         assertEquals(LocalDateTime.of(2026, 3, 25, 0, 0), updates.get(0).getPlannedStartTime());
         assertEquals(MesProWorkOrderStatusEnum.CONFIRMED.getStatus(), updates.get(1).getStatus());
         assertEquals(501L, updates.get(1).getId());
@@ -250,7 +411,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
     }
 
     @Test
-    void syncWorkOrdersFullSkipExisting_doesNotUpdateExistingWorkOrder() {
+    void syncWorkOrdersFull_updatesExistingWorkOrder() {
         ErpKingdeeProductionOrder order = buildOrder();
         MesProWorkOrderDO existing = MesProWorkOrderDO.builder()
                 .id(501L)
@@ -261,15 +422,17 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         when(syncRecordMapper.selectBySourceKey("310119", "MAT-001")).thenReturn(null);
         when(workOrderService.getWorkOrder("881MO091049")).thenReturn(existing);
         org.mockito.Mockito.lenient().when(workOrderMapper.selectByIdForUpdate(existing.getId())).thenReturn(existing);
+        when(itemMapper.selectByCode("MAT-001")).thenReturn(new MesMdItemDO().setId(20L));
 
-        MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFullSkipExisting();
+        MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrdersFull();
 
-        assertEquals(1, result.getSkippedCount());
+        assertEquals(0, result.getSkippedCount());
         assertEquals(0, result.getCreatedCount());
-        assertEquals(0, result.getUpdatedCount());
+        assertEquals(1, result.getUpdatedCount());
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
-        verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        verify(workOrderMapper).updateErpSnapshot(any(MesProWorkOrderDO.class));
+        verify(syncRecordMapper).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
+        verify(productionOrderClient, never()).fetchProductionOrdersByBillNos(any(), any());
     }
 
     @Test
@@ -303,7 +466,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         syncService.syncWorkOrders();
 
         ArgumentCaptor<MesProWorkOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(updateCaptor.capture());
+        verify(workOrderMapper).updateErpSnapshot(updateCaptor.capture());
         MesProWorkOrderDO update = updateCaptor.getValue();
         assertEquals("组装车间", update.getWorkshopName());
         assertEquals("BOM-2026-01", update.getBomVersion());
@@ -348,7 +511,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         syncService.syncWorkOrders();
 
         ArgumentCaptor<MesProWorkOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(updateCaptor.capture());
+        verify(workOrderMapper).updateErpSnapshot(updateCaptor.capture());
         MesProWorkOrderDO update = updateCaptor.getValue();
         assertNull(update.getWorkshopName());
         assertNull(update.getBomVersion());
@@ -468,7 +631,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertEquals(0, result.getCreatedCount());
         assertEquals(1, result.getUpdatedCount());
         assertEquals(0, result.getSkippedCount());
-        verify(workOrderMapper).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
     }
@@ -506,7 +669,8 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         verify(workOrderService).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
         verify(itemMapper).selectByCode("MAT-001");
         verify(itemMapper).selectByCode("MAT-002");
-        verify(workOrderMapper, org.mockito.Mockito.times(3)).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, org.mockito.Mockito.times(2)).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, org.mockito.Mockito.times(2))
                 .insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
@@ -645,7 +809,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
 
         assertEquals(1, result.getUpdatedCount());
         ArgumentCaptor<MesProWorkOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(updateCaptor.capture());
+        verify(workOrderMapper).updateErpSnapshot(updateCaptor.capture());
         MesProWorkOrderDO update = updateCaptor.getValue();
         assertNull(update.getQuantityScheduled());
         assertNull(update.getTemporaryFrozen());
@@ -681,7 +845,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
 
         assertEquals(1, result.getUpdatedCount());
         assertTrue(result.getCreatedWorkOrderIds().isEmpty());
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(scheduleOrderDiffMapper, never()).insert(any(MesProScheduleOrderDiffDO.class));
     }
 
@@ -713,7 +877,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         MesKingdeeProductionOrderSyncResult result = syncService.syncWorkOrders();
 
         assertEquals(1, result.getUpdatedCount());
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(scheduleOrderDiffMapper, never()).insert(any(MesProScheduleOrderDiffDO.class));
     }
 
@@ -779,7 +943,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertEquals(1, result.getUpdatedCount());
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
         ArgumentCaptor<MesProWorkOrderDO> updateCaptor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
-        verify(workOrderMapper).updateById(updateCaptor.capture());
+        verify(workOrderMapper).updateErpSnapshot(updateCaptor.capture());
         assertEquals(501L, updateCaptor.getValue().getId());
         assertEquals("881MO091049-REV", updateCaptor.getValue().getCode());
         ArgumentCaptor<MesKingdeeProductionOrderSyncRecordDO> recordCaptor =
@@ -828,7 +992,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
 
         assertTrue(exception.getMessage().contains("production order source key conflicts"));
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, never()).updateById(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 
@@ -847,7 +1011,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertTrue(exception.getMessage().contains("sourceMaterialNumber=MAT-001"));
         assertTrue(!exception.getMessage().contains("Expected one result"));
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 
@@ -867,7 +1031,7 @@ class MesKingdeeProductionOrderSyncServiceImplTest {
         assertTrue(exception.getMessage().contains("sourceKey=310119:MAT-001"));
         assertTrue(!exception.getMessage().contains("Expected one result"));
         verify(workOrderService, never()).createWorkOrder(any(MesProWorkOrderSaveReqVO.class));
-        verify(workOrderMapper, never()).updateById(any(MesProWorkOrderDO.class));
+        verify(workOrderMapper, never()).updateErpSnapshot(any(MesProWorkOrderDO.class));
         verify(syncRecordMapper, never()).insert(any(MesKingdeeProductionOrderSyncRecordDO.class));
     }
 

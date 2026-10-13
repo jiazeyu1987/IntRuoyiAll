@@ -6,6 +6,10 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -35,9 +39,11 @@ class DccElectronicSignatureAuthorizationServiceTest extends BaseMockitoUnitTest
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
     @Mock
     private DccElectronicSignatureAuthorizationAuditService authorizationAuditService;
+    @Mock private ApprovalAuthorityApi authority;
 
     @InjectMocks
     private DccElectronicSignatureAuthorizationServiceImpl service;
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void nullableLockFields_allowExplicitNullClearingThroughMybatisUpdateById() throws NoSuchFieldException {
@@ -168,7 +174,9 @@ class DccElectronicSignatureAuthorizationServiceTest extends BaseMockitoUnitTest
 
     @Test
     void updateAuthorization_insertsRecordAndAuthorizationAudit() {
-        when(authorizationMapper.selectByUserId(99L)).thenReturn(null);
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+        when(authorizationMapper.selectByUserIdForUpdate(99L)).thenReturn(null);
         when(authorizationMapper.insert(any(DccElectronicSignatureAuthorizationDO.class))).thenReturn(1);
 
         service.updateAuthorization(99L, false, 1L, "岗位授权复核未通过");

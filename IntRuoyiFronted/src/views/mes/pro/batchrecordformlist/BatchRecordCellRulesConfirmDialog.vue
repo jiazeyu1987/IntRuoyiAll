@@ -504,6 +504,16 @@
                   </el-select>
                 </el-form-item>
 
+                <el-form-item v-if="selectedRule.valueType === 'NUMBER'" label="计量单位">
+                  <el-input
+                    v-model="selectedRule.unit"
+                    maxlength="32"
+                    clearable
+                    aria-label="计量单位"
+                    placeholder="请输入计量单位，例如 pcs"
+                  />
+                </el-form-item>
+
                 <el-form-item
                   v-if="selectedRule.valueType === 'NUMBER'"
                   label="字段范围"
@@ -2522,6 +2532,7 @@ const confirmAllRules = async () => {
     validateRuleRowsBeforeSave()
     const assistRowsForSave = normalizedAssistRowsForSave()
     const hasAssistRowsForSave = assistRowsForSave.length > 0
+    const submittedAssistRows = hasAssistRowsForSave ? assistRowsForSave : assistRows.value
     const saveAssistPermissions =
       hasAssistRowsForSave &&
       buildAssistResponsibilitySignature() !== savedAssistResponsibilitySignature.value
@@ -2537,9 +2548,13 @@ const confirmAllRules = async () => {
           reportId: reportId.value,
           rules,
           signatureCellMarkers: buildSignatureMarkersForSave(rules),
-          assistRows: hasAssistRowsForSave ? assistRowsForSave : assistRows.value,
-          assistGridRowCount: normalizeAssistGridSizeValue(assistGridRowCount.value),
-          assistGridColumnCount: normalizeAssistGridSizeValue(assistGridColumnCount.value)
+          assistRows: submittedAssistRows.length ? submittedAssistRows : undefined,
+          assistGridRowCount: submittedAssistRows.length
+            ? normalizeAssistGridSizeValue(assistGridRowCount.value)
+            : undefined,
+          assistGridColumnCount: submittedAssistRows.length
+            ? normalizeAssistGridSizeValue(assistGridColumnCount.value)
+            : undefined
         })
       : null
     let savedPermission: Awaited<ReturnType<typeof EdhrProcessFormPermissionRuleApi.saveByReport>> | null = null

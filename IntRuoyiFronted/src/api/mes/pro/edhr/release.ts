@@ -157,65 +157,92 @@ export interface EdhrReleaseEventRespVO {
   occurredAt: string | number
 }
 
-export const getEdhrReleasePage = async (params: EdhrReleasePageReqVO) => {
+export const getEdhrReleasePage = async (params: EdhrReleasePageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrReleaseRowVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/page',
     params
   })
 }
 
-export const getEdhrRelease = async (id: string) => {
+export const getEdhrRelease = async (id: string, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/get',
     params: { id }
   })
 }
 
-export const precheckEdhrRelease = async (data: EdhrReleasePrecheckReqVO) => {
+export const precheckEdhrRelease = async (data: EdhrReleasePrecheckReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/precheck',
     data
   })
 }
 
-export const submitEdhrRelease = async (data: EdhrReleaseSubmitReqVO) => {
+export const submitEdhrRelease = async (data: EdhrReleaseSubmitReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/submit',
     data
   })
 }
 
-export const approveEdhrRelease = async (data: EdhrReleaseApproveReqVO) => {
+export const approveEdhrRelease = async (data: EdhrReleaseApproveReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/approve',
     timeout: 180000,
     data
   })
 }
 
-export const rejectEdhrRelease = async (data: EdhrReleaseRejectReqVO) => {
+export const rejectEdhrRelease = async (data: EdhrReleaseRejectReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/reject',
     data
   })
 }
 
-export const withdrawEdhrRelease = async (data: EdhrReleaseWithdrawReqVO) => {
+export const withdrawEdhrRelease = async (data: EdhrReleaseWithdrawReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrReleaseRowVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/withdraw',
     data
   })
 }
 
-export const getEdhrReleaseCheckItemPage = async (params: EdhrReleaseCheckItemPageReqVO) => {
+export const getEdhrReleaseCheckItemPage = async (params: EdhrReleaseCheckItemPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrReleaseCheckItemVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/check-item/page',
     params
   })
 }
 
-export const getEdhrReleaseEventPage = async (params: EdhrReleaseEventPageReqVO) => {
+export const getEdhrReleaseEventPage = async (params: EdhrReleaseEventPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrReleaseEventRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: '/mes/pro/edhr-release/event/page',
     params
   })

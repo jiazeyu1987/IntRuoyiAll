@@ -20,7 +20,9 @@ assert.match(
 )
 
 const copyHandler = workbench
-  .split('const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {')[1]
+  .split(
+    'const handleCopyLatestSimulationActiveOrder = async (row: TeamLeaderActiveOrderRespVO) => {'
+  )[1]
   .split('const handleCleanupLatestSimulationActiveOrder')[0]
 assert.match(copyHandler, /await loadActiveOrders\(\)/)
 
@@ -38,16 +40,26 @@ const detailNavigation = workbench
 assert.match(detailNavigation, /activeOrderId:\s*string/)
 assert.match(detailNavigation, /params:\s*\{\s*activeOrderId\s*\}/)
 
-assert.match(api, /getTeamLeaderActiveOrderDetail\s*=\s*async\s*\(activeOrderId:\s*number\s*\|\s*string\)/)
+assert.match(
+  api,
+  /getTeamLeaderActiveOrderDetail\s*=\s*async\s*\(activeOrderId:\s*number\s*\|\s*string\)/
+)
 assert.match(api, /params:\s*\{\s*activeOrderId\s*\}/)
 
-assert.match(detailPage, /import\s*\{\s*parsePositiveRouteQueryId\s*\}\s*from\s*'@\/utils\/routeQueryId'/)
+assert.match(
+  detailPage,
+  /import\s*\{\s*parsePositiveRouteQueryId\s*\}\s*from\s*'@\/utils\/routeQueryId'/
+)
 const activeOrderIdParser = detailPage
   .split('const requireActiveOrderId = () => {')[1]
   .split('const resolveSourceWorkOrderCode')[0]
 assert.match(activeOrderIdParser, /parsePositiveRouteQueryId\(route\.params\.activeOrderId\)/)
 assert.doesNotMatch(activeOrderIdParser, /Number\(/)
-assert.match(detailPage, /getTeamLeaderActiveOrderDetail\(requireActiveOrderId\(\)\)/)
+assert.match(
+  detailPage,
+  /const activeOrderId = requireActiveOrderId\(\)[\s\S]*getTeamLeaderActiveOrderDetail\(activeOrderId\)/
+)
+assert.match(detailPage, /loadProductionMaterialLists\(activeOrderId, requestGeneration\)/)
 assert.match(routeId, /export const parsePositiveRouteQueryId/)
 assert.match(routeId, /POSITIVE_INTEGER_TEXT\.test\(text\)\s*\?\s*text\s*:\s*''/)
 assert.doesNotMatch(routeId, /Number\(|parseInt\(|parseFloat\(/)

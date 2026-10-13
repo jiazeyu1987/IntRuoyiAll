@@ -223,6 +223,8 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
         private String signerName;
         private LocalDateTime signedAt;
         private String role;
+        private String signerNameStatus;
+        private cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO verification;
     }
 
     @Data

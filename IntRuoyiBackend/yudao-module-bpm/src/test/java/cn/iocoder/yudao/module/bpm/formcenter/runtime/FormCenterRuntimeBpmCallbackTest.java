@@ -267,6 +267,7 @@ class FormCenterRuntimeBpmCallbackTest extends BaseMockitoUnitTest {
         FixedLifecycleAdapter lifecycleAdapter = new FixedLifecycleAdapter(FormBusinessEffectPrecheck.pass());
         ReflectionTestUtils.setField(runtimeService, "lifecycleAdapters",
                 List.of(lifecycleAdapter));
+        when(actionInstanceMapper.updateById(any(FormActionInstanceDO.class))).thenReturn(1);
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("PI-1001");
         when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.processInstanceId("PI-1001")).thenReturn(taskQuery);
@@ -303,6 +304,7 @@ class FormCenterRuntimeBpmCallbackTest extends BaseMockitoUnitTest {
         when(businessApprovalPolicyMapper.selectById(20L)).thenReturn(businessPolicy());
         ReflectionTestUtils.setField(runtimeService, "lifecycleAdapters",
                 List.of(new FixedLifecycleAdapter(FormBusinessEffectPrecheck.pass(), true)));
+        when(actionInstanceMapper.updateById(any(FormActionInstanceDO.class))).thenReturn(1);
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("PI-1001");
         when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.processInstanceId("PI-1001")).thenReturn(taskQuery);
@@ -332,6 +334,7 @@ class FormCenterRuntimeBpmCallbackTest extends BaseMockitoUnitTest {
         when(businessApprovalPolicyMapper.selectById(20L)).thenReturn(businessPolicy());
         FixedLifecycleAdapter lifecycleAdapter = new FixedLifecycleAdapter(FormBusinessEffectPrecheck.pass());
         ReflectionTestUtils.setField(runtimeService, "lifecycleAdapters", List.of(lifecycleAdapter));
+        when(actionInstanceMapper.updateById(any(FormActionInstanceDO.class))).thenReturn(1);
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("PI-NO-TASK");
         when(flowableTaskService.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.processInstanceId("PI-NO-TASK")).thenReturn(taskQuery);

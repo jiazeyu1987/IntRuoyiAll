@@ -746,12 +746,24 @@ const handleResetPwd = async (row: UserApi.UserVO) => {
 
 /** 解锁用户 */
 const handleUnlock = async (row: UserApi.UserVO) => {
+  let reason: string
   try {
-    await message.confirm('确认要解锁"' + row.username + '"用户吗?')
-    await UserApi.unlockUser(row.id)
-    message.success('解锁成功')
-    await getList()
-  } catch {}
+    const result = await message.prompt(
+      '请输入解锁"' + row.username + '"用户的原因',
+      '解锁用户',
+      {
+        inputPlaceholder: '请输入解锁原因',
+        inputValidator: (value) => !!value?.trim() || '解锁原因不能为空'
+      }
+    )
+    reason = result.value.trim()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
+  }
+  await UserApi.unlockUser(row.id, reason)
+  message.success('解锁成功')
+  await getList()
 }
 
 /** 分配角色 */

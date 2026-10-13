@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.controller.admin.dept.vo.post.PostSimpleRe
 import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSimpleRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserEditRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.UserSimpleRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
@@ -23,6 +24,13 @@ import java.util.Map;
 public interface UserConvert {
 
     UserConvert INSTANCE = Mappers.getMapper(UserConvert.class);
+
+    default UserEditRespVO convertForUpdate(AdminUserDO user, List<PostDO> assignedPosts) {
+        UserEditRespVO response = BeanUtils.toBean(user, UserEditRespVO.class);
+        response.setPostIds(CollectionUtils.convertSet(assignedPosts, PostDO::getId));
+        response.setAssignedPosts(BeanUtils.toBean(assignedPosts, UserEditRespVO.PostItem.class));
+        return response;
+    }
 
     default List<UserRespVO> convertList(List<AdminUserDO> list, Map<Long, DeptDO> deptMap) {
         return CollectionUtils.convertList(list, user -> convert(user, deptMap.get(user.getDeptId())));

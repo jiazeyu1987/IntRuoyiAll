@@ -300,6 +300,8 @@
 </template>
 
 <script setup lang="ts">
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import {
   EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF,
   generateEdhrExecutionArchive,
@@ -323,6 +325,7 @@ import {
 } from '@/api/mes/pro/edhr/tracking'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import ExecutionRenderer from './ExecutionRenderer.vue'
 import { buildSignatureTimePayload } from './signatureTime'
@@ -397,6 +400,26 @@ const archiveForm = reactive({ sealPassword: '', comment: '' })
 const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || undefined)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
 const bpmTaskId = computed(() => (typeof route.query.bpmTaskId === 'string' ? route.query.bpmTaskId : undefined))
+const approvalActionContextKey = () => JSON.stringify([
+  approvalInvalidation.syncSession().key, route.fullPath, executionId.value, workTaskId.value,
+  bpmTaskId.value
+])
+const approvalActionGuard = createFormalActionGuard(approvalActionContextKey)
+const resetApprovalActionContext = () => {
+  approvalActionGuard.invalidate()
+  loading.value = false
+  actionLoading.value = false
+  actionForm.password = ''
+}
+watch(() => route.fullPath, () => {
+  resetApprovalActionContext()
+  actionDialogVisible.value = false
+  void loadDetail()
+}, { flush: 'sync' })
+watch(actionDialogVisible, () => resetApprovalActionContext(), { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { resetApprovalActionContext(); actionDialogVisible.value = false }, { flush: 'sync' })
+onDeactivated(resetApprovalActionContext)
+onBeforeUnmount(resetApprovalActionContext)
 const allowedSignatureCellKey = computed(() => detail.value?.signatureCellKey || '')
 const resolveApprovalTaskKind = () => {
   const taskType = detail.value?.taskType
@@ -597,22 +620,29 @@ const resolveApproveSuccessMessage = (result: Awaited<ReturnType<typeof approveE
   throw new Error('审批通过后后端未返回一致的动作结果和执行状态。')
 }
 
-const loadArchive = async () => {
+const loadArchive = async (isCurrent = () => true) => {
   if (!detail.value?.id) return
   archiveError.value = ''
   try {
-    latestArchive.value = await getLatestEdhrExecutionArchive(
+    const archive = await getLatestEdhrExecutionArchive(
       detail.value.id,
       EDHR_EXECUTION_ARCHIVE_ARTIFACT_PDF
-    )
+    , { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (isCurrent()) latestArchive.value = archive
   } catch (error) {
+    if (!isCurrent()) return
     const errorMessage = resolveErrorMessage(error, '归档状态加载失败，请联系管理员。')
     latestArchive.value = undefined
     archiveError.value = isEdhrExecutionArchiveNotExistsMessage(errorMessage) ? '' : errorMessage
   }
 }
 
+let approvalDetailReadGeneration = 0
 const loadDetail = async () => {
+  const generation = ++approvalDetailReadGeneration
+  const scope = approvalActionContextKey()
+  const actionIsCurrent = approvalActionGuard.capture()
+  const isCurrent = () => actionIsCurrent() && generation === approvalDetailReadGeneration && scope === approvalActionContextKey()
   if (!executionId.value) {
     loadError.value = '缺少 eDHR 执行记录 ID，无法加载审批详情。'
     return
@@ -624,32 +654,39 @@ const loadDetail = async () => {
   loading.value = true
   loadError.value = ''
   try {
-    detail.value = await getEdhrApprovalDetail(executionId.value, workTaskId.value, bpmTaskId.value)
+    const nextDetail = await getEdhrApprovalDetail(executionId.value, workTaskId.value, bpmTaskId.value, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    detail.value = nextDetail
     if (!detail.value.executionSnapshotJson) throw new Error('eDHR 审批详情缺少 executionSnapshotJson。')
     if (detail.value.status === EDHR_EXECUTION_STATUS.SUBMITTED && !allowedSignatureCellKey.value) {
       throw new Error('eDHR 审批详情缺少当前工作任务绑定的签字格。')
     }
     if (requiredDetailError.value) actionError.value = requiredDetailError.value
-    trackingTimeline.value = await getEdhrTrackingTimeline(detail.value.id)
+    const timeline = await getEdhrTrackingTimeline(nextDetail.id, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
+    trackingTimeline.value = timeline
     const signaturePage = await getEdhrExecutionSignaturePage({
       pageNo: 1,
       pageSize: 20,
-      executionId: detail.value.id
-    })
+      executionId: nextDetail.id
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return
     signatureRows.value = signaturePage.list || detail.value.signatureSummaries || []
-    await loadArchive()
+    await loadArchive(isCurrent)
   } catch (error) {
+    if (!isCurrent()) return
     detail.value = undefined
     trackingTimeline.value = []
     signatureRows.value = []
     latestArchive.value = undefined
     loadError.value = resolveErrorMessage(error, 'eDHR 审批详情加载失败，请联系管理员。')
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 
 const openActionDialog = (mode: 'approve' | 'reject') => {
+  resetApprovalActionContext()
   const disabledReason = resolveActionDisabledReason(mode)
   if (disabledReason) {
     actionError.value = disabledReason
@@ -665,6 +702,7 @@ const openActionDialog = (mode: 'approve' | 'reject') => {
 }
 
 const submitAction = async () => {
+  if (actionLoading.value) return
   const disabledReason = resolveActionDisabledReason(actionMode.value)
   if (!detail.value || disabledReason) {
     actionError.value = disabledReason || '审批详情接口缺少必填字段，无法审批。'
@@ -684,6 +722,10 @@ const submitAction = async () => {
   }
   actionLoading.value = true
   actionError.value = ''
+  const mode = actionMode.value
+  const event = approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(workTaskId.value), processInstanceId: detail.value.processInstanceId })
+  let isCurrent = approvalActionGuard.capture()
+  let writeSucceeded = false
   try {
     const payload = {
       executionId: detail.value.executionId,
@@ -697,23 +739,31 @@ const submitAction = async () => {
       signatureTime: buildSignatureTimePayload()
     }
     const result =
-      actionMode.value === 'approve'
-        ? await approveEdhrExecution(payload)
-        : await rejectEdhrExecution({ ...payload, reason: actionForm.rejectReason.trim() })
-    if (actionMode.value === 'reject' && result.status !== EDHR_EXECUTION_STATUS.REJECTED) {
+      mode === 'approve'
+        ? await approveEdhrExecution(payload, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+        : await rejectEdhrExecution({ ...payload, reason: actionForm.rejectReason.trim() }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
+    if (mode === 'reject' && result.status !== EDHR_EXECUTION_STATUS.REJECTED) {
       throw new Error('审批驳回后后端未返回 REJECTED 状态。')
     }
     const successText =
-      actionMode.value === 'approve'
+      mode === 'approve'
         ? resolveApproveSuccessMessage(result)
         : resolveRejectSuccessMessage(result)
     actionDialogVisible.value = false
+    isCurrent = approvalActionGuard.capture()
     message.success(successText)
     await loadDetail()
+    if (isCurrent() && loadError.value) throw new Error(loadError.value)
   } catch (error) {
-    actionError.value = resolveErrorMessage(error, 'eDHR 审批动作失败，请联系管理员。')
+    if (!isCurrent()) return
+    actionError.value = writeSucceeded
+      ? `审批已成功，详情刷新失败：${resolveErrorMessage(error, '请刷新查看结果。')}`
+      : resolveErrorMessage(error, 'eDHR 审批动作失败，请联系管理员。')
   } finally {
-    actionLoading.value = false
+    if (isCurrent()) actionLoading.value = false
   }
 }
 

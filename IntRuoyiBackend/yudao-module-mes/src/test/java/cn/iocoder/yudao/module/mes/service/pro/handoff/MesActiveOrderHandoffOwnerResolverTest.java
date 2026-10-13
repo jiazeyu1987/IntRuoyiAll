@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class MesActiveOrderHandoffOwnerResolverTest {
  MesActiveOrderHandoffOwnerResolver service;AdminUserMapper users;PermissionApi permissions;MesProcessPoolTeamLeaderScopeMapper scopes;MesProductionSignatureEvidenceService evidence;ElectronicSignatureQueryService signatures;MesPqcInspectionTaskMapper pqcTasks;
- @BeforeEach void setup(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffOwnerResolver();users=mock(AdminUserMapper.class);permissions=mock(PermissionApi.class);scopes=mock(MesProcessPoolTeamLeaderScopeMapper.class);evidence=mock(MesProductionSignatureEvidenceService.class);signatures=mock(ElectronicSignatureQueryService.class);pqcTasks=mock(MesPqcInspectionTaskMapper.class);for(var e:Map.of("users",users,"permissions",permissions,"scopes",scopes,"productionEvidence",evidence,"signatureQuery",signatures,"pqcTasks",pqcTasks).entrySet())ReflectionTestUtils.setField(service,e.getKey(),e.getValue());}
+ @BeforeEach void setup(){TenantContextHolder.setTenantId(1L);service=new MesActiveOrderHandoffOwnerResolver();users=mock(AdminUserMapper.class);permissions=mock(PermissionApi.class);scopes=mock(MesProcessPoolTeamLeaderScopeMapper.class);evidence=mock(MesProductionSignatureEvidenceService.class);signatures=mock(ElectronicSignatureQueryService.class);pqcTasks=mock(MesPqcInspectionTaskMapper.class);for(var e:Map.of("users",users,"permissions",permissions,"scopes",scopes,"productionEvidence",evidence,"signatureQuery",signatures,"pqcTasks",pqcTasks).entrySet())ReflectionTestUtils.setField(service,e.getKey(),e.getValue());cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service,signatures,1L);}
  @AfterEach void clear(){TenantContextHolder.clear();}
  @org.junit.jupiter.params.ParameterizedTest
  @org.junit.jupiter.params.provider.ValueSource(strings={"PRODUCTION","PQC"})
@@ -95,7 +95,19 @@ class MesActiveOrderHandoffOwnerResolverTest {
  void formalSubmittedAndConfirmedTaskSuppliesStageWithoutPayloadInference(String status){var e=pqcEvent().setRawPayload("{}");var task=pqcTask().setTaskStatus(status);when(pqcTasks.selectById(55L)).thenReturn(task);assertSame(task,service.pqcTask(e));assertEquals(91L,task.getRouteProcessId());assertNull(e.getProcessId());assertNull(e.getRouteProcessId());verifyNoInteractions(scopes,users,permissions);}
  @Test void profileSignatureRemainsValidWithoutInventedSystemReceiver(){var e=production("MES_EMPLOYEE_PROFILE");bind(e,"MES_EMPLOYEE_PROFILE");var identity=service.submissionIdentity(e);assertEquals("MES_EMPLOYEE_PROFILE",identity.domain());assertEquals(342L,identity.signerId());assertEquals("正式档案签名人",service.initiatorSnapshot(1L,e).get("name"));assertEquals("MES_EMPLOYEE_PROFILE",service.initiatorSnapshot(1L,e).get("domain"));assertThrows(RuntimeException.class,()->service.originalActor(e));verifyNoInteractions(users,permissions);}
  @Test void wrongIdentityDomainAndCanonicalSignerAreRejected(){var e=production("MES_EMPLOYEE_PROFILE");bind(e,"SYSTEM_USER");assertThrows(RuntimeException.class,()->service.submissionIdentity(e));bind(e,"DEVICE");assertThrows(RuntimeException.class,()->service.submissionIdentity(e));}
- void bind(MesProProcessPoolEventDO e,String domain){when(evidence.isValidForEvent(e)).thenReturn(true);var dto=mock(ElectronicSignatureEvidenceDTO.class);when(dto.actorId()).thenReturn(342L);when(dto.actorDisplayName()).thenReturn("正式档案签名人");when(dto.canonicalContentJson()).thenReturn("{\"signatureIdentity\":{\"domain\":\""+domain+"\",\"tenantId\":1,\"signerId\":342,\"operatorId\":1}}");when(signatures.getById(901L)).thenReturn(dto);}
+ void bind(MesProProcessPoolEventDO e,String domain){
+  when(evidence.isValidForEvent(e)).thenReturn(true);
+  String subject=cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(
+          0L,"PRODUCTION_SUBMIT",null,null,null,null,null,null,null,"MES_ACTIVE_ORDER",413L,null,null,null,null,null,null);
+  var content=com.alibaba.fastjson.JSON.parseObject(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.canonicalBusinessContent(subject,"PRODUCTION_SUBMIT","reason"));
+  content.put("signatureIdentity",Map.of("domain",domain,"tenantId",1L,"signerId",342L,"operatorId",1L,"displayName","正式档案签名人"));
+  var dto=new ElectronicSignatureEvidenceDTO(901L,"MES","PRODUCTION_SUBMIT","MES_BATCH_RECORD",subject,
+          cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject),342L,"PRODUCTION_SUBMIT","生产提交","reason",
+          java.time.LocalDateTime.of(2026,10,7,10,0),"time",("MES_EMPLOYEE_PROFILE".equals(domain)?"SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD":"SESSION_PLUS_SELECTED_USER_PASSWORD"),"c","e","SHA-256","v1","p1","VALID",null,null,null,null,content.toJSONString(),null,null,null,"正式档案签名人");
+  when(signatures.getById(901L)).thenReturn(dto);
+  when(signatures.verifyEvidence(901L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+          901L,"VALID","c","c","e","e","SHA-256","v1","LOCAL_DIGEST_TIME_AND_CREATION_AUDIT","CONSISTENT","CONSISTENT","SERVER_CLOCK","NOT_BOUND","CONSISTENT",List.of(),java.time.LocalDateTime.of(2026,10,7,10,1),"V1"));
+ }
  AdminUserDO allowUser(Long id,String permission){var user=AdminUserDO.builder().id(id).status(0).build();user.setTenantId(1L);when(users.selectById(id)).thenReturn(user);when(permissions.hasAnyPermissions(id,permission)).thenReturn(true);return user;}
  static MesProProcessPoolEventDO production(String domain){var e=MesProProcessPoolEventDO.builder().id(176L).eventType("PRODUCTION_SUBMIT").signatureId(901L).actualEmployeeId(342L).signatureUserId(342L).deviceAccountId(1L).rawPayload("{\"activeOrderId\":413,\"signatureIdentityDomain\":\""+domain+"\"}").build();e.setTenantId(1L);return e;}
  static MesProcessPoolTeamLeaderScopeDO scope(Long leader,String type,Long process){var s=MesProcessPoolTeamLeaderScopeDO.builder().leaderUserId(leader).leaderType("PQC").scopeType(type).employeeUserId(344L).processId(process).enabled(true).build();s.setTenantId(1L);return s;}
@@ -135,5 +147,50 @@ class MesActiveOrderHandoffOwnerResolverTest {
   if("mixed".equals(defect)){assertEquals("342",service.productionEmployees(order));verify(users,never()).selectById(71L);}
   else assertThrows(RuntimeException.class,()->service.productionEmployees(order));
  }
+
+  @Test void frozenHandlersAndCorrectorSurviveRemovedInspectorScopesWithoutGrantingSelfReview(){
+   var task=frozenResponsibilityFixture();allowUser(343L,"mes:pro-process-pool-team-leader:review");allowUser(343L,"mes:pro-process-pool:event-revision:update");
+   assertEquals(List.of(343L),service.frozenPqcHandoff(pqcEvent()).handlerLeaderUserIds());
+   assertDoesNotThrow(()->service.assertPqcLeaderCorrector(pqcEvent(),343L));
+   allowUser(344L,"mes:pro-process-pool:event-revision:update");assertThrows(RuntimeException.class,()->service.assertPqcLeaderCorrector(pqcEvent(),344L));
+   verifyNoInteractions(scopes);assertEquals("344",task.getCandidateUserSnapshot());
+  }
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings={"disabled","foreign","noReviewPermission","noRevisionPermission","missing","duplicate","conflictingRule"})
+  void frozenPqcResponsibilityStillRequiresExactTenantAndCurrentHandlingPermissions(String defect){
+   var task=frozenResponsibilityFixture();var leader=allowUser(343L,"mes:pro-process-pool-team-leader:review");when(permissions.hasAnyPermissions(343L,"mes:pro-process-pool:event-revision:update")).thenReturn(true);
+   var mapper=(cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper)ReflectionTestUtils.getField(service,"handoffTasks");
+   switch(defect){case "disabled"->leader.setStatus(1);case "foreign"->leader.setTenantId(2L);
+    case "noReviewPermission"->when(permissions.hasAnyPermissions(343L,"mes:pro-process-pool-team-leader:review")).thenReturn(false);
+    case "noRevisionPermission"->when(permissions.hasAnyPermissions(343L,"mes:pro-process-pool:event-revision:update")).thenReturn(false);
+    case "missing"->when(mapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of());
+    case "duplicate"->when(mapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(task,task));
+    case "conflictingRule"->{var n=(com.fasterxml.jackson.databind.node.ObjectNode)cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(task.getResponsibilitySnapshotJson());((com.fasterxml.jackson.databind.node.ObjectNode)n.path("pqcAssignmentRule")).putArray("handlerLeaderUserIds").add(349L);task.setResponsibilitySnapshotJson(n.toString());}
+    default->throw new IllegalArgumentException(defect);}
+   assertThrows(RuntimeException.class,()->service.assertPqcLeaderCorrector(pqcEvent(),343L));verifyNoInteractions(scopes);
+  }
+  cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO frozenResponsibilityFixture(){
+   when(pqcTasks.selectById(55L)).thenReturn(pqcTask());
+   var orders=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper.class);ReflectionTestUtils.setField(service,"orders",orders);
+   var order=MesProcessPoolActiveOrderDO.builder().id(413L).workOrderId(274L).routeId(98L).activeStatus("ACTIVE").build();order.setTenantId(1L);when(orders.selectById(413L)).thenReturn(order);
+   var mapper=mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.handoff.MesActiveOrderHandoffTaskMapper.class);ReflectionTestUtils.setField(service,"handoffTasks",mapper);
+   var task=new cn.iocoder.yudao.module.mes.dal.dataobject.pro.handoff.MesActiveOrderHandoffTaskDO().setId(991L).setActiveOrderId(413L).setWorkOrderId(274L).setRouteProcessId(91L)
+    .setTaskType("PQC_HANDOFF").setSourceType("PQC_INSPECTION_TASK").setSourceId(55L).setRoundId(55L).setStatus("TODO").setCandidateUserSnapshot("344");task.setTenantId(1L);
+   var n=new LinkedHashMap<String,Object>();n.put("identityDomain","SYSTEM_USER");n.put("activeOrderId",413L);n.put("workOrderId",274L);n.put("routeId",98L);n.put("routeProcessId",91L);n.put("processId",15L);
+   n.put("sourceType","PQC_INSPECTION_TASK");n.put("sourceId",55L);n.put("roundId",55L);n.put("userIds",List.of(344L));n.put("handlerLeaderUserIds",List.of(343L));
+   n.put("pqcAssignmentRule",new MesPqcHandoffAssignmentService.ResolvedAssignment(901L,98L,"USER",344L,"344",List.of(343L)).snapshot());task.setResponsibilitySnapshotJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(n));
+   when(mapper.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(task));return task;
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings={"create","pqc_permission","pqc_leader_permission","none","disabled","foreign"})
+  void pqcSubmitterUsesExistingControllerPermissionOrGeneralRoleWithStrictIdentity(String grant){
+   var user=AdminUserDO.builder().id(344L).status(0).build();user.setTenantId(1L);when(users.selectById(344L)).thenReturn(user);
+   if("create".equals(grant))when(permissions.hasAnyPermissions(344L,"mes:pro-feedback:create")).thenReturn(true);
+   if(Set.of("pqc_permission","pqc_leader_permission").contains(grant))when(permissions.hasAnyRoles(344L,"pqc_permission","pqc_leader_permission")).thenReturn(true);
+   if("disabled".equals(grant))user.setStatus(1);if("foreign".equals(grant))user.setTenantId(2L);
+   if(Set.of("create","pqc_permission","pqc_leader_permission").contains(grant))assertDoesNotThrow(()->service.qualifiedPqcSubmitter(344L));
+   else assertThrows(RuntimeException.class,()->service.qualifiedPqcSubmitter(344L));verifyNoInteractions(scopes);
+  }
 
 }

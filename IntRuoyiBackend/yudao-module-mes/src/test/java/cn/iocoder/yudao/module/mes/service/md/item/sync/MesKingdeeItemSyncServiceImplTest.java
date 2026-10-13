@@ -89,6 +89,7 @@ class MesKingdeeItemSyncServiceImplTest {
             return 1;
         }).when(unitMeasureMapper).insert(any(MesMdUnitMeasureDO.class));
 
+        when(itemMapper.updateErpMaterialSnapshot(any(MesMdItemDO.class))).thenReturn(1);
         MesKingdeeItemSyncResult result =
                 syncService.syncItemsByProductCodes(List.of("MAT-NEW", "MAT-UPD"));
 
@@ -111,9 +112,9 @@ class MesKingdeeItemSyncServiceImplTest {
         assertEquals(30L, createCaptor.getValue().getUnitMeasureId());
 
         ArgumentCaptor<MesMdItemDO> updateCaptor = ArgumentCaptor.forClass(MesMdItemDO.class);
-        verify(itemMapper).updateById(updateCaptor.capture());
-        assertEquals(200L, updateCaptor.getValue().getId());
-        assertEquals(CommonStatusEnum.DISABLE.getStatus(), updateCaptor.getValue().getStatus());
+        verify(itemMapper).updateErpMaterialSnapshot(updateCaptor.capture());
+        assertEquals("Spec B", updateCaptor.getValue().getSpecification());
+
     }
 
 }

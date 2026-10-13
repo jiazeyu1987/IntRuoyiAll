@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.mes.approval;
 
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
-import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
@@ -28,6 +27,25 @@ import java.time.LocalDateTime;
 /** Reads a completed release decision's formal actor without changing frozen task ownership. */
 @Component
 public class MesManagerReleaseCompletedActorResolver {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent verifiedContent(Long id) {
+        cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact fact;
+        try {
+            fact = verifiedSignatureFacts.requireVerifiedFact(id);
+        } catch (cn.iocoder.yudao.framework.common.exception.ServiceException invalidSignature) {
+            if (!Objects.equals(invalidSignature.getCode(),
+                    cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID.getCode()))
+                throw invalidSignature;
+            throw new IllegalStateException("APPROVAL_COMPLETED_ACTOR_INVALID: signature evidence is invalid", invalidSignature);
+        }
+        try {
+            return cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(
+                    fact, cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        } catch (IllegalArgumentException malformedContent) {
+            throw new IllegalStateException("APPROVAL_COMPLETED_ACTOR_INVALID: signature content is inconsistent", malformedContent);
+        }
+    }
+
 
     private static final String RELEASE_TRANSACTION = "RELEASE_TRANSACTION";
     private final MesProEdhrWorkTaskMapper taskMapper;
@@ -126,8 +144,8 @@ public class MesManagerReleaseCompletedActorResolver {
                 .eq(AdminUserDO::getId, application.getPqcDecidedBy()).eq(AdminUserDO::getTenantId, tenantId)
                 .eq(AdminUserDO::getDeleted, false));
         require(actor != null && Objects.equals(tenantId, actor.getTenantId())
-                && Objects.equals(application.getPqcDecidedBy(), actor.getId()) && CommonStatusEnum.isEnable(actor.getStatus()),
-                taskId, "formal PQC deciding system user is missing, disabled or outside the tenant");
+                && Objects.equals(application.getPqcDecidedBy(), actor.getId()) && !Boolean.TRUE.equals(actor.getDeleted()),
+                taskId, "formal PQC deciding system user is missing or outside the tenant");
         // Both official decisions persist their receipt; only APPROVE creates a PQC_RELEASE signature.
         var receipt = JsonUtils.parseTree(application.getDossierSummaryJson());
         require(receipt != null && receipt.isObject()
@@ -149,6 +167,15 @@ public class MesManagerReleaseCompletedActorResolver {
         return actor.getId();
     }
 
+    public cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO readVerifiedQaClosure(
+            Long taskId, MesProcessPoolActiveOrderReleaseApplicationDO application, Long reviewId) {
+        require(application != null && Objects.equals(TenantContextHolder.getRequiredTenantId(), application.getTenantId())
+                && application.getApplicationStatus() != null
+                && Set.of("NONCONFORMANCE_REWORK", "NONCONFORMANCE_VOID").contains(application.getApplicationStatus()),
+                taskId, "QA closure application tenant/status conflict");
+        return requireQaClosure(taskId, application, reviewId);
+    }
+
     private cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO requireQaClosure(
             Long taskId, MesProcessPoolActiveOrderReleaseApplicationDO application, Long reviewId) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
@@ -161,14 +188,17 @@ public class MesManagerReleaseCompletedActorResolver {
                 .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getReviewStatus, "closed")
                 .eq(cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrNonconformanceReviewDO::getDisposition, disposition)
                 );
-        require(review != null && Objects.equals(tenantId, review.getTenantId())
+        require(review != null && Objects.equals(application.getQaClosureReviewId(), review.getId())
+                && Objects.equals(tenantId, review.getTenantId()) && !Boolean.TRUE.equals(review.getDeleted())
+                && "closed".equals(review.getReviewStatus()) && Objects.equals(disposition, review.getDisposition())
                 && Objects.equals(application.getActiveOrderId(), review.getActiveOrderId())
                 && (review.getBatchExecutionId() == null || Objects.equals(application.getBatchExecutionId(), review.getBatchExecutionId()))
                 && Objects.equals(application.getWorkOrderId(), review.getWorkOrderId())
                 && review.getClosedAt() != null && positive(review.getQaUserId()), taskId, "formal QA closure is missing or mismatched");
         var actor = users.selectById(review.getQaUserId());
-        require(actor != null && Objects.equals(tenantId, actor.getTenantId()) && CommonStatusEnum.isEnable(actor.getStatus()),
-                taskId, "QA deciding system account is missing, disabled or outside the tenant");
+        require(actor != null && Objects.equals(review.getQaUserId(), actor.getId())
+                && Objects.equals(tenantId, actor.getTenantId()) && !Boolean.TRUE.equals(actor.getDeleted()),
+                taskId, "QA deciding system account is missing or outside the tenant");
         var snapshot = JsonUtils.parseTree(review.getTraceSnapshotJson()).path("qaSignatureSnapshotJson");
         require(exactJsonId(snapshot.path("reviewId"), review.getId()) && exactJsonId(snapshot.path("qaUserId"), actor.getId())
                 && disposition.equals(snapshot.path("disposition").asText()) && "QA_DISPOSITION".equals(snapshot.path("actionType").asText())
@@ -187,14 +217,16 @@ public class MesManagerReleaseCompletedActorResolver {
                 "eDHR不合格评审处置", "QA_DISPOSITION", null, null, snapshot.path("aggregateHash").asText(), null);
         require(Objects.equals(subject, evidence.subjectId()) && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(subject), evidence.subjectVersion()),
                 taskId, "QA signature belongs to another disposition");
-        var verified = signatures.verifyEvidence(signatureId);
+        var verified = verifiedContent(signatureId).signatureFact().verification();
         require(verified != null && Objects.equals(signatureId, verified.signatureId()) && "VALID".equals(verified.verificationStatus())
                 && Objects.equals(evidence.contentHash(), verified.storedContentHash()) && Objects.equals(evidence.contentHash(), verified.calculatedContentHash())
                 && Objects.equals(evidence.evidenceHash(), verified.storedEvidenceHash()) && Objects.equals(evidence.evidenceHash(), verified.calculatedEvidenceHash()),
                 taskId, "QA closure signature integrity failed");
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(actor.getId(),
-                "MES", "QA_DISPOSITION", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
-        require(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson())),
+                "MES", "QA_DISPOSITION", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), null));
+        var expectedContent = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(expected.canonicalContentJson());
+        expectedContent.put("reason", evidence.reason() == null ? "" : evidence.reason().trim());
+        require(expectedContent.equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson())),
                 taskId, "QA disposition canonical signature content is inconsistent");
         return review;
     }
@@ -208,7 +240,7 @@ public class MesManagerReleaseCompletedActorResolver {
                 && "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
                 && text(evidence.contentHash()) && text(evidence.evidenceHash()),
                 taskId, "formal PQC approval signature identity is inconsistent");
-        var verified = signatures.verifyEvidence(signatureId);
+        var verified = verifiedContent(signatureId).signatureFact().verification();
         require(verified != null && Objects.equals(signatureId, verified.signatureId())
                 && "VALID".equals(verified.verificationStatus())
                 && Objects.equals(evidence.contentHash(), verified.storedContentHash())
@@ -218,13 +250,16 @@ public class MesManagerReleaseCompletedActorResolver {
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(application.getBatchExecutionId(), "PQC_RELEASE",
                 null, null, null, null, null, null, null, "PQC_RELEASE_APPLICATION", application.getId(),
                 "PQC生产放行", "PQC_RELEASE", null, null, null, null);
-        require(Objects.equals(subject, evidence.subjectId())
-                && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(subject), evidence.subjectVersion()),
+        require(Objects.equals(subject, MesBatchRecordSignatureSubjectAdapter.subjectWithoutOpinionSource(evidence.subjectId()))
+                && Objects.equals(MesProBatchRecordExecutionFieldAuditHasher.sha256(evidence.subjectId()), evidence.subjectVersion()),
                 taskId, "PQC approval signature belongs to another application or batch");
         var expected = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
-                evidence.actorId(), "MES", "PQC_RELEASE", "MES_BATCH_RECORD", subject, evidence.subjectVersion(), evidence.reason()));
-        require(JsonUtils.parseTree(expected.canonicalContentJson()).equals(JsonUtils.parseTree(evidence.canonicalContentJson())),
+                evidence.actorId(), "MES", "PQC_RELEASE", "MES_BATCH_RECORD", evidence.subjectId(), evidence.subjectVersion(), evidence.reason()));
+        var expectedContent = (com.fasterxml.jackson.databind.node.ObjectNode) JsonUtils.parseTree(expected.canonicalContentJson());
+        expectedContent.put("reason", evidence.reason() == null ? "" : evidence.reason().trim());
+        require(expectedContent.equals(JsonUtils.parseTree(verifiedContent(evidence.id()).businessContentJson())),
                 taskId, "PQC approval canonical signature content is inconsistent");
+        MesBatchRecordSignatureSubjectAdapter.verifiedUserOpinion(evidence.subjectId(), "PQC_RELEASE", evidence.reason());
     }
 
     private static boolean exactJsonId(com.fasterxml.jackson.databind.JsonNode node, Long expected) {

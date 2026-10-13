@@ -51,8 +51,11 @@ public class MesProductionSignatureEvidenceService {
     private static final String PROJECTION_OPERATION = "mes.employee-production-signature.create";
     private static final String PRODUCTION_SOURCE =
             "cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitServiceImpl#submit";
+    private static final String AUTHENTICATED_PRODUCTION_SOURCE =
+            "cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitServiceImpl#submitAuthenticated";
 
     private final ElectronicSignatureQueryService signatureQueryService;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatures;
     private final MesProBatchRecordExecutionSignatureMapper projectionMapper;
     private final GxpAuditEventMapper auditMapper;
     private final MesProcessPoolActiveOrderMapper activeOrderMapper;
@@ -186,6 +189,14 @@ public class MesProductionSignatureEvidenceService {
 
     private Snapshot unifiedSnapshot(ElectronicSignatureEvidenceDTO evidence, Long actorId, Long signatureId,
                                      MesProductionSubmitSignatureContext context, boolean requireSignedContext) {
+        var trusted=verifiedSignatures.requireVerifiedFact(signatureId);
+        try {
+            MesSignatureContentProtocol.parseVerifiedContent(trusted, TenantContextHolder.getRequiredTenantId());
+        } catch (IllegalArgumentException invalidContent) {
+            var invalidEvidence = exception(EVIDENCE_INVALID);
+            invalidEvidence.initCause(invalidContent);
+            throw invalidEvidence;
+        }
         require(Objects.equals(evidence.id(), signatureId) && Objects.equals(evidence.actorId(), actorId)
                 && MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE.equals(evidence.subjectType())
                 && evidence.signedAt() != null && "VALID".equals(evidence.verificationStatus())
@@ -203,7 +214,9 @@ public class MesProductionSignatureEvidenceService {
                 evidence.reason()));
         var signedContent = JSON.parseObject(evidence.canonicalContentJson());
         var identity = signedContent.getJSONObject("signatureIdentity");
-        signedContent.remove("signatureIdentity");
+        if("V2".equals(trusted.verification().evidenceFormatVersion())) {
+            for(String key:Set.of("evidenceFormatVersion","commandHashVersion","signatureIdentity","signatureTime","signatureImage","nodePosition")) signedContent.remove(key);
+        } else signedContent.remove("signatureIdentity");
         if (identity != null) require(Objects.equals(identity.getLong("signerId"), actorId)
                 && Objects.equals(identity.getLong("tenantId"), TenantContextHolder.getRequiredTenantId())
                 && positive(identity.getLong("operatorId"))
@@ -230,7 +243,7 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(evidence.keyVersion(), verification.keyVersion()));
         require(identity == null ? "SESSION_PLUS_PASSWORD".equals(evidence.authenticationMethod())
                 : Objects.equals(evidence.authenticationMethod(), "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
-                    ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD"));
+                    ? "SESSION_PLUS_EMPLOYEE_PROFILE_PASSWORD" : Objects.equals(identity.getLong("signerId"),identity.getLong("operatorId")) && "V2".equals(trusted.verification().evidenceFormatVersion()) ? "SESSION_PLUS_PASSWORD" : "SESSION_PLUS_SELECTED_USER_PASSWORD"));
         var audit = requireUnifiedSignatureAudit(evidence);
         return new Snapshot(identity != null && "MES_EMPLOYEE_PROFILE".equals(identity.getString("domain"))
                 ? "UNIFIED_EMPLOYEE_PROFILE" : "UNIFIED_SYSTEM_USER", signatureId, actorId, evidence.signedAt().toString(),
@@ -251,7 +264,8 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(audit.getSubjectId(), evidence.subjectType() + ":" + evidence.subjectId())
                 && Objects.equals(audit.getSubjectVersion(), evidence.subjectVersion())
                 && "ELECTRONIC_SIGNATURE_RECORDED".equals(audit.getAfterState())
-                && "ElectronicSignatureServiceImpl.sign".equals(audit.getSourceLocator()));
+                && ("ElectronicSignatureServiceImpl.sign".equals(audit.getSourceLocator()) && !"V2".equals(verifiedSignatures.requireVerifiedFact(evidence.id()).verification().evidenceFormatVersion())
+                    || "ElectronicSignatureTransactionExecutor.executeAuthenticated".equals(audit.getSourceLocator()) && "V2".equals(verifiedSignatures.requireVerifiedFact(evidence.id()).verification().evidenceFormatVersion())));
         JSONObject after = JSON.parseObject(audit.getAfterStateJson());
         require(after != null && Objects.equals(after.getLong("signatureId"), evidence.id())
                 && Objects.equals(after.getLong("actorId"), evidence.actorId())
@@ -267,6 +281,8 @@ public class MesProductionSignatureEvidenceService {
     }
 
     private void requireProductionAudit(MesProProcessPoolEventDO event, Long activeOrderId, Snapshot evidence) {
+        var signatureFact = verifiedSignatures.requireVerifiedFact(event.getSignatureId());
+        boolean v2 = "V2".equals(signatureFact.verification().evidenceFormatVersion());
         var audits = auditMapper.selectList(new LambdaQueryWrapperX<GxpAuditEventDO>()
                 .eq(GxpAuditEventDO::getTenantId, TenantContextHolder.getRequiredTenantId())
                 .eq(GxpAuditEventDO::getOperationId, PRODUCTION_OPERATION)
@@ -283,8 +299,20 @@ public class MesProductionSignatureEvidenceService {
                 && Objects.equals(audit.getRequestId(), "MES-PRODUCTION-SUBMIT:" + event.getId())
                 && "ABSENT".equals(audit.getBeforeState()) && "PRESENT".equals(audit.getAfterState())
                 && "MES_PRODUCTION_SUBMIT".equals(audit.getReasonCode()) && "SYSTEM".equals(audit.getReasonSource())
-                && "SERVICE_METHOD".equals(audit.getSourceType()) && PRODUCTION_SOURCE.equals(audit.getSourceLocator()));
+                && "SERVICE_METHOD".equals(audit.getSourceType())
+                && (v2 ? AUTHENTICATED_PRODUCTION_SOURCE : PRODUCTION_SOURCE).equals(audit.getSourceLocator()));
         JSONObject after = JSON.parseObject(audit.getAfterStateJson());
+        if (v2) {
+            var rawProof = JsonUtils.parseTree(event.getRawPayload()).get(
+                    cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProductionSubmitRequestIdentity.RAW_KEY);
+            var auditProof = JsonUtils.parseTree(audit.getAfterStateJson()).get(
+                    cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProductionSubmitRequestIdentity.RAW_KEY);
+            require(rawProof != null && rawProof.equals(auditProof)
+                    && rawProof.isObject() && rawProof.size() == 2
+                    && cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProductionSubmitRequestIdentity.VERSION
+                    .equals(rawProof.path("version").asText())
+                    && rawProof.path("hash").asText().matches("[0-9a-f]{64}"));
+        }
         require(after != null && "PRODUCTION".equals(after.getString("profile"))
                 && Objects.equals(after.getLong("eventId"), event.getId())
                 && Objects.equals(after.getLong("feedbackId"), event.getFeedbackSourceId())

@@ -60,7 +60,7 @@ public class MesKingdeeWorkOrderBomSyncServiceImpl implements MesKingdeeWorkOrde
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesKingdeeWorkOrderBomSyncResult syncErpBom(Long workOrderId) {
-        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExists(workOrderId);
+        MesProWorkOrderDO workOrder = workOrderService.validateWorkOrderExistsForUpdate(workOrderId);
         validateSyncStatus(workOrder);
         validateNoDownstreamUsage(workOrderId);
 

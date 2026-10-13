@@ -186,12 +186,25 @@ for (const action of ['edit', 'remove', 'reset']) test(`R6 pending catalog survi
   if (action === 'edit') s.conditions.value[0].value = '42'
   if (action === 'remove') s.removeCondition(0)
   if (action === 'reset') s.resetConditions()
-  await flush(); assert.equal(s.loadingCatalog.value, true)
+  await flush(); assert.equal(s.categoryLoading.value.FIELD, true)
   pending.resolve(catalog([item()], { catalogVersion: 'v2' })); await flush()
-  assert.equal(s.catalog.value?.catalogVersion, 'v2'); assert.equal(s.loadingCatalog.value, false)
+  assert.equal(s.catalog.value?.catalogVersion, 'v2'); assert.equal(s.categoryLoading.value.FIELD, false)
   if (action === 'edit') assert.equal(s.conditions.value[0].value, '42')
   else assert.equal(s.conditions.value.length, 0)
   e.unmount()
+})
+
+test('an older category response cannot clear the newer category loading state', async () => {
+  const e = await ready(); const s = e.state; const older = deferred(), newer = deferred(); let count = 0
+  e.api.getReverseTraceCatalog = () => ++count === 1 ? older.promise : newer.promise
+  s.releaseApprovedTime.value = ['2026-01-01', '2026-02-01']; await flush()
+  s.releaseApprovedTime.value = ['2026-03-01', '2026-04-01']; await flush()
+  assert.equal(s.categoryLoading.value.FIELD, true)
+  older.resolve(catalog([item(99)], { catalogVersion: 'old' })); await flush()
+  assert.equal(s.categoryLoading.value.FIELD, true); assert.equal(s.catalog.value, undefined)
+  newer.resolve(catalog([item()], { catalogVersion: 'new' })); await flush()
+  assert.equal(s.categoryLoading.value.FIELD, false); assert.equal(s.catalog.value.catalogVersion, 'new')
+  assert.equal(s.catalog.value.items.some(row => row.sourceRef === 'row:99'), false); e.unmount()
 })
 
 test('R6 editing restored draft during catalog load supersedes cached input', async () => {
@@ -375,7 +388,7 @@ for (const kind of ['catalog', 'evidence']) for (const action of ['edit', 'add',
     assert.deepEqual(copy(s.conditions.value), draft)
     await s.runQuery(); assert.equal(e.calls.query.length, 1)
   }
-  assert.equal(s.loadingCatalog.value, false); assert.equal(s.loadingEvidence.value, false)
+  assert.equal(Object.values(s.categoryLoading.value).some(Boolean), false); assert.equal(s.loadingEvidence.value, false)
   if (action !== 'unmount') e.unmount()
 })
 test('an older evidence request does not settle the newer loading state', async () => {
@@ -480,7 +493,7 @@ for (const source of ['non-released', 'missing-chain', 'missing-adapter']) test(
   assert.equal(m.state.catalogError.value, '')
   assert.deepEqual(copy(m.state.categoryCatalogs.value.FIELD), { ...response, categories: [categories[0]] })
   assert.equal(m.nodes.filter((n) => n.attrs.title === reason).length, 1, 'requested category reason reaches its rendered alert')
-  assert.equal(m.state.conditions.value.length, 0); assert.equal(m.state.loadingCatalog.value, false)
+  assert.equal(m.state.conditions.value.length, 0); assert.equal(Object.values(m.state.categoryLoading.value).some(Boolean), false)
   await m.state.runQuery(); assert.equal(e.calls.query.length, 0)
   assert.equal(m.state.queryResponse.value, undefined); assert.equal(m.state.evidenceResponse.value, undefined)
   assert.equal(m.nodes.some((n) => n.attrs['aria-label'] === '反查批次分页'), false)

@@ -21,6 +21,8 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqV
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.EdhrDomainTaskAssignmentService;
+import cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTraceDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApproveReqVO;
@@ -161,6 +163,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -180,7 +185,11 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     @Resource
     private MesProBatchRecordExecutionService executionService;
     @Resource
+    private javax.sql.DataSource dataSource;
+    @Resource
     private MesProBatchRecordExecutionMapper executionMapper;
+    @Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesEdhrEngineOwnershipMapper ownershipMapper;
     @Resource
     private MesProBatchRecordTemplateMapper templateMapper;
     @Resource
@@ -223,6 +232,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProBatchRecordExecutionSignatureService executionSignatureService;
     @MockitoBean
+    private MesEdhrFinalApprovalReceiptVerifier finalApprovalReceiptVerifier;
+    @MockitoBean
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
     @MockitoBean
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
@@ -232,6 +243,10 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @MockitoBean
     private BpmTaskService bpmTaskService;
+    @MockitoBean
+    private EdhrDomainTaskAssignmentService domainTaskAssignmentService;
+    @MockitoBean
+    private GxpAuditService gxpAuditService;
     @MockitoBean
     private MesProBatchRecordDomainTraceService domainTraceService;
     @MockitoBean
@@ -257,6 +272,20 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUpFieldAuditVerification() {
+        lenient().when(domainTaskAssignmentService.read(any(), any())).thenAnswer(call ->
+                bpmTaskService.validateTask(SecurityFrameworkUtils.getLoginUserId(), call.getArgument(0)));
+        lenient().when(finalApprovalReceiptVerifier.requireSignature(any(), any(), any(), any()))
+                .thenAnswer(call -> {
+                    var evidence = mock(cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO.class);
+                    when(evidence.signedAt()).thenReturn(LocalDateTime.of(2026, 10, 6, 12, 0));
+                    return evidence;
+                });
+        lenient().when(finalApprovalReceiptVerifier.requireRejectSignature(any(), any(), any(), any()))
+                .thenAnswer(call -> {
+                    var evidence = mock(cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO.class);
+                    when(evidence.signedAt()).thenReturn(LocalDateTime.of(2026, 10, 6, 12, 0));
+                    return evidence;
+                });
         lenient().when(routeProcessService.resolveCurrentRouteProcess(
                         anyLong(), nullable(Long.class), nullable(Long.class)))
                 .thenAnswer(invocation -> {
@@ -2150,6 +2179,310 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         verify(workTaskService).completeApproveTask(reqVO.getWorkTaskId(), execution.getId());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {99L, 100L})
+    void finalDomainWriterCompletesFormalBpmRequestAndDuplicateEventDoesNotRepeatWork(Long finalActor) throws Exception {
+        try (var engine = new MesEdhrDomainAssignmentFlowableTest.Harness(dataSource, ownershipMapper, executionMapper)) {
+        var execution = insertSubmittedExecutionWithSnapshot(engine.process.getId(), engine.taskId);
+        engine.bindExecution(execution.getId());
+        engine.setApplicant(77L);
+        executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId())
+                .setBatchExecutionId(9201L).setRevisionNo(1));
+        execution.setBatchExecutionId(9201L).setRevisionNo(1);
+        var submittedSnapshot = approvalSnapshotMapper.selectByExecutionId(execution.getId());
+        var approve = new MesProEdhrWorkTaskDO().setTaskCode("EDHRT-FINAL-CHAIN-REVIEW")
+                .setActionUrl("/mes/pro/feedback/edhr-approval/detail").setTaskType("APPROVE").setStatus("TODO")
+                .setExecutionId(execution.getId()).setBatchExecutionId(execution.getBatchExecutionId())
+                .setBatchTaskId(9301L).setWorkOrderId(execution.getWorkOrderId()).setAssigneeUserId(88L)
+                .setCandidateUserSnapshot("88").setBpmTaskId(engine.taskId)
+                .setRouteId(1001L).setRouteProcessId(execution.getRouteProcessId()).setProcessId(2002L)
+                .setSignatureCellKey("review-cell").setSignatureRowIndex(1).setSignatureColumnIndex(1)
+                .setReviewSourceType("POST").setReviewSourceId(7001L).setReviewSourceName("QA 岗");
+        var reviewed = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(approve, MesProEdhrWorkTaskDO.class)
+                .setTaskType("REVIEW").setStatus("TODO");
+        workTaskMapper.insert(reviewed);
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        jdbc.update("UPDATE mes_pro_batch_record_execution SET tenant_id=1 WHERE id=?", execution.getId());
+        jdbc.update("UPDATE mes_pro_batch_record_approval_snapshot SET tenant_id=1 WHERE execution_id=?", execution.getId());
+        jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id=1 WHERE id=?", reviewed.getId());
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO().setId(9301L)
+                .setBatchExecutionId(execution.getBatchExecutionId()).setNodeType("ROUTE_FORM")
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(1).setBatchRecordSort(1).setStatus(30).setRequiredFlag(true));
+        edhrBatchExecutionMapper.insert(new MesProEdhrBatchExecutionDO().setId(9201L).setBatchExecutionCode("CHAIN-9201")
+                .setWorkOrderId(execution.getWorkOrderId()).setWorkOrderCode(execution.getWorkOrderCode())
+                .setBatchCode(execution.getBatchCode()).setRouteId(1001L).setProductId(501L).setStatus(20)
+                .setTaskTotal(2).setTaskApprovedCount(1).setBlockedCount(0));
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO().setId(9302L)
+                .setBatchExecutionId(9201L).setNodeType("ROUTE_FORM").setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(2).setBatchRecordSort(2).setProcessId(2002L).setProcessName("后续填写")
+                .setBatchRecordReportId("chain-next-form").setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .setRequiredFlag(true));
+        var currentBatchTask = edhrBatchExecutionTaskMapper.selectById(9301L);
+        var nextBatchTask = edhrBatchExecutionTaskMapper.selectById(9302L);
+        assertEquals(1, currentBatchTask.getBatchRecordSort());
+        assertEquals(2, nextBatchTask.getBatchRecordSort());
+        assertEquals(execution.getBatchExecutionId(), currentBatchTask.getBatchExecutionId());
+        assertEquals(currentBatchTask.getBatchExecutionId(), nextBatchTask.getBatchExecutionId());
+        assertEquals(execution.getRouteProcessId(), currentBatchTask.getRouteProcessId());
+        assertEquals(currentBatchTask.getRouteProcessId(), nextBatchTask.getRouteProcessId());
+        var actualWorkTasks = spy(new MesProEdhrWorkTaskServiceImpl());
+        ReflectionTestUtils.setField(actualWorkTasks, "workTaskMapper", workTaskMapper);
+        ReflectionTestUtils.setField(actualWorkTasks, "batchTaskMapper", edhrBatchExecutionTaskMapper);
+        ReflectionTestUtils.setField(actualWorkTasks, "batchExecutionMapper", edhrBatchExecutionMapper);
+        ReflectionTestUtils.setField(actualWorkTasks, "processFormPermissionRuleMapper", processFormPermissionRuleMapper);
+        ReflectionTestUtils.setField(actualWorkTasks, "permissionApi", permissionApi);
+        ReflectionTestUtils.setField(actualWorkTasks, "routeProcessService", routeProcessService);
+        var rules = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper.class);
+        var rule = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO()
+                .setRouteProcessId(execution.getRouteProcessId()).setTaskType("APPROVE")
+                .setCandidateSourceType("USER").setCandidateSourceId(88L).setDueMinutes(60).setEnabled(true);
+        when(rules.selectEnabledByRouteProcessAndType(execution.getRouteProcessId(), "APPROVE")).thenReturn(rule);
+        var fillRule = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO()
+                .setRouteProcessId(execution.getRouteProcessId()).setTaskType("FILL")
+                .setCandidateSourceType("USER").setCandidateSourceId(88L).setDueMinutes(60).setEnabled(true);
+        when(rules.selectEnabledByRouteProcessAndType(execution.getRouteProcessId(), "FILL")).thenReturn(fillRule);
+        ReflectionTestUtils.setField(actualWorkTasks, "assignmentRuleMapper", rules);
+        var candidates = mock(MesProEdhrCandidateResolver.class);
+        var candidate = mock(MesProEdhrCandidateResolver.MesProEdhrCandidateContract.class);
+        when(candidate.sourceType()).thenReturn("USER");
+        when(candidate.sourceId()).thenReturn(88L);
+        when(candidate.userSnapshot()).thenReturn("99,100");
+        when(candidates.resolveAssignmentRule(rule)).thenReturn(candidate);
+        when(candidates.resolveAssignmentRule(fillRule)).thenReturn(candidate);
+        ReflectionTestUtils.setField(actualWorkTasks, "candidateResolver", candidates);
+        // The entitlement/audit boundary is external to the final domain/event contract.
+        var audit = mock(MesWorkTaskAuxiliaryAudit.class);
+        doAnswer(call -> { ((Runnable) call.getArgument(3)).run(); return null; })
+                .when(audit).entitlements(any(), any(), any(), any());
+        ReflectionTestUtils.setField(actualWorkTasks, "auxiliaryAudit", audit);
+        var signatures = mock(cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class);
+        LocalDateTime signedAt = LocalDateTime.of(2026, 10, 6, 12, 1, 2);
+        String subjectId = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(execution.getId(), "APPROVE",
+                execution.getProcessInstanceId(), approve.getBpmTaskId(), "approveNode", "审批", "review-cell",
+                1, 1, "POST", 7001L, "QA 岗", "APPROVE", execution.getFieldAuditRevision(),
+                execution.getFieldAuditHeadHash(), execution.getCellValuesHash(), ""), "同意");
+        var canonical = new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(
+                new cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand(finalActor, "MES", "APPROVE",
+                        "MES_BATCH_RECORD", subjectId, MesBatchRecordSignatureSubjectAdapter.subjectVersion(subjectId), "同意"));
+        var evidence = new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO(2301L,
+                "MES", "APPROVE", "MES_BATCH_RECORD", subjectId, canonical.subjectVersion(), finalActor, "APPROVE",
+                "批记录审批通过", "同意", signedAt, "SERVER_CLOCK:" + signedAt, "SESSION_PLUS_PASSWORD", "content", "evidence",
+                "SHA-256", "system-local-v1", "mes-batch-record-signature-v1", "VALID", execution.getProcessInstanceId(),
+                approve.getBpmTaskId(), "approveNode", canonical.nodeOrder(), canonical.canonicalContentJson(),
+                null, null, null, "审批人");
+        when(signatures.getById(2301L)).thenReturn(evidence);
+        when(signatures.verifyEvidence(2301L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                2301L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "system-local-v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK",
+                "UNTRUSTED_EXTERNAL_TIME", "CONSISTENT", List.of(), signedAt, "V1"));
+        var actualVerifier = new MesEdhrFinalApprovalReceiptVerifier(signatures, workTaskMapper);
+        var actualExecutor = spy(new MesProBatchRecordExecutionBusinessApprovalEffectExecutor());
+        ReflectionTestUtils.setField(actualExecutor, "executionMapper", executionMapper);
+        ReflectionTestUtils.setField(actualExecutor, "approvalSnapshotMapper", approvalSnapshotMapper);
+        ReflectionTestUtils.setField(actualExecutor, "finalApprovalReceiptVerifier", actualVerifier);
+        ReflectionTestUtils.setField(actualExecutor, "workTaskService", actualWorkTasks);
+        var store = mock(cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalRequestStore.class);
+        var context = BusinessApprovalContext.builder().tenantId(TenantContextHolder.getRequiredTenantId())
+                .dataDomain("MES").systemCode("MES").applicantUserId(77L)
+                .objectType("EDHR_BATCH_EXECUTION").objectId(execution.getId().toString())
+                .objectVersion(execution.getRevisionNo().toString()).actionCode("SUBMIT_REVIEW").objectState("DRAFT")
+                .variables(Map.of("submitSignatureId", submittedSnapshot.getSubmitSignatureId(),
+                        "approvalSnapshotHash", submittedSnapshot.getSnapshotHash(),
+                        "approvalSnapshotJson", submittedSnapshot.getSnapshotJson())).build();
+        var formal = new java.util.concurrent.atomic.AtomicReference<>(BusinessApprovalRequest.builder().requestId(9401L)
+                .tenantId(TenantContextHolder.getRequiredTenantId()).status(BusinessApprovalRequestStatus.PENDING_BPM)
+                .context(context).effectExecutorCode(actualExecutor.getExecutorCode())
+                .processDefinitionKey("mes-edhr-approval-v1").processInstanceId(execution.getProcessInstanceId()).build());
+        when(store.findByProcessInstanceId(execution.getProcessInstanceId()))
+                .thenAnswer(call -> java.util.Optional.of(formal.get()));
+        when(store.update(any())).thenAnswer(call -> { formal.set(call.getArgument(0)); return formal.get(); });
+        ReflectionTestUtils.setField(actualExecutor, "requestStore", store);
+        var listener = new cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalBpmEventListener(store,
+                new cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalEffectExecutorRegistry(List.of(actualExecutor)));
+        var event = new cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent(this)
+                .setId(execution.getProcessInstanceId()).setProcessDefinitionKey("mes-edhr-approval-v1")
+                .setBusinessKey("BUSINESS_APPROVAL:9401").setActorUserId(finalActor)
+                .setStatus(cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum.APPROVE.getStatus());
+        var wrongKeyEvent = new cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent(this)
+                .setId(event.getId()).setProcessDefinitionKey(event.getProcessDefinitionKey())
+                .setBusinessKey("BUSINESS_APPROVAL:9999").setActorUserId(event.getActorUserId()).setStatus(event.getStatus());
+        var processCompletion = new cn.iocoder.yudao.module.bpm.framework.flowable.core.listener.BpmProcessInstanceEventListener();
+        var processCompletionPort = mock(cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService.class);
+        doAnswer(call -> {
+            var completed = (org.flowable.engine.runtime.ProcessInstance) call.getArgument(0);
+            assertEquals(event.getId(), completed.getId());
+            assertEquals(event.getBusinessKey(), completed.getBusinessKey());
+            assertEquals(event.getProcessDefinitionKey(), completed.getProcessDefinitionKey());
+            listener.onApplicationEvent(event);
+            return null;
+        }).when(processCompletionPort).processProcessInstanceCompleted(any());
+        ReflectionTestUtils.setField(processCompletion, "processInstanceService", processCompletionPort);
+        engine.engine.getRuntimeService().addEventListener(processCompletion,
+                org.flowable.common.engine.api.delegate.event.FlowableEngineEventType.PROCESS_COMPLETED);
+        when(bpmTaskService.validateTask(any(), eq(engine.taskId)))
+                .thenAnswer(call -> engine.bpm.validateTask(call.getArgument(0), call.getArgument(1)));
+        var failSignatureOnce = new java.util.concurrent.atomic.AtomicBoolean(false);
+        when(executionSignatureService.recordApprovalSignature(any())).thenAnswer(call -> {
+            if (failSignatureOnce.getAndSet(false)) throw new IllegalStateException("SIGNATURE_AUTHENTICATION_REJECTED");
+            return "APPROVE".equals(((MesProBatchRecordExecutionApprovalSignatureCommand)call.getArgument(0)).getApprovalResult())
+                    ? 2301L : 2300L;
+        });
+        doAnswer(call -> {
+            // Observe state at the real synchronous event boundary, not only after the writer returns.
+            assertEquals("DONE", workTaskMapper.selectById(approve.getId()).getStatus());
+            assertEquals("APPROVED", approvalSnapshotMapper.selectByExecutionId(execution.getId()).getApprovalStatus());
+            assertEquals(1L, workTaskMapper.selectList().stream()
+                    .filter(row -> "FILL".equals(row.getTaskType()) && Long.valueOf(9302L).equals(row.getBatchTaskId())).count());
+            var mismatch = assertThrows(cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException.class,
+                    () -> listener.onApplicationEvent(wrongKeyEvent));
+            assertEquals(cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode.BUSINESS_APPROVAL_EVENT_MISMATCH,
+                    mismatch.getErrorCode());
+            assertEquals(BusinessApprovalRequestStatus.PENDING_BPM, formal.get().getStatus());
+            verify(store, never()).update(any());
+            verify(actualExecutor, never()).executeApproved(any(), any(), any());
+            verify(actualWorkTasks, times(1)).createNextFillAfterReview(any());
+            assertEquals(1L, workTaskMapper.selectList().stream()
+                    .filter(row -> "FILL".equals(row.getTaskType()) && Long.valueOf(9302L).equals(row.getBatchTaskId())).count());
+            engine.bpm.approveTask(finalActor, call.getArgument(1));
+            return null;
+        }).when(bpmTaskService).approveTask(eq(finalActor), any(BpmTaskApproveReqVO.class));
+        Object writer = AopTestUtils.getUltimateTargetObject(executionService);
+        ReflectionTestUtils.setField(writer, "workTaskService", actualWorkTasks);
+        ReflectionTestUtils.setField(writer, "finalApprovalReceiptVerifier", actualVerifier);
+        ReflectionTestUtils.setField(writer, "domainTaskAssignmentService", engine.assignment);
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
+            var reviewResponse = executionService.approveBatchRecordExecution(new MesProBatchRecordExecutionApproveReqVO()
+                    .setExecutionId(execution.getId()).setWorkTaskId(reviewed.getId())
+                    .setProcessInstanceId(execution.getProcessInstanceId()).setApprovalSnapshotId(submittedSnapshot.getId())
+                    .setApprovalSnapshotHash(submittedSnapshot.getSnapshotHash()).setBpmTaskId(engine.taskId)
+                    .setPassword("secret").setComment("复核通过"));
+            assertEquals("DONE", workTaskMapper.selectById(reviewed.getId()).getStatus());
+            assertNotNull(reviewResponse.getApproveTaskId());
+            approve.setId(reviewResponse.getApproveTaskId());
+            // The unit-test configuration omits the runtime tenant insert interceptor.
+            jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id=1 WHERE id=?", approve.getId());
+            assertEquals("APPROVE", workTaskMapper.selectById(approve.getId()).getTaskType());
+            assertEquals(1, executionMapper.selectById(execution.getId()).getStatus());
+            verify(bpmTaskService, never()).approveTask(any(), any());
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(101L);
+            assertThrows(RuntimeException.class, () -> engine.assignment.read(engine.taskId, approve.getId()));
+            assertThrows(RuntimeException.class, () -> executionService.approveBatchRecordExecution(new MesProBatchRecordExecutionApproveReqVO()
+                    .setExecutionId(execution.getId()).setWorkTaskId(approve.getId())
+                    .setProcessInstanceId(execution.getProcessInstanceId()).setApprovalSnapshotId(submittedSnapshot.getId())
+                    .setApprovalSnapshotHash(submittedSnapshot.getSnapshotHash()).setBpmTaskId(engine.taskId)
+                    .setPassword("secret").setComment("未授权")));
+            assertEquals("88", engine.bpm.getTask(engine.taskId).getAssignee());
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(finalActor);
+            assertEquals("88", engine.assignment.read(engine.taskId, approve.getId()).getAssignee());
+            long commentsBeforeGet = engine.engine.getTaskService().getTaskComments(engine.taskId).size();
+            var readDetail = executionService.getApprovalDetail(execution.getId(), engine.taskId, approve.getId());
+            assertTrue(readDetail.getCanApprove());
+            assertEquals("88", engine.bpm.getTask(engine.taskId).getAssignee());
+            assertEquals(commentsBeforeGet, (long) engine.engine.getTaskService().getTaskComments(engine.taskId).size());
+            failSignatureOnce.set(true);
+            assertThrows(IllegalStateException.class, () -> executionService.approveBatchRecordExecution(
+                    new MesProBatchRecordExecutionApproveReqVO().setExecutionId(execution.getId()).setWorkTaskId(approve.getId())
+                            .setProcessInstanceId(execution.getProcessInstanceId()).setApprovalSnapshotId(submittedSnapshot.getId())
+                            .setApprovalSnapshotHash(submittedSnapshot.getSnapshotHash()).setBpmTaskId(engine.taskId)
+                            .setPassword("rejected").setComment("同意")));
+            assertEquals("88", engine.bpm.getTask(engine.taskId).getAssignee());
+            assertNull(engine.bpm.getTask(engine.taskId).getOwner());
+            assertEquals(commentsBeforeGet, (long) engine.engine.getTaskService().getTaskComments(engine.taskId).size());
+            assertEquals("TODO", workTaskMapper.selectById(approve.getId()).getStatus());
+            assertEquals("SUBMITTED", approvalSnapshotMapper.selectByExecutionId(execution.getId()).getApprovalStatus());
+            assertEquals(BusinessApprovalRequestStatus.PENDING_BPM, formal.get().getStatus());
+            verify(bpmTaskService, never()).approveTask(any(), any());
+            var response = executionService.approveBatchRecordExecution(new MesProBatchRecordExecutionApproveReqVO()
+                    .setExecutionId(execution.getId()).setWorkTaskId(approve.getId())
+                    .setProcessInstanceId(execution.getProcessInstanceId()).setApprovalSnapshotId(submittedSnapshot.getId())
+                    .setApprovalSnapshotHash(submittedSnapshot.getSnapshotHash()).setBpmTaskId(engine.taskId)
+                    .setPassword("secret").setComment("同意"));
+            assertEquals("FINAL_APPROVED", response.getResultType());
+            assertEquals(BusinessApprovalRequestStatus.APPROVED, formal.get().getStatus());
+            var finalExecution = executionMapper.selectById(execution.getId());
+            var finalSnapshot = approvalSnapshotMapper.selectByExecutionId(execution.getId());
+            assertEquals(2301L, finalSnapshot.getApproveSignatureId());
+            assertEquals(finalActor, finalExecution.getApprovedBy());
+            assertEquals(finalActor, finalSnapshot.getApprovedBy());
+            assertEquals(signedAt, finalExecution.getApprovedAt());
+            assertEquals(signedAt, finalSnapshot.getApprovedAt());
+            assertEquals(signedAt, finalExecution.getClosedAt());
+            assertEquals(signedAt, finalSnapshot.getClosedAt());
+            assertNull(finalSnapshot.getCurrentBpmTaskId());
+            listener.onApplicationEvent(event);
+            var duplicateMismatch = assertThrows(cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException.class,
+                    () -> listener.onApplicationEvent(wrongKeyEvent));
+            assertEquals(cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode.BUSINESS_APPROVAL_EVENT_MISMATCH,
+                    duplicateMismatch.getErrorCode());
+            assertEquals(BusinessApprovalRequestStatus.APPROVED, formal.get().getStatus());
+            verify(store, times(1)).update(any());
+            verify(actualExecutor, times(1)).executeApproved(any(), any(), eq(finalActor));
+            verify(actualWorkTasks, times(1)).completeApproveTask(approve.getId(), execution.getId());
+            verify(actualWorkTasks, times(1)).createNextFillAfterReview(any());
+            verify(actualWorkTasks, times(1)).completeOneReviewTask(reviewed.getId(), execution.getId());
+            verify(actualWorkTasks, times(1)).createApproveTaskAfterReview(any());
+            assertEquals(1L, workTaskMapper.selectList().stream()
+                    .filter(row -> "FILL".equals(row.getTaskType()) && Long.valueOf(9302L).equals(row.getBatchTaskId())).count());
+            assertEquals("DONE", workTaskMapper.selectById(reviewed.getId()).getStatus());
+            assertThrows(IllegalStateException.class, () -> actualVerifier.requireCompleted(finalExecution, finalSnapshot, 101L));
+            var wrongTask = workTaskMapper.selectById(approve.getId()).setBpmTaskId("wrong-task");
+            assertThrows(IllegalStateException.class, () -> actualVerifier.requireSignature(finalExecution, wrongTask, 2301L, finalActor));
+            when(signatures.verifyEvidence(2301L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    2301L, "MISMATCH", "content", "tampered", "evidence", "evidence", "SHA-256", "system-local-v1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK",
+                    "UNTRUSTED_EXTERNAL_TIME", "CONSISTENT", List.of("DIGEST_MISMATCH"), signedAt, "V1"));
+            assertThrows(IllegalStateException.class, () -> actualVerifier.requireCompleted(finalExecution, finalSnapshot, finalActor));
+            when(signatures.verifyEvidence(2301L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    2301L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "system-local-v1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK",
+                    "UNTRUSTED_EXTERNAL_TIME", "CONSISTENT", List.of(), signedAt, "V1"));
+            var wrongSignatureSnapshot = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
+                    finalSnapshot, MesProBatchRecordApprovalSnapshotDO.class).setApproveSignatureId(9999L);
+            assertThrows(IllegalStateException.class, () -> actualVerifier.requireCompleted(finalExecution, wrongSignatureSnapshot, finalActor));
+            var wrongRequest = BusinessApprovalRequest.builder().requestId(9999L).tenantId(context.getTenantId())
+                    .context(context).effectExecutorCode(actualExecutor.getExecutorCode()).processDefinitionKey("mes-edhr-approval-v1")
+                    .processInstanceId(execution.getProcessInstanceId()).build();
+            assertThrows(RuntimeException.class, () -> actualExecutor.executeApproved(context, wrongRequest, finalActor));
+            TenantContextHolder.setTenantId(2L);
+            assertThrows(RuntimeException.class, () -> actualExecutor.executeApproved(context, formal.get(), finalActor));
+            TenantContextHolder.setTenantId(context.getTenantId());
+            assertThrows(RuntimeException.class, () -> listener.onApplicationEvent(
+                    new cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent(this)
+                            .setId("wrong-process").setProcessDefinitionKey("mes-edhr-approval-v1")
+                            .setBusinessKey("BUSINESS_APPROVAL:9401").setActorUserId(finalActor).setStatus(event.getStatus())));
+            var terminal = formal.get();
+            formal.set(terminal.toBuilder().status(BusinessApprovalRequestStatus.PENDING_BPM).lastEventKey(null).build());
+            when(signatures.verifyEvidence(2301L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    2301L, "MISMATCH", "content", "tampered", "evidence", "evidence", "SHA-256", "system-local-v1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK",
+                    "UNTRUSTED_EXTERNAL_TIME", "CONSISTENT", List.of("DIGEST_MISMATCH"), signedAt, "V1"));
+            assertThrows(IllegalStateException.class, () -> listener.onApplicationEvent(event));
+            assertEquals(BusinessApprovalRequestStatus.PENDING_BPM, formal.get().getStatus());
+            when(signatures.verifyEvidence(2301L)).thenReturn(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO(
+                    2301L, "VALID", "content", "content", "evidence", "evidence", "SHA-256", "system-local-v1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK",
+                    "UNTRUSTED_EXTERNAL_TIME", "CONSISTENT", List.of(), signedAt, "V1"));
+            workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(approve.getId()).setBpmTaskId("wrong-task"));
+            assertThrows(IllegalStateException.class, () -> listener.onApplicationEvent(event));
+            workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(approve.getId()).setBpmTaskId(engine.taskId));
+            TenantContextHolder.setTenantId(2L);
+            assertThrows(RuntimeException.class, () -> listener.onApplicationEvent(event));
+            TenantContextHolder.setTenantId(context.getTenantId());
+            assertEquals(BusinessApprovalRequestStatus.PENDING_BPM, formal.get().getStatus());
+            formal.set(terminal);
+            assertEquals(BusinessApprovalRequestStatus.APPROVED, formal.get().getStatus());
+            verify(store, times(1)).update(any());
+        } finally {
+            TenantContextHolder.setTenantId(context.getTenantId());
+            ReflectionTestUtils.setField(writer, "workTaskService", workTaskService);
+            ReflectionTestUtils.setField(writer, "finalApprovalReceiptVerifier", finalApprovalReceiptVerifier);
+            ReflectionTestUtils.setField(writer, "domainTaskAssignmentService", domainTaskAssignmentService);
+        }
+        }
+    }
+
     @Test
     void approveBatchRecordExecution_waitsForOtherReviewTasksBeforeClosingExecution() {
         MesProBatchRecordExecutionDO execution = insertSubmittedExecutionWithSnapshot("process-approve-partial", "task-approve-a");
@@ -3885,6 +4218,76 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completionSourceOpenerCreatesDraftWithoutGenericPrefillAndPreservesOrdinaryExistingSubmittedBehavior() {
+        var request = completionSourceRequest();
+        var response = executionService.openOrCreateForCompletionSource(request);
+        assertTrue(response.getCreated());
+        assertEquals(0, response.getStatus());
+        assertNull(response.getCellLinkAutoPersist());
+        verify(cellLinkAutoPersistService, never()).autoPersist(any());
+        assertEquals(response.getId(), executionService.openOrCreateForCompletionSource(request).getId());
+        executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(response.getId()).setStatus(1));
+        assertThrows(ServiceException.class, () -> executionService.openOrCreateForCompletionSource(request));
+        var ordinary = executionService.openOrCreateByContext(request);
+        assertFalse(ordinary.getCreated());
+        assertEquals(1, ordinary.getStatus());
+        var prefill = org.mockito.ArgumentCaptor.forClass(BatchRecordCellLinkAutoPersistCommand.class);
+        verify(cellLinkAutoPersistService).autoPersist(prefill.capture());
+        assertEquals("EXECUTION_OPEN_OR_CREATE_EXISTING", prefill.getValue().getTrigger());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"binding", "hash", "tenant", "pending"})
+    void completionSourceOpenerRejectsBadFrozenBindingTenantAndUnapprovedVersion(String invalid) {
+        var request = completionSourceRequest();
+        switch (invalid) {
+            case "binding" -> request.setRouteBindingId(999L);
+            case "hash" -> request.setRouteBindingSnapshotHash("different");
+            case "tenant" -> TenantContextHolder.setTenantId(2L);
+            case "pending" -> {
+                var task = edhrBatchExecutionTaskMapper.selectById(request.getTaskId());
+                versionMapper.updateById(new MesProBatchRecordVersionDO().setId(task.getBatchRecordVersionId())
+                        .setStatus("PENDING_APPROVAL"));
+            }
+        }
+        try {
+            assertThrows(ServiceException.class, () -> executionService.openOrCreateForCompletionSource(request));
+        } finally {
+            TenantContextHolder.setTenantId(1L);
+        }
+        assertEquals(0L, executionMapper.selectCount());
+        verify(cellLinkAutoPersistService, never()).autoPersist(any());
+    }
+
+    private MesProBatchRecordExecutionOpenOrCreateByContextReqVO completionSourceRequest() {
+        TenantContextHolder.setTenantId(1L);
+        var work = insertWorkOrder();
+        var process = MesProRouteProcessDO.builder().routeId(1001L).processId(2002L).sort(1).build();
+        routeProcessMapper.insert(process);
+        var report = report("report-completion-source");
+        reportMapper.insert(report);
+        var batch = new MesProEdhrBatchExecutionDO().setBatchExecutionCode("EDHR-SOURCE")
+                .setWorkOrderId(work.getId()).setWorkOrderCode(work.getCode()).setBatchCode("BATCH-SOURCE")
+                .setRouteId(1001L).setTenantId(1L).setStatus(0).setTaskTotal(1).setTaskApprovedCount(0).setBlockedCount(0);
+        edhrBatchExecutionMapper.insert(batch);
+        var task = new MesProEdhrBatchExecutionTaskDO().setBatchExecutionId(batch.getId())
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(process.getId()).setRouteProcessSort(1).setProcessId(2002L)
+                .setBatchRecordReportId(report.getReportId()).setBatchRecordDefinitionId(report.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(report.getBatchRecordVersionId()).setRouteBindingId(5001L)
+                .setRouteBindingSnapshotHash("binding-source").setInstanceScope("PROCESS")
+                .setRecordCategory("BATCH_RECORD").setFormSlotType("MAIN").setStatus(10).setRequiredFlag(true);
+        edhrBatchExecutionTaskMapper.insert(task);
+        when(jimuReportGateway.getReportJson(report.getReportId())).thenReturn(sampleEditableReportJson());
+        return new MesProBatchRecordExecutionOpenOrCreateByContextReqVO().setWorkOrderId(work.getId())
+                .setRouteId(1001L).setRouteProcessId(process.getId()).setProcessId(2002L)
+                .setBatchExecutionId(batch.getId()).setTaskId(task.getId()).setBatchRecordReportId(report.getReportId())
+                .setBatchCode(batch.getBatchCode()).setRouteBindingId(task.getRouteBindingId())
+                .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash()).setInstanceScope("PROCESS")
+                .setRecordCategory("BATCH_RECORD").setFormSlotType("MAIN");
+    }
+
+    @Test
     void openOrCreateByContext_autoPersistsCellLinksOnNewExecutionAndReturnsSummary() {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
@@ -5445,5 +5848,500 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
             }
         }
         throw new AssertionError("missing snapshot field row " + rowIndex + " column " + columnIndex);
+    }
+
+    // AC06 R5: the clock crosses seconds only after the real Flowable rejection.
+    // Signature/audit mapper ports capture actual writers; MES/Flowable rows use the existing H2 transaction.
+    @Test
+    void rejectAcrossSecondRealWriterKeepsReceiptTime() throws Exception {
+        assertRejectAcrossSecondRealWriter("RECEIPT_TIME");
+    }
+
+    @Test
+    void rejectAcrossSecondRealWriterKeepsCenterDoneHistory() throws Exception {
+        assertRejectAcrossSecondRealWriter("CENTER_DONE");
+    }
+
+    @Test
+    void rejectAcrossSecondRealWriterKeepsCenterTimelineHistory() throws Exception {
+        assertRejectAcrossSecondRealWriter("CENTER_TIMELINE");
+    }
+
+    @Test
+    void rejectWithTamperedActualReceiptStopsBeforeBpmAndRollsBack() throws Exception {
+        assertRejectWriteFailureRollsBack("INVALID_RECEIPT");
+    }
+
+    @Test
+    void rejectSnapshotUpdateCountMismatchRollsBackMesAndFlowable() throws Exception {
+        assertRejectWriteFailureRollsBack("SNAPSHOT_UPDATE_ZERO");
+    }
+
+    @Test
+    void rejectExecutionUpdateCountMismatchRollsBackMesAndFlowable() throws Exception {
+        assertRejectWriteFailureRollsBack("EXECUTION_UPDATE_ZERO");
+    }
+
+    @Test
+    void rejectReworkFailureAfterActualBpmRollsBackMesAndFlowable() throws Exception {
+        assertRejectWriteFailureRollsBack("REWORK_FAILURE_AFTER_BPM");
+    }
+
+    private void assertRejectWriteFailureRollsBack(String failure) throws Exception {
+        assertRejectAcrossSecondRealWriter(failure);
+    }
+
+    private void assertRejectAcrossSecondRealWriter(String observation) throws Exception {
+        assertTrue(org.springframework.aop.support.AopUtils.isAopProxy(executionService),
+                "The rejection regression requires the real transactional service proxy");
+        try (var engine = new MesEdhrDomainAssignmentFlowableTest.Harness(dataSource, ownershipMapper, executionMapper)) {
+            var execution = insertSubmittedExecutionWithSnapshot(engine.process.getId(), engine.taskId);
+            engine.bindExecution(execution.getId());
+            engine.setApplicant(77L);
+            executionMapper.updateById(new MesProBatchRecordExecutionDO().setId(execution.getId())
+                    .setBatchExecutionId(9201L).setRevisionNo(1));
+            execution.setBatchExecutionId(9201L).setRevisionNo(1);
+            var before = approvalSnapshotMapper.selectByExecutionId(execution.getId());
+            edhrBatchExecutionMapper.insert(new MesProEdhrBatchExecutionDO().setId(9201L)
+                    .setBatchExecutionCode("REJECT-TIME-9201").setWorkOrderId(execution.getWorkOrderId())
+                    .setWorkOrderCode(execution.getWorkOrderCode()).setBatchCode(execution.getBatchCode())
+                    .setRouteId(1001L).setStatus(20).setTaskTotal(1).setTaskApprovedCount(0).setBlockedCount(0));
+            edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO().setId(9301L)
+                    .setBatchExecutionId(9201L).setNodeType("ROUTE_FORM").setRouteProcessId(execution.getRouteProcessId())
+                    .setRouteProcessSort(1).setBatchRecordSort(1).setProcessId(2002L)
+                    .setBatchRecordReportId(execution.getBatchRecordReportId()).setExecutionId(execution.getId())
+                    .setStatus(30).setRequiredFlag(true));
+            var review = new MesProEdhrWorkTaskDO().setTaskCode("EDHRT-REJECT-TIME")
+                    .setTaskType("REVIEW").setStatus("TODO").setExecutionId(execution.getId())
+                    .setBatchExecutionId(9201L).setBatchTaskId(9301L).setBusinessScopeType("BATCH_TASK")
+                    .setBusinessScopeId(9301L).setWorkOrderId(execution.getWorkOrderId())
+                    .setWorkOrderCode(execution.getWorkOrderCode()).setBatchCode(execution.getBatchCode())
+                    .setRouteId(1001L).setRouteProcessId(execution.getRouteProcessId()).setProcessId(2002L)
+                    .setProcessName("正式复核").setAssigneeUserId(88L).setCandidateSourceType("USER")
+                    .setCandidateSourceId(88L).setCandidateUserSnapshot("88").setBpmTaskId(engine.taskId)
+                    .setSignatureCellKey("review-cell").setSignatureRowIndex(1).setSignatureColumnIndex(1)
+                    .setReviewSourceType("POST").setReviewSourceId(7001L).setReviewSourceName("QA 岗")
+                    .setActionUrl("/mes/pro/feedback/edhr-approval/detail");
+            workTaskMapper.insert(review);
+            // BaseDbUnitTest omits the runtime tenant insert interceptor, as in the existing real-engine test.
+            var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+            jdbc.update("UPDATE mes_pro_batch_record_execution SET tenant_id=1 WHERE id=?", execution.getId());
+            jdbc.update("UPDATE mes_pro_batch_record_approval_snapshot SET tenant_id=1 WHERE id=?", before.getId());
+            jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id=1 WHERE id=?", review.getId());
+            workTaskMapper.updateById(new MesProEdhrWorkTaskDO().setId(review.getId())
+                    .setActionUrl("/mes/pro/feedback/edhr-approval/detail?executionId=" + execution.getId()
+                            + "&workTaskId=" + review.getId()));
+            var actualTasks = spy(realRejectTimeWorkTasks(execution));
+            if ("REWORK_FAILURE_AFTER_BPM".equals(observation)) {
+                doAnswer(call -> {
+                    call.callRealMethod();
+                    throw new IllegalStateException("controlled rework failure after actual persistence");
+                }).when(actualTasks).completeReviewAndCreateRework(anyLong(), anyLong(), anyLong(),
+                        org.mockito.ArgumentMatchers.anyString());
+            }
+            var signature = new RejectTimeSignatureFixture();
+            when(bpmTaskService.validateTask(any(), eq(engine.taskId)))
+                    .thenAnswer(call -> engine.bpm.validateTask(call.getArgument(0), call.getArgument(1)));
+            LocalDateTime signatureSecond = LocalDateTime.of(2026, 10, 9, 12, 1, 2);
+            LocalDateTime bpmSecond = signatureSecond.plusSeconds(2);
+            var clock = new java.util.concurrent.atomic.AtomicReference<>(signatureSecond);
+            String reason = "原始驳回意见：批记录填写不完整";
+            doAnswer(call -> {
+                assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+                signature.assertCapturedCreationAudit();
+                assertEquals(signatureSecond, signature.stored.getSignedAt());
+                assertEquals("VALID", signature.queries.verifyEvidence(2301L).verificationStatus(),
+                        "Real content/evidence digests and the real creation audit must verify before BPM");
+                assertEquals(reason, ((BpmTaskRejectReqVO) call.getArgument(1)).getReason());
+                engine.bpm.rejectTask(call.getArgument(0), call.getArgument(1));
+                assertNull(engine.engine.getRuntimeService().createProcessInstanceQuery()
+                        .processInstanceId(engine.process.getId()).singleResult(), "Flowable must actually end");
+                signature.assertCapturedCreationAudit();
+                clock.set(bpmSecond);
+                return null;
+            }).when(bpmTaskService).rejectTask(eq(88L), any(BpmTaskRejectReqVO.class));
+            Object writer = AopTestUtils.getUltimateTargetObject(executionService);
+            var previousAuthentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            ReflectionTestUtils.setField(writer, "workTaskService", actualTasks);
+            var producer = signature.producer;
+            if ("INVALID_RECEIPT".equals(observation)) {
+                producer = spy(signature.producer);
+                doAnswer(call -> {
+                    Long id = (Long) call.callRealMethod();
+                    signature.stored.setTaskId("tampered-task");
+                    return id;
+                }).when(producer).recordApprovalSignature(any(MesProBatchRecordExecutionApprovalSignatureCommand.class));
+            }
+            ReflectionTestUtils.setField(writer, "executionSignatureService", producer);
+            ReflectionTestUtils.setField(writer, "finalApprovalReceiptVerifier",
+                    new MesEdhrFinalApprovalReceiptVerifier(signature.queries, workTaskMapper));
+            ReflectionTestUtils.setField(writer, "domainTaskAssignmentService", engine.assignment);
+            Object previousSnapshotMapper = ReflectionTestUtils.getField(writer, "approvalSnapshotMapper");
+            Object previousExecutionMapper = ReflectionTestUtils.getField(writer, "executionMapper");
+            if ("SNAPSHOT_UPDATE_ZERO".equals(observation)) {
+                var failing = mock(MesProBatchRecordApprovalSnapshotMapper.class,
+                        org.mockito.AdditionalAnswers.delegatesTo(approvalSnapshotMapper));
+                org.mockito.Mockito.doReturn(0).when(failing).updateById(argThat((MesProBatchRecordApprovalSnapshotDO row) ->
+                        "REJECTED".equals(row.getApprovalStatus())));
+                ReflectionTestUtils.setField(writer, "approvalSnapshotMapper", failing);
+            }
+            if ("EXECUTION_UPDATE_ZERO".equals(observation)) {
+                var failing = mock(MesProBatchRecordExecutionMapper.class,
+                        org.mockito.AdditionalAnswers.delegatesTo(executionMapper));
+                org.mockito.Mockito.doReturn(0).when(failing).updateById(argThat((MesProBatchRecordExecutionDO row) ->
+                        Integer.valueOf(2).equals(row.getStatus()) && row.getRejectedAt() != null));
+                ReflectionTestUtils.setField(writer, "executionMapper", failing);
+            }
+            try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class);
+                    MockedStatic<LocalDateTime> time = mockStatic(LocalDateTime.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+                security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(88L);
+                security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(signature.login);
+                security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("正式复核人");
+                org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                        new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(signature.login, null, List.of()));
+                time.when(LocalDateTime::now).thenAnswer(call -> clock.get());
+                var request = new MesProBatchRecordExecutionRejectReqVO()
+                        .setExecutionId(execution.getId()).setWorkTaskId(review.getId())
+                        .setProcessInstanceId(execution.getProcessInstanceId()).setApprovalSnapshotId(before.getId())
+                        .setApprovalSnapshotHash(before.getSnapshotHash()).setBpmTaskId(engine.taskId)
+                        .setPassword("test-credential").setReason(reason);
+                if ("INVALID_RECEIPT".equals(observation)) {
+                    var rejectedReceipt = assertThrows(IllegalStateException.class,
+                            () -> executionService.rejectBatchRecordExecution(request));
+                    assertEquals("EDHR_FINAL_APPROVAL_RECEIPT_INVALID: signature action/actor/process/task conflict",
+                            rejectedReceipt.getMessage());
+                    verify(bpmTaskService, never()).rejectTask(anyLong(), any(BpmTaskRejectReqVO.class));
+                    assertRejectTransactionRolledBack(engine, execution, before, review);
+                    return;
+                }
+                if ("SNAPSHOT_UPDATE_ZERO".equals(observation)) {
+                    var failed = assertThrows(IllegalStateException.class,
+                            () -> executionService.rejectBatchRecordExecution(request));
+                    assertEquals("EDHR_REJECT_SNAPSHOT_UPDATE_FAILED", failed.getMessage());
+                    verify(bpmTaskService).rejectTask(eq(88L), any(BpmTaskRejectReqVO.class));
+                    assertRejectTransactionRolledBack(engine, execution, before, review);
+                    return;
+                }
+                if ("EXECUTION_UPDATE_ZERO".equals(observation)) {
+                    var failed = assertThrows(IllegalStateException.class,
+                            () -> executionService.rejectBatchRecordExecution(request));
+                    assertEquals("EDHR_REJECT_EXECUTION_UPDATE_FAILED", failed.getMessage());
+                    verify(bpmTaskService).rejectTask(eq(88L), any(BpmTaskRejectReqVO.class));
+                    assertRejectTransactionRolledBack(engine, execution, before, review);
+                    return;
+                }
+                if ("REWORK_FAILURE_AFTER_BPM".equals(observation)) {
+                    assertThrows(IllegalStateException.class, () -> executionService.rejectBatchRecordExecution(request));
+                    verify(bpmTaskService).rejectTask(eq(88L), any(BpmTaskRejectReqVO.class));
+                    assertRejectTransactionRolledBack(engine, execution, before, review);
+                    return;
+                }
+                var response = executionService.rejectBatchRecordExecution(request);
+                signature.assertCapturedCreationAudit();
+                var rejected = executionMapper.selectById(execution.getId());
+                var snapshot = approvalSnapshotMapper.selectByExecutionId(execution.getId());
+                var done = workTaskMapper.selectById(review.getId());
+                var revision = executionMapper.selectById(response.getRevisionExecutionId());
+                var rework = workTaskMapper.selectById(response.getReworkTaskId());
+                assertEquals(bpmSecond, clock.get());
+                assertNotEquals(signatureSecond, clock.get(), "No equal-timestamp fixture");
+                assertEquals(signatureSecond, signature.queries.getById(2301L).signedAt());
+                assertEquals("VALID", signature.queries.verifyEvidence(2301L).verificationStatus());
+                assertEquals(2301L, response.getSignatureId());
+                assertEquals(2301L, snapshot.getRejectSignatureId());
+                assertEquals("REJECT", signature.stored.getActionCode());
+                assertEquals(88L, signature.stored.getActorId());
+                assertEquals(reason, signature.stored.getReason());
+                assertEquals(execution.getProcessInstanceId(), signature.stored.getProcessInstanceId());
+                assertEquals(engine.taskId, signature.stored.getTaskId());
+                assertEquals(88L, rejected.getRejectedBy());
+                assertEquals(88L, snapshot.getRejectedBy());
+                assertEquals(reason, rejected.getRejectReason());
+                assertEquals(reason, snapshot.getRejectReason());
+                assertEquals(17, new String(java.util.Base64.getUrlDecoder().decode(signature.stored.getSubjectId()),
+                        java.nio.charset.StandardCharsets.UTF_8).split("\\n", -1).length);
+                assertEquals(2, rejected.getStatus());
+                assertEquals("REJECTED", snapshot.getApprovalStatus());
+                assertEquals("DONE", done.getStatus());
+                assertEquals(bpmSecond, done.getCompletedAt());
+                assertEquals(execution.getId(), revision.getSourceRejectedExecutionId());
+                assertEquals(execution.getId(), revision.getRevisionRootExecutionId());
+                assertEquals(2, revision.getRevisionNo());
+                assertEquals(before.getSnapshotHash(), revision.getRevisionParentHash());
+                assertEquals(revision.getId(), rejected.getSupersededByExecutionId());
+                assertEquals(revision.getId(), edhrBatchExecutionTaskMapper.selectById(9301L).getExecutionId());
+                assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_REWORK_REQUIRED,
+                        edhrBatchExecutionTaskMapper.selectById(9301L).getStatus());
+                assertEquals("REWORK", rework.getTaskType());
+                assertEquals("TODO", rework.getStatus());
+                assertEquals(revision.getId(), rework.getExecutionId());
+                assertEquals(execution.getId(), rework.getSourceExecutionId());
+                assertEquals(88L, rework.getAssigneeUserId());
+                assertEquals(reason, rework.getReason());
+                assertEquals(1L, workTaskMapper.selectList().stream().filter(row -> "REWORK".equals(row.getTaskType())).count());
+                assertEquals(2, executionMapper.selectList().size());
+                verify(bpmTaskService).rejectTask(eq(88L), any(BpmTaskRejectReqVO.class));
+                if ("RECEIPT_TIME".equals(observation)) {
+                    org.junit.jupiter.api.Assertions.assertAll("one formal rejection time",
+                            () -> assertEquals(signatureSecond, response.getRejectedAt()),
+                            () -> assertEquals(signatureSecond, snapshot.getRejectedAt()),
+                            () -> assertEquals(signatureSecond, rejected.getRejectedAt()));
+                } else {
+                    var users = mock(cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper.class);
+                    when(users.selectOne(any())).thenReturn(signature.user);
+                    var finalReader = new cn.iocoder.yudao.module.mes.approval.MesEdhrExecutionFinalOutcomeReader(
+                            executionMapper, approvalSnapshotMapper, workTaskMapper, signature.queries, users);
+                    var outcomes = new cn.iocoder.yudao.module.mes.approval.MesEdhrApprovalOutcomeReader(
+                            workTaskMapper, releaseTransactionMapper,
+                            mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper.class),
+                            mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper.class),
+                            mock(cn.iocoder.yudao.module.mes.approval.MesManagerReleaseCompletedActorResolver.class), signature.queries,
+                            mock(cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService.class), finalReader);
+                    // Only the already-authorized selection port is controlled; every outcome re-reads real MES rows.
+                    var selection = mock(MesProEdhrWorkTaskService.class);
+                    var display = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(done,
+                            cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskRespVO.class);
+                    when(selection.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(true), anyLong()))
+                            .thenReturn(new PageResult<>(List.of(new cn.iocoder.yudao.module.mes.approval.MesEdhrAuthorizedTaskProjection(done, display)), 1L));
+                    when(selection.getApprovalCenterTimelineTasks(review.getId(), execution.getId(), false))
+                            .thenReturn(List.of(done));
+                    var center = new cn.iocoder.yudao.module.mes.approval.MesProEdhrApprovalTaskAdapter(selection,
+                            mock(MesProEdhrReleaseService.class), mock(cn.iocoder.yudao.module.mes.approval.MesManagerReleaseCompletedActorResolver.class));
+                    ReflectionTestUtils.setField(center, "outcomeReader", outcomes);
+                    var handoffs = mock(cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection.class);
+                    when(handoffs.prefix(any(), anyLong())).thenReturn(new PageResult<>(List.of(), 0L));
+                    ReflectionTestUtils.setField(center, "handoffProjection", handoffs);
+                    var navigation = mock(PermissionApi.class);
+                    when(navigation.hasAnyPermissions(eq(88L), any(String[].class))).thenReturn(true);
+                    ReflectionTestUtils.setField(center, "permissions", navigation);
+                    if ("CENTER_DONE".equals(observation)) {
+                        var page = assertDoesNotThrow(() -> center.page(
+                                cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskQueryContext.of(88L,
+                                        cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType.DONE,
+                                        cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR, null, 1, 20)));
+                        assertEquals(1L, page.getTotal());
+                        var row = page.getList().get(0);
+                        assertEquals(review.getId().toString(), row.getSourceTaskId());
+                        assertEquals(review.getId().toString(), row.getBusinessKey());
+                        assertEquals(execution.getId().toString(), row.getProcessInstanceId());
+                        assertEquals(cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.REJECT, row.getApprovalResult());
+                        assertEquals("REJECT", row.getDecisionState());
+                        assertEquals(reason, row.getApprovalRemark());
+                        assertEquals(88L, row.getDecisionActorUserId());
+                        assertEquals(signatureSecond, row.getDecisionAt());
+                        assertEquals(snapshot.getId().toString(), row.getEvidenceId());
+                        assertEquals("EXISTING_EXECUTION_FINAL_SNAPSHOT", row.getEvidenceType());
+                        assertEquals(88L, row.getTaskCompletedByUserId());
+                    } else if ("CENTER_TIMELINE".equals(observation)) {
+                        var entries = assertDoesNotThrow(() -> center.listTimeline(
+                                cn.iocoder.yudao.module.bpm.approval.service.ApprovalTaskTimelineQueryContext.of(88L,
+                                        cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode.EDHR,
+                                        "EDHR_WORK_TASK", review.getId().toString(), review.getId().toString(), execution.getId().toString())));
+                        assertEquals(1, entries.size());
+                        var row = entries.get(0);
+                        assertEquals(review.getId().toString(), row.getSourceTaskId());
+                        assertEquals(review.getId().toString(), row.getBusinessKey());
+                        assertEquals(review.getId().toString(), row.getDomainReferenceId());
+                        assertEquals(cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult.REJECT, row.getApprovalResult());
+                        assertEquals("REJECT", row.getDecisionState());
+                        assertEquals(reason, row.getApprovalRemark());
+                        assertEquals(reason, row.getComment());
+                        assertEquals("REJECT", row.getAction());
+                        assertEquals(88L, row.getActorUserId());
+                        assertEquals(signatureSecond, row.getActedAt());
+                        assertEquals(88L, row.getDecisionActorUserId());
+                        assertEquals(signatureSecond, row.getDecisionAt());
+                        assertEquals(snapshot.getId().toString(), row.getEvidenceId());
+                        assertEquals("EXISTING_EXECUTION_FINAL_SNAPSHOT", row.getEvidenceType());
+                        assertEquals(88L, row.getTaskCompletedByUserId());
+                    } else fail("Unknown rejection observation: " + observation);
+                }
+            } finally {
+                ReflectionTestUtils.setField(writer, "workTaskService", workTaskService);
+                ReflectionTestUtils.setField(writer, "executionSignatureService", executionSignatureService);
+                ReflectionTestUtils.setField(writer, "finalApprovalReceiptVerifier", finalApprovalReceiptVerifier);
+                ReflectionTestUtils.setField(writer, "domainTaskAssignmentService", domainTaskAssignmentService);
+                ReflectionTestUtils.setField(writer, "approvalSnapshotMapper", previousSnapshotMapper);
+                ReflectionTestUtils.setField(writer, "executionMapper", previousExecutionMapper);
+                org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(previousAuthentication);
+            }
+        }
+    }
+
+    private void assertRejectTransactionRolledBack(
+            MesEdhrDomainAssignmentFlowableTest.Harness engine,
+            MesProBatchRecordExecutionDO execution,
+            MesProBatchRecordApprovalSnapshotDO submittedSnapshot,
+            MesProEdhrWorkTaskDO reviewTask) {
+        var actualExecution = executionMapper.selectById(execution.getId());
+        var actualSnapshot = approvalSnapshotMapper.selectById(submittedSnapshot.getId());
+        var actualReview = workTaskMapper.selectById(reviewTask.getId());
+        assertEquals(1, actualExecution.getStatus());
+        assertNull(actualExecution.getRejectedAt());
+        assertNull(actualExecution.getRejectReason());
+        assertNull(actualExecution.getSupersededByExecutionId());
+        assertEquals("SUBMITTED", actualSnapshot.getApprovalStatus());
+        assertNull(actualSnapshot.getRejectSignatureId());
+        assertNull(actualSnapshot.getRejectedAt());
+        assertEquals("TODO", actualReview.getStatus());
+        assertNull(actualReview.getCompletedAt());
+        var actualBatchTask = edhrBatchExecutionTaskMapper.selectById(9301L);
+        assertEquals(execution.getId(), actualBatchTask.getExecutionId());
+        assertEquals(30, actualBatchTask.getStatus());
+        assertEquals(1, executionMapper.selectList().size());
+        assertEquals(1L, workTaskMapper.selectList().stream().filter(row -> "REVIEW".equals(row.getTaskType())).count());
+        assertEquals(0L, workTaskMapper.selectList().stream().filter(row -> "REWORK".equals(row.getTaskType())).count());
+        assertNotNull(engine.engine.getRuntimeService().createProcessInstanceQuery()
+                .processInstanceId(engine.process.getId()).singleResult(), "Flowable process must roll back to active");
+        assertNotNull(engine.engine.getTaskService().createTaskQuery().taskId(engine.taskId).singleResult(),
+                "Flowable review task must roll back to active");
+    }
+
+    private MesProEdhrWorkTaskServiceImpl realRejectTimeWorkTasks(MesProBatchRecordExecutionDO execution) {
+        var tasks = new MesProEdhrWorkTaskServiceImpl();
+        ReflectionTestUtils.setField(tasks, "workTaskMapper", workTaskMapper);
+        ReflectionTestUtils.setField(tasks, "batchTaskMapper", edhrBatchExecutionTaskMapper);
+        ReflectionTestUtils.setField(tasks, "batchExecutionMapper", edhrBatchExecutionMapper);
+        ReflectionTestUtils.setField(tasks, "routeProcessService", routeProcessService);
+        ReflectionTestUtils.setField(tasks, "permissionApi", permissionApi);
+        ReflectionTestUtils.setField(tasks, "operationAuditService", operationAuditService);
+        var rules = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper.class);
+        var candidateResolver = mock(MesProEdhrCandidateResolver.class);
+        for (String type : List.of("FILL", "REWORK")) {
+            var rule = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO()
+                    .setRouteProcessId(execution.getRouteProcessId()).setTaskType(type).setAssigneeUserId(88L)
+                    .setCandidateSourceType("USER").setCandidateSourceId(88L).setDueMinutes(60).setEnabled(true);
+            when(rules.selectEnabledByRouteProcessAndType(execution.getRouteProcessId(), type)).thenReturn(rule);
+            when(candidateResolver.resolveAssignmentRule(rule))
+                    .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract("USER", 88L, "88"));
+        }
+        ReflectionTestUtils.setField(tasks, "assignmentRuleMapper", rules);
+        ReflectionTestUtils.setField(tasks, "candidateResolver", candidateResolver);
+        var origins = mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper.class);
+        when(origins.selectListByBatchExecutionId(9201L)).thenReturn(List.of());
+        ReflectionTestUtils.setField(tasks, "batchExecutionOriginMapper", origins);
+        // Entitlement and notification integrations remain explicit external ports, not formal decision proof.
+        var auxiliary = mock(MesWorkTaskAuxiliaryAudit.class);
+        doAnswer(call -> { ((Runnable) call.getArgument(3)).run(); return null; })
+                .when(auxiliary).entitlements(any(), any(), any(), any());
+        doAnswer(call -> { ((java.util.function.Supplier<?>) call.getArgument(1)).get(); return null; })
+                .when(auxiliary).notifications(any(), any());
+        ReflectionTestUtils.setField(tasks, "auxiliaryAudit", auxiliary);
+        var notifications = mock(cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi.class);
+        when(notifications.sendSingleMessageToAdmin(any())).thenReturn(9901L);
+        ReflectionTestUtils.setField(tasks, "notifyMessageSendApi", notifications);
+        return tasks;
+    }
+
+    /** Capture-only signature/audit mapper boundary; all canonicalization, hashes and creation verification are real. */
+    private static final class RejectTimeSignatureFixture {
+        final cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl kernel =
+                new cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl();
+        final cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl queries =
+                new cn.iocoder.yudao.module.signature.service.ElectronicSignatureQueryServiceImpl();
+        final MesProBatchRecordExecutionSignatureService producer = new MesProBatchRecordExecutionSignatureService();
+        final cn.iocoder.yudao.framework.security.core.LoginUser login = new cn.iocoder.yudao.framework.security.core.LoginUser();
+        final cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO user =
+                new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO()
+                        .setId(88L).setUsername("reject-time-reviewer").setNickname("正式复核人")
+                        .setStatus(CommonStatusEnum.ENABLE.getStatus());
+        cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO stored;
+        cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO createdAudit;
+        final List<cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventRelationDO> capturedRelations =
+                new java.util.ArrayList<>();
+        int signatureInsertCount;
+        int auditInsertCount;
+        int sequenceUpdateCount;
+
+        void assertCapturedCreationAudit() {
+            assertEquals(1, signatureInsertCount);
+            assertEquals(1, auditInsertCount);
+            assertEquals(1, sequenceUpdateCount);
+            assertNotNull(stored);
+            assertNotNull(createdAudit);
+            assertEquals(1L, stored.getTenantId());
+            assertEquals(stored.getTenantId(), createdAudit.getTenantId());
+            assertEquals(901L, createdAudit.getId());
+            assertEquals(stored.getId().toString(), createdAudit.getSignatureRecordId());
+            assertEquals(stored.getContentHash(), createdAudit.getSignatureContentHash());
+            assertEquals(stored.getActorId(), createdAudit.getActorId());
+            assertEquals(stored.getReason(), createdAudit.getReason());
+            assertEquals(1L, createdAudit.getLedgerSequence());
+            var canonical = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(createdAudit.getCanonicalEventJson());
+            assertTrue(canonical.get("relationManifestJson").isTextual());
+            assertEquals(createdAudit.getRelationManifestJson(), canonical.get("relationManifestJson").textValue());
+            var manifest = cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(createdAudit.getRelationManifestJson());
+            assertTrue(manifest.isArray());
+            // The real signature command has no links: no relation INSERT or target fields are produced.
+            assertEquals(0, manifest.size());
+            assertTrue(capturedRelations.isEmpty(), "Capture-only boundary must match the real empty canonical manifest");
+        }
+
+        RejectTimeSignatureFixture() {
+            user.setTenantId(1L); user.setDeleted(false);
+            login.setId(88L); login.setTenantId(1L); login.setUserType(2);
+            login.setInfo(Map.of("username", "reject-time-reviewer",
+                    cn.iocoder.yudao.framework.security.core.LoginUser.INFO_KEY_NICKNAME, "正式复核人"));
+            var directory = mock(cn.iocoder.yudao.module.system.service.user.AdminUserService.class);
+            when(directory.getUser(88L)).thenReturn(user);
+            var authorization = mock(cn.iocoder.yudao.module.dcc.service.file.DccElectronicSignatureAuthorizationService.class);
+            when(authorization.isElectronicSignatureEnabled(88L)).thenReturn(true);
+            var credentials = mock(AdminUserApi.class);
+            ReflectionTestUtils.setField(producer, "adminUserService", directory);
+            ReflectionTestUtils.setField(producer, "authorizationService", authorization);
+            ReflectionTestUtils.setField(producer, "adminUserApi", credentials);
+            ReflectionTestUtils.setField(producer, "permissionService",
+                    mock(cn.iocoder.yudao.module.system.service.permission.PermissionService.class));
+            ReflectionTestUtils.setField(producer, "electronicSignatureService", kernel);
+            ReflectionTestUtils.setField(kernel, "adminUserApi", credentials);
+            ReflectionTestUtils.setField(kernel, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
+            var signatureRows = mock(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
+            when(signatureRows.insert(any(cn.iocoder.yudao.module.signature.dal.dataobject.ElectronicSignatureRecordDO.class)))
+                    .thenAnswer(call -> { signatureInsertCount++; stored = call.getArgument(0); stored.setId(2301L); return 1; });
+            when(signatureRows.selectById(2301L)).thenAnswer(call -> stored);
+            ReflectionTestUtils.setField(kernel, "signatureRecordMapper", signatureRows);
+            ReflectionTestUtils.setField(queries, "signatureRecordMapper", signatureRows);
+            var actualAudit = new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditServiceImpl();
+            var auditRows = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventMapper.class);
+            var sequenceRows = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper.class);
+            var policyRows = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper.class);
+            var activations = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper.class);
+            var relations = mock(cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMapper.class);
+            // Capture-only port; the real signature.record.create command never calls this empty-links INSERT.
+            when(relations.insert(any(cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventRelationDO.class)))
+                    .thenAnswer(call -> { capturedRelations.add(call.getArgument(0)); return 1; });
+            var sequence = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO();
+            sequence.setTenantId(1L); sequence.setNextLedgerSequence(1L);
+            when(sequenceRows.selectByTenantIdForUpdate(1L)).thenReturn(sequence);
+            when(sequenceRows.updateById(any(cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO.class)))
+                    .thenAnswer(call -> {
+                        sequenceUpdateCount++;
+                        assertEquals(1L, ((cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO) call.getArgument(0)).getTenantId());
+                        assertEquals(2L, ((cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO) call.getArgument(0)).getNextLedgerSequence());
+                        sequence.setNextLedgerSequence(((cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO)
+                                call.getArgument(0)).getNextLedgerSequence()); return 1;
+                    });
+            var activation = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyActivationDO();
+            activation.setTenantId(1L); activation.setPolicyVersion("audit-v1");
+            when(activations.selectLatestForUpdate(1L)).thenReturn(activation);
+            var policy = new cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditPolicyOperationDO();
+            policy.setTenantId(1L); policy.setPolicyVersion("audit-v1"); policy.setOperationId("signature.record.create");
+            policy.setDomain("SIGNATURE"); policy.setSubjectType("SIGNATURE_RECORD"); policy.setActionType("CREATE");
+            policy.setActive(true); policy.setApplicability("GXP"); policy.setReasonPolicy("USER_REQUIRED");
+            when(policyRows.selectByPolicyVersionForUpdate(1L, "audit-v1", "signature.record.create")).thenReturn(policy);
+            when(auditRows.insert(any(cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO.class)))
+                    .thenAnswer(call -> { auditInsertCount++; createdAudit = call.getArgument(0); createdAudit.setId(901L); return 1; });
+            when(auditRows.selectSignatureCreationEvents(1L, "2301"))
+                    .thenAnswer(call -> createdAudit == null ? List.of() : List.of(createdAudit));
+            ReflectionTestUtils.setField(actualAudit, "auditEventMapper", auditRows);
+            ReflectionTestUtils.setField(actualAudit, "ledgerSequenceMapper", sequenceRows);
+            ReflectionTestUtils.setField(actualAudit, "policyOperationMapper", policyRows);
+            ReflectionTestUtils.setField(actualAudit, "policyActivationMapper", activations);
+            ReflectionTestUtils.setField(actualAudit, "eventRelationMapper", relations);
+            ReflectionTestUtils.setField(kernel, "gxpAuditService", actualAudit);
+            var creationVerifier = new cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService();
+            ReflectionTestUtils.setField(creationVerifier, "auditEventMapper", auditRows);
+            ReflectionTestUtils.setField(queries, "signatureCreationVerificationService", creationVerifier);
+        }
     }
 }

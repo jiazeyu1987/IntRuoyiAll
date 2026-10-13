@@ -13,6 +13,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
+import cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService;
+import cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.VerifiedSignatureFact;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.util.Objects;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
 import cn.iocoder.yudao.module.signature.api.dto.SignatureSubjectCommand;
@@ -41,6 +47,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+// Verification DTOs are consumer-port fixtures, not evidence of the creation-audit algorithm.
 class MesProductionSignatureEvidenceServiceTest {
     private static final LocalDateTime SIGNED_AT = LocalDateTime.of(2026, 10, 1, 10, 43, 46);
     private static final MesProductionSubmitSignatureContext CONTEXT =
@@ -60,6 +67,7 @@ class MesProductionSignatureEvidenceServiceTest {
     void setUp() {
         TenantContextHolder.setTenantId(1L);
         service = new MesProductionSignatureEvidenceService(signatures, projections, audits, activeOrders, events, workOrders);
+        ReflectionTestUtils.setField(service, "verifiedSignatures", consumerVerifiedPort());
         event = MesProProcessPoolEventDO.builder().id(1001L)
                 .eventType(MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT)
                 .eventIdempotencyKey(CONTEXT.submissionIdempotencyKey())
@@ -87,7 +95,7 @@ class MesProductionSignatureEvidenceServiceTest {
     @Test void formalPayloadMayExplicitlyDisableSimulationWithoutChangingFormalValidation() {
         event.setRawPayload("{\"activeOrderId\":10,\"simulated\":false,\"simulationStage\":\"\",\"simulationRunId\":\"\"}");
         assertTrue(service.isValidForEvent(event));
-        verify(signatures).verifyEvidence(1101L);
+        verify(signatures, times(4)).verifyEvidence(1101L);
     }
 
     @Test void simulationOnAnotherWorkOrderIsRejected() {
@@ -195,7 +203,7 @@ class MesProductionSignatureEvidenceServiceTest {
     @Test void exactAuthenticatedSignatureAndOriginalAuditAcceptMissingEventCache() {
         assertTrue(service.isValidForEvent(event));
         assertNull(event.getSignatureSnapshot(), "Read-only evidence resolution must preserve the original event");
-        verify(signatures).verifyEvidence(1101L);
+        verify(signatures, times(4)).verifyEvidence(1101L);
         verify(events, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
 
@@ -303,7 +311,9 @@ class MesProductionSignatureEvidenceServiceTest {
 
     @Test void freshHashMismatchIsRejectedDespiteStoredValidStatus() {
         when(signatures.verifyEvidence(1101L)).thenReturn(new ElectronicSignatureVerificationDTO(1101L,
-                "MISMATCH", "content-hash", "tampered", "evidence-hash", "evidence-hash", "SHA-256", "v1"));
+                "MISMATCH", "content-hash", "tampered", "evidence-hash", "evidence-hash", "SHA-256", "v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
         assertThrows(ServiceException.class, () -> service.isValidForEvent(event));
     }
 
@@ -388,6 +398,60 @@ class MesProductionSignatureEvidenceServiceTest {
                 .actorUsernameSnapshot("EMP-2101").actorNicknameSnapshot("正式员工").signaturePurpose("一线生产报工提交").build();
     }
 
+    // Bounded consumer port: exercises exact DTO acceptance, not cryptographic or creation-audit verification.
+    private ElectronicSignatureVerifiedFactService consumerVerifiedPort() {
+        return mock(ElectronicSignatureVerifiedFactService.class, invocation -> {
+            if (invocation.getMethod().getDeclaringClass() == Object.class) {
+                return objectIdentity(invocation);
+            }
+            if (!"requireVerifiedFact".equals(invocation.getMethod().getName())) {
+                throw new AssertionError("Unexpected verified consumer method");
+            }
+            Long id = invocation.getArgument(0);
+            var evidence = signatures.getById(id);
+            var verification = signatures.verifyEvidence(id);
+            if (!Objects.equals(id, 1101L) || !Objects.equals(TenantContextHolder.getTenantId(), 1L)
+                    || evidence == null || verification == null || !Objects.equals(evidence.id(), id)
+                    || !Objects.equals(verification.signatureId(), id)
+                    || !"MES".equals(evidence.moduleCode()) || !"MES_BATCH_RECORD".equals(evidence.subjectType())
+                    || !"PRODUCTION_SUBMIT".equals(evidence.actionCode())
+                    || !"VALID".equals(evidence.verificationStatus()) || !"VALID".equals(verification.verificationStatus())
+                    || !"V1".equals(verification.evidenceFormatVersion())
+                    || !"LOCAL_DIGEST_TIME_AND_CREATION_AUDIT".equals(verification.verificationScope())
+                    || !"CONSISTENT".equals(verification.digestStatus())
+                    || !"CONSISTENT".equals(verification.timeConsistencyStatus())
+                    || !"CONSISTENT".equals(verification.auditBindingStatus())
+                    || !"SERVER_CLOCK".equals(verification.timeSource())
+                    || !"NOT_BOUND".equals(verification.timeTrustStatus())
+                    || !Objects.equals(evidence.contentHash(), verification.storedContentHash())
+                    || !Objects.equals(evidence.contentHash(), verification.calculatedContentHash())
+                    || !Objects.equals(evidence.evidenceHash(), verification.storedEvidenceHash())
+                    || !Objects.equals(evidence.evidenceHash(), verification.calculatedEvidenceHash())
+                    || !Objects.equals(evidence.algorithm(), verification.algorithm())
+                    || !Objects.equals(evidence.keyVersion(), verification.keyVersion())) {
+                throw exception(ESIGN_COMMAND_INVALID, "Consumer verification fixture rejected evidence");
+            }
+            return mock(VerifiedSignatureFact.class, fact -> {
+                if (fact.getMethod().getDeclaringClass() == Object.class) return objectIdentity(fact);
+                return switch (fact.getMethod().getName()) {
+                    case "tenantId" -> 1L;
+                    case "verification" -> verification;
+                    case "auditEventId" -> signatureAudit.getId();
+                    default -> ElectronicSignatureEvidenceDTO.class.getMethod(fact.getMethod().getName()).invoke(evidence);
+                };
+            });
+        });
+    }
+
+    private static Object objectIdentity(org.mockito.invocation.InvocationOnMock invocation) {
+        return switch (invocation.getMethod().getName()) {
+            case "toString" -> "BoundedConsumerPort";
+            case "hashCode" -> System.identityHashCode(invocation.getMock());
+            case "equals" -> invocation.getMock() == invocation.getArgument(0);
+            default -> throw new AssertionError("Unexpected Object method");
+        };
+    }
+
     private ElectronicSignatureEvidenceDTO stubUnified(MesProductionSubmitSignatureContext context, Long actorId) {
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(0L, "PRODUCTION_SUBMIT", null,
                 null, null, null, null, null, null, context == null ? null : MesProductionSubmitSignatureContext.SOURCE_TYPE,
@@ -402,7 +466,9 @@ class MesProductionSignatureEvidenceServiceTest {
                 null, null, null, "正式员工");
         when(signatures.getById(1101L)).thenReturn(evidence);
         when(signatures.verifyEvidence(1101L)).thenReturn(new ElectronicSignatureVerificationDTO(1101L, "VALID",
-                "content-hash", "content-hash", "evidence-hash", "evidence-hash", "SHA-256", "v1"));
+                "content-hash", "content-hash", "evidence-hash", "evidence-hash", "SHA-256", "v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
         signatureAudit = signatureAudit(evidence);
         when(audits.selectList(any())).thenReturn(List.of(signatureAudit), List.of(productionAudit));
         return evidence;

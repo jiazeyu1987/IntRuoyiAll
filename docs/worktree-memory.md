@@ -21,6 +21,8 @@
 - Forbidden action: 禁止提交 `node_modules`、禁止静默降级到只跑 `node --check` 替代类型检查、禁止把主工作区已有依赖目录复制到附加 worktree。
 - Evidence: `doc/tasks/20260909-form-parser-json-editor-frontline-preview/execution-log.md`，`jiexi123` 新 worktree 首次 `pnpm ts:check` 失败于 `cross-env` 缺失，按锁文件执行 `pnpm install --frozen-lockfile` 后类型检查通过且 lockfile 未变；`doc/tasks/20260918-production-batch-record-json-publish-implementation/verification-report.md`，`20260918_gongyiluxian` worktree 首次因缺少 `node_modules/cross-env` 未进入 TypeScript 分析，按锁文件安装依赖后复跑进入类型分析，但暴露既有 `BatchExecutionListPage.vue` 导入缺失错误，任务按类型门禁阻塞记录而未静默降级。
 
+- 跨盘加速依赖安装时，保留任务自有标准 `node_modules/.pnpm` 结构。只外置 virtual-store 可能破坏包内 require 的祖先目录解析，即使 frozen install exit0，Vite/ESLint仍可能缺模块；不得用 NODE_PATH、alias 或修改解析配置把该失败计为通过。
+- 从任务自有物理SSD目录安装后用 junction 消费前，逐字节核对 manifest/lock/workspace 配置，并确认相对 file/link/workspace依赖、生命周期脚本和额外配置不会使复制少量配置文件丢失安装上下文；不满足即停止。安装、实际模块解析、定向验证、真实页面就绪分别记证据；保留中断/失败轮，收尾核对消费者已停止后再清理确切自有物理目录与链接。
 ## 同类需求 Worktree 复用门禁
 
 - Trigger: 用户要求在 worktree 中继续一个业务功能，且 `D:\IntRuoyiWorktree\` 下可能已有同类分支或半成品分支。

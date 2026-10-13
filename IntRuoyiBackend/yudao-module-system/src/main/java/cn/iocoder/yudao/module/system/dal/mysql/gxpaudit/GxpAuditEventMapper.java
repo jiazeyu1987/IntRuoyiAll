@@ -11,6 +11,10 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface GxpAuditEventMapper extends BaseMapperX<GxpAuditEventDO> {
 
+    @Select("SELECT * FROM gxp_audit_event WHERE tenant_id = #{tenantId} "
+            + "AND operation_id = 'signature.record.create' AND signature_record_id = #{signatureId}")
+    java.util.List<GxpAuditEventDO> selectSignatureCreationEvents(Long tenantId, String signatureId);
+
     @Select("SELECT * FROM gxp_audit_event WHERE tenant_id = #{tenantId} LIMIT 1 FOR UPDATE")
     GxpAuditEventDO selectAnyByTenantForUpdate(Long tenantId);
 

@@ -47,7 +47,7 @@ public class MesWmSnServiceImpl implements MesWmSnService {
         itemService.validateItemExists(reqVO.getItemId());
         // 校验工单是否存在
         if (reqVO.getWorkOrderId() != null) {
-            workOrderService.validateWorkOrderExists(reqVO.getWorkOrderId());
+            workOrderService.validateWorkOrderExistsForUpdate(reqVO.getWorkOrderId());
         }
 
         List<MesWmSnDO> sns = new ArrayList<>(reqVO.getCount());

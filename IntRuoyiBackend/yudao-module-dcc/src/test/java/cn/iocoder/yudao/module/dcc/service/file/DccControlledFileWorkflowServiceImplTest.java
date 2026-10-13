@@ -267,6 +267,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setDefaultUploadTicketBindings() {
         TenantContextHolder.setTenantId(1L);
+        lenient().when(controlledFileMapper.updateById(any(DccControlledFileDO.class))).thenReturn(1);
         lenient().doNothing().when(projectAccessService).assertProjectOwner(any(), any());
         lenient().doNothing().when(projectAccessService).assertProjectEditorOrOwner(any(), any());
         lenient().when(categoryPermissionSupport.hasCategoryPermission(any(), any(), any())).thenReturn(true);

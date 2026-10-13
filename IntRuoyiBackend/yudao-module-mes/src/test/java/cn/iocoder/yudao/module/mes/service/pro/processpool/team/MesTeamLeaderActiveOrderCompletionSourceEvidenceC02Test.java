@@ -45,9 +45,14 @@ class MesTeamLeaderActiveOrderCompletionSourceEvidenceC02Test {
         var completion = MesProcessPoolOrderProcessCompletionDO.builder()
                 .id(301L)
                 .completionStatus("COMPLETED")
-                .backfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS)
-                .backfillExecutionId(LARGE_BATCH_RECORD_ID)
                 .build();
+        var frozenReceipt = receipt();
+        // Freeze the same formal DO shape before its own allowed writeback fields change.
+        frozenReceipt.setSignatureSnapshotJson(JsonUtils.toJsonString(Map.of(
+                "productionCompletionSignatures", List.of(completion))));
+        frozenReceipt.setReceiptHash(MesTeamLeaderActiveOrderCompletionReceiptHash.compute(frozenReceipt));
+        completion.setBackfillStatus(MesProcessPoolOrderProcessCompletionDO.BACKFILL_STATUS_SUCCESS);
+        completion.setBackfillExecutionId(LARGE_BATCH_RECORD_ID);
         String liveSignature = JsonUtils.toJsonString(Map.of(
                 "productionCompletionSignatures", List.of(completion)));
         JsonNode serializedId = JsonUtils.parseTree(liveSignature)
@@ -55,7 +60,7 @@ class MesTeamLeaderActiveOrderCompletionSourceEvidenceC02Test {
 
         assertTrue(serializedId.isTextual(), "formal NumberSerializer must write the large Long as text");
         assertTrue(MesTeamLeaderActiveOrderCompletionSourceEvidence.matches(
-                receipt(), draft(liveSignature)),
+                frozenReceipt, draft(liveSignature)),
                 "a formally serialized exact batch record ID must survive completion retry matching");
     }
 

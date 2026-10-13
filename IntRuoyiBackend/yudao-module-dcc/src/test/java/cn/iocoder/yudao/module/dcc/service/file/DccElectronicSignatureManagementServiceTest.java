@@ -37,6 +37,9 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -102,9 +105,11 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileSignatureBindingService signatureBindingService;
     @Mock
     private DccElectronicSignatureImageService signatureImageService;
+    @Mock private ApprovalAuthorityApi authority;
 
     @InjectMocks
     private DccElectronicSignatureManagementServiceImpl service;
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void getSignaturePage_enrichesControlledFileAndActorMetadata() {
@@ -716,6 +721,8 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void unlockAuthorization_requiresReasonClearsLockAndAudits() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
         DccElectronicSignatureAuthorizationDO locked = DccElectronicSignatureAuthorizationDO.builder()
                 .id(1L)
                 .userId(101L)
@@ -733,7 +740,8 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
                 .build();
         when(adminUserService.getUser(101L)).thenReturn(AdminUserDO.builder()
                 .id(101L).username("zhangsan").nickname("张三").build());
-        when(authorizationMapper.selectByUserId(101L)).thenReturn(locked, unlocked);
+        when(authorizationMapper.selectByUserIdForUpdate(101L)).thenReturn(locked);
+        when(authorizationMapper.selectByUserId(101L)).thenReturn(unlocked);
         when(authorizationMapper.updateById(any(DccElectronicSignatureAuthorizationDO.class))).thenReturn(1);
         when(authorizationAuditMapper.selectList(any())).thenReturn(List.of(DccElectronicSignatureAuthorizationAuditDO.builder()
                 .targetUserId(101L)
@@ -752,8 +760,10 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
 
     @Test
     void unlockAuthorization_persistFailureFailsFast() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
         when(adminUserService.getUser(101L)).thenReturn(AdminUserDO.builder().id(101L).build());
-        when(authorizationMapper.selectByUserId(101L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
+        when(authorizationMapper.selectByUserIdForUpdate(101L)).thenReturn(DccElectronicSignatureAuthorizationDO.builder()
                 .id(1L)
                 .userId(101L)
                 .electronicSignatureEnabled(Boolean.TRUE)

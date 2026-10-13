@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class MesTeamLeaderActiveOrderReleaseApplicationResult {
 
     private Long applicationId;
+    private String requestIdempotencyKey;
     private Long activeOrderId;
     private Long workOrderId;
     private String workOrderCode;

@@ -141,8 +141,8 @@ export interface DeviationHandlingRespVO {
   }>
 }
 
-export const getDeviationPage = (params: DeviationPageReqVO) =>
-  request.get({ url: '/mes/pro/edhr-deviation/page', params })
+export const getDeviationPage = (params: DeviationPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) =>
+  request.get({ url: '/mes/pro/edhr-deviation/page', params, ignoreErrorMessage: options?.ignoreErrorMessage })
 
 export const getDeviationBatchOptions = (params: PageParam & { search?: string }) =>
   request.get({ url: '/mes/pro/edhr-deviation/batch-options', params })
@@ -156,11 +156,11 @@ export const getDeviationBatchOptionsByActiveOrder = (activeOrderId: number | st
 export const createDeviation = (data: DeviationCreateReqVO) =>
   request.post({ url: '/mes/pro/edhr-deviation/create', data })
 
-export const getDeviation = (id: number) =>
-  request.get({ url: '/mes/pro/edhr-deviation/get', params: { id } })
+export const getDeviation = (id: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) =>
+  request.get({ url: '/mes/pro/edhr-deviation/get', params: { id }, ignoreErrorMessage: options?.ignoreErrorMessage })
 
-export const getDeviationHandling = (deviationId: number) =>
-  request.get({ url: '/mes/pro/edhr-deviation-handling/get', params: { deviationId } })
+export const getDeviationHandling = (deviationId: number, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) =>
+  request.get({ url: '/mes/pro/edhr-deviation-handling/get', params: { deviationId }, ignoreErrorMessage: options?.ignoreErrorMessage })
 
 export const saveDeviationHandling = (deviationId: number, data: Record<string, unknown>) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/save', params: { deviationId }, data })

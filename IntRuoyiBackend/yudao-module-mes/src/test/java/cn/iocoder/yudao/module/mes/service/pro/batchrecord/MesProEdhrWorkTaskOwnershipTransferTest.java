@@ -98,14 +98,20 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     @MockitoBean
     private MesWorkTaskAuxiliaryAudit auxiliaryAudit;
 
+    @MockitoBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService sourceLedger;
+    @MockitoBean private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi sourceAuthority;
+    @MockitoBean private MesProEdhrNonconformanceReviewService nonconformanceReviewService;
+
     @BeforeEach
     void setTenant() {
         TenantContextHolder.setTenantId(122L);
-        doAnswer(call -> {
+        // Auxiliary persistence/audit is a port boundary in this ownership unit suite.
+        // Execute the actual domain callbacks so entitlement/notification failures remain observable.
+        org.mockito.Mockito.doAnswer(call -> {
             call.getArgument(3, Runnable.class).run();
             return null;
         }).when(auxiliaryAudit).entitlements(any(), any(), any(), any());
-        doAnswer(call -> {
+        org.mockito.Mockito.doAnswer(call -> {
             call.getArgument(1, java.util.function.Supplier.class).get();
             return null;
         }).when(auxiliaryAudit).notifications(any(), any());

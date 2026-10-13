@@ -854,6 +854,9 @@ import {
   type EdhrReleaseRowVO
 } from '@/api/mes/pro/edhr/release'
 import { rejectEdhrBatchExecutionToNonconformanceReview } from '@/api/mes/pro/edhr/nonconformanceReview'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import * as UserApi from '@/api/system/user'
 import * as DefinitionApi from '@/api/bpm/definition'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
@@ -1436,20 +1439,32 @@ const resolveBatchStatusType = (status?: number | string | null) => {
   return 'info'
 }
 
-const getList = async () => {
+let batchListReadGeneration = 0
+const loadBatchList = async (isActionCurrent: () => boolean) => {
+  if (!isActionCurrent()) return false
+  const generation = ++batchListReadGeneration
+  const query = buildQuery()
+  const scope = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, query])
+  const isCurrent = () => isActionCurrent() && generation === batchListReadGeneration && scope === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, buildQuery()])
   loading.value = true
   loadError.value = ''
   try {
-    const data = await getEdhrBatchExecutionPage(buildQuery())
+    const data = await getEdhrBatchExecutionPage(query, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return false
     list.value = (data.list || []).filter(isVisibleBatchExecutionRow)
     total.value = data.total || 0
   } catch (error) {
+    if (!isCurrent()) return false
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'eDHR 批次执行列表加载失败。')
   } finally {
-    loading.value = false
+    if (isCurrent()) loading.value = false
   }
+  return isCurrent()
+}
+const getList = async () => {
+  await loadBatchList(() => true)
 }
 const edhrBatchQuickFilter = useTableQuickFilter(
   'mes.pro.edhrBatch.execution.main',
@@ -1515,7 +1530,17 @@ const resetRejectForm = () => {
   rejectForm.signaturePassword = ''
 }
 
+const rejectContextGuard = createFormalActionGuard(() => JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, selectedRejectBatch.value?.id]))
+const resetRejectContext = () => { rejectContextGuard.invalidate(); rejectLoading.value = false; rejectForm.signaturePassword = '' }
+watch(rejectDialogVisible, resetRejectContext, { flush: 'sync' })
+watch(() => approvalInvalidation.syncSession().key, () => { resetRejectContext(); rejectDialogVisible.value = false }, { flush: 'sync' })
+watch(() => route.fullPath, () => { resetRejectContext(); rejectDialogVisible.value = false }, { flush: 'sync' })
+watch(() => [route.fullPath, approvalInvalidation.syncSession().key], () => { batchListReadGeneration++; loading.value = false }, { flush: 'sync' })
+onDeactivated(resetRejectContext)
+onBeforeUnmount(resetRejectContext)
+
 const openRejectDialog = (row: EdhrBatchExecutionRespVO) => {
+  resetRejectContext()
   if (!row.id) {
     message.error('当前批次缺少批次执行 ID，无法驳回。')
     return
@@ -1527,17 +1552,20 @@ const openRejectDialog = (row: EdhrBatchExecutionRespVO) => {
 }
 
 const handleRejectClick = async (row: EdhrBatchExecutionRespVO) => {
+  const isCurrent = rejectContextGuard.capture()
   try {
     await message.confirm(`确认驳回批次 ${row.batchExecutionCode || row.id} 吗？驳回后将进入不合格评审并冻结批次和工单。`)
-    openRejectDialog(row)
+    if (isCurrent()) openRejectDialog(row)
   } catch (error) {
+    if (!isCurrent()) return
     if (error === 'cancel' || error === 'close') return
     message.error(resolveErrorMessage(error, '驳回确认失败。'))
   }
 }
 
 const submitRejectBatchExecution = async () => {
-  const batch = selectedRejectBatch.value
+  if (rejectLoading.value) return
+  const batch = selectedRejectBatch.value ? { ...selectedRejectBatch.value } : null
   const reason = rejectForm.nonconformanceReason.trim()
   const password = rejectForm.signaturePassword.trim()
   if (!batch?.id) {
@@ -1550,20 +1578,34 @@ const submitRejectBatchExecution = async () => {
   }
   rejectLoading.value = true
   rejectError.value = ''
+  const event = approvalInvalidation.captureHandoffSourceSuccess('BATCH_EXECUTION', batch.id)
+  const isRequestCurrent = rejectContextGuard.capture()
+  let isCurrent = isRequestCurrent
+  let writeSucceeded = false
   try {
     const review = await rejectEdhrBatchExecutionToNonconformanceReview({
       batchExecutionId: batch.id,
       nonconformanceReason: reason,
       signaturePassword: password
+    }, {
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: isRequestCurrent,
+      isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(event.session.key)
     })
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(event)
+    if (!isCurrent()) return
     rejectDialogVisible.value = false
+    isCurrent = rejectContextGuard.capture()
     message.success(`已驳回并进入不合格评审流程${review.reviewCode ? `：${review.reviewCode}` : ''}`)
-    await getList()
+    if (!(await loadBatchList(isCurrent))) return
+    if (isCurrent() && loadError.value) throw new Error(loadError.value)
   } catch (error) {
-    rejectError.value = resolveErrorMessage(error, '驳回并发起不合格评审失败，请查看后端错误信息。')
+    if (!isCurrent()) return
+    rejectError.value = writeSucceeded ? `驳回并发起评审已成功，刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '驳回并发起不合格评审失败，请查看后端错误信息。')
     message.error(rejectError.value)
   } finally {
-    rejectLoading.value = false
+    if (isCurrent()) rejectLoading.value = false
   }
 }
 
@@ -1579,6 +1621,17 @@ type MarketReleaseRouteContext = {
 }
 
 let marketReleaseRouteGeneration = 0
+const marketReleaseWrites = new Map<string, { status: 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }>()
+
+const marketReleaseWriteScope = (context: EdhrReleaseRowVO) => JSON.stringify([
+  approvalInvalidation.syncSession().key, context.releaseTransactionId, context.releaseApprovalWorkTaskId
+])
+
+const isDefinitiveMarketReleaseFailure = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; response?: unknown }
+  return candidate.response != null || (typeof candidate.code === 'number' && Number.isFinite(candidate.code))
+}
 
 const resetMarketReleaseDialog = () => {
   marketReleaseRouteGeneration++
@@ -1611,14 +1664,17 @@ const openMarketReleaseFromRoute = async () => {
   releaseDialogVisible.value = false
   resetMarketReleaseDialog()
   const generation = marketReleaseRouteGeneration
-  const isCurrent = () => generation === marketReleaseRouteGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
+  const isCurrent = () => generation === marketReleaseRouteGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) && route.fullPath === routeKey
   try {
     const context = readMarketReleaseRouteContext()
     if (!context) return
     if (!userStore.permissions.has('mes:pro-edhr-release:approve') && !userStore.permissions.has('*:*:*')) {
       throw new Error('当前账号没有上市放行权限。')
     }
-    const batch = await getEdhrBatchExecution(context.batchExecutionId)
+    const batch = await getEdhrBatchExecution(context.batchExecutionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     if (String(batch.id) !== context.batchExecutionId || batch.pendingVoidChangeEventId || isVoidedBatchExecutionStatus(batch.status)) {
       throw new Error('上市放行入口批次身份或当前作废状态不符合正式任务。')
@@ -1637,7 +1693,10 @@ const openReleaseDialog = async (
 ) => {
   resetMarketReleaseDialog()
   const generation = marketReleaseRouteGeneration
+  const sessionKey = approvalInvalidation.syncSession().key
+  const routeKey = route.fullPath
   const isCurrent = () => generation === marketReleaseRouteGeneration &&
+    approvalInvalidation.isCurrent(sessionKey) && route.fullPath === routeKey &&
     releaseDialogVisible.value && String(selectedReleaseBatch.value?.id) === String(row.id)
   if (!row.id) {
     message.error('当前批次缺少批次执行编号，无法发起上市放行。')
@@ -1656,7 +1715,7 @@ const openReleaseDialog = async (
   try {
     let context: EdhrReleaseRowVO | undefined
     if (taskContext) {
-      context = await getEdhrRelease(taskContext.releaseTransactionId)
+      context = await getEdhrRelease(taskContext.releaseTransactionId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       if (String(row.id) !== taskContext.batchExecutionId ||
         String(context.batchExecutionId) !== taskContext.batchExecutionId ||
@@ -1677,7 +1736,7 @@ const openReleaseDialog = async (
         pageSize: 20,
         batchExecutionCode: row.batchExecutionCode
       }
-      const result = await getEdhrReleasePage(params)
+      const result = await getEdhrReleasePage(params, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       context = (result.list || []).find(
         (item) => String(item.batchExecutionId) === String(row.id)
@@ -1731,6 +1790,7 @@ const openPqcReleasePending = async () => {
 }
 
 const submitRelease = async () => {
+  if (!releaseDialogVisible.value || releaseLoading.value || releaseContextLoading.value) return
   if (releaseCompletedReadOnly.value || releaseContext.value?.releaseStatus === 'RELEASED') {
     releaseError.value = '该正式任务已完成上市放行，请查看历史批记录。'
     return
@@ -1745,11 +1805,27 @@ const submitRelease = async () => {
     releaseError.value = '当前批次缺少正式放行事务，无法确认上市放行。'
     return
   }
+  const scopeKey = marketReleaseWriteScope(context)
+  if (marketReleaseWrites.has(scopeKey)) {
+    releaseError.value = '本次正式事务已提交或结果尚未确认，请只读核对正式回执；禁止重复提交。'
+    return
+  }
+  const writeState = { status: 'WRITING' as 'WRITING' | 'CONFIRMED' | 'UNCERTAIN' }
+  marketReleaseWrites.set(scopeKey, writeState)
   const generation = marketReleaseRouteGeneration
-  const isCurrent = () => generation === marketReleaseRouteGeneration && releaseDialogVisible.value
+  const routeKey = route.fullPath
+  const isCurrent = () => generation === marketReleaseRouteGeneration && releaseDialogVisible.value &&
+    routeKey === route.fullPath && releaseContext.value != null && scopeKey === marketReleaseWriteScope(releaseContext.value) &&
+    String(selectedReleaseBatch.value?.id) === String(batch.id) &&
+    String(releaseContext.value?.releaseTransactionId) === String(context.releaseTransactionId) &&
+    String(releaseContext.value?.releaseApprovalWorkTaskId) === String(context.releaseApprovalWorkTaskId)
   releaseLoading.value = true
   releaseError.value = ''
+  let writeSucceeded = false
   try {
+    const event = approvalInvalidation.captureEdhrSuccess(context.releaseApprovalWorkTaskId
+      ? { sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(context.releaseApprovalWorkTaskId) }
+      : { sourceTaskType: 'EDHR_WORK_TASK', businessSourceType: 'RELEASE_TRANSACTION', businessSourceId: String(context.releaseTransactionId) })
     await approveEdhrRelease({
       releaseTransactionId: String(context.releaseTransactionId),
       workTaskId: context.releaseApprovalWorkTaskId
@@ -1759,19 +1835,33 @@ const submitRelease = async () => {
       idempotencyKey: releaseForm.idempotencyKey,
       signoffEvidenceHash: context.approvalSignoffEvidenceHash || undefined,
       password: releaseForm.password
-    })
-    if (!isCurrent()) return
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeState.status = 'CONFIRMED'
+    approvalInvalidation.publishEdhrSuccess(event)
+    writeSucceeded = true
+    if (!isCurrent() || !approvalInvalidation.isCurrent(event.session.key)) return
+    releaseForm.password = ''
     releaseDialogVisible.value = false
     message.success('上市放行成功')
-    await router.push({
-      path: '/mes/pro/feedback/edhr-batch-history',
-      query: { batchExecutionId: String(batch.id) }
-    })
+    try {
+      await router.push({ path: '/mes/pro/feedback/edhr-batch-history', query: { batchExecutionId: String(batch.id) } })
+    } catch (error) {
+      if (approvalInvalidation.isCurrent(event.session.key) && routeKey === route.fullPath) message.warning(`上市放行已成功，历史页面打开失败：${resolveErrorMessage(error, '请刷新查看。')}`)
+    }
   } catch (error) {
+    if (!writeSucceeded) {
+      if (isDefinitiveMarketReleaseFailure(error)) {
+        if (marketReleaseWrites.get(scopeKey) === writeState) marketReleaseWrites.delete(scopeKey)
+      } else writeState.status = 'UNCERTAIN'
+    }
     if (!isCurrent()) return
-    releaseError.value = resolveErrorMessage(error, '上市放行失败，请查看后端错误后重试。')
+    releaseError.value = writeSucceeded
+      ? `上市放行已成功，页面刷新失败：${resolveErrorMessage(error, '请刷新查看历史批记录。')}`
+      : isDefinitiveMarketReleaseFailure(error)
+        ? resolveErrorMessage(error, '上市放行失败，请查看后端错误后重试。')
+        : `上市放行结果无法确认，请只读核对正式回执；禁止重复提交：${resolveErrorMessage(error, '响应异常')}`
   } finally {
-    if (isCurrent()) releaseLoading.value = false
+    if (isCurrent() && (!marketReleaseWrites.has(scopeKey) || marketReleaseWrites.get(scopeKey) === writeState)) releaseLoading.value = false
   }
 }
 
@@ -1955,14 +2045,16 @@ onMounted(() => {
 })
 
 watch(
-  () => [route.query.action, route.query.batchExecutionId, route.query.releaseTransactionId, route.query.workTaskId],
-  () => { void openMarketReleaseFromRoute() }
+  () => [route.fullPath, approvalInvalidation.syncSession().key],
+  () => { void openMarketReleaseFromRoute() },
+  { flush: 'sync' }
 )
 
 watch(releaseDialogVisible, (visible) => {
   if (!visible) resetMarketReleaseDialog()
 }, { flush: 'sync' })
 onBeforeUnmount(() => { resetMarketReleaseDialog() })
+onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDialog() })
 </script>
 
 <style scoped>

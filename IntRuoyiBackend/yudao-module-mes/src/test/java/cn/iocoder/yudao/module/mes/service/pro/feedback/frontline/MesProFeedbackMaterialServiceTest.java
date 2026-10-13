@@ -71,14 +71,16 @@ class MesProFeedbackMaterialServiceTest {
     }
 
     @Test
-    void createMaterials_rejectsLossGreaterThanCompletionBeforeInsert() {
-        MesProFeedbackMaterialCreateCommand command = command(List.of(
-                entry(501L, "A001", "弹簧", "2", "3")));
-
-        ServiceException error = assertThrows(ServiceException.class, () -> service.createMaterials(command));
-
-        assertTrue(error.getMessage().contains("损耗数量不能大于完成数量"));
-        verify(materialMapper, never()).insertBatch(org.mockito.ArgumentMatchers.anyCollection());
+    void createMaterials_preservesIndependentLossGreaterThanQualifiedOutput() {
+        when(materialMapper.insertBatch(org.mockito.ArgumentMatchers.anyCollection())).thenReturn(true);
+        service.createMaterials(command(List.of(entry(501L, "A001", "弹簧", "10", "12"))));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Collection<MesProFeedbackMaterialDO>> captor =
+                ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(materialMapper).insertBatch(captor.capture());
+        MesProFeedbackMaterialDO row = captor.getValue().iterator().next();
+        assertEquals(new BigDecimal("10"), row.getOutputQuantity());
+        assertEquals(new BigDecimal("12"), row.getLossQuantity());
     }
 
     private static MesProFeedbackMaterialCreateCommand command(

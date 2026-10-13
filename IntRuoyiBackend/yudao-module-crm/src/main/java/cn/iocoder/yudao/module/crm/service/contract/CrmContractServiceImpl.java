@@ -298,11 +298,13 @@ public class CrmContractServiceImpl implements CrmContractService {
 
         // 2. 创建合同审批流程实例
         String processInstanceId = bpmProcessInstanceApi.createProcessInstance(userId, new BpmProcessInstanceCreateReqDTO()
-                .setProcessDefinitionKey(BPM_PROCESS_DEFINITION_KEY).setBusinessKey(String.valueOf(id)));
+                .setProcessDefinitionKey(BPM_PROCESS_DEFINITION_KEY).setBusinessKey(String.valueOf(id))
+                .setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_BUSINESS","CRM_CONTRACT",id.toString(),cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(contract)),"CRM_CONTRACT_SUBMIT",id.toString())));
 
         // 3. 更新合同工作流编号
-        contractMapper.updateById(new CrmContractDO().setId(id).setProcessInstanceId(processInstanceId)
-                .setAuditStatus(CrmAuditStatusEnum.PROCESS.getStatus()));
+        if (contractMapper.updateById(new CrmContractDO().setId(id).setProcessInstanceId(processInstanceId)
+                .setAuditStatus(CrmAuditStatusEnum.PROCESS.getStatus())) != 1)
+            throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
 
         // 3. 记录日志
         LogRecordContext.putVariable("contractName", contract.getName());

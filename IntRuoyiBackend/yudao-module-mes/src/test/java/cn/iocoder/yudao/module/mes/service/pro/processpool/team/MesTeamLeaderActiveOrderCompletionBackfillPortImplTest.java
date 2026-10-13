@@ -34,6 +34,7 @@ import java.util.List;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 productIssueMapper, productIssueDetailMapper, pickListBindingMapper, pickListBindingItemMapper,
                 eventMapper, reviewMapper);
         var event = new MesProProcessPoolEventDO().setId(401L).setWorkOrderId(30L).setRouteId(40L)
-                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}");
+                .setRouteProcessId(101L).setProcessId(1L).setEventType("PRODUCTION_SUBMIT").setRawPayload("{}")
+                .setDeviceAccountId(341L).setActualEmployeeId(342L).setSignatureUserId(342L);
         event.setTenantId(1L);
         var review = new MesProcessPoolSubmissionReviewDO().setReviewRound(0).setId(601L).setEventId(401L).setLeaderUserId(20L)
                 .setLeaderType("PRODUCTION").setReviewStatus("APPROVED").setReviewedAt(java.time.LocalDateTime.of(2026, 9, 24, 9, 0))
@@ -145,6 +147,23 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "affectedStateCollector", affected);
         var activeOrder = order().setVersion(2).setActiveStatus("ACTIVE");
         var stored = new java.util.concurrent.atomic.AtomicReference<MesProcessPoolActiveOrderCompletionReceiptDO>();
+        // Unit boundary for receipt creation; actual audit/readback closure is exercised
+        // by the isolated real-source producer. Tie this proof to the captured main binding.
+        var creationVerifier = org.mockito.Mockito.mock(
+                cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "creationVerifier", creationVerifier);
+        when(creationVerifier.requireCompletionCreation(1L, 177L)).thenAnswer(call -> {
+            var receipt = stored.get();
+            assertNotNull(receipt);
+            var main = auditBindings.get(auditBindings.size() - 1);
+            return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "COMPLETION_V1", receipt.getId(), receipt.getId().toString(),
+                    receipt.getCompletedVersion().toString(), receipt.getReceiptHash(),
+                    main.eventId(), main.eventHash());
+        });
+        when(creationVerifier.requireCompletionTransactionId(1L, 177L))
+                .thenReturn("unit-completion-main-transaction");
+        when(receipts.selectByIdAndTenantId(177L, 1L)).thenAnswer(call -> stored.get());
         when(affected.captureCompletion(10L, 30L)).thenAnswer(call -> java.util.Map.of(
                 "completionReceipts", stored.get() == null ? List.of() : List.of(stored.get())));
         when(activeOrders.selectByIdForUpdate(10L)).thenReturn(activeOrder);
@@ -345,6 +364,25 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 () -> port.prepare(20L, order(), command()));
 
         org.mockito.Mockito.verifyNoInteractions(productIssueDetailMapper, lossSourceReader, backfillMapper);
+    }
+
+    @Test
+    void formalSnapshotFreezesAuthenticatedOperatorSeparatelyFromEmployeeAndSignature() {
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+        var first = port.prepare(20L, order(), command());
+        var event = JsonUtils.parseTree(first.getFormalSourceSnapshotJson())
+                .path("productionFacts").path("events").get(0);
+        assertEquals(341L, event.path("deviceAccountId").asLong());
+        assertEquals(342L, event.path("actualEmployeeId").asLong());
+        assertEquals(342L, event.path("signatureUserId").asLong());
+        var changed = new MesProProcessPoolEventDO().setId(401L)
+                .setWorkOrderId(30L).setRouteId(40L).setRouteProcessId(101L).setProcessId(1L)
+                .setEventType("PRODUCTION_SUBMIT").setRawPayload("{}").setDeviceAccountId(345L)
+                .setActualEmployeeId(342L).setSignatureUserId(342L);
+        changed.setTenantId(1L);
+        when(eventMapper.selectByIdForUpdateNowait(401L)).thenReturn(changed);
+        var second = port.prepare(20L, order(), command());
+        org.junit.jupiter.api.Assertions.assertNotEquals(first.getSourceSnapshotHash(), second.getSourceSnapshotHash());
     }
 
     @Test

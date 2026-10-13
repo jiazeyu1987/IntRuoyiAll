@@ -17,6 +17,7 @@ import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class MesProWorkOrderMapperTest extends BaseDbUnitTest {
 
@@ -34,6 +35,62 @@ public class MesProWorkOrderMapperTest extends BaseDbUnitTest {
             workOrder.setRequestDate(LocalDateTime.of(2026, 5, 16, 0, 0));
             consumer.accept(workOrder);
         });
+    }
+
+    @Test
+    void updateErpSnapshot_clearsSourceFieldsAndPreservesLocalProductionState() {
+        MesProWorkOrderDO existing = createWorkOrder(workOrder -> {
+            workOrder.setCode("ERP-SNAPSHOT-001");
+            workOrder.setWorkshopName("旧车间");
+            workOrder.setBomVersion("旧BOM");
+            workOrder.setPickMode("是");
+            workOrder.setAuxiliaryCode("旧助记码");
+            workOrder.setBusinessStatus("2");
+            workOrder.setScheduleStatus("2");
+            workOrder.setDrawingNumber("OLD-DRAWING");
+            workOrder.setRefNo("OLD-REF");
+            workOrder.setDemandBillNo("OLD-DEMAND");
+            workOrder.setOrderSourceCode("OLD-SOURCE");
+            workOrder.setMaterialSpecification("OLD-SPEC");
+            workOrder.setPlannedStartTime(LocalDateTime.of(2026, 10, 1, 0, 0));
+            workOrder.setPlannedEndTime(LocalDateTime.of(2026, 10, 2, 0, 0));
+            workOrder.setQuantityProduced(new BigDecimal("3.00"));
+            workOrder.setQuantityScheduled(new BigDecimal("7.00"));
+            workOrder.setTemporaryFrozen(Boolean.TRUE);
+        });
+        workOrderMapper.insert(existing);
+        MesProWorkOrderDO snapshot = new MesProWorkOrderDO().setId(existing.getId())
+                .setCode(existing.getCode()).setName("新物料名称").setType(existing.getType())
+                .setOrderSourceType(existing.getOrderSourceType()).setProductId(existing.getProductId())
+                .setQuantity(new BigDecimal("20.00")).setBatchCode(existing.getBatchCode())
+                .setBusinessStatus("4").setScheduleStatus("1").setPickMode("否")
+                .setRequestDate(existing.getRequestDate()).setRemark("ERP snapshot");
+
+        assertEquals(1, workOrderMapper.updateErpSnapshot(snapshot));
+
+        MesProWorkOrderDO actual = workOrderMapper.selectById(existing.getId());
+        assertEquals("新物料名称", actual.getName());
+        assertEquals(0, actual.getQuantity().compareTo(new BigDecimal("20.00")));
+        assertEquals("否", actual.getPickMode());
+        assertEquals("4", actual.getBusinessStatus());
+        assertEquals("1", actual.getScheduleStatus());
+        assertNull(actual.getAuxiliaryCode());
+        assertNull(actual.getWorkshopName());
+        assertNull(actual.getBomVersion());
+        assertNull(actual.getDrawingNumber());
+        assertNull(actual.getRefNo());
+        assertNull(actual.getOrderSourceCode());
+        assertNull(actual.getDemandBillNo());
+        assertNull(actual.getMaterialSpecification());
+        assertNull(actual.getPlannedStartTime());
+        assertNull(actual.getPlannedEndTime());
+        assertEquals(existing.getStatus(), actual.getStatus());
+        assertEquals(existing.getClientId(), actual.getClientId());
+        assertEquals(existing.getVendorId(), actual.getVendorId());
+        assertEquals(0, actual.getQuantityProduced().compareTo(new BigDecimal("3.00")));
+        assertEquals(0, actual.getQuantityScheduled().compareTo(new BigDecimal("7.00")));
+        assertTrue(actual.getTemporaryFrozen());
+        assertEquals(0, workOrderMapper.updateErpSnapshot(snapshot.setId(Long.MAX_VALUE)));
     }
 
     @Test

@@ -126,6 +126,17 @@
 
     <sql id="TimelineFilters">
         pool_event.deleted = 0
+        <if test="reqVO.eventIds != null">
+            <choose>
+                <when test="reqVO.eventIds.size() > 0">
+                    AND pool_event.id IN
+                    <foreach collection="reqVO.eventIds" item="authorizedEventId" open="(" separator="," close=")">
+                        #{authorizedEventId}
+                    </foreach>
+                </when>
+                <otherwise>AND 1 = 0</otherwise>
+            </choose>
+        </if>
         <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
             AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
             AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}

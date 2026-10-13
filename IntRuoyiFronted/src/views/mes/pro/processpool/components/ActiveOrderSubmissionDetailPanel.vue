@@ -1352,7 +1352,13 @@
           label="生产用料清单"
           name="productionMaterialLists"
           data-team-leader-active-order-detail-production-material-list-tab
+          :data-active-order-production-material-list-state="
+            productionMaterialListLoading ? 'loading' : productionMaterialListError ? 'error' : 'success'
+          "
         >
+          <p data-active-order-production-material-list-scope>
+            当前活跃订单生产用料清单 · 生产工单：{{ detail.workOrderCode }}
+          </p>
           <el-alert
             v-if="productionMaterialListError"
             :title="productionMaterialListError"
@@ -1360,7 +1366,12 @@
             :closable="false"
             show-icon
             class="team-leader-workbench__production-material-list-error"
-          />
+            data-active-order-production-material-list-error
+          >
+            <el-button link type="primary" @click="$emit('retry')">
+              重新加载生产用料清单
+            </el-button>
+          </el-alert>
           <div
             v-else-if="productionMaterialListDocuments.length"
             v-loading="productionMaterialListLoading"
@@ -1469,6 +1480,7 @@
             v-loading="productionMaterialListLoading"
             :image-size="56"
             description="暂无生产用料清单"
+            data-active-order-production-material-list-empty
           />
         </el-tab-pane>
         <el-tab-pane
@@ -1614,6 +1626,14 @@
               </el-upload>
             </div>
             <el-alert
+              v-if="auditScopeTypeValue === 'BATCH' && detail?.activeOrderStatus?.status === 'NOT_APPLIED'"
+              title="尚未申请放行，资料暂不可查询"
+              type="info"
+              :closable="false"
+              show-icon
+              data-active-order-dossier-application-pending
+            />
+            <el-alert
               v-if="dossierFileError"
               :title="dossierFileError"
               type="error"
@@ -1621,6 +1641,7 @@
               show-icon
             />
             <el-table
+              v-if="auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED'"
               v-loading="dossierFileLoading"
               :data="resolveDossierFileCategory(category.key).files"
               size="small"
@@ -1671,7 +1692,10 @@
               </el-table-column>
             </el-table>
             <el-empty
-              v-if="!dossierFileLoading && !resolveDossierFileCategory(category.key).files.length"
+              v-if="
+                (auditScopeTypeValue !== 'BATCH' || detail?.activeOrderStatus?.status !== 'NOT_APPLIED') &&
+                !dossierFileLoading && !resolveDossierFileCategory(category.key).files.length
+              "
               :image-size="56"
               description="暂无文件"
             />
@@ -2168,19 +2192,30 @@
           data-active-order-signature-evidence>
           <el-descriptions-item label="签名编号">{{ signatureEvidenceViewer.state.selected.evidence.id }}</el-descriptions-item>
           <el-descriptions-item label="业务动作">{{ signatureEvidenceViewer.state.selected.evidence.actionCode }}</el-descriptions-item>
-          <el-descriptions-item label="业务记录签名人">{{ signatureEvidenceViewer.state.selected.signerName }}</el-descriptions-item>
+          <el-descriptions-item label="业务记录签名人">{{ signatureEvidenceViewer.state.selected.signerName || '未记录' }}</el-descriptions-item>
+          <el-descriptions-item label="原签时姓名快照">
+            {{ signatureEvidenceViewer.state.selected.evidence.actorDisplayName || '未记录' }}
+            <span v-if="signatureEvidenceViewer.state.selected.evidence.actorDisplayName && signatureEvidenceViewer.state.selected.verification.verificationStatus !== 'VALID'">（未核验）</span>
+          </el-descriptions-item>
           <el-descriptions-item label="签署账号编号">{{ signatureEvidenceViewer.state.selected.evidence.actorId }}</el-descriptions-item>
-          <el-descriptions-item label="签署时间">{{ formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="签署时间">{{ signatureEvidenceViewer.state.selected.evidence.signedAt == null ? '签署时间未记录' : formatDateTime(signatureEvidenceViewer.state.selected.evidence.signedAt) }}</el-descriptions-item>
           <el-descriptions-item label="业务时区">{{ signatureEvidenceViewer.state.selected.evidence.timeZone || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="签名含义">{{ signatureEvidenceViewer.state.selected.evidence.meaningLabel || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="认证方式">{{ signatureEvidenceViewer.state.selected.evidence.authenticationMethod || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="签署原因" :span="2">{{ signatureEvidenceViewer.state.selected.evidence.reason || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="原记录完整性状态">{{ signatureEvidenceViewer.state.selected.evidence.verificationStatus || '未记录' }}</el-descriptions-item>
           <el-descriptions-item label="本次完整性核验">
-            <el-tag :type="signatureEvidenceViewer.state.selected.verification.verificationStatus === 'VALID' ? 'success' : 'danger'">
-              {{ signatureEvidenceViewer.state.selected.verification.verificationStatus === 'VALID' ? '核验通过' : '不一致' }}
+            <el-tag :type="signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).type">
+              {{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).label }}
             </el-tag>
           </el-descriptions-item>
+          <el-descriptions-item label="本地摘要核验">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).digest }}</el-descriptions-item>
+          <el-descriptions-item label="时间值核验">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).time }}</el-descriptions-item>
+          <el-descriptions-item label="创建审计绑定">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).audit }}</el-descriptions-item>
+          <el-descriptions-item label="核验范围">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).scope }}</el-descriptions-item>
+          <el-descriptions-item label="时间来源">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeSource }}</el-descriptions-item>
+          <el-descriptions-item label="时间信任">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).timeTrust }}</el-descriptions-item>
+          <el-descriptions-item label="核验原因" :span="2">{{ signatureVerificationDisplay(signatureEvidenceViewer.state.selected.verification).reasons }}</el-descriptions-item>
           <el-descriptions-item label="内容摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.contentHash }}</pre></el-descriptions-item>
           <el-descriptions-item label="证据摘要" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ signatureEvidenceViewer.state.selected.evidence.evidenceHash }}</pre></el-descriptions-item>
           <el-descriptions-item label="原签署内容快照" :span="2"><pre class="team-leader-workbench__gxp-audit-json">{{ formatGxpAuditJson(signatureEvidenceViewer.state.selected.evidence.canonicalContentJson) }}</pre></el-descriptions-item>
@@ -2237,6 +2272,7 @@ import {
 } from '@/api/common/filePreview'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { getActiveOrderSignatureEvidence } from '@/api/mes/pro/edhr/activeOrderSignature'
+import { signatureVerificationDisplay } from './activeOrderSignatureVerificationDisplay'
 import { createActiveOrderSignatureEvidenceViewer, type SignatureBusinessContext } from './activeOrderSignatureEvidenceViewer'
 import ActiveOrderCorrectionHistoryPanel from './ActiveOrderCorrectionHistoryPanel.vue'
 import ActiveOrderReworkSourcePanel from './ActiveOrderReworkSourcePanel.vue'
@@ -2441,6 +2477,8 @@ const activeOrderStatusTagType = computed(() => {
 const activeOrderDossierMutationLockReason = computed(() => {
   if (props.readOnly) return '已办任务详情仅可查看，不能修改资料文件'
   const status = props.detail?.activeOrderStatus?.status
+  if (auditScopeTypeValue.value === 'BATCH' && status === 'NOT_APPLIED')
+    return '尚未申请放行，资料暂不可查询'
   if (status === 'RELEASED') return '已上市放行，资料文件仅可查看'
   if (status === 'VOIDED') return '已作废，资料文件仅可查看'
   return ''
@@ -3121,9 +3159,12 @@ const formatActiveOrderSignatureCellText = (
   const simulated = signature?.role === 'SIMULATION_SESSION'
   if (!signature || (!signature.signatureId && !simulated)) return '未签名'
   const signerName = String(signature.signerName || '').trim() || '签名人未记录'
-  const signedAt = formatDateTime(signature.signedAt)
+  const signedAt = signature.signedAt == null ? '-' : formatDateTime(signature.signedAt)
   const signedAtText = signedAt && signedAt !== '-' ? signedAt : '签名时间未记录'
-  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）`
+  const status = signature.verification ? `；${signatureVerificationDisplay(signature.verification).label}` : ''
+  const nameState = signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' ? '；签时姓名未核验'
+    : signature.signerNameStatus === 'NOT_RECORDED' ? '；签时姓名未记录' : ''
+  return `${simulated ? '模拟记录：' : ''}${signerName}（${signedAtText}）${status}${nameState}`
 }
 
 const openActiveOrderSignatureRecord = (
@@ -4108,7 +4149,7 @@ const formatSummarySignatureDate = (
   signature?: TeamLeaderActiveOrderSignatureDetailRespVO
 ) => {
   if (!signature?.signatureId) return blankSummaryField
-  return formatSummaryDate(signature.signedAt)
+  return signature.signedAt == null ? blankSummaryField : formatSummaryDate(signature.signedAt)
 }
 
 const summaryProcessPersonnelRows = computed<ActiveOrderSummaryProcessPersonnelRow[]>(() => {
@@ -4362,6 +4403,7 @@ const resolveDossierReadContext = (): {
   if (hasActiveOrderId && String(queryId) !== String(activeOrderId)) {
     throw new Error('批次资料查询与当前详情的活跃订单身份不一致。')
   }
+  if (props.detail?.activeOrderStatus?.status === 'NOT_APPLIED') return undefined
   const batchQuery: EdhrBatchActiveOrderDossierQuery = hasBatchId
     ? { batchExecutionId: queryId as number | string }
     : { activeOrderId: queryId as number | string }
@@ -4614,6 +4656,7 @@ watch(
 watch(
   () => [
     props.detail?.activeOrderId,
+    props.detail?.activeOrderStatus?.status,
     props.pqcReleaseApplicationId,
     auditScopeTypeValue.value,
     auditScopeIdValue.value,

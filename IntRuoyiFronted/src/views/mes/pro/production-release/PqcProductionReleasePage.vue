@@ -246,6 +246,7 @@
 
 <script setup lang="ts">
 import ReleaseTaskNotificationEntry from './components/ReleaseTaskNotificationEntry.vue'
+import CryptoJS from 'crypto-js'
 import { Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
 import ActiveOrderSubmissionDetailPanel from '../processpool/components/ActiveOrderSubmissionDetailPanel.vue'
 import ActiveOrderDetailLayout from '../processpool/components/ActiveOrderDetailLayout.vue'
@@ -265,6 +266,8 @@ import {
 } from '@/api/mes/pro/productionRelease'
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import { useUserStore } from '@/store/modules/user'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 
 defineOptions({ name: 'MesPqcProductionRelease' })
 
@@ -291,7 +294,33 @@ const releaseError = ref('')
 const selectedRow = ref<MesPqcProductionReleasePageItemRespVO>()
 const releaseResult = ref<MesPqcProductionReleaseDecisionRespVO>()
 const releaseOutcomeUncertain = ref(false)
-const releaseIdempotencyKeys = new Map<string, string>()
+// The Pinia owner survives page instances; every entry is keyed by the exact session/application/task.
+const releaseRequestOwner = approvalInvalidation as typeof approvalInvalidation & {
+  pqcReleaseRequests?: {
+    keys: Map<string, string>
+    states: Map<string, 'WRITING' | 'UNCERTAIN' | 'CONFIRMED'>
+    requests: Map<string, Readonly<{
+      applicationId: string
+      pqcReleaseWorkTaskId: string
+      expectedVersion: number
+      actorId: string
+      scopeKey: string
+      session: ReturnType<typeof approvalInvalidation.syncSession>
+      idempotencyKey: string
+      udiControlDocumentNo: string
+      approvalOpinion: string | undefined
+      payloadHash: string
+      event: ReturnType<typeof approvalInvalidation.captureEdhrSuccess>
+    }>>
+  }
+}
+if (!releaseRequestOwner.pqcReleaseRequests) {
+  releaseRequestOwner.pqcReleaseRequests = {
+    keys: new Map(), states: new Map(), requests: new Map()
+  }
+}
+const releaseIdempotencyKeys = releaseRequestOwner.pqcReleaseRequests.keys
+const releaseRequestStates = releaseRequestOwner.pqcReleaseRequests.states
 let listRequestSequence = 0
 
 const queryParams = reactive({
@@ -321,6 +350,8 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
 
 const getList = async (isCurrent: () => boolean = () => true) => {
   const requestId = ++listRequestSequence
+  const contextKey = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
+  const current = () => requestId === listRequestSequence && isCurrent() && contextKey === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
   loading.value = true
   loadError.value = ''
   try {
@@ -332,8 +363,8 @@ const getList = async (isCurrent: () => boolean = () => true) => {
       pqcReleaseWorkTaskId: queryParams.pqcReleaseWorkTaskId,
       workOrderCode: queryParams.workOrderCode.trim() || undefined,
       batchCode: queryParams.batchCode.trim() || undefined
-    })
-    if (requestId !== listRequestSequence || !isCurrent()) return
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: current })
+    if (!current()) return
     if (queryParams.applicationId && (
       data.list?.length !== 1 || data.total !== 1 ||
       String(data.list[0].applicationId) !== queryParams.applicationId ||
@@ -344,12 +375,12 @@ const getList = async (isCurrent: () => boolean = () => true) => {
     list.value = data.list || []
     total.value = data.total || 0
   } catch (error) {
-    if (requestId !== listRequestSequence || !isCurrent()) return
+    if (!current()) return
     list.value = []
     total.value = 0
     loadError.value = resolveErrorMessage(error, 'PQC生产放行列表加载失败。')
   } finally {
-    if (requestId === listRequestSequence) loading.value = false
+    if (current()) loading.value = false
   }
 }
 
@@ -404,6 +435,41 @@ const requirePqcReleaseAuthority = (
   return 'APPROVED'
 }
 
+const requireCompletedPqcReleaseDetail = (
+  result: Awaited<ReturnType<typeof getPqcProductionReleaseOrderDetail>>,
+  decision: MesPqcProductionReleaseDecisionRespVO
+) => {
+  const summary = result?.detail?.pqcProductionRelease
+  const signature = summary?.signature
+  const verification = signature?.verification
+  const exactId = (value: unknown) => isExactPositiveId(value) && BigInt(String(value)) <= 9223372036854775807n
+  if (!exactId(result?.detail?.activeOrderId) || !exactId(result?.detail?.workOrderId) ||
+    summary?.status !== decision.status || !exactId(signature?.signatureId) ||
+    String(signature?.signatureId) !== String(decision.signatureId) || signature?.role !== 'PQC_RELEASE' ||
+    !verification || !exactId(verification.signatureId) ||
+    String(verification.signatureId) !== String(signature.signatureId)) {
+    throw new Error('订单详情签名关联与正式生产放行回执不一致。')
+  }
+  const dimensions = [verification.digestStatus, verification.timeConsistencyStatus, verification.auditBindingStatus]
+  const overall = dimensions.includes('MISMATCH') ? 'MISMATCH' : dimensions.includes('MISSING') ? 'INCOMPLETE' : 'VALID'
+  if (dimensions.some((status) => !['CONSISTENT', 'MISSING', 'MISMATCH'].includes(status)) ||
+    overall !== verification.verificationStatus || verification.verificationScope !== 'LOCAL_DIGEST_TIME_AND_CREATION_AUDIT' ||
+    verification.timeTrustStatus !== 'NOT_BOUND' || !['SERVER_CLOCK', 'UNKNOWN'].includes(verification.timeSource) ||
+    !['V1', 'UNSUPPORTED'].includes(verification.evidenceFormatVersion) || !Array.isArray(verification.reasonCodes) ||
+    !isFormalSignedTime(verification.verifiedAt) ||
+    (verification.digestStatus === 'CONSISTENT' && (!verification.storedContentHash || !verification.storedEvidenceHash ||
+      verification.storedContentHash !== verification.calculatedContentHash || verification.storedEvidenceHash !== verification.calculatedEvidenceHash)) ||
+    (verification.timeConsistencyStatus === 'CONSISTENT' && verification.timeSource !== 'SERVER_CLOCK') ||
+    (verification.timeConsistencyStatus === 'CONSISTENT' && !isFormalSignedTime(signature.signedAt)) ||
+    (verification.evidenceFormatVersion === 'UNSUPPORTED' && verification.digestStatus !== 'MISMATCH') ||
+    !['VERIFIED_SNAPSHOT', 'NOT_RECORDED', 'UNVERIFIED_SNAPSHOT'].includes(signature.signerNameStatus || '') ||
+    (signature.signerNameStatus === 'VERIFIED_SNAPSHOT' && (overall !== 'VALID' || !signature.signerName?.trim())) ||
+    (signature.signerNameStatus === 'UNVERIFIED_SNAPSHOT' && (overall === 'VALID' || signature.signerName !== '签时姓名未核验')) ||
+    (signature.signerNameStatus === 'NOT_RECORDED' && signature.signerName !== '未记录')) {
+    throw new Error('订单详情签名核验状态或姓名投影不一致。')
+  }
+}
+
 const openCompletedPqcReleaseDetail = async (
   context: PqcReleaseRouteContext,
   decision: MesPqcProductionReleaseDecisionRespVO,
@@ -415,16 +481,9 @@ const openCompletedPqcReleaseDetail = async (
   detailLoading.value = true
   detailError.value = ''
   try {
-    const result = await getPqcProductionReleaseOrderDetail(context.applicationId)
+    const result = await getPqcProductionReleaseOrderDetail(context.applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
-    const summary = result?.detail?.pqcProductionRelease
-    const signature = summary?.signature
-    if (!isExactPositiveId(result?.detail?.activeOrderId) || !isExactPositiveId(result?.detail?.workOrderId) ||
-      summary?.status !== decision.status || !isExactPositiveId(signature?.signatureId) ||
-      String(signature?.signatureId) !== String(decision.signatureId) || signature?.role !== 'PQC_RELEASE' ||
-      !signature?.signerName?.trim() || !isFormalSignedTime(signature?.signedAt)) {
-      throw new Error('订单详情缺少与正式生产放行回执一致的有效电子签名。')
-    }
+    requireCompletedPqcReleaseDetail(result, decision)
     orderDetail.value = result
   } catch (error) {
     if (!isCurrent()) return
@@ -437,6 +496,7 @@ const openCompletedPqcReleaseDetail = async (
 const openPqcReleaseFromRoute = async () => {
   const generation = ++pqcReleaseRouteGeneration
   clearOrderDetail()
+  const pageContext = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
   const detailSequence = detailRequestSequence
   listRequestSequence++
   loading.value = false
@@ -446,7 +506,7 @@ const openPqcReleaseFromRoute = async () => {
   releaseDialogVisible.value = false
   resetReleaseDialog()
   const dialogGeneration = releaseDialogGeneration
-  const isCurrent = () => generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration && detailSequence === detailRequestSequence
+  const isCurrent = () => pageContext === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath]) && generation === pqcReleaseRouteGeneration && dialogGeneration === releaseDialogGeneration && detailSequence === detailRequestSequence
   queryParams.applicationId = undefined
   queryParams.pqcReleaseWorkTaskId = undefined
   queryParams.workOrderCode = typeof route.query.workOrderCode === 'string' ? route.query.workOrderCode : ''
@@ -460,7 +520,7 @@ const openPqcReleaseFromRoute = async () => {
       queryParams.applicationId = context.applicationId
       queryParams.pqcReleaseWorkTaskId = context.pqcReleaseWorkTaskId
       loading.value = true
-      const decision = await getPqcProductionRelease(context.applicationId)
+      const decision = await getPqcProductionRelease(context.applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       const state = requirePqcReleaseAuthority(decision, context)
       if (state === 'APPROVED') {
@@ -492,8 +552,9 @@ const openPqcReleaseFromRoute = async () => {
 }
 
 watch(
-  () => [route.query.workOrderCode, route.query.applicationId, route.query.workTaskId],
-  () => { void openPqcReleaseFromRoute() }
+  () => route.fullPath,
+  () => { invalidatePqcReleasePage(); void openPqcReleaseFromRoute() },
+  { flush: 'sync' }
 )
 
 const handleTabChange = () => {
@@ -544,28 +605,43 @@ const resolveStatusTagType = (row: MesPqcProductionReleasePageItemRespVO) => {
 }
 
 let releaseDialogGeneration = 0
+const releaseRequestScopeKey = (row: MesPqcProductionReleasePageItemRespVO) =>
+  JSON.stringify([approvalInvalidation.syncSession().key, row.applicationId, row.pqcReleaseWorkTaskId])
+
 const captureReleaseContext = () => {
   const generation = releaseDialogGeneration
-  const applicationId = selectedRow.value?.applicationId
-  return () => releaseDialogVisible.value && generation === releaseDialogGeneration && selectedRow.value?.applicationId === applicationId
+  const key = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, selectedRow.value?.applicationId, selectedRow.value?.pqcReleaseWorkTaskId, selectedRow.value?.version])
+  return () => releaseDialogVisible.value && generation === releaseDialogGeneration &&
+    key === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath, selectedRow.value?.applicationId, selectedRow.value?.pqcReleaseWorkTaskId, selectedRow.value?.version])
+}
+const invalidatePqcReleasePage = () => {
+  pqcReleaseRouteGeneration++
+  listRequestSequence++
+  loading.value = false
+  loadError.value = ''
+  list.value = []
+  total.value = 0
+  releaseDialogVisible.value = false
+  resetReleaseDialog()
+  clearOrderDetail()
 }
 watch(releaseDialogVisible, (visible) => {
   if (!visible) resetReleaseDialog()
 }, { flush: 'sync' })
-onBeforeUnmount(() => {
-  releaseDialogGeneration++
-  pqcReleaseRouteGeneration++
-  listRequestSequence++
-  loading.value = false
-  clearOrderDetail()
-})
+watch(() => approvalInvalidation.syncSession().key, () => {
+  invalidatePqcReleasePage()
+  void openPqcReleaseFromRoute()
+}, { flush: 'sync' })
+onBeforeUnmount(invalidatePqcReleasePage)
+onDeactivated(invalidatePqcReleasePage)
 
 const openReleaseDialog = (row: MesPqcProductionReleasePageItemRespVO) => {
   resetReleaseDialog()
   selectedRow.value = row
   releaseError.value = ''
   releaseResult.value = undefined
-  releaseOutcomeUncertain.value = false
+  releaseOutcomeUncertain.value = releaseRequestStates.has(releaseRequestScopeKey(row))
+  if (releaseOutcomeUncertain.value) releaseError.value = '本次申请已提交或结果尚未确认，请只读刷新正式回执后核对；禁止再次提交。'
   releaseForm.signaturePassword = ''
   releaseForm.udiControlDocumentNo = ''
   releaseForm.approvalOpinion = ''
@@ -584,145 +660,203 @@ const resetReleaseDialog = () => {
   selectedRow.value = undefined
 }
 
-const getOrCreateReleaseIdempotencyKey = (applicationId: string) => {
-  const existingKey = releaseIdempotencyKeys.get(applicationId)
+const getOrCreateReleaseIdempotencyKey = (scopeKey: string, applicationId: string) => {
+  const existingKey = releaseIdempotencyKeys.get(scopeKey)
   if (existingKey) return existingKey
-  const key = `pqc-release-${applicationId}-${Date.now()}-${crypto.randomUUID()}`
-  releaseIdempotencyKeys.set(applicationId, key)
+  const nonce = crypto.getRandomValues(new Uint8Array(16))
+  const key = `pqc-release-${applicationId}-${Date.now()}-${Array.from(nonce, value => value.toString(16).padStart(2, '0')).join('')}`
+  releaseIdempotencyKeys.set(scopeKey, key)
   return key
 }
 
-const isDefinitiveReleaseBusinessFailure = (error: unknown) => {
-  const code = (error as { code?: unknown } | null)?.code
-  return typeof code === 'number' && Number.isFinite(code)
+const isReleaseTransportTimeout = (error: unknown) => {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { isAxiosError?: unknown; code?: unknown; request?: unknown; response?: unknown }
+  return candidate.isAxiosError === true && candidate.request != null && candidate.response == null &&
+    (candidate.code === 'ECONNABORTED' || candidate.code === 'ETIMEDOUT')
 }
 
-const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO) => {
-  if (
-    result.decision !== 'APPROVE' ||
-    !['REPORT_UPLOAD_PENDING', 'MANAGER_RELEASE_PENDING', 'RELEASED'].includes(result.status) ||
-    !result.batchExecutionId ||
-    !result.signatureId
-  ) {
-    throw new Error('生产放行回执不完整，请刷新后核对。')
+// Matches MesReleaseFlowIdempotency.payloadHash: signed big-endian length + UTF-8, null length -1.
+const pqcReleasePayloadHash = async (parts: ReadonlyArray<string | null>) => {
+  const encoder = new TextEncoder()
+  const encoded = parts.map(part => part === null ? null : encoder.encode(part))
+  const bytes = new Uint8Array(encoded.reduce((total, part) => total + 4 + (part?.length ?? 0), 0))
+  const view = new DataView(bytes.buffer)
+  let offset = 0
+  for (const part of encoded) {
+    view.setInt32(offset, part === null ? -1 : part.length, false)
+    offset += 4
+    if (part !== null) { bytes.set(part, offset); offset += part.length }
   }
+  return CryptoJS.SHA256(CryptoJS.lib.WordArray.create(bytes)).toString(CryptoJS.enc.Hex)
+}
+
+const freezeReleaseRequest = (row: MesPqcProductionReleasePageItemRespVO) => {
+  const session = approvalInvalidation.syncSession()
+  if (!isExactPositiveId(row.applicationId) || !isExactPositiveId(row.pqcReleaseWorkTaskId) ||
+    !isExactPositiveId(session.loginUserId) || !Number.isSafeInteger(row.version) || row.version <= 0) {
+    throw new Error('生产放行缺少精确申请、任务、账号或正式版本身份。')
+  }
+  const scopeKey = releaseRequestScopeKey(row)
+  return Object.freeze({
+    applicationId: String(row.applicationId), pqcReleaseWorkTaskId: String(row.pqcReleaseWorkTaskId),
+    expectedVersion: row.version, actorId: session.loginUserId, scopeKey, session,
+    idempotencyKey: getOrCreateReleaseIdempotencyKey(scopeKey, row.applicationId),
+    signaturePassword: releaseForm.signaturePassword.trim(),
+    udiControlDocumentNo: releaseForm.udiControlDocumentNo.trim(),
+    approvalOpinion: releaseForm.approvalOpinion.trim() || undefined,
+    event: approvalInvalidation.captureEdhrSuccess({ sourceTaskType: 'EDHR_WORK_TASK', sourceTaskId: String(row.pqcReleaseWorkTaskId) })
+  })
+}
+
+type FrozenPqcReleaseRequest = ReturnType<typeof freezeReleaseRequest> & { payloadHash: string }
+
+const assertReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcReleaseRequest) => {
+  if (requirePqcReleaseAuthority(result, request) !== 'APPROVED' ||
+    result.decisionIdempotencyKey !== request.idempotencyKey ||
+    !/^[a-f0-9]{64}$/.test(result.decisionPayloadHash ?? '') || result.decisionPayloadHash !== request.payloadHash ||
+    String(result.decidedBy) !== request.actorId || result.udiControlDocumentNo !== request.udiControlDocumentNo) {
+    throw new Error('正式决策回执缺少本次申请、任务、操作者、请求键或载荷关联；不能确认本次放行成功。')
+  }
+  const decisionVersion = request.expectedVersion + 2
+  if (!Number.isSafeInteger(decisionVersion) || result.version !== decisionVersion) {
+    throw new Error('正式决策回执版本与本次申请的生产放行版本不一致；不能确认本次放行成功。')
+  }
+}
+
+const confirmReleasedReceipt = (result: MesPqcProductionReleaseDecisionRespVO, request: FrozenPqcReleaseRequest) => {
+  assertReleasedReceipt(result, request)
+  if (releaseRequestStates.get(request.scopeKey) === 'CONFIRMED') return
+  releaseRequestStates.set(request.scopeKey, 'CONFIRMED')
+  releaseIdempotencyKeys.delete(request.scopeKey)
+  // Formal success belongs to the verified original request, even after this UI leaves.
+  approvalInvalidation.publishEdhrSuccess(request.event)
 }
 
 const applyReleaseSuccess = async (
   row: MesPqcProductionReleasePageItemRespVO,
   result: MesPqcProductionReleaseDecisionRespVO,
+  request: FrozenPqcReleaseRequest,
   recovered: boolean,
   isCurrent: () => boolean
 ) => {
   if (!isCurrent()) return
-  assertReleasedReceipt(result)
-  releaseIdempotencyKeys.delete(row.applicationId)
+  releaseIdempotencyKeys.delete(request.scopeKey)
   releaseForm.signaturePassword = ''
   releaseForm.udiControlDocumentNo = ''
   releaseOutcomeUncertain.value = false
   releaseResult.value = result
-  activeView.value =
-    row.nonconformanceDisposition === 'concession_release'
-      ? PQC_RELEASE_VIEW_CONCESSION_RELEASED
-      : PQC_RELEASE_VIEW_RELEASED
+  activeView.value = row.nonconformanceDisposition === 'concession_release'
+    ? PQC_RELEASE_VIEW_CONCESSION_RELEASED : PQC_RELEASE_VIEW_RELEASED
   queryParams.pageNo = 1
+  recovered ? message.warning('正式回执已确认本次生产放行完成') : message.success('生产放行完成')
   await getList(isCurrent)
   if (!isCurrent()) return
-  recovered
-    ? message.warning('响应异常，但权威回执已确认生产放行完成')
-    : message.success('生产放行完成')
+  if (loadError.value) {
+    releaseError.value = `生产放行已成功，列表刷新失败：${loadError.value}`
+    message.warning(releaseError.value)
+  }
 }
 
 const recoverUncertainRelease = async (
-  row: MesPqcProductionReleasePageItemRespVO,
+  request: FrozenPqcReleaseRequest,
   writeError: unknown,
   isCurrent: () => boolean
-) => {
-  let receipt: MesPqcProductionReleaseDecisionRespVO
+): Promise<MesPqcProductionReleaseDecisionRespVO | undefined> => {
+  if (!isReleaseTransportTimeout(writeError)) {
+    throw new Error('当前错误不符合无服务端响应的传输超时回执恢复条件。')
+  }
   try {
-    receipt = await getPqcProductionRelease(row.applicationId)
-    if (!isCurrent()) return
+    const receipt = await getPqcProductionRelease(request.applicationId, {
+      ignoreErrorMessage: true,
+      isRequestContextCurrent: isCurrent,
+      isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(request.session.key)
+    })
+    confirmReleasedReceipt(receipt, request)
+    return receipt
   } catch (receiptError) {
     if (!isCurrent()) return
     releaseOutcomeUncertain.value = true
-    releaseError.value =
-      `生产放行响应不确定，权威回执查询失败。请刷新核对后再操作。` +
-      `写入错误：${resolveErrorMessage(writeError, '响应异常')}；` +
-      `回执错误：${resolveErrorMessage(receiptError, '查询失败')}`
+    releaseError.value = `生产放行响应不确定，正式回执无法证明本次请求成功，请只读刷新核对。` +
+      `写入错误：${resolveErrorMessage(writeError, '响应异常')}；回执错误：${resolveErrorMessage(receiptError, '查询失败')}`
     return
-  }
-  if (receipt.status === 'PQC_RELEASE_PENDING') {
-    releaseOutcomeUncertain.value = false
-    releaseError.value =
-      `权威回执显示申请仍待放行，可重新输入签名密码并使用同一请求重试。` +
-      `原错误：${resolveErrorMessage(writeError, '响应异常')}`
-    return
-  }
-  if (receipt.status === 'PQC_RELEASE_REJECTED') {
-    releaseIdempotencyKeys.delete(row.applicationId)
-    releaseOutcomeUncertain.value = false
-    releaseError.value =
-      receipt.decision === 'NONCONFORMANCE_REWORK'
-        ? '权威回执显示该申请已返工，不能继续放行。'
-        : receipt.decision === 'NONCONFORMANCE_VOID'
-          ? '权威回执显示该申请已作废，不能继续放行。'
-          : '权威回执显示该申请已终结，不能继续放行。'
-    if (receipt.decision === 'NONCONFORMANCE_REWORK') activeView.value = PQC_RELEASE_VIEW_REWORKED
-    if (receipt.decision === 'NONCONFORMANCE_VOID') activeView.value = PQC_RELEASE_VIEW_VOIDED
-    queryParams.pageNo = 1
-    await getList(isCurrent)
-    return
-  }
-  try {
-    await applyReleaseSuccess(row, receipt, true, isCurrent)
-  } catch (receiptError) {
-    if (!isCurrent()) return
-    releaseOutcomeUncertain.value = true
-    releaseError.value = resolveErrorMessage(receiptError, '权威回执状态无法确认。')
   }
 }
 
 const submitRelease = async () => {
   const row = selectedRow.value
-  if (!row || !releaseDialogVisible.value || releaseSubmitting.value) return
+  if (!row || !releaseDialogVisible.value || releaseSubmitting.value || releaseOutcomeUncertain.value ||
+    releaseRequestStates.has(releaseRequestScopeKey(row))) return
   const isCurrent = captureReleaseContext()
   const signaturePassword = releaseForm.signaturePassword.trim()
   const udiControlDocumentNo = releaseForm.udiControlDocumentNo.trim()
-  if (!udiControlDocumentNo) {
-    releaseError.value = 'UDI编号不能为空。'
+  if (!udiControlDocumentNo || udiControlDocumentNo.length > 128 || !signaturePassword) {
+    releaseError.value = !udiControlDocumentNo ? 'UDI编号不能为空。' :
+      udiControlDocumentNo.length > 128 ? 'UDI编号长度不能超过128个字符。' : '电子签名密码不能为空。'
     return
   }
-  if (udiControlDocumentNo.length > 128) {
-    releaseError.value = 'UDI编号长度不能超过128个字符。'
-    return
-  }
-  if (!signaturePassword) {
-    releaseError.value = '电子签名密码不能为空。'
+  const scopeKey = releaseRequestScopeKey(row)
+  releaseRequestStates.set(scopeKey, 'WRITING')
+  let frozen: ReturnType<typeof freezeReleaseRequest>
+  try { frozen = freezeReleaseRequest(row) }
+  catch (error) {
+    releaseRequestStates.delete(scopeKey)
+    if (isCurrent()) releaseError.value = resolveErrorMessage(error, '正式来源身份无效。')
     return
   }
   releaseSubmitting.value = true
   releaseError.value = ''
-  releaseOutcomeUncertain.value = false
-  const idempotencyKey = getOrCreateReleaseIdempotencyKey(row.applicationId)
+  let request: FrozenPqcReleaseRequest
   try {
-    const result = await approvePqcProductionRelease({
-      applicationId: row.applicationId,
-      pqcReleaseWorkTaskId: row.pqcReleaseWorkTaskId,
-      expectedVersion: row.version,
-      idempotencyKey,
-      signaturePassword,
-      udiControlDocumentNo,
-      approvalOpinion: releaseForm.approvalOpinion.trim() || undefined
-    })
-    await applyReleaseSuccess(row, result, false, isCurrent)
+    const payloadHash = await pqcReleasePayloadHash(['APPROVE', frozen.applicationId, frozen.pqcReleaseWorkTaskId,
+      String(frozen.expectedVersion), frozen.actorId, frozen.approvalOpinion ?? null, frozen.udiControlDocumentNo])
+    if (!isCurrent()) { releaseRequestStates.delete(frozen.scopeKey); return }
+    request = Object.freeze({ ...frozen, payloadHash })
+    // Preserve receipt identity across remounts without retaining the signature password.
+    const { signaturePassword: _signaturePassword, ...receiptIdentity } = request
+    releaseRequestOwner.pqcReleaseRequests!.requests.set(request.scopeKey, Object.freeze(receiptIdentity))
+  } catch (error) {
+    releaseRequestStates.delete(frozen.scopeKey)
+    if (isCurrent()) { releaseSubmitting.value = false; releaseError.value = resolveErrorMessage(error, '请求载荷计算失败。') }
+    return
+  }
+  let result: MesPqcProductionReleaseDecisionRespVO
+  let recovered = false
+  try {
+    result = await approvePqcProductionRelease({
+      applicationId: request.applicationId, pqcReleaseWorkTaskId: request.pqcReleaseWorkTaskId,
+      expectedVersion: request.expectedVersion, idempotencyKey: request.idempotencyKey,
+      signaturePassword: request.signaturePassword, udiControlDocumentNo: request.udiControlDocumentNo,
+      approvalOpinion: request.approvalOpinion
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    confirmReleasedReceipt(result, request)
+  } catch (error) {
+    if (isReleaseTransportTimeout(error)) {
+      releaseRequestStates.set(request.scopeKey, 'UNCERTAIN')
+      const receipt = await recoverUncertainRelease(request, error, isCurrent)
+      if (!isCurrent()) return
+      if (!receipt) { releaseSubmitting.value = false; return }
+      result = receipt
+      recovered = true
+    } else {
+      // A response/status/error code is not an authoritative pre-commit rejection receipt.
+      releaseRequestStates.set(request.scopeKey, 'UNCERTAIN')
+      if (!isCurrent()) return
+      releaseForm.signaturePassword = ''
+      releaseOutcomeUncertain.value = true
+      releaseError.value =
+        `生产放行结果无法确认，当前错误不符合自动回执恢复条件，请只读核对；禁止再次提交：${resolveErrorMessage(error, '响应异常')}`
+      releaseSubmitting.value = false
+      return
+    }
+  }
+  try {
+    await applyReleaseSuccess(row, result, request, recovered, isCurrent)
   } catch (error) {
     if (!isCurrent()) return
-    releaseForm.signaturePassword = ''
-    if (isDefinitiveReleaseBusinessFailure(error)) {
-      releaseError.value = resolveErrorMessage(error, '生产放行失败。')
-    } else {
-      await recoverUncertainRelease(row, error, isCurrent)
-    }
+    releaseOutcomeUncertain.value = true
+    releaseError.value = `生产放行写入已完成，回执或列表读取未完成，请只读刷新核对：${resolveErrorMessage(error, '回执或读取失败。')}`
+    message.warning(releaseError.value)
   } finally {
     if (isCurrent()) releaseSubmitting.value = false
   }
@@ -753,6 +887,8 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
   }
   clearOrderDetail()
   const sequence = detailRequestSequence
+  const pageContext = JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
+  const current = () => sequence === detailRequestSequence && pageContext === JSON.stringify([approvalInvalidation.syncSession().key, route.fullPath])
   listRequestSequence++
   loading.value = false
   detailRow.value = row
@@ -762,14 +898,14 @@ const openActiveOrderDetail = async (row: MesPqcProductionReleasePageItemRespVO)
   detailError.value = ''
   orderDetail.value = undefined
   try {
-    const result = await getPqcProductionReleaseOrderDetail(row.applicationId)
-    if (sequence !== detailRequestSequence) return
+    const result = await getPqcProductionReleaseOrderDetail(row.applicationId, { ignoreErrorMessage: true, isRequestContextCurrent: current })
+    if (!current()) return
     orderDetail.value = result
   } catch (error) {
-    if (sequence !== detailRequestSequence) return
+    if (!current()) return
     detailError.value = resolveErrorMessage(error, '订单详情加载失败')
   } finally {
-    if (sequence === detailRequestSequence) detailLoading.value = false
+    if (current()) detailLoading.value = false
   }
 }
 

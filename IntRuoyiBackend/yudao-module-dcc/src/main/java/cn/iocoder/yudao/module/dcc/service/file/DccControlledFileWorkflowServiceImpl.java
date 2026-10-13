@@ -843,10 +843,10 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
 
         persistApprovalRouteSnapshots(file.getId(), resolvedRoute);
         String processInstanceId = createApprovalProcess(userId, file, resolvedRoute, processDefinitionKey);
-        controlledFileMapper.updateById(DccControlledFileDO.builder()
+        if (controlledFileMapper.updateById(DccControlledFileDO.builder()
                 .id(file.getId())
                 .processInstanceId(processInstanceId)
-                .build());
+                .build()) != 1) throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
         file.setProcessInstanceId(processInstanceId);
         platformAdapter.recordSubmitted(file, userId, processInstanceId);
         return file.getId();
@@ -888,6 +888,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         return bpmProcessInstanceApi.createProcessInstance(userId, new BpmProcessInstanceCreateReqDTO()
                 .setProcessDefinitionKey(processDefinitionKey)
                 .setBusinessKey(String.valueOf(file.getId()))
+                .setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"DCC_TASK","CONTROLLED_FILE",file.getId().toString(),file.getVersionNo(),"DCC_CONTROLLED_FILE_SUBMIT",file.getId().toString()))
                 .setStartUserSelectAssignees(startUserSelectAssignees)
                 .setVariables(variables));
     }

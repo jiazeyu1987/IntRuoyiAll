@@ -30,6 +30,17 @@ public interface MesProcessPoolActiveOrderCompletionReceiptMapper
                 .last("FOR UPDATE"));
     }
 
+    default MesProcessPoolActiveOrderCompletionReceiptDO selectByActiveOrderIdAndTenantIdForUpdate(
+            Long activeOrderId, Long tenantId) {
+        if (activeOrderId == null || tenantId == null) {
+            return null;
+        }
+        return selectOne(new LambdaQueryWrapperX<MesProcessPoolActiveOrderCompletionReceiptDO>()
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getActiveOrderId, activeOrderId)
+                .eq(MesProcessPoolActiveOrderCompletionReceiptDO::getTenantId, tenantId)
+                .last("FOR UPDATE"));
+    }
+
     default MesProcessPoolActiveOrderCompletionReceiptDO selectByIdempotencyKeyForUpdate(String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             return null;

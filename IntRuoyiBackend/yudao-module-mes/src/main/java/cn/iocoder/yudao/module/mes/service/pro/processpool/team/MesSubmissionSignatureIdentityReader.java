@@ -21,6 +21,7 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class MesSubmissionSignatureIdentityReader {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     private final ElectronicSignatureQueryService signatureQueryService;
     private final MesProProcessPoolEventMapper eventMapper;
     private final MesProBatchRecordExecutionSignatureMapper simulationSignatureMapper;
@@ -50,15 +51,22 @@ public class MesSubmissionSignatureIdentityReader {
                 && MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE.equals(evidence.subjectType())
                 && action.equals(evidence.actionCode()) && evidence.signedAt() != null
                 && "VALID".equals(evidence.verificationStatus()));
-        var content = JSON.parseObject(evidence.canonicalContentJson());
+        var fact = verifiedSignatureFacts.requireVerifiedFact(signatureId);
+        final cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.VerifiedMesSignatureContent projection;
+        try {
+            projection = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesSignatureContentProtocol.parseVerifiedContent(fact, TenantContextHolder.getRequiredTenantId());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("提交签名身份无效", e);
+        }
+        var content = JSON.parseObject(projection.businessContentJson());
         require(content != null);
         var payload = JSON.parseObject(event.getRawPayload());
         String domain = "PQC_SUBMIT".equals(action) ? "SYSTEM_USER"
                 : payload == null ? null : payload.getString("signatureIdentityDomain");
-        var identity = content.getJSONObject("signatureIdentity");
-        require(identity != null && Objects.equals(domain, identity.getString("domain"))
-                && Objects.equals(event.getDeviceAccountId(), identity.getLong("operatorId")));
-        String name = frozenName(evidence);
+        var identity = projection.identity();
+        require(identity != null && Objects.equals(domain, identity.domain()) && Objects.equals(event.getTenantId(), identity.tenantId())
+                && Objects.equals(event.getSignatureUserId(), identity.signerId()) && Objects.equals(event.getDeviceAccountId(), identity.operatorId()));
+        String name = identity.displayName();
         String[] subject = new String(Base64.getUrlDecoder().decode(evidence.subjectId()), StandardCharsets.UTF_8)
                 .split("\n", -1);
         require(subject.length == 17 && action.equals(subject[1])
@@ -79,7 +87,7 @@ public class MesSubmissionSignatureIdentityReader {
                     && "MES_PQC_INSPECTION_TASK".equals(subject[9])
                     && Objects.equals(event.getFeedbackSourceId(), content.getLong("reviewSourceId")));
         }
-        var verification = signatureQueryService.verifyEvidence(signatureId);
+        var verification = fact.verification();
         require(verification != null && Objects.equals(verification.signatureId(), signatureId)
                 && "VALID".equals(verification.verificationStatus())
                 && Objects.equals(evidence.contentHash(), verification.storedContentHash())

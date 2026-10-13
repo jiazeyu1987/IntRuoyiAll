@@ -43,10 +43,10 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setItemId(feedback.getItemId());
         feedbackPayload.setExpireDate(feedback.getExpireDate());
         feedbackPayload.setScheduledQuantity(feedback.getScheduledQuantity());
-        feedbackPayload.setFeedbackQuantity(feedback.getOutputQuantity());
         BigDecimal lossQuantity = feedback.getLossQuantity() == null ? BigDecimal.ZERO : feedback.getLossQuantity();
         if (feedback.getOutputQuantity() != null) {
-            feedbackPayload.setQualifiedQuantity(feedback.getOutputQuantity().subtract(lossQuantity));
+            feedbackPayload.setFeedbackQuantity(feedback.getOutputQuantity().add(lossQuantity));
+            feedbackPayload.setQualifiedQuantity(feedback.getOutputQuantity());
         }
         feedbackPayload.setUnqualifiedQuantity(lossQuantity);
         feedbackPayload.setLaborScrapQuantity(feedback.getLaborScrapQuantity());

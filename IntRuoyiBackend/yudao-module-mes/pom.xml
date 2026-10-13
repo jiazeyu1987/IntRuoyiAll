@@ -16,6 +16,16 @@
         mes module for manufacturing execution system features.
     </description>
 
+    <properties>
+        <mes.main-output-directory>${project.build.directory}/classes</mes.main-output-directory>
+        <mes.test-output-directory>${project.build.directory}/test-classes</mes.test-output-directory>
+    </properties>
+
+    <build>
+        <outputDirectory>${mes.main-output-directory}</outputDirectory>
+        <testOutputDirectory>${mes.test-output-directory}</testOutputDirectory>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>cn.iocoder.boot</groupId>
@@ -110,6 +120,49 @@
     </dependencies>
 
     <profiles>
+        <profile>
+            <id>mes-erp-workorder-cleanup-tests</id>
+            <properties>
+                <mes.main-output-directory>${project.build.directory}/erp-cleanup/classes</mes.main-output-directory>
+                <mes.test-output-directory>${project.build.directory}/erp-cleanup/test-classes</mes.test-output-directory>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <!-- 单独保存此功能的编译结果，完整编译 MES 源码后执行相关回归。 -->
+                            <useIncrementalCompilation>false</useIncrementalCompilation>
+                            <testIncludes>
+                                <testInclude>**/MesProWorkOrderErpCleanupServiceTest.java</testInclude>
+                                <testInclude>**/MesProWorkOrderErpCleanupMapperTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderAdmissionTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderControllerTest.java</testInclude>
+                                <testInclude>**/MesProTaskServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProWorkOrderServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProWorkOrderErpCleanupWriteGuardTest.java</testInclude>
+                                <testInclude>**/MesIndependentBatchPrerequisiteReceiptServiceTest.java</testInclude>
+                                <testInclude>**/MesProWorkOrderBomServiceImplTest.java</testInclude>
+                                <testInclude>**/MesKingdeeWorkOrderBomSyncServiceImplTest.java</testInclude>
+                                <testInclude>**/MesKingdeeProductionMaterialListSyncServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProFeedbackServiceImplTest.java</testInclude>
+                                <testInclude>**/MesQcIpqcServiceImplTest.java</testInclude>
+                                <testInclude>**/MesWmOutsourceReceiptServiceImplTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <reportsDirectory>${mes.test-output-directory}/../surefire-reports</reportsDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>mes-schedule-targeted-tests</id>
             <build>

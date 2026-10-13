@@ -220,11 +220,18 @@ public class MesTeamLeaderSubmissionReviewServiceImpl implements MesTeamLeaderSu
             throw exception(PRO_PROCESS_POOL_SUBMISSION_REVIEW_PQC_LEADER_REQUIRED,
                     reqBO.getEventId(), reqBO.getLeaderType());
         }
-        scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
-                event.getActualEmployeeId());
+        if (!MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            scopeService.assertCanAccessEmployee(reqBO.getLeaderUserId(), reqBO.getLeaderType(),
+                    event.getActualEmployeeId());
+        }
         MesProcessPoolSubmissionReviewDO existingReview =
                 reviewMapper.selectLatestByEventIdForUpdate(event.getId());
         MesProProcessPoolEventRevisionDO correction = findSignedCorrection(event, existingReview);
+        if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())) {
+            Long sourceRevisionId = correction != null ? correction.getId()
+                    : existingReview == null ? null : existingReview.getSourceRevisionId();
+            handoffService.assertCanReviewPqcEvent(event.getId(), sourceRevisionId, reqBO.getLeaderUserId());
+        }
         if (existingReview != null && correction == null) {
             boolean alreadyApprovedGroupMember = !Objects.equals(reqBO.getEventId(), event.getId())
                     && MesProcessPoolSubmissionReviewDO.STATUS_APPROVED.equals(existingReview.getReviewStatus());

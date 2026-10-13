@@ -42,8 +42,19 @@ type RequestCustomHeaders = InternalAxiosRequestConfig['headers'] & {
 
 type RequestCustomConfig = InternalAxiosRequestConfig & {
   ignoreErrorMessage?: boolean
+  isRequestContextCurrent?: () => boolean
+  isSuccessReceiptContextCurrent?: () => boolean
   returnOriginalResponse?: boolean
   skipAuthRefreshReplay?: boolean
+}
+
+const assertRequestContextCurrent = (config?: RequestCustomConfig) => {
+  if (config?.isRequestContextCurrent && !config.isRequestContextCurrent()) {
+    const error = new Error('请求上下文已变更，请在当前页面重新读取') as ApiError & { config?: RequestCustomConfig }
+    error.code = 'REQUEST_CONTEXT_EXPIRED'
+    error.config = config
+    throw error
+  }
 }
 
 const isBinaryAttachmentResponse = (response: AxiosResponse<any>) => {
@@ -89,6 +100,7 @@ const service: AxiosInstance = axios.create({
 // request拦截器
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    assertRequestContextCurrent(config as RequestCustomConfig)
     const headers = config.headers as RequestCustomHeaders
     // 是否需要设置 token；命中白名单的接口（如 /login）不带 token
     let isToken = headers?.isToken !== false
@@ -155,6 +167,8 @@ service.interceptors.response.use(
   async (response: AxiosResponse<any>) => {
     let { data } = response
     const config = response.config as RequestCustomConfig
+    // Formal write receipts belong to their original session even after its UI is deactivated.
+    // Decode first, then guard every failure/auth branch with the visible request context.
     const ignoreErrorMessage = config.ignoreErrorMessage === true
     if (!data) {
       // 返回“[HTTP]请求没有返回值”;
@@ -181,6 +195,7 @@ service.interceptors.response.use(
     // 二进制数据则直接返回，例如说 Excel 导出
     const responseType = response.config.responseType || response.request?.responseType
     if (responseType === 'blob' || responseType === 'arraybuffer') {
+      assertRequestContextCurrent(config)
       // 注意：如果导出的响应为 json，说明可能失败了，不直接返回进行下载
       if (response.data.type !== 'application/json' || isBinaryAttachmentResponse(response)) {
         if (config.returnOriginalResponse) {
@@ -189,8 +204,14 @@ service.interceptors.response.use(
         return response.data
       }
       data = await new Response(response.data).json()
+      assertRequestContextCurrent(config)
     }
     const code = data.code ?? result_code
+    if ((data.code === 0 || data.code === 200) && config.isSuccessReceiptContextCurrent) {
+      assertRequestContextCurrent({ ...config, isRequestContextCurrent: config.isSuccessReceiptContextCurrent })
+    } else {
+      assertRequestContextCurrent(config)
+    }
     // 获取错误信息
     const msg = data.msg || data.message || errorCode[code] || errorCode['default']
     if (ignoreMsgs.indexOf(msg) !== -1) {
@@ -204,12 +225,13 @@ service.interceptors.response.use(
       if (!isRefreshToken) {
         // 1. 如果获取不到刷新令牌，则只能执行登出操作
         if (!getRefreshToken()) {
-          return handleAuthorized()
+          return handleAuthorized(config)
         }
         isRefreshToken = true
         // 2. 进行刷新访问令牌
         try {
           const refreshTokenRes = await refreshToken()
+          assertRequestContextCurrent(config)
           const refreshTokenPayload = refreshTokenRes.data
           const refreshCode = refreshTokenPayload?.code ?? result_code
           if (refreshCode !== 0 && refreshCode !== 200) {
@@ -229,26 +251,41 @@ service.interceptors.response.use(
             cb()
           })
           requestList = []
+          assertRequestContextCurrent(config)
           if ((config.headers as RequestCustomHeaders)?.isEncrypt) {
             ;(config.headers as RequestCustomHeaders).isEncrypted = true
           }
           return service(config)
         } catch (e) {
+          if (config.isRequestContextCurrent && !config.isRequestContextCurrent()) {
+            // Release current queued callers without replaying this obsolete request.
+            const queued = requestList
+            requestList = []
+            isRefreshToken = false
+            queued.forEach((cb: any) => cb())
+            assertRequestContextCurrent(config)
+          }
           // 为什么需要 catch 异常呢？刷新失败时，请求因为 Promise.reject 触发异常。
           // 2.2 刷新失败，只回放队列的请求
           requestList.forEach((cb: any) => {
             cb()
           })
           // 提示是否要登出。即不回放当前请求！不然会形成递归
-          return handleAuthorized()
+          return handleAuthorized(config)
         } finally {
           requestList = []
           isRefreshToken = false
         }
       } else {
         // 添加到队列，等待刷新获取到新的令牌
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           requestList.push(() => {
+            try {
+              assertRequestContextCurrent(config)
+            } catch (error) {
+              reject(error)
+              return
+            }
             ;(config.headers as RequestCustomHeaders).Authorization = 'Bearer ' + getAccessToken() // 让每个请求携带自定义token 请根据实际情况自行修改
             resolve(service(config))
           })
@@ -264,7 +301,7 @@ service.interceptors.response.use(
       }
       return Promise.reject(createApiError(msg, code, data))
     } else if (code === 901) {
-      ElMessage.error({
+      if (!ignoreErrorMessage) ElMessage.error({
         offset: 300,
         dangerouslyUseHTMLString: true,
         message:
@@ -281,7 +318,7 @@ service.interceptors.response.use(
       if (msg === '无效的刷新令牌') {
         // hard coding：忽略这个提示，直接登出
         console.log(msg)
-        return handleAuthorized()
+        return handleAuthorized(config)
       } else {
         if (!ignoreErrorMessage) {
           if (isModuleDisabledReminder(msg)) {
@@ -297,6 +334,7 @@ service.interceptors.response.use(
     }
   },
   (error: AxiosError) => {
+    assertRequestContextCurrent(error.config as RequestCustomConfig | undefined)
     if ((error.config as RequestCustomConfig | undefined)?.skipAuthRefreshReplay) {
       console.error('工作台请求响应失败', 'WORKBENCH_REQUEST_FAILED')
     } else {
@@ -323,7 +361,8 @@ const refreshToken = async () => {
   axios.defaults.headers.common['tenant-id'] = getTenantId()
   return await axios.post(base_url + '/system/auth/refresh-token?refreshToken=' + getRefreshToken())
 }
-const handleAuthorized = () => {
+const handleAuthorized = (config?: RequestCustomConfig) => {
+  assertRequestContextCurrent(config)
   const { t } = useI18n()
   if (isRelogin.show) {
     deleteUserCache()
@@ -345,6 +384,10 @@ const handleAuthorized = () => {
       confirmButtonText: t('login.relogin'),
       type: 'warning'
     }).then(() => {
+      if (config?.isRequestContextCurrent && !config.isRequestContextCurrent()) {
+        isRelogin.show = false
+        return
+      }
       deleteUserCache() // 删除用户缓存
       removeToken()
       isRelogin.show = false

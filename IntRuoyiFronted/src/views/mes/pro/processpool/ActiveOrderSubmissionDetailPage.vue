@@ -7,6 +7,7 @@
         :source-work-order="sourceWorkOrder"
         :production-material-lists="productionMaterialLists"
         :production-material-list-loading="productionMaterialListLoading"
+        :production-material-list-error="productionMaterialListError"
         :loading="loading"
         :error="error"
         @retry="loadDetail"
@@ -16,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
@@ -24,13 +25,11 @@ import ActiveOrderSubmissionDetailPanel from './components/ActiveOrderSubmission
 import ActiveOrderDetailLayout from './components/ActiveOrderDetailLayout.vue'
 import {
   getTeamLeaderActiveOrderDetail,
+  getTeamLeaderActiveOrderProductionMaterialLists,
   type TeamLeaderActiveOrderDetailRespVO
 } from '@/api/mes/pro/processpool/teamLeader'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
-import {
-  ErpProductionMaterialListApi,
-  type ErpProductionMaterialListVO
-} from '@/api/erp/production/material-list'
+import type { ErpProductionMaterialListVO } from '@/api/erp/production/material-list'
 
 defineOptions({ name: 'MesProcessPoolActiveOrderSubmissionDetail' })
 
@@ -41,14 +40,17 @@ const detail = ref<TeamLeaderActiveOrderDetailRespVO>()
 const sourceWorkOrder = ref<ProWorkOrderVO>()
 const productionMaterialLists = ref<ErpProductionMaterialListVO[]>([])
 const productionMaterialListLoading = ref(false)
+const productionMaterialListError = ref('')
+let detailRequestGeneration = 0
 const loading = ref(false)
 const error = ref('')
 
 const resolveErrorMessage = (errorValue: unknown, fallback: string) => {
   if (errorValue instanceof Error && errorValue.message) return errorValue.message
   if (typeof errorValue === 'string' && errorValue.trim()) return errorValue
-  const responseMessage = (errorValue as { response?: { data?: { msg?: string; message?: string } } })
-    ?.response?.data
+  const responseMessage = (
+    errorValue as { response?: { data?: { msg?: string; message?: string } } }
+  )?.response?.data
   return responseMessage?.msg || responseMessage?.message || fallback
 }
 
@@ -73,79 +75,60 @@ const loadSourceWorkOrder = async (sourceWorkOrderCode: string) => {
   })
   const rows = (data?.list ?? []).filter((row: ProWorkOrderVO) => row.code === sourceWorkOrderCode)
   if (rows.length !== 1) {
-    throw new Error(`Stage1 来源生产工单 ${sourceWorkOrderCode} 未找到或不唯一，无法显示真实生产工单资料`)
+    throw new Error(
+      `Stage1 来源生产工单 ${sourceWorkOrderCode} 未找到或不唯一，无法显示真实生产工单资料`
+    )
   }
   return rows[0]
 }
 
-const resolveDisplayedProductionOrderNo = (
-  detailResult: TeamLeaderActiveOrderDetailRespVO,
-  sourceWorkOrderCode: string,
-  sourceWorkOrderResult?: ProWorkOrderVO
-) => {
-  const displayedCode = sourceWorkOrderResult?.code || sourceWorkOrderCode || detailResult.workOrderCode
-  if (!displayedCode) {
-    throw new Error('当前详情缺少生产订单编号，无法查询生产用料清单')
-  }
-  return displayedCode
-}
-
-const loadProductionMaterialLists = async (productionOrderNo: string) => {
+const loadProductionMaterialLists = async (activeOrderId: string, requestGeneration: number) => {
   productionMaterialListLoading.value = true
   productionMaterialLists.value = []
+  productionMaterialListError.value = ''
   try {
-    const pageSize = 100
-    const rows: ErpProductionMaterialListVO[] = []
-    let pageNo = 1
-    let total = 0
-    do {
-      const data = await ErpProductionMaterialListApi.getPage(
-        { pageNo, pageSize, productionOrderNo },
-        { ignoreErrorMessage: true }
-      )
-      const pageRows = Array.isArray(data?.list) ? data.list : []
-      rows.push(...pageRows)
-      total = Number(data?.total ?? rows.length)
-      pageNo += 1
-      if (!pageRows.length) break
-    } while (rows.length < total)
+    const rows = await getTeamLeaderActiveOrderProductionMaterialLists(activeOrderId)
+    if (requestGeneration !== detailRequestGeneration) return
+    if (!Array.isArray(rows)) throw new Error('生产用料清单返回格式错误')
     productionMaterialLists.value = rows
-  } catch {
-    // Optional ERP data: failed queries intentionally show the empty state.
+  } catch (loadError) {
+    if (requestGeneration !== detailRequestGeneration) return
     productionMaterialLists.value = []
+    productionMaterialListError.value = resolveErrorMessage(loadError, '生产用料清单加载失败')
   } finally {
-    productionMaterialListLoading.value = false
+    if (requestGeneration === detailRequestGeneration) productionMaterialListLoading.value = false
   }
 }
 
 const loadDetail = async () => {
+  const requestGeneration = ++detailRequestGeneration
   loading.value = true
   error.value = ''
   detail.value = undefined
   sourceWorkOrder.value = undefined
   productionMaterialLists.value = []
+  productionMaterialListLoading.value = false
+  productionMaterialListError.value = ''
   try {
+    const activeOrderId = requireActiveOrderId()
     const sourceWorkOrderCode = resolveSourceWorkOrderCode()
     const [detailResult, sourceWorkOrderResult] = await Promise.all([
-      getTeamLeaderActiveOrderDetail(requireActiveOrderId()),
+      getTeamLeaderActiveOrderDetail(activeOrderId),
       sourceWorkOrderCode ? loadSourceWorkOrder(sourceWorkOrderCode) : Promise.resolve(undefined)
     ])
+    if (requestGeneration !== detailRequestGeneration) return
     if (!detailResult.processes?.length) {
       throw new Error('活跃订单缺少正式工序目标，无法显示提交详情')
     }
     detail.value = detailResult
     sourceWorkOrder.value = sourceWorkOrderResult
-    const productionOrderNo = resolveDisplayedProductionOrderNo(
-      detailResult,
-      sourceWorkOrderCode,
-      sourceWorkOrderResult
-    )
-    void loadProductionMaterialLists(productionOrderNo)
+    void loadProductionMaterialLists(activeOrderId, requestGeneration)
   } catch (loadError) {
+    if (requestGeneration !== detailRequestGeneration) return
     error.value = resolveErrorMessage(loadError, '工序提交详情加载失败')
     ElMessage.error(error.value)
   } finally {
-    loading.value = false
+    if (requestGeneration === detailRequestGeneration) loading.value = false
   }
 }
 
@@ -161,4 +144,7 @@ watch(
 )
 
 onMounted(loadDetail)
+onBeforeUnmount(() => {
+  detailRequestGeneration += 1
+})
 </script>

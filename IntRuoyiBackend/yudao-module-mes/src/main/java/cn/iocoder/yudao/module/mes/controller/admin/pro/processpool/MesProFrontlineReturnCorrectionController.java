@@ -22,11 +22,11 @@ public class MesProFrontlineReturnCorrectionController {
     private final MesProcessPoolProductionReportCorrectionService production;
     private final MesProcessPoolPqcInspectionCorrectionService pqc;
 
-    @GetMapping("/list") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @GetMapping("/list") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission'))")
     public CommonResult<List<MesFrontlineReturnCorrectionService.ReturnRow>> list(@RequestParam String leaderType) {
         return success(returns.listOwnReturned(getLoginUserId(),leaderType));
     }
-    @GetMapping("/detail") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    @GetMapping("/detail") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query') and (#leaderType != 'PQC' or @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission'))")
     public CommonResult<MesFrontlineReturnCorrectionService.ReturnDetail> detail(
             @RequestParam Long eventId,@RequestParam Long activeOrderId,@RequestParam Long rejectedReviewId,
             @RequestParam Long expectedRevisionId,@RequestParam String leaderType) {
@@ -37,7 +37,7 @@ public class MesProFrontlineReturnCorrectionController {
         return success(production.correctOwnReturned(request.getCorrection().toCommand().setActorUserId(getLoginUserId()),
                 request.getActiveOrderId(),request.getRejectedReviewId(),request.getExpectedRevisionId()));
     }
-    @PostMapping("/pqc/resubmit") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    @PostMapping("/pqc/resubmit") @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create') and @ss.hasAnyRoles('pqc_permission', 'pqc_leader_permission')")
     public CommonResult<MesFrontlineReturnCorrectionService.CorrectionResult> pqcResubmit(@Valid @RequestBody FrontlineOwnPqcReturnCorrectionReqVO request) {
         return success(pqc.correctOwnReturned(request.getCorrection().toCommand().setActorUserId(getLoginUserId()),
                 request.getActiveOrderId(),request.getRejectedReviewId(),request.getExpectedRevisionId()));

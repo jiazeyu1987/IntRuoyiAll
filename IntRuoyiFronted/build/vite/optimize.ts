@@ -36,7 +36,6 @@ const include = [
   'markmap-toolbar',
   'highlight.js',
   'element-plus',
-  'element-plus/es',
   'element-plus/es/locale/lang/zh-cn',
   'element-plus/es/locale/lang/en',
   'element-plus/es/components/base/style/css',

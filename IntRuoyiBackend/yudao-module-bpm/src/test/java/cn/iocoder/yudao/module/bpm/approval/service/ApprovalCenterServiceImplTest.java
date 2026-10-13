@@ -8,14 +8,25 @@ import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskCapability;
 import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordResult;
 import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordService;
+import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureRecordServiceImpl;
+import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureImageSnapshot;
+import cn.iocoder.yudao.module.bpm.approval.service.signature.ApprovalSignatureImageSnapshotProvider;
+import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalCenterReviewPreflight;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProvider;
 import cn.iocoder.yudao.module.bpm.approval.service.provider.ApprovalTaskProviderRegistry;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.enums.permission.RoleCodeEnum;
+import cn.iocoder.yudao.module.signature.api.ElectronicSignatureService;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand;
+import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +53,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
+import static org.mockito.Mockito.inOrder;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.APPROVAL_VIEW_TYPE_UNSUPPORTED;
 
 @ExtendWith(MockitoExtension.class)
@@ -158,7 +173,7 @@ class ApprovalCenterServiceImplTest {
         assertTrue(page.getList().stream().allMatch(row -> row.getId().startsWith("feedback-")));
         assertEquals(2, capturedContexts.size());
         assertTrue(capturedContexts.stream().allMatch(context -> context.getPageNo() == 1));
-        assertTrue(capturedContexts.stream().allMatch(context -> context.getPageSize() == 40));
+        assertTrue(capturedContexts.stream().allMatch(context -> context.getPageSize() == 200));
     }
 
     @Test
@@ -174,8 +189,7 @@ class ApprovalCenterServiceImplTest {
                         .setPageNo(1)
                         .setPageSize(10)));
 
-        assertTrue(ex.getMessage().contains("APPROVAL_ADAPTER_PAGE_INCONSISTENT"));
-        assertTrue(ex.getMessage().contains("BPM reported total 128"));
+        assertEquals("APPROVAL_QUERY_WINDOW_INCOMPLETE",ex.getMessage());
     }
 
     @Test
@@ -332,28 +346,35 @@ class ApprovalCenterServiceImplTest {
         verify(permissionApi, never()).hasAnyRolesOrSuperAdmin(100L, RoleCodeEnum.APPROVAL_ADMIN.getCode());
     }
 
-    @Test
-    void reviewTaskRejectRequiresReasonBeforeProviderDispatch() {
+    @ParameterizedTest
+    @MethodSource("blankReviewReasons")
+    void reviewTaskRequiresReasonBeforePreflightAndSignatureOrProviderDispatch(
+            ApprovalTaskReviewResult result, String reason) {
         AtomicBoolean dispatched = new AtomicBoolean(false);
-        ApprovalTaskProvider provider = reviewProvider(ApprovalModuleCode.MES_FEEDBACK, loginUserId -> true,
-                context -> dispatched.set(true));
+        AtomicBoolean visibilityChecked = new AtomicBoolean(false);
+        ApprovalTaskProvider provider = reviewProvider(ApprovalModuleCode.EDHR, loginUserId -> {
+            visibilityChecked.set(true);
+            return true;
+        }, context -> dispatched.set(true));
         ApprovalCenterService service = new ApprovalCenterServiceImpl(
                 new ApprovalTaskProviderRegistry(List.of(provider)), permissionApi, adminUserApi,
                 signatureRecordService);
         ApprovalTaskReviewCommand command = new ApprovalTaskReviewCommand()
-                .setModuleCode(ApprovalModuleCode.MES_FEEDBACK)
-                .setSourceTaskType("MES_PRO_FEEDBACK")
+                .setModuleCode(ApprovalModuleCode.EDHR)
+                .setSourceTaskType("EDHR_WORK_TASK")
                 .setSourceTaskId("9001")
-                .setResult(ApprovalTaskReviewResult.REJECT)
-                .setReason("  ")
+                .setBusinessKey("9001")
+                .setResult(result)
+                .setReason(reason)
                 .setSignaturePassword("secret");
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> service.reviewTask(100L, command));
 
-        assertEquals("APPROVAL_REJECT_REASON_REQUIRED", ex.getMessage());
+        assertEquals("APPROVAL_REVIEW_REASON_REQUIRED", ex.getMessage());
         assertFalse(dispatched.get());
-        verifyNoInteractions(signatureRecordService);
+        assertFalse(visibilityChecked.get());
+        verifyNoInteractions(permissionApi, signatureRecordService);
     }
 
     @Test
@@ -369,7 +390,8 @@ class ApprovalCenterServiceImplTest {
                 .setModuleCode(ApprovalModuleCode.MES_FEEDBACK)
                 .setSourceTaskType("MES_PRO_FEEDBACK")
                 .setSourceTaskId("9001")
-                .setResult(ApprovalTaskReviewResult.APPROVE);
+                .setResult(ApprovalTaskReviewResult.APPROVE)
+                .setReason("reviewed production evidence");
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> service.reviewTask(100L, command));
@@ -407,6 +429,7 @@ class ApprovalCenterServiceImplTest {
                 .setSourceTaskId("9001")
                 .setBusinessKey("9001")
                 .setResult(ApprovalTaskReviewResult.APPROVE)
+                .setReason("reviewed production evidence")
                 .setSignaturePassword("secret"));
 
         assertEquals(100L, captured.get().getLoginUserId());
@@ -451,6 +474,7 @@ class ApprovalCenterServiceImplTest {
                 .setBusinessKey("pi-approve-101")
                 .setProcessInstanceId("pi-approve-101")
                 .setResult(ApprovalTaskReviewResult.APPROVE)
+                .setReason("reviewed production evidence")
                 .setSignaturePassword("secret"));
 
         assertEquals(signatureImageFileUrl, captured.get().getSignatureImageFileUrl());
@@ -477,10 +501,72 @@ class ApprovalCenterServiceImplTest {
                         .setBusinessKey("pi-approve-101")
                         .setProcessInstanceId("pi-approve-101")
                         .setResult(ApprovalTaskReviewResult.APPROVE)
+                        .setReason("reviewed production evidence")
                         .setSignaturePassword("secret")));
 
         assertEquals("审批电子签名图片缺失或未启用，请先上传并启用电子签名图片", ex.getMessage());
         assertFalse(dispatched.get());
+    }
+
+    @ParameterizedTest
+    @MethodSource("validReviewRoutes")
+    void reviewTaskPreservesSameOriginalOpinionInSignatureAndProviderCommands(
+            ApprovalModuleCode moduleCode, ApprovalTaskReviewResult result) {
+        String originalReason = "\u2003  production evidence checked\n  user explanation kept  \r\n\u2003";
+        String normalizedReason = "production evidence checked\n  user explanation kept";
+        ElectronicSignatureService kernel = mock(ElectronicSignatureService.class);
+        ApprovalSignatureImageSnapshotProvider images = mock(ApprovalSignatureImageSnapshotProvider.class);
+        ApprovalTaskProvider provider = mock(ApprovalTaskProvider.class,
+                withSettings().extraInterfaces(ApprovalCenterReviewPreflight.class));
+        when(provider.getModuleCode()).thenReturn(moduleCode);
+        when(provider.getSupportedViewTypes()).thenReturn(Set.of(ApprovalTaskViewType.TODO));
+        when(provider.isVisibleTo(100L)).thenReturn(true);
+        when(images.requireActiveSnapshot(100L)).thenReturn(ApprovalSignatureImageSnapshot.builder()
+                .imageId(9101L).versionNo(2).fileId(8101L).fileUrl("/signature/test.png")
+                .sha256("image-hash").contentType("image/png").fileSize(2048L)
+                .imageStatus("ACTIVE").verifiedStatus("VALID").build());
+        when(kernel.sign(any())).thenReturn(new ElectronicSignatureResult(810004L, "VALID", LocalDateTime.now(),
+                "SERVER_CLOCK:now", "version", "contentHash", "evidenceHash", "SHA-256", "system-local-v1"));
+        ApprovalCenterService service = new ApprovalCenterServiceImpl(new ApprovalTaskProviderRegistry(List.of(provider)),
+                permissionApi, adminUserApi, new ApprovalSignatureRecordServiceImpl(kernel, images));
+        ApprovalTaskReviewCommand command = new ApprovalTaskReviewCommand().setModuleCode(moduleCode)
+                .setSourceTaskType(moduleCode == ApprovalModuleCode.EDHR
+                        ? "EDHR_WORK_TASK" : "MES_PRO_FEEDBACK")
+                .setSourceTaskId("9001").setBusinessKey("9001").setResult(result)
+                .setReason(originalReason).setSignaturePassword("test-credential");
+
+        service.reviewTask(100L, command);
+
+        ArgumentCaptor<ElectronicSignatureCommand> signatureCommand = ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        ArgumentCaptor<ApprovalTaskReviewContext> providerCommand = ArgumentCaptor.forClass(ApprovalTaskReviewContext.class);
+        var ordered = inOrder(provider, images, kernel);
+        if (moduleCode == ApprovalModuleCode.EDHR) {
+            ordered.verify((ApprovalCenterReviewPreflight) provider).preflightReview(any());
+        } else {
+            verify((ApprovalCenterReviewPreflight) provider, never()).preflightReview(any());
+        }
+        ordered.verify(images).requireActiveSnapshot(100L);
+        ordered.verify(kernel).sign(signatureCommand.capture());
+        ordered.verify(images).markReferenced(9101L);
+        ordered.verify(provider).review(providerCommand.capture());
+        assertEquals(normalizedReason, signatureCommand.getValue().reason());
+        assertEquals(normalizedReason, providerCommand.getValue().getReason());
+        assertEquals(signatureCommand.getValue().reason(), providerCommand.getValue().getReason());
+        assertEquals(result, providerCommand.getValue().getResult());
+        assertEquals(originalReason, command.getReason());
+    }
+
+    private static Stream<Arguments> blankReviewReasons() {
+        return Stream.of(ApprovalTaskReviewResult.values()).flatMap(result ->
+                Stream.of(null, "", "  ", " \t\r\n ", "\u2003", "\u2003 \t\r\n\u2003", "\000", "\u2003\000 ",
+                                "\u00a0", "\u202f\u2007", "\uFEFF")
+                        .map(reason -> Arguments.of(result, reason)));
+    }
+
+    private static Stream<Arguments> validReviewRoutes() {
+        return Stream.of(Arguments.of(ApprovalModuleCode.EDHR, ApprovalTaskReviewResult.APPROVE),
+                Arguments.of(ApprovalModuleCode.MES_FEEDBACK, ApprovalTaskReviewResult.APPROVE),
+                Arguments.of(ApprovalModuleCode.MES_FEEDBACK, ApprovalTaskReviewResult.REJECT));
     }
 
     private static ApprovalTaskProvider provider(ApprovalModuleCode moduleCode,
@@ -529,6 +615,14 @@ class ApprovalCenterServiceImplTest {
                 assertEquals(100L, context.getLoginUserId());
                 assertEquals(ApprovalTaskViewType.TODO, context.getViewType());
                 return new PageResult<>(rows, (long) rows.size());
+            }
+
+            @Override
+            public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,ApprovalQueryWindow window) {
+                assertEquals(100L,context.getLoginUserId());
+                var ordered=new ArrayList<>(rows);
+                ordered.forEach(row -> row.setModuleCode(moduleCode));
+                return window.slice(ApprovalCenterServiceImpl.sortRows(ordered,context.getViewType()));
             }
 
             @Override
@@ -590,6 +684,14 @@ class ApprovalCenterServiceImplTest {
             }
 
             @Override
+            public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,ApprovalQueryWindow window) {
+                contextRecorder.accept(context);
+                var ordered=new ArrayList<>(rows);
+                ordered.forEach(row -> row.setModuleCode(moduleCode));
+                return window.slice(ApprovalCenterServiceImpl.sortRows(ordered,context.getViewType()));
+            }
+
+            @Override
             public List<ApprovalTaskTimelineEntry> listTimeline(ApprovalTaskTimelineQueryContext context) {
                 return List.of();
             }
@@ -632,6 +734,11 @@ class ApprovalCenterServiceImplTest {
             @Override
             public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
                 return new PageResult<>(List.of(), total);
+            }
+
+            @Override
+            public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,ApprovalQueryWindow window) {
+                return new PageResult<>(List.of(),total);
             }
 
             @Override
@@ -684,6 +791,11 @@ class ApprovalCenterServiceImplTest {
             @Override
             public PageResult<ApprovalTaskSummary> page(ApprovalTaskQueryContext context) {
                 return new PageResult<>(List.of(), 0L);
+            }
+
+            @Override
+            public PageResult<ApprovalTaskSummary> window(ApprovalTaskQueryContext context,ApprovalQueryWindow window) {
+                return PageResult.empty();
             }
 
             @Override

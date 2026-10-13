@@ -7,6 +7,11 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureImageMap
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockMultipartFile;
@@ -26,9 +31,12 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
     private DccElectronicSignatureImageMapper signatureImageMapper;
     @Mock
     private FileService fileService;
+    @Mock private AdminUserApi users;
+    @Mock private ApprovalAuthorityApi authority;
 
     @InjectMocks
     private DccElectronicSignatureImageServiceImpl service;
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Test
     void getMySignatureImage_returnsAdminFileAccessUrlForPreview() {
@@ -70,6 +78,9 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
 
     @Test
     void uploadMySignatureImage_rejectsUndecodableImageContent() {
+        TenantContextHolder.setTenantId(7L);
+        when(authority.lockTenantApprovalAuthority(7L)).thenReturn(new ApprovalAuthorityRevisionDTO(7L, 3L));
+        when(signatureImageMapper.selectIdentityHistoryForUpdate(100L)).thenReturn(java.util.List.of());
         byte[] corruptPng = new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0};
         MockMultipartFile file = new MockMultipartFile("file", "corrupt.png", "image/png", corruptPng);
 
@@ -78,6 +89,12 @@ class DccElectronicSignatureImageServiceImplTest extends BaseMockitoUnitTest {
 
         assertEquals(CONTROLLED_FILE_SIGNATURE_IMAGE_INVALID.getCode(), exception.getCode());
         assertEquals("签名图片内容无效，请上传可正常打开的 PNG/JPEG 图片", exception.getMessage());
-        verifyNoInteractions(fileService, signatureImageMapper);
+        verify(users).lockSignatureIdentity(100L);
+        verify(signatureImageMapper).selectIdentityHistoryForUpdate(100L);
+        verifyNoInteractions(fileService);
+        org.mockito.Mockito.verify(signatureImageMapper, org.mockito.Mockito.never()).insert(
+                org.mockito.ArgumentMatchers.any(DccElectronicSignatureImageDO.class));
+        org.mockito.Mockito.verify(authority, org.mockito.Mockito.never()).incrementLockedAuthorityRevision(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong());
     }
 }

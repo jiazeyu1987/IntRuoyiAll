@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS "system_electronic_signature" (
     "after_content_json" varchar(4000),
     "field_diff_json" varchar(4000),
     "evidence_hash" char(64) not null,
+    "evidence_format_version" varchar(32),
+    "command_hash_version" varchar(32),
     "algorithm" varchar(32) not null,
     "key_version" varchar(64) not null,
     "policy_version" varchar(64) not null,

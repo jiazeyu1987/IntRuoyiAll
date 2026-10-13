@@ -46,13 +46,13 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
     @Mock
     private MesMdAutoCodeRecordService autoCodeRecordService;
     @Mock
-    private MesProBatchRecordExecutionSignatureService signatureService;
+    private MesProductionAuthenticatedSignatureService signatureService;
     @Mock
     private ActiveOrderSnapshotResolver activeOrderSnapshotResolver;
     @Mock
     private GxpAuditService gxpAuditService;
 
-    private MesProFrontlineFeedbackSubmitService submitService;
+    private MesProFrontlineFeedbackSubmitServiceImpl submitService;
 
     @BeforeEach
     void setUp() {
@@ -65,11 +65,12 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
                 new MesProFrontlineFeedbackMaterialSubmissionValidator(lossReasonValidator),
                 new MesProFrontlineFeedbackPayloadSplitter(),
                 autoCodeRecordService,
-                signatureService,
+                null,
                 activeOrderSnapshotResolver,
                 gxpAuditService);
         { org.springframework.test.util.ReflectionTestUtils.setField(submitService, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuditIdentity(submitService);
+        MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthenticatedResources(submitService, signatureService);
         MesProFrontlineFeedbackSubmitSnapshotTestSupport.stubAuthorization(submitAuthorizationService);
         MesProFrontlineFeedbackSubmitTestData.stubLossReasonValidator(lossReasonValidator);
         MesProFrontlineFeedbackSubmitTestData.stubActiveOrderSnapshot(activeOrderSnapshotResolver);
@@ -78,7 +79,7 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
         org.mockito.Mockito.lenient().when(parameterAuditService.resolveAndApplyMaterial(
                         any(), any(), any(), any(), any()))
                 .thenReturn(MesFrontlineParameterAuditResult.empty());
-        org.mockito.Mockito.lenient().when(signatureService.recordProductionSubmitSignature(any(), any(), any(), any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
+        org.mockito.Mockito.lenient().when(signatureService.record(any(), any(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProductionSubmitSignatureContext.class)))
                 .thenReturn(4001L);
     }
 
@@ -97,7 +98,7 @@ class MesProFrontlineFeedbackRawLimitBypassTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+            assertEquals(801L, MesProFrontlineFeedbackSubmitSnapshotTestSupport.submit(submitService, reqVO).getProcessPoolEventId());
         }
 
         verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {

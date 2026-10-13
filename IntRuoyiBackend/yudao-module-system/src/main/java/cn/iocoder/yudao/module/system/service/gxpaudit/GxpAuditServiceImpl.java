@@ -56,6 +56,19 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         if (ledgerSequenceMapper.selectByTenantIdForUpdate(tenantId) == null) {
             throw exception(GXP_AUDIT_APPEND_FAILED, "ledger-sequence-watermark-not-initialized");
         }
+        GxpAuditLedgerLockContext.acquired(tenantId);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void assertLedgerLockHeld() {
+        GxpAuditLedgerLockContext.requireHeld(resolveTenantId());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Long reserveEventId(String operationId, String subjectId, String sourceLocator, String idempotencyKey) {
+        return GxpAuditLedgerLockContext.reserve(resolveTenantId(), operationId, subjectId, sourceLocator, idempotencyKey);
     }
 
     @Override
@@ -88,15 +101,23 @@ public class GxpAuditServiceImpl implements GxpAuditService {
             if (!Objects.equals(existing.getIdempotencyPayloadHash(), idempotencyPayloadHash)) {
                 throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT, command.getOperationId());
             }
+            if (command.getReservedEventId() != null) {
+                GxpAuditLedgerLockContext.consume(tenantId, command);
+                if (!Objects.equals(command.getReservedEventId(), existing.getId())) {
+                    throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT, command.getOperationId());
+                }
+            }
             return new GxpAuditAppendResult(existing.getId(), existing.getLedgerSequence(),
                     existing.getEventHash(), true);
         }
 
         GxpAuditEventDO previous = auditEventMapper.selectLatestByTenantForUpdate(tenantId);
         long ledgerSequence = allocateLedgerSequence(tenantId, ledger);
-        LocalDateTime serverOccurredAt = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime serverOccurredAt = LocalDateTime.now(ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
 
         GxpAuditEventDO event = new GxpAuditEventDO();
+        GxpAuditLedgerLockContext.consume(tenantId, command);
+        event.setId(command.getReservedEventId());
         event.setTenantId(tenantId);
         event.setLedgerSequence(ledgerSequence);
         event.setEventSchemaVersion(2);
@@ -172,6 +193,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         if (nextLedgerSequence == null || nextLedgerSequence < 1L) {
             throw exception(GXP_AUDIT_APPEND_FAILED, "invalid-ledger-sequence-watermark");
         }
+        GxpAuditLedgerLockContext.acquired(tenantId);
         return sequence;
     }
 

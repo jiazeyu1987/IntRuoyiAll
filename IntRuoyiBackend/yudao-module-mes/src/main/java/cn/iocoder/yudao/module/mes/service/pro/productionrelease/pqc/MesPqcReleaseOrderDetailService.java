@@ -8,15 +8,14 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatu
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionSignatureService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetail;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderDetailService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesActiveOrderSignatureEvidenceService;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.kingdee.MesKingdeeProductionMaterialListQueryService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListRespVO;
 import cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureEvidenceDTO;
 import cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureVerificationDTO;
-import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
-import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +27,7 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class MesPqcReleaseOrderDetailService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedSignatureFacts;
     private static final Set<String> PQC_RELEASED_STATUSES = Set.of(
             MesReleaseFlowStatus.REPORT_UPLOAD_PENDING,
             MesReleaseFlowStatus.MANAGER_RELEASE_PENDING,
@@ -40,12 +40,16 @@ public class MesPqcReleaseOrderDetailService {
     private final AdminUserService adminUserService;
     private final MesTeamLeaderActiveOrderDetailService detailService;
     private final MesKingdeeProductionMaterialListQueryService materialService;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper workTaskMapper;
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper batchMapper;
 
     @Transactional(readOnly = true)
     public Result get(Long viewerId, Long applicationId) {
         MesPqcProductionReleaseDecisionResult decision = authorization.get(viewerId, applicationId);
         var application = applicationMapper.selectById(applicationId);
-        if (application == null || application.getActiveOrderId() == null) {
+        if (application == null || !Objects.equals(application.getId(), applicationId) || application.getActiveOrderId() == null) {
             throw new IllegalStateException("PQC_RELEASE_ACTIVE_ORDER_SOURCE_MISSING");
         }
         var order = orderMapper.selectByIdIgnoreDeleted(application.getActiveOrderId());
@@ -83,23 +87,22 @@ public class MesPqcReleaseOrderDetailService {
         if (!isPqcProductionReleased(decision)) {
             return;
         }
+        if (!Objects.equals(decision.getApplicationId(), application.getId())) {
+            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_APPLICATION_MISMATCH");
+        }
         if (decision.getSignatureId() == null) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ID_MISSING");
         }
         ElectronicSignatureEvidenceDTO signature = requireUnifiedPqcReleaseSignature(
                 decision.getSignatureId(), application.getBatchExecutionId(), application.getId());
-        AdminUserDO signer = adminUserService.getUser(signature.actorId());
-        if (signer == null || StrUtil.isBlank(signer.getNickname())) {
-            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTOR_MISSING");
-        }
+        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application,
+                MesActiveOrderSignatureEvidenceService.readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId()),
+                MesActiveOrderSignatureEvidenceService.readPqcBatch(batchMapper, application.getBatchExecutionId()), signature);
+        ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signature.id());
         detail.setPqcProductionRelease(new MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary()
                 .setStatus(decision.getStatus())
                 .setStatusLabel("已生产放行")
-                .setSignature(new MesTeamLeaderActiveOrderDetail.SignatureDetail()
-                        .setSignatureId(signature.id())
-                        .setSignerName(signer.getNickname())
-                        .setSignedAt(signature.signedAt())
-                        .setRole(MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)));
+                .setSignature(MesActiveOrderSignatureEvidenceService.pqcReadProjection(signature, verification)));
     }
 
     private ElectronicSignatureEvidenceDTO requireUnifiedPqcReleaseSignature(
@@ -120,27 +123,20 @@ public class MesPqcReleaseOrderDetailService {
                 MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE,
                 null, null, null, null);
         ElectronicSignatureEvidenceDTO signature = signatureQueryService.getById(signatureId);
-        if (signature == null || !Objects.equals(signature.subjectId(), subjectId)) {
+        if (signature == null || !Objects.equals(signature.id(), signatureId)
+                || !Objects.equals(MesBatchRecordSignatureSubjectAdapter.subjectWithoutOpinionSource(signature.subjectId()), subjectId)) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
         }
         if (!Objects.equals(signature.actionCode(), MesProBatchRecordExecutionSignatureService.ACTION_PQC_RELEASE)
                 || !Objects.equals(signature.moduleCode(), MesBatchRecordSignatureSubjectAdapter.MODULE_CODE)
                 || !Objects.equals(signature.subjectType(), MesBatchRecordSignatureSubjectAdapter.SUBJECT_TYPE)
-                || !Objects.equals(signature.subjectId(), subjectId)
-                || !Objects.equals(signature.verificationStatus(), "VALID")
-                || !Objects.equals(signature.authenticationMethod(), "SESSION_PLUS_PASSWORD")
-                || signature.actorId() == null
-                || signature.signedAt() == null) {
+                || !Objects.equals(signature.subjectVersion(), MesBatchRecordSignatureSubjectAdapter.subjectVersion(signature.subjectId()))
+                || signature.authenticationMethod() == null
+                || !Set.of("SESSION_PLUS_PASSWORD", "SESSION_PLUS_SELECTED_USER_PASSWORD").contains(signature.authenticationMethod())
+                || signature.actorId() == null || signature.actorId() <= 0) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTION_MISMATCH");
         }
-        ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
-        if (verification == null
-                || !Objects.equals(verification.signatureId(), signatureId)
-                || !Objects.equals(verification.verificationStatus(), "VALID")
-                || !Objects.equals(verification.storedEvidenceHash(), signature.evidenceHash())
-                || !Objects.equals(verification.calculatedEvidenceHash(), signature.evidenceHash())) {
-            throw new IllegalStateException("PQC_RELEASE_SIGNATURE_RECORD_MISSING");
-        }
+        MesActiveOrderSignatureEvidenceService.requirePqcCanonical(signature);
         return signature;
     }
 

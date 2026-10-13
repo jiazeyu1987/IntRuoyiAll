@@ -17,6 +17,9 @@ public class MesTeamLeaderActiveOrderReleaseApplyRespVO {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long applicationId;
 
+    @Schema(description = "正式申请保存的请求幂等键；历史缺失值不补齐")
+    private String requestIdempotencyKey;
+
     @Schema(description = "活跃订单记录编号", example = "8101")
     @JsonSerialize(using = ToStringSerializer.class)
     private Long activeOrderId;

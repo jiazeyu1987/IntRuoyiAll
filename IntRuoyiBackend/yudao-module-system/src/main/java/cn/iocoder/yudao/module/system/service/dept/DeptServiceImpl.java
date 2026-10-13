@@ -36,14 +36,20 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.*;
 public class DeptServiceImpl implements DeptService {
 
     @Resource
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
+
+    @Resource
     private DeptMapper deptMapper;
     @Resource
     private AdminUserMapper userMapper;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     @CacheEvict(cacheNames = RedisKeyConstants.DEPT_CHILDREN_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为操作一个部门，涉及到多个缓存
     public Long createDept(DeptSaveReqVO createReqVO) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         if (createReqVO.getParentId() == null) {
             createReqVO.setParentId(DeptDO.PARENT_ID_ROOT);
         }
@@ -54,14 +60,18 @@ public class DeptServiceImpl implements DeptService {
 
         // 插入部门
         DeptDO dept = BeanUtils.toBean(createReqVO, DeptDO.class);
-        deptMapper.insert(dept);
+        if (deptMapper.insert(dept) != 1) throw new IllegalStateException("APPROVAL_DEPT_CREATE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         return dept.getId();
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     @CacheEvict(cacheNames = RedisKeyConstants.DEPT_CHILDREN_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为操作一个部门，涉及到多个缓存
     public void updateDept(DeptSaveReqVO updateReqVO) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         if (updateReqVO.getParentId() == null) {
             updateReqVO.setParentId(DeptDO.PARENT_ID_ROOT);
         }
@@ -74,13 +84,17 @@ public class DeptServiceImpl implements DeptService {
 
         // 更新部门
         DeptDO updateObj = BeanUtils.toBean(updateReqVO, DeptDO.class);
-        deptMapper.updateById(updateObj);
+        if (deptMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_DEPT_UPDATE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     @CacheEvict(cacheNames = RedisKeyConstants.DEPT_CHILDREN_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为操作一个部门，涉及到多个缓存
     public void deleteDept(Long id) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         // 校验是否存在
         validateDeptExists(id);
         // 计算整棵待删除组织树
@@ -90,13 +104,23 @@ public class DeptServiceImpl implements DeptService {
         // 树内只要还有员工，就禁止删除
         validateDeptTreeHasNoUsers(deleteDeptIds);
         // 删除整棵组织树
-        deptMapper.deleteByIds(new ArrayList<>(deleteDeptIds));
+        if (deptMapper.deleteByIds(new ArrayList<>(deleteDeptIds)) != deleteDeptIds.size()) {
+            throw new IllegalStateException("APPROVAL_DEPT_DELETE_ROW_COUNT");
+        }
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     @CacheEvict(cacheNames = RedisKeyConstants.DEPT_CHILDREN_ID_LIST,
             allEntries = true) // allEntries 清空所有缓存，因为操作一个部门，涉及到多个缓存
     public void deleteDeptList(List<Long> ids) {
+        var authority = approvalAuthority.lockTenantApprovalAuthority(
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        if (ids == null || ids.isEmpty() || ids.stream().anyMatch(id -> id == null || id <= 0)
+                || new java.util.HashSet<>(ids).size() != ids.size()) {
+            throw new IllegalArgumentException("APPROVAL_DEPT_DELETE_IDENTITIES_REQUIRED");
+        }
         // 校验是否有子部门
         for (Long id : ids) {
             if (deptMapper.selectCountByParentId(id) > 0) {
@@ -105,7 +129,8 @@ public class DeptServiceImpl implements DeptService {
         }
 
         // 批量删除部门
-        deptMapper.deleteByIds(ids);
+        if (deptMapper.deleteByIds(ids) != ids.size()) throw new IllegalStateException("APPROVAL_DEPT_DELETE_ROW_COUNT");
+        approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
     @VisibleForTesting

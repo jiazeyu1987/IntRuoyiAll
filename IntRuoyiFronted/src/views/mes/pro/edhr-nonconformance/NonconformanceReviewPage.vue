@@ -262,6 +262,8 @@
 </template>
 
 <script setup lang="ts">
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { parseExactIntegerJson } from '@/utils/exactIntegerJson'
 import EdhrBatchRecordTabs from '../edhr-batch/EdhrBatchRecordTabs.vue'
 import QaHandoffAssignmentConfig from '../handoff/QaHandoffAssignmentConfig.vue'
@@ -471,7 +473,7 @@ const handleMaterialUpload = async (event: Event) => {
   materialUploadsPending.value += files.length
   await Promise.all(files.map(async (file) => {
     try {
-      const material = await uploadNonconformanceReviewMaterial(reviewId, file)
+      const material = await uploadNonconformanceReviewMaterial(reviewId, file, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
       if (!isCurrent()) return
       if (!material.fileId || !material.url || !material.fileName?.trim()) {
         throw new Error('上传结果缺少正式文件身份或原始名称，请重新上传。')
@@ -532,7 +534,7 @@ const loadReviews = async () => {
   listLoading.value = true
   errorText.value = ''
   try {
-    const data = await getNonconformanceReviewPage(buildReviewQuery())
+    const data = await getNonconformanceReviewPage(buildReviewQuery(), { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     reviews.value = data.list || []
     total.value = data.total || 0
@@ -572,7 +574,7 @@ const openCreateDialog = async () => {
   createDialogVisible.value = true
   activeOrderCandidatesLoading.value = true
   try {
-    const candidates = await getNonconformanceReviewActiveOrderList()
+    const candidates = await getNonconformanceReviewActiveOrderList({ ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     activeOrderCandidates.value = entryActiveOrderId.value
       ? candidates.filter((order) => order.id === entryActiveOrderId.value)
@@ -620,20 +622,26 @@ const submitCreateReview = async () => {
     createGeneration === createContextGeneration && createDialogVisible.value
   createLoading.value = true
   errorText.value = ''
+  const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', selectedActiveOrderId.value)
+  let writeSucceeded = false
   try {
     const review = await createNonconformanceReview({
       activeOrderId: selectedActiveOrderId.value,
       nonconformanceReason: reason
-    })
-    if (!isCurrent()) return
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (!isCurrent() || !approvalInvalidation.isCurrent(approvalEvent.session.key)) return
     closeCreateDialog()
     activeTab.value = 'all'
     queryParams.pageNo = 1
     message.success('不合格评审已创建，编号 ' + (review.reviewCode || '--'))
-    await loadReviews()
+    try { await loadReviews() } catch (error) {
+      if (approvalInvalidation.isCurrent(approvalEvent.session.key)) message.warning(`评审已创建，列表刷新失败：${resolveErrorMessage(error, '请刷新核对。')}`)
+    }
   } catch (error) {
-    if (!isCurrent()) return
-    errorText.value = resolveErrorMessage(error, '不合格评审创建失败。')
+    if (writeSucceeded ? generation !== reviewContextGeneration : !isCurrent()) return
+    errorText.value = writeSucceeded ? `评审已创建，刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '不合格评审创建失败。')
     message.error(errorText.value)
   } finally {
     if (isCurrent()) createLoading.value = false
@@ -669,6 +677,8 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
   }
   disposeLoading.value = true
   errorText.value = ''
+  const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('NONCONFORMANCE_REVIEW', reviewId)
+  let writeSucceeded = false
   try {
     const review = await disposeNonconformanceReview({
       id: reviewId,
@@ -678,14 +688,16 @@ const handleDispose = async (disposition: EdhrNonconformanceReviewDisposition) =
       reviewMaterialEvents: disposeForm.reviewMaterialEvents,
       reviewOpinion: disposeForm.reviewOpinion.trim(),
       signaturePassword: disposeForm.signaturePassword.trim()
-    })
-    if (!isCurrent()) return
+    }, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent , isSuccessReceiptContextCurrent: (() => { const receiptSessionKey = approvalInvalidation.syncSession().key; return () => approvalInvalidation.isCurrent(receiptSessionKey) })()})
+    writeSucceeded = true
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    if (!isCurrent() || !approvalInvalidation.isCurrent(approvalEvent.session.key)) return
     selectedReview.value = review
     message.success('已' + resolveDispositionLabel(disposition))
     await loadReviews()
   } catch (error) {
     if (!isCurrent()) return
-    errorText.value = resolveErrorMessage(error, '不合格评审处置失败。')
+    errorText.value = writeSucceeded ? `处置已成功，刷新失败：${resolveErrorMessage(error, '请刷新核对。')}` : resolveErrorMessage(error, '不合格评审处置失败。')
     message.error(errorText.value)
   } finally {
     if (isCurrent()) disposeLoading.value = false
@@ -742,6 +754,18 @@ watch(reviewDialogVisible, (visible) => {
   if (!visible) {
     invalidateReviewContext()
   }
+}, { flush: 'sync' })
+
+watch(() => approvalInvalidation.syncSession().key, () => {
+  invalidateReviewContext()
+  createDialogVisible.value = false
+  reviewDialogVisible.value = false
+}, { flush: 'sync' })
+
+watch(() => route.fullPath, () => {
+  invalidateReviewContext()
+  createDialogVisible.value = false
+  reviewDialogVisible.value = false
 }, { flush: 'sync' })
 
 onBeforeUnmount(() => {
@@ -834,7 +858,7 @@ const loadReviewEntry = async () => {
     }
     const deviationId = fromDeviation ? requireReviewIdentity(query.deviationId) : undefined
     const batchId = fromDeviation ? requireReviewIdentity(query.batchExecutionId) : undefined
-    const review = await getNonconformanceReview(reviewId)
+    const review = await getNonconformanceReview(reviewId, { ignoreErrorMessage: true, isRequestContextCurrent: isCurrent })
     if (!isCurrent()) return
     if (!review || requireReviewIdentity(review.id) !== reviewId) {
       throw new Error('关联评审单据身份不一致，不能打开。')

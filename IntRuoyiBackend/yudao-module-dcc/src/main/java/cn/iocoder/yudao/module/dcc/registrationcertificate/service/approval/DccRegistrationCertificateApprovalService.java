@@ -140,6 +140,7 @@ public class DccRegistrationCertificateApprovalService {
         BpmProcessInstanceCreateReqDTO bpmRequest = new BpmProcessInstanceCreateReqDTO();
         bpmRequest.setProcessDefinitionKey(PROCESS_DEFINITION_KEY);
         bpmRequest.setBusinessKey(businessKey);
+        bpmRequest.setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_BUSINESS","REGISTRATION_REQUEST",request.getId().toString(),cn.hutool.crypto.digest.DigestUtil.sha256Hex(request.getRequestKey()),"REGISTRATION_CERTIFICATE_SUBMIT",businessKey));
         bpmRequest.setStartUserSelectAssignees(Map.of(APPROVAL_TASK_DEFINITION_KEY, candidates));
         Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("registrationCertificateAccessRequestId", request.getId());

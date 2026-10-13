@@ -42,13 +42,15 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** Executes the real resolver's mapper queries; service mocks only supply already-authorized rows. */
-@Import({MesProEdhrApprovalTaskAdapter.class, MesManagerReleaseCompletedActorResolver.class})
+@Import({MesProEdhrApprovalTaskAdapter.class, MesManagerReleaseCompletedActorResolver.class,
+        MesEdhrApprovalOutcomeReader.class, MesEdhrExecutionFinalOutcomeReader.class,
+        cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseSignoffService.class})
+// Verification DTOs are consumer-port inputs, not proof of digest/time/creation-audit algorithms.
 class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTest {
     @org.springframework.boot.test.mock.mockito.MockBean private cn.iocoder.yudao.module.mes.approval.MesActiveOrderHandoffApprovalProjection handoffProjection;
 
@@ -63,12 +65,16 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     @Resource private MesManagerReleaseCompletedActorResolver resolver;
     @Resource private MesProEdhrWorkTaskMapper tasks;
     @Resource private MesProEdhrReleaseTransactionMapper transactions;
+    @Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseDecisionMapper decisions;
     @Resource private DataSource dataSource;
     @MockBean private MesProEdhrWorkTaskService workTaskService;
     @MockBean private MesProEdhrReleaseService releaseService;
     @Resource private MesProcessPoolActiveOrderReleaseApplicationMapper applications;
     @MockBean private AdminUserMapper users;
     @MockBean private ElectronicSignatureQueryService signatures;
+    @MockBean private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissions;
+    @MockBean private cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService verifiedFacts;
+    @MockBean private cn.iocoder.yudao.module.system.service.gxpaudit.GxpCreationAuditVerificationService creationAudits;
     private JdbcTemplate jdbc;
 
     @org.junit.jupiter.api.BeforeAll
@@ -80,11 +86,15 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     @BeforeEach
     void prepareFixtureAccess() {
         jdbc = new JdbcTemplate(dataSource);
+        cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(resolver, signatures, 1L);
+        when(handoffProjection.prefix(any(), anyLong())).thenReturn(new PageResult<>(List.of(), 0L));
     }
 
     @AfterEach
     void removeOwnPqcApplicationFixture() {
         jdbc.update("DELETE FROM mes_pro_process_pool_active_order_release_application WHERE request_idempotency_key='pqc-completed-request'");
+        jdbc.update("DELETE FROM mes_pro_process_pool_active_order_release_application WHERE request_idempotency_key='manager-completed-request'");
+        jdbc.update("DELETE FROM mes_pro_edhr_release_decision WHERE idempotency_key LIKE 'manager-completed-%'");
     }
 
     @Test
@@ -97,7 +107,9 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         assertEquals(SIGNER, summary.getAssigneeUserId());
         assertNull(summary.getAssigneeRoleCode());
         assertNull(summary.getAssigneeRoleName(), "a role label must not hide the actual completed actor");
-        assertEquals("DONE", summary.getBusinessStatus());
+        assertEquals("RELEASED", summary.getBusinessStatus());
+        assertEquals("DONE", summary.getSourceStatus());
+        assertEquals("APPROVE", summary.getDecisionState());
         assertEquals(String.valueOf(fixture.transaction().getId()), summary.getDetailQuery().get("releaseTransactionId"));
         assertEquals(SIGNER, adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
         assertEquals(before, snapshot(), "projection must not mutate either formal table");
@@ -146,12 +158,26 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         }
         exposeDone(fixture, false);
         Snapshot before = snapshot();
-        IllegalStateException summaryError = assertThrows(IllegalStateException.class,
-                () -> adapter.page(query(ApprovalTaskViewType.DONE, false)));
-        IllegalStateException timelineError = assertThrows(IllegalStateException.class,
-                () -> adapter.listTimeline(timeline(fixture)));
-        assertTrue(summaryError.getMessage().startsWith("APPROVAL_COMPLETED_ACTOR_INVALID:"));
-        assertTrue(timelineError.getMessage().startsWith("APPROVAL_COMPLETED_ACTOR_INVALID:"));
+        if (java.util.Set.of(BrokenAssociation.TRANSACTION_MISSING,BrokenAssociation.TRANSACTION_OTHER_TENANT,
+                BrokenAssociation.TRANSACTION_DELETED).contains(broken)) {
+            var summary = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+            var entry = adapter.listTimeline(timeline(fixture)).get(0);
+            assertEquals("UNKNOWN",summary.getDecisionState());
+            assertNull(summary.getApprovalResult());
+            assertNull(summary.getAssigneeUserId());
+            assertNull(entry.getActorUserId());
+            assertNull(entry.getApprovalResult());
+        } else {
+            IllegalStateException summaryError = assertThrows(IllegalStateException.class,
+                    () -> adapter.page(query(ApprovalTaskViewType.DONE, false)));
+            IllegalStateException timelineError = assertThrows(IllegalStateException.class,
+                    () -> adapter.listTimeline(timeline(fixture)));
+            String prefix = java.util.Set.of(BrokenAssociation.APPROVER_MISSING,BrokenAssociation.APPROVER_ZERO,
+                    BrokenAssociation.APPROVER_NEGATIVE).contains(broken)
+                    ? "APPROVAL_COMPLETED_ACTOR_INVALID:" : "EDHR_APPROVAL_OUTCOME_INVALID:";
+            assertTrue(summaryError.getMessage().startsWith(prefix));
+            assertTrue(timelineError.getMessage().startsWith(prefix));
+        }
         assertEquals(before, snapshot(), "failed projection must not repair or overwrite the formal source");
         verifyNoInteractions(releaseService);
     }
@@ -162,7 +188,10 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         jdbc.update("UPDATE mes_pro_edhr_release_transaction SET tenant_id = 2 WHERE id = ?", fixture.transaction().getId());
         exposeDone(fixture, false);
         TenantContextHolder.setIgnore(true);
-        assertThrows(IllegalStateException.class, () -> adapter.page(query(ApprovalTaskViewType.DONE, false)));
+        var summary = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+        assertEquals("UNKNOWN",summary.getDecisionState());
+        assertNull(summary.getAssigneeUserId());
+        assertNull(summary.getApprovalResult());
         verifyNoInteractions(releaseService);
     }
 
@@ -171,9 +200,9 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     void incompleteOrWrongProjectedIdentityIsRejected(String field) {
         Fixture fixture = releasedManagerTask();
         switch (field) {
-            case "transaction" -> fixture.summary().setBusinessScopeId(null);
-            case "batch" -> fixture.summary().setBatchExecutionId(null);
-            case "workOrder" -> fixture.summary().setWorkOrderId(null);
+            case "transaction" -> fixture.task().setBusinessScopeId(null);
+            case "batch" -> fixture.task().setBatchExecutionId(null);
+            case "workOrder" -> fixture.task().setWorkOrderId(null);
             default -> throw new AssertionError(field);
         }
         exposeDone(fixture, false);
@@ -195,43 +224,47 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     void pendingManagerSummaryAndTimelineKeepAssignedOwnerWithoutReleasedTransaction(String status) {
         Fixture fixture = releasedManagerTask();
         jdbc.update("DELETE FROM mes_pro_edhr_release_transaction WHERE id = ?", fixture.transaction().getId());
-        fixture.summary().setStatus(status);
-        fixture.task().setStatus(status);
-        when(workTaskService.getApprovalCenterTodoPage(any(), eq(false)))
-                .thenReturn(new PageResult<>(List.of(fixture.summary()), 1L));
-        when(workTaskService.getApprovalCenterCandidateSignatureTodoPage(any(), eq(false)))
-                .thenReturn(new PageResult<>(List.of(), 0L));
-        when(workTaskService.countApprovalCenterTodoDuplicateTasks(any(), eq(false))).thenReturn(0L);
+        fixture.summary().setStatus(status).setCompletedAt(null);
+        fixture.task().setStatus(status).setCompletedAt(null);
+        persistTaskChanges(fixture.task());
+        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(), eq(false), eq(false), anyLong()))
+                .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())), 1L));
         exposeTimeline(fixture);
         assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.TODO, false)).getList().get(0).getAssigneeUserId());
-        assertEquals(OWNER, adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
+        assertNull(adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
         verifyNoInteractions(releaseService);
     }
 
     @Test
-    void ordinaryDoneReviewKeepsExistingActorContractWithoutManagerTransaction() {
+    void ordinaryDoneReviewWithoutFormalReceiptDoesNotBorrowFrozenOwner() {
         Fixture fixture = releasedManagerTask();
         jdbc.update("DELETE FROM mes_pro_edhr_release_transaction WHERE id = ?", fixture.transaction().getId());
         fixture.summary().setTaskType("REVIEW").setBusinessScopeType("BATCH_TASK");
         fixture.task().setTaskType("REVIEW").setBusinessScopeType("BATCH_TASK");
+        persistTaskChanges(fixture.task());
         exposeDone(fixture, false);
-        assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.DONE, false)).getList().get(0).getAssigneeUserId());
-        assertEquals(OWNER, adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
+        var summary = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+        assertEquals("UNKNOWN",summary.getDecisionState());
+        assertNull(summary.getAssigneeUserId());
+        assertNull(summary.getApprovalResult());
+        assertNull(adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
         verifyNoInteractions(releaseService);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"BATCH_EXECUTION", "BATCH_TASK"})
-    void otherReleaseApprovalScopesKeepTheirExistingActorContract(String scopeType) {
+    void incompatibleReleaseApprovalScopesFailWithoutInventingFormalActor(String scopeType) {
         Fixture fixture = releasedManagerTask();
         fixture.summary().setBusinessScopeType(scopeType).setBusinessScopeId(BATCH);
         fixture.task().setBusinessScopeType(scopeType).setBusinessScopeId(BATCH);
-        tasks.updateById(fixture.task());
+        persistTaskChanges(fixture.task());
         jdbc.update("DELETE FROM mes_pro_edhr_release_transaction WHERE id = ?", fixture.transaction().getId());
         exposeDone(fixture, false);
         Snapshot before = snapshot();
-        assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.DONE, false)).getList().get(0).getAssigneeUserId());
-        assertEquals(OWNER, adapter.listTimeline(timeline(fixture)).get(0).getActorUserId());
+        assertTrue(assertThrows(IllegalStateException.class,() -> adapter.page(query(ApprovalTaskViewType.DONE,false)))
+                .getMessage().contains("market task scope invalid"));
+        assertTrue(assertThrows(IllegalStateException.class,() -> adapter.listTimeline(timeline(fixture)))
+                .getMessage().contains("market task scope invalid"));
         assertEquals(scopeType, tasks.selectById(fixture.task().getId()).getBusinessScopeType());
         assertEquals(before, snapshot());
         verifyNoInteractions(releaseService);
@@ -243,11 +276,18 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         jdbc.update("UPDATE mes_pro_edhr_release_transaction SET release_status = 'REJECTED' WHERE id = ?", fixture.transaction().getId());
         fixture.summary().setReason("REJECT:returned");
         fixture.task().setReason("REJECT:returned");
+        persistTaskChanges(fixture.task());
+        jdbc.update("UPDATE mes_pro_edhr_release_decision SET decision_status='REJECTED',release_application_id=NULL WHERE release_transaction_id=?",fixture.transaction().getId());
         exposeDone(fixture, false);
-        assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.DONE, false)).getList().get(0).getAssigneeUserId());
+        var summary = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+        assertNull(summary.getAssigneeUserId());
+        assertNull(summary.getApprovalResult());
+        assertEquals("UNKNOWN",summary.getDecisionState());
+        assertEquals("REJECTED",summary.getBusinessStatus());
         var entry = adapter.listTimeline(timeline(fixture)).get(0);
-        assertEquals(OWNER, entry.getActorUserId());
-        assertEquals("REJECTED", entry.getAction());
+        assertNull(entry.getActorUserId());
+        assertEquals("COMPLETED", entry.getAction());
+        assertNull(entry.getComment());
         verifyNoInteractions(releaseService);
     }
 
@@ -271,7 +311,9 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         assertEquals(decision, summary.getApprovalResult().name());
         var entry = adapter.listTimeline(pqcTimeline(fixture)).get(0);
         assertEquals(9908090346L, entry.getActorUserId());
-        assertEquals("APPROVE".equals(decision) ? "APPROVED" : "REJECTED", entry.getAction());
+        assertEquals(decision, entry.getAction());
+        assertEquals("APPROVE".equals(decision)?"checked and accepted":"returned",summary.getApprovalRemark());
+        assertEquals(summary.getApprovalRemark(),entry.getComment());
         assertEquals("DONE", entry.getStatus());
         assertEquals(before, pqcSnapshot());
         assertEquals(OWNER, tasks.selectById(fixture.task().getId()).getAssigneeUserId());
@@ -295,7 +337,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
             "taskOrder", "taskBatch", "taskReason", "taskTime", "applicationMissing", "applicationTenant", "applicationDeleted",
             "applicationTaskFk", "applicationOrder", "applicationBatch", "applicationActive", "applicationPending", "applicationDecision",
             "applicationActor", "applicationTime", "receiptTask", "receiptActor", "receiptSignature", "receiptBatch",
-            "userMissing", "userTenant", "userDisabled", "userWrongId", "signatureMissing", "signatureOtherActor",
+            "userMissing", "userTenant", "userWrongId", "signatureMissing", "signatureOtherActor",
             "signatureOtherAction", "signatureOtherSubject", "signatureCanonical", "signatureHashMismatch", "signaturePersistedStatus", "signatureAuthentication"})
     void completedPqcProjectionFailsForMissingOrContradictoryFormalEvidence(String broken) {
         var fixture = completedPqc("APPROVE");
@@ -329,24 +371,59 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
             case "receiptBatch" -> changePqcReceipt(appId, "batchExecutionId", BATCH+1);
             case "userMissing" -> when(users.selectOne(any())).thenReturn(null);
             case "userTenant" -> pqcUser(9908090346L, 2L, 0);
-            case "userDisabled" -> pqcUser(9908090346L, 1L, 1);
             case "userWrongId" -> pqcUser(OWNER, 1L, 0);
             case "signatureMissing" -> when(signatures.getById(22006L)).thenReturn(null);
             case "signatureOtherActor" -> pqcSignature(fixture.application(), OWNER, "PQC_RELEASE", false, null);
             case "signatureOtherAction" -> pqcSignature(fixture.application(), 9908090346L, "MARKET_RELEASE", false, null);
             case "signatureOtherSubject" -> pqcSignature(fixture.application(), 9908090346L, "PQC_RELEASE", true, null);
             case "signatureCanonical" -> pqcSignature(fixture.application(), 9908090346L, "PQC_RELEASE", false, "{}");
-            case "signatureHashMismatch" -> when(signatures.verifyEvidence(22006L)).thenReturn(new ElectronicSignatureVerificationDTO(22006L,"MISMATCH","content","different","evidence","evidence","SHA-256","1"));
+            case "signatureHashMismatch" -> {
+                when(signatures.verifyEvidence(22006L)).thenReturn(new ElectronicSignatureVerificationDTO(22006L,"MISMATCH","content","different","evidence","evidence","SHA-256","1",
+                    "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                    "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
+                var strictPort = (cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService)
+                        org.springframework.test.util.ReflectionTestUtils.getField(resolver, "verifiedSignatureFacts");
+                var invalidEvidencePort = org.mockito.Mockito.mock(
+                        cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService.class,
+                        org.mockito.AdditionalAnswers.delegatesTo(strictPort));
+                org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID))
+                        .when(invalidEvidencePort).requireVerifiedFact(22006L);
+                org.springframework.test.util.ReflectionTestUtils.setField(resolver, "verifiedSignatureFacts", invalidEvidencePort);
+            }
             case "signaturePersistedStatus" -> pqcSignature(fixture.application(),9908090346L,"PQC_RELEASE",false,null,"REVOKED","SESSION_PLUS_PASSWORD");
             case "signatureAuthentication" -> pqcSignature(fixture.application(),9908090346L,"PQC_RELEASE",false,null,"VALID","DEVICE_PROFILE");
             default -> throw new AssertionError(broken);
         }
         exposePqc(fixture);
         var before = pqcSnapshot();
-        assertTrue(assertThrows(IllegalStateException.class, () -> adapter.page(query(ApprovalTaskViewType.DONE, false)))
-                .getMessage().startsWith("APPROVAL_COMPLETED_ACTOR_INVALID:"));
-        assertTrue(assertThrows(IllegalStateException.class, () -> adapter.listTimeline(pqcTimeline(fixture)))
-                .getMessage().startsWith("APPROVAL_COMPLETED_ACTOR_INVALID:"));
+        if (java.util.Set.of("applicationMissing","applicationTenant","applicationDeleted","applicationDecision").contains(broken)) {
+            var summary = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+            var entry = adapter.listTimeline(pqcTimeline(fixture)).get(0);
+            assertEquals("applicationDecision".equals(broken)?"UNSUPPORTED":"UNKNOWN",summary.getDecisionState());
+            if ("applicationDecision".equals(broken)) assertEquals("NONCONFORMANCE_REWORK",summary.getDecisionSourceStatus());
+            assertNull(summary.getApprovalResult());
+            assertNull(summary.getAssigneeUserId());
+            assertNull(entry.getActorUserId());
+            assertNull(entry.getComment());
+        } else {
+            var summaryFailure = assertThrows(IllegalStateException.class, () -> adapter.page(query(ApprovalTaskViewType.DONE,false)));
+            var timelineFailure = assertThrows(IllegalStateException.class, () -> adapter.listTimeline(pqcTimeline(fixture)));
+            String prefix = broken.startsWith("task") || java.util.Set.of("applicationTaskFk","applicationOrder","applicationActive").contains(broken)
+                    ? "EDHR_APPROVAL_OUTCOME_INVALID:" : "APPROVAL_COMPLETED_ACTOR_INVALID:";
+            assertTrue(summaryFailure.getMessage().startsWith(prefix),summaryFailure.getMessage());
+            assertTrue(timelineFailure.getMessage().startsWith(prefix),timelineFailure.getMessage());
+            if ("signatureHashMismatch".equals(broken)) {
+                var summaryCause = assertInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class, summaryFailure.getCause());
+                var timelineCause = assertInstanceOf(cn.iocoder.yudao.framework.common.exception.ServiceException.class, timelineFailure.getCause());
+                assertEquals(cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID.getCode(), summaryCause.getCode());
+                assertEquals(cn.iocoder.yudao.module.signature.enums.SignatureErrorCodeConstants.ESIGN_COMMAND_INVALID.getCode(), timelineCause.getCode());
+            }
+            if ("signatureCanonical".equals(broken)) {
+                assertInstanceOf(IllegalArgumentException.class, summaryFailure.getCause());
+                assertInstanceOf(IllegalArgumentException.class, timelineFailure.getCause());
+            }
+        }
         assertEquals(before, pqcSnapshot(), "invalid read cannot repair task ownership or official decision evidence");
         verifyNoInteractions(releaseService);
     }
@@ -356,7 +433,10 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         var fixture = completedPqc("APPROVE");
         jdbc.update("UPDATE mes_pro_process_pool_active_order_release_application SET tenant_id=2 WHERE id=?", fixture.application().getId());
         exposePqc(fixture); TenantContextHolder.setIgnore(true);
-        assertThrows(IllegalStateException.class, () -> adapter.listTimeline(pqcTimeline(fixture)));
+        var entry = adapter.listTimeline(pqcTimeline(fixture)).get(0);
+        assertEquals("UNKNOWN",entry.getDecisionState());
+        assertNull(entry.getActorUserId());
+        assertNull(entry.getApprovalResult());
     }
 
     @ParameterizedTest
@@ -381,13 +461,15 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     @Test
     void pendingPqcStillUsesFrozenResponsibilityWithoutReadingCompletedDecisionEvidence() {
         var fixture = completedPqc("APPROVE");
-        fixture.summary().setStatus("TODO"); fixture.task().setStatus("TODO");
-        when(workTaskService.getApprovalCenterTodoPage(any(), eq(false))).thenReturn(new PageResult<>(List.of(fixture.summary()),1L));
-        when(workTaskService.getApprovalCenterCandidateSignatureTodoPage(any(), eq(false))).thenReturn(new PageResult<>(List.of(),0L));
+        fixture.summary().setStatus("TODO").setCompletedAt(null);
+        fixture.task().setStatus("TODO").setCompletedAt(null);
+        persistTaskChanges(fixture.task());
+        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(),eq(false),eq(false),anyLong()))
+                .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())),1L));
         when(workTaskService.getApprovalCenterTimelineTasks(fixture.task().getId(),null,false)).thenReturn(List.of(fixture.task()));
         org.mockito.Mockito.clearInvocations(signatures,users);
         assertEquals(OWNER, adapter.page(query(ApprovalTaskViewType.TODO,false)).getList().get(0).getAssigneeUserId());
-        assertEquals(OWNER, adapter.listTimeline(pqcTimeline(fixture)).get(0).getActorUserId());
+        assertNull(adapter.listTimeline(pqcTimeline(fixture)).get(0).getActorUserId());
         verifyNoInteractions(signatures,users,releaseService);
     }
 
@@ -396,11 +478,11 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     void incompletePqcSummaryCannotUseOriginalAssignedOwner(String field) {
         var fixture = completedPqc("APPROVE");
         switch (field) {
-            case "application" -> fixture.summary().setBusinessScopeId(null);
-            case "scope" -> fixture.summary().setBusinessScopeType(null);
-            case "workOrder" -> fixture.summary().setWorkOrderId(null);
-            case "decision" -> fixture.summary().setReason(null);
-            case "completedAt" -> fixture.summary().setCompletedAt(null);
+            case "application" -> fixture.task().setBusinessScopeId(null);
+            case "scope" -> fixture.task().setBusinessScopeType(null);
+            case "workOrder" -> fixture.task().setWorkOrderId(null);
+            case "decision" -> fixture.task().setReason(null);
+            case "completedAt" -> fixture.task().setCompletedAt(null);
             default -> throw new AssertionError(field);
         }
         exposePqc(fixture);
@@ -411,6 +493,23 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     void missingTenantCannotProjectAssignedOwnerForCompletedPqcDecision() {
         var fixture = completedPqc("APPROVE"); exposePqc(fixture); TenantContextHolder.clear();
         assertThrows(RuntimeException.class, () -> adapter.page(query(ApprovalTaskViewType.DONE,false)));
+    }
+
+    @ParameterizedTest @ValueSource(strings={"APPROVE","REJECT"})
+    void disabledHistoricalPqcSignerKeepsVerifiedListAndTimelineFacts(String decision) {
+        var fixture = completedPqc(decision);
+        pqcUser(9908090346L,1L,1);
+        exposePqc(fixture);
+        var row = adapter.page(query(ApprovalTaskViewType.DONE,false)).getList().get(0);
+        var entry = adapter.listTimeline(pqcTimeline(fixture)).get(0);
+        assertEquals(decision,row.getApprovalResult().name());
+        assertEquals(9908090346L,row.getDecisionActorUserId());
+        assertEquals(9908090346L,row.getTaskCompletedByUserId());
+        assertEquals(row.getDecisionActorUserId(),entry.getDecisionActorUserId());
+        assertEquals(row.getTaskCompletedByUserId(),entry.getActorUserId());
+        assertEquals(row.getApprovalRemark(),entry.getComment());
+        assertEquals(OWNER,tasks.selectById(fixture.task().getId()).getAssigneeUserId());
+        verifyNoInteractions(releaseService);
     }
 
     private void changePqcReceipt(Long applicationId, String field, Object value) {
@@ -434,6 +533,7 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
                 .setAssigneeUserId(OWNER).setCandidateUserSnapshot("1,9908090346,9908090348").setStatus("DONE")
                 .setCompletedAt(time).setReason(decision).setActionUrl("/mes/production-release/pqc?applicationId="+application.getId());
         tasks.insert(task); jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id=1 WHERE id=?",task.getId());
+        task = tasks.selectById(task.getId());
         application.setPqcReleaseWorkTaskId(task.getId());
         var receipt = new cn.iocoder.yudao.module.mes.service.pro.productionrelease.pqc.MesPqcProductionReleaseDecisionResult()
                 .setApplicationId(application.getId()).setPqcReleaseWorkTaskId(task.getId()).setDecision(decision)
@@ -464,17 +564,28 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
         String subject = MesBatchRecordSignatureSubjectAdapter.encodeSubjectId(application.getBatchExecutionId(),action,
                 null,null,null,null,null,null,null,"PQC_RELEASE_APPLICATION",application.getId()+(wrongApplication?1:0),
                 "PQC生产放行","PQC_RELEASE",null,null,null,null);
+        if ("PQC_RELEASE".equals(action)) {
+            subject = MesBatchRecordSignatureSubjectAdapter.withOpinionSource(subject, "checked and accepted");
+        }
         String version = MesProBatchRecordExecutionFieldAuditHasher.sha256(subject);
         String canonical = overriddenCanonical == null ? new MesBatchRecordSignatureSubjectAdapter().loadAndAuthorize(new SignatureSubjectCommand(
                 actor,"MES",action,"MES_BATCH_RECORD",subject,version,"checked and accepted")).canonicalContentJson() : overriddenCanonical;
+        if (overriddenCanonical == null) {
+            var business = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(canonical);
+            business.put("reason", "checked and accepted");
+            canonical = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(business);
+        }
         when(signatures.getById(22006L)).thenReturn(new ElectronicSignatureEvidenceDTO(22006L,"MES",action,"MES_BATCH_RECORD",subject,
                 version,actor,action,"PQC生产放行","checked and accepted",application.getPqcDecidedAt(),null,authentication,
                 "content","evidence","SHA-256","1","1",persistedStatus,null,null,null,null,canonical,null,null,null,"PQC decider"));
-        when(signatures.verifyEvidence(22006L)).thenReturn(new ElectronicSignatureVerificationDTO(22006L,"VALID","content","content","evidence","evidence","SHA-256","1"));
+        when(signatures.verifyEvidence(22006L)).thenReturn(new ElectronicSignatureVerificationDTO(22006L,"VALID","content","content","evidence","evidence","SHA-256","1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
     }
 
     private void exposePqc(PqcFixture fixture) {
-        when(workTaskService.getApprovalCenterDonePage(any(),eq(false))).thenReturn(new PageResult<>(List.of(fixture.summary()),1L));
+        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(),eq(false),eq(true),anyLong()))
+                .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())),1L));
         when(workTaskService.getApprovalCenterTimelineTasks(fixture.task().getId(),null,false)).thenReturn(List.of(fixture.task()));
     }
 
@@ -520,6 +631,26 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
                 .setCompletedAt(completedAt).setReason("APPROVE:release accepted").setActionUrl("/market-release");
         tasks.insert(task);
         jdbc.update("UPDATE mes_pro_edhr_work_task SET tenant_id = 1 WHERE id = ?", task.getId());
+        task = tasks.selectById(task.getId());
+        var application = new MesProcessPoolActiveOrderReleaseApplicationDO().setActiveOrderId(414L).setWorkOrderId(WORK_ORDER)
+                .setRouteId(980091L).setRouteVersionId(749L).setBatchExecutionId(BATCH).setApplicationStatus("RELEASED")
+                .setReleaseApprovalWorkTaskId(task.getId()).setReleaseTransactionId(transaction.getId())
+                .setSourceSnapshotHash("source").setRequestIdempotencyKey("manager-completed-request")
+                .setBusinessIdempotencyKey("manager-completed-business");
+        application.setTenantId(1L);
+        applications.insert(application);
+        var decision = new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseDecisionDO()
+                .setReleaseTransactionId(transaction.getId()).setReleaseApplicationId(application.getId())
+                .setBatchExecutionId(BATCH).setWorkOrderId(WORK_ORDER).setActiveOrderId(414L).setDecisionStatus("RELEASED")
+                .setActorUserId(SIGNER).setDecidedAt(completedAt).setApprovalOpinion("release accepted")
+                .setIdempotencyKey("manager-completed-"+transaction.getId()).setPayloadHash("fixture-payload")
+                .setAuditSnapshotJson("{}");
+        decisions.insert(decision);
+        jdbc.update("UPDATE mes_pro_edhr_release_decision SET tenant_id=1 WHERE id=?",decision.getId());
+        transaction.setReleaseDecisionId(decision.getId()).setApprovalSignatureId(22007L)
+                .setApprovalSignoffEvidenceHash("manager-evidence").setApprovalOpinion("release accepted");
+        transactions.updateById(transaction);
+        managerSignature(task,completedAt);
         var summary = new MesProEdhrWorkTaskRespVO().setId(task.getId()).setTaskCode(task.getTaskCode())
                 .setTaskType(task.getTaskType()).setBusinessScopeType(task.getBusinessScopeType())
                 .setBusinessScopeId(task.getBusinessScopeId()).setBatchExecutionId(BATCH).setWorkOrderId(WORK_ORDER)
@@ -529,14 +660,43 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     }
 
     private void exposeDone(Fixture fixture, boolean globalView) {
-        when(workTaskService.getApprovalCenterDonePage(any(), eq(globalView)))
-                .thenReturn(new PageResult<>(List.of(fixture.summary()), 1L));
+        when(workTaskService.getApprovalCenterAuthorizedPrefix(any(), eq(globalView), eq(true), anyLong()))
+                .thenReturn(new PageResult<>(List.of(new MesEdhrAuthorizedTaskProjection(fixture.task(),fixture.summary())), 1L));
         exposeTimeline(fixture);
     }
 
     private void exposeTimeline(Fixture fixture) {
         when(workTaskService.getApprovalCenterTimelineTasks(fixture.task().getId(), null, false))
                 .thenReturn(List.of(fixture.task()));
+    }
+
+    private void persistTaskChanges(MesProEdhrWorkTaskDO task) {
+        tasks.updateById(task);
+        if (task.getCompletedAt() == null) {
+            jdbc.update("UPDATE mes_pro_edhr_work_task SET completed_at=NULL WHERE id=?", task.getId());
+        }
+        task.setUpdateTime(tasks.selectById(task.getId()).getUpdateTime());
+    }
+
+    private void managerSignature(MesProEdhrWorkTaskDO task,LocalDateTime signedAt) {
+        String imageHash = "a".repeat(64);
+        String id = task.getId().toString();
+        String subject = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                ("EDHR\nEDHR_WORK_TASK\n"+id+"\n"+id+"\n\n"+imageHash).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String canonical = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(Map.of(
+                "adapter","BPM_APPROVAL","moduleCode","EDHR","sourceTaskType","EDHR_WORK_TASK",
+                "sourceTaskId",id,"businessKey",id,"processInstanceId","","reviewResult","APPROVE",
+                "reason","release accepted","signatureImagePayloadHash",imageHash));
+        var signature = new ElectronicSignatureEvidenceDTO(22007L,"BPM","APPROVE","BPM_APPROVAL_TASK",subject,
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject),SIGNER,"APPROVE","批准","release accepted",signedAt,
+                "time","SESSION_PLUS_PASSWORD","manager-content","manager-evidence","SHA-256","key","v1","VALID",
+                "",id,"node",1,canonical,null,null,null,"manager actor");
+        when(signatures.getById(22007L)).thenReturn(signature);
+        when(signatures.listBySubject("BPM","BPM_APPROVAL_TASK",subject)).thenReturn(List.of(signature));
+        when(signatures.verifyEvidence(22007L)).thenReturn(new ElectronicSignatureVerificationDTO(
+                22007L,"VALID","manager-content","manager-content","manager-evidence","manager-evidence","SHA-256","v1",
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
     }
 
     private ApprovalTaskQueryContext query(ApprovalTaskViewType viewType, boolean globalView) {
@@ -549,8 +709,10 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     }
 
     private Snapshot snapshot() {
-        return new Snapshot(jdbc.queryForList("SELECT * FROM mes_pro_edhr_work_task ORDER BY id"),
-                jdbc.queryForList("SELECT * FROM mes_pro_edhr_release_transaction ORDER BY id"));
+        return new Snapshot(snapshotRows("SELECT * FROM mes_pro_edhr_work_task ORDER BY id"),
+                snapshotRows("SELECT * FROM mes_pro_edhr_release_transaction ORDER BY id"),
+                snapshotRows("SELECT * FROM mes_pro_edhr_release_decision ORDER BY id"),
+                snapshotRows("SELECT * FROM mes_pro_process_pool_active_order_release_application ORDER BY id"));
     }
 
     private enum BrokenAssociation {
@@ -564,5 +726,6 @@ class MesProEdhrApprovalTaskAdapterDoneActorProjectionTest extends BaseDbUnitTes
     private record Fixture(MesProEdhrReleaseTransactionDO transaction, MesProEdhrWorkTaskDO task,
                            MesProEdhrWorkTaskRespVO summary) { }
 
-    private record Snapshot(List<Map<String, Object>> tasks, List<Map<String, Object>> transactions) { }
+    private record Snapshot(List<Map<String, Object>> tasks, List<Map<String, Object>> transactions,
+                            List<Map<String, Object>> decisions, List<Map<String, Object>> applications) { }
 }

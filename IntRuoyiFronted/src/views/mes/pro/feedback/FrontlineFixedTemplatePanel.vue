@@ -1220,11 +1220,14 @@
             </div>
           </section>
 
+          <el-alert v-if="productionSubmitReadPending" title="生产提交已成功，当前工序结果尚未读取完成。请重试读取，勿再次提交。" type="warning" :closable="false">
+            <el-button :loading="payloadLoading" @click="retryProductionSubmitRead">重试读取结果</el-button>
+          </el-alert>
           <footer class="frontline-production-submit-bar bottom">
             <button
               class="frontline-production-reset-button minor-btn"
               type="button"
-              :disabled="payloadLoading || productionSubmitSuccessOpen"
+              :disabled="payloadLoading || productionSubmitSuccessOpen || productionSubmitReadPending || productionSubmitWritePending"
               @click="handleResetProduction"
             >
               重填
@@ -1281,6 +1284,7 @@
             @keydown.enter.prevent="confirmProductionFormalSubmitConfirmation"
           />
         </label>
+        <button v-if="deviceState.selectedEmployee && !deviceState.selectedEmployee.systemUserId" type="button" :disabled="payloadLoading" @click="changeSelectedEmployeeSignaturePassword">员工设置签名密码</button>
         <div class="frontline-production-submit-confirmation-actions">
           <button
             type="button"
@@ -1457,6 +1461,12 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessageBox } from 'element-plus'
+import { changeEmployeeSignaturePassword, getEmployeeSignatureQualification } from '@/api/mes/pro/employeeSignatureCredential'
+import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
+import { createFormalActionGuard, createFormalWriteReceiptState } from '@/store/modules/approvalCenterInvalidationState'
+import { cloneDeep } from 'lodash-es'
+const approvalInvalidation = useApprovalCenterInvalidationStore()
 import FrontlineReturnCorrectionPanel from './FrontlineReturnCorrectionPanel.vue'
 const returnCorrectionPanel = ref<InstanceType<typeof FrontlineReturnCorrectionPanel>>()
 import { isAxiosError } from 'axios'
@@ -1852,6 +1862,16 @@ const clearFrontlineError = () => {
 }
 const productionFormalSubmitConfirmationText = ref('')
 const productionSignaturePassword = ref('')
+const changeSelectedEmployeeSignaturePassword = async () => {
+  if (deviceState.selectedEmployee?.systemUserId || !context.actualEmployeeId || !deviceState.selectedActiveOrder?.activeOrderId || !context.routeId || !context.routeProcessId || !context.processId) throw new Error('缺少当前员工的正式生产范围')
+  const scope = { activeOrderId: deviceState.selectedActiveOrder.activeOrderId, routeId: context.routeId, routeProcessId: context.routeProcessId, processId: context.processId, employeeProfileId: context.actualEmployeeId, identityDomain: 'MES_EMPLOYEE_PROFILE' as const }
+  productionSignaturePassword.value = ''
+  await getEmployeeSignatureQualification(scope)
+  const old = await ElMessageBox.prompt('请输入员工当前签名密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '当前密码不能为空' })
+  const next = await ElMessageBox.prompt('请输入符合密码强度要求的新密码', '员工设置签名密码', { inputType: 'password', inputPattern: /\S+/, inputErrorMessage: '新密码不能为空' })
+  const confirmed = await changeEmployeeSignaturePassword({ ...scope, currentPassword: old.value, newPassword: next.value })
+  if (confirmed !== true) throw new Error('签名密码变更未获得正式确认')
+}
 const createProductionSubmitDraftKey = () =>
   `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 const FRONTLINE_PRODUCTION_IDEMPOTENCY_KEY_MAX_LENGTH = 128
@@ -2350,8 +2370,77 @@ const templateBindingMissing = computed(() =>
   Boolean(deviceState.selectedEmployee && !employeeTemplateCode.value)
 )
 
+const productionSubmitContextKey = () => JSON.stringify([
+  approvalInvalidation.syncSession().key,
+  deviceState.selectedActiveOrder?.activeOrderId,
+  isFrontlineProductionProcess(deviceState.selectedProcess) ? deviceState.selectedProcess.routeProcessId : undefined,
+  isFrontlineProductionProcess(deviceState.selectedProcess) ? deviceState.selectedProcess.processId : undefined,
+  deviceState.selectedEmployee?.userId, Boolean(deviceState.selectedEmployee?.systemUserId)
+])
+const productionActionContextKey = () => JSON.stringify([productionSubmitContextKey(), route.fullPath])
+const productionSubmitGuard = createFormalActionGuard(productionActionContextKey)
+const productionActionInProgress = ref(false)
+const productionSubmitReceipts = createFormalWriteReceiptState<{ finish: () => void }>()
+const productionSubmitReceiptRevision = ref(0)
+const productionSubmitReadPending = computed(() => {
+  void productionSubmitReceiptRevision.value
+  return productionSubmitReceipts.has(productionSubmitContextKey())
+})
+const productionSubmitWritePending = computed(() => {
+  void productionSubmitReceiptRevision.value
+  return productionSubmitReceipts.isWriting(productionSubmitContextKey())
+})
+watch(productionActionContextKey, () => {
+  productionSubmitGuard.invalidate()
+  if (productionActionInProgress.value) payloadLoading.value = false
+  productionActionInProgress.value = false
+  if (submitConfirmationOpen.value) resolveProductionFormalSubmitConfirmation(false)
+  productionSubmitSuccessOpen.value = false
+  productionSignaturePassword.value = ''
+}, { flush: 'sync' })
+onBeforeUnmount(() => productionSubmitGuard.invalidate())
+onDeactivated(() => { productionSubmitGuard.invalidate(); if (productionActionInProgress.value) payloadLoading.value = false; productionActionInProgress.value = false; if (submitConfirmationOpen.value) resolveProductionFormalSubmitConfirmation(false) })
+
+const pqcSubmitContextKey = () => {
+  const process = deviceState.selectedProcess
+  return JSON.stringify([
+    approvalInvalidation.syncSession().key, route.fullPath, isPqcMode.value,
+    deviceState.selectedActiveOrder?.activeOrderId, deviceState.selectedActiveOrder?.workOrderId,
+    context.workOrderId, context.routeId, context.routeProcessId, context.processId, context.actualEmployeeId,
+    deviceState.selectedEmployee?.userId, deviceState.selectedEmployee?.systemUserId,
+    deviceState.selectedEmployee?.employeeProfileId,
+    activePqcTaskOptionId.value, selectedPqcInspectionRuleKey.value,
+    isFrontlinePqcProcess(process) ? [process.activeOrderId, process.routeId, process.qaProcessId,
+      process.pqcTaskOptions.map((option) => [option.pqcTaskId, option.regulationVersionId,
+        option.qaProcessId, option.taskStatus, option.inspectionRuleKey, option.inspectionType, option.businessDate,
+        option.shiftCode, option.roundNo, option.plannedInspectionQuantity, option.inspectionTypeRule,
+        option.inspectionItems])] : undefined
+  ])
+}
+const pqcSubmitGuard = createFormalActionGuard(pqcSubmitContextKey)
+const pqcActionInProgress = ref(false)
+const pqcMethodWrites = new Set<string>()
+const pqcMethodReceipts = new Map<string, FrontlinePqcInspectionSubmitRespVO>()
+const pqcUncertainMethods = new Set<string>()
+const pqcMethodKey = (sessionKey: string, payload: FrontlinePqcInspectionSubmitReqVO) =>
+  JSON.stringify([sessionKey, payload.activeOrderId, payload.pqcTaskId])
+const invalidatePqcSubmitContext = () => {
+  pqcSubmitGuard.invalidate()
+  if (pqcActionInProgress.value) payloadLoading.value = false
+  pqcActionInProgress.value = false
+  pqcSignaturePassword.value = ''
+  pqcSignatureDialogVisible.value = false
+  // Completed and uncertain writes belong to their original formal task, not the current UI.
+  pqcSubmitResultUncertain.value = false
+}
+watch(pqcSubmitContextKey, invalidatePqcSubmitContext, { flush: 'sync' })
+onBeforeUnmount(invalidatePqcSubmitContext)
+onDeactivated(invalidatePqcSubmitContext)
+
 const isSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  productionSubmitReadPending.value ||
+  productionSubmitWritePending.value ||
   hasReturnNotification.value ||
   isInitialHandoffBlocked.value ||
   submitConfirmationOpen.value ||
@@ -2833,6 +2922,15 @@ const isProductionMaterialCompletionEntered = (materialKey: string) =>
     : productionMaterialDrafts[materialKey]?.outputQuantity !== undefined
 
 const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) => {
+  const duplicatedName = configuredProductionMaterials.value.filter(
+    (candidate) => candidate.materialName === material.materialName
+  ).length > 1
+  if (duplicatedName && !material.materialCode?.trim()) {
+    throw new Error('同名输出物料缺少正式物料编码，不能区分填写页签')
+  }
+  const materialLabel = duplicatedName
+    ? `${material.materialName} / ${material.materialCode}`
+    : material.materialName
   const materialDraft = material.key === selectedProductionMaterialKey.value
     ? {
         outputQuantity: productionDraft.outputQuantity,
@@ -2841,11 +2939,11 @@ const formatProductionMaterialTabLabel = (material: ProductionMaterialOption) =>
     : productionMaterialDrafts[material.key]
   const outputQuantity = materialDraft?.outputQuantity
   if (outputQuantity === undefined) {
-    return material.materialName
+    return materialLabel
   }
   const lossQuantity = Object.values(materialDraft.defectQuantities)
     .reduce((total, quantity) => total + quantity, 0)
-  return `${material.materialName}(${outputQuantity}/${lossQuantity})`
+  return `${materialLabel}(${outputQuantity}/${lossQuantity})`
 }
 
 const activeProductionDevice = computed(() =>
@@ -3414,6 +3512,7 @@ const resetProductionSubmissionDraft = () => {
 }
 
 const handleResetProduction = () => {
+  if (productionSubmitReadPending.value || productionSubmitWritePending.value || payloadLoading.value) return
   resetProductionSubmissionDraft()
 }
 
@@ -4942,18 +5041,9 @@ const assertProductionSubmissionReady = (): ProFrontlineFeedbackMaterialReqVO[] 
     if (invalidCompletionMaterials.length) {
       throw new Error(`完成数量必须大于 0：${invalidCompletionMaterials.map((material) => material.materialName).join('、')}`)
     }
-    const invalidLossMaterials = materialDetails.filter(
-      (material) => material.lossQuantity > material.outputQuantity
-    )
-    if (invalidLossMaterials.length) {
-      throw new Error(`损耗数量不能大于完成数量：${invalidLossMaterials.map((material) => material.materialName).join('、')}`)
-    }
   } else {
     if (productionDraft.outputQuantity === undefined || productionDraft.outputQuantity <= 0) {
       throw new Error('请填写完成数量：工序输出数量必须大于 0')
-    }
-    if (productionScrapQuantity.value > productionDraft.outputQuantity) {
-      throw new Error('损耗数量不能大于完成数量')
     }
   }
   const meteringValidityByDevice = new Map<number, boolean>()
@@ -5009,14 +5099,10 @@ const buildProductionFormalSubmitConfirmation = (
       : ''
     return `${reading.deviceCode || reading.deviceName || reading.deviceId}/${reading.parameterName || reading.parameterCode}=${value}${reading.unit || ''}${statusLabel}`
   }).join('、')
-  const totalCompletionQuantity = materialDetails.reduce(
-    (total, material) => total + material.outputQuantity,
-    0
-  )
-  const totalLossQuantity = materialDetails.reduce(
-    (total, material) => total + material.lossQuantity,
-    0
-  )
+  const totalCompletionQuantity = materialDetails.length > 0
+    ? materialDetails.reduce((total, material) => total + material.outputQuantity, 0)
+    : progressQuantity
+  const totalLossQuantity = resolveProductionLossQuantity(materialDetails)
   const clearanceSummary = buildProductionClearanceConfirmationPayload()
     .map((confirmation) => `${confirmation.label}=${confirmation.confirmed ? '是' : '否'}`)
     .join('、')
@@ -5028,6 +5114,7 @@ const buildProductionFormalSubmitConfirmation = (
     `工序进度：${progressQuantity}件`,
     `完成数量合计：${totalCompletionQuantity}件`,
     `损耗数量合计：${totalLossQuantity}件`,
+    '完成数量为合格产出，损耗另计。',
     `设备：${deviceSummary}`,
     `设备参数：${parameterSummary || (selectedDevices.length ? '无数值参数' : '无设备参数')}`,
     `清场确认：${clearanceSummary}`,
@@ -5088,7 +5175,8 @@ const closeProductionSubmitSuccessDialog = () => {
   productionSubmitSuccessOpen.value = false
 }
 
-const refreshProductionSelectedProcessSubmittedQuantity = async () => {
+const refreshProductionSelectedProcessSubmittedQuantity = async (isCurrent: () => boolean = () => true) => {
+  if (!isCurrent()) return false
   const selectedActiveOrder = deviceState.selectedActiveOrder
   const selectedProcess = deviceState.selectedProcess
   if (!selectedActiveOrder || !isFrontlineProductionProcess(selectedProcess)) {
@@ -5098,8 +5186,10 @@ const refreshProductionSelectedProcessSubmittedQuantity = async () => {
   deviceState.lastError = undefined
   try {
     const processes = await ProFeedbackApi.getFrontlineProductionActiveOrderProcesses(
-      selectedActiveOrder.activeOrderId
+      selectedActiveOrder.activeOrderId,
+      { isRequestContextCurrent: isCurrent }
     )
+    if (!isCurrent()) return false
     if (processes.some((process) => process.activeOrderId !== selectedActiveOrder.activeOrderId)) {
       throw new Error('生产工单刷新返回了不属于当前活跃订单的工序。')
     }
@@ -5112,13 +5202,32 @@ const refreshProductionSelectedProcessSubmittedQuantity = async () => {
     deviceState.productionProcessOptions = processes
     deviceState.processOptions = processes
     deviceState.selectedProcess = refreshedProcess
+    return true
   } catch (error) {
+    if (!isCurrent()) return false
     const messageText = `报工已成功，但当前工序已提交数量刷新失败：${resolveErrorMessage(error)}。请刷新页面或联系组长核对后再操作。`
     deviceState.lastError = messageText
     throw new Error(messageText)
   } finally {
-    deviceState.loadingProcesses = false
+    if (isCurrent()) deviceState.loadingProcesses = false
   }
+}
+
+const retryProductionSubmitRead = async () => {
+  if (payloadLoading.value || !productionSubmitReadPending.value) return
+  const key = productionSubmitContextKey()
+  const receipt = productionSubmitReceipts.get(key)!
+  const isCurrent = productionSubmitGuard.capture()
+  productionActionInProgress.value = true
+  payloadLoading.value = true
+  try {
+    if (!(await refreshProductionSelectedProcessSubmittedQuantity(isCurrent)) || !isCurrent()) return
+    receipt.finish()
+    productionSubmitReceipts.reconcile(key)
+    productionSubmitReceiptRevision.value++
+  } catch (error) {
+    if (isCurrent()) showFrontlineError(`生产提交已成功，结果读取失败：${resolveErrorMessage(error)}`)
+  } finally { if (isCurrent()) { payloadLoading.value = false; productionActionInProgress.value = false } }
 }
 
 const handleProductionFormalSubmit = async () => {
@@ -5128,11 +5237,18 @@ const handleProductionFormalSubmit = async () => {
   }
   if (
     payloadLoading.value ||
+    productionSubmitReadPending.value ||
+    productionSubmitReceipts.isWriting(productionSubmitContextKey()) ||
     submitConfirmationOpen.value ||
     productionSubmitSuccessOpen.value
   ) {
     return
   }
+  productionActionInProgress.value = true
+  let writeSucceeded = false
+  let writeStarted = false
+  const key = productionSubmitContextKey()
+  const isCurrent = productionSubmitGuard.capture()
   try {
     const materialDetails = assertProductionSubmissionReady()
     Object.assign(draft.fieldValues, buildProductionFieldValues(materialDetails))
@@ -5141,7 +5257,7 @@ const handleProductionFormalSubmit = async () => {
     const confirmed = await requestProductionFormalSubmitConfirmation(
       buildProductionFormalSubmitConfirmation(materialDetails)
     )
-    if (!confirmed) {
+    if (!confirmed || !isCurrent()) {
       return
     }
     assertFormalPayloadContext()
@@ -5153,24 +5269,35 @@ const handleProductionFormalSubmit = async () => {
       }
     })()
 
+    if (!productionSubmitReceipts.begin(key)) return
+    writeStarted = true
+    productionSubmitReceiptRevision.value++
     payloadLoading.value = true
-    const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload)
-    await refreshProductionSelectedProcessSubmittedQuantity()
-    try {
-      rememberProductionMaterialDeviceDrafts(materialDetails)
-    } catch (memoryError) {
-      message.warning(
-        `报工已成功，但默认设备和参数记忆保存失败：${resolveErrorMessage(memoryError)}`
-      )
+    const approvalEvent = approvalInvalidation.captureHandoffSourceSuccess('ACTIVE_ORDER', formalPayload.processPoolContext.activeOrderId)
+    const submitResult = await ProFeedbackApi.frontlineSubmit(formalPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvent.session.key) })
+    approvalInvalidation.publishEdhrSuccess(approvalEvent)
+    writeSucceeded = true
+    const finish = () => {
+      try { rememberProductionMaterialDeviceDrafts(materialDetails) }
+      catch (memoryError) { message.warning(`报工已成功，但默认设备和参数记忆保存失败：${resolveErrorMessage(memoryError)}`) }
+      resetProductionSubmissionDraft()
+      openProductionSubmitSuccessDialog()
+      showParameterAuditWarning(submitResult)
+      clearFrontlineError()
     }
-    resetProductionSubmissionDraft()
-    openProductionSubmitSuccessDialog()
-    showParameterAuditWarning(submitResult)
-    clearFrontlineError()
+    productionSubmitReceipts.complete(key, { finish })
+    productionSubmitReceiptRevision.value++
+    if (!isCurrent()) return
+    if (!(await refreshProductionSelectedProcessSubmittedQuantity(isCurrent)) || !isCurrent()) return
+    finish()
+    productionSubmitReceipts.reconcile(key)
+    productionSubmitReceiptRevision.value++
   } catch (error) {
-    showFrontlineError(error)
+    if (isCurrent()) showFrontlineError(writeSucceeded ? `生产提交已成功，但结果或列表刷新失败：${resolveErrorMessage(error)}` : error)
   } finally {
-    payloadLoading.value = false
+    if (writeStarted) productionSubmitReceipts.settle(key)
+    productionSubmitReceiptRevision.value++
+    if (isCurrent()) { payloadLoading.value = false; productionActionInProgress.value = false }
   }
 }
 
@@ -5269,19 +5396,22 @@ const closePqcSignatureDialog = () => {
 
 const recoverPqcSubmitReceiptAfterUncertainError = async (
   submitError: unknown,
-  pqcTaskId: number
+  pqcTaskId: number,
+  methodKey: string,
+  isCurrent: () => boolean
 ) => {
   if (!isAxiosError(submitError) || submitError.response ||
     !['ECONNABORTED', 'ETIMEDOUT'].includes(submitError.code || '')) {
     return false
   }
+  // A persisted task receipt cannot prove the identity of this attempted payload.
+  pqcUncertainMethods.add(methodKey)
+  if (!isCurrent()) return true
   pqcSubmitResultUncertain.value = true
   pqcSignatureDialogVisible.value = false
   try {
-    const recoveredReceipt = await ProFeedbackApi.getFrontlinePqcSubmitReceipt({
-      pqcTaskId
-    })
-    // A task receipt (including its server hash) cannot identify this attempted payload.
+    const recoveredReceipt = await ProFeedbackApi.getFrontlinePqcSubmitReceipt({ pqcTaskId }, { isRequestContextCurrent: isCurrent })
+    if (!isCurrent()) return true
     const receiptStatus = recoveredReceipt
       ? `查到任务历史回执（事件编号 ${recoveredReceipt.pqcEventId}），但无法确认其对应本次提交内容`
       : '暂未查到任务回执，仍无法确认本次提交是否已完成'
@@ -5290,6 +5420,7 @@ const recoverPqcSubmitReceiptAfterUncertainError = async (
       '请联系组长核对后再操作。'
     )
   } catch (confirmationError) {
+    if (!isCurrent()) return true
     showFrontlineError(
       `PQC正式提交结果不确定，状态确认失败：${resolveErrorMessage(confirmationError)}；` +
       `原始提交错误：${resolveErrorMessage(submitError)}。请刷新页面或联系组长核对后再操作。`
@@ -5307,45 +5438,65 @@ const handleConfirmPqcSubmit = async () => {
     showFrontlineError('交接任务已失效或与当前活跃周期不一致，请从本人通知或待办重新进入。')
     return
   }
-  if (payloadLoading.value || pqcSubmitResultUncertain.value) {
-    return
-  }
+  if (payloadLoading.value || pqcSubmitResultUncertain.value) return
   if (!pqcSignaturePassword.value.trim()) {
     showFrontlineError('请输入所选员工的电子签名密码。')
     return
   }
-  try {
-    assertPqcSignatureAndQuantityReady(true)
-    assertPqcCurrentProcessAllMethodSubmissionReady()
-  } catch (error) {
-    showFrontlineError(error)
-    return
-  }
+  const isCurrent = pqcSubmitGuard.capture()
+  const sessionKey = approvalInvalidation.syncSession().key
   let submitPayloads: FrontlinePqcInspectionSubmitReqVO[]
   try {
-    submitPayloads = buildPqcInspectionSubmitPayloads()
+    assertPqcFormalSubmissionReady()
+    assertPqcSignatureAndQuantityReady(true)
+    assertPqcCurrentProcessAllMethodSubmissionReady()
+    // Deeply detach the complete method set from editable drafts before the first await.
+    submitPayloads = cloneDeep(buildPqcInspectionSubmitPayloads())
+    if (!submitPayloads.length) throw new Error('缺少可提交PQC检验方法。')
   } catch (error) {
-    showFrontlineError(error)
+    if (isCurrent()) showFrontlineError(error)
     return
   }
+  const methodKeys = submitPayloads.map((payload) => pqcMethodKey(sessionKey, payload))
+  if (!isCurrent() || methodKeys.some((key) => pqcMethodWrites.has(key))) return
+  if (methodKeys.some((key) => pqcUncertainMethods.has(key))) {
+    pqcSubmitResultUncertain.value = true
+    showFrontlineError('PQC正式提交结果不确定，请核对原任务回执后再操作，禁止重复提交。')
+    return
+  }
+  // Capture every original-session event before any write; later methods cannot adopt a new session.
+  const approvalEvents = submitPayloads.map((payload) =>
+    approvalInvalidation.captureHandoffSourceSuccess('PQC_INSPECTION_TASK', payload.pqcTaskId))
+  methodKeys.forEach((key) => pqcMethodWrites.add(key))
+  pqcActionInProgress.value = true
   payloadLoading.value = true
   try {
     const submitReceipts: FrontlinePqcInspectionSubmitRespVO[] = []
-    for (const submitPayload of submitPayloads) {
+    for (let index = 0; index < submitPayloads.length; index++) {
+      if (!isCurrent()) return
+      const submitPayload = submitPayloads[index]
+      const methodKey = methodKeys[index]
+      const recordedReceipt = pqcMethodReceipts.get(methodKey)
+      if (recordedReceipt) {
+        submitReceipts.push(recordedReceipt)
+        continue
+      }
       try {
-        const submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(
-          submitPayload
-        )
+        const submitReceipt = await ProFeedbackApi.submitFrontlinePqcInspection(submitPayload, { isRequestContextCurrent: isCurrent, isSuccessReceiptContextCurrent: () => approvalInvalidation.isCurrent(approvalEvents[index].session.key) })
+        pqcMethodReceipts.set(methodKey, submitReceipt)
+        approvalInvalidation.publishEdhrSuccess(approvalEvents[index])
+        if (!isCurrent()) return
         submitReceipts.push(submitReceipt)
       } catch (error) {
-        await recoverPqcSubmitReceiptAfterUncertainError(
-          error,
-          submitPayload.pqcTaskId
-        )
+        await recoverPqcSubmitReceiptAfterUncertainError(error, submitPayload.pqcTaskId, methodKey, isCurrent)
+        if (!isCurrent()) return
         throw error
       }
     }
-    resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
+    if (!isCurrent()) return
+    // Reset can select another method and invalidate this context synchronously.
+    payloadLoading.value = false
+    pqcActionInProgress.value = false
     clearFrontlineError()
     const eventIds = submitReceipts.map((receipt) => receipt.pqcEventId).join('、')
     message.success(
@@ -5353,13 +5504,16 @@ const handleConfirmPqcSubmit = async () => {
         ? `PQC正式提交成功，已提交 ${submitPayloads.length} 个检验方法，事件编号 ${eventIds}`
         : `PQC正式提交成功，事件编号 ${eventIds}`
     )
+    resetPqcSubmissionDrafts(submitPayloads.map((payload) => payload.pqcTaskId))
   } catch (error) {
-    if (!pqcSubmitResultUncertain.value) {
-      showFrontlineError(error)
-    }
+    if (isCurrent() && !pqcSubmitResultUncertain.value) showFrontlineError(error)
   } finally {
-    pqcSignaturePassword.value = ''
-    payloadLoading.value = false
+    methodKeys.forEach((key) => pqcMethodWrites.delete(key))
+    if (isCurrent()) {
+      pqcSignaturePassword.value = ''
+      payloadLoading.value = false
+      pqcActionInProgress.value = false
+    }
   }
 }
 
@@ -6552,8 +6706,9 @@ const initializeInitialHandoffSelection = async () => {
       await handleSelectEmployee(employee)
     }
     if (epoch !== initialHandoffEpoch) return
-    if (String(deviceState.selectedActiveOrder?.activeOrderId) !== String(task.activeOrderId)
-      || !deviceState.selectedProcess || !deviceState.selectedEmployee
+    const currentSelection = deviceState
+    if (String(currentSelection.selectedActiveOrder?.activeOrderId) !== String(task.activeOrderId)
+      || !currentSelection.selectedProcess || !currentSelection.selectedEmployee
       || (isPqcMode.value && String(activePqcTaskOptionId.value) !== String(task.sourceId))) throw new Error('原交接定位未完成，禁止提交。')
     initialHandoffInvalid.value = false
   } catch (error) {

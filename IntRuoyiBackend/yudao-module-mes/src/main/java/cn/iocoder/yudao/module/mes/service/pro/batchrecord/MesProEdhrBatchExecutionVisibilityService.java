@@ -2,16 +2,20 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionOriginDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionOriginMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -51,6 +55,10 @@ public class MesProEdhrBatchExecutionVisibilityService {
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
+    @Resource
+    private MesProEdhrBatchExecutionOriginMapper batchOriginMapper;
+    @Resource
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
 
     public boolean hasOverviewPermission(Long currentUserId) {
         return currentUserId == null || currentUserId <= 0
@@ -70,6 +78,9 @@ public class MesProEdhrBatchExecutionVisibilityService {
         if (isCurrentManagerReleaseCandidate(batch, currentUserId)) {
             return true;
         }
+        if (isFormalActiveOrderLeader(batch, currentUserId)) {
+            return true;
+        }
         MesProEdhrBatchExecutionTaskDO currentProcessTask = resolveCurrentProcessTask(tasks);
         if (currentProcessTask == null) {
             return false;
@@ -86,6 +97,46 @@ public class MesProEdhrBatchExecutionVisibilityService {
         return fillerUserIdMap.values().stream()
                 .flatMap(List::stream)
                 .anyMatch(userId -> Objects.equals(userId, currentUserId));
+    }
+
+    private boolean isFormalActiveOrderLeader(MesProEdhrBatchExecutionDO batch, Long userId) {
+        if (batch == null || batch.getId() == null || batch.getId() <= 0
+                || batch.getTenantId() == null
+                || !Objects.equals(batch.getTenantId(), TenantContextHolder.getTenantId())
+                || batch.getWorkOrderId() == null || batch.getWorkOrderId() <= 0
+                || batch.getRouteId() == null || batch.getRouteId() <= 0
+                || batch.getRouteVersionId() == null || batch.getRouteVersionId() <= 0
+                || Boolean.TRUE.equals(batch.getDeleted())) {
+            return false;
+        }
+        List<MesProEdhrBatchExecutionOriginDO> origins = Objects.requireNonNull(
+                batchOriginMapper.selectListByBatchExecutionId(batch.getId()),
+                "EDHR_BATCH_OWNER_ORIGINS_REQUIRED: batchId=" + batch.getId());
+        if (origins.isEmpty()) {
+            return false;
+        }
+        MesProEdhrBatchExecutionOriginDO first = origins.get(0);
+        Long activeOrderId = first == null ? null : first.getActiveOrderId();
+        // Multiple material origins may share one active order; every association must agree.
+        if (activeOrderId == null || activeOrderId <= 0 || origins.stream().anyMatch(origin ->
+                origin == null || origin.getId() == null || origin.getId() <= 0
+                        || Boolean.TRUE.equals(origin.getDeleted())
+                        || !Objects.equals(origin.getTenantId(), batch.getTenantId())
+                        || !Objects.equals(origin.getBatchExecutionId(), batch.getId())
+                        || !Objects.equals(origin.getWorkOrderId(), batch.getWorkOrderId())
+                        || !Objects.equals(origin.getActiveOrderId(), activeOrderId))) {
+            return false;
+        }
+        var active = activeOrderMapper.selectById(activeOrderId);
+        // The persisted holder owns this batch's read scope, including after completion/release.
+        // Current route candidates, creators and form/task assignments are separate contracts.
+        return active != null && !Boolean.TRUE.equals(active.getDeleted())
+                && Objects.equals(active.getId(), activeOrderId)
+                && Objects.equals(active.getTenantId(), batch.getTenantId())
+                && Objects.equals(active.getWorkOrderId(), batch.getWorkOrderId())
+                && Objects.equals(active.getRouteId(), batch.getRouteId())
+                && Objects.equals(active.getRouteVersionId(), batch.getRouteVersionId())
+                && Objects.equals(active.getLeaderUserId(), userId);
     }
 
     private boolean isCurrentManagerReleaseCandidate(MesProEdhrBatchExecutionDO batch, Long userId) {

@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.approval.service.ownership.NativeApprovalOwnershipPolicy;
 import org.flowable.engine.repository.ProcessDefinition;
 import org.flowable.task.api.Task;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +24,8 @@ class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
     private cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService processDefinitionService;
     @Mock
     private FormActionInstanceMapper formActionInstanceMapper;
+    @Mock
+    private NativeApprovalOwnershipPolicy ownershipPolicy;
 
     @InjectMocks
     private BpmTaskExternalSignatureGuard guard;
@@ -83,6 +86,10 @@ class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
         when(processDefinitionService.getProcessDefinition("definition-edhr")).thenReturn(definition);
         when(definition.getKey()).thenReturn("mes-edhr-approval-v1");
 
+        org.mockito.Mockito.doThrow(cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil
+                .exception(TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE))
+                .when(ownershipPolicy).assertGenericMutationAllowed(task, null);
+
         assertServiceException(() -> guard.assertGenericApproveOrRejectAllowed(task),
                 TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE);
     }
@@ -93,27 +100,23 @@ class BpmTaskExternalSignatureGuardTest extends BaseMockitoUnitTest {
         Task task = mock(Task.class);
         ProcessDefinition definition = mock(ProcessDefinition.class);
         when(task.getProcessDefinitionId()).thenReturn("definition-edhr");
-        when(task.getProcessInstanceId()).thenReturn("form-center-edhr-release-process-1");
         when(processDefinitionService.getProcessDefinition("definition-edhr")).thenReturn(definition);
         when(definition.getKey()).thenReturn("mes-edhr-approval-v1");
-        when(formActionInstanceMapper.selectByProcessInstanceId(122L, "form-center-edhr-release-process-1"))
-                .thenReturn(new FormActionInstanceDO().setId(101L));
-
         guard.assertGenericApproveOrRejectAllowed(task);
+        org.mockito.Mockito.verify(ownershipPolicy).assertGenericMutationAllowed(task, null);
     }
 
     @Test
-    void assertGenericApproveOrRejectAllowed_allowsFormCenterOwnedEdhrActionProcessByTaskTenant() {
+    void assertGenericApproveOrRejectAllowed_propagatesMissingCurrentTenantWithoutTaskTenantFallback() {
         Task task = mock(Task.class);
         ProcessDefinition definition = mock(ProcessDefinition.class);
         when(task.getProcessDefinitionId()).thenReturn("definition-edhr");
-        when(task.getProcessInstanceId()).thenReturn("form-center-edhr-release-process-2");
-        when(task.getTenantId()).thenReturn("122");
         when(processDefinitionService.getProcessDefinition("definition-edhr")).thenReturn(definition);
         when(definition.getKey()).thenReturn("mes-edhr-approval-v1");
-        when(formActionInstanceMapper.selectByProcessInstanceId(122L, "form-center-edhr-release-process-2"))
-                .thenReturn(new FormActionInstanceDO().setId(102L));
-
-        guard.assertGenericApproveOrRejectAllowed(task);
+        org.mockito.Mockito.doThrow(new IllegalStateException("current tenant required"))
+                .when(ownershipPolicy).assertGenericMutationAllowed(task, null);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> guard.assertGenericApproveOrRejectAllowed(task));
+        org.mockito.Mockito.verifyNoInteractions(formActionInstanceMapper);
     }
 }

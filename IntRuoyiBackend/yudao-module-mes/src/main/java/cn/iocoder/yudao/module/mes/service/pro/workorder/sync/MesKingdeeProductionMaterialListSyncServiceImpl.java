@@ -84,6 +84,13 @@ public class MesKingdeeProductionMaterialListSyncServiceImpl implements MesKingd
 
     private void upsertRow(ErpKingdeeProductionMaterialList row, MesProWorkOrderDO workOrder,
                            MesKingdeeProductionMaterialListSyncResult result, boolean skipExisting) {
+        if (workOrder != null) {
+            workOrder = workOrderMapper.selectByIdForUpdate(workOrder.getId());
+            if (workOrder == null) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_WORK_ORDER_NOT_EXISTS);
+            }
+        }
         MesKingdeeProductionMaterialListDO existing = materialListMapper.selectBySourceLine(row.getBillNo(),
                 row.getProductionOrderNo(), row.getProductionOrderLineNo(), row.getChildMaterialCode());
         if (skipExisting && existing != null && !shouldBackfillErpColumns(existing, row)) {

@@ -185,6 +185,14 @@ class MesCompletionAggregationAuditTransactionTest {
                 mock(MesActiveOrderTransferTraceService.class), aggregation);
         { org.springframework.test.util.ReflectionTestUtils.setField(completion, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         inject(completion, "gxpAuditService", audit);
+        var sharedReader=new GxpCreationAuditVerificationService();
+        inject(sharedReader,"auditEventMapper",sessions.getMapper(GxpAuditEventMapper.class));
+        inject(sharedReader,"eventRelationMapper",sessions.getMapper(GxpAuditEventRelationMapper.class));
+        var creationReader=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService(
+                null,null,completionReceiptMapper,
+                new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceOwnerIntegrity("",""),
+                null,sharedReader,new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationProtocolRegistry());
+        inject(completion,"creationVerifier",creationReader);
         completionCollector = new MesReleaseAffectedStateCollector(source);
         completionTransactionManager = tx;
         inject(completion, "affectedStateCollector", completionCollector);
@@ -219,6 +227,8 @@ class MesCompletionAggregationAuditTransactionTest {
                     + " VALUES(1,'envelope-test',?,'MES','MES_ACTIVE_ORDER','UPDATE','SYSTEM_WITH_OPTIONAL_TEXT',?,"
                     + "'PRESENT_TO_PRESENT','GXP',1)", operation, operation.contains("review") ? "REQUIRED" : "NONE");
         }
+        jdbc.update("UPDATE gxp_audit_policy_operation SET subject_type='ACTIVE_ORDER_COMPLETION',action_type='COMPLETE' "
+                +"WHERE operation_id='mes.active-order.complete'");
         jdbc.update("INSERT INTO " + ORDER + "(id,tenant_id,leader_user_id,work_order_id,route_id,route_version_id,"
                 + "active_status,business_status,version,simulated) VALUES(10,1,20,30,40,41,'ACTIVE','PRODUCING',2,0)");
         jdbc.update("INSERT INTO " + COMPLETION + "(id,tenant_id,work_order_id,route_process_id,process_id,"
@@ -490,7 +500,7 @@ class MesCompletionAggregationAuditTransactionTest {
     }
 
     private MesTeamLeaderActiveOrderCompletionBackfillDraft draft() {
-        return new MesTeamLeaderActiveOrderCompletionBackfillDraft().setTenantId(1L).setWorkOrderId(30L)
+        var draft=new MesTeamLeaderActiveOrderCompletionBackfillDraft().setTenantId(1L).setWorkOrderId(30L)
                 .setBatchCode("BATCH30").setRouteId(40L).setRouteVersionId(41L).setSourceSnapshotHash("fixture-source")
                 .setFormalSourceSnapshotJson("{\"fixtureSource\":true}").setSignatureSnapshotJson("{\"fixtureSignatureBoundary\":true}")
                 .setBatchRecordSourceIdsJson("[1]").setProcessInspectionSourceIdsJson("[2]")
@@ -498,6 +508,11 @@ class MesCompletionAggregationAuditTransactionTest {
                 .setHasActualLoss(false).setLossQuantity(BigDecimal.ZERO).setZeroLossConfirmationSnapshot("{\"confirmed\":true}")
                 .setLossConditionFactsJson("[{\"processId\":43,\"status\":\"NO_LOSS\",\"hasActualLoss\":false,\"lossQuantity\":0,"
                         + "\"zeroLossConfirmationSnapshot\":\"{\\\"confirmed\\\":true}\",\"sourceHash\":\"loss-source\"}]");
+        draft.setSourceSnapshotHash(MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.sourceSnapshotHash(
+                draft.getFormalSourceSnapshotJson(),draft.getLossConditionFactsJson()));
+        draft.setLossSourceHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(
+                MesTeamLeaderActiveOrderCompletionSourceSnapshotCanonicalizer.canonicalize(draft.getLossConditionFactsJson())));
+        return draft;
     }
 
     private void installFailureTrigger() {

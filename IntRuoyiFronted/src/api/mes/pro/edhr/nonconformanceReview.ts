@@ -90,10 +90,13 @@ export interface EdhrNonconformanceReviewMaterialEvent {
   sequence?: number
 }
 
-export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, file: File) => {
+export const uploadNonconformanceReviewMaterial = async (reviewId: EdhrRouteId, file: File, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   const data = new FormData()
   data.append('file', file)
   const response = await request.upload<{ data: EdhrNonconformanceReviewMaterial }>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/${reviewId}/materials/upload`,
     data
   })
@@ -144,74 +147,102 @@ export interface EdhrNonconformanceReviewRespVO {
   updateTime?: string
 }
 
-export const createNonconformanceReview = async (data: EdhrNonconformanceReviewCreateReqVO) => {
+export const createNonconformanceReview = async (data: EdhrNonconformanceReviewCreateReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrNonconformanceReviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/create`,
     data
   })
 }
 
-export const getNonconformanceReviewActiveOrderList = async () => {
+export const getNonconformanceReviewActiveOrderList = async (options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrNonconformanceReviewActiveOrderRespVO[]>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/active-order-list`
   })
 }
 
-export const createCriticalDeviationReview = async (data: EdhrDeviationNcrCreateReqVO) => {
+export const createCriticalDeviationReview = async (data: EdhrDeviationNcrCreateReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrNonconformanceReviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/create-from-critical-deviations`,
     data
   })
 }
 
 export const rejectEdhrBatchExecutionToNonconformanceReview = async (
-  data: EdhrBatchExecutionRejectReqVO
-) => {
+  data: EdhrBatchExecutionRejectReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrNonconformanceReviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/reject-batch`,
     data
   })
 }
 
-export const disposeNonconformanceReview = async (data: EdhrNonconformanceReviewDisposeReqVO) => {
+export const disposeNonconformanceReview = async (data: EdhrNonconformanceReviewDisposeReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.post<EdhrNonconformanceReviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/dispose`,
     data
   })
 }
 
 export const getPendingNonconformanceReviewPage = async (
-  params: EdhrNonconformanceReviewPageReqVO
-) => {
+  params: EdhrNonconformanceReviewPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrNonconformanceReviewRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/pending-page`,
     params
   })
 }
 
-export const getNonconformanceReviewPage = async (params: EdhrNonconformanceReviewPageReqVO) => {
+export const getNonconformanceReviewPage = async (params: EdhrNonconformanceReviewPageReqVO, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<PageResult<EdhrNonconformanceReviewRespVO[]>>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/page`,
     params
   })
 }
 
-export const getNonconformanceReview = async (id: EdhrRouteId) => {
+export const getNonconformanceReview = async (id: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrNonconformanceReviewRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/get`,
     params: { id }
   })
 }
 
-export const getNonconformanceReviewActiveOrderDetail = async (reviewId: EdhrRouteId) => {
+export const getNonconformanceReviewActiveOrderDetail = async (reviewId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<TeamLeaderActiveOrderDetailRespVO>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/active-order-detail`,
     params: { reviewId }
   })
 }
 
-export const getBatchNonconformanceReviewList = async (batchExecutionId: EdhrRouteId) => {
+export const getBatchNonconformanceReviewList = async (batchExecutionId: EdhrRouteId, options?: { ignoreErrorMessage?: boolean; isRequestContextCurrent?: () => boolean; isSuccessReceiptContextCurrent?: () => boolean }) => {
   return await request.get<EdhrNonconformanceReviewRespVO[]>({
+    ignoreErrorMessage: options?.ignoreErrorMessage,
+    isRequestContextCurrent: options?.isRequestContextCurrent,
+    isSuccessReceiptContextCurrent: options?.isSuccessReceiptContextCurrent,
     url: `${EDHR_NONCONFORMANCE_REVIEW_BASE_URL}/batch-list`,
     params: { batchExecutionId }
   })

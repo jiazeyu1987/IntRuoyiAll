@@ -2,12 +2,15 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccElectronicSignatureAuthorizationAuditDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccElectronicSignatureAuthorizationMapper;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
@@ -37,6 +40,8 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
     private DccElectronicSignatureAuthorizationMapper authorizationMapper;
     @Resource
     private DccElectronicSignatureAuthorizationAuditService authorizationAuditService;
+    @Resource
+    private ApprovalAuthorityApi authority;
 
     @Override
     public boolean isElectronicSignatureEnabled(Long userId) {
@@ -54,6 +59,14 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
         }
         DccElectronicSignatureAuthorizationDO authorization = authorizationMapper.selectByUserId(userId);
         validateAuthorizationEnabledNow(authorization, LocalDateTime.now());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public void validateElectronicSignatureEnabledLocked(Long userId) {
+        if (userId == null || userId <= 0) throw exception(CONTROLLED_FILE_SIGNATURE_NOT_AUTHORIZED);
+        authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        validateAuthorizationEnabledNow(authorizationMapper.selectByUserIdForUpdate(userId), LocalDateTime.now());
     }
 
     @Override
@@ -84,7 +97,8 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
         if (StrUtil.isBlank(reason)) {
             throw exception(CONTROLLED_FILE_SIGNATURE_AUTH_REASON_REQUIRED);
         }
-        DccElectronicSignatureAuthorizationDO existing = authorizationMapper.selectByUserId(userId);
+        var revision = authority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        DccElectronicSignatureAuthorizationDO existing = authorizationMapper.selectByUserIdForUpdate(userId);
         String afterState = enabled ? STATE_ENABLED : STATE_DISABLED;
         if (existing == null) {
             DccElectronicSignatureAuthorizationDO created = DccElectronicSignatureAuthorizationDO.builder()
@@ -93,7 +107,7 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
                     .authorizationState(afterState)
                     .failureCount(0)
                     .build();
-            if (authorizationMapper.insert(created) <= 0) {
+            if (authorizationMapper.insert(created) != 1) {
                 throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
             }
             authorizationAuditService.recordAuthorizationChange(DccElectronicSignatureAuthorizationAuditDO.builder()
@@ -106,6 +120,7 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
                     .reason(StrUtil.trim(reason))
                     .operatedAt(LocalDateTime.now())
                     .build());
+            authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
             return;
         }
         DccElectronicSignatureAuthorizationDO update = DccElectronicSignatureAuthorizationDO.builder()
@@ -117,7 +132,7 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
                 .lastFailureAt(null)
                 .failureCount(0)
                 .build();
-        if (authorizationMapper.updateById(update) <= 0) {
+        if (authorizationMapper.updateById(update) != 1) {
             throw exception(CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
         }
         authorizationAuditService.recordAuthorizationChange(DccElectronicSignatureAuthorizationAuditDO.builder()
@@ -130,6 +145,7 @@ public class DccElectronicSignatureAuthorizationServiceImpl implements DccElectr
                 .reason(StrUtil.trim(reason))
                 .operatedAt(LocalDateTime.now())
                 .build());
+        authority.incrementLockedAuthorityRevision(revision.tenantId(), revision.revision());
     }
 
     private static boolean isAuthorizationEnabledNow(DccElectronicSignatureAuthorizationDO authorization,

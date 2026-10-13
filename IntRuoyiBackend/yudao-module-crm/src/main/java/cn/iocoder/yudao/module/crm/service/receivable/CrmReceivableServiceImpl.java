@@ -249,11 +249,13 @@ public class CrmReceivableServiceImpl implements CrmReceivableService {
 
         // 2. 创建回款审批流程实例
         String processInstanceId = bpmProcessInstanceApi.createProcessInstance(userId, new BpmProcessInstanceCreateReqDTO()
-                .setProcessDefinitionKey(BPM_PROCESS_DEFINITION_KEY).setBusinessKey(String.valueOf(id)));
+                .setProcessDefinitionKey(BPM_PROCESS_DEFINITION_KEY).setBusinessKey(String.valueOf(id))
+                .setApprovalAuthority(new cn.iocoder.yudao.module.bpm.api.task.dto.ApprovalProcessAuthorityDTO(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(),"NATIVE_BUSINESS","CRM_RECEIVABLE",id.toString(),cn.hutool.crypto.digest.DigestUtil.sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(receivable)),"CRM_RECEIVABLE_SUBMIT",id.toString())));
 
         // 3. 更新回款工作流编号
-        receivableMapper.updateById(new CrmReceivableDO().setId(id).setProcessInstanceId(processInstanceId)
-                .setAuditStatus(CrmAuditStatusEnum.PROCESS.getStatus()));
+        if (receivableMapper.updateById(new CrmReceivableDO().setId(id).setProcessInstanceId(processInstanceId)
+                .setAuditStatus(CrmAuditStatusEnum.PROCESS.getStatus())) != 1)
+            throw new IllegalStateException("APPROVAL_FORMAL_SOURCE_ATTACHMENT_FAILED");
 
         // 4. 记录日志
         LogRecordContext.putVariable("receivableNo", receivable.getNo());

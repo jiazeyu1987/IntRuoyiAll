@@ -1,0 +1,827 @@
+{
+  "status": "PASS_TARGETED",
+  "issue": "UM-04",
+  "verifiedAt": "2026-10-08T23:52:34.3190943+08:00",
+  "frontend": "http://127.0.0.1:8088",
+  "backendPort": 48088,
+  "tenantId": 1,
+  "userId": 9908090349,
+  "postIds": [
+    26,
+    27,
+    28
+  ],
+  "scenarios": [
+    {
+      "id": "AC-04-01-formal-disabled",
+      "status": "PASS",
+      "assignedResponseCount": 2,
+      "selectedTagCount": 2,
+      "selectedLabels": [
+        "UM04-20261008-R1-A（已停用）",
+        "UM04-20261008-R1-B（已停用）"
+      ]
+    },
+    {
+      "id": "AC-04-01-cancel",
+      "status": "PASS",
+      "userUpdateCount": 0,
+      "reopenedOriginalFields": true,
+      "reopenedPostIds": [
+        "26",
+        "27"
+      ]
+    },
+    {
+      "id": "AC-04-01-normal-save",
+      "status": "PASS",
+      "submittedCompletePostIds": [
+        "26",
+        "27"
+      ],
+      "originalJoinIdentityAndTimesRetained": true
+    },
+    {
+      "id": "AC-04-02-new-post-disabled-before-save",
+      "status": "PASS",
+      "businessCode": 1002005001,
+      "dialogRetained": true,
+      "userAndBindingsUnchanged": true
+    },
+    {
+      "id": "AC-04-02-remove-a-add-c",
+      "status": "PASS",
+      "removedACandidateCount": 0,
+      "reopenedPostIds": [
+        "27",
+        "28"
+      ],
+      "retainedBJoin": "164",
+      "newCJoin": "165"
+    },
+    {
+      "id": "AC-04-02-explicit-clear",
+      "status": "PASS",
+      "submittedPostIds": [],
+      "reopenedTagCount": 0,
+      "activeJoinCount": 0
+    },
+    {
+      "id": "new-user-enabled-candidates",
+      "status": "PASS",
+      "disabledABCandidateCount": 0,
+      "cancelAdditionalCreates": 0
+    },
+    {
+      "id": "task-fixture-ui-cleanup",
+      "status": "PASS",
+      "successfulDeletes": 4,
+      "sharedAdminAndTenantRetained": true
+    }
+  ],
+  "taskWriteCount": 16,
+  "successfulTaskWrites": 15,
+  "expectedBusinessRejections": 1,
+  "targetRequestEvidenceFlushed": true,
+  "events": [
+    {
+      "time": "2026-10-08T15:21:08.964Z",
+      "method": "POST",
+      "path": "/admin-api/system/post/create",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "remark": "",
+        "code": "um0420261008r1a",
+        "name": "UM04-20261008-R1-A",
+        "status": 0
+      },
+      "createdId": 26
+    },
+    {
+      "time": "2026-10-08T15:21:44.581Z",
+      "method": "POST",
+      "path": "/admin-api/system/post/create",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "remark": "",
+        "code": "um0420261008r1b",
+        "name": "UM04-20261008-R1-B",
+        "status": 0
+      },
+      "createdId": 27
+    },
+    {
+      "time": "2026-10-08T15:21:45.876Z",
+      "method": "POST",
+      "path": "/admin-api/system/post/create",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "remark": "",
+        "code": "um0420261008r1c",
+        "name": "UM04-20261008-R1-C",
+        "status": 0
+      },
+      "createdId": 28
+    },
+    {
+      "time": "2026-10-08T15:23:20.16Z",
+      "method": "POST",
+      "path": "/admin-api/system/user/create",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Initial",
+        "remark": "",
+        "postIds": [
+          "26",
+          "27"
+        ],
+        "status": 0
+      },
+      "createdId": 9908090349
+    },
+    {
+      "time": "2026-10-08T15:24:09.428Z",
+      "method": "GET",
+      "path": "/admin-api/system/post/get",
+      "queryId": "26",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:24:30.41Z",
+      "method": "PUT",
+      "path": "/admin-api/system/post/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 26,
+        "remark": "",
+        "code": "um0420261008r1a",
+        "name": "UM04-20261008-R1-A",
+        "status": 1
+      }
+    },
+    {
+      "time": "2026-10-08T15:24:53.293Z",
+      "method": "GET",
+      "path": "/admin-api/system/post/get",
+      "queryId": "27",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:26:29.212Z",
+      "method": "PUT",
+      "path": "/admin-api/system/post/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 27,
+        "remark": "",
+        "code": "um0420261008r1b",
+        "name": "UM04-20261008-R1-B",
+        "status": 1
+      }
+    },
+    {
+      "time": "2026-10-08T15:26:44.313Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Initial",
+        "remark": "",
+        "postIds": [
+          26,
+          27
+        ],
+        "assignedPosts": [
+          {
+            "id": 26,
+            "name": "UM04-20261008-R1-A",
+            "status": 1
+          },
+          {
+            "id": 27,
+            "name": "UM04-20261008-R1-B",
+            "status": 1
+          }
+        ]
+      }
+    },
+    {
+      "time": "2026-10-08T15:28:37.514Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Initial",
+        "remark": "",
+        "postIds": [
+          26,
+          27
+        ],
+        "assignedPosts": [
+          {
+            "id": 26,
+            "name": "UM04-20261008-R1-A",
+            "status": 1
+          },
+          {
+            "id": 27,
+            "name": "UM04-20261008-R1-B",
+            "status": 1
+          }
+        ]
+      }
+    },
+    {
+      "time": "2026-10-08T15:28:38.511Z",
+      "method": "PUT",
+      "path": "/admin-api/system/user/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Normal-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          "26",
+          "27"
+        ],
+        "status": 0
+      }
+    },
+    {
+      "time": "2026-10-08T15:28:39.624Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Normal-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          26,
+          27
+        ],
+        "assignedPosts": [
+          {
+            "id": 26,
+            "name": "UM04-20261008-R1-A",
+            "status": 1
+          },
+          {
+            "id": 27,
+            "name": "UM04-20261008-R1-B",
+            "status": 1
+          }
+        ]
+      }
+    },
+    {
+      "time": "2026-10-08T15:31:08.81Z",
+      "method": "GET",
+      "path": "/admin-api/system/post/get",
+      "queryId": "28",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:31:48.225Z",
+      "method": "PUT",
+      "path": "/admin-api/system/post/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 28,
+        "remark": "",
+        "code": "um0420261008r1c",
+        "name": "UM04-20261008-R1-C",
+        "status": 1
+      }
+    },
+    {
+      "time": "2026-10-08T15:31:51.475Z",
+      "method": "PUT",
+      "path": "/admin-api/system/user/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 1002005001,
+      "tenantId": "1",
+      "expectedFailure": true,
+      "message": "岗位(UM04-20261008-R1-C) 不处于开启状态，不允许选择",
+      "submitted": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Should-Rollback",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          "27",
+          "28"
+        ],
+        "status": 0
+      }
+    },
+    {
+      "time": "2026-10-08T15:33:17.089Z",
+      "method": "GET",
+      "path": "/admin-api/system/post/get",
+      "queryId": "28",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:33:17.938Z",
+      "method": "PUT",
+      "path": "/admin-api/system/post/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 28,
+        "remark": "",
+        "code": "um0420261008r1c",
+        "name": "UM04-20261008-R1-C",
+        "status": 0
+      }
+    },
+    {
+      "time": "2026-10-08T15:33:21.284Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-Normal-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          26,
+          27
+        ],
+        "assignedPosts": [
+          {
+            "id": 26,
+            "name": "UM04-20261008-R1-A",
+            "status": 1
+          },
+          {
+            "id": 27,
+            "name": "UM04-20261008-R1-B",
+            "status": 1
+          }
+        ]
+      }
+    },
+    {
+      "time": "2026-10-08T15:33:22.642Z",
+      "method": "PUT",
+      "path": "/admin-api/system/user/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-BC-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          "27",
+          "28"
+        ],
+        "status": 0
+      }
+    },
+    {
+      "time": "2026-10-08T15:33:23.875Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-BC-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [
+          27,
+          28
+        ],
+        "assignedPosts": [
+          {
+            "id": 27,
+            "name": "UM04-20261008-R1-B",
+            "status": 1
+          },
+          {
+            "id": 28,
+            "name": "UM04-20261008-R1-C",
+            "status": 0
+          }
+        ]
+      }
+    },
+    {
+      "time": "2026-10-08T15:34:41.689Z",
+      "method": "PUT",
+      "path": "/admin-api/system/user/update",
+      "queryId": null,
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "submitted": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-BC-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [],
+        "status": 0
+      }
+    },
+    {
+      "time": "2026-10-08T15:34:43.145Z",
+      "method": "GET",
+      "path": "/admin-api/system/user/get-for-update",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1",
+      "edit": {
+        "id": 9908090349,
+        "username": "um0420261008r1",
+        "nickname": "UM04-R1-BC-Saved",
+        "remark": "UM04 retain disabled A and B",
+        "postIds": [],
+        "assignedPosts": []
+      }
+    },
+    {
+      "time": "2026-10-08T15:38:11.116Z",
+      "method": "DELETE",
+      "path": "/admin-api/system/user/delete",
+      "queryId": "9908090349",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:39:30.365Z",
+      "method": "DELETE",
+      "path": "/admin-api/system/post/delete",
+      "queryId": "28",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:39:30.935Z",
+      "method": "DELETE",
+      "path": "/admin-api/system/post/delete",
+      "queryId": "27",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    },
+    {
+      "time": "2026-10-08T15:39:31.505Z",
+      "method": "DELETE",
+      "path": "/admin-api/system/post/delete",
+      "queryId": "26",
+      "httpStatus": 200,
+      "code": 0,
+      "tenantId": "1"
+    }
+  ],
+  "stores": [
+    {
+      "phase": "before-fixtures",
+      "time": "2026-10-08T23:05:42.1203621+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "assigned-enabled",
+      "time": "2026-10-08T23:23:44.8389059+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Initial\t\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t0\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t0\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "normal-saved",
+      "time": "2026-10-08T23:28:42.6467785+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Normal-Saved\tUM04 retain disabled A and B\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "rejected-c-disabled",
+      "time": "2026-10-08T23:31:54.7565325+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-Normal-Saved\tUM04 retain disabled A and B\t[26,27]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t1\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "bc-saved",
+      "time": "2026-10-08T23:33:27.3206077+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[27,28]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t0\t2026-10-08 23:23:20\t2026-10-08 23:23:20\nbinding\t165\t9908090349\t28\t1\t0\t2026-10-08 23:33:23\t2026-10-08 23:33:23\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "cleared",
+      "time": "2026-10-08T23:35:08.4904705+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[]\t1\t0\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:34:41\nbinding\t165\t9908090349\t28\t1\t1\t2026-10-08 23:33:23\t2026-10-08 23:34:41\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t0\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t0\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t0\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    },
+    {
+      "phase": "cleanup",
+      "time": "2026-10-08T23:39:34.2270025+08:00",
+      "tenantId": 1,
+      "username": "um0420261008r1",
+      "db": "127.0.0.2:23306/ruoyi-vue-pro",
+      "readonly": true,
+      "exitCode": 0,
+      "result": "witness\tid\tusername\tnickname\tremark\tpost_ids\ttenant_id\tdeleted\nuser\t9908090349\tum0420261008r1\tUM04-R1-BC-Saved\tUM04 retain disabled A and B\t[]\t1\t1\nwitness\tid\tuser_id\tpost_id\ttenant_id\tdeleted\tcreate_time\tupdate_time\nbinding\t163\t9908090349\t26\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:33:22\nbinding\t164\t9908090349\t27\t1\t1\t2026-10-08 23:23:20\t2026-10-08 23:34:41\nbinding\t165\t9908090349\t28\t1\t1\t2026-10-08 23:33:23\t2026-10-08 23:34:41\nwitness\tid\tcode\tname\tstatus\ttenant_id\tdeleted\npost\t26\tum0420261008r1a\tUM04-20261008-R1-A\t1\t1\t1\npost\t27\tum0420261008r1b\tUM04-20261008-R1-B\t1\t1\t1\npost\t28\tum0420261008r1c\tUM04-20261008-R1-C\t0\t1\t1\nwitness\tretained\nshared-admin\t1\nwitness\tid\tname\tdeleted\nshared-tenant\t1\t芋道源码\t0\n"
+    }
+  ],
+  "storeVerification": {
+    "status": "PASS",
+    "readonly": true,
+    "tenantId": 1,
+    "userId": "9908090349",
+    "postIds": [
+      "26",
+      "27",
+      "28"
+    ],
+    "originalJoinIds": [
+      "163",
+      "164"
+    ],
+    "newJoinId": "165",
+    "normalRetainedIdentity": true,
+    "rejectionRolledBackUserAndJoins": true,
+    "bcDiffCorrect": true,
+    "clearBothStoresEmpty": true,
+    "ownedFixtureCleanup": true,
+    "sharedAdminAndTenantRetained": true,
+    "verifiedAt": "2026-10-08T23:48:38.7802351+08:00"
+  },
+  "authenticationRefresh": {
+    "challenge": {
+      "url": "http://127.0.0.1:8088/admin-api/system/notify-message/get-unread-count",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 401,
+      "message": "账号未登录",
+      "time": "2026-10-08T15:36:59.041Z"
+    },
+    "refresh": {
+      "url": "http://127.0.0.1:8088/admin-api/system/auth/refresh-token?refreshToken=%5BREDACTED%5D",
+      "method": "POST",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": "",
+      "time": "2026-10-08T15:36:59.182Z"
+    },
+    "retry": {
+      "url": "http://127.0.0.1:8088/admin-api/system/notify-message/get-unread-count",
+      "method": "GET",
+      "httpStatus": 200,
+      "businessCode": 0,
+      "message": "",
+      "time": "2026-10-08T15:36:59.221Z"
+    },
+    "closureMilliseconds": 180.0,
+    "existingSource": "IntRuoyiFronted/src/config/axios/service.ts:194",
+    "taskWritesBefore": 12,
+    "cleanupDeletesAfter": 4
+  },
+  "nonTargetProfile": {
+    "initialResponses": [
+      {
+        "requestIndex": 3775,
+        "httpStatus": 200,
+        "businessCode": 0,
+        "message": "",
+        "category": "authentication_permission"
+      },
+      {
+        "requestIndex": 3777,
+        "httpStatus": 200,
+        "businessCode": 0,
+        "message": "",
+        "category": "authentication_permission"
+      },
+      {
+        "requestIndex": 3980,
+        "httpStatus": 200,
+        "businessCode": 500,
+        "message": "系统异常",
+        "category": "profile_workbench_non_target"
+      },
+      {
+        "requestIndex": 3984,
+        "httpStatus": 200,
+        "businessCode": 500,
+        "message": "系统异常",
+        "category": "profile_workbench_non_target"
+      },
+      {
+        "requestIndex": 4016,
+        "httpStatus": 200,
+        "businessCode": 500,
+        "message": "系统异常",
+        "category": "profile_workbench_non_target"
+      }
+    ],
+    "futureFailedResponse": [
+      {
+        "url": "http://127.0.0.1:8088/admin-api/system/profile-workbench-todo/count?enabledSources=DCC_DISTRIBUTION&enabledSources=DCC_TRAINING&enabledSources=EDHR_WORK_TASK&enabledSources=SHOWROOM_ASSIGNMENT&enabledSources=WORK_ORDER",
+        "method": "GET",
+        "httpStatus": 200,
+        "businessCode": 500,
+        "message": "系统异常",
+        "time": "2026-10-08T15:29:54.008Z"
+      }
+    ],
+    "initialConsoleErrors": [
+      "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26 @ http://127.0.0.1:8088/src/layout/components/TagsView/src/TagsView.vue:222",
+      "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26 @ http://127.0.0.1:8088/src/layout/components/Menu/src/Menu.vue?vue&type=script&lang.tsx:52",
+      "[ERROR] 个人工作台待处理数量加载失败 Error: 系统异常\r\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\r\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\r\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\r\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\r\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\r\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26\r\n    at async Proxy.ensureTodoTotalLoaded (http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:139:7) @ http://127.0.0.1:8088/src/views/Profile/Index.vue:108"
+    ],
+    "futureConsoleErrors": [
+      {
+        "type": "error",
+        "text": "个人工作台待处理数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26",
+        "location": {
+          "url": "http://127.0.0.1:8088/src/layout/components/TagsView/src/TagsView.vue",
+          "line": 222,
+          "column": 14,
+          "lineNumber": 222,
+          "columnNumber": 14
+        },
+        "time": "2026-10-08T15:29:54.005Z"
+      },
+      {
+        "type": "error",
+        "text": "个人工作台待处理数量加载失败 Error: 系统异常\n    at createApiError (http://127.0.0.1:8088/src/config/axios/service.ts:41:17)\n    at http://127.0.0.1:8088/src/config/axios/service.ts:202:29\n    at async Axios.request (http://127.0.0.1:8088/node_modules/.vite-env-local-8088/deps/axios.js?v=3c138a57:2126:14)\n    at async Object.get (http://127.0.0.1:8088/src/config/axios/index.ts:16:17)\n    at async getProfileWorkbenchTodoCount (http://127.0.0.1:8088/src/api/system/profileWorkbenchTodo/index.ts:85:18)\n    at async http://127.0.0.1:8088/src/store/modules/profileWorkbenchTodoBadge.ts:120:26",
+        "location": {
+          "url": "http://127.0.0.1:8088/src/layout/components/Menu/src/Menu.vue?vue&type=script&lang.tsx",
+          "line": 52,
+          "column": 14,
+          "lineNumber": 52,
+          "columnNumber": 14
+        },
+        "time": "2026-10-08T15:29:54.005Z"
+      }
+    ],
+    "errorCount": 5,
+    "source": "MES profile-workbench TodoMapper regex collation SQL error; independent of UM04 user/post services",
+    "targetControlsAndBehaviorPassed": true,
+    "rule": "docs/e2e-rules.md:307-314"
+  },
+  "targetUnhandledErrors": 0,
+  "pageerrorCount": 0,
+  "requestfailedCountSinceSupplementalCapture": 0,
+  "responseParseErrors": 0,
+  "warnings": {
+    "baselineSnapshotCount": 85,
+    "futureCapturedCount": 180,
+    "type": "Runtime directive used on component with non-element root node",
+    "scope": "Existing SystemUser/ElDropdownItem directive warnings retained; real controls proved independently",
+    "fullLocalEvidenceHash": "1359E9DE62126E50B7063C5600BBA29BB021362972BF0524EB6254CE127DA020"
+  },
+  "screenshots": [
+    {
+      "name": "user-entry-precondition",
+      "sha256": "BF283D405A5A2D3548A96F766ED2C796D721C13B2D265C94FD0B0A1CC836423E"
+    },
+    {
+      "name": "disabled-options",
+      "sha256": "61E2EEDB199845819024F423A5AB2451054216A1F1644B3573A64D8183ABB7CC"
+    },
+    {
+      "name": "removed-a-options",
+      "sha256": "55783629376BD3F78209B4D5E0585751390D84C5CC70F6DD6349E95192C19AD5"
+    },
+    {
+      "name": "cancel-reopened",
+      "sha256": "09B98B5131971E8BF07B11DD30E128BEAC74B6ED21CFE9BCC74DF7426B37F6A0"
+    },
+    {
+      "name": "normal-save-reopened",
+      "sha256": "EC9D2A97D85FF941793E4041DE341782492E29BBA6218DD7F6ADA30BABB59AE1"
+    },
+    {
+      "name": "negative-post-disabled",
+      "sha256": "EAB01BC038FFAFB12A46492EF08BA5A9788418253BF8FFFDA03FE09ADEECACF2"
+    },
+    {
+      "name": "bc-save-reopened",
+      "sha256": "66A0E6AADCE09DE0D89160772563B27385CAC2D16DB0A73345037B754B91CC3A"
+    },
+    {
+      "name": "clear-save-reopened",
+      "sha256": "E2FF0742EA2191CA1B81B3E6FAAD0BFECAE9FF7506D0F07D674BA3870D56B4F2"
+    },
+    {
+      "name": "new-user-enabled-candidates",
+      "sha256": "5BD3B122A0C6B8FE9625C7D623C68C85F8A6817D9EF43ADAE0D476228BD5CE13"
+    },
+    {
+      "name": "owned-posts-cleaned",
+      "sha256": "63120529A0BAA288B2C63E1E7EBDD540A3DC22E9B33FE40AC590C9DA272289FB"
+    }
+  ],
+  "naturalEvidenceHash": "1359E9DE62126E50B7063C5600BBA29BB021362972BF0524EB6254CE127DA020",
+  "harnessFailuresRetained": [
+    "unsupported network command",
+    "empty snapshot scrub helper failure",
+    "combobox input click intercepted by placeholder before any user save",
+    "incorrect status parent locator before B save",
+    "post C guard checked before asynchronous details loaded; no save",
+    "final observation assertion saw auth401; safe archive proves existing refresh/retry closure"
+  ],
+  "limits": [
+    "No full-site health PASS: existing MES profile error remains",
+    "No full vue-tsc PASS: two unrelated current-base MES diagnostics remain",
+    "H2 regression does not prove all MySQL repeatable-read race combinations",
+    "No direct API/SQL writes or force-click/DOM injection used",
+    "Business trace started after password/user creation; raw traces/console/scripts not committed and removed at closeout"
+  ],
+  "independentReview": {
+    "decision": "pass",
+    "report": "review-report.md",
+    "decisionFile": "review-decision.json",
+    "reviewedAt": "2026-10-09T00:01:14+08:00"
+  }
+}

@@ -48,6 +48,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     @Mock
     private MesReleaseAffectedStateCollector affectedStateCollector;
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationVerificationService creationVerifier;
     private MesTeamLeaderActiveOrderCompletionServiceImpl service;
 
     @BeforeEach
@@ -57,12 +59,23 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
                 processInspectionAggregationService);
         { org.springframework.test.util.ReflectionTestUtils.setField(service, "handoffService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class)); }
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
+        ReflectionTestUtils.setField(service, "creationVerifier", creationVerifier);
+        org.mockito.Mockito.lenient().when(creationVerifier.requireCompletionCreation(any(), any()))
+                .thenAnswer(i -> new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                        "COMPLETION_V1", i.<Long>getArgument(1), String.valueOf(i.<Long>getArgument(1)), "3", "receipt-hash",
+                        882L, "main-audit-hash"));
+        org.mockito.Mockito.lenient().when(creationVerifier.requireCompletionTransactionId(any(), any()))
+                .thenReturn("actual-main-transaction");
         // Unit boundary only; the real collector/transaction proof is in MesCompletionAggregationAuditTransactionTest.
         ReflectionTestUtils.setField(service, "affectedStateCollector", affectedStateCollector);
         org.mockito.Mockito.lenient().when(affectedStateCollector.captureCompletion(anyLong(), anyLong()))
                 .thenReturn(java.util.Map.of());
-        org.mockito.Mockito.lenient().when(gxpAuditService.append(any()))
-                .thenReturn(new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(881L, 1L, "fragment-audit-hash", false));
+        java.util.concurrent.atomic.AtomicLong auditSequence = new java.util.concurrent.atomic.AtomicLong();
+        org.mockito.Mockito.lenient().when(gxpAuditService.append(any())).thenAnswer(i -> {
+            long sequence = auditSequence.incrementAndGet();
+            return new cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditAppendResult(
+                    880L + sequence, sequence, sequence == 1 ? "fragment-audit-hash" : "main-audit-hash", false);
+        });
     }
 
     @Test
@@ -110,6 +123,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
             MesProcessPoolActiveOrderCompletionReceiptDO receipt = invocation.getArgument(0);
             receipt.setId(99L);
+            org.mockito.Mockito.lenient().when(receiptMapper.selectByIdAndTenantId(99L, receipt.getTenantId()))
+                    .thenReturn(receipt);
             return 1;
         });
 
@@ -145,7 +160,10 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(draft());
         when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
         when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            var receipt = invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class);
+            receipt.setId(99L);
+            org.mockito.Mockito.lenient().when(receiptMapper.selectByIdAndTenantId(99L, receipt.getTenantId()))
+                    .thenReturn(receipt);
             return 1;
         });
         doThrow(new IllegalStateException("gxp append failed"))
@@ -174,7 +192,10 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(prepared);
         when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
         when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
-            invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            var receipt = invocation.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class);
+            receipt.setId(99L);
+            org.mockito.Mockito.lenient().when(receiptMapper.selectByIdAndTenantId(99L, receipt.getTenantId()))
+                    .thenReturn(receipt);
             return 1;
         });
 
@@ -253,6 +274,8 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
         when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(invocation -> {
             MesProcessPoolActiveOrderCompletionReceiptDO receipt = invocation.getArgument(0);
             receipt.setId(100L);
+            org.mockito.Mockito.lenient().when(receiptMapper.selectByIdAndTenantId(100L, receipt.getTenantId()))
+                    .thenReturn(receipt);
             return 1;
         });
 
@@ -387,6 +410,34 @@ class MesTeamLeaderActiveOrderCompletionServiceTest {
     private MesTeamLeaderActiveOrderCompletionCommand command() {
         return new MesTeamLeaderActiveOrderCompletionCommand()
                 .setActiveOrderId(10L).setExpectedVersion(2).setIdempotencyKey("key-1");
+    }
+
+    @Test
+    void successfulInsertWithoutPersistedReadbackMustFailBeforeAnyAudit() {
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order());
+        when(progressPort.read(anyLong(), any())).thenReturn(progress());
+        when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(draft());
+        when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
+        when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(i -> {
+            i.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            return 1;
+        });
+        assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
+        verify(gxpAuditService, never()).append(any());
+    }
+
+    @Test
+    void insertAffectingMoreThanOneRowMustFailBeforeAnyAudit() {
+        when(activeOrderMapper.selectByIdForUpdate(10L)).thenReturn(order());
+        when(progressPort.read(anyLong(), any())).thenReturn(progress());
+        when(backfillPort.prepare(anyLong(), any(), any())).thenReturn(draft());
+        when(activeOrderMapper.markCompleted(10L, 2, 20L)).thenReturn(1);
+        when(receiptMapper.insert(any(MesProcessPoolActiveOrderCompletionReceiptDO.class))).thenAnswer(i -> {
+            i.getArgument(0, MesProcessPoolActiveOrderCompletionReceiptDO.class).setId(99L);
+            return 2;
+        });
+        assertThrows(RuntimeException.class, () -> service.complete(20L, command()));
+        verify(gxpAuditService, never()).append(any());
     }
 
     private MesProcessPoolActiveOrderDO order() {

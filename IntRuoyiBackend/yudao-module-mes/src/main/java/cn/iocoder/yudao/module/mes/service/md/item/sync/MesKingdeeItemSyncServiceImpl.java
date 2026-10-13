@@ -110,7 +110,11 @@ public class MesKingdeeItemSyncServiceImpl implements MesKingdeeItemSyncService 
                 result.addSkipped();
                 continue;
             }
-            itemMapper.updateById(updateItem);
+            int count = itemMapper.updateErpMaterialSnapshot(updateItem);
+            if (count != 1) {
+                throw ServiceExceptionUtil.exception(KINGDEE_PURCHASE_ORDER_RESPONSE_INVALID,
+                        "MES material snapshot update failed: " + updateItem.getId());
+            }
             result.addUpdated();
         }
 

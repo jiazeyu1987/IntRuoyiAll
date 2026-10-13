@@ -53,6 +53,7 @@ import java.util.Set;
 
 @Service
 public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionReleaseService {
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi approvalAuthority;
 
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
 
@@ -146,6 +147,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
         requireApproveCommand(actorUserId, command);
         gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
         String udiControlDocumentNo = trimAndValidateUdiDocumentNo(command.getUdiControlDocumentNo());
@@ -211,7 +213,10 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                         .setReportSnapshotHash(activeOrderFactsSnapshotHash)
                         .setReportEvidences(List.of())
                         .setExpectedApplicationVersion(command.getExpectedVersion() + 1)
-                        .setActiveOrderFormalFacts(true));
+                        .setActiveOrderFormalFacts(true)
+                        .setSourceMethod("MANAGED_PQC_APPROVE").setSourceWorkTaskId(workTask.getId())
+                        .setSourceActorId(actorUserId).setSourceExpectedApplicationVersion(command.getExpectedVersion())
+                        .setSourceIdempotencyKey(idempotencyKey).setSourcePayloadHash(payloadHash));
         requireManagerHandoff(application, command.getExpectedVersion() + 1,
                 activeOrderFactsSnapshotHash, managerStage);
         batchExecutionPort.markReadyForMarketRelease(batchExecutionId, actorUserId);
@@ -229,6 +234,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
             Long actorUserId, MesPqcProductionReleaseRejectCommand command) {
         requireRejectCommand(actorUserId, command);
         gxpAuditService.acquireLedgerLock();
+        approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String reason = StrUtil.trim(command.getRejectReason());
         if (StrUtil.isBlank(reason) || reason.length() > 500) {
@@ -616,6 +622,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         }
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper contentBatchMapper;
     private LockedDecisionSource lockDecisionSource(Long applicationId) {
         // The first read locates the formal identity only; decisions use the locked rows below.
         MesProcessPoolActiveOrderReleaseApplicationDO source = applicationMapper.selectById(applicationId);
@@ -624,6 +631,9 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                     "RELEASE_APPLICATION", String.valueOf(applicationId),
                     "release application is missing", "query an existing release application");
         }
+        var batch = contentBatchMapper.selectByTenantIdAndIdForUpdate(TenantContextHolder.getRequiredTenantId(), source.getBatchExecutionId());
+        if (batch == null || !Objects.equals(batch.getTenantId(), TenantContextHolder.getRequiredTenantId()))
+            throw new IllegalStateException("PQC_RELEASE_BATCH_REQUIRED");
         MesProcessPoolActiveOrderDO activeOrder = requireActiveOrderForUpdate(source.getActiveOrderId());
         if (source.getWorkOrderId() == null || !Objects.equals(source.getWorkOrderId(), activeOrder.getWorkOrderId())) {
             throw blocker(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED, source,
