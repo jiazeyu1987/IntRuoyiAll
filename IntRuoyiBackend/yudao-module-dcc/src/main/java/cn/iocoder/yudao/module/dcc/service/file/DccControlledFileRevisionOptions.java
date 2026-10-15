@@ -16,5 +16,6 @@ public record DccControlledFileRevisionOptions(
         List<Iteration> iterations) {
     public record Target(String versionNo, String unavailableReason) {}
     public record Iteration(@JsonFormat(shape = JsonFormat.Shape.STRING) Long id, String versionNo,
-                            boolean canPartial, boolean canReplacement, boolean canPreview) {}
+                            boolean canPartial, boolean canReplacement, boolean canPreview,
+                            LocalDateTime createTime, String changeDescription) {}
 }

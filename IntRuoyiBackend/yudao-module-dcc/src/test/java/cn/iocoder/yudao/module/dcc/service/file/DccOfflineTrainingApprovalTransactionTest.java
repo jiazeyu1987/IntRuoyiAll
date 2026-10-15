@@ -122,6 +122,17 @@ class DccOfflineTrainingApprovalTransactionTest extends DccFileOwnerPublicApprov
         login(99L);assertThrows(IllegalStateException.class,()->workflow.approveTask(99L,FILE,request(task,OWNER)));
         assertFullyRolledBackApproval();
     }
+    @Test void missingTrainingAudienceIsAVisibleApprovalReadinessBlockerBeforeSigning() {
+        var category=(DccControlledFileCategoryPermissionSupport)org.springframework.test.util.ReflectionTestUtils.getField(training,"categories");
+        when(category.hasCategoryPermission(eq(2L),eq(88L),any())).thenReturn(false);
+        var input=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileTaskReadinessReqVO();
+        input.setTaskId(task); login(99L);
+        var readiness=workflow.getTaskActionReadiness(99L,FILE,input);
+        assertFalse(readiness.getReady());
+        assertEquals("OFFLINE_TRAINING_CONFIG_REQUIRED",readiness.getBlockers().get(0).getReasonCode());
+        assertTrue(readiness.getBlockers().get(0).getMessage().contains("TRAINING_RECORD"));
+        assertFullyRolledBackApproval();
+    }
 
     private void assertFullyRolledBackApproval() {
         var saved=files.selectById(FILE);

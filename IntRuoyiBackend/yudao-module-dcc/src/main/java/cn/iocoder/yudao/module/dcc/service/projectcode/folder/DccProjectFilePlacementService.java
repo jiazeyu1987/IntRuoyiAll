@@ -28,6 +28,7 @@ public class DccProjectFilePlacementService {
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public DccProjectFilePlacementDO bindDerived(Long userId,Long projectId,Long folderId,Long fileId,Long directoryId,String reason,
             cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
+        if(storage==null) throw fail(FOLDER_INVALID);
         return bind(userId,projectId,folderId,fileId,directoryId,reason,storage);
     }
 
@@ -38,16 +39,28 @@ public class DccProjectFilePlacementService {
     }
     private DccProjectFilePlacementDO bind(Long userId,Long projectId,Long projectFolderId,Long controlledFileId,Long storageDirectoryId,String reason,
             cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage storage) {
-        audit.validateReason(reason);
+        String actualReason;
+        if(storage==null) {
+            audit.validateReason(reason);
+            actualReason=reason.trim();
+        } else {
+            actualReason=reason==null?"":reason.trim();
+            if(actualReason.length()>500) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                    INVALID.getCode(),"文件夹登记说明不能超过500字");
+        }
         access.assertProjectEditorOrOwner(userId, projectId);
         var project = projects.selectByIdForUpdate(projectId);
         Long tenant = TenantContextHolder.getRequiredTenantId();
         if (project == null || !Objects.equals(project.getTenantId(), tenant)) throw fail(FOLDER_INVALID);
-        folders.requireProjectFolder(projectId, projectFolderId);
+        folders.requireProjectFolderForUpdate(projectId, projectFolderId);
         var file = controlledFileId == null ? null : files.selectById(controlledFileId);
         if (file == null || !Objects.equals(file.getTenantId(), tenant)
                 || !Objects.equals(file.getDccProjectCodeId(), projectId)
                 || storageDirectoryId == null || !Objects.equals(file.getDirectoryId(), storageDirectoryId)) throw fail(FOLDER_INVALID);
+        if(storage!=null && (!Objects.equals(storage.tenantId,tenant) || !Objects.equals(storage.actorId,userId)
+                || !Objects.equals(storage.projectId,projectId) || !Objects.equals(storage.folderId,projectFolderId)
+                || !Objects.equals(storage.storageDirectoryId,storageDirectoryId) || !Objects.equals(storage.categoryId,file.getCategoryId())))
+            throw fail(FOLDER_INVALID);
         var existing = placements.findFile(controlledFileId);
         if (existing != null) {
             if (!Objects.equals(existing.getProjectCodeId(), projectId)
@@ -65,22 +78,20 @@ public class DccProjectFilePlacementService {
         if (placements.insert(saved) != 1) throw fail(FOLDER_INVALID);
         var state=new LinkedHashMap<String,Object>();state.put("placement",placements.findFile(controlledFileId));
         if(storage!=null) {
-            if(!Objects.equals(storage.tenantId,tenant) || !Objects.equals(storage.actorId,userId)
-              || !Objects.equals(storage.projectId,projectId) || !Objects.equals(storage.folderId,projectFolderId)
-              || !Objects.equals(storage.storageDirectoryId,storageDirectoryId) || !Objects.equals(storage.categoryId,file.getCategoryId())) throw fail(FOLDER_INVALID);
             state.put("mappingId",storage.mappingId);state.put("baseDirectoryId",storage.baseDirectoryId);
             state.put("storageDirectoryId",storage.storageDirectoryId);state.put("mappingCreated",storage.created);
         }
         ledger.append(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.builder()
-                .operationId("dcc.project-file-placement.bind").subjectId("DCC_PROJECT_FILE_PLACEMENT:"+saved.getId())
-                .subjectVersion("1").reason(reason.trim())
+                .operationId(storage==null?"dcc.project-file-placement.bind":"dcc.project-file-placement.upload-bind")
+                .subjectId("DCC_PROJECT_FILE_PLACEMENT:"+saved.getId())
+                .subjectVersion("1").reason(actualReason)
                 .beforeState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder()
                         .state("ABSENT").canonicalJson("{}").build())
                 .afterState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder()
                         .state("PRESENT").objectVersion("1")
                         .canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(storage==null?placements.findFile(controlledFileId):state)).build())
                 .idempotencyKey("DCC:PROJECT_FILE_PLACEMENT:"+saved.getId())
-                .source("DccProjectFilePlacementService.bind").build());
+                .source(storage==null?"DccProjectFilePlacementService.bind":"DccProjectFilePlacementService.bindDerived").build());
         return saved;
     }
 

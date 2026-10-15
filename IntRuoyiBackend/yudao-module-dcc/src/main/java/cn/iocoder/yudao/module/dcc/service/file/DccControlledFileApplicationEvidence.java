@@ -11,4 +11,14 @@ public record DccControlledFileApplicationEvidence(
         String versionNo, String applicationType, String bpmRound, Integer attributeRound,
         boolean recorded, String unavailableReason,
         DccProjectAttributes defaultSource, DccProjectAttributes actualAttributes,
-        List<DccControlledFileSignatureSummaryRespVO> signatures) {}
+        List<DccControlledFileSignatureSummaryRespVO> signatures,
+        cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRoundEvidence relationEvidence,
+        List<DccApplicationNodeRecord> nodeRecords) {
+    public DccControlledFileApplicationEvidence { signatures=List.copyOf(signatures);nodeRecords=List.copyOf(nodeRecords); }
+    /** Historical absence stays explicit; no projection of today's relation set into an old round. */
+    public DccControlledFileApplicationEvidence(Long id,String version,String type,String bpm,Integer attributeRound,
+            boolean recorded,String reason,DccProjectAttributes defaults,DccProjectAttributes actual,
+            List<DccControlledFileSignatureSummaryRespVO> signatures) {
+        this(id,version,type,bpm,attributeRound,recorded,reason,defaults,actual,signatures,null,List.of());
+    }
+}

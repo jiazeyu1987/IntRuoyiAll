@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.projectcode.access;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
@@ -12,6 +13,7 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -49,8 +51,11 @@ class DccProjectAccessServiceImplTest {
 
     @BeforeEach
     void setUpUser() {
+        TenantContextHolder.setTenantId(1L);
+        TenantContextHolder.setIgnore(false);
         AdminUserRespDTO user = new AdminUserRespDTO();
         user.setId(99L);
+        user.setTenantId(1L);
         user.setStatus(0);
         user.setDeptId(20L);
         user.setPostIds(Set.of(30L));
@@ -58,11 +63,12 @@ class DccProjectAccessServiceImplTest {
         lenient().when(permissionApi.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(40L));
         lenient().when(deptApi.getDept(20L)).thenReturn(null);
     }
+    @AfterEach void clearTenant() { TenantContextHolder.clear(); }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource
     @org.junit.jupiter.params.provider.ValueSource(ints = {1})
     void disabledOrUnknownAccountStatusCannotUseProjectOwnerOrEditor(Integer status) {
-        var user = new AdminUserRespDTO(); user.setId(99L); user.setStatus(status);
+        var user = new AdminUserRespDTO(); user.setId(99L); user.setTenantId(1L); user.setStatus(status);
         when(adminUserApi.getUser(99L)).thenReturn(user);
         lenient().when(accessRuleMapper.selectActiveRules(eq(100L), any(LocalDateTime.class)))
                 .thenReturn(List.of(rule("USER", 99L, "OWNER")));
@@ -218,6 +224,7 @@ class DccProjectAccessServiceImplTest {
 
     private static DccProjectAccessRuleDO rule(String subjectType, Long subjectId, String accessLevel) {
         DccProjectAccessRuleDO rule = new DccProjectAccessRuleDO();
+        rule.setTenantId(1L);
         rule.setDccProjectCodeId(100L);
         rule.setSubjectType(subjectType);
         rule.setSubjectId(subjectId);

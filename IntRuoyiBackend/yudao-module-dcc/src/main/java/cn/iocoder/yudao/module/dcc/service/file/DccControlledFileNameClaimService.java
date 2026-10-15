@@ -35,6 +35,17 @@ public class DccControlledFileNameClaimService {
     @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper fileMapper;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileTemporaryFileMapper temporaryFileMapper;
 
+    /** Informational new-chain preflight; final reservation still uses transactional locked reads. */
+    @Transactional(readOnly=true)
+    public void requireNumberAvailableForNewFile(String number) {
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        if (StrUtil.isBlank(number) || number.length()>128) throw new IllegalArgumentException("formal file number is required");
+        byte[] key = number.getBytes(StandardCharsets.UTF_8);
+        if (claimMapper.countRetainedNumberOwners(tenant,key)>0
+                || reservationMapper.countRetainedLegacyNumberOwners(tenant,java.util.HexFormat.of().withUpperCase().formatHex(key))>0)
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RETAINED_NUMBER_EXISTS);
+    }
+
     /** Read-only early gate. A bound ticket may replay only its exact own unsent NEW draft. */
     @Transactional(readOnly=true)
     public cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketCreated preflightNewSourceName(Long userId,Long categoryId,
@@ -139,6 +150,10 @@ public class DccControlledFileNameClaimService {
             throw new IllegalArgumentException("reservation identity must match the locked formal master");
         }
         var numbered = claimMapper.selectActiveByNumber(tenantId, projectId, leafId, number.getBytes(StandardCharsets.UTF_8));
+        if (context.intent()==DccNameReservationContext.Intent.NEW_LOGICAL_FILE
+                && (!claimMapper.lockRetainedNumberOwners(tenantId,number.getBytes(StandardCharsets.UTF_8),masterId).isEmpty()
+                || !reservationMapper.lockRetainedLegacyNumberOwners(tenantId,java.util.HexFormat.of().withUpperCase().formatHex(number.getBytes(StandardCharsets.UTF_8)),masterId).isEmpty()))
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RETAINED_NUMBER_EXISTS);
         if (numbered != null && !masterId.equals(numbered.getMasterId())) throw exception(CONTROLLED_FILE_NAME_EXISTS);
         if(reservationMapper.activeLegacyNumberOwners(tenantId,projectId,leafId,java.util.HexFormat.of().withUpperCase().formatHex(number.getBytes(StandardCharsets.UTF_8)),masterId)>0)
             throw exception(CONTROLLED_FILE_NAME_EXISTS);

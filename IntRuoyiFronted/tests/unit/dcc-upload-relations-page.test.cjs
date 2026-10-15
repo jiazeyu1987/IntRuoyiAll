@@ -49,11 +49,19 @@ test('opening the dialog retains actual file and source identity without inventi
   assert.equal(initial.unsubmitted, true); assert.equal(current.uploadRelationsVisible.value, true)
   assert.deepEqual(current.formData.relatedControlledFileIds, [])
 })
-test('confirmed cross-project future controlled selection preserves the complete Long string', async () => {
+test('confirmed same-project effective readable controlled selection preserves the complete Long string', async () => {
   const current = state(); const api = handlers(current); api.openUploadRelations()
-  await api.persistUploadRelations([candidate])
+  await api.persistUploadRelations([{ ...candidate, projectId: '5', pendingEffect: false, executable: true, canPreview: true, status: 'ACTIVE' }])
   assert.deepEqual(JSON.parse(JSON.stringify(current.formData.relatedControlledFileIds)), ['9007199254740993'])
-  assert.equal(current.selectedUploadRelations.value[0].projectId, '6')
+  assert.equal(current.selectedUploadRelations.value[0].projectId, '5')
+})
+test('cross-project, future, obsolete and unreadable relations reject without replacing application input', async () => {
+  const current = state(); const api = handlers(current); api.openUploadRelations()
+  const valid = { ...candidate, projectId: '5', pendingEffect: false, executable: true, canPreview: true, status: 'ACTIVE' }
+  for (const bad of [candidate, { ...valid, projectId: '6' }, { ...valid, pendingEffect: true }, { ...valid, status: 'OBSOLETE' }, { ...valid, canPreview: false }]) {
+    await assert.rejects(api.persistUploadRelations([bad]))
+    assert.deepEqual(current.formData.relatedControlledFileIds, [])
+  }
 })
 test('source changes and foreign tenant reject the selection without replacing parent input', async () => {
   const current = state(); const api = handlers(current); api.openUploadRelations()

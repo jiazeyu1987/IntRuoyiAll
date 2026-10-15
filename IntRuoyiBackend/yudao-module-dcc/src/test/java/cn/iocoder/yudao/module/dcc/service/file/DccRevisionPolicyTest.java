@@ -11,7 +11,7 @@ class DccRevisionPolicyTest {
     private final DccControlledFileVersionPolicy policy = DccControlledFileVersionPolicy.defaultPolicy();
 
     @ParameterizedTest
-    @CsvSource({"A/1,A/2", "A/8,A/9", "A/9,B/1", "Y/9,Z/1"})
+    @CsvSource({"A/1,A/2", "A/8,A/9", "A/9,B/1", "Y/9,Z/1", "Z/9,AA/1", "AA/9,AB/1", "AZ/9,BA/1", "ZZ/9,AAA/1"})
     void partialRollover(String from, String to) {
         assertEquals(to, policy.nextMinor(file(from), List.of(file(from))).display());
     }
@@ -28,9 +28,11 @@ class DccRevisionPolicyTest {
         assertEquals("B/1", policy.nextMajor(file("A/3"), List.of(file("A/3"))).display());
     }
 
-    @Test void zRuleMustBeExplicitlyBlocked() {
-        assertThrows(IllegalArgumentException.class, () -> policy.nextMajor(file("Z/3"), List.of()));
-        assertThrows(IllegalArgumentException.class, () -> policy.nextMinor(file("Z/9"), List.of()));
+    @Test void zRolloverRetainsExplicitIntentInReplayMatching() {
+        assertEquals("AA/1", policy.nextMajor(file("Z/3"), List.of()).display());
+        assertTrue(policy.matchesVersionChange(file("Z/9"), file("AA/1"), false));
+        assertTrue(policy.matchesVersionChange(file("Z/3"), file("AA/1"), true));
+        assertFalse(policy.matchesVersionChange(file("Z/3"), file("AA/1"), false));
     }
 
     @ParameterizedTest
@@ -41,9 +43,9 @@ class DccRevisionPolicyTest {
         assertNull(policy.parseStored(DccControlledFileDO.builder().versionNo("bad").revisionCode("A").iterationNo(1).build()));
     }
 
-    @Test void legacyFacadeCannotInventAfterZOrSkipNineRollover() {
+    @Test void legacyFacadeUsesTheConfirmedSequenceAndNineRollover() {
         assertEquals("B/1", DccWindchillVersionNumber.parse("A/9").nextIteration().display());
-        assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.incrementRevision("Z"));
+        assertEquals("AA", DccWindchillVersionNumber.incrementRevision("Z"));
         assertNull(DccWindchillVersionNumber.parseStoredInitial("V1.0"));
     }
 
@@ -56,7 +58,7 @@ class DccRevisionPolicyTest {
         assertTrue(DccControlledFileVersion.parse("A/2").compareTo(ten) > 0);
     }
 
-    @ParameterizedTest @CsvSource({"AA/1", "A/1/1", "A/1/1-2"})
+    @ParameterizedTest @CsvSource({"A/1/1", "A/1/1-2"})
     void unconfirmedGrammarCannotEnterNewWritePolicy(String raw) {
         assertNull(policy.parse(raw));
         assertNull(DccWindchillVersionNumber.parse(raw));

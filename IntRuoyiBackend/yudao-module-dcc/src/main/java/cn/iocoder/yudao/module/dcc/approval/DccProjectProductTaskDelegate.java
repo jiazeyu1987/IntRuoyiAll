@@ -19,6 +19,7 @@ public class DccProjectProductTaskDelegate {
     private final DccProjectProductCreateRequestMapper requests;
     private final DccProjectProductActorSupport actors;
     private final DccProjectProductCreateService service;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerRoleService reviewerRoles;
 
     public DccProjectProductTaskDelegate(DccProjectProductCreateRequestMapper requests,
                                        DccProjectProductActorSupport actors, DccProjectProductCreateService service) {
@@ -36,7 +37,12 @@ public class DccProjectProductTaskDelegate {
         List<ApprovalTaskSummary> rows = new ArrayList<>();
         for (var request : requests.selectNativeTaskRows()) {
             if (!Objects.equals(request.getTenantId(), tenant)) throw new IllegalStateException("PROJECT_TASK_TENANT_MISMATCH");
+            boolean role=roleRequest(request);
             if (context.getViewType() == ApprovalTaskViewType.TODO) {
+                if(role){
+                    if("PENDING_REVIEW".equals(request.getStatus()) && (context.isGlobalView() || reviewerRoles.canReview(context.getLoginUserId(),request)))rows.add(summary(request,REVIEW,false));
+                    continue;
+                }
                 if ("PENDING_REVIEW".equals(request.getStatus()) && request.getConfiguredReviewerUserId() != null
                         && (context.isGlobalView() || Objects.equals(request.getConfiguredReviewerUserId(), context.getLoginUserId())
                         && actors.canUpdate(context.getLoginUserId()))) rows.add(summary(request, REVIEW, false));
@@ -48,7 +54,7 @@ public class DccProjectProductTaskDelegate {
                         && (context.isGlobalView() || Objects.equals(request.getReviewerUserId(), context.getLoginUserId()))) {
                     rows.add(summary(request, REVIEW, true));
                 }
-                if (request.getApproverUserId() != null && request.getApprovedTime() != null
+                if (!role && request.getApproverUserId() != null && request.getApprovedTime() != null
                         && (context.isGlobalView() || Objects.equals(request.getApproverUserId(), context.getLoginUserId()))) {
                     rows.add(summary(request, APPROVAL, true));
                 }
@@ -58,6 +64,7 @@ public class DccProjectProductTaskDelegate {
     }
 
     private ApprovalTaskSummary summary(DccProjectProductCreateRequestDO request, String type, boolean done) {
+        boolean role=roleRequest(request);
         boolean review = REVIEW.equals(type);
         boolean rejected = review ? request.getReviewReason() == null && "REJECTED".equals(request.getStatus())
                 && request.getApproverUserId() == null : request.getApprovalReason() == null && "REJECTED".equals(request.getStatus());
@@ -66,8 +73,8 @@ public class DccProjectProductTaskDelegate {
                 .sourceTaskType(type).sourceTaskId(id).businessKey(request.getId().toString())
                 .businessTitle(request.getProjectName() + " · " + request.getProductName()).businessCode(request.getProjectCode())
                 .businessStatus(request.getStatus()).businessDeleted(false)
-                .currentNodeCode(type).currentNodeName(review ? "项目产品审核" : "项目产品批准")
-                .initiatorUserId(request.getApplicantUserId()).assigneeUserId(review ? request.getConfiguredReviewerUserId()
+                .currentNodeCode(type).currentNodeName(role ? "项目审核员" : review ? "项目产品审核" : "项目产品批准")
+                .initiatorUserId(request.getApplicantUserId()).assigneeUserId(role ? done ? request.getReviewerUserId() : null : review ? request.getConfiguredReviewerUserId()
                         : done ? request.getApproverUserId() : actors.requireApprover())
                 .initiatedAt(request.getSubmittedTime()).taskCreatedAt(review ? request.getSubmittedTime() : request.getReviewedTime())
                 .taskCompletedAt(done ? review ? request.getReviewedTime() : request.getApprovedTime() : null)
@@ -89,14 +96,16 @@ public class DccProjectProductTaskDelegate {
             id = Long.valueOf(context.getBusinessKey());
         } catch (NumberFormatException ex) { throw new IllegalArgumentException("PROJECT_TASK_ID_INVALID"); }
         var request = service.getRequest(context.getLoginUserId(), id);
+        boolean role=roleRequest(request);
+        if(role && !REVIEW.equals(context.getSourceTaskType()))throw new IllegalArgumentException("ROLE_PROJECT_HAS_NO_SECOND_APPROVAL");
         if (!Objects.equals(context.getSourceTaskId(), taskId(request, context.getSourceTaskType()))) {
             throw new IllegalArgumentException("PROJECT_TASK_SOURCE_ID_MISMATCH");
         }
         List<ApprovalTaskTimelineEntry> entries = new ArrayList<>();
         add(entries, request, "SUBMIT", "提交申请", request.getApplicantUserId(), request.getSubmittedTime(), request.getCreationReason());
-        if (request.getReviewedTime() != null) add(entries, request, REVIEW, "项目产品审核", request.getReviewerUserId(), request.getReviewedTime(),
+        if (request.getReviewedTime() != null) add(entries, request, REVIEW, role ? "项目审核员" : "项目产品审核", request.getReviewerUserId(), request.getReviewedTime(),
                 request.getReviewReason() == null ? request.getRejectReason() : request.getReviewReason());
-        if (request.getApprovedTime() != null) add(entries, request, APPROVAL, "项目产品批准", request.getApproverUserId(), request.getApprovedTime(),
+        if (!role && request.getApprovedTime() != null) add(entries, request, APPROVAL, "项目产品批准", request.getApproverUserId(), request.getApprovedTime(),
                 request.getApprovalReason() == null ? request.getRejectReason() : request.getApprovalReason());
         return entries;
     }
@@ -105,7 +114,7 @@ public class DccProjectProductTaskDelegate {
                      String stage, String label, Long actor, LocalDateTime time, String reason) {
         if (actor == null || time == null) throw new IllegalStateException("PROJECT_TASK_HISTORY_INCOMPLETE");
         String status = "SUBMIT".equals(stage) ? "PENDING_REVIEW"
-                : REVIEW.equals(stage) ? request.getReviewReason() == null ? "REJECTED" : "PENDING_APPROVAL"
+                : REVIEW.equals(stage) ? request.getReviewReason() == null ? "REJECTED" : roleRequest(request) ? "COMPLETED" : "PENDING_APPROVAL"
                 : request.getApprovalReason() == null ? "REJECTED" : "WRITING";
         String action = "SUBMIT".equals(stage) ? "SUBMIT" : "REJECTED".equals(status) ? "REJECT" : "APPROVE";
         String actionLabel = "SUBMIT".equals(stage) ? label : label + ("REJECT".equals(action) ? "驳回" : "通过");
@@ -118,6 +127,10 @@ public class DccProjectProductTaskDelegate {
 
     private static String taskId(DccProjectProductCreateRequestDO request, String type) {
         return "DCC_PROJECT_PRODUCT:" + request.getTenantId() + ":" + request.getId() + ":" + type;
+    }
+    private boolean roleRequest(DccProjectProductCreateRequestDO request){
+        if(request.getReviewContract()==null && request.getReviewerRoleId()==null && request.getReviewerRoleCode()==null)return false;
+        return reviewerRoles.isRoleContract(request);
     }
 
     private static boolean matches(ApprovalTaskSummary row, String keyword) {

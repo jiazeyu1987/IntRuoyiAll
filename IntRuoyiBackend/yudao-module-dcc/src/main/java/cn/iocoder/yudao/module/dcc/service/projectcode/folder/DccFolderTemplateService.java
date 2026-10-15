@@ -8,6 +8,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import java.util.*;
 import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.*;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -88,9 +89,10 @@ public class DccFolderTemplateService {
     @Transactional(rollbackFor = Exception.class)
     public List<DccProjectFolderDO> generate(Long projectId, Long templateId, String snapshotJson) {
         var project = projectMapper.selectByIdForUpdate(projectId);
-        if (project == null || !Objects.equals(project.getTenantId(), TenantContextHolder.getRequiredTenantId()) || templateId == null) throw fail(FOLDER_INVALID);
+        if (project == null || !Objects.equals(project.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !"ENABLE".equals(project.getStatus()) || templateId == null) throw fail(FOLDER_INVALID);
         var nodes = parse(snapshotJson).parentFirst();
-        if (!folderMapper.listByProject(projectId).isEmpty()) throw fail(FOLDER_INVALID);
+        if (!folderMapper.listByProjectForUpdate(projectId).isEmpty()) throw fail(FOLDER_INVALID);
         Map<String, Long> generatedIds = new HashMap<>();
         List<DccProjectFolderDO> result = new ArrayList<>();
         for (var node : nodes) {
@@ -116,6 +118,14 @@ public class DccFolderTemplateService {
         var folder = folderId == null ? null : folderMapper.selectById(folderId);
         if (folder == null || !Objects.equals(folder.getTenantId(), TenantContextHolder.getRequiredTenantId()) || !Objects.equals(folder.getProjectCodeId(), projectId)
                 || !Boolean.TRUE.equals(folder.getActive())) throw fail(FOLDER_INVALID);
+        return folder;
+    }
+    /** For mutation callers holding the project lock; never validate a stale folder snapshot. */
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public DccProjectFolderDO requireProjectFolderForUpdate(Long projectId, Long folderId) {
+        var folder = projectId == null || folderId == null ? null : folderMapper.selectByIdForUpdate(projectId, folderId);
+        if (folder == null || !Objects.equals(folder.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(folder.getProjectCodeId(), projectId) || !Boolean.TRUE.equals(folder.getActive())) throw fail(FOLDER_INVALID);
         return folder;
     }
     private void assertEditor(Long userId) {

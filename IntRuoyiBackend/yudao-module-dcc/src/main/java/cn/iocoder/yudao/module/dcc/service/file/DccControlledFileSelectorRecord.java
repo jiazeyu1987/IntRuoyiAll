@@ -9,6 +9,7 @@ public class DccControlledFileSelectorRecord extends DccControlledFileDO {
     private String projectName;
     private String sourceDirectoryName;
     private Long latestControlledFileId;
+    private Long currentActiveControlledFileId;
     private Long projectFolderId;
     private String projectFolderName;
 }

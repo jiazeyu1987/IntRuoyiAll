@@ -236,6 +236,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     @Test
     void nativeKeywordAndAdvancementUseOnlyTheCurrentPersistedTrainingState() {
         var delegate=new DccOfflineTrainingTaskDelegate(training);
+        assertTrue(training.canReadProgress(88L,files.selectById(20L)));
         assertEquals(1,delegate.list(ApprovalTaskQueryContext.of(88L,ApprovalTaskViewType.TODO,
                 ApprovalModuleCode.DCC,"N-1",1,20)).size());
         assertTrue(delegate.list(ApprovalTaskQueryContext.of(88L,ApprovalTaskViewType.TODO,
@@ -245,6 +246,13 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
                 .processInstanceId(processId).activityId("TRAINING").singleResult().getId());
         assertTrue(training.listForActor(88L).isEmpty());
         assertFalse(training.canUpload(88L,files.selectById(20L)));
+        assertTrue(training.canReadProgress(88L,files.selectById(20L)),"Formal progress remains readable after upload");
+        assertFalse(training.canReadProgress(99L,files.selectById(20L)),"Applicant status alone cannot grant training metadata access");
+        when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(false);
+        assertFalse(training.canReadProgress(88L,files.selectById(20L)));
+        when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(true);
+        when(category.hasCategoryPermission(eq(2L),eq(88L),any())).thenReturn(false);
+        assertFalse(training.canReadProgress(88L,files.selectById(20L)));
         assertEquals(1,engine.getTaskService().createTaskQuery().processInstanceId(processId)
                 .taskDefinitionKey("DOC_CONTROL_REVIEW").count());
     }
@@ -259,6 +267,18 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         new TransactionTemplate(manager).executeWithoutResult(s->training.notifyWaiting(files.selectById(20L)));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
         assertEquals(99L,files.selectById(20L).getRequesterId());
+    }
+    @Test void trainingRecipientReadinessIsReadOnlyAndUsesTheSameCategoryAndFileScopeRules() {
+        var file=files.selectById(20L);
+        @SuppressWarnings("unchecked")
+        var recipients=(List<Long>)ReflectionTestUtils.invokeMethod(training,"requireConfiguredRecipients",file);
+        assertEquals(List.of(88L),recipients);
+        when(category.hasCategoryPermission(2L,88L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.TRAINING_RECORD)).thenReturn(false);
+        var failure=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->ReflectionTestUtils.invokeMethod(training,"requireConfiguredRecipients",file));
+        assertEquals(1_080_000_360,failure.getCode());
+        assertTrue(failure.getMessage().contains("TRAINING_RECORD"));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
     }
 
     private static void wire(Object target,Object... fields) {

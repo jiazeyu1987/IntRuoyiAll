@@ -65,14 +65,19 @@ class DccNativePlatformLifecycleTransactionTest extends DccWorkflowLifecycleTran
     }
 
     private void seedBoth(LocalDate date) {
-        ReflectionTestUtils.invokeMethod(this,"seed",date);
+        seed(date);
+    }
+
+    @Override
+    protected void seed(LocalDate date,String candidateRound) {
+        super.seed(date,candidateRound);
         new TransactionTemplate(actualTx).executeWithoutResult(s->{
             var active=core.registerActiveRef(key,10L,1L,"A/1","ACTIVE",99L,"isolated actual baseline");
             actualJdbc.update("UPDATE controlled_content_version_ref SET approval_process_instance_id='approval-1' WHERE native_version_id=1");
             core.createCandidateRef(key,10L,2L,"B/1","READY_TO_PUBLISH",active.getId(),1L,99L,"isolated actual candidate");
-            core.transitionVersionRef(key,2L,ControlledContentCanonicalStatus.IN_REVIEW,"PENDING_MATRIX_REVIEW",ControlledContentTransitionAction.SUBMIT,99L,"submit","approval-2");
-            core.transitionVersionRefByDomainEvent(key,2L,ControlledContentCanonicalStatus.IN_REVIEW,ControlledContentCanonicalStatus.READY_TO_PUBLISH,"READY_TO_PUBLISH",ControlledContentTransitionAction.APPROVE,99L,"approved","approval-2","g59-approve");
-            core.transitionVersionRefByDomainEvent(key,2L,ControlledContentCanonicalStatus.READY_TO_PUBLISH,ControlledContentCanonicalStatus.FINALIZING,"FINALIZING",ControlledContentTransitionAction.START_FINALIZATION,99L,"begin control","approval-2","g59-finalizing");
+            core.transitionVersionRef(key,2L,ControlledContentCanonicalStatus.IN_REVIEW,"PENDING_MATRIX_REVIEW",ControlledContentTransitionAction.SUBMIT,99L,"submit",candidateRound);
+            core.transitionVersionRefByDomainEvent(key,2L,ControlledContentCanonicalStatus.IN_REVIEW,ControlledContentCanonicalStatus.READY_TO_PUBLISH,"READY_TO_PUBLISH",ControlledContentTransitionAction.APPROVE,99L,"approved",candidateRound,"g59-approve");
+            core.transitionVersionRefByDomainEvent(key,2L,ControlledContentCanonicalStatus.READY_TO_PUBLISH,ControlledContentCanonicalStatus.FINALIZING,"FINALIZING",ControlledContentTransitionAction.START_FINALIZATION,99L,"begin control",candidateRound,"g59-finalizing");
         });
     }
 

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS `dcc_file_category` (
   `description` VARCHAR(255) NULL,
   `lifecycle_stage` VARCHAR(32) NOT NULL,
   `file_type_taxonomy_id` BIGINT NULL,
+  `approval_source_mode` VARCHAR(32) NOT NULL,
   `distribution_required` TINYINT NOT NULL DEFAULT 0,
   `training_required` TINYINT NOT NULL DEFAULT 0,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
@@ -387,6 +388,23 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `previous_source_sha256` VARCHAR(64) NULL,
   `change_description` VARCHAR(1000) NULL,
   `effective_date` DATE NULL,
+  `effective_mode` VARCHAR(40) NULL,
+  `delayed_effective_time` TIMESTAMP(6) NULL,
+  `delayed_effective_confirmed_at` TIMESTAMP(6) NULL,
+  `delayed_effective_signature_id` BIGINT NULL,
+  `delayed_effective_process_instance_id` VARCHAR(128) NULL,
+  `effective_time` DATETIME NULL,
+  `effective_signature_id` BIGINT NULL,
+  `effective_process_instance_id` VARCHAR(128) NULL,
+  `distribution_department_ids_json` TEXT NULL,
+  `selected_signoff_department_ids_json` TEXT NULL,
+  `draft_approval_matrix_json` CLOB NULL,
+  `draft_approval_source_mode` VARCHAR(32) NULL,
+  `draft_application_custom_matrix_json` LONGTEXT NULL,
+  `draft_application_context_key` VARCHAR(128) NULL,
+  `prepared_workflow_contract` VARCHAR(64) NULL,
+  `prepared_process_definition_id` VARCHAR(128) NULL,
+  `prepared_definition_digest` VARCHAR(64) NULL,
   `remark` VARCHAR(1024) NULL,
   `status` VARCHAR(64) NOT NULL,
   `submitter_id` BIGINT NOT NULL,
@@ -400,7 +418,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   `submitted_time` DATETIME NULL,
   `approved_time` DATETIME NULL,
   `published_time` DATETIME NULL,
-  `controlled_time` DATETIME NULL,
+  `controlled_time` TIMESTAMP(6) NULL,
   `activated_time` DATETIME NULL,
   `distributed_time` DATETIME NULL,
   `distribution_payload_hash` CHAR(64) NULL,
@@ -449,6 +467,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_checkout` (
   `checkin_iteration_id` BIGINT NULL,
   `checkin_source_file_id` BIGINT NULL,
   `checkin_source_sha256` VARCHAR(64) NULL,
+  `checkin_payload_hash` CHAR(64) NULL,
   `checked_in_time` DATETIME NULL,
   `cancel_reason` VARCHAR(500) NULL,
   `cancelled_time` DATETIME NULL,
@@ -741,7 +760,13 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `controlled_file_id` BIGINT NOT NULL,
-  `route_version_no` INT NOT NULL,
+  `route_version_no` INT NULL,
+  `source_approval_matrix_id` BIGINT NULL,
+  `source_approval_matrix_version` INT NULL,
+  `source_approval_matrix_digest` VARCHAR(64) NULL,
+  `derivation_version` VARCHAR(64) NULL,
+  `source_approval_matrix_json` CLOB NULL,
+  `runtime_approval_nodes_json` CLOB NULL,
   `stage_no` INT NOT NULL,
   `stage_code` VARCHAR(64) NULL,
   `stage_name` VARCHAR(128) NULL,
@@ -841,7 +866,9 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_signature` (
   `signature_mode` VARCHAR(32) NOT NULL,
   `password_verified` TINYINT NOT NULL DEFAULT 0,
   `comment` VARCHAR(500) NULL,
-  `signed_at` DATETIME NULL,
+  `signed_at` TIMESTAMP(6) NULL,
+  `selected_effective_time` TIMESTAMP(6) NULL,
+  `attribute_round` INT NULL,
   `source_file_id` BIGINT NULL,
   `source_file_hash` VARCHAR(128) NULL,
   `source_file_hash_algorithm` VARCHAR(32) NULL,
@@ -1058,10 +1085,11 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_message_job` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `business_type` VARCHAR(32) NOT NULL,
   `business_id` BIGINT NOT NULL,
+  `distribution_batch_id` BIGINT NULL,
   `template_code` VARCHAR(64) NOT NULL,
   `recipient_user_id` BIGINT NOT NULL,
   `status` VARCHAR(32) NOT NULL,
-  `error_message` VARCHAR(500) NULL,
+  `error_message` CLOB NULL,
   `sent_at` DATETIME NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
@@ -1388,6 +1416,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_access_event` (
   `access_event_code` VARCHAR(64) NOT NULL,
   `controlled_file_id` BIGINT NOT NULL,
   `file_version_no` VARCHAR(64) NOT NULL,
+  `process_instance_id` VARCHAR(128) NULL,
   `user_id` BIGINT NOT NULL,
   `access_type` VARCHAR(32) NOT NULL,
   `purpose` VARCHAR(64) NOT NULL,
@@ -2905,6 +2934,9 @@ CREATE TABLE IF NOT EXISTS dcc_project_product_create_request (
     configured_reviewer_user_id BIGINT NULL,
     configured_reviewer_username VARCHAR(128) NULL,
     configured_reviewer_nickname VARCHAR(128) NULL,
+    review_contract VARCHAR(32) NULL,
+    reviewer_role_id BIGINT NULL,
+    reviewer_role_code VARCHAR(128) NULL,
     approver_user_id BIGINT NULL,
     review_reason VARCHAR(2048) NULL,
     approval_reason VARCHAR(2048) NULL,
@@ -2984,7 +3016,73 @@ CREATE TABLE IF NOT EXISTS `dcc_product_catalog` (
   `updater` varchar(64) DEFAULT '',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted` bit(1) NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_product_catalog_source_row` (`data_source`, `original_row_no`)
+);
+
+CREATE TABLE IF NOT EXISTS dcc_product_catalog_source_sequence (
+  data_source VARCHAR(64) NOT NULL PRIMARY KEY,
+  last_row_no BIGINT NOT NULL,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+INSERT INTO dcc_product_catalog_source_sequence(data_source,last_row_no)
+SELECT '瑛泰产品',1 WHERE NOT EXISTS (
+  SELECT 1 FROM dcc_product_catalog_source_sequence WHERE data_source='瑛泰产品'
+);
+
+CREATE TABLE IF NOT EXISTS dcc_distribution_batch (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT NOT NULL,
+  source_event_id BIGINT NOT NULL,
+  event_key VARCHAR(255) NOT NULL,
+  event_type VARCHAR(32) NOT NULL,
+  master_id BIGINT NOT NULL,
+  controlled_file_id BIGINT NOT NULL,
+  approval_process_instance_id VARCHAR(128) NOT NULL,
+  version_no VARCHAR(64) NOT NULL,
+  source_occurred_at DATETIME(6) NOT NULL,
+  department_ids_json CLOB NULL,
+  snapshot_at DATETIME(6) NULL,
+  snapshot_policy_version VARCHAR(128) NULL,
+  snapshot_payload_hash CHAR(64) NULL,
+  event_payload_hash CHAR(64) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  error_code VARCHAR(64) NULL,
+  error_message CLOB NULL,
+  failure_at DATETIME(6) NULL,
+  dispatch_prepared_at DATETIME(6) NULL,
+  sent_at DATETIME(6) NULL,
+  row_version BIGINT NOT NULL DEFAULT 0,
+  creator VARCHAR(64) NULL,
+  updater VARCHAR(64) NULL,
+  create_time DATETIME(6) NOT NULL,
+  update_time DATETIME(6) NOT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY(id),
+  UNIQUE(tenant_id,source_event_id), UNIQUE(tenant_id,event_key), UNIQUE(tenant_id,controlled_file_id,approval_process_instance_id)
+);
+CREATE TABLE IF NOT EXISTS dcc_distribution_dispatch_attempt (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT NOT NULL,
+  batch_id BIGINT NOT NULL,
+  message_job_id BIGINT NOT NULL,
+  attempt_no INT NOT NULL,
+  business_key VARCHAR(255) NOT NULL,
+  recipient_user_id BIGINT NOT NULL,
+  template_code VARCHAR(64) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  platform_message_id BIGINT NULL,
+  started_at DATETIME(6) NOT NULL,
+  finished_at DATETIME(6) NULL,
+  error_code VARCHAR(64) NULL,
+  error_message CLOB NULL,
+  creator VARCHAR(64) NULL,
+  updater VARCHAR(64) NULL,
+  create_time DATETIME(6) NOT NULL,
+  update_time DATETIME(6) NOT NULL,
+  deleted TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY(id),
+  UNIQUE(tenant_id,message_job_id,attempt_no)
 );
 
 CREATE TABLE IF NOT EXISTS dcc_controlled_file_name_claim (
@@ -3066,10 +3164,123 @@ CREATE TABLE IF NOT EXISTS infra_file_config(id BIGINT PRIMARY KEY,storage INT,c
 CREATE ALIAS IF NOT EXISTS JSON_EXTRACT FOR "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.jsonExtract";
 CREATE ALIAS IF NOT EXISTS JSON_UNQUOTE FOR "cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.jsonUnquote";
 
+CREATE TABLE IF NOT EXISTS dcc_application_round_link (
+ id BIGINT NOT NULL AUTO_INCREMENT,
+ tenant_id BIGINT NOT NULL,
+ project_id BIGINT NOT NULL,
+ application_type VARCHAR(16) NOT NULL,
+ application_id BIGINT NOT NULL,
+ bpm_round VARCHAR(64) NULL,
+ attribute_round INT NOT NULL,
+ form_instance_id BIGINT NULL,
+ PRIMARY KEY(id),
+ CONSTRAINT uk_dcc_round_bpm UNIQUE(tenant_id,application_type,application_id,bpm_round),
+ CONSTRAINT uk_dcc_round_number UNIQUE(tenant_id,application_type,application_id,attribute_round),
+ CONSTRAINT uk_dcc_round_form UNIQUE(tenant_id,form_instance_id)
+);
+
+CREATE TABLE IF NOT EXISTS dcc_relation_stage_snapshot (
+ id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT NOT NULL,
+ source_file_id BIGINT NOT NULL,
+ source_master_id BIGINT NOT NULL,
+ project_id BIGINT NOT NULL,
+ process_instance_id VARCHAR(128) NOT NULL,
+ task_id VARCHAR(128) NOT NULL,
+ obligation_id VARCHAR(128) NOT NULL,
+ stage_code VARCHAR(64) NOT NULL,
+ node_instance_id VARCHAR(128) NOT NULL,
+ department_id BIGINT NULL,
+ actor_id BIGINT NOT NULL,
+ signature_id BIGINT NOT NULL,
+ signed_at DATETIME NOT NULL,
+ command_key VARCHAR(128) NOT NULL,
+ payload_hash CHAR(64) NOT NULL,
+ expected_digest CHAR(64) NOT NULL,
+ complete_digest CHAR(64) NOT NULL,
+ action_type VARCHAR(32) NOT NULL,
+ reason VARCHAR(2048) NOT NULL,
+ CONSTRAINT uk_dcc_relation_stage_node UNIQUE (tenant_id,process_instance_id,task_id,obligation_id),
+ CONSTRAINT uk_dcc_relation_stage_command UNIQUE (tenant_id,source_file_id,command_key),
+ CONSTRAINT uk_dcc_relation_stage_signature UNIQUE (tenant_id,signature_id)
+);
+
+CREATE TABLE IF NOT EXISTS dcc_relation_stage_member (
+ id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_id BIGINT NOT NULL,
+ snapshot_id BIGINT NOT NULL,
+ related_master_id BIGINT NOT NULL,
+ selected_file_id BIGINT NOT NULL,
+ project_id BIGINT NOT NULL,
+ file_number_snapshot VARCHAR(128) NOT NULL,
+ file_name_snapshot VARCHAR(256) NOT NULL,
+ version_no_snapshot VARCHAR(64) NOT NULL,
+ origin VARCHAR(32) NOT NULL,
+ supplemental TINYINT NOT NULL,
+ assignee_user_id BIGINT NULL,
+ due_at DATETIME NULL,
+ CONSTRAINT uk_dcc_relation_stage_member UNIQUE (tenant_id,snapshot_id,related_master_id)
+);
+ALTER TABLE dcc_relation_stage_snapshot ADD COLUMN IF NOT EXISTS application_type VARCHAR(16) NULL;
+ALTER TABLE dcc_relation_stage_snapshot ADD COLUMN IF NOT EXISTS attribute_round INT NULL;
+ALTER TABLE dcc_relation_stage_snapshot ADD COLUMN IF NOT EXISTS form_action_instance_id BIGINT NULL;
+ALTER TABLE dcc_application_round_link ADD COLUMN IF NOT EXISTS source_application_type VARCHAR(16) NULL;
+ALTER TABLE dcc_application_round_link ADD COLUMN IF NOT EXISTS source_application_id BIGINT NULL;
+ALTER TABLE dcc_application_round_link ADD COLUMN IF NOT EXISTS source_bpm_round VARCHAR(64) NULL;
+ALTER TABLE dcc_application_round_link ADD COLUMN IF NOT EXISTS source_relation_digest CHAR(64) NULL;
+
 CREATE TABLE IF NOT EXISTS dcc_project_folder_storage_mapping (
  id BIGINT AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT NOT NULL, project_code_id BIGINT NOT NULL,
  project_folder_id BIGINT NOT NULL, category_id BIGINT NOT NULL, base_directory_id BIGINT NOT NULL,
  storage_directory_id BIGINT NOT NULL, creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,
  update_time TIMESTAMP,deleted BIT NOT NULL DEFAULT 0,
  UNIQUE(tenant_id,project_folder_id,category_id),UNIQUE(tenant_id,storage_directory_id)
+);
+
+-- IC29 independent submitted obsolete form heads and per-department obligations.
+CREATE TABLE IF NOT EXISTS dcc_obsolete_form_runtime_snapshot (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT NOT NULL,
+  form_instance_id BIGINT NOT NULL,
+  controlled_file_id BIGINT NOT NULL,
+  project_id BIGINT NOT NULL,
+  applicant_user_id BIGINT NOT NULL,
+  form_instance_code VARCHAR(128) NOT NULL,
+  controlled_file_version_no VARCHAR(128) NOT NULL,
+  bpm_process_instance_id VARCHAR(128) NOT NULL,
+  attribute_round INT NOT NULL,
+  prepared_process_definition_id VARCHAR(128) NOT NULL,
+  prepared_definition_digest CHAR(64) NOT NULL,
+  execution_contract VARCHAR(64) NOT NULL,
+  canonical_preparation_json LONGTEXT NOT NULL,
+  preparation_digest CHAR(64) NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  PRIMARY KEY(id),
+  CONSTRAINT uk_dcc_obsolete_form UNIQUE(tenant_id,form_instance_id),
+  CONSTRAINT uk_dcc_obsolete_bpm UNIQUE(tenant_id,bpm_process_instance_id)
+);
+
+CREATE TABLE IF NOT EXISTS dcc_obsolete_form_runtime_obligation (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT NOT NULL,
+  head_id BIGINT NOT NULL,
+  form_instance_id BIGINT NOT NULL,
+  controlled_file_id BIGINT NOT NULL,
+  bpm_process_instance_id VARCHAR(128) NOT NULL,
+  obligation_id VARCHAR(256) NOT NULL,
+  stage_code VARCHAR(64) NOT NULL,
+  node_instance_id VARCHAR(128) NOT NULL,
+  stage_no INT NOT NULL,
+  stage_order INT NOT NULL,
+  department_id BIGINT NULL,
+  candidate_source_type VARCHAR(32) NOT NULL,
+  candidate_source_ids_json LONGTEXT NOT NULL,
+  frozen_user_ids_json LONGTEXT NOT NULL,
+  approve_method VARCHAR(16) NOT NULL,
+  approve_ratio INT NULL,
+  require_all_approvals BOOLEAN NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  PRIMARY KEY(id),
+  CONSTRAINT uk_dcc_obsolete_obligation UNIQUE(tenant_id,bpm_process_instance_id,obligation_id),
+  INDEX idx_dcc_obsolete_form(tenant_id,form_instance_id)
 );

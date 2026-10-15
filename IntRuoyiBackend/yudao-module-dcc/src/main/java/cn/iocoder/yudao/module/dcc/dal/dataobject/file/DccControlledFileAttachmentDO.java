@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import java.time.LocalDateTime;
 
 @TableName("dcc_controlled_file_attachment")
 @Data
@@ -28,5 +29,11 @@ public class DccControlledFileAttachmentDO extends TenantBaseDO {
     private Long fileSize;
     private String fileSha256;
     private Integer sortNo;
+    private String attachmentPurpose;
+    private String applicationProcessInstanceId;
+    private Long uploadedBy;
+    private String uploadedUsernameSnapshot;
+    private String uploadedNicknameSnapshot;
+    private LocalDateTime uploadedAt;
 
 }

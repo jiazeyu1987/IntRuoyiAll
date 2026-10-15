@@ -11,4 +11,6 @@ public class DccProjectReferenceAuthorityImpl implements DccProjectReferenceAuth
     @Resource private DccFolderTemplateService folderService;
     public void assertProjectLeader(Long userId,Long projectId) { leaderService.assertProjectLeader(userId,projectId); }
     public void assertFolderBelongsToProject(Long projectId,Long folderId) { folderService.requireProjectFolder(projectId,folderId); }
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void assertFolderBelongsToProjectForUpdate(Long projectId,Long folderId) { folderService.requireProjectFolderForUpdate(projectId,folderId); }
 }

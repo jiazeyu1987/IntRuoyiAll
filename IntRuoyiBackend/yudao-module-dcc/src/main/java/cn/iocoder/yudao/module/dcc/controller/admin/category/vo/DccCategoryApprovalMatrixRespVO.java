@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.dcc.controller.admin.category.vo;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,9 +13,15 @@ import java.util.List;
 public class DccCategoryApprovalMatrixRespVO {
 
     private Long categoryId;
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long fileTypeTaxonomyId;
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long routeId;
     private Integer routeVersionNo;
     private LocalDateTime effectiveTime;
     private String remark;
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> defaultSignoffDepartmentIds;
     private List<Long> signoffPositionIds;
     private List<Long> approvalPositionIds;
     private List<Rule> rules;

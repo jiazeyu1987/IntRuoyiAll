@@ -11,8 +11,18 @@ import {
 } from '../shared/lifecycle'
 import { getControlledFileHandlingSummary } from '../shared/handlingSummary'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { getDccVersionDisplayText } from '../shared/version-display'
 
 export type DccWorkbenchTone = 'primary' | 'warning' | 'danger' | 'success' | 'info'
+
+/** Text only; selection and every command must continue using controlledFileId. */
+export const getWorkbenchImpactVersionLabel = (option: {
+  controlledFileId: number | string
+  versionNo: string
+}) => {
+  const label = getDccVersionDisplayText(option.versionNo)
+  return label === '草稿' ? `${label} · 文件 #${option.controlledFileId}` : label
+}
 
 export interface DccWorkbenchStatusSection {
   key: string

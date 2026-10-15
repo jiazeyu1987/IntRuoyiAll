@@ -4,4 +4,5 @@ package cn.iocoder.yudao.module.dcc.service.file.relations;
 public interface DccProjectReferenceAuthority {
     void assertProjectLeader(Long userId, Long projectId);
     void assertFolderBelongsToProject(Long projectId, Long folderId);
+    void assertFolderBelongsToProjectForUpdate(Long projectId, Long folderId);
 }

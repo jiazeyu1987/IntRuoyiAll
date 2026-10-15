@@ -4,6 +4,10 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMessageJobDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMessageJobMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingDO;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
@@ -13,6 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.dao.DuplicateKeyException;
 
 import javax.sql.DataSource;
 import java.util.Map;
@@ -41,6 +47,12 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(service, "messageJobMapper", messageJobMapper);
         ReflectionTestUtils.setField(service, "notifyMessageSendApi", platform);
         ReflectionTestUtils.setField(service, "transactionManager", transactionManager);
+        var training=mock(DccControlledFileTrainingMapper.class);
+        when(training.selectById(10L)).thenReturn(DccControlledFileTrainingDO.builder().id(10L).controlledFileId(42L).build());
+        var files=mock(DccControlledFileMapper.class);
+        when(files.selectById(42L)).thenReturn(DccControlledFileDO.builder().id(42L).title("培训文件").versionNo("B/1").build());
+        ReflectionTestUtils.setField(service,"trainingMapper",training);
+        ReflectionTestUtils.setField(service,"controlledFileMapper",files);
     }
 
     @AfterEach
@@ -49,8 +61,9 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
     @Test
     void afterCommitCommitsNotificationAndSentStateInANewTransaction() {
         when(platform.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(ignored -> {
-            jdbc.update("INSERT INTO dcc_test_notification_message VALUES (1)");
-            return 1L;
+            return platformTransaction().execute(status -> {
+                jdbc.update("INSERT INTO dcc_test_notification_message VALUES (1)"); return 1L;
+            });
         });
         new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> {
             insertJob();
@@ -64,8 +77,10 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
     @Test
     void failedSendRollsBackNotificationAndPersistsRetryableFailure() {
         when(platform.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(ignored -> {
-            jdbc.update("INSERT INTO dcc_test_notification_message VALUES (1)");
-            throw new IllegalStateException("notification write failed");
+            return platformTransaction().execute(status -> {
+                jdbc.update("INSERT INTO dcc_test_notification_message VALUES (1)");
+                throw new IllegalStateException("notification write failed");
+            });
         });
         new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> {
             insertJob();
@@ -76,14 +91,21 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
     }
 
     @Test
-    void concurrentReplaysSendOnlyOnceAndKeepSentState() throws Exception {
+    void concurrentReplaysUseOnePlatformMessageAndKeepSentState() throws Exception {
         insertJob();
         CountDownLatch firstSending = new CountDownLatch(1);
         CountDownLatch secondStarted = new CountDownLatch(1);
         when(platform.sendSingleMessageIdempotentlyToAdmin(any())).thenAnswer(ignored -> {
             firstSending.countDown();
             assertTrue(secondStarted.await(10, TimeUnit.SECONDS));
-            return 1L;
+            try {
+                return platformTransaction().execute(status -> {
+                    jdbc.update("INSERT INTO dcc_test_notification_message VALUES (1)"); return 1L;
+                });
+            } catch (DuplicateKeyException duplicate) {
+                assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_test_notification_message", Integer.class));
+                return 1L;
+            }
         });
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
@@ -92,7 +114,8 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
             Future<?> second = executor.submit(() -> send(secondStarted));
             first.get(15, TimeUnit.SECONDS);
             second.get(15, TimeUnit.SECONDS);
-            verify(platform, times(1)).sendSingleMessageIdempotentlyToAdmin(any());
+            verify(platform, atLeastOnce()).sendSingleMessageIdempotentlyToAdmin(any());
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM dcc_test_notification_message", Integer.class));
             assertEquals("SENT", status());
         } finally {
             executor.shutdownNow();
@@ -104,7 +127,7 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         try {
             if (started != null) started.countDown();
-            service.dispatchMessageJob(job(), Map.of("title", "培训文件"));
+            service.replayMessageJob(job());
         } finally {
             TenantContextHolder.clear();
         }
@@ -124,5 +147,11 @@ class DccMessageDeliveryTransactionIntegrationTest extends BaseDbUnitTest {
 
     private String status() {
         return jdbc.queryForObject("SELECT status FROM dcc_controlled_file_message_job WHERE id=99001", String.class);
+    }
+
+    private TransactionTemplate platformTransaction() {
+        var transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return transaction;
     }
 }

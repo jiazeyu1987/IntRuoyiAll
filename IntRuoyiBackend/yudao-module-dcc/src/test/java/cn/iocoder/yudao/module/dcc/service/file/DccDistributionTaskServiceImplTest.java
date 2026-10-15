@@ -87,6 +87,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                 .versionNo("A")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .publishedTime(publishedTime)
+                .controlledTime(publishedTime).activatedTime(publishedTime).distributedTime(publishedTime)
                 .build());
 
         PageResult<DccDistributionTaskRespVO> page =
@@ -108,7 +109,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getMyDistributionTaskPage_missingDistribution_failsFast() {
+    void getMyDistributionTaskPage_missingDistribution_skipsStaleProjection() {
         DccDistributionTaskPageReqVO reqVO = new DccDistributionTaskPageReqVO();
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
@@ -121,9 +122,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                         .build()));
         when(distributionMapper.selectById(301L)).thenReturn(null);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> distributionTaskService.getMyDistributionTaskPage(99L, reqVO));
-        assertEquals("DCC distribution recipient 501 references missing distribution 301", ex.getMessage());
+        assertEquals(0L, distributionTaskService.getMyDistributionTaskPage(99L, reqVO).getTotal());
         verify(distributionMapper).selectById(301L);
     }
 
@@ -138,6 +137,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                         .id(501L)
                         .distributionId(301L)
                         .userId(99L)
+                        .messageJobId(8101L)
                         .build()));
         when(distributionMapper.selectById(301L)).thenReturn(DccControlledFileDistributionDO.builder()
                 .id(301L)

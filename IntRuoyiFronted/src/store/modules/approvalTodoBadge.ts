@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { getApprovalTaskPage } from '@/api/approval-center'
+import { checkPermi } from '@/utils/permission'
 import { store } from '../index'
 
 const TODO_TOTAL_REFRESH_INTERVAL_MS = 30 * 1000
@@ -8,6 +9,7 @@ const APPROVAL_TODO_BADGE_PAGE_SIZE = 10
 let pendingTodoTotalRequest: Promise<void> | undefined
 
 export const hasApprovalTodoBadgeRoute = (routes: AppRouteRecordRaw[] = []): boolean =>
+  checkPermi(['bpm:task:query']) &&
   routes.some((route) => Boolean(route.meta?.approvalTodoBadge) || hasApprovalTodoBadgeRoute(route.children || []))
 
 const normalizeTodoTotal = (total: unknown) => {
@@ -34,7 +36,8 @@ export const useApprovalTodoBadgeStore = defineStore('approvalTodoBadge', {
     loaded: false,
     loading: false,
     error: '',
-    lastLoadedAt: 0
+    lastLoadedAt: 0,
+    taskListRevision: 0
   }),
   getters: {
     getHasVisibleTodoBadge: (state) => state.loaded && state.todoTotal > 0,
@@ -42,6 +45,9 @@ export const useApprovalTodoBadgeStore = defineStore('approvalTodoBadge', {
       state.loaded && state.todoTotal > 0 ? String(state.todoTotal) : ''
   },
   actions: {
+    invalidateTaskLists() {
+      this.taskListRevision++
+    },
     applyTodoTotal(total: unknown) {
       this.todoTotal = normalizeTodoTotal(total)
       this.loaded = true

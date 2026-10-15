@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -36,6 +37,13 @@ public class AdminUserApiImpl implements AdminUserApi {
     private DeptService deptService;
     @Resource
     private UserPostMapper userPostMapper;
+    @Resource private cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService directSupervisorService;
+
+    @Override
+    @DataPermission(enable = false)
+    public AdminUserDirectSupervisorRespDTO getDirectSupervisorRelation(Long userId) {
+        return directSupervisorService.getDirectSupervisorRelation(userId);
+    }
 
     @Override
     @DataPermission(enable = false) // 忽略数据权限，避免因为过滤，导致无法查询用户。类似：https://github.com/YunaiV/ruoyi-vue-pro/issues/1051

@@ -2,7 +2,9 @@ package cn.iocoder.yudao.module.dcc.service.category;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomySaveReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileTypeTaxonomyRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileTypeTaxonomyDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
@@ -116,7 +118,7 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
     @Override
     public Long resolveActiveCategoryId(Long fileTypeTaxonomyId) {
         DccFileTypeTaxonomyPath path = resolveActivePath(fileTypeTaxonomyId);
-        if (StrUtil.isBlank(path.level3())) throw exception(FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+        validateApplicableLeaf(path);
         List<DccFileCategoryDO> categories = categoryMapper.selectList().stream()
                 .filter(category -> Boolean.TRUE.equals(category.getActive())
                         && Objects.equals(category.getFileTypeTaxonomyId(), fileTypeTaxonomyId))
@@ -125,6 +127,82 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
             throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
         }
         return categories.get(0).getId();
+    }
+
+    /** Read-only projection from the one formal category source; no source inference or configuration mutation. */
+    @Override
+    public List<DccFileTypeTaxonomyRespVO> getUploadTaxonomyOptions() {
+        var all = getTaxonomyList();
+        Map<Long, DccFileTypeTaxonomyDO> byId = new LinkedHashMap<>();
+        all.forEach(row -> byId.put(row.getId(), row));
+        var categories = categoryMapper.selectList();
+        return all.stream().filter(row -> Boolean.TRUE.equals(row.getActive())).map(row -> {
+            var response = BeanUtils.toBean(row, DccFileTypeTaxonomyRespVO.class);
+            boolean leaf = all.stream().noneMatch(child -> Objects.equals(child.getParentId(), row.getId()));
+            if (leaf) {
+                String pathBlocker = uploadPathBlocker(row, byId);
+                if (pathBlocker != null) {
+                    response.setUploadBlocker(pathBlocker);
+                    return response;
+                }
+                var matching = categories.stream().filter(category -> Boolean.TRUE.equals(category.getActive())
+                        && Objects.equals(category.getFileTypeTaxonomyId(), row.getId())).toList();
+                if (matching.size() != 1) {
+                    response.setUploadBlocker("文件类型 " + row.getId() + (matching.isEmpty()
+                            ? " 未配置启用文件类别，请维护正式类型映射" : " 关联多个启用文件类别，请核对正式类型映射"));
+                    return response;
+                }
+                String mode = matching.get(0).getApprovalSourceMode();
+                if (!"PUBLIC_MATRIX".equals(mode) && !"APPLICATION_CUSTOM".equals(mode)) {
+                    response.setUploadBlocker("文件类型 " + row.getId() + " 的类别审批来源未配置或无效，请明确维护");
+                    return response;
+                }
+                response.setApprovalSourceMode(mode);
+            }
+            return response;
+        }).toList();
+    }
+
+    /** Only identifiable path configuration issues become per-option blockers; directory I/O errors are not caught. */
+    private String uploadPathBlocker(DccFileTypeTaxonomyDO leaf, Map<Long, DccFileTypeTaxonomyDO> byId) {
+        var current = leaf;
+        var seen = new HashSet<Long>();
+        int depth = 0;
+        while (current != null) {
+            if (!seen.add(current.getId())) return "文件类型 " + leaf.getId() + " 的上级路径循环，请核对分类配置";
+            if (!Boolean.TRUE.equals(current.getActive())) return "文件类型 " + leaf.getId() + " 的上级分类已停用，请核对分类配置";
+            depth++;
+            if (ROOT_PARENT_ID.equals(current.getParentId())) break;
+            current = byId.get(current.getParentId());
+            if (current == null) return "文件类型 " + leaf.getId() + " 的上级分类未记录，请核对分类配置";
+        }
+        return depth < 3 || depth > MAX_LEVEL_NO ? "文件类型 " + leaf.getId() + " 的正式分类路径应至少三级且不超过五级，请核对分类配置" : null;
+    }
+
+    /** 与类别写入同事务锁住正式类型，避免并发创建两个启用映射。 */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DccFileTypeTaxonomyPath validateCategoryMapping(Long fileTypeTaxonomyId, Long categoryId, boolean active) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        if (fileTypeTaxonomyId == null
+                || taxonomyMapper.selectMappingTaxonomyForUpdate(tenantId, fileTypeTaxonomyId) == null) {
+            throw exception(FILE_TYPE_TAXONOMY_NOT_EXISTS);
+        }
+        DccFileTypeTaxonomyPath path = resolveActivePath(fileTypeTaxonomyId);
+        validateApplicableLeaf(path);
+        if (active && categoryMapper.selectMappingCategoriesForUpdate(tenantId, fileTypeTaxonomyId).stream()
+                .anyMatch(category -> Boolean.TRUE.equals(category.getActive())
+                        && !Objects.equals(category.getId(), categoryId))) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        }
+        return path;
+    }
+
+    private void validateApplicableLeaf(DccFileTypeTaxonomyPath path) {
+        if (StrUtil.isBlank(path.level3())) throw exception(FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+        if (taxonomyMapper.selectCount(DccFileTypeTaxonomyDO::getParentId, path.id()) > 0) {
+            throw exception(FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS);
+        }
     }
 
     @Override
@@ -237,9 +315,16 @@ public class DccFileTypeTaxonomyAdminServiceImpl implements DccFileTypeTaxonomyA
             taxonomy.setLevelNo(1);
             return;
         }
-        DccFileTypeTaxonomyDO parent = taxonomyMapper.selectById(parentId);
+        DccFileTypeTaxonomyDO parent = taxonomyMapper.selectMappingTaxonomyForUpdate(
+                TenantContextHolder.getRequiredTenantId(), parentId);
         if (parent == null) {
             throw exception(FILE_TYPE_TAXONOMY_PARENT_NOT_EXISTS);
+        }
+        resolveActivePath(parentId);
+        if (parent.getLevelNo() >= 3 && (categoryMapper.selectCount(DccFileCategoryDO::getFileTypeTaxonomyId, parentId) > 0
+                || controlledFileMapper.selectCount(DccControlledFileDO::getFileTypeTaxonomyId, parentId) > 0
+                || projectFileTemplateItemMapper.selectCount(DccProjectFileTemplateItemDO::getFileTypeTaxonomyId, parentId) > 0)) {
+            throw exception(FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
         }
         int levelNo = parent.getLevelNo() + 1;
         if (levelNo > MAX_LEVEL_NO) {

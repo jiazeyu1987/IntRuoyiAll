@@ -24,6 +24,18 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
         unrelated.setId(400L);unrelated.setMasterId(40L);unrelated.setFileNumber("OTHER");files.insert(unrelated);
         ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
     }
+    @Override @Test void nameOnlyHistoricalTargetMetadataDoesNotRequireDetailOrGrantBodyAndCarriesExactParents() throws Exception {
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
+        super.nameOnlyHistoricalTargetMetadataDoesNotRequireDetailOrGrantBodyAndCarriesExactParents();
+    }
+    @Override @Test void nullLatestPointerIsExplicitNoSourceAndDoesNotChangeSelectedHistoricalFacts() {
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
+        super.nullLatestPointerIsExplicitNoSourceAndDoesNotChangeSelectedHistoricalFacts();
+    }
+    @Override @Test void authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict() throws Exception {
+        jdbc.update("DELETE FROM dcc_controlled_file WHERE id IN(300,400)");
+        super.authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict();
+    }
 
     private DccControlledFilePageReqVO request(boolean exact) {
         var request=new DccControlledFilePageReqVO();request.setPageNo(1);request.setPageSize(10);request.setLatestVersionOnly(true);
@@ -66,5 +78,18 @@ class DccExactWorkingBrowserScopeDatabaseTest extends DccRelationNameMetadataDat
 
     @Test void ordinaryRequestWithoutExactPairRetainsItsExistingFullListBehavior() {
         assertEquals(2,query.getControlledFileBrowserPage(99L,request(false)).getTotal());
+    }
+
+    @Test void returnedInitialApplicantWithNoControlledHeadRemainsInExactWorkingBrowser() {
+        jdbc.update("DELETE FROM dcc_controlled_file WHERE id=300");
+        jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_REWORK',controlled_time=NULL,activated_time=NULL,version_no='A/1' WHERE id=?",CURRENT);
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL,current_active_controlled_file_id=NULL WHERE id=10");
+        var selected=files.selectById(CURRENT);
+        var req=request(true);
+        var response=query.getControlledFileBrowserPage(99L,req);
+        assertEquals(1,response.getTotal(),"exact operation must retain the returned initial file even without any controlled version");
+        assertEquals(CURRENT,response.getList().get(0).getId());
+        assertEquals("PENDING_APPLICANT_REWORK",response.getList().get(0).getStatus());
+        assertFalse(Boolean.TRUE.equals(response.getList().get(0).getCanPrint()));
     }
 }

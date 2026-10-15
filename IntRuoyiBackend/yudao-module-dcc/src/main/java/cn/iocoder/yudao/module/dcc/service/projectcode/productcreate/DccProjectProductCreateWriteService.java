@@ -46,6 +46,7 @@ public class DccProjectProductCreateWriteService {
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccProductCatalogMapper productCatalogMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator rowNumbers;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectLeaderService leaderService;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributesService attributesService;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateService folderTemplateService;
@@ -65,7 +66,7 @@ public class DccProjectProductCreateWriteService {
         leaderService.requireEnabledAccount(request.getProjectLeaderUserId());
         attributesService.readValue(request.getDefaultAttributesJson());
         folderTemplateService.parse(request.getFolderTemplateSnapshotJson());
-        Integer maxRowNo = productCatalogMapper.selectMaxOriginalRowNo(DATA_SOURCE);
+        int originalRowNo = rowNumbers.allocate(DATA_SOURCE);
         DccProjectCodeDO projectCode = DccProjectCodeDO.builder()
                 .projectName(request.getProjectName())
                 .projectCode(request.getProjectCode())
@@ -87,7 +88,7 @@ public class DccProjectProductCreateWriteService {
         DccProductCatalogDO productCatalog = DccProductCatalogDO.builder()
                 .tenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
                 .dataSource(DATA_SOURCE)
-                .originalRowNo((maxRowNo == null ? 1 : maxRowNo) + 1)
+                .originalRowNo(originalRowNo)
                 .product(request.getProductName())
                 .productCode(request.getProductCode())
                 .projectName(request.getProjectName())

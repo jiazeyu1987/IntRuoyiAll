@@ -1,7 +1,8 @@
 import { h } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import type { DccProjectProductCreateReqVO, DccProjectReviewerConfiguration } from '@/api/dcc/controlledFile/projectProductRequests'
-import { requireConfiguredReviewer, reviewerIdentity } from './project-reviewer'
+import type { DccProjectProductCreateReqVO, DccProjectReviewerRole } from '@/api/dcc/controlledFile/projectProductRequests'
+import { reviewerIdentity } from './project-reviewer'
+import { requireProjectReviewerRole } from './project-product-role'
 import { validateAttributes } from '../../project-attributes/state'
 
 interface LeaderChoice { id: string | number; nickname?: string; username?: string }
@@ -11,11 +12,11 @@ export const confirmProjectProductApplication = async (
   payload: DccProjectProductCreateReqVO,
   leaders: LeaderChoice[],
   templates: TemplateChoice[],
-  reviewer: DccProjectReviewerConfiguration,
+  reviewer: DccProjectReviewerRole,
   resubmission: boolean
 ): Promise<void> => {
   const captured = JSON.parse(JSON.stringify(payload)) as DccProjectProductCreateReqVO
-  const configured = requireConfiguredReviewer(reviewer)
+  const configured = requireProjectReviewerRole(reviewer)
   const attributes = validateAttributes(captured.defaultAttributes)
   const leaderId = reviewerIdentity(captured.projectLeaderUserId)
   const templateId = reviewerIdentity(captured.folderTemplateId)
@@ -39,7 +40,8 @@ export const confirmProjectProductApplication = async (
     ['是否为生产方', choices[attributes.actualManufacturer!]],
     ['文件转移', choices[attributes.documentTransfer!]],
     ['转移至', attributes.transferTo || '未选择转移'],
-    ['审核人', `${configured.reviewerNickname}（${configured.reviewerUsername}，账号 #${configured.reviewerUserId}）`],
+    ['审核方式', `${configured.roleName}：单环节，由任一当前合格角色成员审批`],
+    ['当前审核候选', configured.candidates.map(row => `${row.nickname}（${row.username}）`).join('、')],
     ['备注', captured.remark || '未填写'],
     [resubmission ? '重提说明' : '新建申请原因', (resubmission ? captured.resubmissionReason : captured.creationReason) || '']
   ]

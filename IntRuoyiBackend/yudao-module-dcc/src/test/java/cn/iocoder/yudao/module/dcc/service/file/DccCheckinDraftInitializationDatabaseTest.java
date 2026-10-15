@@ -92,6 +92,8 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
     JdbcTemplate jdbc;
     DccControlledFileQueryServiceImpl query;
     DccControlledFileWorkflowServiceImpl workflow;
+    DccApplicationExecutionContractService executionContracts;
+    final Map<String,String> legacyDefinitionIds=new HashMap<>();
     DccControlledFileRevisionServiceImpl revisions;
     DccControlledFileSourceOwnershipService bodies;
     DccControlledFileRelatedFileServiceImpl related;
@@ -115,6 +117,9 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         try(var connection=dataSource.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_application_round_link(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT,project_id BIGINT,application_type VARCHAR(16),application_id BIGINT,bpm_round VARCHAR(64),attribute_round INT,UNIQUE(tenant_id,application_type,application_id,bpm_round),UNIQUE(tenant_id,application_type,application_id,attribute_round))");
         jdbc.execute("CREATE TABLE IF NOT EXISTS infra_file(id BIGINT PRIMARY KEY,config_id BIGINT,name VARCHAR(256),path VARCHAR(1024),url VARCHAR(1024),type VARCHAR(128),size BIGINT,creator VARCHAR(64),updater VARCHAR(64),create_time TIMESTAMP,update_time TIMESTAMP,deleted BIT DEFAULT 0)");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation(tenant_id BIGINT NOT NULL,source_master_id BIGINT NOT NULL,related_master_id BIGINT NOT NULL,PRIMARY KEY(tenant_id,source_master_id,related_master_id))");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS dcc_current_file_relation_set(tenant_id BIGINT NOT NULL,source_master_id BIGINT NOT NULL,controlled_file_id BIGINT NOT NULL,row_version BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(tenant_id,source_master_id))");
+        jdbc.update("DELETE FROM dcc_current_file_relation");jdbc.update("DELETE FROM dcc_current_file_relation_set");
         jdbc.update("DELETE FROM dcc_application_round_link");jdbc.update("DELETE FROM dcc_controlled_file_source_ownership");jdbc.update("DELETE FROM dcc_controlled_file_related_file");jdbc.update("DELETE FROM infra_file");bytes.clear();bodyPaths.clear();
         jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status,default_attributes_json,deleted) VALUES(5,1,'C-H08','C-H08','ENABLE',?,0)",attributes.encode(nmpa));
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,dcc_project_code_id,file_type_taxonomy_leaf_id,normalized_file_number,status,deleted) VALUES(10,1,2,3,'SOP','N-1',5,6,'N-1','ACTIVE_CHAIN',0)");
@@ -136,6 +141,11 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         when(permissions.hasCategoryPermission(any(),any(),any())).thenReturn(true);
         scope=new DccControlledFileAssignmentScopeService();defaults(scope);wire(scope,"assignmentFileMapper",assignmentFiles,"distributionRecipientMapper",recipients);
         related=new DccControlledFileRelatedFileServiceImpl();defaults(related);wire(related,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"relatedFileMapper",relations);
+        var relationResolver=new cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolverImpl();
+        wire(relationResolver,"fileMapper",files,"masterMapper",masters,"jdbc",jdbc);
+        wire(related,"latestFileResolver",relationResolver,
+                "relationStore",new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore(jdbc,mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)),
+                "relationAccessPolicy",mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicy.class));
         var names=new DccControlledFileNameClaimService();org.springframework.test.util.ReflectionTestUtils.setField(names,"reservationMapper",g25Reservations);wire(names,"claimMapper",claims,"masterMapper",masters,"fileMapper",files);
         query=new DccControlledFileQueryServiceImpl();defaults(query);
         wire(query,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"projectCodeMapper",projects,
@@ -163,7 +173,7 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
                 List.of(node(1,"MATRIX_REVIEW","DEPT",51L),node(2,"MATRIX_APPROVAL","USER",99L),node(3,"DOC_CONTROL_REVIEW","USER",99L)));
             return new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(route,DccControlledFileRouteReadinessRespVO.builder().ready(true).build());
         });
-        var dept=mock(DeptApi.class);when(dept.getDeptList(any())).thenReturn(List.of(new DeptRespDTO().setId(51L).setName("质量部").setLeaderUserId(99L)));
+        var dept=mock(DeptApi.class);when(dept.getDeptList(any())).thenAnswer(call->{java.util.Collection<Long> selected=call.getArgument(0);return selected.stream().map(id->{if(!Long.valueOf(51L).equals(id))throw new IllegalArgumentException("unknown fixture department");return new DeptRespDTO().setId(51L).setName("质量部").setLeaderUserId(99L).setStatus(0);}).toList();});
         var users=mock(AdminUserApi.class);when(users.getUserList(any())).thenReturn(List.of(new AdminUserRespDTO().setId(99L).setNickname("真实测试申请人")));
         wire(workflow,"routeReadinessService",readiness,"approvalRouteAssigneeResolver",new DccControlledFileApprovalRouteAssigneeResolver(),"deptApi",dept,"adminUserApi",users);
         if(engine==null){
@@ -174,11 +184,40 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
             // all DCC business transactions execute in the repository's explicit MYSQL-mode H2 fixture.
             jdbc.execute("SET MODE LEGACY");try{engine=cfg.buildProcessEngine();}finally{jdbc.execute("SET MODE MYSQL");}
             String text=Files.readString(Path.of("../sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql"));
-            for(String type:List.of("upload","revision")){String marker="SET @dcc_"+type+"_bpmn = '";int start=text.indexOf(marker)+marker.length();String xml=text.substring(start,text.indexOf("';",start));engine.getRepositoryService().createDeployment().tenantId("1").addString(type+".bpmn20.xml",xml).deploy();}
+            for(String type:List.of("upload","revision")){String marker="SET @dcc_"+type+"_bpmn = '";int start=text.indexOf(marker)+marker.length();String xml=text.substring(start,text.indexOf("';",start));var deployment=engine.getRepositoryService().createDeployment().tenantId("1").addString(type+".bpmn20.xml",xml).deploy();var definition=engine.getRepositoryService().createProcessDefinitionQuery().deploymentId(deployment.getId()).singleResult();legacyDefinitionIds.put(definition.getKey(),definition.getId());}
         }
+        var definitions=mock(cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService.class);
+        when(definitions.getProcessDefinition(anyString())).thenAnswer(c->engine.getRepositoryService().createProcessDefinitionQuery().processDefinitionId(c.getArgument(0)).singleResult());
+        when(definitions.getProcessDefinitionBpmnModel(anyString())).thenAnswer(c->engine.getRepositoryService().getBpmnModel(c.getArgument(0)));
+        var processReader=new cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceImpl();wire(processReader,"runtimeService",engine.getRuntimeService(),"historyService",engine.getHistoryService());
+        var processes=mock(cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService.class);
+        when(processes.getProcessInstance(anyString())).thenAnswer(c->processReader.getProcessInstance(c.getArgument(0)));
+        when(processes.getHistoricProcessInstance(anyString())).thenAnswer(c->processReader.getHistoricProcessInstance(c.getArgument(0)));
+        executionContracts=new DccApplicationExecutionContractService();wire(executionContracts,"definitions",definitions,"files",files);
+        var boundContracts=new DccBoundWorkflowContractResolver();wire(boundContracts,"definitions",definitions,"processes",processes,"rounds",rounds,"attributes",attributeRows);
+        var effectiveContracts=new DccLifecycleEffectiveContractResolver();wire(effectiveContracts,"boundContracts",boundContracts);
+        var transitions=new DccExecutionDefinitionTransitions();
+        String uploadDefinition=legacyDefinitionIds.get(DccControlledFileProcessDefinitionKeys.UPLOAD),revisionDefinition=legacyDefinitionIds.get(DccControlledFileProcessDefinitionKeys.REVISION);
+        transitions.setDefinitionTransitions(List.of(new DccExecutionDefinitionTransitions.Transition(uploadDefinition,
+                DccLifecycleEffectiveContractResolver.definitionDigest(engine.getRepositoryService().getBpmnModel(uploadDefinition)),revisionDefinition,
+                DccLifecycleEffectiveContractResolver.definitionDigest(engine.getRepositoryService().getBpmnModel(revisionDefinition)))));
+        wire(executionContracts,"rounds",rounds,"effectiveContractResolver",effectiveContracts,"sourceAttributes",attributeRows,
+                "projectAccess",access,"categoryPermissions",permissions,"transitions",transitions,"masters",masters,"processes",processes,"boundContracts",boundContracts);
+        wire(workflow,"executionContracts",executionContracts,"effectiveContractResolver",effectiveContracts);
+        wire(query,"executionContracts",executionContracts,"applicationRoundService",rounds);
+        wire(revisions,"executionContracts",executionContracts,"applicationRoundService",rounds);
         var bpm=mock(BpmProcessInstanceApi.class);
         when(bpm.createProcessInstance(anyLong(),any())).thenAnswer(c->{BpmProcessInstanceCreateReqDTO req=c.getArgument(1);engine.getIdentityService().setAuthenticatedUserId(c.getArgument(0).toString());try{return engine.getRuntimeService().startProcessInstanceByKeyAndTenantId(req.getProcessDefinitionKey(),req.getBusinessKey(),req.getVariables(),"1").getId();}finally{engine.getIdentityService().setAuthenticatedUserId(null);}});
         wire(workflow,"bpmProcessInstanceApi",bpm);
+        wire(query,"attachmentService",a21EmptyAttachmentPort());
+        a21WireCurrentReadProjection(query);
+        wire(revisions,"attachmentService",a21EmptyAttachmentPort());
+        wire(workflow,"attachmentService",a21EmptyAttachmentPort());
+        var categoryPort=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper.class);
+        var category=cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().id(2L).active(true).lifecycleStage("OUTPUT").approvalSourceMode("PUBLIC_MATRIX").build();
+        when(categoryPort.selectById(2L)).thenReturn(category);
+        wire(workflow,"categoryMapper",categoryPort);
+
         query=transactionProxy(query);workflow=transactionProxy(workflow);
     }
     @SuppressWarnings("unchecked") <T> T transactionProxy(T bean){var factory=new org.springframework.aop.framework.ProxyFactory(bean);factory.setProxyTargetClass(true);factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));return (T)factory.getProxy();}
@@ -190,13 +229,24 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         .versionNo(version).changeType("NEW").processType("CONTROLLED_FILE").status("WORKING").predecessorControlledFileId(predecessor).build();}
     DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode node(int stage,String code,String source,Long sourceId){return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(stage,code,code,stage,source,sourceId,List.of(sourceId),stage==1?"ALL":"ANY",stage==1?100:null,true,List.of(99L));}
     int count(String table){return jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class);}
-    void initial(){tx().executeWithoutResult(s->initializer.initialize(99L,null,20L,ce));}
+    void initial(){tx().executeWithoutResult(s->{initializer.initialize(99L,null,20L,ce);workflow.prepareLegacyWorkingApplication(99L,20L,legacyDefinitionIds.get(DccControlledFileProcessDefinitionKeys.UPLOAD));});}
     void changeDefault(){jdbc.update("UPDATE dcc_project_code SET default_attributes_json=? WHERE id=5",attributes.encode(fda));}
     void checkout(Long id){var r=new DccControlledFileCheckoutReqVO();r.setReason("C actual edit");tx().execute(s->query.checkoutControlledFile(99L,id,r));}
-    DccControlledFileCheckinReqVO edit(String remark){var r=new DccControlledFileCheckinReqVO();r.setRemark(remark);r.setChangeDescription("C real checkin "+remark);return r;}
+    DccControlledFileCheckinReqVO edit(String remark){var r=a21ExplicitCheckinRequest();r.setRemark(remark);r.setChangeDescription("C real checkin "+remark);return r;}
     Long checkin(Long id,String remark){checkout(id);return tx().execute(s->query.checkinControlledFile(99L,id,edit(remark))).getId();}
-    DccControlledFileSubmitIterationReqVO request(String intent){var r=new DccControlledFileSubmitIterationReqVO();r.setRevisionChangeType(intent);r.setIdempotencyKey("C-"+UUID.randomUUID());r.setChangeDescription("C selected actual body");r.setNeedTraining(false);r.setEffectiveDate(LocalDate.of(2099,12,20));r.setProjectAttributes(ce);r.setSelectedSignoffDepartmentIds(List.of(51L));return r;}
-    void controlled(String version){jdbc.update("UPDATE dcc_controlled_file SET version_no=?,status='ACTIVE',controlled_time=?,revision_change_type='INITIAL' WHERE id=20",version,LocalDateTime.of(2026,10,1,12,0));jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");}
+    DccControlledFileSubmitIterationReqVO request(String intent){var r=new DccControlledFileSubmitIterationReqVO();r.setRevisionChangeType(intent);r.setIdempotencyKey("C-"+UUID.randomUUID());r.setChangeDescription("C selected actual body");r.setNeedTraining(false);r.setEffectiveDate(LocalDate.of(2099,12,20));r.setProjectAttributes(ce);r.setSelectedSignoffDepartmentIds(List.of(51L));r.setEffectiveMode("PRESET_DATE");r.setSelectedDistributionDepartmentIds(List.of());String key="INITIAL".equals(intent)?DccControlledFileProcessDefinitionKeys.UPLOAD:DccControlledFileProcessDefinitionKeys.REVISION;String definition=legacyDefinitionIds.get(key);r.setExecutionContract(DccApplicationExecutionContractService.LEGACY);r.setExpectedProcessDefinitionId(definition);r.setExpectedDefinitionDigest(DccLifecycleEffectiveContractResolver.definitionDigest(engine.getRepositoryService().getBpmnModel(definition)));return r;}
+    void controlled(String version){
+        // Fixture preparation establishes a real exact bound source before its controlled baseline fact.
+        // This does not claim approval completion, lifecycle activation or an E2E business action.
+        initial();String bpm=engine.getRuntimeService().createProcessInstanceBuilder().processDefinitionId(legacyDefinitionIds.get(DccControlledFileProcessDefinitionKeys.UPLOAD))
+                .businessKey("20").variables(Map.of("controlledFileId",20L,"PROCESS_DCC_TASK_OBLIGATION_IDS",Map.of("MATRIX_REVIEW",List.of("controlled-fixture")))).start().getId();
+        tx().executeWithoutResult(s->snapshots.submitReservedDraft(99L,5L,"UPLOAD",20L,rounds.requireDraft("UPLOAD",20L),bpm,ce));
+        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=?,process_definition_key=? WHERE id=20",bpm,DccControlledFileProcessDefinitionKeys.UPLOAD);
+        engine.getRuntimeService().deleteProcessInstance(bpm,"isolated prepared baseline history");
+        jdbc.update("UPDATE dcc_controlled_file SET version_no=?,status='ACTIVE',controlled_time=?,revision_change_type='INITIAL' WHERE id=20",version,LocalDateTime.of(2026,10,1,12,0));jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");
+        // The newly controlled fixture baseline has its legitimate authoritative empty set.
+        jdbc.update("INSERT INTO dcc_current_file_relation_set(tenant_id,source_master_id,controlled_file_id,row_version) VALUES(1,10,20,0)");}
+
 
     @Test void actualInitializerProxyRequiresOuterTransaction(){assertThrows(IllegalTransactionStateException.class,()->initializer.initialize(99L,null,20L,ce));assertEquals(0,count("dcc_application_round_link"));}
     @Test void twoCheckinsThenOrdinarySaveKeepDirectSourceAndManualActual(){
@@ -217,7 +267,7 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         String type=isInitial?"UPLOAD":"REVISION";
         tx().executeWithoutResult(s->workflow.saveWorkingApplicationAttributes(99L,second,ce));
         var req=request(isInitial?"INITIAL":branch.equals("REPLACEMENT")?"REPLACEMENT":"PARTIAL");
-        long candidate=tx().execute(s->workflow.submitWorkingIteration(99L,second,req));var result=files.selectById(candidate);
+        long candidate=tx().execute(s->workflow.submitWorkingIteration(99L,second,a29ExpectedServerManifest(second,req)));var result=files.selectById(candidate);
         assertEquals(isInitial?"A/1":branch.equals("PARTIAL_A1")?"A/2":"B/1",result.getVersionNo());assertEquals(req.getRevisionChangeType(),result.getRevisionChangeType());
         assertEquals(second,result.getSelectedIterationControlledFileId());assertEquals(files.selectById(second).getSourceSha256(),result.getSourceSha256());
         assertEquals("WORKING",files.selectById(second).getStatus());assertNull(result.getControlledTime());
@@ -227,13 +277,13 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         assertEquals(String.valueOf(candidate),engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(result.getProcessInstanceId()).singleResult().getBusinessKey());
         assertTrue(engine.getTaskService().createTaskQuery().processInstanceId(result.getProcessInstanceId()).count()>0);
         assertEquals(isInitial?null:20L,masters.selectById(10L).getCurrentActiveControlledFileId());assertEquals(isInitial?null:20L,masters.selectById(10L).getLatestControlledFileId());
-        assertEquals(Long.valueOf(candidate),tx().execute(s->workflow.submitWorkingIteration(99L,second,req)));
-        req.setEffectiveDate(LocalDate.of(2099,12,21));assertThrows(RuntimeException.class,()->tx().execute(s->workflow.submitWorkingIteration(99L,second,req)));
+        assertEquals(Long.valueOf(candidate),tx().execute(s->workflow.submitWorkingIteration(99L,second,a29ExpectedServerManifest(second,req))));
+        req.setEffectiveDate(LocalDate.of(2099,12,21));assertThrows(RuntimeException.class,()->tx().execute(s->workflow.submitWorkingIteration(99L,second,a29ExpectedServerManifest(second,req))));
     }
     @Test void olderSelectedIterationUsesSelectedBodyWhileLatestRemainsWorking(){initial();long first=checkin(20L,"older");long latest=checkin(first,"latest");
         String firstBefore=JsonUtils.toJsonString(files.selectById(first));
         String latestBefore=JsonUtils.toJsonString(files.selectById(latest));
-        long candidate=tx().execute(s->workflow.submitWorkingIteration(99L,first,request("INITIAL")));
+        long candidate=tx().execute(s->workflow.submitWorkingIteration(99L,first,a29ExpectedServerManifest(first,request("INITIAL"))));
         var saved=files.selectById(candidate);
         assertEquals(first,saved.getSelectedIterationControlledFileId());
         assertEquals(files.selectById(first).getSourceSha256(),saved.getSourceSha256());
@@ -249,7 +299,7 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         assertEquals(fda,attributes.readValue(saved.getDefaultSourceJson()));assertNull(saved.getSourceApplicationId());verify(access,never()).assertProjectEditorOrOwner(88L,5L);
     }
     @Test void actualSubmittedRejectedSourceForkThenSecondCheckinKeepOriginalSnapshot() throws Exception {
-        initial();long source=tx().execute(s->workflow.submitWorkingIteration(99L,20L,request("INITIAL")));
+        initial();long source=tx().execute(s->workflow.submitWorkingIteration(99L,20L,a29ExpectedServerManifest(20L,request("INITIAL"))));
         String nativeBpm=files.selectById(source).getProcessInstanceId();assertNotNull(engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(nativeBpm).singleResult());
         // A owns BPM rejection/termination. This fixture supplies its persisted rejected fact;
         // native process id and frozen mapping remain real, without claiming the rejection task was exercised.
@@ -260,6 +310,7 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         // Set the explicit external ticket port on the proxy's real target, not a mock business service.
         Object target=((org.springframework.aop.framework.Advised)query).getTargetSource().getTarget();wire(target,"uploadTicketService",tickets);
         var r=edit("fork fresh body");r.setUploadTicket("fresh-ticket");r.setSessionId(DccSourceUploadSession.scope(DccSourceUploadSession.checkinPrefix(source),"C-fork"));
+        DccRevisionAttachmentsDatabaseTest.a24BoundSourcePort(query,tickets,r,2L,101L,"SOP.pdf","application/pdf",4L,cn.hutool.crypto.digest.DigestUtil.sha256Hex(new byte[]{9,8,7,6}));
         long fork=tx().execute(s->query.checkinControlledFile(99L,source,r)).getId();long next=checkin(fork,"fork second");
         var one=snapshots.readReservedDraft(99L,5L,"UPLOAD",fork);var two=snapshots.readReservedDraft(99L,5L,"UPLOAD",next);
         assertEquals(source,one.getSourceApplicationId());assertEquals(rounds.require("UPLOAD",source,nativeBpm),one.getSourceApplicationRound());assertEquals(fork,two.getSourceApplicationId());
@@ -287,7 +338,7 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         if(stage.equals("BODY_CLAIM"))jdbc.execute("ALTER TABLE dcc_controlled_file_source_ownership ADD CONSTRAINT c_test_body_fail CHECK (ownership_type <> 'CHECKIN')");
         if(stage.equals("RELATION")){jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,relation_source,tenant_id,deleted) VALUES(20,777,5,'UPLOAD',1,0)");jdbc.execute("ALTER TABLE dcc_controlled_file_related_file ADD CONSTRAINT c_test_relation_fail CHECK (controlled_file_id=20)");}
         if(stage.equals("CHECKOUT_CAS")){jdbc.execute("ALTER TABLE dcc_controlled_file_checkout ADD CONSTRAINT c_test_checkout_fail CHECK (status <> 'CHECKED_IN')");}
-        try{var failure=assertThrows(RuntimeException.class,()->tx().execute(s->{var r=query.checkinControlledFile(99L,20L,edit("late"));if(stage.equals("CANDIDATE")){workflow.submitWorkingIteration(99L,r.getId(),request("INITIAL"));throw new IllegalStateException("late after actual BPM/candidate freeze");}if(stage.equals("OUTER"))throw new IllegalStateException("late caller after successful Query");return r;}));
+        try{var failure=assertThrows(RuntimeException.class,()->tx().execute(s->{var r=query.checkinControlledFile(99L,20L,edit("late"));if(stage.equals("CANDIDATE")){workflow.submitWorkingIteration(99L,r.getId(),a29ExpectedServerManifest(r.getId(),request("INITIAL")));throw new IllegalStateException("late after actual BPM/candidate freeze");}if(stage.equals("OUTER"))throw new IllegalStateException("late caller after successful Query");return r;}));
             assertEquals(0,failure.getSuppressed().length,()->"failure log unexpectedly failed: "+Arrays.toString(failure.getSuppressed()));}
         finally{if(stage.equals("BODY_CLAIM"))jdbc.execute("ALTER TABLE dcc_controlled_file_source_ownership DROP CONSTRAINT c_test_body_fail");if(stage.equals("CHECKOUT_CAS"))jdbc.execute("ALTER TABLE dcc_controlled_file_checkout DROP CONSTRAINT c_test_checkout_fail");if(stage.equals("RELATION"))jdbc.execute("ALTER TABLE dcc_controlled_file_related_file DROP CONSTRAINT c_test_relation_fail");}
         assertEquals(1,count("dcc_controlled_file"));assertEquals(1,count("infra_file"));assertEquals(0,count("dcc_controlled_file_source_ownership"));assertEquals(1,count("dcc_application_round_link"));assertEquals(1,count("dcc_project_application_attributes"));assertEquals(1,bytes.size());assertNotNull(checkouts.selectActiveByMasterIdForRead(1L,10L));assertEquals(99L,files.selectById(20L).getCheckedOutBy());assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
@@ -362,5 +413,41 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         assertNull(saved.getFileOwnerSignatureId());assertNull(saved.getFileOwnerApprovalTaskId());assertNull(saved.getFileOwnerProcessInstanceId());assertNull(saved.getFileOwnerSelectedTime());
         var prior=files.selectById(20L);assertEquals(50L,prior.getFileOwnerSignatureId());assertEquals("原负责人",prior.getFileOwnerNicknameSnapshot());assertEquals("old-bpm",prior.getFileOwnerProcessInstanceId());
         assertEquals(LocalDateTime.of(2026,10,1,8,0),prior.getFileOwnerSelectedTime());
+    }
+
+    /** A21 fixture: no selected attachment is an explicit read/ready empty list. */
+    private static DccControlledFileCheckinReqVO a21ExplicitCheckinRequest() {
+        var input = new DccControlledFileCheckinReqVO();
+        input.setNeedTraining(false);
+        input.setAttachmentUploadTickets(java.util.List.of());
+        return input;
+    }
+
+    /** Explicit no-ordinary-attachments port for this suite's existing body/round fixtures. */
+    private static DccControlledFileAttachmentService a21EmptyAttachmentPort() {
+        var port=mock(DccControlledFileAttachmentService.class);
+        when(port.readOrdinaryAttachmentManifest(anyLong(),anyLong())).thenAnswer(call->{
+            Long fileId=call.getArgument(1);var facts=java.util.List.<DccControlledFileAttachmentService.OrdinaryAttachmentFact>of();
+            String canonical=cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(java.util.Arrays.asList(
+                    "DCC_ORDINARY_ATTACHMENT_MANIFEST_V1",TenantContextHolder.getRequiredTenantId(),fileId,facts));
+            return new DccControlledFileAttachmentService.OrdinaryAttachmentManifest(facts,cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical));
+        });
+        return port;
+    }
+
+    private DccControlledFileSubmitIterationReqVO a29ExpectedServerManifest(Long selected,DccControlledFileSubmitIterationReqVO input) {
+        var attachmentPort=(DccControlledFileAttachmentService)ReflectionTestUtils.getField(query,"attachmentService");
+        var manifest=tx().execute(status->attachmentPort.readOrdinaryAttachmentManifest(99L,selected));
+        input.setExpectedOrdinaryAttachmentIds(manifest.attachmentIds());input.setExpectedOrdinaryAttachmentManifestHash(manifest.payloadHash());
+        return input;
+    }
+
+    private static void a21WireCurrentReadProjection(DccControlledFileQueryServiceImpl query) {
+        var guard=new DccControlledFileDetailAuthorizationGuard();
+        for(var field:guard.getClass().getDeclaredFields()) if(field.getAnnotation(jakarta.annotation.Resource.class)!=null)
+            ReflectionTestUtils.setField(guard,field.getName(),mock(field.getType()));
+        ReflectionTestUtils.setField(guard,"assignmentScopeService",ReflectionTestUtils.getField(query,"assignmentScopeService"));
+        ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
+        ReflectionTestUtils.setField(query,"downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
     }
 }

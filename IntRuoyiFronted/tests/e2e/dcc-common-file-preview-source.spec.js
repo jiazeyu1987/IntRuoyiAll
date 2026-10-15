@@ -28,7 +28,8 @@ if (!viewerSource.includes('<audio') || !viewerSource.includes('protected-viewer
 }
 
 const unavailableReasonGuardIndex = viewerSource.indexOf('if (resolvedPreviewUnavailableReason.value)')
-const binaryPreviewLoadIndex = viewerSource.indexOf('const previewPayload = await resolvePreviewBlob()')
+const binaryPreviewLoadMatch = /const previewPayload = await resolvePreviewBlob\([^)]*\)/.exec(viewerSource)
+const binaryPreviewLoadIndex = binaryPreviewLoadMatch ? binaryPreviewLoadMatch.index : -1
 if (unavailableReasonGuardIndex < 0) {
   throw new Error('Protected viewer must short-circuit preview binary loading when previewUnavailableReason is present')
 }

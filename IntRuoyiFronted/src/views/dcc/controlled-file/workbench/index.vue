@@ -55,7 +55,7 @@
   <div class="dcc-workbench-panel-grid">
     <ContentWrap v-if="canReadOfflineTrainingTodos" class="dcc-workbench-panel" data-testid="dcc-workbench-offline-training-records">
       <div class="dcc-workbench-panel__header">
-        <div class="dcc-workbench-panel__title">待文控上传线下培训记录（{{ offlineTrainingLoading || offlineTrainingError ? '—' : offlineTrainingRows.length }}）</div>
+        <div class="dcc-workbench-panel__title">待本次上传人上传线下培训记录（{{ offlineTrainingLoading || offlineTrainingError ? '—' : offlineTrainingRows.length }}）</div>
         <el-button :loading="offlineTrainingLoading" link @click="loadOfflineTrainingTodos">刷新</el-button>
       </div>
       <el-alert v-if="offlineTrainingError" :title="offlineTrainingError" type="error" :closable="false" />
@@ -313,7 +313,7 @@
             :label="item.controlledFileId"
             border
           >
-            {{ item.versionNo }} / {{ controlledFileStatusLabel(item.status) }}
+            {{ getWorkbenchImpactVersionLabel(item) }} / {{ controlledFileStatusLabel(item.status) }}
             <el-tag v-if="item.controlledFileId === revisionDialog.options.openMajorRevision?.controlledFileId" size="small" type="success">
               当前开放大版本
             </el-tag>
@@ -383,6 +383,7 @@ import {
 } from '../shared/publicationFollowupPresentation'
 import {
   buildDccWorkbenchMetricItems,
+  getWorkbenchImpactVersionLabel,
   resolveWorkbenchErrorMessage,
   toWorkbenchFileRow,
   toWorkbenchTrainingRow,
@@ -576,10 +577,13 @@ const openTrainingTask = (progressId: number | string) => {
 }
 
 const openApproval = (row: DccWorkbenchTaskRow) => {
-  if (!row.controlledFile?.id) {
-    throw new Error('DCC 工作台审批待办缺少受控文件 ID')
+  const fileId = String(row.controlledFile?.id || ''), processInstanceId = String(row.processInstanceId || ''), taskId = String(row.id || '')
+  if (!isWorkflowId(fileId) || !processInstanceId || processInstanceId !== processInstanceId.trim() || processInstanceId.length > 64
+    || !taskId || taskId !== taskId.trim() || taskId.length > 64) {
+    throw new Error('DCC 工作台审批待办缺少精确文件、流程轮次或任务身份')
   }
-  openControlledFileViewer(router, route, row.controlledFile.id, 'workbench-approval')
+  return router.push({ path: `/dcc/controlled-file/detail/${fileId}`,
+    query: { handling: 'approval', from: 'approval-center', processInstanceId, taskId } })
 }
 
 const resolveControlledFileIdFromProcessInstance = (processInstance: ProcessInstanceVO) => {

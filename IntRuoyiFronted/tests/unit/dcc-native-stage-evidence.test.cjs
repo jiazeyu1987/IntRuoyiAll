@@ -3,10 +3,10 @@ const {parse,compileScript}=require('vue/compiler-sfc')
 const {descriptor}=parse(fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue','utf8'))
 const ast=ts.createSourceFile('detail.ts',descriptor.scriptSetup.content,ts.ScriptTarget.Latest,true)
 const st=ast.statements.find(n=>ts.isVariableStatement(n)&&n.declarationList.declarations.some(d=>ts.isIdentifier(d.name)&&d.name.text==='formatStageSignatureStatus'));assert.ok(st)
-function host(){const c={exports:{},String,approvalProgressScope:vue.ref({fileId:'10',bpmRound:'round',applicationType:'UPLOAD'}),approvalProcessInstanceId:vue.ref('round'),isWorkingBrowserDetailCurrent:vue.ref(true),fileDetail:vue.ref({id:'10',needTraining:true,trainingRecordAvailable:false}),getStageSignatures:()=>[]};vm.runInNewContext(ts.transpileModule(st.getText(ast)+'\nexports.format=formatStageSignatureStatus',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);return{c,format:c.exports.format}}
+function host(){const c={exports:{},String,approvalProgressScope:vue.ref({fileId:'10',bpmRound:'round',applicationType:'UPLOAD',flowContract:{needTraining:true,flowRule:'LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL'}}),approvalProcessInstanceId:vue.ref('round'),isWorkingBrowserDetailCurrent:vue.ref(true),fileDetail:vue.ref({id:'10',processInstanceId:'round',needTraining:true,trainingRecordAvailable:false}),getStageSignatures:()=>[]};vm.runInNewContext(ts.transpileModule(st.getText(ast)+'\nexports.format=formatStageSignatureStatus',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);return{c,format:c.exports.format}}
 const stage=stageCode=>({stageCode,isCompleted:true,isCurrent:false})
 test('actual native record-stage formatter shows upload/control/distribution facts instead of invented signature waiting',()=>{
- const h=host();assert.equal(h.format(stage('APPLICANT_TRAINING_RECORD')),'等待文控上传线下培训记录');assert.equal(h.format(stage('CONTROLLED')),'等待生成受控记录');assert.equal(h.format(stage('DISTRIBUTED')),'等待文控下发')
+ const h=host();assert.equal(h.format(stage('APPLICANT_TRAINING_RECORD')),'等待本次上传人上传线下培训记录');assert.equal(h.format(stage('CONTROLLED')),'等待生成受控记录');assert.equal(h.format(stage('DISTRIBUTED')),'等待文控下发')
  h.c.fileDetail.value={...h.c.fileDetail.value,trainingRecordAvailable:true,controlledTime:'2026-10-05 11:51:36',distributedTime:'2026-10-05 12:11:29'}
  assert.equal(h.format(stage('APPLICANT_TRAINING_RECORD')),'线下培训记录已上传');assert.equal(h.format(stage('CONTROLLED')),'受控记录已生成');assert.equal(h.format(stage('DISTRIBUTED')),'下发记录已保存')
 })

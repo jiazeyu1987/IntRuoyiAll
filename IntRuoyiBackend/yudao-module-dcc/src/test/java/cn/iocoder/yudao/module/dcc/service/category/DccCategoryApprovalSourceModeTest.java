@@ -1,0 +1,101 @@
+package cn.iocoder.yudao.module.dcc.service.category;
+
+import cn.iocoder.yudao.module.dcc.controller.admin.category.vo.DccFileCategorySaveReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import org.junit.jupiter.api.Test;
+import java.lang.reflect.Field;
+import java.sql.*;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+/** Current complete admin service + real H2 persistence; external framework/unrelated ports are explicit test support. */
+class DccCategoryApprovalSourceModeTest {
+    private DccFileCategorySaveReqVO request(String mode) throws Exception {
+        var request=new DccFileCategorySaveReqVO();request.setCode("正式任意类别");request.setName("其他名字也不推断来源");
+        request.setActive(true);request.setSort(3);request.setFileTypeTaxonomyId(6L);
+        var field=DccFileCategorySaveReqVO.class.getDeclaredField("approvalSourceMode");field.setAccessible(true);field.set(request,mode);
+        return request;
+    }
+    private String mode(DccFileCategoryDO row) throws Exception {
+        var field=DccFileCategoryDO.class.getDeclaredField("approvalSourceMode");field.setAccessible(true);return (String)field.get(row);
+    }
+    private void inject(Object service,String name,Object port) throws Exception {Field field=service.getClass().getDeclaredField(name);field.setAccessible(true);field.set(service,port);}
+    private DccFileCategoryAdminServiceImpl service(H2Categories categories) throws Exception {
+        var service=new DccFileCategoryAdminServiceImpl();inject(service,"categoryMapper",categories.port());
+        var taxonomy=java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class<?>[]{DccFileTypeTaxonomyAdminService.class},(proxy,method,args)->{
+            if(method.getName().equals("resolveActivePath")||method.getName().equals("validateCategoryMapping"))
+                return new DccFileTypeTaxonomyPath((Long)args[0],"技术文档","输出","任意类型",null,null);
+            throw new UnsupportedOperationException("Unaccepted taxonomy port: "+method.getName());
+        });inject(service,"fileTypeTaxonomyAdminService",taxonomy);return service;
+    }
+    @Test void bothExplicitSourceChoicesPersistAndRestoreWithoutWritingAnyMatrix() throws Exception {
+        try(var rows=new H2Categories()) {
+            var service=service(rows);
+            for(String expected:List.of("PUBLIC_MATRIX","APPLICATION_CUSTOM")) {
+                var id=service.createCategory(request(expected));var saved=service.getCategory(id);
+                assertEquals(expected,mode(saved));assertEquals(6L,saved.getFileTypeTaxonomyId());assertEquals("OUTPUT",saved.getLifecycleStage());
+            }
+            assertEquals(2,service.getCategoryList().size());assertEquals(2,rows.size());assertEquals(0,rows.publicMatrixCount());
+        }
+    }
+    @Test void invalidRequestSourceIsRejectedBeforeAnyCategoryWriteOrMappingMutation() throws Exception {
+        try(var rows=new H2Categories()) {
+            var service=service(rows);
+            for(String invalid:Arrays.asList(null,"","other"," PUBLIC_MATRIX","UNKNOWN")) {
+                assertThrows(IllegalArgumentException.class,()->service.createCategory(request(invalid)));
+                assertEquals(0,rows.size());
+            }
+        }
+    }
+    @Test void existingUnknownSourceCannotBecomePublicByReadListOrUnrelatedUpdate() throws Exception {
+        try(var rows=new H2Categories()) {
+            rows.insertRaw(8L,null);var service=service(rows);
+            assertThrows(IllegalArgumentException.class,()->service.getCategory(8L));
+            assertThrows(IllegalArgumentException.class,service::getCategoryList);
+            var update=request("PUBLIC_MATRIX");update.setId(8L);
+            assertThrows(IllegalArgumentException.class,()->service.updateCategory(update));
+            assertNull(rows.rawMode(8L));assertEquals(1,rows.size());
+        }
+    }
+    @Test void explicitAdminUpdateChangesOnlyCurrentCategorySourceWithoutTouchingPublicOrHistoricalFacts() throws Exception {
+        try(var rows=new H2Categories()) {
+            var service=service(rows);var id=service.createCategory(request("PUBLIC_MATRIX"));
+            var update=request("APPLICATION_CUSTOM");update.setId(id);service.updateCategory(update);
+            assertEquals("APPLICATION_CUSTOM",mode(service.getCategory(id)));assertEquals(0,rows.publicMatrixCount());assertEquals("historical-unchanged",rows.historicalFact());
+        }
+    }
+
+    private static final class H2Categories implements AutoCloseable {
+        private final Connection connection;
+        H2Categories() throws SQLException {
+            connection=DriverManager.getConnection("jdbc:h2:mem:g03-category-"+UUID.randomUUID()+";DB_CLOSE_DELAY=0","sa","");
+            try(var sql=connection.createStatement()) {
+                sql.execute("CREATE TABLE category(id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, code VARCHAR(128), name VARCHAR(128), active BOOLEAN, sort INTEGER, taxonomy BIGINT, lifecycle VARCHAR(32), mode VARCHAR(32), source VARCHAR(32))");
+                sql.execute("CREATE TABLE public_matrix(id BIGINT)");sql.execute("CREATE TABLE historic(fact VARCHAR(64))");sql.execute("INSERT INTO historic VALUES('historical-unchanged')");
+            }
+        }
+        DccFileCategoryMapper port(){return (DccFileCategoryMapper)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class<?>[]{DccFileCategoryMapper.class},(proxy,method,args)->{
+            return switch(method.getName()){
+                case "insert" -> insert((DccFileCategoryDO)args[0]);
+                case "updateById" -> updateById((DccFileCategoryDO)args[0]);
+                case "selectById" -> selectById((Long)args[0]);
+                case "selectList" -> selectList();
+                default -> throw new UnsupportedOperationException("Unaccepted category port: "+method.getName());
+            };
+        });}
+        public int insert(DccFileCategoryDO row){try(var sql=connection.prepareStatement("INSERT INTO category(code,name,active,sort,taxonomy,lifecycle,mode,source) VALUES(?,?,?,?,?,?,?,?)",Statement.RETURN_GENERATED_KEYS)){values(sql,row);int affected=sql.executeUpdate();try(var keys=sql.getGeneratedKeys()){keys.next();row.setId(keys.getLong(1));}return affected;}catch(Exception failure){throw new IllegalStateException(failure);}}
+        public int updateById(DccFileCategoryDO row){try(var sql=connection.prepareStatement("UPDATE category SET code=?,name=?,active=?,sort=?,taxonomy=?,lifecycle=?,mode=?,source=? WHERE id=?")){values(sql,row);sql.setLong(9,row.getId());return sql.executeUpdate();}catch(Exception failure){throw new IllegalStateException(failure);}}
+        private void values(PreparedStatement sql,DccFileCategoryDO row)throws Exception{sql.setString(1,row.getCode());sql.setString(2,row.getName());sql.setBoolean(3,row.getActive());sql.setInt(4,row.getSort());sql.setLong(5,row.getFileTypeTaxonomyId());sql.setString(6,row.getLifecycleStage());var field=row.getClass().getDeclaredField("approvalSourceMode");field.setAccessible(true);sql.setString(7,(String)field.get(row));sql.setString(8,row.getSource());}
+        public DccFileCategoryDO selectById(Long id){return selectList().stream().filter(row->Objects.equals(id,row.getId())).findFirst().orElse(null);}
+        public List<DccFileCategoryDO> selectList(){try(var sql=connection.createStatement();var result=sql.executeQuery("SELECT * FROM category ORDER BY id")){var rows=new ArrayList<DccFileCategoryDO>();while(result.next()){var row=DccFileCategoryDO.builder().id(result.getLong("id")).code(result.getString("code")).name(result.getString("name")).active(result.getBoolean("active")).sort(result.getInt("sort")).fileTypeTaxonomyId(result.getLong("taxonomy")).lifecycleStage(result.getString("lifecycle")).source(result.getString("source")).build();var field=row.getClass().getDeclaredField("approvalSourceMode");field.setAccessible(true);field.set(row,result.getString("mode"));rows.add(row);}return rows;}catch(Exception failure){throw new IllegalStateException(failure);}}
+        public <T> Long selectCount(java.util.function.Function<DccFileCategoryDO,T> getter,Object value){return selectList().stream().filter(row->Objects.equals(getter.apply(row),value)).count();}
+        public int deleteById(Long id){throw new UnsupportedOperationException("Not an accepted source-mode action");}
+        void insertRaw(Long id,String mode)throws SQLException{try(var sql=connection.prepareStatement("INSERT INTO category(id,code,name,active,sort,taxonomy,lifecycle,mode,source) VALUES(?,'raw','raw',TRUE,1,6,'OUTPUT',?,'LOCAL')")){sql.setLong(1,id);sql.setString(2,mode);sql.executeUpdate();}}
+        String rawMode(Long id)throws SQLException{try(var sql=connection.prepareStatement("SELECT mode FROM category WHERE id=?")){sql.setLong(1,id);try(var rows=sql.executeQuery()){rows.next();return rows.getString(1);}}}
+        int size()throws SQLException{return count("category");}int publicMatrixCount()throws SQLException{return count("public_matrix");}
+        private int count(String table)throws SQLException{try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT COUNT(*) FROM "+table)){rows.next();return rows.getInt(1);}}
+        String historicalFact()throws SQLException{try(var sql=connection.createStatement();var rows=sql.executeQuery("SELECT fact FROM historic")){rows.next();return rows.getString(1);}}
+        public void close()throws SQLException{connection.close();}
+    }
+}

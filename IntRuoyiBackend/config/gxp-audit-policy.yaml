@@ -1,7 +1,189 @@
 schemaVersion: gxp-audit-policy.v1
-policyVersion: 2026-10-dcc-integration-01
-approvalReference: PENDING-REVIEW-20261001
+policyVersion: 2026-10-dcc-integration-02
+approvalReference: PENDING-REVIEW-20261011
 operations:
+  - operationId: dcc.controlled-file.delayed-effective-confirm
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordDelayedConfirmation
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: CONFIRM
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_DCC_SIGNATURE
+    testIds: [G01-CONFIRM-IDENTITY, G01-CONFIRM-ROLLBACK, G01-CONFIRM-REPLAY]
+    owner: dcc-workflow-owner
+    applicability: GXP
+  - operationId: bpm.model.manager.claim
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.bpm.service.definition.BpmUnmanagedModelClaimService#claim
+    domain: BPM
+    subjectType: BPM_MODEL
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_PERMISSION_CONFIG
+    testIds: [BPM-ORPHAN-CLAIM-AUTH, BPM-ORPHAN-CLAIM-PRESERVE, BPM-ORPHAN-CLAIM-AUDIT-ROLLBACK]
+    owner: bpm-model-owner
+    applicability: GXP
+  - operationId: system.user.direct-supervisor.update
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService#saveRelation
+    domain: SYSTEM
+    subjectType: SYSTEM_USER_DIRECT_SUPERVISOR
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_PERMISSION_CONFIG
+    testIds: [IC32-W01-B01, IC32-W01-B02, IC32-W01-B06]
+    owner: system-user-owner
+    applicability: GXP
+  - operationId: dcc.relation.stage.freeze
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService#freeze
+    domain: DCC
+    subjectType: DCC_RELATION_STAGE
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC07-SIGNED-STAGE, IC14-ROUND-IDENTITY, IC07-LATE-ROLLBACK]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.relation.round.inherit
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService#inheritRoundSelections
+    domain: DCC
+    subjectType: DCC_RELATION_ROUND_SOURCE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC14-EXACT-SOURCE, IC14-SOURCE-CAS, IC14-HISTORY-PROTECTION]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.recipient.body-opened
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionReceiptServiceImpl#recordDistributionBodyOpened
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_RECIPIENT
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC11-BODY-OPENED, IC11-READ-FAILURE-ROLLBACK]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.attempt.start
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionDispatchAttemptService#startAttempt
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_ATTEMPT
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC10-ATTEMPT-START, IC10-PLATFORM-IDEMPOTENCY]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.attempt.finish
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionDispatchAttemptService#finishAttempt
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_ATTEMPT
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC10-ATTEMPT-ACK, IC10-ACK-RECOVERY]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.controlled-file.standardization-effective
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccWorkflowFileStateAudit#recordSignatureEffect
+    domain: DCC
+    subjectType: DCC_CONTROLLED_FILE
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC09-SIGNATURE-EFFECT, IC09-AUDIT-ROLLBACK]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.batch.accept
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionBatchService#acceptActivatedEvent
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_BATCH
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC10-EVENT-ACCEPT, IC10-ATOMIC-ROLLBACK]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.batch.prepare
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionBatchService#prepareAndDispatchBatch
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_BATCH
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC10-PREPARE, IC10-LATE-FAILURE]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.batch.fail
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionBatchService#recordFailure
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_BATCH
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC10-FAILED-PERSISTENCE, IC10-SOURCE-PROTECTION]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.recipient.signature-bind
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccControlledFileSignatureBindingService#bindElectronicReceipt
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_RECIPIENT
+    actionType: CREATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [DccElectronicReceiptBindingTest, DccNativeUploadCompletionDatabaseTest]
+    owner: dcc-owner
+    applicability: GXP
+  - operationId: dcc.distribution.batch.retry
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.file.DccDistributionTaskServiceImpl#retryAutomaticDistribution
+    domain: DCC
+    subjectType: DCC_DISTRIBUTION_BATCH
+    actionType: UPDATE
+    reasonPolicy: REQUIRED_CATEGORY_AND_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [IC31-ROSTER-RETRY, IC31-ROSTER-AUTHORIZATION]
+    owner: dcc-owner
+    applicability: GXP
   - operationId: edhr.execution.field.update
     sourceType: SERVICE_METHOD
     sourceLocator: cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditServiceImpl#saveChanges
@@ -39,6 +221,19 @@ operations:
     statePolicy: PRESENT_TO_PRESENT
     retentionClass: GXP_ELECTRONIC_SIGNATURE
     testIds: [BDD-AT-01, BDD-AT-04, BDD-AT-06]
+    owner: qa-owner
+    applicability: GXP
+  - operationId: signature.dcc.distribution-receipt.create
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#sign
+    domain: SIGNATURE
+    subjectType: SIGNATURE_RECORD
+    actionType: CREATE
+    reasonPolicy: OPTIONAL_TEXT
+    signaturePolicy: REQUIRED
+    statePolicy: PRESENT_TO_PRESENT
+    retentionClass: GXP_ELECTRONIC_SIGNATURE
+    testIds: [RA01, RA03, RA04]
     owner: qa-owner
     applicability: GXP
   - operationId: system.permission.role-menu.assign
@@ -273,6 +468,19 @@ operations:
     statePolicy: ABSENT_TO_PRESENT
     retentionClass: GXP_CONTROLLED_DOCUMENT
     testIds: [B-R03, B-PLACEMENT]
+    owner: dcc-integration
+    applicability: GXP
+  - operationId: dcc.project-file-placement.upload-bind
+    sourceType: SERVICE_METHOD
+    sourceLocator: cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFilePlacementService#bindDerived
+    domain: DCC
+    subjectType: DCC_PROJECT_FILE_PLACEMENT
+    actionType: CREATE
+    reasonPolicy: OPTIONAL_TEXT
+    signaturePolicy: NOT_REQUIRED
+    statePolicy: ABSENT_TO_PRESENT
+    retentionClass: GXP_CONTROLLED_DOCUMENT
+    testIds: [G12-OPTIONAL-UPLOAD-PLACEMENT]
     owner: dcc-integration
     applicability: GXP
   - operationId: dcc.project-folder.delete

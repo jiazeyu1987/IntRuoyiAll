@@ -82,7 +82,7 @@ class DccProjectFolderViewReadTest extends DccProjectFormalCombinationTest {
             case "RULE_INACTIVE" -> jdbc.update("UPDATE dcc_project_access_rule SET active=0 WHERE id=?",rule.getId());
             case "RULE_EXPIRED" -> {rule.setExpireTime(java.time.LocalDateTime.now().minusDays(1));rules.updateById(rule);}
             case "RULE_FUTURE" -> {rule.setValidFrom(java.time.LocalDateTime.now().plusDays(1));rules.updateById(rule);}
-            case "USER_DISABLED" -> when(users.getUser(8L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(8L).setStatus(1));
+            case "USER_DISABLED" -> when(users.getUser(8L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(8L).setTenantId(1L).setStatus(1));
             case "USER_MISSING" -> when(users.getUser(8L)).thenReturn(null);
             case "PROJECT_DISABLED" -> {project.setStatus("DISABLE");projects.updateById(project);}
             case "PROJECT_MISSING" -> requested=999L;
@@ -117,7 +117,7 @@ class DccProjectFolderViewReadTest extends DccProjectFormalCombinationTest {
     @ParameterizedTest @ValueSource(strings={"USER","DEPT","ROLE","POSITION"})
     void viewDirectoryUsesTheExistingFormalSubjectMatchingRules(String subjectType) throws Exception {
         var project=project("VDIR-SUBJECT",7L);readerMenu();
-        var user=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(8L).setStatus(0).setDeptId(88L).setPostIds(java.util.Set.of(88L));
+        var user=new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO().setId(8L).setTenantId(1L).setStatus(0).setDeptId(88L).setPostIds(java.util.Set.of(88L));
         when(users.getUser(8L)).thenReturn(user);when(permissions.getUserRoleIdListByUserId(8L)).thenReturn(java.util.Set.of(88L));
         var rule=new DccProjectAccessRuleDO();rule.setTenantId(1L);rule.setDccProjectCodeId(project.getId());
         rule.setSubjectType(subjectType);rule.setSubjectId("USER".equals(subjectType)?8L:88L);

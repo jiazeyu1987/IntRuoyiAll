@@ -31,9 +31,11 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
 
     @Mock
     private DccControlledFileObsoleteService obsoleteService;
+    @Mock private DccObsoleteFormExecutionPreparationService executionPreparation;
 
     @InjectMocks
     private DccControlledFileObsoleteFormEffectExecutor executor;
+    @org.junit.jupiter.api.BeforeEach void wireActualPreparationPort(){org.springframework.test.util.ReflectionTestUtils.setField(executor,"executionPreparation",executionPreparation);}
 
     @Test
     void lifecyclePreflightValidatesDccObsoleteBeforeBpmStarts() {
@@ -150,6 +152,7 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
         FormActionInstance instance = dccObsoleteInstance();
 
         executor.onPendingApprovalStarted(instance);
+        verify(executionPreparation).onPendingApprovalStarted(instance);
 
         verify(obsoleteService, never()).precheckObsoleteControlledFile(any(), any(), any());
         verify(obsoleteService, never()).applyApprovedObsoleteControlledFile(any(), any(), any());

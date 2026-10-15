@@ -5,6 +5,8 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const vue = require('vue')
 const { parse, compileScript } = require('vue/compiler-sfc')
+const versionDisplay = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/version-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, versionDisplay)
 const source = fs.readFileSync('src/views/dcc/controlled-file/browser/index.vue', 'utf8')
 const block = (name, next) => {
   const from = source.indexOf(`const ${name} =`), end = source.indexOf(`const ${next} =`, from)
@@ -15,10 +17,12 @@ const FILE = '9223372036854775701', NEXT = '9223372036854775702', MASTER = '9223
 const stateFor = () => {
   const calls = { writes: [], errors: [], successes: [], merges: [], refreshes: 0 }
   const target = { id: FILE, masterId: MASTER, checkedOutBy: USER, checkedOut: true, versionNo: 'A/1', fileNumber: 'F1', status: 'ACTIVE', remark: 'old' }
-  const state = { Error, JSON, Number, String, Promise,
+  const state = { Error, JSON, Number, String, Promise, ...versionDisplay.exports,
     userStore: { getUser: { id: USER } }, checkinTarget: ref(target), checkinUpload: ref({ sessionId: 'dcc-checkin:ticket-session', uploadTicket: 'SOURCE', fileName: 'updated.docx' }),
     checkinUploadSessionId: ref('client-session'), checkinSourceState: ref('ready'), checkinDrawingPdfUpload: ref(undefined),
     checkinUploadLoading: ref(false), checkinDrawingPdfLoading: ref(false), checkinCleanupLoading: ref(false), checkinSubmitting: ref(false),
+    checkinAttachmentState: ref({ ready: true, uploading: false, cleaning: false, error: '', count: 0 }),
+    checkinAttachmentsRef: ref({ readReadyManifest: () => [], markSaved() {}, cleanupAll: async () => true }),
     checkinDialogVisible: ref(true), checkinForm: { versionChangeType: 'MINOR', changeDescription: 'real edit', remark: 'changed', needTraining: false },
     checkoutLoadingId: ref(undefined), checkinRefreshPending: ref(undefined), list: ref([{ ...target, projectFolderId: '9223372036854775790', versionHistory: [target] }]), total: ref(1),
     isValidBrowserOptionId: id => typeof id === 'string' && /^[1-9]\d*$/.test(id) || typeof id === 'number' && Number.isSafeInteger(id) && id > 0,
@@ -50,10 +54,21 @@ test('actual submit always sends MINOR even if old form state carries MAJOR and 
   for (const forbidden of ['projectFolderId', 'directoryId', 'revisionChangeType', 'relatedControlledFileIds']) assert.equal(payload[forbidden], undefined)
 })
 
+test('a training selection explicitly checked in the current dialog is sent as true', async () => {
+  const { state, calls } = stateFor()
+  state.checkinForm.needTraining = true
+  await state.exports.submit()
+  assert.equal(calls.writes.length, 1)
+  assert.equal(calls.writes[0][1].needTraining, true)
+})
+
 test('actual checkin dialog renders working-only explanation and fixed minor submit action', () => {
   const from = source.indexOf('title="检入新版本"'), to = source.indexOf('</el-dialog>', from)
   const fragment = source.slice(source.lastIndexOf('<el-dialog', from), to + '</el-dialog>'.length)
   const declarations = { checkinDialogVisible: true, checkinSubmitting: false, checkinCleanupLoading: false, checkinUploadLoading: false,
+    checkinAttachmentState: { ready: true, uploading: false, cleaning: false, error: '', count: 0 },
+    checkinAttachmentContext: { categoryId: 7, controlledFileId: FILE, uploadContext: 'CHECKIN', sessionId: 'client-session' },
+    checkinAttachmentContextKey: 'tenant1-user-checkin', checkinAttachmentsRef: undefined,
     checkinForm: { versionChangeType: 'MAJOR', changeDescription: '', remark: '' }, checkinFileList: [], checkinUpload: undefined,
     checkinDrawingPdfFileList: [], checkinDrawingPdfLoading: false, canMajorCheckin: true,
     beforeCloseCheckin() {}, resetCheckinDialog() {}, cancelCheckin() {}, submitCheckin() {}, uploadCheckinSource() {}, clearCheckinUpload() {}, uploadCheckinDrawingPdf() {}, discardCheckinDrawingPdf() {}, isDrawingSourceFile: () => false }
@@ -161,6 +176,51 @@ test('remark-only checkin remains legal and sends no invented source or placemen
   const {state,calls}=stateFor();state.checkinUpload.value=undefined;state.checkinUploadContext.value=undefined;state.checkinSourceState.value='idle'
   await state.exports.submit();assert.equal(calls.writes.length,1)
   assert.equal(calls.writes[0][1].versionChangeType,'MINOR');assert.equal(calls.writes[0][1].uploadTicket,undefined);assert.equal(calls.writes[0][1].sessionId,undefined)
+})
+
+test('actual checkout actions show and execute only for the checkout actor, including when another user is OWNER', async () => {
+  const ast=parse(source).descriptor.template.ast,buttons=[]
+  const walk=node=>{if(node.type===1 && node.props.some(p=>p.type===6 && p.name==='data-testid' && ['dcc-controlled-browser-checkin','dcc-controlled-browser-cancel-checkout','dcc-controlled-browser-checkout'].includes(p.value?.content)))buttons.push(node.loc.source);for(const child of node.children||[])walk(child)}
+  walk(ast);assert.equal(buttons.length,3)
+  for(const role of ['actor','other','OWNER']){
+    const {state,calls}=stateFor();let cancellations=0
+    state.userStore.getUser.id=role==='actor'?USER:'88'
+    state.ElMessageBox={prompt:async()=>({value:'cancel own checkout'})};state.cancelCheckoutControlledFile=async()=>{cancellations++;return {id:FILE}}
+    state.applyCheckoutProjection=()=>{}
+    vm.runInContext(ts.transpileModule(block('isCheckedOutByCurrentUser','canEditVersion')+'\n'+block('handleCancelCheckout','handleBrowserRowCommand')+'\nexports.actor=isCheckedOutByCurrentUser;exports.cancel=handleCancelCheckout',{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,state)
+    state.isCheckedOutByCurrentUser=state.exports.actor
+    const values={row:{},getSelectedVersion:()=>state.checkinTarget.value,isCheckedOutByCurrentUser:state.exports.actor,
+      canCheckoutVersion:()=>role==='OWNER',checkoutLoadingId:undefined,handleCheckout(){},handleCheckin(){},handleCancelCheckout(){}}
+    const declarations=Object.keys(values).map(k=>`const ${k}=values.${k}`).join(';')
+    const compiled=compileScript(parse(`<template><div>${buttons.join('')}</div></template><script setup>const values=__values;${declarations}</script>`).descriptor,{id:'real-checkout-actions',inlineTemplate:true}).content
+    const exported={};new Function('exports','require','__values',ts.transpileModule(compiled,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(exported,()=>vue,values)
+    const renderer=vue.createRenderer({createElement:type=>({type,children:[],props:{}}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText:(n,t)=>n.text=t,setElementText:(n,t)=>n.text=t,patchProp:(n,k,_v,v)=>n.props[k]=v,parentNode:()=>null,nextSibling:()=>null})
+    const app=renderer.createApp(exported.default);app.component('el-button',{setup:(_,{slots,attrs})=>()=>vue.h('button',attrs,slots.default?.())})
+    const root={children:[]};app.mount(root);const visible=[];const collect=n=>{if(n.props?.['data-testid'])visible.push(n.props['data-testid']);for(const child of n.children||[])collect(child)};collect(root)
+    try{assert.deepEqual(visible.sort(),role==='actor'?['dcc-controlled-browser-cancel-checkout','dcc-controlled-browser-checkin']:[])}finally{app.unmount()}
+    await state.exports.submit();await state.exports.cancel(state.checkinTarget.value)
+    assert.equal(calls.writes.length,role==='actor'?1:0);assert.equal(cancellations,role==='actor'?1:0)
+  }
+})
+
+test('clearing an existing remark is a real remark-only checkin', async () => {
+  const {state,calls}=stateFor();state.checkinUpload.value=undefined;state.checkinUploadContext.value=undefined;state.checkinSourceState.value='idle'
+  state.checkinForm.remark='   '
+  await state.exports.submit();assert.equal(calls.writes.length,1)
+  assert.equal(calls.writes[0][1].remark,'');assert.equal(calls.writes[0][1].uploadTicket,undefined)
+})
+
+test('an already empty remark is unchanged and cannot manufacture another working version', async () => {
+  const {state,calls}=stateFor();state.checkinUpload.value=undefined;state.checkinUploadContext.value=undefined;state.checkinSourceState.value='idle'
+  state.checkinForm.remark=' ';state.checkinTarget.value.remark=null
+  await state.exports.submit();assert.equal(calls.writes.length,0);assert.ok(calls.errors.length)
+})
+
+test('multi-letter version checkin displays 草稿 while preserving the exact stored body identity', async () => {
+  const {state,calls}=stateFor();state.checkinTarget.value.versionNo='AAA/1'
+  state.checkinControlledFile=async (...args)=>{calls.writes.push(args);return {...state.checkinTarget.value,id:NEXT,versionNo:'AAA/1-1',status:'WORKING',checkedOut:false,checkedOutBy:null}}
+  await state.exports.submit();assert.equal(calls.writes.length,1);assert.equal(calls.successes.length,1);assert.equal(calls.merges[0][0].versionNo,'AAA/1-1')
+  assert.match(calls.successes[0], /草稿/); assert.doesNotMatch(calls.successes[0], /AAA\/1-1/)
 })
 
 test('duplicate click while writing creates one request and old failure does not pollute new dialog', async () => {

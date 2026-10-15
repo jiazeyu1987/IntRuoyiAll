@@ -209,7 +209,7 @@ class DccProjectReferenceFormalAuthorityIntegrationTest extends BaseDbUnitTest {
                 assertTrue(resolver.resolveSelected(100L).controlled(),"ordinary repeated Mapper lookup retains the transaction's earlier cached projection");
                 return referenceService.create(7L,2L,21L,100L,"锁后必须读取已作废事实");
             }));
-            assertEquals("DCC_REFERENCE_SOURCE_NOT_CONTROLLED",failure.getMessage());assertEquals(0,references());
+            assertEquals("DCC_REFERENCE_EFFECTIVE_CONTROLLED_REQUIRED",failure.getMessage());assertEquals(0,references());
             assertEquals("OBSOLETE",jdbc.queryForObject("SELECT status FROM dcc_controlled_file WHERE id=100",String.class));
             assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event",Integer.class));
         }finally{pool.shutdown();assertTrue(pool.awaitTermination(15,TimeUnit.SECONDS));}

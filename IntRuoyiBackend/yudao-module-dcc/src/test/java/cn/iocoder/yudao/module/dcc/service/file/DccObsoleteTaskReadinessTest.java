@@ -44,6 +44,9 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileRouteReadinessService participants;
     @Mock private DccSignatureVerificationService signatures;
     @Mock private DccControlledFileSignatureBindingService bindings;
+    @Mock private cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper forms;
+    @Mock private DccBoundWorkflowContractResolver historicalContracts;
+    @Mock private DccApplicationRoundService rounds;
     private final DccControlledFileWorkflowServiceImpl workflow = new DccControlledFileWorkflowServiceImpl();
     private final DccWorkflowSignoffAssignmentService signoff = new DccWorkflowSignoffAssignmentService();
     private DccControlledFileDO file;
@@ -64,9 +67,10 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(signoff, "readinessService", participants);
         ReflectionTestUtils.setField(signoff, "signatureService", signatures);
         ReflectionTestUtils.setField(signoff, "signatureBindingService", bindings);
+        ReflectionTestUtils.setField(signoff,"formInstances",forms);ReflectionTestUtils.setField(signoff,"obsoleteBoundContracts",historicalContracts);ReflectionTestUtils.setField(signoff,"rounds",rounds);
         file = DccControlledFileDO.builder().id(10L).masterId(20L).tenantId(1L)
                 .processDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD)
-                .processInstanceId("upload-completed").status("ACTIVE").publishedFileId(30L).build();
+                .processInstanceId("upload-completed").status("ACTIVE").versionNo("A/1").publishedFileId(30L).build();
         when(files.selectById(10L)).thenReturn(file);
         when(files.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(file);
         when(masters.selectByIdForUpdate(20L)).thenReturn(
@@ -77,6 +81,7 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         when(task.getProcessInstanceId()).thenReturn("obsolete-round-2");
         when(task.getProcessDefinitionId()).thenReturn("dcc-controlled-file-obsolete:4:definition");
         when(task.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
+        when(task.getExecutionId()).thenReturn("actual-history-execution");
         when(task.getTaskLocalVariables()).thenReturn(Map.of(
                 BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID, "obsolete-round-2:dept-51"));
         when(bpm.getTask("obsolete-task")).thenReturn(task);
@@ -86,8 +91,13 @@ class DccObsoleteTaskReadinessTest extends BaseMockitoUnitTest {
         obligation = DccControlledFileTaskAssigneeSnapshotDO.builder().id(40L).tenantId(1L)
                 .controlledFileId(10L).stageCode("MATRIX_REVIEW").processInstanceId("obsolete-round-2")
                 .assigneeUserId(99L).bpmTaskId("obsolete-task").assignmentSignatureId(50L)
-                .assignedTime(LocalDateTime.of(2026, 10, 2, 10, 0)).build();
+                .nodeInstanceId("actual-history-execution").assignedTime(LocalDateTime.of(2026, 10, 2, 10, 0)).build();
         when(snapshots.selectOne(any(Wrapper.class))).thenReturn(obligation);
+        when(forms.selectList(any(Wrapper.class))).thenReturn(List.of(cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO.builder().id(501L).tenantId(1L).instanceCode("HISTORICAL-V1")
+                .systemCode("DCC").objectType("CONTROLLED_FILE").actionCode("OBSOLETE").objectId("10").objectVersion("A/1").status("IN_APPROVAL").bpmProcessInstanceId("obsolete-round-2")
+                .formDataJson("{\"dccExecutionPreparation\":{\"formatVersion\":\"DCC_OBSOLETE_FORM_PREPARATION_V1\"}}").build()));
+        when(rounds.require("OBSOLETE",10L,"obsolete-round-2")).thenReturn(3);
+        when(historicalContracts.resolveRoundFlowContract(eq(file),any())).thenReturn(new DccBoundWorkflowContractResolver.RoundFlowContract(1L,10L,"OBSOLETE",3,"obsolete-round-2",DccControlledFileProcessDefinitionKeys.OBSOLETE,"dcc-controlled-file-obsolete:4:definition","historical-deployment","historical-full-digest","historical-contract",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,null,501L,"HISTORICAL-V1",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));
     }
 
     @AfterEach void clearTenant() { TenantContextHolder.clear(); }

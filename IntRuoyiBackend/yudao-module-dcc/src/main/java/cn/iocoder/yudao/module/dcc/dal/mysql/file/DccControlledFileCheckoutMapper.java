@@ -59,6 +59,7 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
                    checkin_iteration_id = #{iterationId},
                    checkin_source_file_id = #{sourceFileId},
                    checkin_source_sha256 = #{sourceSha256},
+                   checkin_payload_hash = #{payloadHash},
                    checked_in_time = CURRENT_TIMESTAMP,
                    updater = #{actorId},
                    update_time = CURRENT_TIMESTAMP
@@ -74,7 +75,8 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
                       @Param("uploadTicket") String uploadTicket,
                       @Param("iterationId") Long iterationId,
                       @Param("sourceFileId") Long sourceFileId,
-                      @Param("sourceSha256") String sourceSha256);
+                      @Param("sourceSha256") String sourceSha256,
+                      @Param("payloadHash") String payloadHash);
 
     @Update("""
             UPDATE dcc_controlled_file_checkout

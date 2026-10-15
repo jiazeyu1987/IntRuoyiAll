@@ -76,6 +76,7 @@
             查看项目及产品申请
           </el-button>
           <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
+          <el-button v-if="dccDistributionNavigation" type="primary" @click="handleContentClick">查看下发文件并签收</el-button>
           <el-button v-if="dccRelationRemediationNavigation" type="primary" data-testid="dcc-relation-remediation-notification-open" @click="navigateToDccRelationRemediation">查看来源受控申请</el-button>
         </div>
       </section>
@@ -124,6 +125,7 @@ const normalizeTemplateParams = (value: unknown) => {
 const notifyMessageTargets = computed(() => getNotifyMessageTargets(detailData.value))
 const primaryDetailTarget = computed(() => getNotifyMessageTarget(detailData.value))
 const hasDetailTarget = computed(() => Boolean(primaryDetailTarget.value))
+const dccDistributionNavigation = computed(() => notifyMessageTargets.value.find(target => target.type === 'dccDistribution'))
 const showroomProductNavigation = computed(
   () =>
     notifyMessageTargets.value.find(

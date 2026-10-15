@@ -11,4 +11,6 @@ public class DccApplicationRoundSummary {
     private String applicationType;
     private String bpmRound;
     private Integer attributeRound;
+    /** A verified per-row read result; an absent value never supplies an execution rule. */
+    private DccBoundWorkflowContractResolver.RoundFlowContract flowContract;
 }

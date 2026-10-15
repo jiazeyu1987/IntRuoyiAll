@@ -39,8 +39,10 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
     @Spy private DccControlledFileAssignmentScopeService assignmentScopeService = new DccControlledFileAssignmentScopeService();
     @Spy private DccControlledFileVersionPolicy versionPolicy = DccControlledFileVersionPolicy.defaultPolicy();
     @Spy private DccWorkflowDatePolicy datePolicy = new DccWorkflowDatePolicy();
+    @Mock private cn.iocoder.yudao.module.system.api.dept.DeptApi deptApi;
     private DccControlledFileDO baseline, selected;
     private DccControlledFileSubmitIterationReqVO request;
+    private DccW08PreparedUnitFixture preparedFixture;
     private final DccControlledFilePreparedSource frozen = new DccControlledFilePreparedSource(300L, 100L, "selected-hash", true);
 
     @BeforeEach void setup() {
@@ -58,6 +60,8 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         request.setIdempotencyKey("revision-key"); request.setRevisionChangeType("PARTIAL");
         request.setChangeDescription("selected earlier text"); request.setNeedTraining(false);
         request.setEffectiveDate(java.time.LocalDate.of(2099,12,20));
+        request.setEffectiveMode(DccApplicationEffectiveSelection.PRESET_DATE);
+        request.setSelectedDistributionDepartmentIds(List.of(201L, 202L));
         request.setProjectAttributes(new cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes(
                 List.of("CE"), null, "Y", "N", "N", null));
         request.setSelectedSignoffDepartmentIds(List.of(101L, 102L));
@@ -71,6 +75,15 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         lenient().when(permissionSupport.hasCategoryPermission(2L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
         lenient().when(sourceOwnershipService.createVerifiedCopy(100L)).thenReturn(frozen);
         lenient().when(fileMapper.insert(any(DccControlledFileDO.class))).thenAnswer(i -> { i.<DccControlledFileDO>getArgument(0).setId(30L); return 1; });
+        lenient().when(fileMapper.update(isNull(),any())).thenReturn(1); // Declared single target facts write; real SQL is covered by H2 consumer tests.
+        selected.setChangeType("REVISION");baseline.setChangeType("NEW");
+        preparedFixture=new DccW08PreparedUnitFixture(fileMapper,id->id.equals(20L)?baseline:id.equals(21L)?selected:null,
+                masterMapper,projectAccessService,permissionSupport);
+        preparedFixture.prepareRoot(selected);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"applicationRoundService",preparedFixture.rounds);
+        org.springframework.test.util.ReflectionTestUtils.setField(service,"executionContracts",preparedFixture.contracts);
+        request.setExecutionContract(selected.getPreparedWorkflowContract());
+        request.setExpectedProcessDefinitionId(selected.getPreparedProcessDefinitionId());request.setExpectedDefinitionDigest(selected.getPreparedDefinitionDigest());
     }
     @AfterEach void clear() { TransactionSynchronizationManager.clear(); TenantContextHolder.clear(); }
     @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(strings={"active", "latest", "foreignTenant", "foreignProject", "wrongRequester", "missingPredecessor", "cycle", "formalSelected", "sourceHash"})
@@ -125,13 +138,17 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         selected.setVersionNo(initialVersion+"-1"); selected.setChangeType("NEW"); selected.setRevisionBaseActiveControlledFileId(null);
         selected.setPredecessorControlledFileId(20L);
         request.setRevisionChangeType("INITIAL");
+        selected.setPreparedWorkflowContract(null);selected.setPreparedProcessDefinitionId(null);selected.setPreparedDefinitionDigest(null);
+        preparedFixture.prepareRoot(selected);
+        request.setExecutionContract(selected.getPreparedWorkflowContract());request.setExpectedProcessDefinitionId(selected.getPreparedProcessDefinitionId());
+        request.setExpectedDefinitionDigest(selected.getPreparedDefinitionDigest());
         lenient().when(fileMapper.selectById(21L)).thenReturn(selected);
         lenient().when(fileMapper.selectListByMasterIdForUpdate(10L)).thenReturn(List.of(baseline, selected));
     }
     @ParameterizedTest @CsvSource({"A/1", "B/1"})
     void initialCandidateFreezesSelectedBodyWithoutRevisionIncrementOrChangingOriginals(String initialVersion) {
         initialWorkingChain(initialVersion);
-        selected.setProcessInstanceId("old-working-process"); selected.setProcessDefinitionKey("old-process-key");
+        selected.setProcessInstanceId(null); selected.setProcessDefinitionKey(null); // Source remains the declared open draft.
         selected.setSubmittedTime(java.time.LocalDateTime.of(2026,9,30,12,0));
         selected.setControlledTime(selected.getSubmittedTime()); selected.setActivatedTime(selected.getSubmittedTime());
         selected.setDistributedTime(selected.getSubmittedTime()); selected.setDistributionPayloadHash("old-success");
@@ -187,7 +204,9 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"2000-01-01"})
     void missingOrPastApplicationDateRejectsBeforeReservationAndFrozenCopy(String date) {
         request.setEffectiveDate(date == null ? null : java.time.LocalDate.parse(date));
-        assertThrows(IllegalArgumentException.class, () -> service.createRevision(99L, 20L, 21L, request));
+        if (date == null) assertThrows(IllegalArgumentException.class, () -> service.createRevision(99L, 20L, 21L, request));
+        else cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException(
+                () -> service.createRevision(99L,20L,21L,request),cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REVIEW_DATE_INVALID);
         verify(nameClaimService,never()).claimExistingVersion(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());
         verify(nameClaimService,never()).claimIdentity(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any());verifyNoInteractions(sourceOwnershipService,relatedFileService);
         verify(fileMapper, never()).insert(any(DccControlledFileDO.class));
@@ -243,7 +262,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         assertEquals(300L, result.getSourceFileId()); assertEquals("selected-hash", result.getSourceSha256());
         assertEquals("SOP.pdf", result.getSourceOriginalFileName());
         verify(sourceOwnershipService).createVerifiedCopy(100L);
-        verify(relatedFileService).inheritRelatedFiles(21L, 30L);
+        verify(relatedFileService).freezeCurrentRelationsForRevision(99L,20L,30L);
         verify(masterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
         assertEquals("ACTIVE", baseline.getStatus());
     }
@@ -312,7 +331,7 @@ class DccRevisionServiceTest extends BaseMockitoUnitTest {
         verify(fileMapper, never()).insert(any(DccControlledFileDO.class));
     }
     @Test void childFailureCleansFrozenCopyAndPropagates() {
-        doThrow(new IllegalStateException("child failure")).when(relatedFileService).inheritRelatedFiles(21L,30L);
+        doThrow(new IllegalStateException("child failure")).when(relatedFileService).freezeCurrentRelationsForRevision(99L,20L,30L);
         assertThrows(IllegalStateException.class, () -> service.createRevision(99L,20L,21L,request));
         verify(sourceOwnershipService).cleanupPreparedSource(frozen);
     }

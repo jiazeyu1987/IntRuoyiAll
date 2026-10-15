@@ -65,6 +65,11 @@ const getPendingStageSummary = (
   source: ControlledFileHandlingSummarySource
 ): ControlledFileHandlingSummary => {
   switch (status) {
+    case 'PENDING_SUPERVISOR_REVIEW':
+      return {
+        nextStep: '等待直属主管审核',
+        responsibilityHint: '责任：直属主管'
+      }
     case 'PENDING_DOC_CONTROL_REVIEW':
     case 'PENDING_MATRIX_REVIEW':
     case 'PENDING_MATRIX_APPROVAL':
@@ -81,7 +86,7 @@ const getPendingStageSummary = (
     case 'PENDING_APPLICANT_TRAINING_RECORD':
       return {
         nextStep: '等待上传培训记录',
-        responsibilityHint: '责任：申请人'
+        responsibilityHint: '责任：文控上传线下培训记录'
       }
     case 'READY_TO_PUBLISH':
       return {

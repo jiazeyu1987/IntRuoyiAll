@@ -71,9 +71,25 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="标记" width="92" align="center">
-          <template #default>
-            <span class="review-matrix-dialog__marker">▲</span>
+        <el-table-column label="参与条件" width="140" align="center">
+          <template #default="{ row }">
+            <span v-if="isPreviewMode" class="review-matrix-dialog__marker">{{
+              row.marker || '未记录'
+            }}</span>
+            <el-select v-else v-model="row.marker" placeholder="请选择参与条件">
+              <el-option label="● 必须" value="●" />
+              <el-option label="◎ 可选" value="◎" />
+              <el-option v-if="row.marker === '▲'" label="▲ 原标记" value="▲" />
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column label="行备注" min-width="180">
+          <template #default="{ row }">
+            <el-input
+              v-model="row.remark"
+              :disabled="isPreviewMode"
+              placeholder="填写参与条件或说明"
+            />
           </template>
         </el-table-column>
         <el-table-column label="主体类型" min-width="150">
@@ -90,6 +106,11 @@
               <el-option label="权限角色" value="ROLE" />
               <el-option label="组织角色" value="POST" />
               <el-option label="审批角色" value="DCC_POSITION" />
+              <el-option
+                v-if="row.subjectType === 'POSITION'"
+                label="原审批角色"
+                value="POSITION"
+              />
             </el-select>
           </template>
         </el-table-column>
@@ -142,7 +163,7 @@
               />
             </el-select>
             <el-select
-              v-else-if="row.subjectType === 'DCC_POSITION'"
+              v-else-if="row.subjectType === 'DCC_POSITION' || row.subjectType === 'POSITION'"
               :model-value="row.subjectId"
               class="w-full"
               clearable
@@ -274,7 +295,11 @@
             </div>
           </div>
         </div>
-        <el-empty v-else-if="!previewUnresolvedRules.length" description="尚未生成有效权限预览" :image-size="52" />
+        <el-empty
+          v-else-if="!previewUnresolvedRules.length"
+          description="尚未生成有效权限预览"
+          :image-size="52"
+        />
       </div>
 
       <div v-if="previewData?.downloadRuleSummary" class="preview-download-summary mt-16px">
@@ -283,7 +308,11 @@
           {{ previewData.downloadRuleSummary }}
         </div>
         <div class="preview-download-summary__meta">
-          {{ previewData.downloadRuleSubjects?.length ? previewData.downloadRuleSubjects.join(' / ') : '未配置 DOWNLOAD 主体' }}
+          {{
+            previewData.downloadRuleSubjects?.length
+              ? previewData.downloadRuleSubjects.join(' / ')
+              : '未配置 DOWNLOAD 主体'
+          }}
         </div>
       </div>
 
@@ -342,7 +371,11 @@ import { defaultProps } from '@/utils/tree'
 import RoleSelect from '@/views/system/role/components/RoleSelect.vue'
 import UserSelect from '@/views/system/user/components/UserSelect.vue'
 import { applyDepartmentAutoMatchToViewMatrixRules } from './viewMatrixDepartmentMatcher'
-import { createApprovalMatrixDraft, type ApprovalMatrixDraft, type ReviewMatrixRuleDraft } from '../governance'
+import {
+  createApprovalMatrixDraft,
+  type ApprovalMatrixDraft,
+  type ReviewMatrixRuleDraft
+} from '../governance'
 import {
   createDepartmentByIdMap,
   findExactMatchedDepartmentIdByLabel,
@@ -371,12 +404,35 @@ const dialogMode = ref<MatrixDialogMode>('edit')
 const departmentOptions = ref<DeptVO[]>([])
 const postOptions = ref<PostVO[]>([])
 const approvalPositionOptions = ref<ControlledFileApprovalPositionVO[]>([])
-const formData = reactive<ApprovalMatrixDraft>(createApprovalMatrixDraft())
+type EditableMatrixRule = ReviewMatrixRuleDraft & { remark?: string }
+const formData = reactive<Omit<ApprovalMatrixDraft, 'rules'> & { rules: EditableMatrixRule[] }>(
+  createApprovalMatrixDraft()
+)
 const isPreviewMode = computed(() => dialogMode.value === 'preview')
 const message = useMessage()
 const departmentById = computed(() => createDepartmentByIdMap(departmentOptions.value))
+let matrixGeneration = 0
+let previewSequence = 0
+const captureMatrixContext = () => ({
+  generation: matrixGeneration,
+  categoryId: currentCategory.value?.id
+})
+const isMatrixContextCurrent = (context: ReturnType<typeof captureMatrixContext>) =>
+  dialogVisible.value &&
+  context.generation === matrixGeneration &&
+  context.categoryId === currentCategory.value?.id
+watch(
+  dialogVisible,
+  (visible) => {
+    if (!visible) {
+      matrixGeneration++
+      previewSequence++
+    }
+  },
+  { flush: 'sync' }
+)
 
-const normalizeRuleMarker = () => '▲' as const
+const normalizeRuleMarker = (marker?: ControlledFileCategoryReviewMatrixRuleVO['marker']) => marker
 
 const normalizeText = (value?: string) => {
   const trimmed = value?.trim()
@@ -385,42 +441,46 @@ const normalizeText = (value?: string) => {
 
 const normalizeSubjectLabel = (value?: string) => normalizeText(value)?.toLocaleLowerCase() || ''
 
-const normalizeRule = (rule?: Partial<ControlledFileCategoryReviewMatrixRuleVO>): ReviewMatrixRuleDraft => ({
-  stageType: rule?.stageType === 'APPROVAL' ? 'APPROVAL' : 'SIGNOFF',
-  active: rule?.active ?? true,
-  subjectLabel: normalizeText(rule?.subjectLabel),
-  marker: normalizeRuleMarker(),
-  subjectType:
-    rule?.subjectType === 'POSITION'
-      ? 'DCC_POSITION'
-      : rule?.subjectType === 'USER' ||
-          rule?.subjectType === 'DEPT' ||
-          rule?.subjectType === 'ROLE' ||
-          rule?.subjectType === 'POST' ||
-          rule?.subjectType === 'DCC_POSITION'
-        ? rule.subjectType
-        : undefined,
-  subjectId: rule?.subjectId,
-  subjectName: normalizeText(rule?.subjectName),
-  subjectDepartmentPath: normalizeText(rule?.subjectDepartmentPath)
-})
+const normalizeRule = (rule: ControlledFileCategoryReviewMatrixRuleVO): EditableMatrixRule => {
+  if (!['SIGNOFF', 'APPROVAL'].includes(rule.stageType)) throw new Error('审阅矩阵阶段无效')
+  if (
+    rule.subjectType &&
+    !['USER', 'DEPT', 'ROLE', 'POST', 'DCC_POSITION', 'POSITION', 'UNMAPPED_EXCEL'].includes(
+      rule.subjectType
+    )
+  ) {
+    throw new Error('审阅矩阵主体类型无效')
+  }
+  return {
+    stageType: rule.stageType,
+    active: rule?.active ?? true,
+    subjectLabel: normalizeText(rule?.subjectLabel),
+    marker: normalizeRuleMarker(rule?.marker),
+    subjectType: rule.subjectType,
+    subjectId: rule?.subjectId,
+    subjectName: normalizeText(rule?.subjectName),
+    subjectDepartmentPath: normalizeText(rule?.subjectDepartmentPath),
+    remark: rule?.remark
+  }
+}
 
-const buildRulePayload = (rule: ReviewMatrixRuleDraft) => ({
+const buildRulePayload = (rule: EditableMatrixRule) => ({
   stageType: rule.stageType,
   active: rule.active,
   subjectLabel: normalizeText(rule.subjectLabel),
-  marker: normalizeRuleMarker(),
+  marker: normalizeRuleMarker(rule.marker),
   subjectType: rule.subjectType,
   subjectId: rule.subjectId,
   subjectName: normalizeText(rule.subjectName),
-  subjectDepartmentPath: normalizeText(rule.subjectDepartmentPath)
+  subjectDepartmentPath: normalizeText(rule.subjectDepartmentPath),
+  remark: rule.remark
 })
 
 const applyMatrix = (matrix?: Partial<ControlledFileCategoryApprovalMatrixVO>) => {
   const next = createApprovalMatrixDraft(matrix)
   formData.effectiveTime = next.effectiveTime
   formData.remark = next.remark
-  formData.rules = next.rules.map((rule) => normalizeRule(rule))
+  formData.rules = (matrix?.rules || next.rules).map((rule) => normalizeRule(rule))
 }
 
 const ensureLookupData = async () => {
@@ -452,15 +512,17 @@ const ensureLookupData = async () => {
 }
 
 const loadMatrix = async () => {
-  if (!currentCategory.value?.id) {
+  const context = captureMatrixContext()
+  if (!context.categoryId) {
     return
   }
   loading.value = true
   try {
-    const matrix = await getCategoryApprovalMatrix(currentCategory.value.id)
+    const matrix = await getCategoryApprovalMatrix(context.categoryId)
+    if (!isMatrixContextCurrent(context)) return
     applyMatrix(matrix)
   } finally {
-    loading.value = false
+    if (isMatrixContextCurrent(context)) loading.value = false
   }
 }
 
@@ -484,7 +546,9 @@ const canPreviewCurrentDraft = () => {
 }
 
 const refreshPreview = async () => {
-  if (!currentCategory.value?.id) {
+  const context = captureMatrixContext()
+  const sequence = ++previewSequence
+  if (!context.categoryId) {
     return
   }
   if (!canPreviewCurrentDraft()) {
@@ -493,19 +557,24 @@ const refreshPreview = async () => {
   previewLoading.value = true
   previewError.value = ''
   try {
-    previewData.value = await previewCategoryApprovalMatrixEffectiveAccess(currentCategory.value.id, {
+    const response = await previewCategoryApprovalMatrixEffectiveAccess(context.categoryId, {
       effectiveTime: formData.effectiveTime,
       remark: formData.remark.trim() || undefined,
       rules: formData.rules.map((rule) => buildRulePayload(rule))
     })
+    if (!isMatrixContextCurrent(context) || sequence !== previewSequence) return
+    previewData.value = response
+    return response
   } catch (error) {
+    if (!isMatrixContextCurrent(context) || sequence !== previewSequence) return
     previewData.value = null
     previewError.value = resolveErrorMessage(
       error,
       '有效权限预览失败，请根据后端错误提示检查主体配置、下载规则和历史 snapshot 边界。'
     )
   } finally {
-    previewLoading.value = false
+    if (isMatrixContextCurrent(context) && sequence === previewSequence)
+      previewLoading.value = false
   }
 }
 
@@ -525,43 +594,54 @@ const validateForm = () => {
   const invalidRule = formData.rules.find(
     (rule) =>
       rule.active !== false &&
-      (!normalizeText(rule.subjectLabel) || !rule.subjectType || !rule.subjectId)
+      (!normalizeText(rule.subjectLabel) ||
+        !rule.subjectType ||
+        !rule.subjectId ||
+        !['●', '◎', '▲'].includes(rule.marker || ''))
   )
   if (invalidRule) {
-    message.warning('启用规则必须完整填写主体标签、主体类型和对应主体')
+    message.warning('启用规则必须完整填写主体标签、主体类型、对应主体和参与条件')
     return false
   }
   return true
 }
 
 const submitForm = async () => {
-  if (!currentCategory.value?.id || !validateForm()) {
+  const context = captureMatrixContext()
+  if (saving.value || isPreviewMode.value || !context.categoryId || !validateForm()) {
     return
+  }
+  const payload = {
+    effectiveTime: formData.effectiveTime,
+    remark: formData.remark.trim() || undefined,
+    rules: formData.rules.map((rule) => buildRulePayload(rule))
   }
   saving.value = true
   previewError.value = ''
+  let persisted = false
   try {
-    await refreshPreview()
-    if (previewError.value || previewData.value?.blocking) {
+    const preview = await refreshPreview()
+    if (!isMatrixContextCurrent(context)) return
+    if (!preview || previewError.value || preview.blocking) {
       message.error(previewError.value || '当前矩阵存在阻塞风险，请先修正预览中的问题。')
       return
     }
-    await saveCategoryApprovalMatrix(currentCategory.value.id, {
-      effectiveTime: formData.effectiveTime,
-      remark: formData.remark.trim() || undefined,
-      rules: formData.rules.map((rule) => buildRulePayload(rule))
-    })
+    await saveCategoryApprovalMatrix(context.categoryId, payload)
+    persisted = true
+    if (!isMatrixContextCurrent(context)) return
     message.success('审阅矩阵已保存')
     await loadMatrix()
+    if (!isMatrixContextCurrent(context)) return
     await refreshPreview()
+    if (!isMatrixContextCurrent(context)) return
     emit('success')
   } catch (error) {
-    previewError.value = resolveErrorMessage(
-      error,
-      '审阅矩阵保存失败，请根据后端错误提示修正后重试。'
-    )
+    if (!isMatrixContextCurrent(context)) return
+    previewError.value =
+      (persisted ? '矩阵已保存，刷新失败，请核对原配置；' : '') +
+      resolveErrorMessage(error, '审阅矩阵保存失败，请根据后端错误提示修正后重试。')
   } finally {
-    saving.value = false
+    if (isMatrixContextCurrent(context)) saving.value = false
   }
 }
 
@@ -577,7 +657,10 @@ const formatApproveMethod = (approveMethod?: string) => {
 
 const formatResolvedSubjects = (subjects?: ControlledFileCategoryReviewMatrixSubjectVO[]) => {
   const names = (subjects || [])
-    .map((subject) => subject.userName || subject.subjectLabel || (subject.userId ? `用户#${subject.userId}` : ''))
+    .map(
+      (subject) =>
+        subject.userName || subject.subjectLabel || (subject.userId ? `用户#${subject.userId}` : '')
+    )
     .filter(Boolean)
   return names.length ? names.join(' / ') : '-'
 }
@@ -604,14 +687,14 @@ const buildRuleResolutionKey = (rule: ReviewMatrixRuleDraft) =>
     normalizeSubjectLabel(rule.subjectLabel),
     rule.subjectType || '',
     rule.subjectId || '',
-    normalizeRuleMarker()
+    normalizeRuleMarker(rule.marker)
   ].join('|')
 
 const addRule = () => {
   formData.rules.push({
     stageType: 'SIGNOFF',
     active: true,
-    marker: normalizeRuleMarker()
+    marker: '●'
   })
 }
 
@@ -621,10 +704,10 @@ const removeRule = (index: number) => {
 
 const runDepartmentAutoMatch = () => {
   const result = applyDepartmentAutoMatchToViewMatrixRules(
-    formData.rules.map((rule) => ({ ...rule, marker: normalizeRuleMarker() })),
+    formData.rules.map((rule) => ({ ...rule, marker: normalizeRuleMarker(rule.marker) })),
     departmentOptions.value
   )
-  formData.rules = result.rules.map((rule) => normalizeRule(rule)) as ApprovalMatrixDraft['rules']
+  formData.rules = result.rules.map((rule) => normalizeRule(rule))
   message.success('已完成主体标签的部门初步对应')
   refreshPreview()
 }
@@ -735,7 +818,11 @@ const syncSameLabelDepartment = (sourceRule: ReviewMatrixRuleDraft) => {
     return
   }
   for (const rule of formData.rules) {
-    if (rule !== sourceRule && normalizeSubjectLabel(rule.subjectLabel) === label && rule.subjectType === 'DEPT') {
+    if (
+      rule !== sourceRule &&
+      normalizeSubjectLabel(rule.subjectLabel) === label &&
+      rule.subjectType === 'DEPT'
+    ) {
       rule.subjectId = sourceRule.subjectId
       rule.subjectName = sourceRule.subjectName
       rule.subjectDepartmentPath = sourceRule.subjectDepartmentPath
@@ -782,7 +869,8 @@ const handlePostChange = (row: ReviewMatrixRuleDraft, postId?: number | string) 
 const handleDccPositionChange = (row: ReviewMatrixRuleDraft, positionId?: number | string) => {
   const selectedPositionId = Number(positionId)
   row.subjectType = 'DCC_POSITION'
-  row.subjectId = Number.isFinite(selectedPositionId) && selectedPositionId > 0 ? selectedPositionId : undefined
+  row.subjectId =
+    Number.isFinite(selectedPositionId) && selectedPositionId > 0 ? selectedPositionId : undefined
   row.subjectName = approvalPositionOptions.value.find((item) => item.id === row.subjectId)?.name
   row.subjectDepartmentPath = undefined
   row.marker = normalizeRuleMarker()
@@ -818,7 +906,8 @@ const resolvePreviewSubjectRule = (subject: PreviewSubject) => {
   return formData.rules.find((rule) => {
     const sameStage = !subject.stageType || subject.stageType === rule.stageType
     const sameSubjectId = subject.subjectId && rule.subjectId === subject.subjectId
-    const sameLabel = normalizeSubjectLabel(rule.subjectLabel) === normalizeSubjectLabel(subject.subjectLabel)
+    const sameLabel =
+      normalizeSubjectLabel(rule.subjectLabel) === normalizeSubjectLabel(subject.subjectLabel)
     return sameStage && (sameSubjectId || sameLabel)
   })
 }
@@ -878,6 +967,11 @@ const previewUnresolvedRules = computed(() => {
 })
 
 const open = async (category: ControlledFileCategoryVO, mode: MatrixDialogMode = 'edit') => {
+  matrixGeneration++
+  previewSequence++
+  saving.value = false
+  loading.value = true
+  previewLoading.value = false
   currentCategory.value = category
   dialogMode.value = mode
   dialogTitle.value = buildDialogTitle(category.name)
@@ -885,10 +979,18 @@ const open = async (category: ControlledFileCategoryVO, mode: MatrixDialogMode =
   previewData.value = null
   previewError.value = ''
   applyMatrix()
-  await ensureLookupData()
-  await loadMatrix()
-  if (mode !== 'create') {
-    await refreshPreview()
+  const context = captureMatrixContext()
+  try {
+    await ensureLookupData()
+    if (!isMatrixContextCurrent(context)) return
+    await loadMatrix()
+    if (!isMatrixContextCurrent(context)) return
+    if (mode !== 'create') await refreshPreview()
+  } catch (error) {
+    if (isMatrixContextCurrent(context))
+      previewError.value = resolveErrorMessage(error, '审批配置打开失败，请重新打开核对。')
+  } finally {
+    if (isMatrixContextCurrent(context)) loading.value = false
   }
 }
 

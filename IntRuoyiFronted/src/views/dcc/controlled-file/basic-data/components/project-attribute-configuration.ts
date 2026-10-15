@@ -8,6 +8,11 @@ export const projectConfigurationIdentity = (value: unknown): string => {
     throw new Error('项目或负责人账号身份无效')
   return id
 }
+export const projectConfigurationToken = (value: unknown): string => {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value))
+    throw new Error('项目配置基线缺失或无效，请重新打开配置')
+  return value
+}
 export interface ProjectConfigurationAccount { id: string; nickname: string; username?: string }
 /** The formal simple-list endpoint supplies enabled same-tenant accounts; never infer an account from project text. */
 export const projectConfigurationAccounts = (value: unknown): ProjectConfigurationAccount[] => {

@@ -20,6 +20,7 @@ public class DccProjectProductActorSupport {
     @Resource private AdminUserApi users;
     @Resource private PermissionApi permissions;
     @Resource private javax.sql.DataSource dataSource;
+    @Resource private DccProjectReviewerRoleService reviewerRoles;
 
     public AdminUserRespDTO requireAccount(Long id) {
         Long tenant = TenantContextHolder.getRequiredTenantId();
@@ -69,6 +70,7 @@ public class DccProjectProductActorSupport {
                 || !(Objects.equals(actor, request.getApplicantUserId())
                 || Objects.equals(actor, request.getConfiguredReviewerUserId())
                 || Objects.equals(actor, request.getReviewerUserId()) || Objects.equals(actor, request.getApproverUserId())
+                || reviewerRoles.isRoleContract(request) && reviewerRoles.canReview(actor,request)
                 || isApprover(actor) || permissions.hasAnyRoles(actor, "doc_control", "approval_admin"))) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS);
         }

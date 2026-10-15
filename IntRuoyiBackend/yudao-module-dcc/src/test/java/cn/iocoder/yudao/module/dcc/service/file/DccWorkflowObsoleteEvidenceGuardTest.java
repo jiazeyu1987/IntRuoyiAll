@@ -23,6 +23,9 @@ class DccWorkflowObsoleteEvidenceGuardTest extends BaseMockitoUnitTest {
     @Mock private DccControlledFileSignatureMapper signatureMapper;
     @Mock private DccElectronicSignatureManagementService signatureManagementService;
     @Mock private BpmTaskService bpmTaskService;
+    @Mock private cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper forms;
+    @Mock private DccBoundWorkflowContractResolver boundContracts;
+    @Mock private DccApplicationRoundService rounds;
     @InjectMocks private DccWorkflowObsoleteEvidenceGuard guard;
     private DccControlledFileDO file;
     private List<DccControlledFileTaskAssigneeSnapshotDO> roster;
@@ -30,7 +33,10 @@ class DccWorkflowObsoleteEvidenceGuardTest extends BaseMockitoUnitTest {
     private Map<String,Object> variables;
     @BeforeEach void fixture() {
         TenantContextHolder.setTenantId(1L);
-        file=DccControlledFileDO.builder().id(42L).versionNo("A/1").build();
+        file=DccControlledFileDO.builder().id(42L).tenantId(1L).versionNo("A/1").build();
+        when(forms.selectList(any())).thenReturn(List.of(cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO.builder().id(501L).instanceCode("RECORDED-V1").tenantId(1L).objectId("42").objectVersion("A/1").systemCode("DCC").objectType("CONTROLLED_FILE").actionCode("OBSOLETE").bpmProcessInstanceId("obsolete-round").formDataJson("{\"dccExecutionPreparation\":{\"formatVersion\":\"DCC_OBSOLETE_FORM_PREPARATION_V1\"}}").build()));
+        when(rounds.require("OBSOLETE",42L,"obsolete-round")).thenReturn(3);
+        when(boundContracts.resolveRoundFlowContract(eq(file),any())).thenReturn(new DccBoundWorkflowContractResolver.RoundFlowContract(1L,42L,"OBSOLETE",3,"obsolete-round",DccControlledFileProcessDefinitionKeys.OBSOLETE,"recorded-exact-definition","recorded-deployment","recorded-full-graph-digest","PUBLIC_MATRIX_NATIVE_V1",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,null,501L,"RECORDED-V1",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));
         roster=new ArrayList<>();signatures=new ArrayList<>();
         for(int index=1;index<=2;index++) {
             roster.add(DccControlledFileTaskAssigneeSnapshotDO.builder().controlledFileId(42L).tenantId(1L)
@@ -51,7 +57,7 @@ class DccWorkflowObsoleteEvidenceGuardTest extends BaseMockitoUnitTest {
             var verified=new cn.iocoder.yudao.module.dcc.controller.admin.signature.vo.DccSignatureVerifyRespVO();
             verified.setSignatureId(call.getArgument(0));verified.setVerificationStatus("VALID");return verified;
         });
-        variables=Map.of(BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS,
+        variables=Map.of("formInstanceId",501L,BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_DCC_TASK_OBLIGATION_IDS,
                 Map.of("MATRIX_REVIEW",List.of("department-1","department-2")),
                 BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES,Map.of("MATRIX_REVIEW",List.of(99L,99L)),
                 BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES,Map.of("MATRIX_APPROVAL",List.of(100L)),

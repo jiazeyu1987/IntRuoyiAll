@@ -25,13 +25,14 @@ class DccProjectReferenceTransactionTest {
         JdbcDataSource ds = new JdbcDataSource();
         ds.setURL("jdbc:h2:mem:"+ UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000");
         jdbc = new JdbcTemplate(ds); tx = new TransactionTemplate(new DataSourceTransactionManager(ds));
-        jdbc.execute("CREATE TABLE dcc_controlled_file_master (id BIGINT, tenant_id BIGINT, deleted INT)");
-        jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (10,1,0)");
-        jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (20,1,0)");
-        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,deleted INT)");
-        jdbc.execute("CREATE TABLE dcc_project_folder(id BIGINT,project_code_id BIGINT,tenant_id BIGINT,deleted INT)");
-        jdbc.update("INSERT INTO dcc_project_code VALUES(2,1,0),(3,1,0)");
-        jdbc.update("INSERT INTO dcc_project_folder VALUES(21,2,1,0),(22,2,1,0),(31,3,1,0)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file_master (id BIGINT, tenant_id BIGINT, dcc_project_code_id BIGINT, deleted INT)");
+        jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (10,1,9,0),(20,1,9,0)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file(id BIGINT,tenant_id BIGINT,master_id BIGINT,dcc_project_code_id BIGINT,file_name VARCHAR(80),file_number VARCHAR(80),version_no VARCHAR(30),status VARCHAR(50),deleted INT)");
+        jdbc.update("INSERT INTO dcc_controlled_file VALUES(100,1,10,9,'源.pdf','N','A/1','ACTIVE',0),(101,1,10,9,'新.pdf','N','A/2','ACTIVE',0),(200,1,20,9,'二.pdf','N-2','A/1','ACTIVE',0)");
+        jdbc.execute("CREATE TABLE dcc_project_code(id BIGINT,tenant_id BIGINT,project_name VARCHAR(80),deleted INT)");
+        jdbc.execute("CREATE TABLE dcc_project_folder(id BIGINT,project_code_id BIGINT,tenant_id BIGINT,name VARCHAR(80),deleted INT)");
+        jdbc.update("INSERT INTO dcc_project_code VALUES(2,1,'目的项目2',0),(3,1,'目的项目3',0)");
+        jdbc.update("INSERT INTO dcc_project_folder VALUES(21,2,1,'质量',0),(22,2,1,'工程',0),(31,3,1,'目的3目录',0)");
         for (String sql : Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$", "").split(";")) {
             String clean = sql.replaceAll("(?m)^--.*$", "").trim();
             if (!clean.isEmpty()) jdbc.execute(clean);
@@ -72,7 +73,7 @@ class DccProjectReferenceTransactionTest {
     }
     @Test void cancelledConfirmationAndInvalidFolderDoNotMutate() {
         create(2,21); assertThrows(IllegalArgumentException.class,()->cancel(2,21,false));
-        doThrow(new IllegalStateException("FOLDER_PROJECT_MISMATCH")).when(authority).assertFolderBelongsToProject(2L,22L);
+        doThrow(new IllegalStateException("FOLDER_PROJECT_MISMATCH")).when(authority).assertFolderBelongsToProjectForUpdate(2L,22L);
         assertThrows(IllegalStateException.class,()->create(2,22));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_file_reference",Integer.class));
     }
@@ -88,6 +89,23 @@ class DccProjectReferenceTransactionTest {
         when(files.resolveSelected(100L)).thenReturn(new FileVersion(1L,100L,10L,9L,"N","源.pdf","A/1","OBSOLETE",false,false,false));
         assertFalse(service.list(7L,2L,21L).get(0).selectedVersion().executable());
         assertThrows(IllegalStateException.class,()->create(3,31));
+    }
+    @Test void newReferenceRejectsPendingEffectAndNonExecutableActiveWithoutWrites() {
+        for(var invalid:List.of(
+                new FileVersion(1L,100L,10L,9L,"N","源.pdf","A/1","CONTROLLED_PENDING_EFFECTIVE",true,true,false),
+                new FileVersion(1L,100L,10L,9L,"N","源.pdf","A/1","ACTIVE",true,false,false))) {
+            when(files.resolveSelected(100L)).thenReturn(invalid);
+            assertEquals("DCC_REFERENCE_EFFECTIVE_CONTROLLED_REQUIRED",assertThrows(DccRelationFailure.class,()->create(2,21)).getMessage());
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_file_reference",Integer.class));
+        verifyNoInteractions(audit);
+    }
+    @Test void exactReplayOfObsoletePinnedReferenceKeepsOriginalWithoutNewAudit() {
+        var original=create(2,21);
+        when(files.resolveSelected(100L)).thenReturn(new FileVersion(1L,100L,10L,9L,"N","源.pdf","A/1","OBSOLETE",false,false,false));
+        var replay=create(2,21);
+        assertEquals(original.reference().id(),replay.reference().id());assertEquals(100L,replay.selectedVersion().controlledFileId());
+        assertEquals("OBSOLETE",replay.selectedVersion().status());verify(audit,times(1)).append(any());
     }
     @Test void selectedLockedRowCannotChangeTenantVersionOrMasterIdentity(){
         for(var locked:List.of(
@@ -109,7 +127,7 @@ class DccProjectReferenceTransactionTest {
             for(var f:futures) f.get(15,TimeUnit.SECONDS);
         } finally { pool.shutdownNow(); }
         assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_file_reference",Integer.class));
-        assertEquals(2,new DccRelationStore(jdbc, mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)).referenceProjectCount(1L,10L));
+        assertEquals(2,new DccRelationStore(jdbc, mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)).referenceProjectCount(1L,10L,100L));
     }
     @Test void auditFailureRollsBackCreateAndCancelWithRealDatabaseRows() {
         doThrow(new IllegalStateException("AUDIT_FAILED")).when(audit).append(any());
@@ -166,7 +184,7 @@ class DccProjectReferenceTransactionTest {
         doThrow(new DccRelationFailure("DCC_NAME_DENIED")).when(access).assertNameVisible(7L,200L);
         assertThrows(IllegalStateException.class,()->tx.execute(s->service.createBatch(7L,2L,21L,List.of(100L,200L),"一次确认多引用")));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_project_file_reference",Integer.class));
-        assertEquals(0,new DccRelationStore(jdbc,audit).referenceProjectCount(1L,10L));
+        assertEquals(0,new DccRelationStore(jdbc,audit).referenceProjectCount(1L,10L,100L));
     }
     @Test void sourceUsageReflectsDistinctProjectsAndFinalCancellationWithoutGrantingAnyContent(){
         create(2,21);create(2,22);create(3,31);
@@ -177,5 +195,24 @@ class DccProjectReferenceTransactionTest {
         doThrow(new DccRelationFailure("DCC_NAME_DENIED")).when(access).assertNameVisible(7L,100L);
         assertThrows(IllegalStateException.class,()->service.getUsage(7L,100L));
         TenantContextHolder.setTenantId(2L);assertThrows(IllegalStateException.class,()->service.getUsage(7L,100L));
+    }
+    @Test void differentPinnedVersionsKeepCreateReplayListAndCancelCountsIndependent(){
+        when(files.resolveSelected(101L)).thenReturn(new FileVersion(1L,101L,10L,9L,"N","新.pdf","A/2","ACTIVE",true,false,true));
+        assertEquals(1,create(2,21).referenceProjectCount());
+        var newer=tx.execute(s->service.create(7L,3L,31L,101L,"真实新版引用"));assertEquals(1,newer.referenceProjectCount());
+        assertEquals(1,service.getUsage(7L,100L).referenceProjectCount());assertEquals(1,service.getUsage(7L,101L).referenceProjectCount());
+        assertEquals(1,service.list(7L,2L,21L).get(0).referenceProjectCount());
+        assertEquals(1,tx.execute(s->service.create(7L,3L,31L,101L,"原新版精确重放")).referenceProjectCount());
+        assertEquals(0,cancel(2,21,true));assertEquals(1,service.getUsage(7L,101L).referenceProjectCount());
+        assertEquals(101L,jdbc.queryForObject("SELECT selected_controlled_file_id FROM dcc_project_file_reference",Long.class));
+        verify(audit,times(3)).append(any());
+    }
+    @Test void lateCancelAuditFailureKeepsBothPinnedVersionsAndTheirCounts(){
+        when(files.resolveSelected(101L)).thenReturn(new FileVersion(1L,101L,10L,9L,"N","新.pdf","A/2","ACTIVE",true,false,true));
+        create(2,21);tx.execute(s->service.create(7L,3L,31L,101L,"真实新版引用"));
+        doThrow(new IllegalStateException("AUDIT_LATE_FAILURE")).when(audit).append(any());
+        assertThrows(IllegalStateException.class,()->cancel(2,21,true));
+        assertEquals(1,service.getUsage(7L,100L).referenceProjectCount());assertEquals(1,service.getUsage(7L,101L).referenceProjectCount());
+        assertEquals(List.of(100L,101L),jdbc.queryForList("SELECT selected_controlled_file_id FROM dcc_project_file_reference ORDER BY id",Long.class));
     }
 }

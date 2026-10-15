@@ -114,10 +114,12 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
 
     @Override
     public DccCategoryApprovalMatrixRespVO getApprovalMatrix(Long categoryId) {
-        validateCategoryExists(categoryId);
+        DccFileCategoryDO category = validateCategoryExists(categoryId);
         DccCategoryApprovalRouteDO route = routeMapper.selectLatestActiveByCategoryId(categoryId);
         DccCategoryApprovalMatrixRespVO respVO = new DccCategoryApprovalMatrixRespVO();
         respVO.setCategoryId(categoryId);
+        respVO.setFileTypeTaxonomyId(category.getFileTypeTaxonomyId());
+        respVO.setDefaultSignoffDepartmentIds(List.of());
         respVO.setRules(List.of());
         if (route == null) {
             return respVO;
@@ -129,10 +131,16 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
                         .thenComparing(DccCategoryApprovalRouteNodeDO::getStageNo))
                 .toList();
         respVO.setRouteVersionNo(route.getVersionNo());
+        respVO.setRouteId(route.getId());
         respVO.setEffectiveTime(route.getEffectiveTime());
         respVO.setRemark(route.getRemark());
         Map<Long, String> positionNameMap = buildActivePositionNameMap();
         respVO.setRules(buildEditableRules(nodes, positionNameMap));
+        respVO.setDefaultSignoffDepartmentIds(respVO.getRules().stream()
+                .filter(rule -> "SIGNOFF".equals(rule.getStageType()) && Boolean.TRUE.equals(rule.getActive()))
+                .filter(rule -> "DEPT".equals(rule.getSubjectType()))
+                .map(DccCategoryApprovalMatrixRespVO.Rule::getSubjectId)
+                .filter(Objects::nonNull).distinct().toList());
         return respVO;
     }
 
@@ -158,6 +166,7 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     public DccCategoryReviewMatrixEffectivePreviewRespVO previewApprovalMatrix(Long categoryId,
                                                                                DccCategoryApprovalMatrixSaveReqVO reqVO) {
         validateCategoryExists(categoryId);
+        validateMatrixRules(reqVO);
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> signoffRules = getStageRules(reqVO, "SIGNOFF");
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> approvalRules = getStageRules(reqVO, "APPROVAL");
         if (signoffRules.isEmpty()) {
@@ -592,6 +601,7 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
 
     private MatrixSaveContext prepareMatrixSaveContext(Long categoryId, DccCategoryApprovalMatrixSaveReqVO reqVO) {
         lockMatrixCategory(categoryId);
+        validateMatrixRules(reqVO);
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> signoffRules = getStageRules(reqVO, "SIGNOFF");
         List<DccCategoryApprovalMatrixSaveReqVO.Rule> approvalRules = getStageRules(reqVO, "APPROVAL");
         if (signoffRules.isEmpty()) {
@@ -653,12 +663,12 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
                 .sort(sort)
                 .stageType(stageType)
                 .subjectLabel(rule == null ? "文控" : rule.getSubjectLabel())
-                .marker("▲")
+                .marker(rule == null ? "▲" : rule.getMarker())
                 .subjectType(rule == null ? "DCC_POSITION" : normalizeRuleValue(rule.getSubjectType()))
                 .subjectId(candidateSourceId)
                 .subjectName(rule == null ? "文控" : rule.getSubjectName())
                 .subjectDepartmentPath(rule == null ? null : rule.getSubjectDepartmentPath())
-                .ruleRemark(null)
+                .ruleRemark(rule == null ? null : rule.getRemark())
                 .build();
     }
 
@@ -669,9 +679,27 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
         }
         return reqVO.getRules().stream()
                 .filter(rule -> Boolean.TRUE.equals(rule.getActive()))
-                .filter(rule -> stageType.equalsIgnoreCase(StrUtil.blankToDefault(rule.getStageType(), "")))
-                .filter(rule -> rule.getSubjectId() != null)
+                .filter(rule -> stageType.equals(normalizeRuleValue(rule.getStageType())))
                 .toList();
+    }
+
+    private void validateMatrixRules(DccCategoryApprovalMatrixSaveReqVO reqVO) {
+        if (reqVO == null || reqVO.getEffectiveTime() == null) {
+            throw exception(DccCategoryApprovalMatrixAdminErrors.EFFECTIVE_TIME_REQUIRED);
+        }
+        if (reqVO.getRules() == null || reqVO.getRules().isEmpty()) {
+            throw exception(CATEGORY_APPROVAL_MATRIX_SIGNOFF_EMPTY);
+        }
+        for (int index = 0; index < reqVO.getRules().size(); index++) {
+            DccCategoryApprovalMatrixSaveReqVO.Rule rule = reqVO.getRules().get(index);
+            String reason = null;
+            if (rule == null || rule.getActive() == null) reason = "规则和启用状态不能为空";
+            else if (!Set.of("SIGNOFF", "APPROVAL").contains(normalizeRuleValue(rule.getStageType()))) reason = "阶段必须为会签或批准";
+            else if (!Set.of("●", "◎", "▲").contains(StrUtil.blankToDefault(rule.getMarker(), ""))) reason = "必须显式选择参与标记●或◎，历史▲可保留";
+            else if (Boolean.TRUE.equals(rule.getActive()) && (rule.getSubjectId() == null || rule.getSubjectId() <= 0)) reason = "启用规则缺少有效主体身份";
+            else if (Boolean.TRUE.equals(rule.getActive()) && !Set.of("USER", "DEPT", "ROLE", "POST", "DCC_POSITION", "POSITION").contains(normalizeRuleValue(rule.getSubjectType()))) reason = "主体类型不受支持";
+            if (reason != null) throw exception(DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, index + 1, reason);
+        }
     }
 
     private Long resolveRuleSubjectId(DccCategoryApprovalMatrixSaveReqVO.Rule rule) {
@@ -750,19 +778,19 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
         }
         if (subjectIds.isEmpty()) {
             return List.of(new NormalizedRuleInput(stageType, normalizeSubjectLabel(node, null, positionNameMap),
-                    "▲", subjectType, node.getSubjectId(),
+                    node.getMarker(), subjectType, node.getSubjectId(),
                     resolveLegacySubjectName(node, null, positionNameMap), node.getSubjectDepartmentPath(),
-                    null));
+                    node.getRuleRemark()));
         }
         return subjectIds.stream()
                 .map(subjectId -> new NormalizedRuleInput(stageType,
                         normalizeSubjectLabel(node, subjectId, positionNameMap),
-                        "▲",
+                        node.getMarker(),
                         subjectType,
                         subjectId,
                         resolveLegacySubjectName(node, subjectId, positionNameMap),
                         node.getSubjectDepartmentPath(),
-                        null))
+                        node.getRuleRemark()))
                 .toList();
     }
 
@@ -966,7 +994,8 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
     }
 
     private boolean isSnapshotSensitiveStatus(String status) {
-        return DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(status)
+        return DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW.getStatus().equals(status)
+                || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus().equals(status)
                 || DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(status);
@@ -1094,6 +1123,8 @@ public class DccCategoryApprovalMatrixAdminServiceImpl implements DccCategoryApp
         routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, context.categoryId()).stream()
                 .filter(item -> !item.getId().equals(route.getId()) && Boolean.TRUE.equals(item.getActive()))
                 .filter(item -> LEGACY_MATRIX_ACTION.equals(item.getActionType()))
+                // 未来配置不得提前停用当前生效规则；现有 resolver 到期按最大版本选新配置。
+                .filter(item -> !route.getEffectiveTime().isAfter(java.time.LocalDateTime.now()))
                 .forEach(item -> {
                     if (routeMapper.updateById(DccCategoryApprovalRouteDO.builder()
                             .id(item.getId()).active(Boolean.FALSE).build()) != 1) {

@@ -85,6 +85,13 @@ class SignatureGovernancePolicyDccAdapterTest {
         private String comment;
 
         @Override
+        public DccUnifiedSignatureResult verifyPasswordAndCreateDelayedConfirmationSignature(Long actorId, Long controlledFileId,
+                String taskId, String processInstanceId, Integer attributeRound, java.time.LocalDateTime selectedEffectiveTime,
+                String password, String comment) {
+            throw new UnsupportedOperationException("This legacy review policy test must not invoke delayed effective confirmation");
+        }
+
+        @Override
         public DccUnifiedSignatureResult verifyPasswordAndCreateWorkflowSignature(Long actorId, Long controlledFileId,
                 String taskId, String processInstanceId, String stageCode, String actionType, String password, String comment) {
             throw new UnsupportedOperationException("This policy test double only exercises its registered legacy review action");

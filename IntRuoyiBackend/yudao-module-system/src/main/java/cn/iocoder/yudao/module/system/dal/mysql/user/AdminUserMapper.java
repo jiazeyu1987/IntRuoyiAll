@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -15,6 +16,21 @@ import java.util.List;
 
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
+    @Select("SELECT * FROM system_users WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    AdminUserDO selectDirectSupervisorUser(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
+    @Select("SELECT * FROM system_users WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0 FOR UPDATE")
+    AdminUserDO selectDirectSupervisorUserForUpdate(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
+    @Update("""
+        UPDATE system_users SET direct_supervisor_user_id=#{supervisorId},
+          direct_supervisor_revision=#{nextVersion},updater=#{actorId},update_time=CURRENT_TIMESTAMP
+        WHERE tenant_id=#{tenantId} AND id=#{userId} AND status=0 AND deleted=0
+          AND direct_supervisor_revision=#{expectedVersion}
+        """)
+    int updateDirectSupervisorRelation(@Param("tenantId") Long tenantId, @Param("userId") Long userId,
+        @Param("supervisorId") Long supervisorId, @Param("expectedVersion") Long expectedVersion,
+        @Param("nextVersion") Long nextVersion, @Param("actorId") Long actorId);
 
     default AdminUserDO selectByUsername(String username) {
         return selectOne(AdminUserDO::getUsername, username);

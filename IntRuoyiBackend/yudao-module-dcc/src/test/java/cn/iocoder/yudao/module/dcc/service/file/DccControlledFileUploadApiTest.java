@@ -99,7 +99,6 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     @Test void trainingPreviewUsesCurrentFileAndRoundAuthorizationBeforeAnyStorageOrTicketWrite() {
         var req=uploadReq("TRAINING_RECORD",new MockMultipartFile("files","training.pdf","application/pdf","%PDF-1.4".getBytes()));
         req.setControlledFileId(901L);req.setSessionId("dcc-training:901:6:proc-1:session");
-        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
         org.mockito.Mockito.doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"training context denied"))
                 .when(workflowService).validateTrainingRecordUpload(99L,901L,10L,req.getSessionId());
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->uploadService.uploadPreviewFile(99L,req,auditContext("REQ-TRAINING-DENIED")));
@@ -770,7 +769,6 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void uploadPreviewFile_trainingRecord_allowsGenericPdfWithExplicitPurpose() throws Exception {
-        when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(true);
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("TRAINING_RECORD",
                 new MockMultipartFile("files", "training.pdf", "application/pdf", "%PDF-1.4".getBytes()));
@@ -791,6 +789,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("UT-20260528-0003", respVO.getUploadTicket());
         assertEquals("TRAINING_RECORD", respVO.getPurpose());
         assertEquals("PDF", respVO.getPreviewKind());
+        verify(workflowService).validateTrainingRecordUpload(99L, 901L, reqVO.getCategoryId(), reqVO.getSessionId());
+        org.mockito.Mockito.verifyNoInteractions(permissionApi);
     }
 
     @Test

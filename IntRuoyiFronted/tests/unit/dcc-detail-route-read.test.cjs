@@ -18,7 +18,7 @@ function host() {
     approvalTodoTask:vue.ref(),approvalTaskList:vue.ref([]),stageProgressList:vue.ref([]),approvalLoading:vue.ref(false),
     dccSignatureEvidenceList:vue.ref([]),dccSignatureEvidenceTotal:vue.ref(0),dccSignatureEvidenceLoading:vue.ref(false),dccSignatureEvidenceError:vue.ref(''),
     controlledPrintRecords:vue.ref([]),controlledPrintRecordsLoading:vue.ref(false),controlledPrintRecordsError:vue.ref(''),
-    checkPermi:()=>true,viewerMode:vue.ref(false),showLifecycleTraceSections:vue.ref(true),
+    checkPermi:()=>true,distributionReadMode:vue.ref(false),viewerMode:vue.ref(false),showLifecycleTraceSections:vue.ref(true),
     categories:vue.ref([]),directories:vue.ref([]),activeApprovalPrintTemplate:vue.ref(null),categoryNameMap:vue.ref(),directoryNameMap:vue.ref(),directoryPathMap:vue.ref(),userNameMap:vue.ref(),departmentList:vue.ref([]),deptNameMap:vue.ref(),
     getControlledFile:async id=>{reads.push(['file',id]);return{id}},getFileCategoryList:async()=>[],getDirectoryTree:async()=>[],getSimpleUserList:async()=>[],getSimpleDeptList:async()=>[],
     getPaperDistributionRecords:async id=>{reads.push(['paper',id]);return[]},getActiveApprovalPrintTemplate:async()=>null,

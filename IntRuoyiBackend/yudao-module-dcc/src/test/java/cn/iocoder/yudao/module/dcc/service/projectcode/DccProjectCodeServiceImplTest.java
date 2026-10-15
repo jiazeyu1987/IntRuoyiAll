@@ -1410,7 +1410,7 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         Long resolvedTaxonomyId = fileTypeTaxonomyId != null ? fileTypeTaxonomyId : 10_000L + Math.abs((long) code.hashCode());
         when(fileTypeTaxonomyAdminService.resolveActivePath(resolvedTaxonomyId)).thenReturn(new DccFileTypeTaxonomyPath(
                 resolvedTaxonomyId, "技术文档", taxonomyStageName(lifecycleStage), name, null, null));
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code(code)
                 .name(name)
                 .active(Boolean.TRUE)

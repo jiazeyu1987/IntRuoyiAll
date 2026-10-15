@@ -51,6 +51,8 @@ public class DccControlledFileSignatureDO extends BaseDO {
     private Boolean passwordVerified;
     private String comment;
     private LocalDateTime signedAt;
+    private LocalDateTime selectedEffectiveTime;
+    private Integer attributeRound;
     private Long sourceFileId;
     private String sourceFileHash;
     private String sourceFileHashAlgorithm;

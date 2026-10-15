@@ -1,172 +1,122 @@
 <template>
-  <section>
-    <slot name="frozen-evidence" ></slot>
-    <p>受控版本：{{ versionNo }}；预设生效日期：{{ facts.effectiveDate }}</p>
-    <p v-if="view.warning" role="status">{{ view.warning }}</p>
-    <p v-if="completed || view.distributionCompleted">已完成下发。接收、签收和纸件回收分别记录。</p>
+  <section data-testid="dcc-automatic-distribution">
+    <slot name="frozen-evidence"></slot>
+    <p>下发版本：{{ versionNo }}；{{ effectiveChoice }}</p>
+    <p>实际生效时间：{{ formatDateTimeValue(facts.effectiveTime, '尚未记录') }}</p>
+    <p v-if="automaticResultLoading">自动下发结果读取中。</p>
+    <el-alert v-else-if="automaticResultError || automaticProjectionError" :title="automaticResultError || automaticProjectionError" type="error" :closable="false" show-icon />
+    <el-alert v-else-if="automaticResult?.status === 'FAILED'" :title="'自动下发失败：' + (automaticResult.errorMessage || automaticResult.errorCode || '失败原因尚未记录')" type="error" :closable="false" show-icon />
+    <p v-else-if="automaticResult?.status === 'NOT_CREATED'">尚未建立自动下发批次。</p>
+    <p v-else-if="automaticResult?.status === 'PENDING'">自动下发事件已接收，等待准备。</p>
+    <p v-else-if="automaticResult?.status === 'DISPATCH_READY'">下发义务已准备，通知尚未全部送达。</p>
+    <p v-else-if="automaticResult?.status === 'SENT'">本批通知已全部送达；电子签收另行记录。</p>
+    <p v-if="!automaticProjectionError && automaticResult?.failureAt">实际失败时间：{{ formatDateTimeValue(automaticResult.failureAt, '尚未记录') }}</p>
+    <el-button v-if="retryEligible" type="primary" :loading="retryBusy" :disabled="retryBusy || automaticResultLoading" @click="retryDistribution">重试自动下发</el-button>
+    <p v-if="retryError" role="alert">{{ retryError }}</p>
+    <p v-if="retryOutcome?.status === 'FAILED'" role="alert">重试后仍未完成下发：{{ retryOutcome.errorMessage || retryOutcome.errorCode || '失败原因尚未记录' }}</p>
+    <p v-if="!effective">文件受控且生效之后，系统按本次保存的下发部门全员自动通知；当前不创建签收任务。</p>
+    <p v-else-if="!facts.distributedTime">文件已受控并生效，自动下发尚未建立完成，请核对下发结果。</p>
+    <p v-else>本次下发义务已建立。发送、打开和电子签名收到分别记录。</p>
+    <p>通知查阅限定本次下发版本；下载、打印和文件维护仍按各自权限办理。</p>
+    <el-alert v-if="receiptError" :title="receiptError" type="error" :closable="false" show-icon />
+    <el-alert v-else-if="receiptProjection.error" :title="receiptProjection.error" type="error" :closable="false" show-icon />
+    <p v-else-if="receipts === undefined">逐人发送与签收事实尚未读取。</p>
     <template v-else>
-      <div v-for="row in rows" :key="row.key">
-        <el-select v-model="row.departmentId" placeholder="接收部门" :disabled="busy || !allowed" @change="loadRowRecipients(row)">
-          <el-option v-for="dept in departments" :key="String(dept.id)" :label="dept.name" :value="dept.id" />
-        </el-select>
-        <el-select v-model="row.distributionMedium" placeholder="下发方式" :disabled="busy || !allowed">
-          <el-option label="电子下发" value="PUBLIC_FOLDER" />
-          <el-option label="纸件下发" value="PAPER" />
-        </el-select>
-        <el-select v-model="row.recipientUserIds" multiple placeholder="接收人员" :loading="row.loading" :disabled="busy || row.loading || !allowed">
-          <el-option v-for="user in row.options" :key="String(user.id)" :label="user.name" :value="user.id" />
-        </el-select>
-        <el-button :disabled="busy" @click="removeScope(row.key)">移除部门</el-button>
-        <p v-if="row.error" role="alert">{{ row.error }}</p>
-      </div>
-      <el-button :disabled="busy || !allowed" @click="addScope">添加接收部门</el-button>
-      <p v-if="error" role="alert">{{ error }}</p>
-      <el-button type="primary" :disabled="busy || !allowed" @click="prepareConfirmation">核对并下发</el-button>
-      <div v-if="confirmationVisible" role="dialog" aria-label="确认下发">
-        <p>确认向下列部门和人员下发本受控版本？生效日期保持 {{ facts.effectiveDate }}。</p>
-        <ul>
-          <li v-for="row in rows" :key="row.key">
-            {{ departmentName(row.departmentId) }} / {{ row.distributionMedium === 'PAPER' ? '纸件' : '电子' }}：
-            {{ recipientNames(row) }}
-          </li>
-        </ul>
-        <p v-if="view.warning">{{ view.warning }}</p>
-        <el-button :disabled="busy" @click="cancelConfirmation">取消</el-button>
-        <el-button type="primary" :loading="busy" @click="confirmDistribution">确认下发</el-button>
-      </div>
+      <el-button :loading="receiptsLoading" @click="emit('refresh')">刷新发送与签收记录</el-button>
+      <el-table :data="receiptProjection.rows" row-key="recipientId" empty-text="当前没有下发签收义务">
+        <el-table-column label="接收部门"><template #default="{ row }">{{ row.departmentName || '部门名称尚未记录' }}</template></el-table-column>
+        <el-table-column label="接收人员"><template #default="{ row }">{{ row.currentUserName || '账号名称尚未记录' }}</template></el-table-column>
+        <el-table-column label="发送状态"><template #default="{ row }">{{ sendLabels[row.messageStatus] }}</template></el-table-column>
+        <el-table-column label="实际发送时间"><template #default="{ row }">{{ formatDateTimeValue(row.sentAt, '未发送') }}</template></el-table-column>
+        <el-table-column label="打开时间"><template #default="{ row }">{{ formatDateTimeValue(row.readAt, '未记录打开') }}</template></el-table-column>
+        <el-table-column label="签收状态"><template #default="{ row }">{{ row.acknowledgedAt ? '已签' : '未签' }}</template></el-table-column>
+        <el-table-column label="实际签名时间"><template #default="{ row }">{{ formatDateTimeValue(row.signedAt, '未签') }}</template></el-table-column>
+        <el-table-column label="签名人"><template #default="{ row }">{{ row.signerNameSnapshot || '未签' }}</template></el-table-column>
+        <el-table-column label="完成时间"><template #default="{ row }">{{ formatDateTimeValue(row.distributionCompletedAt, '未完成') }}</template></el-table-column>
+        <el-table-column prop="errorMessage" label="发送失败原因" />
+      </el-table>
     </template>
   </section>
 </template>
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
-import { isWorkflowId, lifecyclePresentation, type LifecycleFacts, type WorkflowId,
-  type WorkflowDistributionScope, type WorkflowRecipientOption } from './workflow-actions'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import type { WorkflowId, WorkflowDistributionScope, WorkflowRecipientOption } from './workflow-actions'
+import { validateDistributionFacts, validateAutomaticDistributionRetryResult, type DistributionRecipientFact, type DistributionLifecycleFacts, type AutomaticDistributionResult, type AutomaticDistributionRetryCommand } from './distribution-facts'
+import { isWorkflowId } from './workflow-actions'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 const props = defineProps<{
   fileId: WorkflowId
   processInstanceId: string
   versionNo: string
-  facts: LifecycleFacts
-  canDistribute: boolean
-  departments: Array<{ id: WorkflowId; name: string }>
-  loadRecipients: (fileId: WorkflowId, departmentId: WorkflowId) => Promise<WorkflowRecipientOption[]>
-  save: (fileId: WorkflowId, scopes: WorkflowDistributionScope[]) => Promise<boolean>
+  facts: DistributionLifecycleFacts
+  receipts?: DistributionRecipientFact[]
+  receiptsLoading?: boolean
+  receiptError?: string
+  automaticResult?: AutomaticDistributionResult | null
+  automaticResultLoading?: boolean
+  automaticResultError?: string
+  canRetryAutomatic?: boolean
+  retryAutomatic?: (request: AutomaticDistributionRetryCommand) => Promise<AutomaticDistributionResult>
+  retryContextKey?: string
+  canDistribute?: boolean
+  departments?: Array<{ id: WorkflowId; name: string }>
+  loadRecipients?: (fileId: WorkflowId, departmentId: WorkflowId) => Promise<WorkflowRecipientOption[]>
+  save?: (fileId: WorkflowId, scopes: WorkflowDistributionScope[]) => Promise<boolean>
 }>()
-const emit = defineEmits<{ saved: [context: { fileId: WorkflowId; processInstanceId: string; versionNo: string }] }>()
-interface ScopeRow {
-  key: number
-  departmentId: WorkflowId
-  distributionMedium: 'PUBLIC_FOLDER' | 'PAPER'
-  recipientUserIds: WorkflowId[]
-  options: WorkflowRecipientOption[]
-  loading: boolean
-  error: string
-}
-const rows = ref<ScopeRow[]>([])
-const busy = ref(false)
-const error = ref('')
-const completed = ref(false)
-const confirmationVisible = ref(false)
-let confirmationSnapshot: { context: string; scopes: WorkflowDistributionScope[] } | undefined
-let contextGeneration = 0
+const emit = defineEmits<{ refresh: []; retried: [result: AutomaticDistributionResult]; saved: [context: { fileId: WorkflowId; processInstanceId: string; versionNo: string }] }>()
+const retryBusy = ref(false)
+const retryError = ref('')
+const retryOutcome = ref<AutomaticDistributionResult>()
+let retryGeneration = 0
 let mounted = true
-const rowRequests = new Map<number, number>()
-let rowKey = 0
-const contextKey = () => JSON.stringify([String(props.fileId), props.processInstanceId, props.versionNo, props.facts.effectiveDate])
-const view = computed(() => lifecyclePresentation(props.facts))
-const allowed = computed(() => props.canDistribute && view.value.canDistribute && !completed.value)
-watch(contextKey, () => {
-  contextGeneration++
-  rowRequests.clear()
-  confirmationSnapshot = undefined
-  rows.value = []
-  busy.value = false
-  error.value = ''
-  completed.value = false
-  confirmationVisible.value = false
-}, { flush: 'sync' })
-onBeforeUnmount(() => { mounted = false; contextGeneration++; rowRequests.clear(); confirmationSnapshot = undefined })
-const addScope = () => {
-  if (!allowed.value || busy.value) return
-  rows.value.push({ key: ++rowKey, departmentId: '', distributionMedium: 'PUBLIC_FOLDER', recipientUserIds: [],
-    options: [], loading: false, error: '' })
-}
-const removeScope = (key: number) => {
-  if (!busy.value) { rowRequests.delete(key); rows.value = rows.value.filter(row => row.key !== key) }
-}
-const loadRowRecipients = async (row: ScopeRow) => {
-  if (busy.value || !allowed.value) return
-  const generation = contextGeneration
-  const fileId = props.fileId
-  const departmentId = row.departmentId
-  const requestId = (rowRequests.get(row.key) || 0) + 1
-  rowRequests.set(row.key, requestId)
-  const current = () => mounted && generation === contextGeneration && rowRequests.get(row.key) === requestId
-    && String(row.departmentId) === String(departmentId) && rows.value.includes(row)
-  row.options = []
-  row.recipientUserIds = []
-  row.error = ''
-  if (!isWorkflowId(row.departmentId)) return
-  row.loading = true
+const retryContext = () => JSON.stringify([props.retryContextKey, String(props.fileId), props.processInstanceId, props.versionNo, String(props.automaticResult?.batchId)])
+watch(retryContext, () => { retryGeneration++; retryBusy.value = false; retryError.value = ''; retryOutcome.value = undefined }, { flush: 'sync' })
+onBeforeUnmount(() => { mounted = false; retryGeneration++ })
+const effective = computed(() => Boolean(props.facts.controlledTime && props.facts.activatedTime)
+  && ['ACTIVE', 'OBSOLETE', 'SUPERSEDED'].includes(props.facts.status))
+const sendLabels = { PENDING: '待发送', SENT: '已发送', FAILED: '发送失败' }
+const automaticProjectionError = computed(() => {
+  const result=props.automaticResult
+  if (!result) return ''
+  return String(result.controlledFileId) !== String(props.fileId) || result.versionNo !== props.versionNo
+    || result.approvalProcessInstanceId !== props.processInstanceId ? '自动下发结果不是本次精确版本或轮次' : ''
+})
+const retryEligible = computed(() => props.canRetryAutomatic === true && typeof props.retryAutomatic === 'function'
+  && effective.value && isWorkflowId(props.fileId) && Boolean(props.processInstanceId.trim() && props.versionNo.trim())
+  && retryOutcome.value?.status !== 'SENT' && !automaticProjectionError.value && !props.automaticResultError
+  && !props.automaticResultLoading && props.automaticResult?.batchId !== null && props.automaticResult?.batchId !== undefined
+  && isWorkflowId(props.automaticResult.batchId) && props.automaticResult.status !== 'SENT' && props.automaticResult.status !== 'NOT_CREATED')
+const retryDistribution = async () => {
+  if (retryBusy.value || !retryEligible.value || !props.retryAutomatic || !props.automaticResult?.batchId) return
+  const generation = retryGeneration
+  const context = retryContext()
+  const request: AutomaticDistributionRetryCommand = {
+    controlledFileId: String(props.fileId), batchId: String(props.automaticResult.batchId), versionNo: props.versionNo,
+    approvalProcessInstanceId: props.processInstanceId
+  }
+  retryBusy.value = true; retryError.value = ''; retryOutcome.value = undefined
+  const current = () => mounted && generation === retryGeneration && context === retryContext() && props.canRetryAutomatic === true
   try {
-    const options = await props.loadRecipients(fileId, departmentId)
+    const returned = await props.retryAutomatic(request)
     if (!current()) return
-    if (!Array.isArray(options) || options.some(user => !isWorkflowId(user.id) || !user.name?.trim())
-      || new Set(options.map(user => String(user.id))).size !== options.length) throw new Error('接收人目录身份缺失或重复')
-    row.options = options
+    const result = validateAutomaticDistributionRetryResult(returned, request)
+    retryOutcome.value = result
+    emit('retried', result)
+    emit('refresh')
   } catch (cause) {
-    if (current()) row.error = cause instanceof Error ? cause.message : '接收人目录读取失败'
-  } finally { if (current()) row.loading = false }
+    if (current()) retryError.value = cause instanceof Error ? cause.message : '自动下发重试失败，请刷新核对真实批次事实'
+  } finally { if (mounted && generation === retryGeneration) retryBusy.value = false }
 }
-const readScopes = (): WorkflowDistributionScope[] => {
-  if (!allowed.value || !isWorkflowId(props.fileId) || !props.processInstanceId?.trim() || !props.versionNo?.trim())
-    throw new Error('当前文件或办理资格不允许下发，请刷新后核对')
-  if (!rows.value.length) throw new Error('请添加接收部门并核对人员和方式')
-  const selected = new Set<string>()
-  return rows.value.map(row => {
-    if (!isWorkflowId(row.departmentId) || !props.departments.some(dept => String(dept.id) === String(row.departmentId))
-      || selected.has(String(row.departmentId))) throw new Error('接收部门无效或重复')
-    selected.add(String(row.departmentId))
-    if (row.loading || row.error) throw new Error('接收人目录未就绪，请重新读取')
-    if (new Set(row.recipientUserIds.map(String)).size !== row.recipientUserIds.length
-      || row.recipientUserIds.some(id => !isWorkflowId(id) || !row.options.some(option => String(option.id) === String(id))))
-      throw new Error('接收人员已失效或不属于所选部门')
-    if (!['PAPER', 'PUBLIC_FOLDER'].includes(row.distributionMedium)) throw new Error('请选择正式下发方式')
-    if (row.distributionMedium === 'PUBLIC_FOLDER' && !row.recipientUserIds.length) throw new Error('电子下发请选择接收人')
-    return { departmentId: String(row.departmentId), distributionMedium: row.distributionMedium,
-      recipientUserIds: row.recipientUserIds.map(String).sort() }
-  }).sort((left, right) => String(left.departmentId).localeCompare(String(right.departmentId)))
-}
-const prepareConfirmation = () => {
-  if (busy.value) return
-  error.value = ''
-  try { confirmationSnapshot = { context: contextKey(), scopes: readScopes() }; confirmationVisible.value = true }
-  catch (cause) { error.value = cause instanceof Error ? cause.message : '下发信息校验失败'; confirmationVisible.value = false }
-}
-const cancelConfirmation = () => { if (!busy.value) { confirmationVisible.value = false; confirmationSnapshot = undefined } }
-const confirmDistribution = async () => {
-  if (busy.value || !confirmationVisible.value) return
-  const generation = contextGeneration
-  const context = { fileId: props.fileId, processInstanceId: props.processInstanceId, versionNo: props.versionNo }
-  try {
-    const scopes = readScopes()
-    if (!confirmationSnapshot || confirmationSnapshot.context !== contextKey()
-      || JSON.stringify(confirmationSnapshot.scopes) !== JSON.stringify(scopes)) {
-      confirmationVisible.value = false
-      confirmationSnapshot = undefined
-      throw new Error('下发信息已变更，请重新确认')
-    }
-    busy.value = true
-    const saved = await props.save(context.fileId, scopes)
-    if (!mounted || generation !== contextGeneration) return
-    if (saved !== true) throw new Error('下发保存未确认成功，请刷新核对后重试')
-    completed.value = true
-    confirmationVisible.value = false
-    error.value = ''
-    emit('saved', context)
-  } catch (cause) { if (mounted && generation === contextGeneration) error.value = cause instanceof Error ? cause.message : '下发保存失败' }
-  finally { if (mounted && generation === contextGeneration) busy.value = false }
-}
-const departmentName = (id: WorkflowId) => props.departments.find(dept => String(dept.id) === String(id))?.name || '部门未记录'
-const recipientNames = (row: ScopeRow) => row.recipientUserIds.map(id => row.options.find(option => String(option.id) === String(id))?.name || '人员未记录').join('、') || '纸件接收另行登记'
+const effectiveChoice = computed(() => {
+  if (props.facts.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE') return '文控标准化签名后生效，无预设日期'
+  if (props.facts.effectiveMode === 'PRESET_DATE') return props.facts.effectiveDate?.trim()
+    ? '预设生效日期：' + props.facts.effectiveDate : '预设生效日期尚未记录'
+  return '生效方式未记录'
+})
+const receiptProjection = computed(() => {
+  if (props.receipts === undefined) return { rows: [], error: '' }
+  try { return { rows: validateDistributionFacts(props.receipts, props.fileId, props.versionNo), error: '' } }
+  catch (cause) { return { rows: [], error: cause instanceof Error ? cause.message : '逐人事实读取异常' } }
+})
 </script>

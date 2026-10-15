@@ -615,5 +615,16 @@ public interface ErrorCodeConstants {
             "DCC 项目代码必须从项目代码与产品目录联合新建申请创建");
     ErrorCode DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED = new ErrorCode(1_080_000_359,
             "DCC 产品目录必须从项目代码与产品目录联合新建申请创建");
+    ErrorCode CONTROLLED_FILE_OFFLINE_TRAINING_CONFIG_REQUIRED = new ErrorCode(1_080_000_360,
+            "线下培训配置不完整：{}；请配置启用文控账号、TRAINING_RECORD类别权限及本文件/项目范围后再提交");
+    ErrorCode CONTROLLED_FILE_RETAINED_NUMBER_EXISTS = new ErrorCode(1_080_000_361,
+            "文件编号仍被作废保留记录占用，不能在其他项目或文件类型中创建新的文件链");
+    ErrorCode CONTROLLED_FILE_REVIEW_DATE_INVALID = new ErrorCode(1_080_000_362,
+            "生效日期为空或已过，请调整申请并重新审核");
+    ErrorCode APPROVAL_MATRIX_EXPECTATION_STALE = new ErrorCode(1_080_000_363,
+            "审批配置已变化，请刷新正式预检并确认本次配置");
+    ErrorCode APPROVAL_MATRIX_CHANGE_CONFIRMATION_REQUIRED = new ErrorCode(1_080_000_364,
+            "本次审批配置发生变化，需要确认后重新提交");
 
+    ErrorCode DIRECT_SUPERVISOR_SOURCE_UNAVAILABLE = new ErrorCode(1_080_000_365, "{}");
 }

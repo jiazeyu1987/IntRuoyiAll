@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectAccessRu
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.access.DccProjectAccessRuleSaveReqVO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.service.file.DccAccessUserIdentity;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.PostApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
@@ -136,10 +137,11 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     public List<Long> listReadableProjectIds(Long userId) {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
-        if (user == null || !java.util.Objects.equals(user.getStatus(), 0)) throw exception(DCC_PROJECT_ACCESS_DENIED);
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
         Set<Long> allowed = accessRuleMapper.selectActiveReaderRules(tenant, LocalDateTime.now()).stream()
+                .filter(rule -> java.util.Objects.equals(rule.getTenantId(), tenant))
                 .filter(rule -> matches(rule, userId, user, roleIds, deptIds))
                 .map(DccProjectAccessRuleDO::getDccProjectCodeId)
                 .filter(java.util.Objects::nonNull)
@@ -169,7 +171,8 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
     }
 
     private boolean hasProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels) {
-        return hasProjectAccess(userId, projectCodeId, allowedAccessLevels, null);
+        return hasProjectAccess(userId, projectCodeId, allowedAccessLevels,
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
     }
 
     private boolean hasProjectAccess(Long userId, Long projectCodeId, Set<String> allowedAccessLevels, Long requiredTenant) {
@@ -177,14 +180,14 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
             return false;
         }
         AdminUserRespDTO user = adminUserApi.getUser(userId);
-        if (user == null || !java.util.Objects.equals(user.getStatus(), 0)) {
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
         return accessRuleMapper.selectActiveRules(projectCodeId, now).stream()
-                .filter(rule -> requiredTenant == null || java.util.Objects.equals(rule.getTenantId(), requiredTenant))
+                .filter(rule -> java.util.Objects.equals(rule.getTenantId(), requiredTenant))
                 .filter(rule -> rule.getAccessLevel() != null
                         && allowedAccessLevels.stream().anyMatch(level -> level.equalsIgnoreCase(rule.getAccessLevel())))
                 .anyMatch(rule -> matches(rule, userId, user, roleIds, deptIds));

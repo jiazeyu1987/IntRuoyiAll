@@ -20,6 +20,9 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
 
     @BeforeEach
     void realCancelledHistoryPort() {
+        var login=new cn.iocoder.yudao.framework.security.core.LoginUser().setId(99L).setTenantId(1L).setUserType(2);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(login,null,java.util.List.of()));
         var formal=new BpmProcessInstanceServiceImpl();
         ReflectionTestUtils.setField(formal,"runtimeService",engine.getRuntimeService());
         ReflectionTestUtils.setField(formal,"historyService",engine.getHistoryService());
@@ -35,9 +38,17 @@ class DccWithdrawnNativeRevisionReworkDatabaseTest extends DccWorkflowSelectedIt
             return null;
         }).when(processes).cancelProcessInstanceByStartUser(eq(99L),any());
         wire(workflow,"bpmProcessInstanceService",processes);wire(revisions,"bpmProcessInstanceService",processes);
+        var relationFiles=new cn.iocoder.yudao.module.dcc.service.file.relations.DccLatestControlledFileResolverImpl();
+        wire(relationFiles,"fileMapper",files,"masterMapper",masters,"jdbc",jdbc);
+        var stage=new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService(
+                new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStore(jdbc,mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class)),
+                new cn.iocoder.yudao.module.dcc.dal.mysql.file.DccRelationStageSnapshotMapper(jdbc),query,relationFiles,
+                mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationAccessPolicy.class));
+        wire(stage,"rounds",rounds);wire(workflow,"relationStageSnapshots",stage);
         if(Arrays.stream(query.getClass().getSuperclass().getDeclaredFields()).anyMatch(f->f.getName().equals("bpmProcessInstanceService")))
             wire(query,"bpmProcessInstanceService",processes);
     }
+    @org.junit.jupiter.api.AfterEach void clearAuthenticatedRelationActor(){org.springframework.security.core.context.SecurityContextHolder.clearContext();}
 
     long cancelledRevision() {
         controlled("A/3");changeDefault();long selected=checkin(20L,"saved selected body");

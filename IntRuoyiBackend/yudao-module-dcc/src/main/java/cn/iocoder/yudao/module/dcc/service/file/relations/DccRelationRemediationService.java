@@ -59,7 +59,15 @@ public class DccRelationRemediationService {
                 throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationInputFailure("DCC_ARRANGEMENT_INVALID");
             Long relationCount=store.jdbc().queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_related_file WHERE tenant_id=? "
                     + "AND controlled_file_id=? AND related_master_id=? AND deleted=0",Long.class,tenant,sourceFileId,row.relatedMasterId());
-            if(relationCount!=1) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_ARRANGEMENT_RELATION_NOT_FROZEN");
+            if(relationCount==null || relationCount>1)throw new DccRelationFailure("DCC_ARRANGEMENT_RELATION_NOT_FROZEN");
+            if(relationCount==0) {
+                // A supplement is authorized only by its exact same-round signed node and arrangement facts.
+                // Never insert it into the original upload snapshot just to satisfy the old membership check.
+                var signed=store.jdbc().queryForList("SELECT member.related_master_id "+signedSupplementFrom()
+                        + " AND member.related_master_id=? AND head.actor_id=? AND member.assignee_user_id=? AND member.due_at=?",
+                        Long.class,tenant,sourceFileId,round,row.relatedMasterId(),actorId,row.assigneeUserId(),row.dueAt());
+                if(signed.size()!=1)throw new DccRelationFailure("DCC_ARRANGEMENT_RELATION_NOT_SIGNED");
+            }
             access.assertAssigneeAvailable(row.assigneeUserId(),row.relatedMasterId());
             var existing=store.jdbc().query("SELECT related_master_id,assignee_user_id,due_at FROM dcc_relation_arrangement "
                     + "WHERE tenant_id=? AND source_file_id=? AND application_round=? AND related_master_id=? FOR UPDATE",
@@ -108,10 +116,20 @@ public class DccRelationRemediationService {
         rows.forEach(row->access.assertAssigneeAvailable(row.assigneeUserId(),row.relatedMasterId()));
         // The source submission's existing relation rows are immutable approval evidence.
         // Controlled completion promotes their stable identities into the separate mutable current view.
-        var masters=store.jdbc().queryForList("SELECT related_master_id FROM dcc_controlled_file_related_file WHERE tenant_id=? AND controlled_file_id=? AND deleted=0 ORDER BY related_master_id FOR UPDATE",
+        var uploadMasters=store.jdbc().queryForList("SELECT related_master_id FROM dcc_controlled_file_related_file WHERE tenant_id=? AND controlled_file_id=? AND deleted=0 ORDER BY related_master_id FOR UPDATE",
                 Long.class,tenant,event.controlledFileId());
-        if(masters.stream().anyMatch(master->master==null || master.equals(event.masterId())) || masters.stream().distinct().count()!=masters.size())
+        if(uploadMasters.stream().anyMatch(master->master==null || master.equals(event.masterId())) || uploadMasters.stream().distinct().count()!=uploadMasters.size())
             throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_CONTROLLED_RELATION_IDENTITY_INVALID");
+        var supplements=store.jdbc().queryForList("SELECT member.related_master_id "+signedSupplementFrom()
+                + " ORDER BY member.related_master_id",Long.class,tenant,event.controlledFileId(),event.applicationRound());
+        Long recorded=store.jdbc().queryForObject("SELECT COUNT(*) FROM dcc_relation_stage_member member INNER JOIN dcc_relation_stage_snapshot head "
+                + "ON head.tenant_id=member.tenant_id AND head.id=member.snapshot_id WHERE head.tenant_id=? AND head.source_file_id=? "
+                + "AND head.process_instance_id=? AND member.supplemental=1",Long.class,tenant,event.controlledFileId(),event.applicationRound());
+        if(recorded==null || recorded!=supplements.size())throw new DccRelationFailure("DCC_CONTROLLED_RELATION_STAGE_SIGNATURE_INVALID");
+        var effective=new java.util.TreeSet<Long>(uploadMasters);
+        for(var master:supplements) if(master==null || master<=0 || master.equals(event.masterId()) || !effective.add(master))
+            throw new DccRelationFailure("DCC_CONTROLLED_RELATION_IDENTITY_INVALID");
+        var masters=List.copyOf(effective);
         if(rows.stream().anyMatch(row->!masters.contains(row.relatedMasterId())))
             throw new DccRelationFailure("DCC_ARRANGEMENT_RELATION_NO_LONGER_FROZEN");
         // An authentic historical event may be consumed for the first time after a newer control.
@@ -133,5 +151,15 @@ public class DccRelationRemediationService {
         }
         store.audit("dcc.relation.controlled","CONTROLLED_EVENT:"+eventId,"成功受控事件 "+event.eventKey(),null,event);
         notificationScheduler.scheduleAfterCommit(tenant,eventId);
+    }
+    private String signedSupplementFrom() {
+        return "FROM dcc_relation_stage_member member INNER JOIN dcc_relation_stage_snapshot head "
+                + "ON head.tenant_id=member.tenant_id AND head.id=member.snapshot_id "
+                + "INNER JOIN dcc_controlled_file_signature signature ON signature.id=head.signature_id "
+                + "AND signature.controlled_file_id=head.source_file_id AND signature.process_instance_id=head.process_instance_id "
+                + "AND signature.task_id=head.task_id AND signature.actor_id=head.actor_id AND signature.signed_at=head.signed_at "
+                + "AND signature.action_type='ASSIGN' AND signature.evidence_status='VALID' AND signature.deleted=0 "
+                + "WHERE head.tenant_id=? AND head.source_file_id=? AND head.process_instance_id=? "
+                + "AND head.action_type='ASSIGN' AND head.stage_code='MATRIX_REVIEW' AND member.supplemental=1";
     }
 }

@@ -10,7 +10,8 @@ const clone = v => JSON.parse(JSON.stringify(v)), attrs = { targetMarkets: ['CE'
 const P = '9007199254740993', U = '9223372036854775707'
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve } }
 const tick = async () => { for (let n = 0; n < 15; n++) { await Promise.resolve(); await vue.nextTick() } }
-const project = (id = P, leader = U) => ({ id, projectLeaderUserId: leader, defaultAttributesJson: JSON.stringify(attrs) })
+const TOKEN = 'a'.repeat(64)
+const project = (id = P, leader = U) => ({ id, projectLeaderUserId: leader, defaultAttributesJson: JSON.stringify(attrs), configurationToken: TOKEN })
 const account = (id = U) => ({ id, nickname: '正式负责人', username: 'leader' })
 const config = { configured: true, reviewerUserId: U, reviewerUsername: 'reviewer', reviewerNickname: '正式审核人', enabled: true }
 function runtime({ roles = ['doc_control'], permissions = ['dcc:project-code:update'], actorId = '6', transport = {}, users = async () => [account()] } = {}) {
@@ -39,7 +40,7 @@ function runtime({ roles = ['doc_control'], permissions = ['dcc:project-code:upd
   return { load, calls, store, feedback }
 }
 function mount(name, options) {
-  const rt = runtime(options), file = `views/dcc/controlled-file/basic-data/components/${name}.vue`, { descriptor } = parse(read(file)), compiled = compileScript(descriptor, { id: name })
+  const rt = runtime(options), file = options?.componentPath || `views/dcc/controlled-file/basic-data/components/${name}.vue`, { descriptor } = parse(read(file)), compiled = compileScript(descriptor, { id: name })
   assert.equal(parse(read(file)).errors.length, 0)
   assert.deepEqual(compileTemplate({ source: descriptor.template.content, filename: file, id: name, compilerOptions: { bindingMetadata: compiled.bindings } }).errors, [])
   const exports = {}, dependencies = id => {
@@ -56,12 +57,12 @@ function mount(name, options) {
   new Function('exports', 'require', 'useMessage', ts.transpileModule(compiled.content, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText)(exports, dependencies, () => ({ success: s => rt.feedback.push(s), warning: s => rt.feedback.push(s), info: s => rt.feedback.push(s), error: s => rt.feedback.push(s) }))
   const component = exports.default; component.render = () => vue.h('section')
   const renderer = vue.createRenderer({ createElement: t => ({ t, children: [] }), createText: t => ({ t }), createComment: t => ({ t }), insert: (c, p) => p.children.push(c), remove() {}, setText() {}, setElementText() {}, parentNode: () => null, nextSibling: () => null, patchProp() {} })
-  const events = [], app = renderer.createApp({ render: () => vue.h(component, { onSaved: id => events.push(['saved', id]), onChanged: data => events.push(['changed', data]) }) }), host = app.mount({ children: [] })
+  const events = [], app = renderer.createApp({ render: () => vue.h(component, { ...options?.props, onSaved: id => events.push(['saved', id]), onChanged: data => events.push(['changed', data]) }) }), host = app.mount({ children: [] })
   return { ...rt, app, events, state: host.$.subTree.component.setupState }
 }
 test('project attribute API preserves exact project/leader Long strings and rejects unsafe identities before PUT', async () => {
   const rt = runtime(), api = rt.load('api/dcc/controlledFile/projectAttributes.ts')
-  await api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: attrs, changeReason: ' 修改属性 ' })
+  await api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: attrs, changeReason: ' 修改属性 ', expectedConfigurationToken: TOKEN })
   assert.equal(rt.calls[0][1].url, `/dcc/project-codes/${P}/attributes/configuration`); assert.equal(rt.calls[0][1].data.projectLeaderUserId, U)
   for (const [id, leader] of [[9007199254740992, U], [P, 9007199254740992], [P, '9223372036854775808'], [P, ' 6']])
     await assert.rejects(api.configureProjectAttributes(id, { projectLeaderUserId: leader, defaultAttributes: attrs, changeReason: '修改' }), /身份|精度/)
@@ -80,11 +81,11 @@ test('safe numeric responses become exact string option values and saved IDs thr
     assert.equal(p.calls.find(c => c[0] === 'put')[1].data.projectLeaderUserId, '7'); assert.deepEqual(p.events, [['saved', '20']])
   } finally { p.app.unmount() }
 })
-test('unsafe project/leader, foreign project response, absent or duplicated account never make attribute configuration writable', async () => {
+test('unsafe project/leader, foreign project response or duplicated directory never make attribute configuration writable', async () => {
   const variants = [
     { id: 9007199254740992, response: project() },
     { response: project('22') }, { response: project(P, 9007199254740992) },
-    { response: project(P, '7') }, { response: project(), users: async () => [account(U), account(U)] },
+    { response: project(), users: async () => [account(U), account(U)] },
     { response: project(), users: async () => [account(9007199254740992)] }
   ]
   for (const v of variants) {
@@ -93,8 +94,8 @@ test('unsafe project/leader, foreign project response, absent or duplicated acco
     finally { p.app.unmount() }
   }
 })
-test('attribute configuration rejects disabled directory account or malformed attributes and never claims a false receipt succeeded', async () => {
-  for (const [response, users] of [[project(), async () => [{ ...account(), status: 1 }]], [{ ...project(), defaultAttributesJson: JSON.stringify({ ...attrs, targetMarkets: [] }) }, async () => [account()]]]) {
+test('attribute configuration rejects invalid directory and never claims a false receipt succeeded', async () => {
+  for (const [response, users] of [[project(), async () => [{ ...account(), status: 1 }]]]) {
     const p = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => response }, users })
     try { await p.state.open(P); assert.equal(p.state.ready, false); assert.ok(p.state.error); await p.state.save(); assert.equal(p.calls.filter(c => c[0] === 'put').length, 0) }
     finally { p.app.unmount() }
@@ -102,6 +103,46 @@ test('attribute configuration rejects disabled directory account or malformed at
   const failed = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => project(), put: async () => false } })
   try { await failed.state.open(P); failed.state.changeReason = '保存'; await failed.state.save(); assert.equal(failed.events.length, 0); assert.equal(failed.state.visible, true); assert.match(failed.state.error, /未确认成功/); assert.equal(failed.state.leaderId, U) }
   finally { failed.app.unmount() }
+})
+test('inactive or missing previous leader permits explicit replacement without guessing an account', async () => {
+  const p = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => project(P, '7') } })
+  try {
+    await p.state.open(P)
+    assert.equal(p.state.ready, true)
+    assert.equal(p.state.leaderId, undefined)
+    assert.match(p.state.repairNotice, /负责人/)
+    p.state.changeReason = '更换已失效负责人'; await p.state.save()
+    assert.equal(p.calls.filter(c => c[0] === 'put').length, 0)
+    p.state.leaderId = U; await p.state.save()
+    const write = p.calls.find(c => c[0] === 'put')[1]
+    assert.equal(write.data.projectLeaderUserId, U)
+    assert.equal(write.data.expectedConfigurationToken, TOKEN)
+  } finally { p.app.unmount() }
+})
+test('malformed saved attributes remain visible as a repair requirement and require complete new values', async () => {
+  for (const raw of ['{invalid', JSON.stringify({ ...attrs, targetMarkets: [] })]) {
+    const p = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => ({ ...project(), defaultAttributesJson: raw }) } })
+    try {
+      await p.state.open(P); assert.equal(p.state.ready, true)
+      assert.match(p.state.repairNotice, /属性/)
+      assert.deepEqual(clone(p.state.attributes), { targetMarkets: [] })
+      p.state.changeReason = '人工修正旧属性'; await p.state.save()
+      assert.equal(p.calls.filter(c => c[0] === 'put').length, 0)
+      p.state.attributes = clone(attrs); await p.state.save()
+      assert.equal(p.calls.find(c => c[0] === 'put')[1].data.expectedConfigurationToken, TOKEN)
+    } finally { p.app.unmount() }
+  }
+})
+test('configuration read rejects missing baseline and save conflict preserves current manual edits', async () => {
+  const missing = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => ({ ...project(), configurationToken: undefined }) } })
+  try { await missing.state.open(P); assert.equal(missing.state.ready, false); assert.ok(missing.state.error) }
+  finally { missing.app.unmount() }
+  const conflict = mount('ProjectAttributeConfigurationDialog', { transport: { get: async () => project(), put: async () => { throw new Error('项目配置已变化，请重新读取') } } })
+  try {
+    await conflict.state.open(P); conflict.state.attributes = { ...attrs, targetMarkets: ['FDA'] }; conflict.state.changeReason = '修改'
+    await conflict.state.save(); assert.equal(conflict.state.visible, true); assert.equal(conflict.events.length, 0)
+    assert.match(conflict.state.error, /已变化/); assert.deepEqual(clone(conflict.state.attributes.targetMarkets), ['FDA'])
+  } finally { conflict.app.unmount() }
 })
 test('manipulated selected account or unsafe project reference fails locally with zero writes', async () => {
   for (const mutate of [p => p.state.leaderId = 9007199254740992, p => p.state.leaderId = '7', p => p.state.projectId = '22']) {
@@ -146,10 +187,42 @@ test('same-project close/reopen invalidates old saved receipt and never overwrit
 })
 test('attribute wrapper freezes actual attributes and validates reason before sending any request', async () => {
   const pending = deferred(), rt = runtime({ transport: { put: () => pending.promise } }), api = rt.load('api/dcc/controlledFile/projectAttributes.ts')
-  const actual = clone(attrs), writing = api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: actual, changeReason: '原因' })
+  const actual = clone(attrs), writing = api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: actual, changeReason: '原因', expectedConfigurationToken: TOKEN })
   actual.targetMarkets.push('FDA'); assert.deepEqual(rt.calls[0][1].data.defaultAttributes.targetMarkets, ['CE']); pending.resolve(true); await writing
   for (const changeReason of ['', ' ', 'a'.repeat(501)]) await assert.rejects(api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: attrs, changeReason }), /原因/)
   assert.equal(rt.calls.length, 1)
+})
+test('configuration API refuses missing or malformed baseline before any write', async () => {
+  const rt = runtime(), api = rt.load('api/dcc/controlledFile/projectAttributes.ts')
+  for (const token of [undefined, '', 'f'.repeat(63), 'Z'.repeat(64)]) {
+    await assert.rejects(api.configureProjectAttributes(P, { projectLeaderUserId: U, defaultAttributes: attrs, changeReason: '修改', expectedConfigurationToken: token }), /基线|配置/)
+  }
+  assert.equal(rt.calls.length, 0)
+})
+test('actual attribute component retains valid project after failed switch or restore and still rejects first-load failure', async () => {
+  let fail = false
+  const p = mount('ProjectApplicationAttributes', {
+    componentPath: 'views/dcc/controlled-file/project-attributes/ProjectApplicationAttributes.vue', props: { action: 'UPLOAD' },
+    transport: { get: async () => { if (fail) throw new Error('读取失败'); return clone(attrs) } }
+  })
+  try {
+    assert.equal(await p.state.selectProject('5'), true)
+    p.state.edit({ ...attrs, targetMarkets: ['FDA'] }); fail = true
+    assert.equal(await p.state.selectProject('6'), false)
+    const stateApi = p.load('views/dcc/controlled-file/project-attributes/state.ts')
+    assert.equal(stateApi.buildSnapshot(p.state.state).projectId, '5')
+    assert.equal(p.state.state.error, ''); assert.equal(p.state.state.requestError, '读取失败')
+    await p.state.restore()
+    assert.deepEqual(clone(stateApi.buildSnapshot(p.state.state).actual.targetMarkets), ['FDA'])
+  } finally { p.app.unmount() }
+  const empty = mount('ProjectApplicationAttributes', {
+    componentPath: 'views/dcc/controlled-file/project-attributes/ProjectApplicationAttributes.vue', props: { action: 'UPLOAD' },
+    transport: { get: async () => { throw new Error('首次读取失败') } }
+  })
+  try {
+    assert.equal(await empty.state.selectProject('5'), false)
+    assert.throws(() => empty.load('views/dcc/controlled-file/project-attributes/state.ts').buildSnapshot(empty.state.state), /首次读取失败/)
+  } finally { empty.app.unmount() }
 })
 test('real permission helper super_admin bypass does not authorize reviewer business-role maintenance', async () => {
   const p = mount('ProjectReviewerConfiguration', { roles: ['super_admin'], permissions: ['*:*:*'] })

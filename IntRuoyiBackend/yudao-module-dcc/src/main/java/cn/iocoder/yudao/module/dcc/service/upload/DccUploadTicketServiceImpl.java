@@ -119,6 +119,33 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
     }
 
     @Override
+    public DccTrainingUploadTicketBoundFile resolveTrainingForBinding(DccUploadTicketResolveCommand command) {
+        requireTenantContext();
+        if (TenantContextHolder.isIgnore() || command == null
+                || !"TRAINING_RECORD".equals(normalizePurpose(command.purpose()))
+                || command.categoryId() == null || command.categoryId() <= 0) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        requirePositiveUser(command.userId());
+        DccControlledFileTemporaryFileDO temporaryFile = requireBindableTemporaryFile(command);
+        if (!Objects.equals(temporaryFile.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(temporaryFile.getUploadTicket(), StrUtil.trim(command.uploadTicket()))) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        String fileSha256 = temporaryFile.getFileSha256();
+        if (fileSha256 == null || !fileSha256.matches("[a-f0-9]{64}")) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        FileDO storageFile = fileMapper.selectById(temporaryFile.getStorageFileId());
+        if (storageFile == null || !Objects.equals(storageFile.getId(), temporaryFile.getStorageFileId())) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        return new DccTrainingUploadTicketBoundFile(new DccUploadTicketBoundFile(temporaryFile.getUploadTicket(),
+                temporaryFile.getStorageFileId(), storageFile.getName(), storageFile.getType(), temporaryFile.getFileSize()),
+                fileSha256);
+    }
+
+    @Override
     public void markBound(DccUploadTicketMarkBoundCommand command) {
         requireTenantContext();
         DccControlledFileTemporaryFileDO temporaryFile = requireBindableTemporaryFile(new DccUploadTicketResolveCommand(

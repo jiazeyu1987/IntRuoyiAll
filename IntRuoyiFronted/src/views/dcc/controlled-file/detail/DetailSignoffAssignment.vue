@@ -82,6 +82,8 @@ watch(
     try {
       const result = await getSignoffAssignmentContext(props.fileId, props.taskId)
       if (token !== generation) return
+      if (result.controlledFileId !== String(props.fileId) || result.taskId !== props.taskId)
+        throw new Error('会签响应不属于当前文件和任务')
       if (result.processInstanceId !== props.processInstanceId)
         throw new Error('会签任务不属于当前申请流程')
       if (!['dcc-controlled-file-upload', 'dcc-controlled-file-revision', 'dcc-controlled-file-obsolete'].includes(result.processDefinitionKey))
@@ -134,11 +136,14 @@ const saveAssignment = async (request: SignoffAssignment) => {
     !ready.value ||
     !current.canAssign ||
     (current.processDefinitionKey === 'dcc-controlled-file-revision' && !arrangementsRef.value) ||
+    request.taskId !== current.taskId ||
     current.taskId !== props.taskId ||
     current.controlledFileId !== String(props.fileId) ||
     current.processInstanceId !== props.processInstanceId
   )
     throw new Error('指派上下文已变化，请重新读取')
+  if (!current.assigneeOptions.some(user => String(user.id) === String(request.assigneeUserId)))
+    throw new Error('请从当前本部门正式候选目录选择会签人')
   if (current.processDefinitionKey === 'dcc-controlled-file-revision') {
     const relationArrangements = arrangementsRef.value!.validate()
     return assignWorkflowSignoff(current.controlledFileId, { ...request, relationArrangements })

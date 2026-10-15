@@ -2,17 +2,21 @@
   <div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
     <el-button v-if="isProjectLeader" :disabled="busy || loading || savedReadFailure" @click="openSelector">引用</el-button>
-    <el-button v-if="savedReadFailure" :disabled="busy || loading" @click="load">刷新已保存引用</el-button>
+    <el-button v-if="isProjectLeader" data-testid="dcc-folder-cancel-reference"
+      :disabled="busy || loading || savedReadFailure || !selectedReference" @click="selectedReference && prepareCancel(selectedReference)">取消引用</el-button>
+    <el-button data-testid="dcc-folder-refresh-references" :disabled="busy || loading" @click="refresh">刷新引用列表</el-button>
     <DccFileSelector v-model="selectorVisible" :source="selectorSource" purpose="reference" :directories="directories" :selected="[]" :load-page="loadPage" :open-preview="openPreview" :persist="createSelected" @confirmed="referencesCreated">
       <template #confirmation-fields><el-input v-model="referenceReason" :disabled="busy" placeholder="引用原因（必填）" type="textarea" /></template>
     </DccFileSelector>
-    <el-table :data="rows" v-loading="loading">
+    <slot :rows="rows" :loading="loading" :busy="busy" :reading-reference-id="readingReferenceId"
+      :selected-reference="selectedReference" :select-reference="selectReference" :read-reference="readSavedReference">
+    <el-table :data="rows" v-loading="loading" highlight-current-row @current-change="selectReference">
       <el-table-column label="文件">
         <template #default="{ row }">
           <span class="reference-file-name is-reference" data-testid="dcc-project-reference-file-name">{{ row.selectedVersion.fileName }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="selectedVersion.versionNo" label="所选受控版本" />
+      <el-table-column prop="selectedVersion.versionNo" label="所选受控版本"><template #default="{ row }">{{ getDccVersionDisplayText(row.selectedVersion.versionNo) }}</template></el-table-column>
       <el-table-column prop="selectedVersion.folderName" label="源文件夹" />
       <el-table-column label="引用"><template #default="{ row }"><DccReferenceBadge :is-reference="true" :project-count="row.referenceProjectCount" :source-project-name="row.sourceProjectName" :obsolete="row.selectedVersion.status === 'OBSOLETE'" :pending-effect="row.selectedVersion.pendingEffect" /><el-button link data-testid="dcc-saved-reference-usage" :disabled="busy || loading" @click="emit('show-usage', row)">使用明细</el-button></template></el-table-column>
       <el-table-column v-if="openReferencePreview || openReferenceTrace" label="只读查看">
@@ -32,6 +36,7 @@
       </el-table-column>
       <el-table-column v-if="isProjectLeader" label="操作"><template #default="{ row }"><el-button link :disabled="busy || loading" @click="prepareCancel(row)">取消引用</el-button></template></el-table-column>
     </el-table>
+    </slot>
     <el-dialog v-model="confirmVisible" title="二次确认：取消引用" width="520px" append-to-body>
       <p>{{ pending?.selectedVersion.fileName }} · 来源项目 {{ pending?.sourceProjectName }}</p>
       <p>当前文件夹：{{ folderName }}。确认后移除此文件夹的引用入口。</p>
@@ -43,17 +48,23 @@
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { getDccVersionDisplayText } from '../shared/version-display'
 import DccReferenceBadge from './DccReferenceBadge.vue'
 import DccFileSelector from './DccFileSelector.vue'
 import type { SelectorSource, DirectoryNode } from './DccFileSelector.vue'
 import type { FileCandidate, SelectorPage, SelectorQuery } from './selector-state'
 import type { ReferenceRow } from './project-reference-contract'
-const props = defineProps<{ contextKey: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
+const props = defineProps<{ contextKey: string; selectionContextKey?: string; projectId: string; folderId: string; folderName: string; isProjectLeader: boolean; selectorSource: SelectorSource; directories: DirectoryNode[]; loadPage: (query: SelectorQuery) => Promise<SelectorPage>; openPreview: (row: FileCandidate) => Promise<unknown>;
   openReferencePreview?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   openReferenceTrace?: (row: ReferenceRow, isCurrent: () => boolean) => Promise<unknown>;
   createReferences: (projectId: string, folderId: string, selectedFileIds: string[], reason: string) => Promise<ReferenceRow[]>; loadReferences: (projectId: string, folderId: string) => Promise<ReferenceRow[]>; cancelReference: (projectId: string, folderId: string, masterId: string, referenceId: string, reason: string) => Promise<number> }>()
-const emit = defineEmits<{ 'select-files': []; changed: [projectCount: number, masterId: string]; 'saved-read-failure': []; 'show-usage': [row: ReferenceRow] }>()
+const emit = defineEmits<{ 'select-files': []; changed: [projectCount: number, masterId: string]; refreshed: []; 'saved-read-failure': []; 'show-usage': [row: ReferenceRow] }>()
 const rows = ref<ReferenceRow[]>([]), error = ref(''), loading = ref(false), busy = ref(false), confirmVisible = ref(false), reason = ref(''), pending = ref<ReferenceRow>()
+const selectedReference = ref<ReferenceRow>()
+const selectReference = (row?: ReferenceRow | null) => {
+  selectedReference.value = !props.isProjectLeader || busy.value || loading.value || savedReadFailure.value ? undefined
+    : rows.value.find(saved => saved.reference.id === row?.reference.id)
+}
 let generation = 0
 const readingReferenceId = ref('')
 const savedReadFailure = ref(false)
@@ -101,11 +112,22 @@ const referencesCreated=()=>{selectorVisible.value=false}
 const load = async () => {
   const token = ++generation; const project = props.projectId, folder = props.folderId
   loading.value = true; error.value = ''; rows.value = []
+  selectedReference.value = undefined
+  pending.value = undefined; confirmVisible.value = false; reason.value = ''; readSequence++; readingReferenceId.value = ''
   try { const result = await props.loadReferences(project, folder); if (token === generation) { rows.value = result; savedReadFailure.value = false } }
   catch (e) { if (token === generation) error.value = savedReadFailure.value ? `引用已保存，但引用列表读取失败：${String(e)}` : String(e) }
   finally { if (token === generation) loading.value = false }
 }
-const prepareCancel = (row: ReferenceRow) => { if(!props.isProjectLeader || busy.value || loading.value)return;pending.value = row; reason.value = ''; error.value = ''; confirmVisible.value = true }
+const prepareCancel = (row: ReferenceRow) => {
+  if(!props.isProjectLeader || busy.value || loading.value || savedReadFailure.value)return
+  const selected = rows.value.find(saved => saved.reference.id === row.reference.id && saved.reference.selectedControlledFileId === row.reference.selectedControlledFileId)
+  if (!selected) { error.value = '所选引用已变化，请重新选择当前文件夹的引用'; return }
+  pending.value = JSON.parse(JSON.stringify(selected)); reason.value = ''; error.value = ''; confirmVisible.value = true
+}
+const refresh = async () => {
+  await load()
+  if (!error.value) emit('refreshed')
+}
 const cancelConfirmed = async () => {
   if (!props.isProjectLeader || !pending.value || busy.value || !reason.value.trim()) return
   const token = generation, project = props.projectId, folder = props.folderId, master = pending.value.reference.masterId, referenceId = pending.value.reference.id
@@ -113,11 +135,15 @@ const cancelConfirmed = async () => {
   try {
     const count = await props.cancelReference(project, folder, master, referenceId, reason.value)
     if (token !== generation) return
-    rows.value = rows.value.filter(row => row.reference.masterId !== master); confirmVisible.value = false; emit('changed', count,master)
+    rows.value = rows.value.filter(row => row.reference.id !== referenceId); selectedReference.value = undefined; confirmVisible.value = false; emit('changed', count,master)
   } catch (e) { if (token === generation) error.value = String(e) }
   finally { if (token === generation) busy.value = false }
 }
-watch(() => props.contextKey, () => { generation++; readSequence++; savedReadFailure.value = false; readingReferenceId.value = ''; busy.value = false; confirmVisible.value = false; selectorVisible.value=false; pending.value = undefined; referenceReason.value=''; void load() }, { immediate: true })
+watch(() => props.contextKey, () => { generation++; readSequence++; savedReadFailure.value = false; readingReferenceId.value = ''; busy.value = false; confirmVisible.value = false; selectorVisible.value=false; pending.value = undefined; selectedReference.value = undefined; referenceReason.value=''; void load() }, { immediate: true })
+watch(() => props.isProjectLeader, () => { selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; selectorVisible.value = false })
+watch(() => props.selectionContextKey, () => {
+  readSequence++; readingReferenceId.value = ''; selectedReference.value = undefined; pending.value = undefined; confirmVisible.value = false; reason.value = ''
+})
 onBeforeUnmount(() => { generation++; readSequence++; readingReferenceId.value = ''; rows.value = [] })
 </script>
 <style scoped>

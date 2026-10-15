@@ -12,7 +12,7 @@ import type { DirectoryNode } from '../relations/DccFileSelector.vue'
 import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
 
 export const PROJECT_BROWSER_VERSION_VIEWS = [
-  { value: 'LATEST_CONTROLLED', label: '最新受控版本', group: '浏览范围' },
+  { value: 'LATEST_CONTROLLED', label: '当前生效受控版本', group: '浏览范围' },
   { value: 'ALL', label: '全部版本', group: '浏览范围' },
   { value: 'WORKING', label: '工作小版本', group: '工作版本' },
   { value: 'DRAFT', label: '草稿', group: '工作版本' },
@@ -53,6 +53,7 @@ export class ProjectBrowserState {
   scope: 'global' | 'directory' = 'global'
   versionView: ProjectBrowserVersionView = 'LATEST_CONTROLLED'
   keyword = ''
+  appliedKeyword = ''
   pageNo = 1
   readonly pageSize = 20
   rows: FileCandidate[] = []
@@ -123,12 +124,13 @@ export class ProjectBrowserState {
   async loadFiles() {
     const token = ++this.filesSequence
     this.loading = true; this.error = ''; this.rows = []; this.total = 0; this.usage = {}
+    const queryKeyword = this.keyword
     try {
       if (this.scope === 'directory' && (!this.project || !this.folder?.folderId)) throw new Error('请先选择项目逻辑文件夹')
-      const page = await loadDccProjectBrowserPage(this.tenantId, { keyword: this.keyword, pageNo: this.pageNo, pageSize: this.pageSize,
+      const page = await loadDccProjectBrowserPage(this.tenantId, { keyword: queryKeyword, pageNo: this.pageNo, pageSize: this.pageSize,
         ...(this.scope === 'directory' ? { projectId: this.project!.id, folderId: this.folder!.folderId } : {}) }, browserVersionOptions(this.versionView))
       if (token !== this.filesSequence) return
-      this.rows = page.list; this.total = page.total
+      this.rows = page.list; this.total = page.total; this.appliedKeyword = queryKeyword
       // Counts are the formal server distinct-project usage, never the number of visible folders.
       await this.refreshUsage(token)
     } catch (error) { if (token === this.filesSequence) this.error = errorText(error) }

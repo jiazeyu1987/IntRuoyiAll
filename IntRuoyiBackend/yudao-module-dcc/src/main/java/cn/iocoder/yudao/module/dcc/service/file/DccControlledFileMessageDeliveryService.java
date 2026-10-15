@@ -1,12 +1,12 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.hutool.core.util.StrUtil;
-import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMessageJobDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMessageJobMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
@@ -27,6 +27,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID;
@@ -41,13 +43,19 @@ public class DccControlledFileMessageDeliveryService {
     @Resource
     private NotifyMessageSendApi notifyMessageSendApi;
     @Resource
+    private cn.iocoder.yudao.module.system.service.notify.NotifyMessageService notifyMessageService;
+    @Resource
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccControlledFileDistributionMapper distributionMapper;
     @Resource
+    private DccControlledFileDistributionRecipientMapper distributionRecipientMapper;
+    @Resource
     private DccControlledFileTrainingMapper trainingMapper;
     @Resource
     private PlatformTransactionManager transactionManager;
+    @Resource
+    private DccDistributionDispatchAttemptService dispatchAttemptService;
 
     public void dispatchMessageJob(DccControlledFileMessageJobDO messageJob, Map<String, Object> templateParams) {
         if (messageJob == null || messageJob.getId() == null) {
@@ -70,67 +78,113 @@ public class DccControlledFileMessageDeliveryService {
             });
             return;
         }
-        action.run();
+        throw new IllegalStateException("DCC notification dispatch requires the business transaction; use replay for committed jobs");
     }
 
     public void replayMessageJob(DccControlledFileMessageJobDO messageJob) {
         if (messageJob == null) {
             throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
         }
-        String status = messageJob.getStatus();
-        if (!DccControlledFileMessageJobStatusEnum.PENDING.getCode().equals(status)
-                && !DccControlledFileMessageJobStatusEnum.FAILED.getCode().equals(status)) {
-            throw exception(CONTROLLED_FILE_MESSAGE_JOB_REPLAY_NOT_ALLOWED);
-        }
-        sendMessageJob(messageJob, resolveTemplateParams(messageJob));
+        sendMessageJob(messageJob, null);
     }
 
     private void sendMessageJob(DccControlledFileMessageJobDO messageJob, Map<String, Object> templateParams) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        DccDistributionDispatchAttemptDOHolder attemptIdentity = new DccDistributionDispatchAttemptDOHolder();
         try {
-            transaction.executeWithoutResult(ignored -> {
+            MessageAttempt attempt = transaction.execute(ignored -> {
+                // Establish batch -> job lock order before starting a persistent new-distribution attempt.
+                var identity=messageJobMapper.selectById(messageJob.getId());
+                cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccDistributionDispatchAttemptDO persistedAttempt=null;
+                if(identity!=null && identity.getDistributionBatchId()!=null && !"SENT".equals(identity.getStatus()))
+                    persistedAttempt=dispatchAttemptService.startAttempt(identity.getDistributionBatchId(),identity.getId());
                 DccControlledFileMessageJobDO current = requireLockedJob(tenantId, messageJob.getId());
                 if (DccControlledFileMessageJobStatusEnum.SENT.getCode().equals(current.getStatus())) {
-                    return;
+                    return null;
                 }
                 if (!DccControlledFileMessageJobStatusEnum.PENDING.getCode().equals(current.getStatus())
                         && !DccControlledFileMessageJobStatusEnum.FAILED.getCode().equals(current.getStatus())) {
                     throw exception(CONTROLLED_FILE_MESSAGE_JOB_REPLAY_NOT_ALLOWED);
                 }
-                NotifySendSingleToUserIdempotentReqDTO reqDTO = new NotifySendSingleToUserIdempotentReqDTO();
-                reqDTO.setUserId(current.getRecipientUserId());
-                reqDTO.setTemplateCode(current.getTemplateCode());
-                reqDTO.setBusinessKey("DCC_MESSAGE_JOB:" + tenantId + ":" + current.getId());
-                reqDTO.setTemplateParams(templateParams);
-                Long messageId = notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(reqDTO);
-                if (messageId == null) {
-                    throw new IllegalStateException("DCC notification platform message id is missing");
+                if (current.getBusinessType() == null || current.getBusinessId() == null
+                        || current.getRecipientUserId() == null || StrUtil.isBlank(current.getTemplateCode()))
+                    throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
+                Map<String, Object> params = "DISTRIBUTION".equals(current.getBusinessType()) || templateParams == null
+                        ? resolveTemplateParams(current) : Map.copyOf(templateParams);
+                if (messageJobMapper.updateById(DccControlledFileMessageJobDO.builder().id(current.getId())
+                        .status("PENDING").errorMessage("").build()) != 1)
+                    throw new IllegalStateException("DCC notification attempt was not persisted");
+                if(persistedAttempt!=null){attemptIdentity.id=persistedAttempt.getId();attemptIdentity.batchId=persistedAttempt.getBatchId();}
+                return new MessageAttempt(current, params);
+            });
+            if (attempt == null) return;
+            // The stable job identity commits before the platform call. The platform owns its idempotent transaction.
+            var attemptJob = attempt.job();
+            NotifySendSingleToUserIdempotentReqDTO reqDTO = new NotifySendSingleToUserIdempotentReqDTO();
+            reqDTO.setUserId(attemptJob.getRecipientUserId());
+            reqDTO.setTemplateCode(attemptJob.getTemplateCode());
+            reqDTO.setBusinessKey("DCC_MESSAGE_JOB:" + tenantId + ":" + attemptJob.getId());
+            reqDTO.setTemplateParams(attempt.params());
+            TransactionTemplate outside = new TransactionTemplate(transactionManager);
+            outside.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
+            Long messageId = outside.execute(ignored -> notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(reqDTO));
+            if (messageId == null || messageId <= 0)
+                throw new IllegalStateException("DCC notification platform message id is missing");
+            LocalDateTime sentAt;
+            if ("DISTRIBUTION".equals(attemptJob.getBusinessType())) {
+                var platformMessage = notifyMessageService.getNotifyMessage(messageId);
+                if (platformMessage == null || !Objects.equals(platformMessage.getTenantId(), tenantId)
+                        || !Objects.equals(platformMessage.getUserId(), attemptJob.getRecipientUserId())
+                        || !Objects.equals(platformMessage.getUserType(), 2)
+                        || !Objects.equals(platformMessage.getBusinessKey(), reqDTO.getBusinessKey())
+                        || !Objects.equals(platformMessage.getTemplateCode(), attemptJob.getTemplateCode())
+                        || platformMessage.getCreateTime() == null)
+                    throw new IllegalStateException("DCC notification platform send evidence is missing or mismatched");
+                sentAt = platformMessage.getCreateTime();
+            } else {
+                sentAt = LocalDateTime.now();
+            }
+            transaction.executeWithoutResult(ignored -> {
+                if(attemptIdentity.batchId!=null)dispatchAttemptService.lockBatch(attemptIdentity.batchId);
+                DccControlledFileMessageJobDO current = requireLockedJob(tenantId, attemptJob.getId());
+                if ("SENT".equals(current.getStatus())) {
+                    if(attemptIdentity.id!=null)dispatchAttemptService.finishAttempt(attemptIdentity.batchId,attemptIdentity.id,true,messageId,null);
+                    return;
                 }
+                if (!Objects.equals(current.getBusinessType(), attemptJob.getBusinessType())
+                        || !Objects.equals(current.getBusinessId(), attemptJob.getBusinessId())
+                        || !Objects.equals(current.getRecipientUserId(), attemptJob.getRecipientUserId())
+                        || !Objects.equals(current.getTemplateCode(), attemptJob.getTemplateCode()))
+                    throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
                 if (messageJobMapper.updateById(DccControlledFileMessageJobDO.builder()
                         .id(current.getId())
                         .status(DccControlledFileMessageJobStatusEnum.SENT.getCode())
                         .errorMessage("")
-                        .sentAt(LocalDateTime.now())
+                        .sentAt(sentAt)
                         .build()) != 1) {
                     throw new IllegalStateException("DCC notification result was not persisted");
                 }
+                if(attemptIdentity.id!=null)dispatchAttemptService.finishAttempt(attemptIdentity.batchId,attemptIdentity.id,true,messageId,null);
             });
         } catch (RuntimeException ex) {
             try {
                 transaction.executeWithoutResult(ignored -> {
+                    if(attemptIdentity.batchId!=null)dispatchAttemptService.lockBatch(attemptIdentity.batchId);
                     DccControlledFileMessageJobDO current = requireLockedJob(tenantId, messageJob.getId());
                     if (DccControlledFileMessageJobStatusEnum.SENT.getCode().equals(current.getStatus())) {
+                        if(attemptIdentity.id!=null)dispatchAttemptService.finishAttempt(attemptIdentity.batchId,attemptIdentity.id,false,null,ex);
                         return;
                     }
                     if (messageJobMapper.updateById(DccControlledFileMessageJobDO.builder()
                             .id(current.getId())
                             .status(DccControlledFileMessageJobStatusEnum.FAILED.getCode())
-                            .errorMessage(resolveFailureReason(ex))
+                            .errorMessage(DccDistributionAuditSupport.failure(ex))
                             .build()) != 1) {
                         throw new IllegalStateException("DCC notification failure was not persisted");
                     }
+                    if(attemptIdentity.id!=null)dispatchAttemptService.finishAttempt(attemptIdentity.batchId,attemptIdentity.id,false,null,ex);
                 });
             } catch (RuntimeException persistenceFailure) {
                 if (persistenceFailure != ex) {
@@ -149,10 +203,13 @@ public class DccControlledFileMessageDeliveryService {
         return job;
     }
 
+    private record MessageAttempt(DccControlledFileMessageJobDO job, Map<String, Object> params) {}
+    private static final class DccDistributionDispatchAttemptDOHolder { Long id;Long batchId; }
+
     private Map<String, Object> resolveTemplateParams(DccControlledFileMessageJobDO messageJob) {
         return switch (messageJob.getBusinessType()) {
             case DccControlledFileFinalizationServiceImpl.MESSAGE_BUSINESS_TYPE_DISTRIBUTION ->
-                    buildBaseNotifyParams(resolveFileForDistributionJob(messageJob.getBusinessId()), false);
+                    buildDistributionNotifyParams(messageJob);
             case DccControlledFileFinalizationServiceImpl.MESSAGE_BUSINESS_TYPE_TRAINING ->
                     buildBaseNotifyParams(resolveFileForTrainingJob(messageJob.getBusinessId()), false);
             case DccControlledFileObsoleteServiceImpl.MESSAGE_BUSINESS_TYPE_OBSOLETE ->
@@ -161,16 +218,34 @@ public class DccControlledFileMessageDeliveryService {
         };
     }
 
-    private DccControlledFileDO resolveFileForDistributionJob(Long distributionId) {
-        DccControlledFileDistributionDO distribution = distributionMapper.selectById(distributionId);
-        if (distribution == null || distribution.getControlledFileId() == null) {
+    private Map<String, Object> buildDistributionNotifyParams(DccControlledFileMessageJobDO job) {
+        DccControlledFileDistributionDO distribution = distributionMapper.selectById(job.getBusinessId());
+        if (distribution == null || distribution.getControlledFileId() == null
+                || !"PUBLIC_FOLDER".equals(distribution.getDistributionMedium())
+                || !Set.of("PENDING", "SENT", "READ", "ACKNOWLEDGED").contains(distribution.getStatus())) {
             throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
         }
         DccControlledFileDO file = controlledFileMapper.selectById(distribution.getControlledFileId());
-        if (file == null) {
+        if (file == null || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || file.getControlledTime() == null || file.getActivatedTime() == null
+                || file.getDistributedTime() == null || !Set.of("ACTIVE", "OBSOLETE", "SUPERSEDED").contains(file.getStatus())
+                || StrUtil.isBlank(file.getVersionNo())) {
             throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
         }
-        return file;
+        var recipients = distributionRecipientMapper.selectListByDistributionId(distribution.getId());
+        if (recipients == null) throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
+        var matches = recipients.stream().filter(row -> row != null
+                && Objects.equals(row.getMessageJobId(), job.getId())
+                && Objects.equals(row.getUserId(), job.getRecipientUserId())).toList();
+        if (matches.size() != 1 || matches.get(0).getId() == null)
+            throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
+        Map<String, Object> params = buildBaseNotifyParams(file, false);
+        params.put("controlledFileId", file.getId().toString());
+        params.put("distributionId", distribution.getId().toString());
+        params.put("recipientId", matches.get(0).getId().toString());
+        if (StrUtil.isNotBlank(file.getProcessInstanceId()))
+            params.put("approvalProcessInstanceId", file.getProcessInstanceId());
+        return params;
     }
 
     private DccControlledFileDO resolveFileForTrainingJob(Long trainingId) {
@@ -207,9 +282,8 @@ public class DccControlledFileMessageDeliveryService {
     }
 
     private String resolveFailureReason(RuntimeException ex) {
-        if (ex instanceof ServiceException serviceException) {
-            return StrUtil.blankToDefault(serviceException.getMessage(), "DCC message delivery failed");
-        }
-        return StrUtil.blankToDefault(ex.getMessage(), "DCC message delivery failed");
+        String reason = StrUtil.blankToDefault(ex.getMessage(), ex.getClass().getSimpleName());
+        return reason.replaceAll("(?i)(password|passwd|pwd|token|secret|authorization|api[_-]?key)\\s*[:=]\\s*[^\\s,;]+", "$1=[REDACTED]")
+                .replaceAll("(?i)Bearer\\s+[^\\s,;]+", "Bearer [REDACTED]");
     }
 }

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccPositionAssignmentDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO;
@@ -23,6 +24,7 @@ import java.util.Map;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -307,9 +309,38 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
         verify(deptApi).validateDeptList(List.of(51L,52L));verify(adminUserApi).validateUserList(List.of(99L,99L));
     }
     @Test void selectedDepartmentsMustBeNonemptyPositiveAndUniqueBeforeAnyDirectoryLookup() {
-        for(var selected:List.of(List.<Long>of(),List.of(51L,51L),List.of(0L),List.of(-1L)))
+        for(var selected:List.of(List.of(51L,51L),List.of(0L),List.of(-1L)))
             assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("REVISION"),selected),CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
         verifyNoInteractions(deptApi,adminUserApi);
+    }
+    @Test void emptySelectedDepartmentsHaveTheRequiredHintBeforeAnyDirectoryLookup() {
+        var error=org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->resolver.withSelectedSignoffDepartments(selectedRoute("REVISION"),List.of()));
+        assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(),error.getCode());
+        assertEquals("审批路线未就绪：请至少选择一个会签部门",error.getMessage());
+        verifyNoInteractions(deptApi,adminUserApi);
+    }
+    @Test void publicMatrixRemovalAndAdditionResolveOnlyTheFinalDepartmentLeadersAndKeepSourceFacts() {
+        var raw=new java.util.ArrayList<>(new DccPublicMatrixNativeDerivationTest().raw());
+        raw.add(DccCategoryApprovalRouteNodeDO.builder().id(4L).stageType("SIGNOFF").marker("●").subjectType("DEPT")
+                .candidateSourceType("DEPT").candidateSourceIds("52").approveMethod("ALL").approveRatio(100).requireAllApprovals(true).required(true).build());
+        raw.get(2).setSubjectType("USER");raw.get(2).setCandidateSourceType("USER");raw.get(2).setCandidateSourceIds("101");
+        var baseline=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccApprovalMatrixBaselineVO();
+        var source=new DccApprovalMatrixSourceService.Source(DccCategoryApprovalRouteDO.builder().id(20L).actionType("LEGACY").build(),raw,baseline,"unchanged-source");
+        var before=raw.stream().map(DccCategoryApprovalRouteNodeDO::toString).toList();
+        when(deptApi.getDeptList(List.of(52L))).thenReturn(List.of(dept(52L,"B",99L)));
+        when(deptApi.getDeptList(List.of(52L,53L))).thenReturn(List.of(dept(52L,"B",99L),dept(53L,"C",99L)));
+        var removed=resolver.resolvePublicMatrix(source,71L,"NEW",List.of(52L));
+        assertEquals(List.of(52L),removed.nodes().get(0).candidateSourceIds());
+        assertEquals(List.of(99L),removed.nodes().get(0).resolvedUserIds());
+        var added=resolver.resolvePublicMatrix(source,71L,"REVISION",List.of(53L,52L));
+        assertEquals(List.of(52L,53L),added.nodes().get(0).candidateSourceIds());
+        assertEquals(List.of(99L,99L),added.nodes().get(0).resolvedUserIds());
+        assertEquals("ALL",added.nodes().get(0).approveMethod());assertEquals(100,added.nodes().get(0).approveRatio());
+        assertEquals(Boolean.TRUE,added.nodes().get(0).requireAllApprovals());
+        assertEquals(removed.nodes().subList(1,3),added.nodes().subList(1,3));assertSame(baseline,added.sourceApprovalMatrix());
+        assertEquals(before,raw.stream().map(DccCategoryApprovalRouteNodeDO::toString).toList());
+        verify(deptApi,never()).validateDeptList(List.of(51L));verifyNoInteractions(routeMapper,routeNodeMapper,positionAssignmentMapper);
     }
     @Test void aSelectedDepartmentMissingItsLeaderIsNotFilledFromTheDefaultDepartment() {
         when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L,"质量",null)));
@@ -353,6 +384,48 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
                 .required(Boolean.TRUE)
                 .sort(sort)
                 .build();
+    }
+
+    @Test void failedRoundRestoresOriginalMatrixAndRepeatedDepartmentLeaderWithoutPublicLookup() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var file=DccControlledFileDO.builder().id(10L).tenantId(1L).categoryId(20L)
+                    .processDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION).build();
+            var route=resolver.restoreFrozenRoute(file,frozenSnapshots());
+            assertEquals(4,route.route().getVersionNo());
+            assertEquals(List.of(51L,52L),route.nodes().get(0).candidateSourceIds());
+            assertEquals(List.of(99L,99L),route.nodes().get(0).resolvedUserIds());
+            assertEquals(List.of(101L),route.nodes().get(1).resolvedUserIds());
+            verifyNoInteractions(routeMapper,routeNodeMapper,adminUserApi,deptApi);
+        } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    }
+
+    @Test void inconsistentFrozenMatrixCannotFallThroughToPublicConfiguration() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+        try {
+            var file=DccControlledFileDO.builder().id(10L).tenantId(1L).categoryId(20L)
+                    .processDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION).build();
+            var rows=frozenSnapshots();rows.get(0).setResolvedUserIds("99");
+            final var wrongUsers=rows;
+            assertServiceException(()->resolver.restoreFrozenRoute(file,wrongUsers),CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+            rows=frozenSnapshots();rows.get(1).setRouteVersionNo(5);
+            final var wrongVersion=rows;
+            assertServiceException(()->resolver.restoreFrozenRoute(file,wrongVersion),CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH);
+            verifyNoInteractions(routeMapper,routeNodeMapper,adminUserApi,deptApi);
+        } finally { cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear(); }
+    }
+
+    private List<DccControlledFileRouteSnapshotDO> frozenSnapshots() {
+        return List.of(
+                DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).routeVersionNo(4).stageNo(1).stageCode("MATRIX_REVIEW")
+                        .stageName("会签").stageOrder(1).candidateSourceType("DEPT").candidateSourceId(51L).candidateSourceIds("51,52")
+                        .resolvedUserIds("99,99").approveMethod("ALL").approveRatio(100).requireAllApprovals(true).build(),
+                DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).routeVersionNo(4).stageNo(2).stageCode("MATRIX_APPROVAL")
+                        .stageName("批准").stageOrder(2).candidateSourceType("USER").candidateSourceId(101L).candidateSourceIds("101")
+                        .resolvedUserIds("101").approveMethod("ANY").requireAllApprovals(false).build(),
+                DccControlledFileRouteSnapshotDO.builder().controlledFileId(10L).routeVersionNo(4).stageNo(3).stageCode("DOC_CONTROL_REVIEW")
+                        .stageName("文控").stageOrder(3).candidateSourceType("USER").candidateSourceId(102L).candidateSourceIds("102")
+                        .resolvedUserIds("102").approveMethod("ANY").requireAllApprovals(false).build());
     }
 
     private DeptRespDTO dept(Long id, String name, Long leaderUserId) {

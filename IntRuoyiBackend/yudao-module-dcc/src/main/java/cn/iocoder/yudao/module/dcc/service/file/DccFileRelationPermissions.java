@@ -13,4 +13,6 @@ public record DccFileRelationPermissions(
         String projectName,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long projectFolderId,
         String projectFolderName,String fileNumber,String fileName,String versionNo,String status,
-        boolean controlled,boolean pendingEffect,boolean executable,boolean hasCurrentControlledSource) {}
+        boolean controlled,boolean pendingEffect,boolean executable,boolean hasCurrentControlledSource,
+        @JsonFormat(shape=JsonFormat.Shape.STRING) Long latestControlledFileId,
+        @JsonFormat(shape=JsonFormat.Shape.STRING) Long currentActiveControlledFileId) {}

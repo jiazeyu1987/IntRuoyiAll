@@ -28,10 +28,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /** Real writer/access/reader/Gxp kernel on isolated H2; formal user/permission directories are ports. */
-@Import({DccProjectProductCreateWriteService.class,DccProjectAccessServiceImpl.class,DccProjectLeaderService.class,
+@Import({DccProjectProductCreateWriteService.class,cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,DccProjectAccessServiceImpl.class,DccProjectLeaderService.class,
  DccProjectAttributesService.class,DccFolderTemplateService.class,DccProjectProductAuditService.class,DccProjectConfigurationAuditService.class,GxpAuditServiceImpl.class,DccApprovedProjectLeaderOwnerTest.Beans.class})
 @Sql(scripts="/sql/dcc_b_gxp_audit_tables.sql",executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts="/sql/dcc_b_gxp_audit_clean.sql",executionPhase=Sql.ExecutionPhase.AFTER_TEST_METHOD)
+@org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
+@org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccApprovedProjectLeaderOwnerTest extends BaseDbUnitTest {
  @org.springframework.boot.test.context.TestConfiguration(proxyBeanMethods=false)
  static class Beans {@Bean JdbcTemplate jdbcTemplate(javax.sql.DataSource source){return new JdbcTemplate(source);}}

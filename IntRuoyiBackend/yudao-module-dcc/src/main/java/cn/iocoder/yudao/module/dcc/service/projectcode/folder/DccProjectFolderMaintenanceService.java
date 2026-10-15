@@ -41,7 +41,7 @@ public class DccProjectFolderMaintenanceService {
         var ids=jdbc.queryForList("SELECT id FROM dcc_project_folder WHERE tenant_id=? AND project_code_id=? AND id=? AND deleted=0 FOR UPDATE",
                 Long.class,tenant,projectId,folderId);
         if(ids.size()!=1)throw fail(FOLDER_INVALID);
-        var before=folders.selectById(folderId);
+        var before=folders.selectByIdForUpdate(projectId,folderId);
         if(before==null || !Boolean.TRUE.equals(before.getActive()))throw fail(FOLDER_INVALID);
         storageMappingGuard.requireFolderUnmapped(folderId);
         if(!jdbc.queryForList("SELECT id FROM dcc_project_folder WHERE tenant_id=? AND project_code_id=? AND parent_id=? AND deleted=0 FOR UPDATE",
@@ -73,7 +73,7 @@ public class DccProjectFolderMaintenanceService {
                 || (input.parentId()!=null && input.parentId()<0)) throw fail(FOLDER_INVALID);
         reasons.validateReason(input.changeReason());
         Long parent=input.parentId()==null?0L:input.parentId();
-        var rows=folders.listByProject(projectId);
+        var rows=folders.listByProjectForUpdate(projectId);
         Map<Long,DccProjectFolderDO> byId=new HashMap<>();
         for(var row:rows) {
             if(!Objects.equals(row.getTenantId(),tenant) || byId.put(row.getId(),row)!=null) throw fail(FOLDER_INVALID);

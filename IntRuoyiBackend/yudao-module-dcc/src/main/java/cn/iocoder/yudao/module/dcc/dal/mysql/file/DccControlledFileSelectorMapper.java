@@ -17,7 +17,7 @@ public interface DccControlledFileSelectorMapper {
          """ + DccLegacySourceNameSql.VALID_SCOPE + "))]]>";
     String FROM = """
          FROM dcc_controlled_file_master m
-         JOIN dcc_controlled_file f ON f.id=m.latest_controlled_file_id
+         JOIN dcc_controlled_file f ON f.id=m.current_active_controlled_file_id
               AND f.master_id=m.id AND f.tenant_id=m.tenant_id AND f.deleted=0
          JOIN dcc_project_code p ON p.id=f.dcc_project_code_id AND p.tenant_id=f.tenant_id AND p.deleted=0
          LEFT JOIN dcc_file_directory d ON d.id=f.directory_id AND d.tenant_id=f.tenant_id AND d.deleted=0
@@ -28,6 +28,7 @@ public interface DccControlledFileSelectorMapper {
               AND folder.project_code_id=placement.project_code_id AND folder.tenant_id=f.tenant_id
               AND folder.deleted=0 AND folder.active=1
          WHERE m.tenant_id=#{tenant} AND m.deleted=0
+              AND f.status='ACTIVE' AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL
          <if test="query.projectId != null">AND f.dcc_project_code_id=#{query.projectId}</if>
          <if test="query.sourceDirectoryId != null">AND f.directory_id=#{query.sourceDirectoryId}</if>
          <if test="query.projectFolderId != null">AND folder.id=#{query.projectFolderId}</if>
@@ -43,7 +44,7 @@ public interface DccControlledFileSelectorMapper {
          AND f.id IN
          <foreach collection="authorizedIds" item="id" open="(" separator="," close=")">#{id}</foreach>
          """;
-    String COLUMNS = "SELECT f.*,m.latest_controlled_file_id,p.project_name,d.name AS source_directory_name,folder.id AS project_folder_id,folder.name AS project_folder_name ";
+    String COLUMNS = "SELECT f.*,m.latest_controlled_file_id,m.current_active_controlled_file_id,p.project_name,d.name AS source_directory_name,folder.id AS project_folder_id,folder.name AS project_folder_name ";
 
     @Select("<script>" + COLUMNS + FROM + " ORDER BY m.id </script>")
     List<DccControlledFileSelectorRecord> selectCandidates(@Param("tenant") Long tenant,

@@ -11,6 +11,7 @@ public class DccFileCategoryRespVO {
     private Long parentId;
     private String code;
     private String name;
+    private String approvalSourceMode;
     private Long directoryId;
     private Boolean active;
     private Integer sort;

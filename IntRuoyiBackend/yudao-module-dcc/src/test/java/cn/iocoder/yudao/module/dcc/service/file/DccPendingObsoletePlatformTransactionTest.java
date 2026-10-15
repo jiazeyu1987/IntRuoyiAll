@@ -30,7 +30,8 @@ class DccPendingObsoletePlatformTransactionTest extends DccWorkflowObsoleteTrans
     private ControlledContentLifecycleCoreService core;
     private ControlledContentKey key;
 
-    @BeforeEach void actualPendingProjectionFixture() {
+    @BeforeEach void actualPendingProjectionFixture(org.junit.jupiter.api.TestInfo info) {
+        if(info.getTestMethod().orElseThrow().getDeclaringClass()!=DccPendingObsoletePlatformTransactionTest.class){pendingJdbc=null;return;}
         pendingJdbc=(org.springframework.jdbc.core.JdbcTemplate)ReflectionTestUtils.getField(this,"jdbc");
         manager=(PlatformTransactionManager)ReflectionTestUtils.getField(this,"transactionManager");
         actualService=(DccControlledFileObsoleteServiceImpl)ReflectionTestUtils.getField(this,"service");

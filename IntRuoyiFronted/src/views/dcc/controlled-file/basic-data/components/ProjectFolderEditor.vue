@@ -93,8 +93,11 @@ const save = async () => {
       || !form.changeReason.trim() || !/^(0|[1-9][0-9]*)$/.test(String(form.parentId))) throw new Error('请填写有效名称、上级、排序及修改原因')
     const payload: ProjectFolderSave = { id: form.id, parentId: form.parentId, name: form.name.trim(), sortOrder: form.sortOrder, changeReason: form.changeReason.trim() }
     const saved = await saveProjectFolder(id, payload)
-    if (!saved || String(saved.projectCodeId) !== String(id) || (payload.id !== undefined && String(saved.id) !== String(payload.id))) {
-      throw new Error('项目目录保存响应身份不匹配，请重新读取核对')
+    if (!saved || !/^[1-9][0-9]*$/.test(String(saved.id)) || String(saved.projectCodeId) !== String(id)
+      || (payload.id !== undefined && String(saved.id) !== String(payload.id)) || saved.active !== true
+      || String(saved.parentId) !== String(payload.parentId) || saved.name !== payload.name || saved.sortOrder !== payload.sortOrder) {
+      if (current === revision) ready.value = false
+      throw new Error('项目目录保存响应身份或内容不匹配，请重新读取核对')
     }
     emit('saved', id, saved)
     if (current === revision) { visible.value = false; ready.value = false }

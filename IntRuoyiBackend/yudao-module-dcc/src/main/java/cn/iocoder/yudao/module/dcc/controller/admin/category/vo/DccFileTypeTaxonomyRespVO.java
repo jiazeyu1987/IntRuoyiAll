@@ -12,6 +12,11 @@ public class DccFileTypeTaxonomyRespVO {
     private Integer levelNo;
     private String code;
     private String name;
+    /** Read-only category source: null for parents or a leaf with an explicit uploadBlocker. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
+    private String approvalSourceMode;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
+    private String uploadBlocker;
     private Boolean active;
     private Integer sort;
     private String remark;

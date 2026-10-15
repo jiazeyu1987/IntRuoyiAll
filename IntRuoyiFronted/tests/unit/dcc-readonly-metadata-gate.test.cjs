@@ -14,14 +14,16 @@ test('actual metadata computed and handler deny viewer/readonly trace while reta
  for(const flags of [{viewer:true},{management:false},{role:false},{projection:false}]){const h=host(flags);assert.equal(h.c.canEditMetadata.value,false);h.open();assert.equal(h.c.metadataDialogVisible.value,false)}
  const h=host();assert.equal(h.c.canEditMetadata.value,true);h.open();assert.equal(h.c.metadataDialogVisible.value,true)
 })
-test('actual viewer basic-info caller passes no edit capability even with metadata role and action facts',()=>{
- const find=n=>{if(n.type===1&&n.tag==='ControlledFileBasicInfoPanel'&&n.props.some(p=>p.type===6&&p.name==='edit-test-id'&&p.value?.content==='dcc-controlled-preview-detail-edit'))return n;for(const child of n.children||[]){const found=find(child);if(found)return found}}
- const node=find(descriptor.template.ast);assert.ok(node)
+test('actual body has no basic editor and readonly detail caller passes no edit capability',()=>{
+ const branch=mode=>descriptor.template.ast.children.find(n=>n.type===1&&n.props.some(p=>p.type===7&&p.name==='else-if'&&p.exp?.content===mode))
+ const find=n=>{if(n.type===1&&n.tag==='ControlledFileBasicInfoPanel')return n;for(const child of n.children||[]){const found=find(child);if(found)return found}}
+ assert.equal(find(branch('viewerMode')),undefined)
+ const node=find(branch('isBrowserTraceabilityPage'));assert.ok(node)
  const h=host({viewer:true})
- const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const fileDetail={id:"10"};const categoryNameMap=new Map();const directoryNameMap=new Map();const userNameMap=new Map();const canEditMetadata=__canEdit;const openDccProjectCode=()=>{};const openMetadataDialog=()=>{};</script>').descriptor,{id:'readonly-preview-edit-gate',inlineTemplate:true})
+ const compiled=compileScript(parse('<template>'+node.loc.source+'</template><script setup>const fileDetail={id:"10"};const isWorkingBrowserDetailCurrent=true;const categoryNameMap=new Map();const directoryNameMap=new Map();const userNameMap=new Map();const canEditMetadata=__canEdit;const openDccProjectCode=()=>{};const openMetadataDialog=()=>{};</script>').descriptor,{id:'readonly-preview-edit-gate',inlineTemplate:true})
  const c={exports:{},require:()=>vue,__canEdit:h.c.canEditMetadata.value};vm.runInNewContext(ts.transpileModule(compiled.content,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,c)
  const renderer=vue.createRenderer({createElement:type=>({type,children:[]}),createText:text=>({text}),createComment:()=>({}),insert:(n,p)=>p.children.push(n),remove(){},setText:(n,t)=>{n.text=t},setElementText:(n,t)=>{n.text=t},patchProp(){},parentNode:()=>null,nextSibling:()=>null})
  const app=renderer.createApp(c.exports.default);let seen
  app.component('ControlledFileBasicInfoPanel',{props:['showEdit'],setup:props=>{seen=props.showEdit;return()=>vue.h('section')}});app.mount({children:[]})
- try{assert.equal(seen,false)}finally{app.unmount()}
+ try{assert.equal(Boolean(seen),false)}finally{app.unmount()}
 })

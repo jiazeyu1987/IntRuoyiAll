@@ -76,15 +76,14 @@ const selectorSetup=async()=>{
   c.FileSelectorState=c.exports.FileSelectorState
   vm.runInContext(ts.transpileModule(`${script}\nglobalThis.component={state,navigation,scope,keyword,pageNo,projectId,folderId,load,search,directoryClick,choose,confirm,title,confirmLabel,preview,close}`,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
   await c.component.navigation.open({...props.source,projectName:'项目A',folderName:'正式目录'})
-  await c.component.navigation.selectProject({id:'2',projectName:'项目B'})
-  c.row={tenantId:'1',masterId:'20',controlledFileId:'200',projectId:'2',projectName:'项目B',folderName:'质量',fileName:'B.pdf',versionNo:'A/1',controlled:true,canPreview:false}
+  c.row={tenantId:'1',masterId:'20',controlledFileId:'200',projectId:'1',projectName:'项目A',folderName:'质量',fileName:'B.pdf',versionNo:'A/1',status:'ACTIVE',controlled:true,pendingEffect:false,executable:true,canPreview:false}
   return c
 }
-test('selector actual handlers retain selected file and source while switching to paged global search',async()=>{
+test('selector actual handlers retain selected file and source while switching to paged same-project search',async()=>{
   const c=await selectorSetup();const query=[];c.props.loadPage=async(params)=>{query.push({...params});return {total:50,list:[c.row]}}
   await c.component.directoryClick(c.component.navigation.directories[0]);c.component.choose(c.row,true)
   c.component.scope.value='global';c.component.keyword.value='项目B';c.component.pageNo.value=2;await c.component.load()
-  assert.equal(query[1].keyword,'项目B');assert.equal(query[1].projectId,undefined);assert.equal(query[1].pageNo,2)
+  assert.equal(query[1].keyword,'项目B');assert.equal(query[1].projectId,'1');assert.equal(query[1].pageNo,2)
   assert.equal(c.component.state.selected[0].masterId,'20');assert.equal(c.component.state.context.masterId,'10')
 })
 test('selector actual confirm waits for persistence and does not emit success on failed save',async()=>{

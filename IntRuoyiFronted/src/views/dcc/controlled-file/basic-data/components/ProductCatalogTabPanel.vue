@@ -41,7 +41,6 @@
         <el-button data-testid="dcc-project-product-records-open" v-hasPermi="['dcc:project-code:query']" @click="openProjectProductDialog('records')">
           项目申请与审批
         </el-button>
-        <ProjectReviewerConfiguration @changed="reviewerConfiguration = $event" />
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <div class="dcc-product-catalog-split-layout">
@@ -423,9 +422,9 @@
           <el-tree v-if="selectedFolderPreview.length" :data="selectedFolderPreview" :props="{ label: 'name' }" default-expand-all class="mb-12px" />
           <el-alert v-if="projectProductRejectReason" :title="'原申请驳回原因：' + projectProductRejectReason" type="warning" :closable="false" class="mb-12px" />
           <ProjectAttributesFields v-model="projectProductForm.defaultAttributes" />
-          <el-form-item label="本次审核人">
-            <span v-if="reviewerConfiguration?.configured">{{ reviewerConfiguration.reviewerNickname }}（{{ reviewerConfiguration.reviewerUsername }}）{{ reviewerConfiguration.enabled ? '' : '，账号不可用' }}</span>
-            <span v-else>尚未配置，请先由文控配置审核人员</span>
+          <el-form-item label="本次审核方式">
+            <span v-if="reviewerConfiguration">{{ reviewerConfiguration.roleName }}，单环节由任一当前合格角色成员审批（{{ reviewerConfiguration.candidates.length }} 名候选）</span>
+            <span v-else>项目审核员角色尚未就绪，请检查角色及成员权限</span>
           </el-form-item>
           <el-form-item v-if="!projectProductResubmitRequestId" label="新建申请原因" prop="creationReason" required>
             <el-input v-model="projectProductForm.creationReason" type="textarea" maxlength="500" placeholder="请填写本次新建项目及产品的原因" />
@@ -461,7 +460,7 @@
             <el-descriptions-item label="项目负责人">{{ row.projectLeader }}（账号 {{ row.projectLeaderUserId || '历史未记录' }}）</el-descriptions-item>
             <el-descriptions-item label="目录模板ID">{{ row.folderTemplateId || '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="驳回原因">{{ row.rejectReason || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="提交时审核人">{{ row.configuredReviewerNickname || '历史未记录' }}<span v-if="row.configuredReviewerUsername">（{{ row.configuredReviewerUsername }}）</span></el-descriptions-item>
+            <el-descriptions-item label="审批方式"><span v-if="row.reviewContract === 'ROLE_SINGLE_REVIEW_V1'">项目审核员：任一合格成员审批</span><span v-else>{{ row.configuredReviewerNickname || '历史未记录' }}<span v-if="row.configuredReviewerUsername">（{{ row.configuredReviewerUsername }}）</span>；原审核、批准两环节</span></el-descriptions-item>
             <el-descriptions-item label="新建原因">{{ row.creationReason || '历史未记录' }}</el-descriptions-item>
             <el-descriptions-item label="本次写入原因">{{ row.writeReason || '尚未写入' }}</el-descriptions-item>
             <el-descriptions-item label="申请链">{{ row.previousRequestId ? '由申请 ' + row.previousRequestId + ' 重提' : '首次申请' }}{{ row.resubmittedRequestId ? '；已重提为 ' + row.resubmittedRequestId : '' }}</el-descriptions-item>
@@ -483,8 +482,8 @@
             修改后重提
           </el-button>
           <el-button
-            v-if="canReviewProjectProduct(row, userStore.getUser.id)"
-            v-hasPermi="['dcc:project-code:update']"
+            v-if="canPerformProjectAction(row, 'review')"
+            v-hasPermi="[row.reviewContract === 'ROLE_SINGLE_REVIEW_V1' ? 'dcc:project-code:review' : 'dcc:project-code:update']"
             link
             type="primary"
             @click="handleProjectProductAction(row, 'review', true)"
@@ -492,8 +491,8 @@
             审核通过
           </el-button>
           <el-button
-            v-if="canReviewProjectProduct(row, userStore.getUser.id)"
-            v-hasPermi="['dcc:project-code:update']"
+            v-if="canPerformProjectAction(row, 'review')"
+            v-hasPermi="[row.reviewContract === 'ROLE_SINGLE_REVIEW_V1' ? 'dcc:project-code:review' : 'dcc:project-code:update']"
             link
             type="danger"
             @click="handleProjectProductAction(row, 'review', false)"
@@ -501,7 +500,7 @@
             审核驳回
           </el-button>
           <el-button
-            v-if="row.status === 'PENDING_APPROVAL'"
+            v-if="canPerformProjectAction(row, 'approve')"
             link
             type="primary"
             @click="handleProjectProductAction(row, 'approve', true)"
@@ -509,7 +508,7 @@
             批准通过
           </el-button>
           <el-button
-            v-if="row.status === 'PENDING_APPROVAL'"
+            v-if="canPerformProjectAction(row, 'approve')"
             link
             type="danger"
             @click="handleProjectProductAction(row, 'approve', false)"
@@ -517,7 +516,7 @@
             批准驳回
           </el-button>
           <el-button
-            v-if="row.status === 'WRITE_FAILED'"
+            v-if="canPerformProjectAction(row, 'retry')"
             link
             type="warning"
             @click="handleProjectProductRetry(row)"
@@ -669,11 +668,13 @@
 import type { FormRules } from 'element-plus'
 import { confirmProjectProductApplication } from './project-product-confirmation'
 import { useUserStore } from '@/store/modules/user'
+import { checkPermi } from '@/utils/permission'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { canResubmitProjectProductRequest, restoreRejectedProjectProductForm } from './project-product-resubmit'
 import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
 import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
-import ProjectReviewerConfiguration from './ProjectReviewerConfiguration.vue'
-import { canReviewProjectProduct, requireConfiguredReviewer } from './project-reviewer'
+import { requireProjectReviewerRole } from './project-product-role'
+import { canHandleProjectRequest, reviewerIdentity, projectRequestContract } from './project-reviewer'
 import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
 import { getFolderTemplates, type FolderTemplate, type FolderNode } from '@/api/dcc/controlledFile/projectAttributes'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -703,12 +704,12 @@ import {
   dccProjectProductRequestIdentity,
   getDccProjectProductRequest,
   getDccProjectProductRequests,
-  getDccProjectReviewerConfiguration,
+  getDccProjectReviewerRole,
   retryDccProjectProductRequestWrite,
   reviewDccProjectProductRequest,
   type DccProjectProductCreateReqVO,
   type DccProjectProductCreateRespVO,
-  type DccProjectReviewerConfiguration,
+  type DccProjectReviewerRole,
   type DccProjectRequestId
 } from '@/api/dcc/controlledFile/projectProductRequests'
 import { getProjectCodePage, type DccProjectCodeRespVO } from '@/api/dcc/controlledFile/projectCodes'
@@ -760,8 +761,9 @@ const projectLeaderUsers = ref<UserVO[]>([])
 const folderTemplates = ref<FolderTemplate[]>([])
 const folderLibraryRef = ref<InstanceType<typeof FolderTemplateLibraryEditor>>()
 const projectProductError = ref('')
+const projectProductActionReason = ref('')
 const projectProductResubmitRequestId = ref<DccProjectRequestId>()
-const reviewerConfiguration = ref<DccProjectReviewerConfiguration>()
+const reviewerConfiguration = ref<DccProjectReviewerRole>()
 const projectProductRejectReason = ref('')
 const reloadFolderTemplates = async () => {
   try { folderTemplates.value = await getFolderTemplates() }
@@ -1121,54 +1123,83 @@ const resetProjectProductForm = () => {
   projectProductFormRef.value?.resetFields()
 }
 
+const projectRequestAccess = () => ({
+  query: checkPermi(['dcc:project-code:query']),
+  review: checkPermi(['dcc:project-code:review']),
+  update: checkPermi(['dcc:project-code:update']),
+  admin: userStore.getUser.username === 'admin'
+})
+const projectProductActorScope = () => JSON.stringify([
+  userStore.getUser.id, userStore.getUser.username, getVisitTenantId() || getTenantId(),
+  projectRequestAccess(), checkPermi(['dcc:project-code:create'])
+])
+const canPerformProjectAction = (row: DccProjectProductCreateRespVO, action: 'review' | 'approve' | 'retry') =>
+  canHandleProjectRequest(row, userStore.getUser.id, action, projectRequestAccess())
+
 const loadProjectProductRequests = async () => {
   const sequence = ++projectProductRequestReadSequence
+  const dialog = projectProductDialogSequence
+  const actor = projectProductActorScope()
   const requestId = projectProductExactRequestId.value
+  const current = () => sequence === projectProductRequestReadSequence && dialog === projectProductDialogSequence
+    && actor === projectProductActorScope() && projectProductDialogVisible.value
+    && requestId === projectProductExactRequestId.value
   projectProductRequestsLoading.value = true
   projectProductError.value = ''
   try {
+    if (!projectRequestAccess().query) throw new Error('当前账号没有项目申请查询权限')
     const rows = requestId ? [await getDccProjectProductRequest(requestId)] : await getDccProjectProductRequests()
-    if (sequence !== projectProductRequestReadSequence || requestId !== projectProductExactRequestId.value) return
+    if (!current()) return
     projectProductRequests.value = rows
     projectProductExpandedRequestIds.value = requestId ? [requestId] : []
   } catch (cause) {
-    if (sequence !== projectProductRequestReadSequence || requestId !== projectProductExactRequestId.value) return
+    if (!current()) return
     projectProductRequests.value = []
     projectProductExpandedRequestIds.value = []
     projectProductError.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (sequence === projectProductRequestReadSequence) projectProductRequestsLoading.value = false
+    if (dialog === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
+    else if (current()) projectProductRequestsLoading.value = false
   }
 }
 
 const openProjectProductDialog = async (mode: 'create' | 'records' = 'create', requestId?: string) => {
   const sequence = ++projectProductDialogSequence
+  const actor = projectProductActorScope()
+  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope()
+    && projectProductDialogVisible.value
   projectProductRequestReadSequence++
   projectProductExactRequestId.value = requestId
   projectProductExpandedRequestIds.value = []
   projectProductRequests.value = []
+  projectProductActionReason.value = ''
   resetProjectProductForm()
   projectProductMode.value = mode
   projectProductDialogVisible.value = true
   projectProductLoading.value = true
   reviewerConfiguration.value = undefined
   try {
-    if (mode === 'records') {
-      await loadProjectProductRequests()
-      return
-    }
-    const results = await Promise.all([getSimpleUserList(), getFolderTemplates(), loadProjectProductRequests(), getDccProjectReviewerConfiguration()])
-    projectLeaderUsers.value = results[0]
-    folderTemplates.value = results[1]
-    reviewerConfiguration.value = results[3]
+    if (!projectRequestAccess().query || (mode === 'create' && !checkPermi(['dcc:project-code:create'])))
+      throw new Error('当前账号没有本次项目申请操作权限')
+    if (mode === 'records') { await loadProjectProductRequests(); return }
+    const [users, templates, role] = await Promise.all([getSimpleUserList(), getFolderTemplates(), getDccProjectReviewerRole()])
+    if (!current()) return
+    projectLeaderUsers.value = users
+    folderTemplates.value = templates
+    reviewerConfiguration.value = role
   } catch (cause) {
-    if (sequence === projectProductDialogSequence) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
-  } finally { if (sequence === projectProductDialogSequence) projectProductLoading.value = false }
+    if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
+    else if (current()) projectProductLoading.value = false
+  }
 }
 
 const closeProjectProductRequestEntry = () => {
   projectProductDialogSequence++
   projectProductRequestReadSequence++
+  projectProductDialogVisible.value = false
+  projectProductActionReason.value = ''
   projectProductExactRequestId.value = undefined
   projectProductRequests.value = []
   projectProductExpandedRequestIds.value = []
@@ -1177,29 +1208,22 @@ const closeProjectProductRequestEntry = () => {
 }
 
 const consumeProjectProductRequestRoute = async () => {
-  if (route.path !== '/mdm/product-catalog') {
-    if (projectProductExactRequestId.value) {
-      projectProductDialogVisible.value = false
-      closeProjectProductRequestEntry()
-    }
-    return
-  }
   const query = route.query
-  if (query.requestId == null && query.requestOpen == null) {
-    if (projectProductExactRequestId.value) {
-      projectProductDialogVisible.value = false
-      closeProjectProductRequestEntry()
-    }
+  if (route.path !== '/mdm/product-catalog' || (query.requestId == null && query.requestOpen == null)) {
+    if (projectProductExactRequestId.value) { projectProductDialogVisible.value = false; closeProjectProductRequestEntry() }
     return
   }
   try {
-    if (typeof query.requestId !== 'string' || query.requestOpen !== 'records'
-      || (query.from !== 'approval-center' && query.from !== 'notification')
-      || Object.keys(query).some(key => !['requestId', 'requestOpen', 'from'].includes(key))) {
-      throw new Error('项目及产品申请入口参数无效')
+    if (Object.keys(query).some(key => !['requestId', 'requestOpen', 'from'].includes(key)))
+      throw new Error('项目申请入口参数无效')
+    if (query.from === 'project-code' && query.requestId == null
+      && (query.requestOpen === 'create' || query.requestOpen === 'records')) {
+      await openProjectProductDialog(query.requestOpen)
+      return
     }
-    const requestId = dccProjectProductRequestIdentity(query.requestId)
-    await openProjectProductDialog('records', requestId)
+    if (typeof query.requestId !== 'string' || query.requestOpen !== 'records'
+      || (query.from !== 'approval-center' && query.from !== 'notification')) throw new Error('项目申请入口参数无效')
+    await openProjectProductDialog('records', dccProjectProductRequestIdentity(query.requestId))
   } catch (cause) {
     closeProjectProductRequestEntry()
     projectProductMode.value = 'records'
@@ -1209,113 +1233,142 @@ const consumeProjectProductRequestRoute = async () => {
 }
 
 const editRejectedProjectProduct = async (row: DccProjectProductCreateRespVO) => {
+  const actor = projectProductActorScope()
   try {
+    if (!checkPermi(['dcc:project-code:create']) || !projectRequestAccess().query)
+      throw new Error('当前账号没有重新提交项目申请的权限')
     const restored = restoreRejectedProjectProductForm(row, userStore.getUser.id)
     if (projectProductMode.value === 'records') {
+      const expected = projectProductDialogSequence + 1
       await openProjectProductDialog('create')
-      if (projectProductError.value) return
+      if (expected !== projectProductDialogSequence || !projectProductDialogVisible.value || projectProductError.value) return
     }
+    if (actor !== projectProductActorScope() || projectProductMode.value !== 'create') return
     Object.assign(projectProductForm, restored, { resubmissionReason: '', creationReason: '' })
     projectProductResubmitRequestId.value = row.id
     projectProductRejectReason.value = row.rejectReason || '历史未记录'
     projectProductError.value = ''
     projectProductFormRef.value?.clearValidate()
-  } catch (cause) { projectProductError.value = cause instanceof Error ? cause.message : String(cause) }
+  } catch (cause) {
+    if (actor === projectProductActorScope()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
+  }
 }
 
 const submitProjectProductRequest = async () => {
-  if (projectProductLoading.value) return
-  const valid = await projectProductFormRef.value?.validate()
-  if (!valid || projectProductLoading.value) return
+  if (projectProductLoading.value || !projectProductDialogVisible.value || projectProductMode.value !== 'create') return
+  const sequence = projectProductDialogSequence
+  const actor = projectProductActorScope()
+  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope()
+    && projectProductDialogVisible.value
   projectProductLoading.value = true
   projectProductError.value = ''
   try {
+    if (!projectRequestAccess().query || !checkPermi(['dcc:project-code:create'])) throw new Error('当前账号没有提交项目申请的权限')
+    const valid = await projectProductFormRef.value?.validate()
+    if (!valid || !current() || projectProductMode.value !== 'create') return
     validateAttributes(projectProductForm.defaultAttributes)
-    const reason = projectProductResubmitRequestId.value ? projectProductForm.resubmissionReason : projectProductForm.creationReason
-    if (!reason?.trim() || reason.length > 500) throw new Error(projectProductResubmitRequestId.value ? '请填写有效重提说明' : '请填写有效新建申请原因')
     const rejectedRequestId = projectProductResubmitRequestId.value
-    const dialogVisible = projectProductDialogVisible.value
-    const mode = projectProductMode.value
+    const reason = rejectedRequestId ? projectProductForm.resubmissionReason : projectProductForm.creationReason
+    if (!reason?.trim() || reason.length > 500) throw new Error(rejectedRequestId ? '请填写有效重提说明' : '请填写有效新建申请原因')
     const payload = JSON.parse(JSON.stringify(projectProductForm))
-    const selectedLeader = () => projectLeaderUsers.value.filter(row => String(row.id) === String(payload.projectLeaderUserId))
-    const selectedTemplate = () => folderTemplates.value.filter(row => String(row.id) === String(payload.folderTemplateId))
-    const selectedDirectoryContext = JSON.stringify([selectedLeader(), selectedTemplate()])
-    const sameContext = () => rejectedRequestId === projectProductResubmitRequestId.value &&
-      dialogVisible === projectProductDialogVisible.value && mode === projectProductMode.value &&
-      selectedDirectoryContext === JSON.stringify([selectedLeader(), selectedTemplate()]) &&
-      JSON.stringify(payload) === JSON.stringify(projectProductForm)
-    reviewerConfiguration.value = requireConfiguredReviewer(await getDccProjectReviewerConfiguration())
-    if (!sameContext()) throw new Error('申请内容或所属申请已变化，请重新确认提交')
-    const confirmedReviewer = { ...reviewerConfiguration.value }
-    await confirmProjectProductApplication(payload, projectLeaderUsers.value, folderTemplates.value,
-      confirmedReviewer, Boolean(rejectedRequestId))
-    if (!sameContext()) throw new Error('申请内容或所属申请已变化，请重新确认提交')
-    reviewerConfiguration.value = requireConfiguredReviewer(await getDccProjectReviewerConfiguration())
-    if (!sameContext()) throw new Error('申请内容或所属申请已变化，请重新确认提交')
-    if (reviewerConfiguration.value.reviewerUserId !== confirmedReviewer.reviewerUserId ||
-        reviewerConfiguration.value.reviewerUsername !== confirmedReviewer.reviewerUsername ||
-        reviewerConfiguration.value.reviewerNickname !== confirmedReviewer.reviewerNickname)
-      throw new Error('审核人配置已变化，请重新核对并确认申请')
-    if (rejectedRequestId) {
-      await resubmitDccProjectProductRequest(rejectedRequestId, payload)
-    } else {
-      await createDccProjectProductRequest(payload)
-    }
-    message.success('申请已提交，重新进入审核')
-    if (sameContext()) resetProjectProductForm()
+    const directory = () => JSON.stringify([
+      projectLeaderUsers.value.filter(row => String(row.id) === String(payload.projectLeaderUserId)),
+      folderTemplates.value.filter(row => String(row.id) === String(payload.folderTemplateId))
+    ])
+    const selectedDirectory = directory()
+    const sameInput = () => current() && projectProductMode.value === 'create'
+      && rejectedRequestId === projectProductResubmitRequestId.value && selectedDirectory === directory()
+      && JSON.stringify(payload) === JSON.stringify(projectProductForm)
+    const first = requireProjectReviewerRole(await getDccProjectReviewerRole())
+    if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
+    reviewerConfiguration.value = first
+    await confirmProjectProductApplication(payload, projectLeaderUsers.value, folderTemplates.value, first, Boolean(rejectedRequestId))
+    if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
+    const fresh = requireProjectReviewerRole(await getDccProjectReviewerRole())
+    if (!sameInput()) throw new Error('申请或账号上下文已变化，请重新确认')
+    reviewerConfiguration.value = fresh
+    if (JSON.stringify(fresh) !== JSON.stringify(first)) throw new Error('项目审核员角色或候选已变化，请重新确认')
+    const createdId = rejectedRequestId
+      ? await resubmitDccProjectProductRequest(rejectedRequestId, payload)
+      : await createDccProjectProductRequest(payload)
+    if (!sameInput()) return
+    projectProductMode.value = 'records'
+    projectProductExactRequestId.value = dccProjectProductRequestIdentity(createdId)
+    projectProductRequests.value = []
     await loadProjectProductRequests()
+    if (!current()) return
+    if (projectProductError.value) projectProductError.value = '申请已提交，但读取最新申请失败：' + projectProductError.value
+    else message.success('申请已提交给项目审核员')
   } catch (cause) {
-    if (cause !== 'cancel' && cause !== 'close')
+    if (current() && cause !== 'cancel' && cause !== 'close')
       projectProductError.value = cause instanceof Error ? cause.message : String(cause)
-  }
-  finally {
-    projectProductLoading.value = false
+  } finally {
+    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
+    else if (current()) projectProductLoading.value = false
   }
 }
 
-const handleProjectProductAction = async (
-  row: DccProjectProductCreateRespVO,
-  node: 'review' | 'approve',
-  approve: boolean
-) => {
-  if (node === 'review' && !canReviewProjectProduct(row, userStore.getUser.id)) {
-    projectProductError.value = '仅本次申请提交时指定的审核人可审核'
-    return
-  }
-  const reason = window.prompt(approve ? '请输入通过意见' : '请输入驳回原因', '')
-  if (reason === null || !reason.trim()) {
-    message.warning('审批意见不能为空')
-    return
-  }
+const handleProjectProductAction = async (row: DccProjectProductCreateRespVO, node: 'review' | 'approve', approve: boolean) => {
+  if (projectProductRequestsLoading.value || projectProductLoading.value || !projectProductDialogVisible.value) return
+  if (!canPerformProjectAction(row, node)) { projectProductError.value = '当前账号不具备本申请的办理资格'; return }
+  const sequence = projectProductDialogSequence
+  const actor = projectProductActorScope()
+  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope() && projectProductDialogVisible.value
+  const reason = window.prompt(approve ? '请输入通过意见' : '请输入驳回原因', projectProductActionReason.value)
+  if (reason === null) return
+  projectProductActionReason.value = reason.trim()
+  if (!reason.trim() || reason.length > 500) { projectProductError.value = '请填写500字以内的审批意见'; return }
+  if (!current() || !canPerformProjectAction(row, node)) return
   projectProductRequestsLoading.value = true
+  projectProductError.value = ''
   try {
-    if (node === 'review') {
-      await reviewDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-    } else {
-      await approveDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
-    }
-    message.success('审批处理成功')
+    const saved = node === 'review'
+      ? await reviewDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
+      : await approveDccProjectProductRequest(row.id, { reason: reason.trim() }, approve)
+    if (!current()) return
+    projectProductExactRequestId.value = saved.id
+    projectProductRequests.value = [saved]
     await loadProjectProductRequests()
-    await getList()
+    if (!current()) return
+    if (projectProductError.value) projectProductError.value = '决定已保存，但读取最新申请失败：' + projectProductError.value
+    else if (saved.status === 'WRITE_FAILED') projectProductError.value = saved.writeErrorMessage || '决定已保存，项目建档失败，请核对后重试'
+    else message.success('审批处理成功')
+  } catch (cause) {
+    if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    projectProductRequestsLoading.value = false
+    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
+    else if (current()) projectProductRequestsLoading.value = false
   }
 }
 
 const handleProjectProductRetry = async (row: DccProjectProductCreateRespVO) => {
-  const reason = window.prompt('请输入本次重试写入原因', '')
+  if (projectProductRequestsLoading.value || projectProductLoading.value || !projectProductDialogVisible.value) return
+  if (!canPerformProjectAction(row, 'retry')) { projectProductError.value = '当前账号不具备本申请的重试资格'; return }
+  const sequence = projectProductDialogSequence
+  const actor = projectProductActorScope()
+  const current = () => sequence === projectProductDialogSequence && actor === projectProductActorScope() && projectProductDialogVisible.value
+  const reason = window.prompt('请输入本次重试写入原因', projectProductActionReason.value)
   if (reason === null) return
+  projectProductActionReason.value = reason.trim()
   if (!reason.trim() || reason.length > 500) { projectProductError.value = '请填写有效重试写入原因'; return }
+  if (!current() || !canPerformProjectAction(row, 'retry')) return
   projectProductRequestsLoading.value = true
   projectProductError.value = ''
   try {
-    await retryDccProjectProductRequestWrite(row.id, { reason: reason.trim() })
-    message.success('已重新写入')
+    const saved = await retryDccProjectProductRequestWrite(row.id, { reason: reason.trim() })
+    if (!current()) return
+    projectProductExactRequestId.value = saved.id
+    projectProductRequests.value = [saved]
     await loadProjectProductRequests()
-    await getList()
-  } catch (cause) { projectProductError.value = cause instanceof Error ? cause.message : String(cause) }
-  finally {
-    projectProductRequestsLoading.value = false
+    if (!current()) return
+    if (projectProductError.value) projectProductError.value = '重试结果已保存，但读取最新申请失败：' + projectProductError.value
+    else if (saved.status === 'WRITE_FAILED') projectProductError.value = saved.writeErrorMessage || '项目建档仍然失败，请核对原因'
+    else message.success('已重新写入')
+  } catch (cause) {
+    if (current()) projectProductError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    if (sequence === projectProductDialogSequence && actor !== projectProductActorScope()) closeProjectProductRequestEntry()
+    else if (current()) projectProductRequestsLoading.value = false
   }
 }
 
@@ -1735,6 +1788,10 @@ watch(() => [route.path, route.query.requestId, route.query.requestOpen, route.q
   consumeProjectProductRequestRoute, { immediate: true })
 watch(projectProductDialogVisible, visible => {
   if (!visible) closeProjectProductRequestEntry()
+}, { flush: 'sync' })
+watch(projectProductActorScope, () => {
+  projectProductDialogVisible.value = false
+  closeProjectProductRequestEntry()
 }, { flush: 'sync' })
 onBeforeUnmount(closeProjectProductRequestEntry)
 

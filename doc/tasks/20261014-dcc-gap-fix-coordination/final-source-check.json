@@ -1,0 +1,30 @@
+{
+  "backend": {
+    "basis": "m15-source-before.json",
+    "recordedPaths": 11865,
+    "drift": []
+  },
+  "frontend": {
+    "basis": "b01-source-before.json",
+    "recordedPaths": 2429,
+    "drift": []
+  },
+  "finalFrontendTests": [
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-g03-custom-application.test.cjs",
+      "sha256": "4ee6abe150d862a78e66902f6605659f33a1bbad3b7483f281e424bd8542443f"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-application-ic05.test.cjs",
+      "sha256": "efd32d72dfa1586ab97cf39afed534255244d5c300b0caa2ee7d1d3e98af79b2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-application-g03-attachment-manifest.test.cjs",
+      "sha256": "7044482836227ba95af82261097ad051220aac1059f0c8c99c2a041f683c1c67"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-revision-target-confirmation.test.cjs",
+      "sha256": "c8683e544f46fb90ef348c84f9d05ddfac90d618c6f681c705853d0a4b8f8ff3"
+    }
+  ]
+}

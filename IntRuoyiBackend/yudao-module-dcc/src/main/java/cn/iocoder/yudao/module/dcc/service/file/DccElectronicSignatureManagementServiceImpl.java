@@ -673,7 +673,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         }
         if (!Set.of("v1", DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V2,
                 DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE,
-                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW)
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED)
                 .contains(signature.getEvidencePayloadVersion())) {
             throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_MIGRATION_BLOCKED,
                     "签名 " + signature.getId() + " 证据版本不支持重新封存");
@@ -941,7 +942,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         }
         if (!Set.of("v1", DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V2,
                 DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V3_IMAGE,
-                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW)
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW,
+                DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED)
                 .contains(signature.getEvidencePayloadVersion())) {
             return invalidVerification(null, null, STATUS_INVALID, verifiedAt,
                     "EVIDENCE_PAYLOAD_VERSION_UNSUPPORTED", null, bindingVerification);
@@ -1067,8 +1069,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
     }
 
     private boolean isWorkflowEvidencePayload(DccControlledFileSignatureDO signature) {
-        return signature != null && DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW
-                .equals(signature.getEvidencePayloadVersion());
+        return signature != null && (DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V4_WORKFLOW
+                .equals(signature.getEvidencePayloadVersion()) || DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED.equals(signature.getEvidencePayloadVersion()));
     }
 
     private boolean hasCompleteSignatureImageEvidence(DccControlledFileSignatureDO signature) {
@@ -1123,6 +1125,13 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         append(payload, "authenticationMethod", signature.getAuthenticationMethod());
         append(payload, "signedAt", OffsetDateTime.of(signature.getSignedAt(), ZoneOffset.ofHours(8)).toString());
         append(payload, "reasonText", StrUtil.trimToEmpty(signature.getComment()));
+        if(DccControlledFileSignatureEvidenceServiceImpl.PAYLOAD_VERSION_V5_DELAYED.equals(signature.getEvidencePayloadVersion())) {
+            if(signature.getSelectedEffectiveTime()==null || signature.getAttributeRound()==null || signature.getAttributeRound()<=0
+                    || signature.getSelectedEffectiveTime().getNano()!=0 || signature.getSelectedEffectiveTime().isBefore(signature.getSignedAt()))
+                throw new IllegalStateException("延迟确认签名缺少合法不可变时间或轮次快照");
+            append(payload,"selectedEffectiveTime",OffsetDateTime.of(signature.getSelectedEffectiveTime(),ZoneOffset.ofHours(8)).toString());
+            append(payload,"attributeRound",signature.getAttributeRound());
+        }
         payload.append('}');
         return payload.toString();
     }

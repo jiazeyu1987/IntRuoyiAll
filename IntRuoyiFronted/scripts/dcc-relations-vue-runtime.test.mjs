@@ -40,6 +40,7 @@ const loadComponent=name=>{
   const source=compileScript(descriptor,{id:name,inlineTemplate:true}).content
   const context={exports:{},Error,Map,Array,require:module=>{
     if(module==='vue')return Vue
+    if(module==='../shared/version-display')return navigationModule(fileURLToPath(new URL('../src/views/dcc/controlled-file/shared/version-display.ts',import.meta.url)))
     if(module==='./selector-project-directory')return navigationModule(fileURLToPath(new URL('../src/views/dcc/controlled-file/relations/selector-project-directory.ts',import.meta.url)))
     if(module==='./selector-state'||module==='./relation-editor-state'||module==='./arrangement-form'){
       const exports={}
@@ -102,7 +103,7 @@ const rootSelectorLoader=(transport,tenantId='1')=>{
   return query=>exports.loadDccSelectorPage(tenantId,query)
 }
 const source={contextKey:'tenant1:source10',tenantId:'1',masterId:'10',projectId:'1',folderId:'11',projectName:'项目A',folderName:'主文件',fileName:'源.pdf',fileNumber:'S-10',versionNo:'A/1'}
-const candidate={tenantId:'1',controlledFileId:'200',masterId:'20',projectId:'2',projectName:'项目B',folderName:'质量',fileName:'跨项目.pdf',fileNumber:'N-200',versionNo:'B/1',status:'ACTIVE',controlled:true,pendingEffect:true,executable:false,canPreview:false}
+const candidate={tenantId:'1',controlledFileId:'200',masterId:'20',projectId:'1',projectName:'项目A',folderName:'质量',fileName:'同项目.pdf',fileNumber:'N-200',versionNo:'B/1',status:'ACTIVE',controlled:true,pendingEffect:false,executable:true,canPreview:false}
 test('mounted badge restores source color at zero while retaining obsolete trace and reference identity',async()=>{
   const props=Vue.reactive({isReference:false,projectCount:1,sourceProjectName:'正式源项目',obsolete:false,pendingEffect:false})
   const mounted=mount('DccReferenceBadge.vue',props)
@@ -114,12 +115,12 @@ test('mounted badge restores source color at zero while retaining obsolete trace
     assert.ok(textContent(mounted.root).includes('源文件已作废'));assert.ok(!textContent(mounted.root).includes('待生效'))
   }finally{mounted.unmount()}
 })
-test('list association entry opens the same selector once after actual editable current-context read, with no write',async()=>{
+test('current relation entry stays read only even with editable flags and auto-open request',async()=>{
  let reads=0,writes=0
  const mounted=mount('DccFileRelations.vue',{mode:'current',source:{...source,controlledFileId:'100'},directories:[],canEdit:true,autoOpenEditor:true,modelValue:[],
   loadPage:async()=>{reads++;return{total:1,list:[candidate]}},loadCurrent:async()=>({sourceControlledFileId:'100',rowVersion:'1',files:[candidate]}),
   loadHistory:async()=>[],persistCurrent:async()=>{writes++},openPreview:async()=>{}})
- try{await settle();assert.equal(find(mounted.root,'el-dialog').props['model-value'],true);assert.equal(reads,1);assert.equal(writes,0);assert.ok(textContent(mounted.root).includes('已选 1 项'))}
+ try{await settle();assert.equal(find(mounted.root,'el-dialog'),undefined);assert.equal(find(mounted.root,'el-button','关联'),undefined);assert.equal(reads,0);assert.equal(writes,0);assert.ok(textContent(mounted.root).includes(candidate.fileName))}
  finally{mounted.unmount()}
 })
 test('read-only list relation entry never auto-opens editing or reads candidate pages',async()=>{
@@ -127,13 +128,13 @@ test('read-only list relation entry never auto-opens editing or reads candidate 
  const mounted=mount('DccFileRelations.vue',{mode:'current',source:{...source,controlledFileId:'100'},directories:[],canEdit:false,autoOpenEditor:true,modelValue:[],
   loadPage:async()=>{reads++;return{total:0,list:[]}},loadCurrent:async()=>({sourceControlledFileId:'100',rowVersion:'1',files:[candidate]}),
   loadHistory:async()=>[],persistCurrent:async()=>{throw Error('readonly')},openPreview:async()=>{}})
- try{await settle();assert.equal(find(mounted.root,'el-dialog').props['model-value'],false);assert.equal(reads,0)}finally{mounted.unmount()}
+ try{await settle();assert.equal(find(mounted.root,'el-dialog'),undefined);assert.equal(reads,0)}finally{mounted.unmount()}
 })
-test('mounted Vue selector keeps initial file, displays source directory and pending effect, and saves only on confirm',async()=>{
+test('mounted Vue selector keeps initial file and same-project effective choice and saves only on confirm',async()=>{
   let saved=0,result;const props={modelValue:true,source,purpose:'relations',directories:[],selected:[],loadPage:async()=>({total:1,list:[candidate]}),persist:async(rows)=>{saved++;result=rows},openPreview:async()=>{throw new Error('must not preview without content permission')}}
   const mounted=mount('DccFileSelector.vue',props)
   try{
-    await settle();assert.ok(textContent(mounted.root).includes('源.pdf'));assert.ok(textContent(mounted.root).includes('项目B'));assert.ok(textContent(mounted.root).includes('质量'));assert.ok(textContent(mounted.root).includes('待生效'))
+    await settle();assert.ok(textContent(mounted.root).includes('源.pdf'));assert.ok(textContent(mounted.root).includes('项目A'));assert.ok(textContent(mounted.root).includes('质量'));assert.ok(textContent(mounted.root).includes('受控版本'))
     const preview=find(mounted.root,'el-button','查看');assert.equal(preview.props.disabled,true)
     const select=find(mounted.root,'el-checkbox');select.props.onChange(true);await flush();assert.equal(saved,0)
     find(mounted.root,'el-button','确认关联').props.onClick();await flush();assert.equal(saved,1);assert.equal(result[0].controlledFileId,'200')
@@ -176,7 +177,9 @@ test('mounted reference batch locks sibling mutations and releases the lock afte
     assert.equal(find(mounted.root,'el-button','引用').props.disabled,true);const cancel=find(mounted.root,'el-button','取消引用');assert.equal(cancel.props.disabled,true)
     cancel.props.onClick();await settle();assert.equal(nodes(mounted.root,node=>node.type==='el-dialog'&&node.props.title==='二次确认：取消引用')[0].props.modelValue,false)
     assert.equal(cancelCalls,0);rejectCreate(new Error('正式批量引用拒绝'));await settle()
-    assert.equal(find(mounted.root,'el-button','引用').props.disabled,false);assert.equal(find(mounted.root,'el-button','取消引用').props.disabled,false)
+    assert.equal(find(mounted.root,'el-button','引用').props.disabled,false)
+    const rowCancel=nodes(mounted.root,node=>node.type==='el-button'&&textContent(node)==='取消引用'&&node.props.link==='')[0]
+    assert.equal(rowCancel.props.disabled,false)
     assert.ok(nodes(mounted.root,node=>node.type==='el-alert').some(node=>node.props.title==='正式批量引用拒绝'));assert.ok(textContent(mounted.root).includes('已选 1 项'))
   }finally{rejectCreate?.(new Error('test cleanup'));mounted.unmount()}
 })
@@ -200,22 +203,16 @@ test('mounted old reference completion cannot unlock or alter a new folder batch
     assert.equal(find(mounted.root,'el-button','引用').props.disabled,false);assert.deepEqual(events,[[2,'20']]);assert.ok(textContent(mounted.root).includes('新目录'))
   }finally{finish.forEach(resolve=>resolve([]));mounted.unmount()}
 })
-test('mounted Vue current relations use formal source version/revision/key and retain immutable historic target separately',async()=>{
-  let command;const changes=[];const initial={...source,controlledFileId:'100'}
-  const mounted=mount('DccFileRelations.vue',{mode:'current',source:initial,directories:[],canEdit:true,modelValue:[],loadPage:async()=>({total:1,list:[candidate]}),loadCurrent:async()=>({sourceControlledFileId:'100',rowVersion:'0',files:[]}),loadHistory:async()=>{throw new Error('must not read history for current')},persistCurrent:async(id,value)=>{assert.equal(id,'100');command=value;return {sourceControlledFileId:'100',rowVersion:'1',relatedMasterIds:['20']}},openPreview:async()=>{},onChanged:value=>changes.push(value)})
-  try{
-    await settle();find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-checkbox').props.onChange(true);await flush()
-    const input=nodes(mounted.root,node=>node.type==='el-input'&&node.props.placeholder==='关联操作原因（必填）')[0];input.props['onUpdate:modelValue']('本次关联变更');await flush()
-    find(mounted.root,'el-button','确认关联').props.onClick();await flush()
-    assert.equal(command.expectedVersion,'0');assert.equal(command.reason,'本次关联变更');assert.equal(command.selectedFileIds[0],'200');assert.ok(command.idempotencyKey)
-    assert.equal(changes[0].rowVersion,'1')
-  }finally{mounted.unmount()}
+test('mounted current relations display fixed target metadata without any mutation transport',async()=>{
+  let writes=0;const changes=[]
+  const mounted=mount('DccFileRelations.vue',{mode:'current',source:{...source,controlledFileId:'100'},directories:[],canEdit:true,modelValue:[],loadPage:async()=>{throw Error('readonly candidate lookup')},loadCurrent:async()=>({sourceControlledFileId:'100',rowVersion:'0',files:[{...candidate,controlledFileId:'199',versionNo:'A/1'}]}),loadHistory:async()=>{throw Error('current must not read history')},persistCurrent:async()=>{writes++},openPreview:async()=>{},onChanged:value=>changes.push(value)})
+  try{await settle();assert.equal(find(mounted.root,'el-button','关联'),undefined);assert.equal(find(mounted.root,'el-dialog'),undefined);assert.ok(textContent(mounted.root).includes('A/1'));assert.equal(writes,0);assert.equal(changes.length,0)}finally{mounted.unmount()}
 })
 test('mounted Vue upload relation selection updates application only while history never calls mutable current query',async()=>{
   const updates=[];let writes=0
   const props=Vue.reactive({mode:'upload',source:{...source,unsubmitted:true},directories:[],canEdit:true,modelValue:[],loadPage:async()=>({total:1,list:[candidate]}),loadCurrent:async()=>{throw new Error('upload has no server source')},loadHistory:async()=>{throw new Error('upload has no history')},persistCurrent:async()=>{writes++;throw new Error('must not persist a source-less upload')},openPreview:async()=>{},'onUpdate:modelValue':rows=>{updates.push(rows);props.modelValue=rows}})
   const upload=mount('DccFileRelations.vue',props)
-  try{await settle();find(upload.root,'el-button','关联').props.onClick();await settle();find(upload.root,'el-checkbox').props.onChange(true);await settle();find(upload.root,'el-button','确认关联').props.onClick();await settle();assert.equal(writes,0);assert.equal(updates[0][0].controlledFileId,'200');assert.ok(textContent(upload.root).includes('跨项目.pdf'))}
+  try{await settle();find(upload.root,'el-button','关联').props.onClick();await settle();find(upload.root,'el-checkbox').props.onChange(true);await settle();find(upload.root,'el-button','确认关联').props.onClick();await settle();assert.equal(writes,0);assert.equal(updates[0][0].controlledFileId,'200');assert.ok(textContent(upload.root).includes('同项目.pdf'))}
   finally{upload.unmount()}
 })
 test('mounted Vue frozen history only loads the immutable history and exposes no edit chooser',async()=>{
@@ -224,7 +221,7 @@ test('mounted Vue frozen history only loads the immutable history and exposes no
 })
 test('mounted current relation editor rejects a server source version different from the initial file',async()=>{
   const mounted=mount('DccFileRelations.vue',{mode:'current',source:{...source,controlledFileId:'100'},directories:[],canEdit:true,modelValue:[],loadPage:async()=>({total:0,list:[]}),loadCurrent:async()=>({sourceControlledFileId:'101',rowVersion:'2',files:[]}),loadHistory:async()=>[],persistCurrent:async()=>{throw new Error('must not save wrong source')},openPreview:async()=>{}})
-  try{await settle();assert.ok(find(mounted.root,'el-alert')?.props.title.includes('版本已变化'));assert.equal(find(mounted.root,'el-button','关联')?.props.disabled,true)}finally{mounted.unmount()}
+  try{await settle();assert.ok(find(mounted.root,'el-alert')?.props.title.includes('版本已变化'));assert.equal(find(mounted.root,'el-button','关联'),undefined)}finally{mounted.unmount()}
 })
 test('mounted relation panel content rejection is visible and does not become an unhandled error',async()=>{
   const props=Vue.reactive({mode:'history',source:{...source,controlledFileId:'100'},directories:[],canEdit:false,modelValue:[],loadPage:async()=>({total:0,list:[]}),loadCurrent:async()=>{throw new Error('history only')},loadHistory:async()=>[{...candidate,controlledFileId:'199',versionNo:'A/1',canPreview:true}],persistCurrent:async()=>{throw new Error('history read only')},openPreview:async()=>{throw new Error('正文权限已撤销')}})
@@ -309,9 +306,9 @@ if(process.argv[2])test('mounted formal Root loader failure stays visible and ol
 
 const unsubmittedSource=(contextKey='tenant1:upload-session:source.pdf')=>({contextKey,tenantId:'1',projectId:'5',folderId:'500',
   projectName:'编制项目',folderName:'逻辑文件夹',fileName:'真实选中的新上传.pdf',fileNumber:'NEW-1',versionNo:'A/1',unsubmitted:true})
-const browserRow=(id='9007199254740993',master='9007199254740995',project='6',extras={})=>({tenantId:'1',id,masterId:master,latestControlledFileId:id,
-  dccProjectCodeId:project,projectName:'跨项目B',projectFolderId:'600',projectFolderName:'项目逻辑文件夹',sourceOriginalFileName:'跨项目待生效.pdf',fileName:'模板标题',fileNumber:'RELATED-1',versionNo:'B/1',
-  status:'CONTROLLED_PENDING_EFFECTIVE',controlled:true,pendingEffect:true,executable:false,canPreview:false,...extras})
+const browserRow=(id='9007199254740993',master='9007199254740995',project='5',extras={})=>({tenantId:'1',id,masterId:master,latestControlledFileId:id,currentActiveControlledFileId:id,
+  dccProjectCodeId:project,projectName:'编制项目',projectFolderId:'500',projectFolderName:'项目逻辑文件夹',sourceOriginalFileName:'同项目已生效.pdf',fileName:'模板标题',fileNumber:'RELATED-1',versionNo:'B/1',
+  status:'ACTIVE',controlled:true,pendingEffect:false,executable:true,canPreview:false,...extras})
 const folderTree=[{key:'tenant1:project5',name:'编制项目',projectId:'5',children:[{key:'tenant1:project5:folder500',name:'逻辑文件夹',projectId:'5',folderId:'500'}]},
   {key:'tenant1:project6',name:'跨项目B',projectId:'6',children:[{key:'tenant1:project6:folder600',name:'项目逻辑文件夹',projectId:'6',folderId:'600'}]}]
 const cancelInSelector=root=>nodes(root,node=>node.type==='el-button'&&textContent(node)==='取消')[0]
@@ -325,17 +322,15 @@ test('unsubmitted file without persisted file or master IDs displays real source
     assert.ok(textContent(mounted.root).includes(initial.fileName));assert.ok(textContent(mounted.root).includes('尚未提交'))
     assert.equal(calls[0].selectorScope,'PROJECT_FOLDER');assert.equal(calls[0].projectFolderId,'500');assert.equal(calls[0].directoryId,undefined)
     assert.equal(find(mounted.root,'el-tree').props['current-node-key'],JSON.stringify(['1','5','500']))
-    assert.ok(textContent(mounted.root).includes('待生效'));assert.equal(find(mounted.root,'el-button','查看').props.disabled,true)
+    assert.ok(textContent(mounted.root).includes('受控版本'));assert.equal(find(mounted.root,'el-button','查看').props.disabled,true)
     assert.equal(find(mounted.root,'el-checkbox').props.disabled,false)
-    const tree = find(mounted.root,'el-tree')
-    const otherProject=folderTree[1];await nodes(mounted.root,node=>node.type==='el-table'&&node.props['data-testid']==='dcc-selector-project-list')[0].props.onRowClick({id:otherProject.projectId,projectName:otherProject.name});await settle();const newTree=find(mounted.root,'el-tree');newTree.props.onNodeClick(newTree.props.data[0]);await settle()
-    assert.equal(calls.at(-1).dccProjectCodeId,'6');assert.equal(calls.at(-1).projectFolderId,'600')
-    assert.equal(calls.at(-1).directoryId,undefined);assert.ok(textContent(mounted.root).includes(initial.fileName))
+    assert.equal(nodes(mounted.root,node=>node.type==='el-table'&&node.props['data-testid']==='dcc-selector-project-list').length,0)
+    assert.equal(calls.at(-1).dccProjectCodeId,'5');assert.ok(textContent(mounted.root).includes(initial.fileName))
   }finally{mounted.unmount()}
 })
-test('new upload confirms cross-project future latest Long strings to parent form only, including across pages',async()=>{
+test('new upload confirms same-project effective Long strings to parent form only, including across pages',async()=>{
   let puts=0,reads=0;const updates=[],calls=[]
-  const first=browserRow(),second=browserRow('9007199254740997','9007199254740999','7',{projectName:'跨项目C',projectFolderId:'700',projectFolderName:'C目录',sourceOriginalFileName:'第二文件.pdf'})
+  const first=browserRow(),second=browserRow('9007199254740997','9007199254740999','5',{projectName:'编制项目',projectFolderId:'501',projectFolderName:'另目录',sourceOriginalFileName:'第二文件.pdf'})
   const props=Vue.reactive({mode:'upload',source:unsubmittedSource(),directories:folderTree,canEdit:true,modelValue:[],
     loadPage:rootSelectorLoader(async request=>{calls.push(request.params);if(request.params.selectorScope==='PROJECT_FOLDER')return {total:0,list:[]};return {total:2,list:[request.params.pageNo===1?first:second]}}),
     loadCurrent:async()=>{reads++;throw new Error('新上传不能读现存关联')},loadHistory:async()=>{reads++;throw new Error('无历史审批')},persistCurrent:async()=>{puts++;throw new Error('新上传不能关系PUT')},openPreview:async()=>{throw new Error('无正文权限')},
@@ -344,8 +339,8 @@ test('new upload confirms cross-project future latest Long strings to parent for
   try{
     await settle();find(mounted.root,'el-button','关联').props.onClick();await settle()
     const tabs=find(mounted.root,'el-tabs');tabs.props['onUpdate:modelValue']('global');tabs.props.onTabChange('global');await settle()
-    assert.equal(calls.at(-1).dccProjectCodeId,undefined);assert.equal(calls.at(-1).projectFolderId,undefined)
-    assert.ok(textContent(mounted.root).includes('待生效'));assert.equal(find(mounted.root,'el-button','查看').props.disabled,true)
+    assert.equal(calls.at(-1).dccProjectCodeId,'5');assert.equal(calls.at(-1).projectFolderId,undefined)
+    assert.ok(textContent(mounted.root).includes('受控版本'));assert.equal(find(mounted.root,'el-button','查看').props.disabled,true)
     find(mounted.root,'el-checkbox').props.onChange(true);await settle()
     const pagination=find(mounted.root,'el-pagination');pagination.props['onUpdate:currentPage'](2);pagination.props.onCurrentChange(2);await settle()
     assert.ok(textContent(mounted.root).includes('已选 1 项'));find(mounted.root,'el-checkbox').props.onChange(true);await settle()
@@ -355,24 +350,24 @@ test('new upload confirms cross-project future latest Long strings to parent for
     assert.equal(JSON.stringify({relatedControlledFileIds:updates[0].map(row=>row.controlledFileId)}),'{"relatedControlledFileIds":["9007199254740993","9007199254740997"]}')
     assert.equal(puts,0);assert.equal(reads,0);assert.ok(textContent(mounted.root).includes(props.source.fileName))
     find(mounted.root,'el-button','关联').props.onClick();await settle();assert.ok(textContent(mounted.root).includes('已选 2 项'))
-    find(mounted.root,'el-tag','跨项目待生效.pdf').props.onClose();await settle();assert.equal(props.modelValue.length,2)
+    find(mounted.root,'el-tag','同项目已生效.pdf').props.onClose();await settle();assert.equal(props.modelValue.length,2)
     cancelInSelector(mounted.root).props.onClick();await settle();assert.equal(updates.length,1);assert.equal(props.modelValue.length,2)
     find(mounted.root,'el-button','关联').props.onClick();await settle();assert.ok(textContent(mounted.root).includes('已选 2 项'))
   }finally{mounted.unmount()}
 })
 test('cancel and dialog close preserve original upload collection while empty confirmation clears only the form',async()=>{
-  const initial={...candidate,controlledFileId:'9007199254740993',masterId:'9007199254740995',projectId:'6'},updates=[]
+  const initial={...candidate,controlledFileId:'9007199254740993',masterId:'9007199254740995',projectId:'5'},updates=[]
   const props=Vue.reactive({mode:'upload',source:unsubmittedSource(),directories:folderTree,canEdit:true,modelValue:[initial],
     loadPage:rootSelectorLoader(async()=>({total:0,list:[]})),loadCurrent:async()=>{throw new Error('must not read')},loadHistory:async()=>{throw new Error('must not read')},persistCurrent:async()=>{throw new Error('must not PUT')},openPreview:async()=>{},
     'onUpdate:modelValue':rows=>{updates.push(rows);props.modelValue=rows}})
   const mounted=mount('DccFileRelations.vue',props)
   try{
-    await settle();find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','跨项目.pdf').props.onClose();await settle()
+    await settle();find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','同项目.pdf').props.onClose();await settle()
     cancelInSelector(mounted.root).props.onClick();await settle();assert.equal(updates.length,0);assert.equal(props.modelValue[0].controlledFileId,initial.controlledFileId)
-    find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','跨项目.pdf').props.onClose();await settle()
+    find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','同项目.pdf').props.onClose();await settle()
     const dialog=nodes(mounted.root,node=>node.type==='el-dialog'&&String(node.props.title).includes('关联文件'))[0];dialog.props.onClose();await settle()
     assert.equal(updates.length,0);assert.equal(props.modelValue.length,1)
-    find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','跨项目.pdf').props.onClose();await settle()
+    find(mounted.root,'el-button','关联').props.onClick();await settle();find(mounted.root,'el-tag','同项目.pdf').props.onClose();await settle()
     find(mounted.root,'el-button','确认关联').props.onClick();await settle();assert.equal(updates.length,1);assert.equal(props.modelValue.length,0)
   }finally{mounted.unmount()}
 })
@@ -422,8 +417,8 @@ test('direct unsubmitted selector calls persist then confirmed with copied strin
     assert.ok(textContent(mounted.root).includes('已选 1 项'));assert.equal(draft.relatedControlledFileIds.length,0)
     find(mounted.root,'el-button','确认关联').props.onClick();await settle()
     assert.deepEqual(events,['persist','confirmed']);assert.deepEqual([...draft.relatedControlledFileIds],['9007199254740993'])
-    assert.equal(props.modelValue,false);assert.equal('masterId' in props.source,false);assert.equal(selected[0].pendingEffect,true)
-    props.selected=selected;props.modelValue=true;await settle();find(mounted.root,'el-tag','跨项目待生效.pdf').props.onClose();await settle()
+    assert.equal(props.modelValue,false);assert.equal('masterId' in props.source,false);assert.equal(selected[0].pendingEffect,false)
+    props.selected=selected;props.modelValue=true;await settle();find(mounted.root,'el-tag','同项目已生效.pdf').props.onClose();await settle()
     cancelInSelector(mounted.root).props.onClick();await settle();assert.deepEqual(events,['persist','confirmed']);assert.equal(draft.relatedControlledFileIds[0],'9007199254740993')
   }finally{mounted.unmount()}
 })

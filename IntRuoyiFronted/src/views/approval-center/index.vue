@@ -518,6 +518,14 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   CANCELLED: '已取消',
   RUNNING: '进行中',
   PENDING: '待处理',
+  PENDING_SUPERVISOR_REVIEW: '待直属主管审核',
+  PENDING_MATRIX_REVIEW: '待会签',
+  PENDING_MATRIX_APPROVAL: '待批准',
+  PENDING_DOC_CONTROL_REVIEW: '待文控审核',
+  PENDING_APPLICANT_REWORK: '待申请人返工',
+  PENDING_APPLICANT_TRAINING_RECORD: '待文控上传培训记录',
+  CONTROLLED_PENDING_EFFECTIVE: '受控（待生效）',
+  WORKING: '工作小版本',
   DRAFT: '草稿',
   NEW: '新建',
   SUBMITTED: '已提交',
@@ -741,7 +749,8 @@ const buildApprovalCenterRouteStateKey = () => {
   return JSON.stringify({
     path: route.path.replace(/\/+$/, ''),
     moduleCode: normalizeRouteQueryValue(route.query.moduleCode) || '',
-    keyword: normalizeRouteQueryValue(route.query.keyword) || ''
+    keyword: normalizeRouteQueryValue(route.query.keyword) || '',
+    taskListRevision: approvalTodoBadgeStore.taskListRevision
   })
 }
 
@@ -1264,6 +1273,7 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
   if (normalizedVersion) {
     return normalizedVersion[1]
   }
+  if (/^[A-Z]\/[1-9]\d*(?:-[1-9]\d*)?$/.test(text)) return text
   const mappedStatus = APPROVAL_STATUS_LABELS[text] || APPROVAL_NODE_LABELS[text] || APPROVAL_BUSINESS_TITLE_LABELS[text]
   if (mappedStatus) {
     return mappedStatus

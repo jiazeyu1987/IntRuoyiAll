@@ -32,6 +32,14 @@ public class DccProjectProductCreateController {
 
     @Resource
     private DccProjectProductCreateService service;
+    @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerRoleService reviewerRoles;
+
+    @GetMapping("/reviewer-role")
+    @Operation(summary="读取新项目审核员角色与当前就绪候选")
+    @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerRoleService.View> reviewerRole() {
+        return success(reviewerRoles.readiness(getLoginUserId()));
+    }
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectReviewerConfigurationService reviewerConfiguration;
 
     @GetMapping("/reviewer-config")
@@ -65,7 +73,7 @@ public class DccProjectProductCreateController {
     @PreAuthorize("@ss.hasPermission('dcc:project-code:query')")
     public CommonResult<List<DccProjectProductCreateRespVO>> getPending() {
         return success(service.getPendingRequests().stream()
-                .map(item -> BeanUtils.toBean(item, DccProjectProductCreateRespVO.class))
+                .map(this::toResp)
                 .toList());
     }
 
@@ -78,7 +86,7 @@ public class DccProjectProductCreateController {
 
     @PostMapping("/{id:\\d+}/review/approve")
     @Operation(summary = "审核通过 DCC 项目代码与产品目录联合新建申请")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:review','dcc:project-code:update')")
     public CommonResult<DccProjectProductCreateRespVO> reviewApprove(
             @PathVariable("id") Long id, @Valid @RequestBody DccProjectProductApprovalActionReqVO reqVO) {
         return success(toResp(service.review(getLoginUserId(), id, reqVO.getReason(), true)));
@@ -86,7 +94,7 @@ public class DccProjectProductCreateController {
 
     @PostMapping("/{id:\\d+}/review/reject")
     @Operation(summary = "审核驳回 DCC 项目代码与产品目录联合新建申请")
-    @PreAuthorize("@ss.hasPermission('dcc:project-code:update')")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:review','dcc:project-code:update')")
     public CommonResult<DccProjectProductCreateRespVO> reviewReject(
             @PathVariable("id") Long id, @Valid @RequestBody DccProjectProductApprovalActionReqVO reqVO) {
         return success(toResp(service.review(getLoginUserId(), id, reqVO.getReason(), false)));
@@ -117,6 +125,9 @@ public class DccProjectProductCreateController {
     }
 
     private DccProjectProductCreateRespVO toResp(Object item) {
-        return BeanUtils.toBean(item, DccProjectProductCreateRespVO.class);
+        var response=BeanUtils.toBean(item,DccProjectProductCreateRespVO.class);
+        if(item instanceof cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectProductCreateRequestDO row && reviewerRoles.isRoleContract(row))
+            response.setCanReview("PENDING_REVIEW".equals(row.getStatus()) && reviewerRoles.canReview(getLoginUserId(),row));
+        return response;
     }
 }

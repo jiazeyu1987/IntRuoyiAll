@@ -1,4 +1,5 @@
 import type { Router } from 'vue-router'
+import { readDccDistributionNotification, dccDistributionReadLocation, type DccDistributionReadIdentity } from './dccDistributionNavigation'
 import type { NotifyMessageVO } from '@/api/system/notify/message'
 import { DCC_OFFLINE_TRAINING_RECORD, readOfflineTrainingManagementLocation, type OfflineTrainingRecordLocation } from './dccOfflineTrainingRecord'
 import {
@@ -11,6 +12,10 @@ export const BPM_PROCESS_DETAIL_PATH = '/bpm/process-instance/detail'
 export const DCC_CONTROLLED_FILE_DETAIL_PATH_PATTERN = /^\/dcc\/controlled-file\/detail\/(\d+)$/
 
 export const NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS = new Set([
+  'controlledFileId',
+  'distributionId',
+  'recipientId',
+  'approvalProcessInstanceId',
   'detailUrl',
   'actionUrl',
   'notifyTargetType',
@@ -75,6 +80,7 @@ export type DccRelationRemediationNotifyTarget = {
 }
 
 export type NotifyMessageTarget =
+  | (DccDistributionReadIdentity & { type: 'dccDistribution'; label: '查看下发文件并签收' })
   | ShowroomProductNotifyTarget
   | BpmApprovalNotifyTarget
   | EdhrWorkTaskNotifyTarget
@@ -256,6 +262,10 @@ export const getNotifyMessageTargets = (message?: NotifyMessageLike | null): Not
   if (!templateParams) {
     return []
   }
+  if (message?.templateCode === 'dcc_distribution') {
+    try { return [{ ...readDccDistributionNotification(templateParams), type: 'dccDistribution', label: '查看下发文件并签收' }] }
+    catch { return [] }
+  }
   if (message?.templateCode === 'dcc_relation_remediation') {
     const target = resolveDccRelationRemediationTarget(templateParams)
     return target ? [target] : []
@@ -302,6 +312,10 @@ export const navigateToNotifyMessageTarget = async (
   } = {}
 ) => {
   await options.beforeNavigate?.()
+  if (target.type === 'dccDistribution') {
+    await router.push(dccDistributionReadLocation(target))
+    return
+  }
   if (target.type === 'showroomProduct') {
     sessionStorage.setItem(
       SHOWROOM_NOTIFY_PRODUCT_TARGET_KEY,

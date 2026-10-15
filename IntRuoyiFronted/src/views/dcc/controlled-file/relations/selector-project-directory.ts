@@ -30,11 +30,11 @@ export class SelectorProjectDirectoryState {
     this.projects = []; this.total = 0; this.projectId = undefined; this.projectName = ''; this.folderId = undefined
     this.directories = []; this.projectLoading = false; this.directoryLoading = false; this.projectError = ''; this.directoryError = ''
   }
-  async open(source: SelectorSource) {
+  async open(source: SelectorSource, discoverProjects = true) {
     this.close(); this.active = true; this.keyword = ''; this.pageNo = 1
     if (referenceIdentity(source.tenantId) !== this.tenantId) throw new Error('候选项目导航租户与来源不一致')
     const generation = this.generation, directorySequence = this.directorySequence + 1
-    await Promise.all([this.loadProjects(), this.selectProject({ id: source.projectId, projectName: source.projectName }, source.folderId)])
+    await Promise.all([discoverProjects ? this.loadProjects() : Promise.resolve(), this.selectProject({ id: source.projectId, projectName: source.projectName }, source.folderId)])
     return this.active && generation === this.generation && directorySequence === this.directorySequence
   }
   async loadProjects() {

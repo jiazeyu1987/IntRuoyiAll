@@ -80,10 +80,9 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
     private BusinessFileAccessService businessFileAccessService;
     @Resource
     private DccControlledFileWorkflowService workflowService;
-    @Resource
-    private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
     @Resource private DccControlledFileNameClaimService nameClaimService;
     @Resource private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Resource private DccPublicUploadPlacementService publicUploadPlacementService;
 
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor=Exception.class)
@@ -99,7 +98,6 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             boolean approvalPdf = DccControlledFileUploadTypePolicy.PURPOSE_APPROVAL_PDF.equals(purpose);
             String ticketSessionId = reqVO.getSessionId();
             boolean trainingRecord=DccControlledFileUploadTypePolicy.PURPOSE_TRAINING_RECORD.equals(purpose);
-            if(trainingRecord && !permissionApi.hasAnyRoles(userId,"doc_control")) throw exception(CONTROLLED_FILE_ACCESS_DENIED);
             validatePreviewCategory(userId, reqVO.getCategoryId(), !(approvalPdf || trainingRecord));
             if(trainingRecord) workflowService.validateTrainingRecordUpload(userId,reqVO.getControlledFileId(),reqVO.getCategoryId(),ticketSessionId);
             if (DccControlledFileUploadTypePolicy.PURPOSE_SOURCE.equals(purpose)
@@ -114,7 +112,13 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
                             reqVO.getFileTypeTaxonomyId(), reqVO.getFileName());
                     case "CHECKIN" -> {
                         if (DccControlledFileUploadTypePolicy.PURPOSE_ATTACHMENT.equals(purpose)) {
-                            throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                            if (TenantContextHolder.isIgnore() || reqVO.getControlledFileId() == null
+                                    || reqVO.getControlledFileId() <= 0) {
+                                throw exception(PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+                            }
+                            // The existing workflow guard already verifies the exact tenant/category,
+                            // project authority and checkout actor. Retain the formal folder guard too.
+                            publicUploadPlacementService.lockSourceLocation(userId, reqVO.getControlledFileId());
                         }
                         yield DccSourceUploadSession.checkinPrefix(reqVO.getControlledFileId());
                     }

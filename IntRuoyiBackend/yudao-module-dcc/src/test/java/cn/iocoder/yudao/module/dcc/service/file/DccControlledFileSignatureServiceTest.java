@@ -204,6 +204,40 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void distributionAckAcceptsOptionalCommentWithoutInventedOpinion() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L,LocalDateTime.now().withNano(0)));
+        for(String comment:new String[]{null,"","   "}) {
+            var result=signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,
+                    "DISTRIBUTION:301:501","DISTRIBUTION","DISTRIBUTION_ACK","secret",comment);
+            assertEquals("DISTRIBUTION_ACK",result.getMeaningCode());
+        }
+        var command=ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        org.mockito.Mockito.verify(electronicSignatureService,org.mockito.Mockito.times(3)).sign(command.capture());
+        assertTrue(command.getAllValues().stream().allMatch(value->"".equals(value.reason())));
+        var projection=ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        org.mockito.Mockito.verify(signatureMapper,org.mockito.Mockito.times(3)).insert(projection.capture());
+        assertTrue(projection.getAllValues().stream().allMatch(value->"".equals(value.getComment())));
+        assertTrue(projection.getAllValues().stream().allMatch(value->"分发确认".equals(value.getMeaningLabel())));
+    }
+
+    @Test
+    void approveRejectAssignEmptyCommentsStillFailWithoutEvidenceWrite() {
+        for(String action:List.of("APPROVE","REJECT","ASSIGN"))
+            for(String comment:new String[]{null,"","   "})
+                assertServiceException(()->signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,
+                        "task-required","MATRIX_REVIEW",action,"secret",comment),CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        verify(signatureEvidenceService,never()).createEvidence(any());
+        verify(electronicSignatureService,never()).sign(any());
+        verify(signatureMapper,never()).insert(any(DccControlledFileSignatureDO.class));
+    }
+
+    @Test
     void verifyPasswordAndCreateSignature_normalizesSignedAtToDatabaseSecondPrecision() {
         TenantContextHolder.setTenantId(1L);
         when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L, "审核员"));

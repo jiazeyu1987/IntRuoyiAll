@@ -47,6 +47,18 @@ public class BpmModelController {
     @Resource
     private BpmModelService modelService;
     @Resource
+    private cn.iocoder.yudao.module.bpm.service.definition.BpmUnmanagedModelClaimService unmanagedModelClaims;
+
+    public record ModelManagerClaim(@jakarta.validation.constraints.NotBlank String id,
+                                    @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=500) String reason) { }
+    @PostMapping("/claim-manager")
+    @Operation(summary="认领同租户无管理人的流程模型")
+    @PreAuthorize("@ss.hasPermission('bpm:model:update')")
+    public CommonResult<Boolean> claimManager(@Valid @RequestBody ModelManagerClaim request) {
+        unmanagedModelClaims.claim(getLoginUserId(),request.id(),request.reason());
+        return success(true);
+    }
+    @Resource
     private BpmFormService formService;
     @Resource
     private BpmCategoryService categoryService;

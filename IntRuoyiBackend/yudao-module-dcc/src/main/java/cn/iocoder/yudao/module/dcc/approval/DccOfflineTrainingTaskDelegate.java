@@ -29,7 +29,7 @@ public class DccOfflineTrainingTaskDelegate {
                     .sourceTaskType(DccOfflineTrainingRecordService.SOURCE_TYPE).sourceTaskId(source)
                     .businessKey(file.getId().toString()).businessTitle(file.getTitle()).businessCode(file.getFileNumber())
                     .businessStatus(file.getStatus()).businessDeleted(false).processInstanceId(file.getProcessInstanceId())
-                    .currentNodeCode("TRAINING").currentNodeName("文控上传线下培训记录")
+                    .currentNodeCode("TRAINING").currentNodeName(trainingDutyName(context.getLoginUserId(),file))
                     .businessContextTags(List.of("版本：" + file.getVersionNo()))
                     .initiatorUserId(file.getRequesterId()).assigneeUserId(context.getLoginUserId())
                     .initiatedAt(file.getSubmittedTime()).taskCreatedAt(file.getApprovedTime())
@@ -37,6 +37,15 @@ public class DccOfflineTrainingTaskDelegate {
                     .detailRoute("/dcc/controlled-file/detail/" + file.getId())
                     .detailQuery(DccOfflineTrainingRecordService.detailQuery(file.getProcessInstanceId())).build();
         }).filter(row -> matches(row, context.getKeyword())).toList();
+    }
+
+    private String trainingDutyName(Long actor, cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file) {
+        boolean uploads=training.canUpload(actor,file);
+        boolean organizes=training.canOrganizeTraining(actor,file);
+        if (uploads && organizes) return "组织培训并上传本次记录";
+        if (uploads) return "上传本次线下培训记录";
+        if (organizes) return "组织本轮文件培训";
+        throw new IllegalStateException("培训待办缺少本次上传或组织职责");
     }
 
     private boolean matches(ApprovalTaskSummary row, String keyword) {

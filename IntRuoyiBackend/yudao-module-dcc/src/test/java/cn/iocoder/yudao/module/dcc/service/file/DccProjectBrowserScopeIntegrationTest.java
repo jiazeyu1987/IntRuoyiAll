@@ -35,6 +35,7 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
     @Resource DccControlledFileSelectorMapper selectors;
     @Resource DccProjectBrowserMapper browser;
     @Resource DccControlledFileMapper files;
+    @Resource DccControlledFileMasterMapper masters;
     JdbcTemplate jdbc;MockMvc mvc;com.fasterxml.jackson.databind.ObjectMapper json;
     @BeforeEach void fixture() throws Exception {
         jdbc=new JdbcTemplate(dataSource);try(var connection=dataSource.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
@@ -54,12 +55,16 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         for(var field:DccControlledFileQueryServiceImpl.class.getDeclaredFields())if(!Modifier.isStatic(field.getModifiers()) && field.getAnnotation(Resource.class)!=null)
             ReflectionTestUtils.setField(query,field.getName(),mock(field.getType()));
         ReflectionTestUtils.setField(query,"selectorMapper",selectors);ReflectionTestUtils.setField(query,"projectBrowserMapper",browser);ReflectionTestUtils.setField(query,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy());
+        ReflectionTestUtils.setField(query,"controlledFileMasterMapper",masters);
         var permissions=mock(DccDirectoryAccessPermissionService.class);
         when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(5L));
         when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
         ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(eq(99L),anyLong())).thenReturn(true);
         ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
+        var projects=mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);
+        when(projects.listReadableProjectIds(99L)).thenReturn(List.of(5L,6L));
+        ReflectionTestUtils.setField(query,"projectAccessService",projects);
         var storage=mock(FileMapper.class);when(storage.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("controlled.pdf").type("application/pdf").build());
         ReflectionTestUtils.setField(query,"fileMapper",storage);
         var settings=mock(DccControlledFileBrowserSettingsService.class);when(settings.getBlacklistedExtensionPatterns()).thenReturn(List.of());
@@ -86,21 +91,26 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
     }
     @Test void tenantAndNamePermissionApplyBeforeCount() throws Exception {
         jdbc.update("UPDATE dcc_controlled_file SET tenant_id=2 WHERE id=22");
-        assertEquals(5,browser.selectCandidates(1L,new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO()).size());
+        var all=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO();all.setLatestVersionOnly(false);
+        assertEquals(5,browser.selectCandidates(1L,all).size());
         var page=page("GLOBAL",null,null,1,20);assertEquals(4,page.get("total").intValue());
         assertFalse(page.get("list").findValuesAsText("id").contains("22"));
         assertFalse(page.get("list").findValuesAsText("id").contains("25"));
     }
     @Test void explicitStatusAndLatestFiltersAreSeparateFromSelectorScope() throws Exception {
+        jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(3,1,5,500,20,5)");
         var working=mvc.perform(get("/dcc/controlled-files/browser-page").param("browserScope","GLOBAL").param("status","WORKING")).andReturn();
         var body=json.readTree(working.getResponse().getContentAsString(StandardCharsets.UTF_8));assertEquals(0,body.get("code").intValue());
         assertEquals(1,body.get("data").get("total").intValue());assertEquals("24",body.get("data").get("list").get(0).get("id").textValue());
         var latest=mvc.perform(get("/dcc/controlled-files/browser-page").param("browserScope","PROJECT_FOLDER").param("dccProjectCodeId","5").param("projectFolderId","500").param("latestVersionOnly","true")).andReturn();
-        var projected=json.readTree(latest.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");assertEquals(1,projected.get("total").intValue());assertEquals("21",projected.get("list").get(0).get("id").textValue());
+        var projected=json.readTree(latest.getResponse().getContentAsString(StandardCharsets.UTF_8)).get("data");assertEquals(1,projected.get("total").intValue());assertEquals("20",projected.get("list").get(0).get("id").textValue());
+        assertEquals("21",projected.get("list").get(0).get("latestControlledFileId").textValue());
+        assertEquals("20",projected.get("list").get(0).get("currentActiveControlledFileId").textValue());
         assertThrows(jakarta.servlet.ServletException.class,()->mvc.perform(get("/dcc/controlled-files/browser-page").param("browserScope","GLOBAL").param("selectorScope","GLOBAL")));
     }
-    @Test void latestPointerToObsoleteNeverReturnsTheHistoricalRowOrFallsBackToExecution() throws Exception {
+    @Test void currentPointerToObsoleteNeverReturnsHistoricalRowOrFallsBackToEarlierActive() throws Exception {
         jdbc.update("UPDATE dcc_controlled_file SET status='OBSOLETE',obsoleted_time=CURRENT_TIMESTAMP WHERE id=21");
+        jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=21 WHERE id=10");
         var permissions=mock(DccDirectoryAccessPermissionService.class);when(permissions.hasDirectoryManagementPermission(99L)).thenReturn(true);
         // Only grant the existing explicit obsolete visibility permission to this fixture actor.
         // Name-only Query's real obsolete rule is exercised via formal category permission; no historical default injection.
@@ -114,16 +124,16 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         var history=filteredPage("PROJECT_FOLDER","5","500",false,"OBSOLETE",1,20);
         assertEquals(1,history.get("total").intValue());assertEquals("21",history.get("list").get(0).get("id").textValue());
     }
-    @Test void candidateCountAndPagedRowsExcludeNoncontrolledLatestPointersUsingTheSameSql() throws Exception {
-        jdbc.update("UPDATE dcc_controlled_file SET controlled_time=NULL WHERE id=21");
+    @Test void candidateCountAndPagedRowsExcludeNoncontrolledCurrentPointersUsingTheSameSql() throws Exception {
+        jdbc.update("UPDATE dcc_controlled_file SET controlled_time=NULL WHERE id=20");
         var req=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO();req.setLatestVersionOnly(true);
         var candidates=browser.selectCandidates(1L,req);assertFalse(candidates.stream().anyMatch(f->f.getId()==21L));
-        var ids=List.of(21L,22L,25L,9007199254740993L);
-        assertEquals(3,browser.countAuthorized(1L,req,ids));assertEquals(2,browser.selectAuthorizedPage(1L,req,ids,2,0).size());
-        assertEquals(1,browser.selectAuthorizedPage(1L,req,ids,2,2).size());
+        var ids=List.of(20L,21L,22L,25L,9007199254740993L);
+        assertEquals(2,browser.countAuthorized(1L,req,ids));assertEquals(2,browser.selectAuthorizedPage(1L,req,ids,2,0).size());
+        assertEquals(0,browser.selectAuthorizedPage(1L,req,ids,2,2).size());
         var first=filteredPage("GLOBAL",null,null,true,null,1,1);var second=filteredPage("GLOBAL",null,null,true,null,2,1);
-        assertEquals(2,first.get("total").intValue());assertEquals(2,second.get("total").intValue());
-        assertEquals("22",first.get("list").get(0).get("id").textValue());assertEquals("9007199254740993",second.get("list").get(0).get("id").textValue());
+        assertEquals(1,first.get("total").intValue());assertEquals(1,second.get("total").intValue());
+        assertEquals("9007199254740993",first.get("list").get(0).get("id").textValue());assertTrue(second.get("list").isEmpty());
         assertEquals(0,filteredPage("PROJECT_FOLDER","5","500",true,null,1,10).get("total").intValue());
         assertEquals(1,filteredPage("PROJECT_FOLDER","5","500",false,null,1,10).get("total").intValue());
     }
@@ -133,7 +143,7 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         var result=mvc.perform(request).andReturn();assertEquals(200,result.getResponse().getStatus());var body=json.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8));assertEquals(0,body.get("code").intValue());return body.get("data");
     }
     private com.fasterxml.jackson.databind.JsonNode page(String scope,String project,String folder,int number,int size) throws Exception {
-        var request=get("/dcc/controlled-files/browser-page").param("browserScope",scope).param("pageNo",String.valueOf(number)).param("pageSize",String.valueOf(size));
+        var request=get("/dcc/controlled-files/browser-page").param("browserScope",scope).param("latestVersionOnly","false").param("pageNo",String.valueOf(number)).param("pageSize",String.valueOf(size));
         if(project!=null)request.param("dccProjectCodeId",project);if(folder!=null)request.param("projectFolderId",folder);
         var result=mvc.perform(request).andReturn();assertEquals(200,result.getResponse().getStatus());
         var body=json.readTree(result.getResponse().getContentAsString(StandardCharsets.UTF_8));assertEquals(0,body.get("code").intValue());return body.get("data");

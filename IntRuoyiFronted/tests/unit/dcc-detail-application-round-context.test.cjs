@@ -24,7 +24,11 @@ function mount(props, { rounds = async () => clone(rows), evidence = async (id, 
     if (id === 'vue') return vue
     if (id === '@/api/dcc/controlledFile/applicationRead') return { getControlledFileApplicationRounds: async id => { calls.push(['rounds', String(id)]); return rounds(id) }, getControlledFileApplicationEvidence: async (...args) => { calls.push(['evidence', ...args]); return evidence(...args) } }
     if (id === './presentation') return { formatControlledFileDateTime: value => value }
+    if (id === '../shared/signature-evidence') return { getDccSignatureTaskActionLabel: value => value }
     if (id === './application-round-context') return moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
+    if (id === './application-node-records') return moduleFrom(read('src/views/dcc/controlled-file/detail/application-node-records.ts'))
+    if (id === './relation-contract') return moduleFrom(read('src/views/dcc/controlled-file/detail/relation-contract.ts'))
+    if (id === '../shared/version-display') return moduleFrom(read('src/views/dcc/controlled-file/shared/version-display.ts'))
     if (id.endsWith('.vue')) return {}
     throw Error(id)
   }).default
@@ -104,7 +108,7 @@ function approvalReader(transport) {
     detailLoadSequence: 1, controlledFileId: vue.ref('10'), fileDetail: vue.ref({ id: '10', processInstanceId: 'native-U' }),
     applicationApprovalRead: vue.ref({ contextKey: 'previous', processInstanceId: 'native-U', taskId: '' }),
     approvalProgressScope: vue.ref(), approvalProgressError: vue.ref(''), stageProgressList: vue.ref([]),
-    isBrowserTraceabilityPage: vue.ref(false), approvalLoading: vue.ref(false), approvalTodoTask: vue.ref(null), approvalTaskList: vue.ref([]),
+    viewerMode: vue.ref(false), isBrowserTraceabilityPage: vue.ref(false), canUploadApplicantTrainingRecord: vue.ref(false), approvalLoading: vue.ref(false), approvalTodoTask: vue.ref(null), approvalTaskList: vue.ref([]),
     checkPermi: () => false, TaskApi: { getTaskListByProcessInstanceId: transport }, ProcessInstanceApi: { getApprovalDetail: async () => { throw Error('generic BPM read should be permission-gated') } },
     findCurrentUserTodoTask: rows => rows[0], syncStageProgress() {}, validateApplicationApprovalRead: helper.validateApplicationApprovalRead,
     validateApplicationRoundMappings: helper.validateApplicationRoundMappings, resolveApprovalProgressScope: nativeProgress.resolveApprovalProgressScope,

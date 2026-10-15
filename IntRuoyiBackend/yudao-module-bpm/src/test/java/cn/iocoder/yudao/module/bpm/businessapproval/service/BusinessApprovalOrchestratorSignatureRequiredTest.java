@@ -84,6 +84,10 @@ class BusinessApprovalOrchestratorSignatureRequiredTest {
     }
 
     private static final class RecordingAdminUserApi implements AdminUserApi {
+        @Override
+        public cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO getDirectSupervisorRelation(Long userId) {
+            throw new UnsupportedOperationException("Direct supervisor lookup is outside this signature-required fixture");
+        }
 
         private Long validatedUserId;
         private String validatedPassword;

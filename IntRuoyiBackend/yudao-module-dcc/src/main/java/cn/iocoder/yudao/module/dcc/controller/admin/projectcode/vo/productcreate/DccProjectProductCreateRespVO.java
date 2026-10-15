@@ -30,6 +30,11 @@ public class DccProjectProductCreateRespVO {
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long writeOperatorUserId;
     private String status;
+    private String reviewContract;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long reviewerRoleId;
+    private String reviewerRoleCode;
+    private Boolean canReview;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long applicantUserId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)

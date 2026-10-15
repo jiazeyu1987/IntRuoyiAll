@@ -102,6 +102,8 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     void ic1FutureControlledRevisionPreservesExecutingOldVersion() throws Exception {
         DccControlledFileDO file = buildRevisionApprovalCandidate(9914L, 7714L, 18L, 114L);
         file.setVersionNo("B/1");
+        // Three-stage legacy fixture preserves its historically absent explicit-mode field.
+        file.setEffectiveMode(null);
         file.setStatus("PENDING_DOC_CONTROL_REVIEW");
         file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.REVISION);
         file.setEffectiveDate(java.time.LocalDate.now().plusDays(10));
@@ -212,8 +214,22 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUp() {
         TenantContextHolder.setTenantId(1L);
+        var boundPort=org.mockito.Mockito.mock(DccBoundWorkflowContractResolver.class);
+        lenient().when(boundPort.resolve(any())).thenAnswer(call->{var current=call.getArgument(0,DccControlledFileDO.class);
+            return new DccBoundWorkflowContractResolver.BoundExecution(1L,current.getId(),current.getProcessInstanceId(),null,
+                    current.getProcessDefinitionKey(),"exact-old-id","exact-old-deployment","a".repeat(64),"LEGACY_V4_ACTION",
+                    DccWorkflowDefinitionCatalog.FlowRule.LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL,true);});
+        ReflectionTestUtils.setField(finalizationService,"boundContracts",boundPort);
         var lifecycle = new DccControlledFileLifecycleService();
+        var effectivePort=org.mockito.Mockito.mock(DccLifecycleEffectiveContractResolver.class);
+        lenient().when(effectivePort.resolve(any())).thenAnswer(call->{var current=call.getArgument(0,DccControlledFileDO.class);
+            return new DccLifecycleEffectiveContract(1L,current.getId(),current.getProcessInstanceId(),"exact-old-id","exact-old-deployment",
+                    current.getProcessDefinitionKey(),"a".repeat(64),DccLifecycleEffectiveContract.Rule.LEGACY_V4_PRESET_DATE);});
+        ReflectionTestUtils.setField(lifecycle,"effectiveContractResolver",effectivePort);
         ReflectionTestUtils.setField(lifecycle,"platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class));
+        var batchPort=org.mockito.Mockito.mock(DccDistributionBatchService.class);
+        lenient().when(batchPort.acceptActivatedEvent(any())).thenReturn(900L);
+        ReflectionTestUtils.setField(lifecycle,"distributionBatchService",batchPort);
         ReflectionTestUtils.setField(lifecycle,"fileStateAudit",org.mockito.Mockito.mock(DccWorkflowFileStateAudit.class));
         ReflectionTestUtils.setField(lifecycle,"obsoleteRetentionService",org.mockito.Mockito.mock(DccObsoleteRetentionService.class));
         ReflectionTestUtils.setField(lifecycle,"controlledFileMapper",controlledFileMapper);
@@ -245,7 +261,9 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         lenient().doAnswer(invocation -> {
             Consumer<TransactionStatus> action = invocation.getArgument(0);
             org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+            org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
             try { action.accept(null); } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
                 org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);
             }
             return null;
@@ -464,6 +482,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     private org.flowable.task.api.history.HistoricTaskInstance completedNativeTask(DccControlledFileDO file,String id,String stage) {
         var task=org.mockito.Mockito.mock(org.flowable.task.api.history.HistoricTaskInstance.class);
         lenient().when(task.getId()).thenReturn(id);lenient().when(task.getProcessInstanceId()).thenReturn(file.getProcessInstanceId());
+        lenient().when(task.getProcessDefinitionId()).thenReturn("exact-old-id");
         lenient().when(task.getTenantId()).thenReturn("1");lenient().when(task.getTaskDefinitionKey()).thenReturn(stage);
         lenient().when(task.getAssignee()).thenReturn("99");lenient().when(task.getEndTime()).thenReturn(new java.util.Date());
         lenient().when(task.getTaskLocalVariables()).thenReturn(Map.of(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_STATUS,2));
@@ -646,6 +665,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     void handleProcessInstanceStatusChanged_uploadDocControlReviewActivatesControlledFile() throws Exception {
         DccControlledFileDO file = buildRevisionApprovalCandidate(914L, 714L, 18L, 114L);
         file.setVersionNo("A/1");
+        file.setEffectiveMode(null);
         file.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
         file.setStatus(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus());
         file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
@@ -1236,6 +1256,12 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
 
         finalizationService.retryStamp(99L, 902L);
 
+        var lockedRetry = org.mockito.Mockito.inOrder(controlledFileMasterMapper,controlledFileMapper,platformAdapter);
+        lockedRetry.verify(controlledFileMasterMapper).selectByIdForUpdate(702L);
+        lockedRetry.verify(controlledFileMapper).selectByIdAndTenantForUpdate(1L,902L);
+        lockedRetry.verify(platformAdapter).nextFinalizationRetryEventKey(file);
+        lockedRetry.verify(platformAdapter).recordFinalizationRetried(file,99L,"dcc-finalization-retry:902:attempt-1");
+
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).updateById(fileCaptor.capture());
         assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), fileCaptor.getValue().getStatus());
@@ -1429,7 +1455,7 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper,never()).transitionStatus(any(),any(),any(),any(),any());
         verify(controlledFileMapper).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDO>argThat(row ->
                 row.getId().equals(908L) && row.getDistributedTime()!=null && row.getStatus()==null && row.getEffectiveDate()==null));
-        assertEquals("CONTROLLED_PENDING_EFFECTIVE",file.getStatus());
+        assertEquals("ACTIVE",file.getStatus());
     }
 
     @Test
@@ -1459,9 +1485,13 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     }
 
     private DccControlledFileDO distributionReady(long id) {
+        // W06 tests the command transaction; W07 owns exact notification payload/delivery verification.
+        ReflectionTestUtils.setField(finalizationService,"messageDeliveryService",
+                org.mockito.Mockito.mock(DccControlledFileMessageDeliveryService.class));
         var file=buildFinalizingFile(id,700L,17L,108L);
-        file.setStatus("CONTROLLED_PENDING_EFFECTIVE"); file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
-        file.setControlledTime(LocalDateTime.now()); file.setEffectiveDate(java.time.LocalDate.now().plusDays(3));
+        file.setStatus("ACTIVE"); file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setControlledTime(LocalDateTime.now()); file.setActivatedTime(LocalDateTime.now());
+        file.setEffectiveDate(java.time.LocalDate.now());
         file.setDistributionPayloadHash("a".repeat(64));
         when(controlledFileMapper.selectById(id)).thenReturn(file);
         when(permissionSupport.hasCategoryPermission(17L,99L,DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
@@ -1477,9 +1507,10 @@ class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void nativeDistributionCannotUseCategoryDefaultsWithoutAConfirmedPerFilePayload() {
         var file=buildFinalizingFile(930L,700L,17L,108L);
-        file.setStatus("CONTROLLED_PENDING_EFFECTIVE");
+        file.setStatus("ACTIVE");
         file.setProcessDefinitionKey(DccControlledFileProcessDefinitionKeys.UPLOAD);
         file.setControlledTime(LocalDateTime.now());
+        file.setActivatedTime(LocalDateTime.now());
         when(controlledFileMapper.selectById(930L)).thenReturn(file);
         when(permissionSupport.hasCategoryPermission(17L,99L,DccFileCategoryPermissionActionEnum.DISTRIBUTE)).thenReturn(true);
         org.mockito.Mockito.lenient().when(categoryMapper.selectById(17L)).thenReturn(category(17L,true,false));

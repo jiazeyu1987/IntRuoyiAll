@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import jakarta.annotation.Resource;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
 import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_REVIEW_DATE_INVALID;
 
 class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
     @jakarta.annotation.Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccSourceNameReservationMapper g25Reservations;
@@ -49,6 +51,18 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
         // Ledger persistence/failure is covered by the real CC2 composition; this suite isolates lifecycle rules.
         ReflectionTestUtils.setField(service, "fileStateAudit", org.mockito.Mockito.mock(DccWorkflowFileStateAudit.class));
         ReflectionTestUtils.setField(service,"platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class));
+        var batchPort=org.mockito.Mockito.mock(DccDistributionBatchService.class);
+        org.mockito.Mockito.when(batchPort.acceptActivatedEvent(org.mockito.ArgumentMatchers.any())).thenReturn(900L);
+        org.mockito.Mockito.when(batchPort.processAutomaticBatch(900L))
+                .thenReturn(new DccDistributionBatchResult(900L,"FAILED","ROSTER_POLICY_UNDECIDED","isolated external batch port"));
+        ReflectionTestUtils.setField(service,"distributionBatchService",batchPort);
+        // This suite tests locked lifecycle mutations; exact Bound identity is an explicit externally verified port.
+        var contractPort=org.mockito.Mockito.mock(DccLifecycleEffectiveContractResolver.class);
+        org.mockito.Mockito.when(contractPort.resolve(org.mockito.ArgumentMatchers.any())).thenAnswer(call->{
+            var current=call.getArgument(0,cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.class);
+            return new DccLifecycleEffectiveContract(current.getTenantId(),current.getId(),current.getProcessInstanceId(),"exact-public-id",
+                    "exact-deployment",current.getProcessDefinitionKey(),"a".repeat(64),DccLifecycleEffectiveContract.Rule.NEW_EXPLICIT_MODE);});
+        ReflectionTestUtils.setField(service,"effectiveContractResolver",contractPort);
         var identities=new DccControlledFileNameClaimService();org.springframework.test.util.ReflectionTestUtils.setField(identities,"reservationMapper",g25Reservations);
         ReflectionTestUtils.setField(identities,"masterMapper",masterMapper);
         ReflectionTestUtils.setField(identities,"claimMapper",claimMapper);
@@ -150,20 +164,22 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
     }
 
     @Test
-    void remindersAreDateOrderedAndExcludeDistributedVersions() {
+    void pendingDistributionExcludesFutureAndAlreadyDistributedVersions() {
         seed(LocalDate.now().plusDays(2));
         control();
-        assertEquals(java.util.List.of(1L, 2L), service.pendingDistribution(true).stream().map(row -> row.getId()).toList());
+        assertEquals(java.util.List.of(1L), service.pendingDistribution(false).stream().map(row -> row.getId()).toList());
         jdbc.update("UPDATE dcc_controlled_file SET distributed_time=CURRENT_TIMESTAMP WHERE id=1");
-        assertEquals(java.util.List.of(2L), service.pendingDistribution(true).stream().map(row -> row.getId()).toList());
+        assertEquals(java.util.List.of(), service.pendingDistribution(false).stream().map(row -> row.getId()).toList());
         dates.setReminderLeadDays(null);
-        assertThrows(IllegalStateException.class, () -> service.pendingDistribution(true));
+        assertEquals("文控提醒策略尚未批准",assertThrows(IllegalStateException.class, () -> service.pendingDistribution(true)).getMessage());
     }
 
     @Test
-    void wrongTenantMissingConfigurationAndPastDateNeverSwitchVersions() {
+    void newSubmissionPastDateWrongTenantAndMissingConfigurationNeverSwitchVersions() {
         seed(LocalDate.now().minusDays(1));
-        assertThrows(IllegalArgumentException.class, this::control);
+        var invalidDate = assertThrows(ServiceException.class, ()->dates.requireEffectiveConfiguration(DccWorkflowDatePolicy.PRESET_DATE,
+                fileMapper.selectById(2L).getEffectiveDate()));
+        assertEquals(CONTROLLED_FILE_REVIEW_DATE_INVALID.getCode(), invalidDate.getCode());
         dates.setZoneId(null);
         assertThrows(IllegalStateException.class, dates::now);
         TenantContextHolder.setTenantId(122L);
@@ -187,15 +203,14 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
 
     @Test
     void lifecycleEventKeyFitsTheDContractAndKeepsRoundAndEventTypeIdentity() {
-        seed(LocalDate.now());
         String round="r".repeat(64);
-        jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=? WHERE id=2",round);
+        seed(LocalDate.now(),round);
         control();
         var keys=jdbc.queryForList("SELECT event_key FROM dcc_workflow_lifecycle_event ORDER BY id",String.class);
-        assertEquals(2,keys.size());
+        assertEquals(3,keys.size());
         assertTrue(keys.stream().allMatch(key->key.length()<=128),"D contract accepts at most 128 characters");
-        assertNotEquals(keys.get(0),keys.get(1));
-        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_workflow_lifecycle_event WHERE approval_process_instance_id=?",
+        assertEquals(3,keys.stream().distinct().count());
+        assertEquals(3,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_workflow_lifecycle_event WHERE approval_process_instance_id=?",
                 Integer.class,round));
     }
     @Test
@@ -254,7 +269,11 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
                 """,id,version,status);
     }
 
-    private void seed(LocalDate date) {
+    protected void seed(LocalDate date) {
+        seed(date,"approval-2");
+    }
+
+    protected void seed(LocalDate date,String candidateRound) {
         jdbc.update("""
                 INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,
                   current_active_controlled_file_id,latest_controlled_file_id,deleted)
@@ -267,8 +286,9 @@ class DccWorkflowLifecycleTransactionTest extends BaseDbUnitTest {
                       published_file_id,stamped_file_id,effective_date,process_instance_id)
                     VALUES (?,10,10,20,100,100,'SOP.pdf','SOP','A-SOP',?,?,99,99,1,0,100,100,?,?)
                     """, id, id == 1 ? "A/1" : "B/1", id == 1 ? "ACTIVE" : "READY_TO_PUBLISH",
-                    id == 1 ? date.minusDays(20) : date, "approval-" + id);
+                    id == 1 ? date.minusDays(20) : date, id==1?"approval-1":candidateRound);
         }
+        jdbc.update("UPDATE dcc_controlled_file SET effective_mode='PRESET_DATE' WHERE id=2");
         jdbc.update("UPDATE dcc_controlled_file SET controlled_time=CURRENT_TIMESTAMP,activated_time=CURRENT_TIMESTAMP WHERE id=1");
         jdbc.update("INSERT INTO dcc_controlled_file_name_claim(tenant_id,master_id,normalized_name,source_original_file_name,normalized_file_number,deleted) VALUES(1,10,'SOP.pdf','SOP.pdf','A-SOP',0)");
     }

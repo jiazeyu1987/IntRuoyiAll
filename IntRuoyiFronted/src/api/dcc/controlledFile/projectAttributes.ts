@@ -1,20 +1,39 @@
 import request from '@/config/axios'
 import type { ApplicationType, ProjectAttributes, ApplicationAttributesRow } from '@/views/dcc/controlled-file/project-attributes/state'
 import { buildProjectFolderTree } from '@/views/dcc/controlled-file/basic-data/components/project-folder-tree'
-import { projectConfigurationIdentity } from '@/views/dcc/controlled-file/basic-data/components/project-attribute-configuration'
+import { projectConfigurationIdentity, projectConfigurationToken } from '@/views/dcc/controlled-file/basic-data/components/project-attribute-configuration'
 import { validateAttributes } from '@/views/dcc/controlled-file/project-attributes/state'
 export const getProjectDefaults = (projectId: string | number, applicationType: ApplicationType): Promise<ProjectAttributes> =>
   request.get({ url: `/dcc/project-codes/${projectId}/attributes/defaults`, params: { applicationType }, ignoreErrorMessage: true })
+export interface ProjectAttributeConfiguration {
+  id: string | number
+  projectLeaderUserId: string | number | null
+  defaultAttributesJson: string | null
+  configurationToken: string
+}
+export const getProjectAttributeConfiguration = async (projectId: string | number): Promise<ProjectAttributeConfiguration> => {
+  const id = projectConfigurationIdentity(projectId)
+  const configuration = await request.get<ProjectAttributeConfiguration>({
+    url: `/dcc/project-codes/${id}/attributes/configuration`, ignoreErrorMessage: true
+  })
+  if (!configuration || projectConfigurationIdentity(configuration.id) !== id)
+    throw new Error('项目配置响应与当前项目身份不一致')
+  projectConfigurationToken(configuration.configurationToken)
+  if (configuration.defaultAttributesJson != null && typeof configuration.defaultAttributesJson !== 'string')
+    throw new Error('项目配置原始属性格式无效')
+  return configuration
+}
 export const configureProjectAttributes = async (
   projectId: string | number,
-  data: { projectLeaderUserId: string | number; defaultAttributes: ProjectAttributes; changeReason: string }
+  data: { projectLeaderUserId: string | number; defaultAttributes: ProjectAttributes; changeReason: string; expectedConfigurationToken: string }
 ): Promise<boolean> => {
   const project = projectConfigurationIdentity(projectId), leader = projectConfigurationIdentity(data?.projectLeaderUserId)
   if (typeof data.changeReason !== 'string' || !data.changeReason.trim() || data.changeReason.length > 500)
     throw new Error('请填写500字以内的项目属性配置原因')
+  const expectedConfigurationToken = projectConfigurationToken(data.expectedConfigurationToken)
   const saved = await request.put<boolean>({
     url: `/dcc/project-codes/${project}/attributes/configuration`,
-    data: { projectLeaderUserId: leader, defaultAttributes: JSON.parse(JSON.stringify(validateAttributes(data.defaultAttributes))), changeReason: data.changeReason.trim() },
+    data: { projectLeaderUserId: leader, defaultAttributes: JSON.parse(JSON.stringify(validateAttributes(data.defaultAttributes))), changeReason: data.changeReason.trim(), expectedConfigurationToken },
     ignoreErrorMessage: true
   })
   if (saved !== true) throw new Error('项目默认属性与负责人保存未确认成功，请到原项目记录核对')

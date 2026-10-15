@@ -17,15 +17,23 @@ public class DccProjectProductNotificationService {
     public static final String TEMPLATE_CODE = "dcc-project-product-application-event";
     @Resource private NotifyMessageSendApi messages;
     @Resource private DccProjectProductActorSupport actors;
+    @Resource private DccProjectReviewerRoleService reviewerRoles;
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void reviewTodo(DccProjectProductCreateRequestDO request, String submittedReason) {
+        if(reviewerRoles.isRoleContract(request)){
+            var candidates=reviewerRoles.currentCandidates(request);
+            if(candidates.isEmpty())throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(DccProjectReviewerRoleService.ROLE_INVALID);
+            for(var member:candidates)send(request,member.userId(),"ROLE_REVIEW_TODO","项目审核员待办",submittedReason);
+            return;
+        }
         if (!actors.canUpdate(request.getConfiguredReviewerUserId())) throw new IllegalStateException("PROJECT_REVIEWER_PERMISSION_REQUIRED");
         send(request, request.getConfiguredReviewerUserId(), "REVIEW_TODO", "项目产品审核待办", submittedReason);
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void approvalTodo(DccProjectProductCreateRequestDO request) {
+        if(reviewerRoles.isRoleContract(request))throw new IllegalStateException("ROLE_PROJECT_HAS_NO_SECOND_APPROVAL");
         send(request, actors.requireApprover(), "APPROVAL_TODO", "项目产品批准待办", request.getReviewReason());
     }
 

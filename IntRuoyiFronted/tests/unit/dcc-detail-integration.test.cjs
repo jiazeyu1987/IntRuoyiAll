@@ -12,6 +12,10 @@ const clone = value => JSON.parse(JSON.stringify(value))
 const attrs = market => ({ targetMarkets: [market], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' })
 const attributes = moduleFrom(read('src/views/dcc/controlled-file/project-attributes/state.ts'))
 const revision = moduleFrom(read('src/views/dcc/controlled-file/revision/revision-model.ts'), () => attributes)
+const uploadDepartments = moduleFrom(read('src/views/dcc/controlled-file/upload/signoff-departments.ts'))
+const matrixHelper = require('./dcc-upload-test-loader.cjs')
+const matrixModule = matrixHelper.loadUploadMatrix()
+const uploadSubmitter = moduleFrom(read('src/views/dcc/controlled-file/upload/submitter.ts'), id => id === './approval-matrix' ? matrixModule : id === './signoff-departments' ? uploadDepartments : attributes)
 const workflowActions = moduleFrom(read('src/views/dcc/controlled-file/workflow/workflow-actions.ts'))
 const actionProjection = moduleFrom(read('src/api/form-center/actionProjection.ts'))
 const lifecycle = moduleFrom(read('src/views/dcc/controlled-file/shared/lifecycle.ts'), () => actionProjection)
@@ -38,14 +42,14 @@ function mount(name, props, dependencies) {
   return { state: host.$.subTree.component.setupState, props: reactive, events, app }
 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
-const baseline = { id: 10, masterId: 100, dccProjectCodeId: 20, categoryId: 30, status: 'ACTIVE', versionNo: 'A/1', title: '说明.pdf' }
+const baseline = { id: 10, masterId: 100, dccProjectCodeId: 20, categoryId: 30, fileTypeTaxonomyId: 40, status: 'ACTIVE', versionNo: 'A/1', title: '说明.pdf' }
 const draft = { controlledFileId: '12', projectId: '20', applicationType: 'UPLOAD', defaultSource: attrs('CE'), actual: attrs('FDA'), canSubmit: true,
-  unavailableReason: null, effectiveDate: '2026-11-01', needTraining: false, selectedSignoffDepartmentIds: null, changeDescription: '初始申请' }
+  unavailableReason: null, effectiveMode: 'PRESET_DATE', effectiveDate: '2026-11-01', selectedDistributionDepartmentIds: ['50'], needTraining: false, selectedSignoffDepartmentIds: null, changeDescription: '初始申请', draftApprovalMatrix: matrixHelper.matrixFixture({ categoryId: '30', taxonomyId: '40', approvalIds: ['60'] }) }
 const options = { controlledBaselineId: '10', baselineVersionNo: 'A/1', masterId: '100', sourceOriginalFileName: '说明.pdf', partialTarget: { versionNo: 'A/2', unavailableReason: null }, replacementTarget: { versionNo: 'B/1', unavailableReason: null }, checkedOutBy: null, checkedOutByName: null, checkedOutTime: null, lockedReason: null, iterations: [
   { id: '13', versionNo: 'A/1-3', canPartial: true, canReplacement: true, canPreview: true }, { id: '12', versionNo: 'A/1-2', canPartial: true, canReplacement: true, canPreview: true }] }
 
 test('INITIAL command validates application facts without a fictitious controlled baseline and freezes actual values', () => {
-  const facts = { projectAttributes: attrs('CE'), selectedSignoffDepartmentIds: ['9007199254740993'], needTraining: false, effectiveDate: '2028-02-29' }
+  const facts = { projectAttributes: attrs('CE'), selectedSignoffDepartmentIds: ['9007199254740993'], selectedDistributionDepartmentIds: [], needTraining: false, effectiveMode: 'PRESET_DATE', effectiveDate: '2028-02-29' }
   const command = revision.buildInitialCommand(' 初始说明 ', ' initial-key ', facts)
   assert.equal(command.revisionChangeType, 'INITIAL')
   assert.equal(command.controlledBaselineId, undefined)
@@ -66,17 +70,23 @@ test('public status labels distinguish working, controlled and effective facts a
   assert.equal(lifecycle.getDccControlledFileStatusLabel('PENDING_APPLICANT_TRAINING_RECORD'), '待文控上传培训记录')
   assert.equal(lifecycle.getDccControlledFileStatusLabel('READY_TO_PUBLISH'), '待受控')
 })
-function application({ file = baseline, confirm = async () => true, readDraft = async () => clone(draft), save = async () => '21' } = {}) {
+function application({ file = baseline, confirm = async () => true, readDraft = async () => clone(draft), save = async () => '21', readBody = async id => ({ ...clone(baseline), id: String(id), relatedFiles: [{ controlledFileId: '91', fileName: '本次正文关联.pdf', versionNo: 'B/1' }] }) } = {}) {
   let defaultsReads = 0; const requests = []
   const panel = mount('DetailApplicationPanel', { file: clone(file) }, {
     'element-plus': { ElMessageBox: { confirm } }, '@/utils': { generateUUID: () => 'unique-application' },
+    '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => undefined },
     '@/api/system/dept': { getSimpleDeptList: async () => [{ id: 50, name: '质量部' }] },
     '@/api/system/user': { getSimpleUserList: async () => [{ id: 60, nickname: '批准人' }] },
-    '@/api/dcc/controlledFile/approvalRoutes': { previewApprovalRoute: async () => [{ stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: [50] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: [60] }] },
     '@/api/dcc/controlledFile/projectAttributes': { getProjectDefaults: async () => { defaultsReads++; return attrs('NMPA') } },
     '@/api/dcc/controlledFile/applicationRead': { getWorkingApplicationAttributes: async id => file.status === 'WORKING' ? readDraft(id) : { ...clone(draft), controlledFileId: String(id), applicationType: 'REVISION', selectedSignoffDepartmentIds: ['50'] }, getControlledFileReplacementAttributes: async id => ({ ...clone(draft), controlledFileId: String(id), applicationType: 'REVISION', selectedSignoffDepartmentIds: ['50'] }), getControlledFileRevisionOptions: async () => clone(options) },
-    '@/api/dcc/controlledFile/workflow': { submitControlledFileWorkingIteration: async (id, payload) => { requests.push({ id, payload: clone(payload) }); return save(id, payload) } },
+    '@/api/dcc/controlledFile/workflow': {
+      getControlledFile: readBody,
+      checkControlledFileRouteReadiness: async request => matrixHelper.matrixReadiness({ ready: true, blockers: [], nodes: [{ stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: [50] }, { stageCode: 'MATRIX_APPROVAL', resolvedUserIds: [60], approveMethod: 'ALL' }] }, { categoryId: '30', taxonomyId: '40', actionType: request.actionType, approvalIds: ['60'] }),
+      submitControlledFileWorkingIteration: async (id, payload) => { requests.push({ id, payload: clone(payload) }); return save(id, payload) }
+    },
     '../project-attributes/state': attributes, '../revision/revision-model': revision,
+    '../upload/submitter': uploadSubmitter, '../upload/signoff-departments': uploadDepartments,
+    '../upload/approval-matrix': matrixModule,
     '../workflow/workflow-actions': workflowActions,
     './presentation': { formatControlledFileDateTime: value => value }
   })
@@ -89,16 +99,19 @@ test('INITIAL preparation reads original draft actual/default separately and nev
     assert.equal(panel.defaultsReads(), 0)
     assert.deepEqual(clone(panel.state.snapshot.actual), attrs('FDA'))
     assert.deepEqual(clone(panel.state.snapshot.defaultSource), attrs('CE'))
-    assert.deepEqual(clone(panel.state.selectedDepartments), [])
+    assert.equal(panel.state.selectedDepartments, null)
     await panel.state.submitInitial()
     assert.equal(panel.requests.length, 0)
-    assert.match(panel.state.error, /会签部门/)
+    assert.match(panel.state.error, /会签部门|属性和培训/)
     panel.state.selectedDepartments = ['50']
     await panel.state.submitInitial()
     assert.equal(panel.requests[0].id, 12)
     assert.equal(panel.requests[0].payload.revisionChangeType, 'INITIAL')
     assert.equal(panel.requests[0].payload.controlledBaselineId, undefined)
     assert.deepEqual(panel.requests[0].payload.projectAttributes, attrs('FDA'))
+    assert.equal(panel.requests[0].payload.executionContract, 'PUBLIC_MATRIX_NATIVE_V1')
+    assert.equal(panel.requests[0].payload.expectedProcessDefinitionId, 'dcc-controlled-file-upload:5:fixture-exact')
+    assert.equal(panel.requests[0].payload.expectedDefinitionDigest, 'a'.repeat(64))
   } finally { panel.app.unmount() }
 })
 test('formal revision submits an explicitly selected earlier iteration and the actual replacement intent', async () => {
@@ -116,6 +129,9 @@ test('formal revision submits an explicitly selected earlier iteration and the a
     assert.equal(panel.requests[0].payload.effectiveDate, '2026-12-01')
     assert.deepEqual(panel.requests[0].payload.projectAttributes, attrs('FDA'))
     assert.deepEqual(panel.events, ['21'])
+    assert.equal(panel.requests[0].payload.executionContract, 'PUBLIC_MATRIX_NATIVE_V1')
+    assert.equal(panel.requests[0].payload.expectedProcessDefinitionId, 'dcc-controlled-file-revision:5:fixture-exact')
+    assert.equal(panel.requests[0].payload.expectedDefinitionDigest, 'a'.repeat(64))
   } finally { panel.app.unmount() }
 })
 test('editing after confirmation opened invalidates the pending formal command', async () => {
@@ -138,6 +154,37 @@ test('cancelled INITIAL confirmation retains edited values without sending a req
     assert.equal(panel.requests.length, 0)
     assert.equal(panel.state.description, '保持此说明')
     assert.deepEqual(clone(panel.state.snapshot.actual), attrs('FDA'))
+  } finally { panel.app.unmount() }
+})
+
+test('missing saved mode or unrecorded distribution cannot prepare an INITIAL submit command', async () => {
+  for (const missing of ['mode', 'distribution']) {
+    const panel = application({ file: { ...baseline, id: 12, status: 'WORKING' }, readDraft: async () => ({ ...clone(draft), selectedSignoffDepartmentIds: ['50'], effectiveMode: missing === 'mode' ? null : 'PRESET_DATE', selectedDistributionDepartmentIds: missing === 'distribution' ? null : ['50'] }) })
+    try { await panel.state.open(); assert.equal(panel.state.applicationFacts, undefined); await panel.state.submitInitial(); assert.equal(panel.requests.length, 0) }
+    finally { panel.app.unmount() }
+  }
+})
+
+test('a stale revision command with different effective mode or distribution refuses before confirmation', async () => {
+  let confirmations = 0
+  const panel = application({ confirm: async () => { confirmations++ } })
+  try {
+    await panel.state.open(); await panel.state.selectIteration('12')
+    const command = revision.buildRevisionCommand('10', '12', 'PARTIAL', '修订', 'key', panel.state.applicationFacts)
+    await assert.rejects(panel.state.submitRevision({ ...command, selectedDistributionDepartmentIds: [] }), /载荷.*不一致/)
+    await assert.rejects(panel.state.submitRevision({ ...command, effectiveMode: 'AFTER_STANDARDIZATION_SIGNATURE', effectiveDate: null }), /载荷.*不一致/)
+    assert.equal(confirmations, 0); assert.equal(panel.requests.length, 0)
+  } finally { panel.app.unmount() }
+})
+
+test('revision confirmation reads exact selected body relations instead of showing baseline relations', async () => {
+  const shown = []
+  const panel = application({ file: { ...baseline, relatedFiles: [{ fileName: '旧基线关联.pdf', versionNo: 'A/1' }] }, confirm: async text => shown.push(text) })
+  try {
+    await panel.state.open(); await panel.state.selectIteration('12')
+    const command = revision.buildRevisionCommand('10', '12', 'PARTIAL', '修订', 'key', panel.state.applicationFacts)
+    await panel.state.submitRevision(command)
+    assert.match(shown[0], /本次正文关联.pdf/); assert.doesNotMatch(shown[0], /旧基线关联.pdf/)
   } finally { panel.app.unmount() }
 })
 test('late preparation for the previous file cannot publish attributes into the new file', async () => {

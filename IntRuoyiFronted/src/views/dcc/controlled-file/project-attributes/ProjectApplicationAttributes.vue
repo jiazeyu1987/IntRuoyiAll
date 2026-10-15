@@ -1,6 +1,6 @@
 <template>
   <section v-loading="loading">
-    <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
+    <el-alert v-if="state.error || state.requestError" :title="state.error || state.requestError" type="error" :closable="false" />
     <div v-if="state.projectId" class="mb-8px">
       本次申请属性
       <el-button v-if="!readonly" link type="primary" @click="restore">恢复项目默认值</el-button>
@@ -53,7 +53,7 @@ const selectProject = async (projectId: string | number): Promise<boolean> => {
     return accepted
   } catch (error) {
     if (revision === commandRevision) {
-      state.error = error instanceof Error ? error.message : String(error)
+      if (!state.error && !state.requestError) state.error = error instanceof Error ? error.message : String(error)
       emit('project-change-cancelled', state.projectId)
     }
     return false
@@ -65,7 +65,11 @@ const restore = async () => {
   loading.value = true
   try {
     if (await restoreDefaults(state, load, confirm) && revision === commandRevision) emit('restore-defaults', buildSnapshot(state))
-  } catch (error) { if (revision === commandRevision) state.error = error instanceof Error ? error.message : String(error) }
+  } catch (error) {
+    // The state operation retains the error for display and decides whether the original binding is still valid.
+    if (revision === commandRevision && !state.error && !state.requestError)
+      state.error = error instanceof Error ? error.message : String(error)
+  }
   finally { if (revision === commandRevision) loading.value = false }
 }
 const edit = (value: ProjectAttributes) => {

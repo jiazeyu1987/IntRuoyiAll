@@ -1,4 +1,5 @@
 <template>
+  <ControlledFileWorkbenchEntry class="mb-12px" />
   <el-radio-group v-model="browserMode" class="mb-12px">
     <el-radio-button value="project">项目文件与引用</el-radio-button><el-radio-button value="storage">存储目录</el-radio-button>
   </el-radio-group>
@@ -78,7 +79,7 @@
           show-icon
         >
           <template #title>
-            文件已检入，新版本为 {{ checkinRefreshPending.versionNo || checkinRefreshPending.controlledFileId }}，但列表刷新失败。
+            文件已检入，新版本为 {{ getDccVersionDisplayText(checkinRefreshPending.versionNo) }}，但列表刷新失败。
           </template>
           <template #default>
             <div class="flex items-center gap-8px">
@@ -256,7 +257,7 @@
                     class="browser-file-name browser-file-name--link"
                     link
                     type="primary"
-                    @click="openPreview(getSelectedVersion(row).id)"
+                    @click="openPreview(getSelectedVersion(row))"
                   >
                     <span class="browser-file-name__text">{{ getBrowserFileDisplayName(row) }}</span>
                   </el-button>
@@ -378,7 +379,7 @@
                     <el-option
                       v-for="item in getVersionOptions(row)"
                       :key="item.id"
-                      :label="item.versionNo"
+                      :label="getBrowserVersionOptionLabel(item)"
                       :value="item.id"
                     />
                   </el-select>
@@ -414,6 +415,7 @@
                   data-testid="dcc-controlled-browser-checked-out-by"
                 >
                   已由 {{ getCheckoutDisplayName(getSelectedVersion(row)) }} 检出
+                  · 检出时间：{{ getSelectedVersion(row).checkedOutTime == null ? '未记录' : formatControlledFileDateTime(getSelectedVersion(row).checkedOutTime) }}
                 </el-tag>
                 <el-button
                   v-if="canSubmitWorkingIteration(row, getSelectedVersion(row))"
@@ -457,7 +459,7 @@
                   v-if="getBrowserRowActionState(getSelectedVersion(row)).canPreview"
                   link
                   type="primary"
-                  @click="openPreview(getSelectedVersion(row).id)"
+                  @click="openPreview(getSelectedVersion(row))"
                 >
                   预览
                 </el-button>
@@ -1067,6 +1069,15 @@
           show-word-limit
         />
       </el-form-item>
+      <el-form-item label="本次普通附件">
+        <CheckinAttachmentsPanel
+          ref="checkinAttachmentsRef"
+          :context="checkinAttachmentContext"
+          :context-key="checkinAttachmentContextKey"
+          :disabled="checkinSubmitting || checkinCleanupLoading || checkinUploadLoading || checkinDrawingPdfLoading"
+          @state="checkinAttachmentState = $event"
+        />
+      </el-form-item>
       <el-form-item label="检入备注">
         <el-input
           v-model="checkinForm.remark"
@@ -1085,6 +1096,7 @@
         data-testid="dcc-controlled-browser-checkin-submit"
         type="primary"
         :loading="checkinSubmitting"
+        :disabled="!checkinAttachmentState.ready || checkinAttachmentState.uploading || checkinAttachmentState.cleaning"
         @click="submitCheckin"
       >
         检入并生成工作小版本
@@ -1106,6 +1118,9 @@
 </template>
 
 <script lang="ts" setup>
+import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
+import CheckinAttachmentsPanel from './CheckinAttachmentsPanel.vue'
+import { formatControlledFileDateTime } from '../detail/presentation'
 import {
   ElMessageBox,
   type ElTree,
@@ -1166,12 +1181,15 @@ import {
 import { useUserStore } from '@/store/modules/user'
 import { openControlledFileTraceability } from '../shared/viewer-navigation'
 import { resolveControlledFileReadErrorMessage } from '../shared/utils'
+import { getDccVersionDisplayText } from '../shared/version-display'
+import { requireCheckinTrainingDefault } from './checkin-training'
 import {
   hasDccControlledFileActionProjection,
   isDccControlledFileActionAllowed,
   isDccControlledFileActionUnlocked
 } from '../shared/lifecycle'
 import { buildControlledFileViewerPath } from '../view/presentation'
+import { normalizeDccBodyReadContext, serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import {
   DCC_BROWSER_STATE_CACHE_SCHEMA_VERSION,
   buildDccBrowserCacheContext,
@@ -1339,6 +1357,18 @@ const checkinForm = reactive<{
   changeDescription: '', needTraining: false, remark: ''
 })
 let checkinDialogGeneration = 0
+const checkinAttachmentsRef = ref<InstanceType<typeof CheckinAttachmentsPanel>>()
+const checkinAttachmentState = ref({ ready: false, uploading: false, cleaning: false, error: '', count: 0 })
+const checkinAttachmentContext = computed(() => {
+  const file = checkinTarget.value
+  const row = findBrowserRowForVersion(file?.id)
+  if (!file || !row?.categoryId) return undefined
+  return { categoryId: row.categoryId, controlledFileId: file.id,
+    uploadContext: 'CHECKIN' as const, sessionId: checkinUploadSessionId.value }
+})
+const checkinAttachmentContextKey = computed(() => JSON.stringify([
+  userStore.getUser.id, getBrowserCacheContext(), route.fullPath, browserMode.value, checkinUploadSessionId.value
+]))
 const metadataExporting = ref(false)
 const recognitionRecordExporting = ref(false)
 const recognitionMigrationExporting = ref(false)
@@ -1626,6 +1656,8 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   title: row.title,
   fileNumber: row.fileNumber || '',
   versionNo: row.versionNo,
+  changeType: row.changeType,
+  controlledTime: row.controlledTime,
   revisionBaseActiveControlledFileId: row.revisionBaseActiveControlledFileId,
   status: row.status,
   needTraining: row.needTraining,
@@ -1638,6 +1670,8 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   obsoletedTime: row.obsoletedTime,
   supersededByFileId: row.supersededByFileId,
   remark: row.remark,
+  createTime: row.versionHistory?.find((version) => String(version.id) === String(row.id))?.createTime,
+  changeDescription: row.changeDescription,
   directoryId: row.directoryId,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
@@ -1659,6 +1693,8 @@ const hydrateCurrentBrowserVersionActionState = (
   }
   return {
     ...version,
+    changeType: version.changeType,
+    controlledTime: version.controlledTime,
     publishedArtifactAvailable:
       version.publishedArtifactAvailable ?? row.publishedArtifactAvailable,
     stampedArtifactAvailable:
@@ -1701,7 +1737,10 @@ const resolveInitialSelectedVersionId = (row: ControlledFileVO, selectedQuery = 
       item.status === 'ACTIVE' &&
       (!currentActiveVersionNo || String(item.versionNo || '').trim() === currentActiveVersionNo)
   )
-  return currentActiveOption?.id || options.find((item) => item.status === 'ACTIVE')?.id || options[0]?.id
+  if (currentActiveOption) return currentActiveOption.id
+  const responseVersion = options.find((item) => String(item.id) === String(row.id))
+  if (!responseVersion) throw new Error('文件列表缺少响应版本的精确身份，请重新读取')
+  return responseVersion.id
 }
 
 const resolveSelectedVersionId = (
@@ -1717,8 +1756,21 @@ const resolveSelectedVersionId = (
   return resolveInitialSelectedVersionId(row)
 }
 
+const getBrowserVersionOptionLabel = (version: ControlledFileBrowserVersion) => {
+  const label = getDccVersionDisplayText(version.versionNo)
+  if (label !== '草稿') return label
+  return [
+    label,
+    version.createTime ? formatControlledFileDateTime(version.createTime) : '',
+    version.changeDescription?.trim() || '',
+    `文件 #${version.id}`
+  ].filter(Boolean).join(' · ')
+}
+
 const getSelectedVersion = (row: ControlledFileBrowserRow): ControlledFileBrowserVersion => {
-  return getVersionOptions(row).find((item) => String(item.id) === String(row.selectedVersionId)) || getVersionOptions(row)[0] || buildCurrentVersionOption(row)
+  const selected = getVersionOptions(row).find((item) => String(item.id) === String(row.selectedVersionId))
+  if (!selected) throw new Error('所选版本身份已失效，请重新读取文件列表并选择版本')
+  return selected
 }
 
 const handleVersionChange = (row: ControlledFileBrowserRow) => {
@@ -1809,7 +1861,9 @@ const canSubmitWorkingIteration = (
   file.id &&
   file.status === 'WORKING' &&
   canEditVersion(file) &&
-  file.actionProjection?.actionLocked !== true &&
+  typeof file.actionProjection?.actionLocked === 'boolean' &&
+  file.actionProjection.pendingRequestId == null &&
+  !file.processInstanceId &&
   !file.checkedOut &&
   !file.checkedOutBy
 )
@@ -1912,15 +1966,23 @@ const handleCheckout = async (file: ControlledFileBrowserVersion) => {
 }
 
 const handleCheckin = (file: ControlledFileBrowserVersion) => {
-  if (checkinSubmitting.value || checkinCleanupLoading.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value) {
+  if (checkinSubmitting.value || checkinCleanupLoading.value || checkinUploadLoading.value || checkinDrawingPdfLoading.value
+    || checkinAttachmentState.value.uploading || checkinAttachmentState.value.cleaning) {
     message.warning('请先完成当前检入会话。')
     return
   }
   const id = file.id
   if (!isValidBrowserOptionId(id) || !isCheckedOutByCurrentUser(file)) return
+  let needTraining: boolean
+  try {
+    needTraining = requireCheckinTrainingDefault(file)
+  } catch (error) {
+    message.error(resolveBrowserErrorMessage(error, '无法核对所选版本的培训选择'))
+    return
+  }
   resetCheckinDialog()
   checkinTarget.value = file
-  checkinForm.needTraining = Boolean(file.needTraining)
+  checkinForm.needTraining = needTraining
   checkinForm.remark = String(file.remark || '')
   checkinDialogVisible.value = true
 }
@@ -1929,6 +1991,7 @@ const resetCheckinDialog = () => {
   checkinDialogGeneration++
   checkinSourceRequestSequence += 1
   checkinSourceState.value = 'idle'
+  checkinAttachmentState.value = { ready: false, uploading: false, cleaning: false, error: '', count: 0 }
   checkinUploadLoading.value = false
   checkinTarget.value = undefined
   checkinUpload.value = undefined
@@ -2000,10 +2063,18 @@ const discardCheckinDrawingPdf = async () => {
 }
 
 const cancelCheckin = async () => {
+  if (!checkinAttachmentsRef.value || !(await checkinAttachmentsRef.value.cleanupAll())) {
+    message.warning('请先完成普通附件上传或临时文件清理，再取消检入。')
+    return
+  }
   if (await clearCheckinUpload()) checkinDialogVisible.value = false
 }
 
 const beforeCloseCheckin = async (done: () => void) => {
+  if (!checkinAttachmentsRef.value || !(await checkinAttachmentsRef.value.cleanupAll())) {
+    message.warning('普通附件尚未完成上传或清理，检入内容已保留。')
+    return
+  }
   if (await clearCheckinUpload()) done()
 }
 
@@ -2128,6 +2199,18 @@ const submitCheckin = async () => {
     message.warning('已选择的新文件尚未上传成功，请重试或明确删除该文件后再检入。')
     return
   }
+  if (!checkinAttachmentState.value.ready || checkinAttachmentState.value.uploading || checkinAttachmentState.value.cleaning) {
+    message.warning(checkinAttachmentState.value.error || '请等待全部普通附件上传和保存完成。')
+    return
+  }
+  let attachmentManifest: ControlledFileUploadRespVO[]
+  try {
+    if (!checkinAttachmentsRef.value) throw new Error('普通附件清单未加载，不能检入。')
+    attachmentManifest = checkinAttachmentsRef.value.readReadyManifest()
+  } catch (error) {
+    message.warning(resolveBrowserErrorMessage(error, '普通附件未全部就绪，不能检入。'))
+    return
+  }
   if (!changeDescription) {
     message.warning('请输入修改说明。')
     return
@@ -2141,7 +2224,7 @@ const submitCheckin = async () => {
     return
   }
   const hasCheckinRemarkChange =
-    Boolean(normalizedCheckinRemark) && normalizedCheckinRemark !== String(target.remark || '').trim()
+    normalizedCheckinRemark !== String(target.remark || '').trim()
   const requiresFreshSource = ['REJECTED', 'PENDING_APPLICANT_REWORK'].includes(String(target.status || ''))
   if (requiresFreshSource && !hasCheckinUpload) {
     message.warning('审批驳回或返工后必须重新上传源文件，不能复用旧正文')
@@ -2173,6 +2256,7 @@ const submitCheckin = async () => {
     uploadTicket: hasCheckinUpload ? uploaded?.uploadTicket : undefined,
     drawingPdfUploadTicket: isDrawingSourceFile(uploaded?.fileName) ? checkinDrawingPdfUpload.value?.uploadTicket : undefined,
     sessionId: hasCheckinUpload ? uploaded!.sessionId : undefined,
+    attachmentUploadTickets: attachmentManifest.map(file => ({ uploadTicket: file.uploadTicket, sessionId: file.sessionId })),
     changeDescription, needTraining: checkinForm.needTraining, remark: normalizedCheckinRemark
   }
   if (hasCheckinUpload && !payload.sessionId?.trim()) {
@@ -2198,6 +2282,18 @@ const submitCheckin = async () => {
       || updatedFile.versionNo.split('-')[0] !== formalVersion || updatedFile.checkedOutBy || updatedFile.checkedOut !== false) {
       throw new Error('检入已返回，但工作版本、逻辑文件或释放检出状态不一致，请核对正式结果。')
     }
+    if (attachmentManifest.length) {
+      if (!Array.isArray(updatedFile.attachments))
+        throw new Error('检入已返回，但未返回本次普通附件保存清单；请核对正式结果，不能继续送审。')
+      const savedAttachments = updatedFile.attachments.filter(file => file.attachmentPurpose === 'ATTACHMENT')
+      if (savedAttachments.length !== attachmentManifest.length || savedAttachments.some((file, index) =>
+        String(file.controlledFileId) !== String(updatedFile.id) || !isValidBrowserOptionId(file.attachmentId)
+        || file.sortNo !== index || file.fileName !== attachmentManifest[index].fileName
+        || file.fileSize !== attachmentManifest[index].fileSize || file.contentType !== attachmentManifest[index].contentType))
+        throw new Error('检入已返回，但本次普通附件保存身份、数量或顺序不完整；请核对正式结果，不能继续送审。')
+    }
+    // Tickets are now bound by the successful save; never clean them as abandoned temporary uploads.
+    checkinAttachmentsRef.value!.markSaved()
     const previousList = list.value
     const previousTotal = total.value
     let refreshError: unknown
@@ -2224,7 +2320,7 @@ const submitCheckin = async () => {
     }
 
     checkinDialogVisible.value = false
-    const versionIdentity = updatedFile.versionNo || String(updatedFile.id)
+    const versionIdentity = getDccVersionDisplayText(updatedFile.versionNo)
     if (refreshError) {
       checkinRefreshPending.value = {
         controlledFileId: updatedFile.id,
@@ -3655,14 +3751,24 @@ const handlePagination = async (payload?: BrowserPaginationPayload) => {
   }
 }
 
-const openPreview = (id: number | string) => {
-  const normalizedId = String(id || '').trim()
+const openPreview = (file: ControlledFileBrowserVersion) => {
+  const normalizedId = String(file?.id || '').trim()
   if (!normalizedId) {
     message.error('文件预览缺少文件 ID，无法打开预览。')
     return
   }
+  const working = workingBrowserIdentityQuery(route.query)
+  let context: DccBodyReadContext = normalizeDccBodyReadContext(normalizedId)
+  // Dedicated navigation selects the AUTHORING checks. Only the server proves requester and business scope.
+  if (working.workingFileId === normalizedId && ['WORKING', 'REJECTED', 'PENDING_APPLICANT_REWORK'].includes(file.status || '')) {
+    context = normalizeDccBodyReadContext(normalizedId, { intent: 'AUTHORING', controlledFileId: normalizedId,
+      expectedVersionNo: file.versionNo, ...(file.processInstanceId ? {
+        applicationType: file.changeType === 'NEW' ? 'UPLOAD' : file.changeType === 'REVISION' ? 'REVISION' : undefined,
+        bpmRound: file.processInstanceId
+      } : {}) })
+  }
   const previewWindow = window.open(
-    buildControlledFileViewerPath(normalizedId, 'browser', buildBrowserReturnPath()),
+    buildControlledFileViewerPath(normalizedId, 'browser', buildBrowserReturnPath(), serializeDccBodyReadContext(normalizedId, context)),
     '_blank'
   )
   if (!previewWindow) {

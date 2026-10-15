@@ -12,4 +12,6 @@ public class DccSignoffAssignmentReqVO {
     @NotBlank private String reason;
     /** Selected related-file responsibilities, persisted inside this signed assignment transaction. */
     private java.util.List<cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.Arrangement> relationArrangements;
+    /** New fixed versions appended in this signed assignment; never replaces an earlier stage's snapshot. */
+    private java.util.List<@NotNull @jakarta.validation.constraints.Positive Long> supplementalRelatedControlledFileIds;
 }

@@ -12,8 +12,6 @@ import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
 import cn.iocoder.yudao.module.system.api.notify.dto.NotifySendSingleToUserIdempotentReqDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
-import cn.iocoder.yudao.module.system.api.permission.RoleApi;
-import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -27,6 +25,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,12 +48,13 @@ public class DccOfflineTrainingRecordService {
     @Resource private DccControlledFileCategoryPermissionSupport categories;
     @Resource private DccControlledFileVersionPolicy versions;
     @Resource private AdminUserApi users;
-    @Resource private RoleApi roles;
     @Resource private PermissionApi permissions;
     @Resource private BpmProcessInstanceService processes;
     @Resource private BpmProcessDefinitionService definitions;
     @Resource private RuntimeService runtime;
     @Resource private NotifyMessageSendApi messages;
+    @Resource private DccBoundWorkflowContractResolver boundContracts;
+    @Resource private DccControlledFileLifecycleService lifecycle;
 
     public static boolean isNativeWaitingFile(DccControlledFileDO file) {
         return file != null && STATUS.equals(file.getStatus()) && file.getProcessDefinitionKey() != null
@@ -68,6 +68,21 @@ public class DccOfflineTrainingRecordService {
         return true;
     }
 
+    public boolean canReadProgress(Long actor, DccControlledFileDO file) {
+        if (file == null || file.getProcessDefinitionKey() == null || !PROCESS_KEYS.contains(file.getProcessDefinitionKey())
+                || !Boolean.TRUE.equals(file.getNeedTraining()) || file.getId() == null || actor == null || actor <= 0
+                || !Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                || file.getCategoryId() == null || file.getDccProjectCodeId() == null
+                || file.getProcessInstanceId() == null || file.getProcessInstanceId().isBlank()
+                || Boolean.TRUE.equals(file.getDeleted())
+                || !(isEligibleActor(actor,file) || isConfirmedOwner(actor,file))) return false;
+        if (STATUS.equals(file.getStatus())) {
+            requireWaiting(file);
+            return true;
+        }
+        return file.getTrainingRecordFileId() != null && file.getApprovedTime() != null;
+    }
+
     public Waiting requireUpload(Long actor, DccControlledFileDO file) {
         if (!isNativeWaitingFile(file) || !isEligibleActor(actor, file)) {
             throw new IllegalStateException("DCC_OFFLINE_TRAINING_ACTOR_FORBIDDEN");
@@ -75,11 +90,23 @@ public class DccOfflineTrainingRecordService {
         return requireWaiting(file);
     }
 
+    /** Exact-round training responsibility, never a permanent project or download grant. */
+    public boolean canOrganizeTraining(Long actor, DccControlledFileDO file) {
+        if (!isNativeWaitingFile(file) || !isConfirmedOwner(actor,file)) return false;
+        requireWaiting(file);
+        return true;
+    }
+
+    /** Body access is confined to the confirmed owner's current live training task.
+     * Upload duty and historical progress visibility never authorize file bytes. */
+    public boolean canReadTrainingBody(Long actor, DccControlledFileDO file) {
+        return canOrganizeTraining(actor,file);
+    }
+
     public List<DccControlledFileDO> listForActor(Long actor) {
-        // Lack of the role is a legitimate empty native source, not a fallback for broken file facts.
-        if (!hasEnabledDocumentControlAccount(actor)) return List.of();
+        if (!hasEnabledAccount(actor)) return List.of();
         return files.selectOfflineTrainingCandidates(TenantContextHolder.getRequiredTenantId()).stream()
-                .filter(file -> canUpload(actor, file)).toList();
+                .filter(file -> canUpload(actor, file) || canOrganizeTraining(actor,file)).toList();
     }
 
     public Waiting requireWaiting(DccControlledFileDO file) {
@@ -102,6 +129,13 @@ public class DccOfflineTrainingRecordService {
                 || Boolean.TRUE.equals(master.getDeleted()) || Boolean.TRUE.equals(project.getDeleted())) {
             throw new IllegalStateException("DCC_OFFLINE_TRAINING_IDENTITY_INVALID");
         }
+        var bound=boundContracts.resolve(file);
+        if(bound==null || !bound.active() || !Objects.equals(bound.tenantId(),tenant)
+                || !Objects.equals(bound.controlledFileId(),file.getId()) || !Objects.equals(bound.processInstanceId(),file.getProcessInstanceId()))
+            throw new IllegalStateException("DCC_OFFLINE_TRAINING_BOUND_IDENTITY_INVALID");
+        if(bound.trainingAfterDocumentControl()) lifecycle.requirePublicDocumentControlEvidence(file,bound);
+        else if(bound.flowRule()!=DccWorkflowDefinitionCatalog.FlowRule.LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL)
+            throw new IllegalStateException("DCC_OFFLINE_TRAINING_BOUND_FLOW_INVALID");
         String round = file.getProcessInstanceId();
         var process = processes.getProcessInstance(round);
         var variables = process == null ? null : process.getProcessVariables();
@@ -130,22 +164,18 @@ public class DccOfflineTrainingRecordService {
         return new Waiting(file, round, execution.getId());
     }
 
-    private boolean hasEnabledDocumentControlAccount(Long actor) {
+    private boolean hasEnabledAccount(Long actor) {
         if (actor == null || actor <= 0) return false;
         Long tenant = TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO account = users.getUser(actor);
-        RoleRespDTO role = roles.getRoleByCode("doc_control");
-        if (account == null || !Objects.equals(account.getId(), actor) || !Objects.equals(account.getTenantId(), tenant)
-                || !Objects.equals(account.getStatus(), 0) || role == null || role.getId() == null
-                || !"doc_control".equals(role.getCode()) || !Objects.equals(role.getStatus(), 0)) return false;
-        Set<Long> assigned = Objects.requireNonNull(permissions.getUserRoleIdListByUserId(actor), "actual role membership");
-        return assigned.contains(role.getId())
-                && permissions.hasAnyPermissions(actor, "dcc:controlled-file:approve")
+        return account != null && Objects.equals(account.getId(), actor) && Objects.equals(account.getTenantId(), tenant)
+                && Objects.equals(account.getStatus(), 0)
                 && permissions.hasAnyPermissions(actor, "dcc:controlled-file:query");
     }
 
     private boolean isEligibleActor(Long actor, DccControlledFileDO file) {
-        if (!hasEnabledDocumentControlAccount(actor) || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+        if (file == null || !Objects.equals(actor,file.getRequesterId()) || !hasEnabledAccount(actor)
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
                 || !categories.hasCategoryPermission(file.getCategoryId(), actor, DccFileCategoryPermissionActionEnum.TRAINING_RECORD)
                 || !fileScope.isWithinAssignedFileScope(actor, file.getId())) return false;
         if (permissions.hasAnyPermissions(actor, "dcc:project-code:scope:all")
@@ -155,15 +185,34 @@ public class DccOfflineTrainingRecordService {
                 .contains(file.getDccProjectCodeId());
     }
 
+    private boolean isConfirmedOwner(Long actor, DccControlledFileDO file) {
+        return file != null && Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                && Objects.equals(actor,file.getFileOwnerUserId()) && hasEnabledAccount(actor)
+                && file.getFileOwnerSignatureId() != null && file.getFileOwnerSignatureId() > 0
+                && file.getFileOwnerApprovalTaskId() != null && !file.getFileOwnerApprovalTaskId().isBlank()
+                && file.getProcessInstanceId() != null && !file.getProcessInstanceId().isBlank()
+                && file.getProcessInstanceId().equals(file.getFileOwnerProcessInstanceId())
+                && file.getFileOwnerSelectedTime() != null;
+    }
+
+    /** Read-only preflight uses the exact eligibility rules of the later training upload. */
+    public List<Long> requireConfiguredRecipients(DccControlledFileDO file) {
+        if (file==null || file.getId()==null || file.getCategoryId()==null
+                || file.getDccProjectCodeId()==null || !Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId()))
+            throw new IllegalStateException("DCC_OFFLINE_TRAINING_PREFLIGHT_IDENTITY_INVALID");
+        if (!isEligibleActor(file.getRequesterId(),file))
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                    cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_OFFLINE_TRAINING_CONFIG_REQUIRED,"本次上传人缺少线下培训记录办理资格");
+        return List.of(file.getRequesterId());
+    }
+
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public void notifyWaiting(DccControlledFileDO file) {
         Waiting current = requireWaiting(file);
-        RoleRespDTO role = roles.getRoleByCode("doc_control");
-        if (role == null || role.getId() == null || !"doc_control".equals(role.getCode())
-                || !Objects.equals(role.getStatus(), 0)) throw new IllegalStateException("DCC_OFFLINE_TRAINING_ROLE_REQUIRED");
-        var recipients = Objects.requireNonNull(permissions.getUserRoleIdListByRoleIds(List.of(role.getId())), "doc control members")
-                .stream().sorted().filter(actor -> isEligibleActor(actor, file)).toList();
-        if (recipients.isEmpty()) throw new IllegalStateException("DCC_OFFLINE_TRAINING_RECIPIENT_REQUIRED");
+        var recipients = new LinkedHashSet<>(requireConfiguredRecipients(file));
+        if (!isConfirmedOwner(file.getFileOwnerUserId(),file))
+            throw new IllegalStateException("DCC_OFFLINE_TRAINING_CONFIRMED_OWNER_REQUIRED");
+        recipients.add(file.getFileOwnerUserId());
         AdminUserRespDTO applicant = users.getUser(file.getRequesterId());
         if (applicant == null || !Objects.equals(applicant.getTenantId(), file.getTenantId())
                 || !Objects.equals(applicant.getId(), file.getRequesterId()) || applicant.getNickname() == null
@@ -171,7 +220,6 @@ public class DccOfflineTrainingRecordService {
         String url = detailUrl(file.getId(), current.processInstanceId());
         var params = new LinkedHashMap<String, Object>();
         params.put("processInstanceName", file.getTitle());
-        params.put("taskName", "文控上传线下培训记录");
         params.put("startUserNickname", applicant.getNickname());
         params.put("detailUrl", url);
         params.put("actionUrl", url);
@@ -179,10 +227,14 @@ public class DccOfflineTrainingRecordService {
         params.put("notifyTargetId", file.getId().toString());
         params.put("notifyProcessInstanceId", current.processInstanceId());
         for (Long recipient : recipients) {
+            var recipientParams = new LinkedHashMap<>(params);
+            recipientParams.put("taskName",Objects.equals(recipient,file.getRequesterId())
+                    ? Objects.equals(recipient,file.getFileOwnerUserId()) ? "组织培训并上传本次线下培训记录" : "上传本次线下培训记录"
+                    : "组织本轮文件培训");
             var request = new NotifySendSingleToUserIdempotentReqDTO();
             request.setUserId(recipient);
             request.setTemplateCode(TEMPLATE_CODE);
-            request.setTemplateParams(params);
+            request.setTemplateParams(recipientParams);
             request.setBusinessKey(SOURCE_TYPE + ":" + file.getTenantId() + ":" + file.getId()
                     + ":" + current.processInstanceId() + ":" + recipient);
             Long message = messages.sendSingleMessageIdempotentlyToAdmin(request);

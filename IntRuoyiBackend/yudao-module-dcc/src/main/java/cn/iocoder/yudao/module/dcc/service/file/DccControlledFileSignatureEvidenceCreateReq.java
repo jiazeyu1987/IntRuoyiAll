@@ -30,6 +30,8 @@ public class DccControlledFileSignatureEvidenceCreateReq {
     private String authorizationBasis;
     private String authenticationMethod;
     private LocalDateTime signedAt;
+    private LocalDateTime selectedEffectiveTime;
+    private Integer attributeRound;
     private String reasonText;
     private String controlledCopyHashStatus;
     private Long controlledCopyFileId;

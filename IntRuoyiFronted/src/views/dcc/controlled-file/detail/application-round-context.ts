@@ -1,4 +1,18 @@
-import type { ControlledFileApplicationRound } from '@/api/dcc/controlledFile/applicationRead'
+import type { ControlledFileApplicationRound, ControlledFileRoundFlowContract } from '@/api/dcc/controlledFile/applicationRead'
+
+export const requireDelayedConfirmationRound = (input: {
+  fileId: string; bpmRound: string; primaryBpmRound: string | null; blockedReason: string
+  flowContract?: ControlledFileRoundFlowContract | null
+}): number => {
+  const flow = input.flowContract
+  if (input.blockedReason || input.primaryBpmRound !== input.bpmRound || !flow || flow.status !== 'READY'
+      || flow.unavailableReason !== null || String(flow.controlledFileId) !== input.fileId || flow.bpmRound !== input.bpmRound
+      || !['UPLOAD', 'REVISION'].includes(flow.applicationType) || flow.executionContract !== 'PUBLIC_MATRIX_NATIVE_V2'
+      || flow.flowRule !== 'PUBLIC_V6_DELAYED_EFFECTIVE_CONFIRM' || !Number.isSafeInteger(flow.attributeRound) || flow.attributeRound < 1
+      || !flow.processDefinitionId || !flow.deploymentId || !/^[a-f0-9]{64}$/.test(flow.definitionDigest))
+    throw new Error('本次延迟确认的正式申请轮次尚未核验或与所选文件不一致')
+  return flow.attributeRound
+}
 
 export interface ApplicationApprovalRead {
   contextKey: string

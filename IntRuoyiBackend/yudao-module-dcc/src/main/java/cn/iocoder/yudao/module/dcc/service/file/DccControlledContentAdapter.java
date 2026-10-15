@@ -60,9 +60,14 @@ public class DccControlledContentAdapter {
         requireNativeControlledFile(file);
         if(file.getActivatedTime()==null || !"ACTIVE".equals(file.getStatus()))
             throw new IllegalStateException("DCC activation projection requires actual execution facts");
+        String reason="AFTER_STANDARDIZATION_SIGNATURE".equals(file.getEffectiveMode())
+                ? "DCC已签名实际生效且正式受控完成后日常启用"
+                : "DELAYED".equals(file.getEffectiveMode()) ? "DCC原编制人已签名确认的生效时刻到期，正式受控后日常启用"
+                : "PRESET_DATE".equals(file.getEffectiveMode())
+                    ? "DCC正式受控且预设日期到期后日常启用" : "DCC已受控生效版本日常启用";
         lifecycleCoreService.transitionDccControlledRef(dccKey(file),file.getId(),file.getVersionNo(),file.getProcessInstanceId(),
                 ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE,ControlledContentCanonicalStatus.ACTIVE,
-                ControlledContentTransitionAction.ACTIVATE_CONTROLLED,actorId,"DCC预设日期正式生效",eventKey,null);
+                ControlledContentTransitionAction.ACTIVATE_CONTROLLED,actorId,reason,eventKey,null);
     }
 
     public void recordNativeObsoleted(DccControlledFileDO before,DccControlledFileDO successor,Long actorId,String eventKey) {
@@ -123,6 +128,26 @@ public class DccControlledContentAdapter {
                 ControlledContentCanonicalStatus.READY_TO_PUBLISH, ControlledContentCanonicalStatus.FINALIZING,
                 DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.START_FINALIZATION,
                 actorId, "dcc controlled file finalization started", file.getProcessInstanceId(),
+                normalizedEventKey + ":start-finalization");
+    }
+
+    /** Approval provenance and the authenticated operation that starts derivation are distinct facts. */
+    public void recordFinalizationStarted(DccControlledFileDO file, Long approvalActorId,
+                                          Long operationActorId, String eventKey) {
+        requireFile(file);
+        if (approvalActorId == null || approvalActorId <= 0 || operationActorId == null || operationActorId <= 0) {
+            throw new IllegalArgumentException("Native finalization requires actual approval and operation actors");
+        }
+        String normalizedEventKey = requireEventKey(eventKey, "finalization");
+        lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
+                ControlledContentCanonicalStatus.IN_REVIEW, ControlledContentCanonicalStatus.READY_TO_PUBLISH,
+                DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.APPROVE,
+                approvalActorId, "dcc controlled file approved", file.getProcessInstanceId(),
+                normalizedEventKey + ":approve");
+        lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
+                ControlledContentCanonicalStatus.READY_TO_PUBLISH, ControlledContentCanonicalStatus.FINALIZING,
+                DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.START_FINALIZATION,
+                operationActorId, "dcc controlled file finalization started", file.getProcessInstanceId(),
                 normalizedEventKey + ":start-finalization");
     }
 

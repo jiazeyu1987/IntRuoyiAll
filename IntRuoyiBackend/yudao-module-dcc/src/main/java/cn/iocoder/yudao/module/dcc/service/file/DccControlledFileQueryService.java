@@ -61,6 +61,21 @@ public interface DccControlledFileQueryService {
 
     DccControlledFilePreviewMetadataRespVO getPreviewMetadata(Long userId, Long id,
                                                               DccRequestAuditContext auditContext);
+    DccControlledFilePreviewMetadataRespVO getPreviewMetadata(Long userId, Long id,
+            DccControlledFileBodyReadContext context, DccRequestAuditContext auditContext);
+
+    DccControlledFilePreviewMetadataRespVO getDistributionPreviewMetadata(Long userId, Long id, Long distributionId, Long recipientId,
+                                                                         DccRequestAuditContext auditContext);
+
+    DccControlledFileRespVO getDistributionPreviewDetail(Long userId, Long id, Long distributionId, Long recipientId);
+
+    DccControlledFileBinary readDistributionPreviewFile(Long userId, Long id, Long distributionId, Long recipientId,
+                                                        String viewerToken, String accessEventCode, String watermarkTraceCode,
+                                                        String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
+
+    boolean confirmDistributionOfficeBodyOpened(Long userId, Long id, Long distributionId, Long recipientId,
+                                                String viewerToken, String accessEventCode, String watermarkTraceCode,
+                                                String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
 
     DccControlledFilePreviewMetadataRespVO getAttachmentPreviewMetadata(Long userId, Long id, Long attachmentId,
                                                                         DccRequestAuditContext auditContext);
@@ -73,9 +88,15 @@ public interface DccControlledFileQueryService {
                                                       String accessEventCode, String watermarkTraceCode,
                                                       String viewerTokenId, String viewerTokenNonce,
                                                       DccRequestAuditContext auditContext);
+    DccControlledFileBinary readPreviewFile(Long userId, Long id, DccControlledFileBodyReadContext context,
+            String viewerToken, String accessEventCode, String watermarkTraceCode,
+            String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
 
     DccDownloadFileBinary readDownloadFile(Long userId, Long id, Boolean nonControlledWarningConfirmed,
                                            String downloadRequestId, DccRequestAuditContext auditContext);
+
+    DccDownloadFileBinary readAttachmentDownloadFile(Long userId, Long id, Long attachmentId,
+            Boolean nonControlledWarningConfirmed, String downloadRequestId, DccRequestAuditContext auditContext);
 
     DccControlledFileBinary readOnlyOfficePreviewFile(Long id, String token,
                                                       DccRequestAuditContext auditContext) throws Exception;

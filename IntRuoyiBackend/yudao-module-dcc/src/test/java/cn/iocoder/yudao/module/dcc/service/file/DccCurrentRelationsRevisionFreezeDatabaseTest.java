@@ -50,8 +50,9 @@ class DccCurrentRelationsRevisionFreezeDatabaseTest extends DccWorkflowSelectedI
                 .sourceFileId(100L).originalFileId(100L).publishedFileId(100L).stampedFileId(100L).build());
         jdbc.update("UPDATE dcc_current_file_relation_set SET row_version=1 WHERE tenant_id=1 AND source_master_id=10 AND controlled_file_id=20");
         jdbc.update("INSERT INTO dcc_current_file_relation VALUES(1,10,40)");
+        jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_number_snapshot,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(20,400,5,40,'R-1','Related.pdf','A/1','UPLOAD',1)");
         assertEquals(0,relations.selectListByControlledFileId(selected).size());
-        assertEquals(0,relations.selectListByControlledFileId(20L).size());
+        assertEquals(1,relations.selectListByControlledFileId(20L).size());
         return selected;
     }
 
@@ -62,13 +63,13 @@ class DccCurrentRelationsRevisionFreezeDatabaseTest extends DccWorkflowSelectedI
         String sourceDefault=before.getDefaultSourceJson(),sourceActual=before.getActualAttributesJson();
         long candidate=workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT"));
         var frozen=relations.selectListByControlledFileId(candidate);
-        assertEquals(1,frozen.size(),"new application must freeze the edited controlled baseline's current set");
+        assertEquals(1,frozen.size(),"new application must preserve the controlled baseline's fixed selections");
         assertEquals(40L,frozen.get(0).getRelatedMasterId());
         assertEquals(400L,frozen.get(0).getRelatedControlledFileId());
         assertEquals("R-1",frozen.get(0).getRelatedFileNumberSnapshot());
         assertEquals("A/1",frozen.get(0).getRelatedVersionNoSnapshot());
         assertEquals("B/1",files.selectById(candidate).getVersionNo());
-        assertEquals(0,relations.selectListByControlledFileId(20L).size());
+        assertEquals(1,relations.selectListByControlledFileId(20L).size());
         assertEquals(0,relations.selectListByControlledFileId(selected).size());
         var saved=attributeRows.find("REVISION",candidate,rounds.require("REVISION",candidate,files.selectById(candidate).getProcessInstanceId()));
         assertEquals(sourceDefault,saved.getDefaultSourceJson());assertEquals(sourceActual,saved.getActualAttributesJson());
@@ -81,12 +82,12 @@ class DccCurrentRelationsRevisionFreezeDatabaseTest extends DccWorkflowSelectedI
     }
 
     @Test
-    void authoritativeEmptyCurrentSetDoesNotFallBackToTheWorkingHistoricalSelection() {
+    void mutableCurrentSetCannotClearOrReplaceFrozenBaselineSelections() {
         long selected=savedDraftThenCurrentChanged();
         jdbc.update("DELETE FROM dcc_current_file_relation WHERE tenant_id=1 AND source_master_id=10");
         jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_number_snapshot,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(?,400,5,40,'R-1','Related.pdf','A/1','CHECKIN_INHERITED',1)",selected);
         long candidate=workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT"));
-        assertTrue(relations.selectListByControlledFileId(candidate).isEmpty());
+        assertEquals(400L,relations.selectListByControlledFileId(candidate).get(0).getRelatedControlledFileId());
         assertEquals(1,relations.selectListByControlledFileId(selected).size());
     }
 
@@ -118,7 +119,7 @@ class DccCurrentRelationsRevisionFreezeDatabaseTest extends DccWorkflowSelectedI
         var error=assertThrows(IllegalStateException.class,()->workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT")));
         assertEquals("LATE_ACTUAL_BPM_FAILURE",error.getMessage());
         assertEquals(countBefore,count("dcc_controlled_file"));assertEquals(bodyBefore,bytes.size());
-        assertEquals(0,count("dcc_controlled_file_related_file"));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
+        assertEquals(1,count("dcc_controlled_file_related_file"));assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
         assertEquals(20L,masters.selectById(10L).getLatestControlledFileId());
         assertEquals(1L,jdbc.queryForObject("SELECT row_version FROM dcc_current_file_relation_set WHERE tenant_id=1 AND source_master_id=10",Long.class));
         assertEquals(List.of(40L),jdbc.queryForList("SELECT related_master_id FROM dcc_current_file_relation WHERE tenant_id=1 AND source_master_id=10",Long.class));
@@ -137,7 +138,7 @@ class DccCurrentRelationsRevisionFreezeDatabaseTest extends DccWorkflowSelectedI
                 ()->workflow.submitWorkingIteration(99L,selected,request("REPLACEMENT")));
         assertEquals("DCC_REVISION_RELATION_CURRENT_TUPLE_INVALID",missing.getMessage());
         assertEquals(0,count("dcc_current_file_relation_set"));assertEquals(fileCount,count("dcc_controlled_file"));
-        assertEquals(bodyCount,bytes.size());assertEquals(0,count("dcc_controlled_file_related_file"));
+        assertEquals(bodyCount,bytes.size());assertEquals(1,count("dcc_controlled_file_related_file"));
         assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
 }

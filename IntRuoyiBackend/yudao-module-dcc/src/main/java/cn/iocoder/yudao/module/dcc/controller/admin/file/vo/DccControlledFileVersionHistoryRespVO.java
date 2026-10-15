@@ -12,6 +12,9 @@ public class DccControlledFileVersionHistoryRespVO {
     private String title;
     private String fileNumber;
     private String versionNo;
+    private String changeType;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime controlledTime;
     private String processInstanceId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long fileOwnerUserId;
@@ -41,6 +44,9 @@ public class DccControlledFileVersionHistoryRespVO {
     private Long submitterId;
     private Long requesterId;
     private LocalDateTime submittedTime;
+    /** Real row creation event, distinct from a later formal submission. */
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createTime;
     private LocalDateTime approvedTime;
     private LocalDateTime rejectedTime;
     private String rejectReason;
@@ -51,6 +57,13 @@ public class DccControlledFileVersionHistoryRespVO {
     private Boolean publishedArtifactAvailable;
     private Boolean stampedArtifactAvailable;
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime effectiveTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long effectiveSignatureId;
+    private String effectiveProcessInstanceId;
+    private java.util.List<String> selectedDistributionDepartmentIds;
     private LocalDateTime publishedTime;
     private LocalDateTime obsoletedTime;
     private Long supersededByFileId;

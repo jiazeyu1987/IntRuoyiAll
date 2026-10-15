@@ -1,6 +1,12 @@
 import type { DccFileTypeTaxonomyUploadOption } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 
-export interface UploadFileTypePath { id: string; names: string[]; leaf: boolean }
+export interface UploadFileTypePath {
+  id: string
+  names: string[]
+  leaf: boolean
+  approvalSourceMode: DccFileTypeTaxonomyUploadOption['approvalSourceMode']
+  uploadBlocker: string | null
+}
 export const uploadFileTypeIdentity = (value: unknown): string => {
   if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new Error('文件类型身份发生精度损失')
   if (typeof value !== 'number' && typeof value !== 'string') throw new Error('文件类型身份缺失')
@@ -30,7 +36,7 @@ export const buildUploadFileTypePaths = (rows: DccFileTypeTaxonomyUploadOption[]
     const parentId = row.parentId == null || String(row.parentId) === '0' ? null : uploadFileTypeIdentity(row.parentId)
     const names = [...(parentId ? resolve(parentId).names : []), row.name]
     const leaf = ![...byId.values()].some(child => child.parentId != null && String(child.parentId) === id)
-    const result = { id, names, leaf }
+    const result = { id, names, leaf, approvalSourceMode: row.approvalSourceMode, uploadBlocker: row.uploadBlocker }
     visiting.delete(id); paths.set(id, result)
     return result
   }

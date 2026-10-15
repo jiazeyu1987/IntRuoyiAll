@@ -91,6 +91,25 @@ public class DccControlledFileDO extends BaseDO {
     private String previousSourceSha256;
     private String changeDescription;
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    private String draftApprovalSourceMode;
+    private String draftApplicationCustomMatrixJson;
+    private String draftApplicationContextKey;
+    private LocalDateTime delayedEffectiveTime;
+    private Long delayedEffectiveSignatureId;
+    private String delayedEffectiveProcessInstanceId;
+    private LocalDateTime delayedEffectiveConfirmedAt;
+    /** Actual effectiveness, distinct from daily-use activation after control completes. */
+    private LocalDateTime effectiveTime;
+    private Long effectiveSignatureId;
+    private String effectiveProcessInstanceId;
+    private String distributionDepartmentIdsJson;
+    private String selectedSignoffDepartmentIdsJson;
+    /** Original public matrix seen by this draft; never inferred from current configuration. */
+    private String draftApprovalMatrixJson;
+    private String preparedWorkflowContract;
+    private String preparedProcessDefinitionId;
+    private String preparedDefinitionDigest;
     private String remark;
     private String status;
     private Long submitterId;

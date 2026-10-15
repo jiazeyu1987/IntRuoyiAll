@@ -98,6 +98,13 @@ DELETE FROM dcc_project_product_relation;
 DELETE FROM dcc_project_product_identity_claim;
 DELETE FROM dcc_project_product_create_request;
 DELETE FROM dcc_product_catalog;
+DELETE FROM dcc_product_catalog_source_sequence;
+INSERT INTO dcc_product_catalog_source_sequence(data_source,last_row_no) VALUES('瑛泰产品',1);
+DELETE FROM dcc_distribution_dispatch_attempt;
+DELETE FROM dcc_distribution_batch;
+DELETE FROM dcc_relation_stage_member;
+DELETE FROM dcc_relation_stage_snapshot;
+DELETE FROM dcc_application_round_link;
 
 DELETE FROM dcc_project_file_placement;
 
@@ -108,3 +115,5 @@ DELETE FROM dcc_source_name_reservation;
 DELETE FROM dcc_legacy_source_name_scope;
 
 DELETE FROM dcc_project_folder_storage_mapping;
+DELETE FROM dcc_obsolete_form_runtime_obligation;
+DELETE FROM dcc_obsolete_form_runtime_snapshot;

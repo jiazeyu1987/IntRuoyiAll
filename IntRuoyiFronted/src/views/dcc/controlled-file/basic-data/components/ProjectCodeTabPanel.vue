@@ -25,6 +25,10 @@
       @pagination="getList"
     >
       <template #actions>
+        <el-button data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
+          type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
+        <el-button data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
+          @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
         <el-button
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
@@ -1711,6 +1715,9 @@ const {
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
+const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
+  path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
+})
 const loading = ref(false)
 const exportLoading = ref(false)
 const previewLoading = ref(false)
@@ -2708,7 +2715,10 @@ const ensureLoaded = async () => {
   if (hasLoaded.value) {
     return
   }
-  await Promise.all([getList(), loadFileTypeTaxonomies()])
+  await Promise.all([
+    getList(),
+    checkPermi(['dcc:controlled-file:category:manage']) ? loadFileTypeTaxonomies() : Promise.resolve()
+  ])
   hasLoaded.value = true
 }
 

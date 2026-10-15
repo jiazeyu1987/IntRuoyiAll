@@ -7,6 +7,7 @@ public record DccControlledFileSelectorRow(
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long tenantId,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long controlledFileId,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long latestControlledFileId,
+        @JsonFormat(shape=JsonFormat.Shape.STRING) Long currentActiveControlledFileId,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long masterId,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long projectId, String projectName,
         @JsonFormat(shape=JsonFormat.Shape.STRING) Long sourceDirectoryId, String sourceDirectoryName,

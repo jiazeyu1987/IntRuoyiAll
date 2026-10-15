@@ -26,9 +26,9 @@ public interface DccProjectBrowserMapper {
         <if test="query.requesterId != null">AND f.requester_id=#{query.requesterId}</if>
         <if test="query.processType != null and query.processType != ''">AND f.process_type=#{query.processType}</if>
         <if test="query.fileTypeTaxonomyId != null">AND f.file_type_taxonomy_id=#{query.fileTypeTaxonomyId}</if>
-        <if test="query.latestVersionOnly == true">
-          AND f.id=m.latest_controlled_file_id
-          AND f.status IN ('ACTIVE','CONTROLLED_PENDING_EFFECTIVE') AND f.controlled_time IS NOT NULL
+        <if test="query.latestVersionOnly == true or (query.latestVersionOnly == null and (query.status == null or query.status == ''))">
+          AND f.id=m.current_active_controlled_file_id
+          AND f.status='ACTIVE' AND f.controlled_time IS NOT NULL AND f.activated_time IS NOT NULL
         </if>
         <if test="query.keyword != null and query.keyword != ''">
           AND (f.source_original_file_name LIKE CONCAT('%',#{query.keyword},'%')
@@ -37,7 +37,7 @@ public interface DccProjectBrowserMapper {
             OR p.project_name LIKE CONCAT('%',#{query.keyword},'%'))
         </if>
         """;
-    String COLUMNS="SELECT f.*,m.latest_controlled_file_id,p.project_name,folder.id AS project_folder_id,folder.name AS project_folder_name ";
+    String COLUMNS="SELECT f.*,m.latest_controlled_file_id,m.current_active_controlled_file_id,p.project_name,folder.id AS project_folder_id,folder.name AS project_folder_name ";
     String AUTH=" AND f.id IN <foreach collection=\"authorizedIds\" item=\"id\" open=\"(\" separator=\",\" close=\")\">#{id}</foreach> ";
     @Select("<script>"+COLUMNS+FROM+" ORDER BY m.id,f.id </script>")
     List<DccControlledFileSelectorRecord> selectCandidates(@Param("tenant") Long tenant,@Param("query") DccControlledFilePageReqVO query);

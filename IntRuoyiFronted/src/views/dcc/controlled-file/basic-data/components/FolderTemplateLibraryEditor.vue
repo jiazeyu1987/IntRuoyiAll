@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="visible" title="文件夹模板库" width="980px">
+  <Dialog v-model="visible" title="文件夹模板库" width="980px" @close="close">
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-table :data="templates" highlight-current-row @current-change="choose" max-height="200">
       <el-table-column prop="name" label="模板名称" />
@@ -7,8 +7,8 @@
       <el-table-column label="历史使用"><template #default="{ row }">{{ row.everUsed ? '已使用' : '未使用' }}</template></el-table-column>
       <el-table-column prop="editedByUserId" label="修改人账号ID" />
     </el-table>
-    <el-button v-hasPermi="['dcc:project-code:update']" class="my-8px" @click="reset">新增模板</el-button>
-    <el-form v-if="selectionValid" label-width="100px" v-loading="loading">
+    <el-button v-hasPermi="['dcc:project-code:update']" class="my-8px" :disabled="loading || writing || !ready" @click="reset">新增模板</el-button>
+    <el-form v-if="selectionValid" label-width="100px" v-loading="loading" :disabled="loading || writing || !ready">
       <el-form-item label="模板名称" required><el-input v-model="form.name" maxlength="128" /></el-form-item>
       <el-form-item label="说明"><el-input v-model="form.description" maxlength="2048" /></el-form-item>
       <el-form-item label="修改原因" required><el-input v-model="form.changeReason" maxlength="500" /></el-form-item>
@@ -29,7 +29,7 @@
     <template #footer>
       <el-button v-hasPermi="['dcc:project-code:update']" type="primary" :loading="loading" :disabled="!ready || !selectionValid" @click="save">保存</el-button>
       <el-button v-if="form.id && !selectedUsed" v-hasPermi="['dcc:project-code:update']" type="danger" :disabled="loading || !ready || !selectionValid" @click="removeTemplate">删除未使用模板</el-button>
-      <el-button @click="visible = false">关闭</el-button>
+      <el-button @click="close">关闭</el-button>
     </template>
   </Dialog>
 </template>
@@ -41,12 +41,18 @@ const emit = defineEmits<{ saved: [] }>()
 const visible = ref(false), loading = ref(false), error = ref(''), selectedUsed = ref(false)
 const templates = ref<FolderTemplate[]>([])
 const ready = ref(false), selectionValid = ref(true)
+const writing = ref(false)
 let contextRevision = 0
 const form = reactive<{ id?: number; name: string; description?: string; active: boolean; structure: FolderStructure; changeReason: string }>({ changeReason: '', name: '', active: true, structure: { nodes: [] } })
-const reset = () => { contextRevision++; selectionValid.value = true; error.value = ''; form.changeReason = ''; form.id = undefined; form.name = ''; form.description = ''; form.active = true; form.structure = { nodes: [] }; selectedUsed.value = false }
+const resetForm = () => { selectionValid.value = true; error.value = ''; form.changeReason = ''; form.id = undefined; form.name = ''; form.description = ''; form.active = true; form.structure = { nodes: [] }; selectedUsed.value = false }
+const close = () => { contextRevision++; visible.value = false; ready.value = false; loading.value = false }
+const reset = () => {
+  if (loading.value || writing.value || !ready.value || !visible.value) return
+  contextRevision++; resetForm()
+}
 const choose = (row?: FolderTemplate) => {
-  if (!row) return
-  contextRevision++; loading.value = false
+  if (!row || loading.value || writing.value || !ready.value || !visible.value) return
+  contextRevision++
   selectionValid.value = false
   try {
     const structure = JSON.parse(row.structureJson)
@@ -56,15 +62,20 @@ const choose = (row?: FolderTemplate) => {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
 }
 
-const add = () => form.structure.nodes.push({ key: crypto.randomUUID(), parentKey: null, name: '', sortOrder: form.structure.nodes.length })
+const add = () => {
+  if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
+  form.structure.nodes.push({ key: crypto.randomUUID(), parentKey: null, name: '', sortOrder: form.structure.nodes.length })
+}
 const remove = (index: number) => {
+  if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
   const key = form.structure.nodes[index].key
   if (form.structure.nodes.some(node => node.parentKey === key)) { error.value = '请先移除或调整子文件夹'; return }
   form.structure.nodes.splice(index, 1)
 }
 const open = async () => {
-  visible.value = true; loading.value = true; ready.value = false; reset(); error.value = ''; templates.value = []
-  const revision = contextRevision
+  if (writing.value) return
+  const revision = ++contextRevision
+  visible.value = true; loading.value = true; ready.value = false; resetForm(); error.value = ''; templates.value = []
   try {
     const rows = await getFolderTemplates()
     if (revision !== contextRevision) return
@@ -74,10 +85,10 @@ const open = async () => {
   } finally { if (revision === contextRevision) loading.value = false }
 }
 const save = async () => {
-  if (!ready.value || !selectionValid.value) return
+  if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value) return
   const revision = contextRevision
   const payload = JSON.parse(JSON.stringify(form))
-  loading.value = true; error.value = ''
+  writing.value = true; loading.value = true; error.value = ''
   try {
     const savedId = await saveFolderTemplate(payload)
     emit('saved') // 已提交成功与后续列表查询分别处理
@@ -87,39 +98,36 @@ const save = async () => {
       const rows = await getFolderTemplates()
       if (revision !== contextRevision) return
       templates.value = rows
-      selectedUsed.value = rows.find(row => row.id === savedId)?.everUsed ?? selectedUsed.value
+      const saved = rows.find(row => String(row.id) === String(savedId))
+      if (!saved) throw new Error('刷新结果未包含已保存模板身份，请重新读取核对')
+      selectedUsed.value = saved.everUsed
     } catch (cause) {
-      if (revision === contextRevision) error.value = '模板已保存，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause))
+      if (revision === contextRevision) { ready.value = false; error.value = '模板已保存，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause)) }
     }
   } catch (cause) {
     if (revision === contextRevision) error.value = cause instanceof Error ? cause.message : String(cause)
-  } finally { if (revision === contextRevision) loading.value = false }
+  } finally { writing.value = false; if (revision === contextRevision) loading.value = false }
 }
 const removeTemplate = async () => {
-  if (!ready.value || !selectionValid.value || !form.id) return
+  if (loading.value || writing.value || !ready.value || !selectionValid.value || !visible.value || !form.id || selectedUsed.value) return
   const revision = contextRevision, id = form.id, reason = form.changeReason
-  try { await ElMessageBox.confirm('删除未使用模板？', '二次确认', { type: 'warning' }) }
-  catch (cause) {
-    if (cause !== 'cancel' && cause !== 'close' && revision === contextRevision) error.value = cause instanceof Error ? cause.message : String(cause)
-    return
-  }
-  if (revision !== contextRevision) return
-  loading.value = true; error.value = ''
+  writing.value = true; loading.value = true; error.value = ''
   try {
+    await ElMessageBox.confirm('删除未使用模板？', '二次确认', { type: 'warning' })
+    if (revision !== contextRevision) return
     await deleteFolderTemplate(id, reason)
     emit('saved')
     if (revision !== contextRevision) return
-    reset()
-    const refreshedRevision = contextRevision
+    resetForm()
     try {
       const rows = await getFolderTemplates()
-      if (refreshedRevision === contextRevision) templates.value = rows
+      if (revision === contextRevision) templates.value = rows
     } catch (cause) {
-      if (refreshedRevision === contextRevision) error.value = '模板已删除，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause))
-    } finally { if (refreshedRevision === contextRevision) loading.value = false }
+      if (revision === contextRevision) { ready.value = false; error.value = '模板已删除，列表刷新失败：' + (cause instanceof Error ? cause.message : String(cause)) }
+    }
   } catch (cause) {
-    if (revision === contextRevision) { error.value = cause instanceof Error ? cause.message : String(cause); loading.value = false }
-  }
+    if (cause !== 'cancel' && cause !== 'close' && revision === contextRevision) error.value = cause instanceof Error ? cause.message : String(cause)
+  } finally { writing.value = false; if (revision === contextRevision) loading.value = false }
 }
 
 defineExpose({ open })

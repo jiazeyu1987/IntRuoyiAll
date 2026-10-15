@@ -81,6 +81,46 @@ public class DccProjectAttributesService {
         return saved;
     }
 
+    /** Caller first proves the terminated source and this new Form's exact reserved target round. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY, rollbackFor = Exception.class)
+    public DccProjectApplicationAttributesDO forkForReworkToReservedRound(Long userId, Long projectId, String type,
+                                                                        Long id, Integer previousRound, Integer reservedTargetRound) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) throw fail(SNAPSHOT_INVALID);
+        requireKey(type, id, previousRound); requireKey(type, id, reservedTargetRound);
+        var principal = cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser();
+        if (!"OBSOLETE".equals(type) || reservedTargetRound <= previousRound || userId == null || userId <= 0
+                || principal == null || !Objects.equals(principal.getId(), userId)
+                || !Objects.equals(principal.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Integer.valueOf(2).equals(principal.getUserType())) throw fail(SNAPSHOT_INVALID);
+        accessService.assertProjectEditorOrOwner(userId, projectId);
+        requireProject(projectId, true);
+        var previous = attributesMapper.find(type, id, previousRound);
+        if (previous == null || !Boolean.TRUE.equals(previous.getSubmitted())
+                || !Objects.equals(previous.getApplicationType(), type) || !Objects.equals(previous.getApplicationId(), id)
+                || !Objects.equals(previous.getApplicationRound(), previousRound)) throw fail(SNAPSHOT_INVALID);
+        requireSameProject(previous, projectId);
+        readValue(previous.getDefaultSourceJson()); readValue(previous.getActualAttributesJson());
+        var saved = attributesMapper.find(type, id, reservedTargetRound);
+        if (saved != null) {
+            requireSameProject(saved, projectId);
+            if (!Boolean.FALSE.equals(saved.getSubmitted()) || !Objects.equals(saved.getApplicationType(), type)
+                    || !Objects.equals(saved.getApplicationId(), id) || !Objects.equals(saved.getApplicationRound(), reservedTargetRound)
+                    || !Objects.equals(saved.getSourceApplicationId(), id)
+                    || !Objects.equals(saved.getSourceApplicationRound(), previousRound)
+                    || !Objects.equals(saved.getDefaultSourceJson(), previous.getDefaultSourceJson())) throw fail(SNAPSHOT_INVALID);
+            readValue(saved.getActualAttributesJson());
+            return saved; // Exact replay keeps this new draft's subsequent legal actual-value edits.
+        }
+        saved = new DccProjectApplicationAttributesDO();
+        saved.setTenantId(TenantContextHolder.getRequiredTenantId()); saved.setProjectCodeId(projectId);
+        saved.setApplicationType(type); saved.setApplicationId(id); saved.setApplicationRound(reservedTargetRound);
+        saved.setSourceApplicationId(id); saved.setSourceApplicationRound(previousRound);
+        saved.setDefaultSourceJson(previous.getDefaultSourceJson()); saved.setActualAttributesJson(previous.getActualAttributesJson());
+        saved.setSubmitted(false);
+        if (attributesMapper.insert(saved) != 1) throw fail(SNAPSHOT_INVALID);
+        return saved;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public DccProjectApplicationAttributesDO saveDraft(Long userId, Long projectId, String type,
                                                        Long applicationId, Integer round, DccProjectAttributes actual) {

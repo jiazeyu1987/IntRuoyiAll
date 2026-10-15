@@ -8,6 +8,7 @@
       ref="formRef"
       :model="formData"
       :rules="formRules"
+      :disabled="uploadSubmitted"
       class="upload-form"
       label-width="86px"
       v-loading="submitLoading"
@@ -29,6 +30,7 @@
             remote
             reserve-keyword
             :loading="projectCodeOptionsLoading"
+            :disabled="submitLoading || projectAttributesLoading"
             :remote-method="loadProjectCodeOptions"
             placeholder="请选择 DCC 项目"
             @visible-change="handleProjectCodeOptionsVisibleChange"
@@ -55,6 +57,7 @@
             ref="projectAttributesPanel"
             :key="projectAttributesPanelKey"
             action="UPLOAD"
+            :saved-snapshot="projectAttributesRestoreSnapshot"
             :readonly="submitLoading"
             @change="captureProjectAttributes"
             @restore-defaults="captureProjectAttributes"
@@ -67,6 +70,8 @@
               :props="{ label: 'name', children: 'children', disabled: (node) => !node.active }"
               check-strictly :loading="projectFoldersLoading" :disabled="!formData.dccProjectCodeId || submitLoading"
               placeholder="请选择项目文件夹" class="!w-460px" />
+            <el-button class="ml-8px" :loading="projectFoldersLoading"
+              :disabled="!formData.dccProjectCodeId || submitLoading" @click="refreshUploadProjectFolders()">刷新目录</el-button>
             <el-alert v-if="projectFoldersError" :title="projectFoldersError" type="error" :closable="false" />
             <span v-else-if="formData.dccProjectCodeId && !projectFoldersLoading && !projectFolders.length">项目尚未生成独立目录</span>
           </div>
@@ -74,7 +79,7 @@
         <el-form-item v-if="!isExternalReview" label="登记说明" prop="projectFolderChangeReason">
           <el-input
             v-model="formData.projectFolderChangeReason" maxlength="500" show-word-limit
-            placeholder="填写文件归入此项目文件夹的说明" :disabled="submitLoading" class="!w-560px" />
+            placeholder="选填：文件归入此项目文件夹的说明" :disabled="submitLoading" class="!w-560px" />
         </el-form-item>
         <el-form-item v-if="!isExternalReview" label="关联文件">
           <div class="w-full">
@@ -93,7 +98,7 @@
               v-model="formData.fileTypeTaxonomyId" class="!w-560px" clearable filterable
               :loading="fileTypeOptionsLoading" :disabled="!formData.dccProjectCodeId || submitLoading || fileTypeOptionsLoading"
               placeholder="请选择启用的文件类型" @change="handleFileTypeTaxonomyChange">
-              <el-option v-for="option in uploadFileTypeOptions" :key="option.id" :value="option.id" :label="option.names.join(' / ')" />
+              <el-option v-for="option in uploadFileTypeOptions" :key="option.id" :value="option.id" :label="option.names.join(' / ')" :disabled="Boolean(option.uploadBlocker) || option.approvalSourceMode === null" />
             </el-select>
             <el-alert v-if="fileTypeOptionsError" :title="fileTypeOptionsError" type="error" :closable="false" />
             <el-alert v-if="fileTypeCategoryError" :title="fileTypeCategoryError" type="error" :closable="false" />
@@ -141,7 +146,13 @@
             </div>
           </div>
         </el-form-item>
-        <el-form-item v-if="!isExternalReview" label="会签部门" required data-testid="dcc-upload-signoff-departments">
+        <CustomApplicationMatrixEditor v-if="!isExternalReview && isCustomApprovalSource"
+          :model-value="formData.applicationCustomMatrix ?? null" :selected-signoff-department-ids="formData.selectedSignoffDepartmentIds?.map(String) ?? null"
+          approval-source-mode="APPLICATION_CUSTOM" :departments="signoffDepartments" :users="approvalUsers"
+          :disabled="submitLoading" :loading="signoffDepartmentsLoading || approvalUsersLoading"
+          :directory-error="signoffDepartmentsError || approvalUsersError"
+          @update:model-value="handleCustomMatrixChange" @update:selected-signoff-department-ids="handleCustomDepartmentsChange" />
+        <el-form-item v-if="!isExternalReview && !isCustomApprovalSource" label="会签部门" required data-testid="dcc-upload-signoff-departments">
           <div class="w-full">
             <el-select
               v-model="formData.selectedSignoffDepartmentIds" multiple filterable class="!w-560px"
@@ -154,7 +165,7 @@
           </div>
         </el-form-item>
         <el-form-item
-          label="批准人" data-testid="dcc-upload-matrix-approvers">
+          v-if="!isCustomApprovalSource" label="批准人" data-testid="dcc-upload-matrix-approvers">
           <div class="w-full">
             <span v-if="approvalUsersLoading">正在读取启用账号目录...</span>
             <el-alert v-else-if="uploadApproverError" :title="uploadApproverError" type="error" :closable="false" />
@@ -163,6 +174,10 @@
                 {{ account.name }}{{ account.deptName ? `（${account.deptName}）` : '' }} · 账号ID {{ account.id }}
               </div>
               <div class="mt-6px text-12px">{{ uploadApprovers.rule }}；人员由本次文件类型的审批矩阵带出。</div>
+              <div v-for="group in uploadApprovers.groups" :key="group.sourceNodeId" class="mt-6px text-12px" data-testid="dcc-upload-approval-rule-group">
+                原批准组 {{ group.sourceNodeId }}：{{ group.summary }}
+              </div>
+              <div v-for="(limitation, index) in uploadApprovers.capabilityLimitations" :key="index" class="mt-6px text-12px">运行能力说明：{{ limitation }}</div>
             </template>
             <span v-else>请选择文件类型并等待正式审批路线预检</span>
             <el-button v-if="approvalUsersError" link @click="loadApprovalUsers">重新读取账号</el-button>
@@ -216,6 +231,16 @@
             <el-input v-model="formData.fileName" class="!w-420px" readonly placeholder="选择原件后显示完整文件名称" />
             <div v-if="projectTemplateFileOptions.length" class="mt-6px text-12px">项目模板参考名称：{{ projectTemplateFileOptions.map(item => item.value).join('、') }}（仅供参考，不限制上传）</div>
             <el-alert v-if="projectFileTemplateError" :title="projectFileTemplateError" type="warning" :closable="false" />
+          </div>
+        </el-form-item>
+        <el-form-item v-if="!isExternalReview" label="下发部门" data-testid="dcc-upload-distribution-departments">
+          <div class="w-full">
+            <el-select v-model="formData.selectedDistributionDepartmentIds" multiple filterable class="!w-560px"
+              :loading="signoffDepartmentsLoading" :disabled="!formData.categoryId || submitLoading || signoffDepartmentsLoading || formData.selectedDistributionDepartmentIds === undefined"
+              placeholder="选择本次下发部门，可独立增加或删除">
+              <el-option v-for="department in signoffDepartments" :key="department.id" :value="department.id" :label="department.name" />
+            </el-select>
+            <div class="mt-6px text-12px">首次从文件类型默认会签部门复制；两份名单独立调整。受控且已生效后向所选下发部门全部人员下发。</div>
           </div>
         </el-form-item>
         <el-form-item label="文件编号" prop="fileNumber">
@@ -318,7 +343,17 @@
             新文件须使用修订版/1格式；检入只生成工作小版本，正式局部变更或换版变更须单独提交审批。
           </div>
         </el-form-item>
-        <el-form-item label="生效日期" prop="effectiveDate">
+        <el-form-item v-if="!isExternalReview" label="生效方式" prop="effectiveMode" data-testid="dcc-upload-effective-mode">
+          <div>
+            <el-radio-group v-model="formData.effectiveMode" @change="handleEffectiveModeChange">
+              <el-radio value="AFTER_STANDARDIZATION_SIGNATURE" :disabled="isExternalReview">文控审核后立即生效</el-radio>
+              <el-radio value="DELAYED">延迟生效</el-radio>
+            </el-radio-group>
+            <div v-if="formData.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE'" class="mt-6px text-12px">由本轮文控标准化审核的真实电子签名时间记录生效事实；受控且已生效后才日常可用并下发。</div>
+            <div v-if="formData.effectiveMode === 'DELAYED'" class="mt-6px text-12px">文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认。</div>
+          </div>
+        </el-form-item>
+        <el-form-item v-if="isExternalReview" label="生效日期" prop="effectiveDate">
           <el-date-picker
             v-model="formData.effectiveDate"
             class="!w-220px"
@@ -418,6 +453,7 @@
               action="#"
               accept=".doc,.docx,.xls,.xlsx,.pdf,.dwg,.sldprt,.sldasm,.slddrw"
               :auto-upload="false"
+              :disabled="submitLoading || projectAttributesLoading"
               :limit="1"
               :file-list="fileList"
               :on-change="handleFileChange"
@@ -459,7 +495,7 @@
               <div class="mb-8px text-15px font-600">提交前预览</div>
               <ProtectedPdfViewer
                 :preview-blob="previewFileBlob"
-                :preview-kind="previewUpload.previewKind || 'PDF'"
+                :preview-kind="previewUpload.previewKind"
                 :onlyoffice-base-url="previewUpload.onlyofficeBaseUrl"
                 :onlyoffice-document-url="previewUpload.onlyofficeDocumentUrl"
                 :preview-unavailable-reason="previewUpload.previewUnavailableReason"
@@ -476,6 +512,7 @@
               action="#"
               accept=".pdf,application/pdf"
               :auto-upload="false"
+              :disabled="submitLoading || projectAttributesLoading || uploadPreviewLoading || !previewUpload"
               :limit="1"
               :file-list="drawingPdfFileList"
               :on-change="handleDrawingPdfChange"
@@ -513,6 +550,7 @@
               action="#"
               multiple
               :auto-upload="false"
+              :disabled="submitLoading || projectAttributesLoading || uploadPreviewLoading || !previewUpload"
               :file-list="attachmentFileList"
               :on-change="handleAttachmentFileChange"
               :before-remove="handleBeforeAttachmentRemove"
@@ -563,6 +601,7 @@
 
         <section class="upload-submit-bar" data-testid="dcc-upload-section-submit">
           <el-form-item>
+            <el-button v-if="!isExternalReview" :loading="submitLoading" :disabled="uploadSubmitted || hasUnreadyAttachmentUploads" @click="saveUploadDraft">保存申请草稿</el-button>
             <el-button
               type="primary"
               :loading="submitLoading"
@@ -584,7 +623,7 @@
 </template>
 
 <script lang="ts" setup>
-import { h } from 'vue'
+import { h, onActivated } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import ProjectApplicationAttributes from '../project-attributes/ProjectApplicationAttributes.vue'
 import DccFileSelector from '../relations/DccFileSelector.vue'
@@ -596,13 +635,18 @@ import { getProjectDiscoveryPage, type DccDiscoveredProject } from '@/api/dcc/co
 import { getProjectFolders, type ProjectFolder } from '@/api/dcc/controlledFile/projectAttributes'
 import { getSimpleDeptList } from '@/api/system/dept'
 import { getSimpleUserList } from '@/api/system/user'
-import { signoffIdentity, normalizeSignoffDepartments, defaultSignoffDepartments,
+import { useUserStore } from '@/store/modules/user'
+import { signoffIdentity, normalizeSignoffDepartments, normalizeDistributionDepartments, defaultSignoffDepartments, initialUploadDepartmentSelection,
   signoffCategoryKey, signoffRequestKey, signoffDepartmentOptions, approvalUserOptions,
-  resolvedUploadApprovers, type UploadApprovalAccount } from './signoff-departments'
+  resolvedUploadApprovers, resolvedUploadApplicationPeople, uploadApplicationActorKey, type UploadApprovalAccount } from './signoff-departments'
+import { UploadApprovalMatrixState, isApprovalMatrixStaleError, matrixRuntimeBlockerMessage, refreshApprovalMatrixRejection } from './approval-matrix'
+import CustomApplicationMatrixEditor from './CustomApplicationMatrixEditor.vue'
+import type { ApplicationCustomMatrix } from '@/api/dcc/controlledFile/workflow'
 import { buildProjectFolderTree } from '../basic-data/components/project-folder-tree'
 import { readProjectProductIdentity, formatProjectProductSource } from './project-product-identity'
 import { getTenantId, getVisitTenantId } from '@/utils/auth'
 import { buildControlledFileViewerPath } from '../view/presentation'
+import { buildSubmittedApplicationRoute } from '../shared/submitted-application-navigation'
 import type { AttributeSnapshot } from '../project-attributes/state'
 import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
 import { formatToDate } from '@/utils/dateUtil'
@@ -625,6 +669,7 @@ import {
   checkControlledFileRouteReadiness,
   previewControlledFileProjectProduct,
   submitControlledFile,
+  createWorkingControlledFile,
   uploadControlledFilePreview,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileProjectProduct,
@@ -655,6 +700,9 @@ import {
   validateControlledFileSelection,
   validateSingleUploadFileSelection,
   validateDccProjectProductCode,
+  buildUploadEffectiveChoice,
+  validateUploadTickets,
+  validateUploadPreviewResponse,
   type UploadFormDraft,
   type UploadConfirmationRow
 } from './submitter'
@@ -666,6 +714,7 @@ const ProtectedPdfViewer = defineAsyncComponent(() => import('../view/index.vue'
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const userStore = useUserStore()
 
 interface UploadNameSuggestionItem {
   value: string
@@ -683,6 +732,7 @@ const projectAttributesPanel = ref<{
   getSnapshot: () => AttributeSnapshot
 }>()
 const projectAttributesPanelKey = ref(0)
+const projectAttributesRestoreSnapshot = ref<AttributeSnapshot>()
 const acceptedProjectCodeId = ref<number | string | null>(null)
 const projectAttributesLoading = ref(false)
 let projectAttributesSelectionSequence = 0
@@ -706,6 +756,7 @@ const fileTypeOptionsError = ref('')
 const fileTypeCategoryError = ref('')
 let fileTypeOptionsRequestSequence = 0
 let fileTypeCategoryRequestSequence = 0
+let fileTypeChangeRequestSequence = 0
 let projectTemplateRequestSequence = 0
 const acceptedFileTypeTaxonomyId = ref<number | string | null>(null)
 const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
@@ -748,6 +799,8 @@ const uploadNameOptionsLoadedKey = ref('')
 const currentVersionLookupLoading = ref(false)
 const currentVersionLookupError = ref('')
 const routeReadiness = ref<ControlledFileRouteReadinessVO>()
+const approvalMatrixState = ref<UploadApprovalMatrixState>()
+let approvalMatrixScopeKey = ''
 const routeReadinessLoading = ref(false)
 const routeReadinessError = ref('')
 let routeReadinessRequestSeq = 0
@@ -774,7 +827,7 @@ const projectFileTemplateLoading = ref(false)
 const projectCodeOptionsError = ref('')
 const projectFileTemplateError = ref('')
 const categoryOptionsError = ref('')
-const uploadSessionId = createControlledFileUploadSessionId()
+let uploadSessionId = createControlledFileUploadSessionId()
 const uploadSessionBinding = ref<{ clientSessionId: string; scopedSessionId: string }>()
 const attachmentUploadPurpose = { purpose: 'ATTACHMENT' as const }.purpose
 const uploadSubmitted = ref(false)
@@ -808,12 +861,13 @@ const submitButtonText = computed(() => (isExternalReview.value ? '提交评审'
 
 const submitBlockedByRouteReadiness = computed(() =>
   Boolean(
-    selectedCategory.value &&
+    !effectiveSelectionValidation.value.valid ||
+    (selectedCategory.value &&
       (routeReadinessLoading.value ||
         routeReadinessError.value ||
         routeReadiness.value?.ready === false ||
         approvalUsersLoading.value || approvalUsersError.value || uploadApproverError.value ||
-        (!isExternalReview.value && (signoffDepartmentsLoading.value || signoffDepartmentsError.value)))
+        (!isExternalReview.value && (signoffDepartmentsLoading.value || signoffDepartmentsError.value))))
   )
 )
 
@@ -875,7 +929,7 @@ const canRetryWorkingDraftCreationAfterCurrentVersionConflictMessage = (
   Boolean(previewUpload.value?.uploadTicket) &&
   isFileNumberChainConflictMessage(errorMessage)
 
-const formData = reactive<UploadFormDraft>({
+const createInitialUploadDraft = (): UploadFormDraft => ({
   categoryId: null,
   directoryId: null,
   fileName: '',
@@ -889,16 +943,22 @@ const formData = reactive<UploadFormDraft>({
   revisionTargetControlledFileId: null,
   revisionSourceControlledFileId: null,
   relatedControlledFileIds: [],
+  projectAttributes: undefined,
+  selectedSignoffDepartmentIds: undefined,
+  selectedDistributionDepartmentIds: undefined,
+  approvalMatrixSelection: undefined,
   needTraining: false,
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
   versionNo: isExternalReview.value ? DEFAULT_MANUAL_VERSION_NO : DEFAULT_CONTROLLED_INITIAL_VERSION_NO,
-  effectiveDate: '',
+  effectiveMode: null,
+  effectiveDate: null,
   remark: ''
 })
+const formData = reactive<UploadFormDraft>(createInitialUploadDraft())
 
 const fileTypeTaxonomyPathMap = computed(() => buildUploadFileTypePaths(fileTypeTaxonomies.value))
-const uploadFileTypeOptions = computed(() => [...fileTypeTaxonomyPathMap.value.values()].filter(option => option.leaf && option.names.length >= 3))
+const uploadFileTypeOptions = computed(() => [...fileTypeTaxonomyPathMap.value.values()].filter(option => option.leaf))
 const projectTemplateFileOptions = computed<UploadNameSuggestionItem[]>(() => projectFileTemplateItems.value
   .filter(item => String(item.fileTypeTaxonomyId) === String(formData.fileTypeTaxonomyId))
   .map(item => ({ value: item.fileName, fileTypeTaxonomyId: item.fileTypeTaxonomyId, taxonomyPath: item.taxonomyPath })))
@@ -998,7 +1058,8 @@ const productCodeBindingHintClass = computed(() =>
 
 const uploadSubmitterService = createUploadSubmitterService({
   uploadPreview: uploadControlledFilePreview,
-  submit: submitControlledFile
+  submit: submitControlledFile,
+  createWorking: createWorkingControlledFile
 })
 
 const canLoadUploadNameOptions = computed(
@@ -1086,7 +1147,16 @@ const formRules = reactive<FormRules>({
       trigger: 'blur'
     }
   ],
-  effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }]
+  effectiveMode: [{ validator: (_rule: unknown, _value: unknown, callback: (error?: Error) => void) => {
+    if (isExternalReview.value) { callback(); return }
+    try { buildUploadEffectiveChoice(formData.effectiveMode, formData.effectiveDate, resolveTodayDate()); callback() }
+    catch (error) { callback(error instanceof Error ? error : new Error(String(error))) }
+  }, trigger: 'change' }],
+  effectiveDate: [{ validator: (_rule: unknown, _value: unknown, callback: (error?: Error) => void) => {
+    if (isExternalReview.value) { callback(formData.effectiveDate ? undefined : new Error('请选择生效日期')); return }
+    try { buildUploadEffectiveChoice(formData.effectiveMode, formData.effectiveDate, resolveTodayDate()); callback() }
+    catch (error) { callback(error instanceof Error ? error : new Error(String(error))) }
+  }, trigger: 'change' }]
 })
 
 const directoryCascaderProps = {
@@ -1169,13 +1239,24 @@ const resetDrawingPdfUpload = () => {
 
 const resetAttachmentUploads = () => {
   attachmentUploadAttempts.value.forEach((attempt) => nextAttachmentUploadGeneration(attempt.uid))
+  attachmentUploadAttempts.value = []
   attachmentUploads.value = []
   attachmentFileList.value = []
   syncAttachmentUploadLoading()
 }
 
 const resetCategorySelectionForFileTypeTaxonomyChange = () => {
+  formData.applicationCustomMatrix = null
+  formData.relatedControlledFileIds = []
+  selectedUploadRelations.value = []
+  uploadRelationsVisible.value = false
+  uploadRelationSource.value = undefined
   formData.categoryId = null
+  formData.selectedSignoffDepartmentIds = undefined
+  formData.selectedDistributionDepartmentIds = undefined
+  approvalMatrixState.value = undefined
+  approvalMatrixScopeKey = ''
+  formData.approvalMatrixSelection = undefined
   resetUploadDirectoryContext()
   resetSelectedPreview()
   resetDrawingPdfUpload()
@@ -1219,16 +1300,19 @@ const cleanupCurrentUploadSession = async (showSuccess = false) => {
   if (uploadSubmitted.value || !hasTemporaryUploadState()) {
     return true
   }
+  const source = previewUpload.value || drawingPdfUpload.value
+  const requestId = resolveCurrentUploadCleanupRequestId()
+  const attachments = [...attachmentUploads.value]
   try {
     let cleanedCount = 0
-    if (previewUpload.value?.uploadTicket || drawingPdfUpload.value?.uploadTicket) {
+    if (source?.uploadTicket) {
       const status = await cleanupControlledFileUploadSession(
-        (previewUpload.value || drawingPdfUpload.value)!.sessionId,
-        resolveCurrentUploadCleanupRequestId()
+        source.sessionId,
+        requestId
       )
       cleanedCount += status.cleanedCount ?? 0
     }
-    for (const upload of attachmentUploads.value) {
+    for (const upload of attachments) {
       if (upload.uploadTicket) {
         const status = await cleanupControlledFileUploadTicket(
           upload.sessionId,
@@ -1356,6 +1440,57 @@ const loadUploadFileTypes = async () => {
   } finally { if (sequence === fileTypeOptionsRequestSequence) fileTypeOptionsLoading.value = false }
 }
 
+const resetCompletedUploadDraft = () => {
+  if (!uploadSubmitted.value || submitLoading.value) return
+  projectAttributesSelectionSequence++
+  projectFolderRequestSequence++
+  projectProductRequestSequence++
+  routeReadinessRequestSeq++
+  signoffDirectoryRequestSeq++
+  approvalUsersRequestSeq++
+  currentVersionLookupSeq++
+  if (currentVersionLookupTimer) clearTimeout(currentVersionLookupTimer)
+  currentVersionLookupTimer = undefined
+  resetProjectFileTemplateSelection()
+  Object.assign(formData, createInitialUploadDraft())
+  fileTypeCategoryError.value = ''
+  acceptedProjectCodeId.value = null
+  projectAttributesRestoreSnapshot.value = undefined
+  projectAttributesPanelKey.value++
+  projectAttributesLoading.value = false
+  projectFolders.value = []
+  projectFoldersProjectId.value = undefined
+  projectFoldersError.value = ''
+  projectFoldersLoading.value = false
+  projectProduct.value = undefined
+  projectProductResolvedId.value = null
+  projectProductError.value = ''
+  projectProductLoading.value = false
+  selectedUploadRelations.value = []
+  uploadRelationSource.value = undefined
+  uploadRelationsVisible.value = false
+  routeReadiness.value = undefined
+  routeReadinessSelectionKey.value = ''
+  routeReadinessError.value = ''
+  routeReadinessLoading.value = false
+  signoffSelectionCategoryKey = ''
+  signoffDepartmentsError.value = ''
+  signoffDepartmentsLoading.value = false
+  approvalUsersError.value = ''
+  approvalUsersLoading.value = false
+  currentVersionLookupLoading.value = false
+  uploadRef.value?.clearFiles()
+  drawingPdfUploadRef.value?.clearFiles()
+  attachmentUploadRef.value?.clearFiles()
+  formRef.value?.clearValidate()
+  uploadSessionId = createControlledFileUploadSessionId()
+  uploadSubmitted.value = false
+  void loadApprovalUsers()
+  if (!isExternalReview.value) void loadSignoffDepartments()
+}
+
+onActivated(resetCompletedUploadDraft)
+
 const loadProjectFileTemplate = async (projectCodeId: number | string) => {
   const sequence = ++projectTemplateRequestSequence
   projectFileTemplateLoading.value = true; projectFileTemplateError.value = ''
@@ -1472,18 +1607,31 @@ const captureProjectAttributes = (snapshot: AttributeSnapshot) => {
   formData.projectAttributes = JSON.parse(JSON.stringify(snapshot.actual))
 }
 
+const hasUploadApplicationInput = () => Boolean(
+  formData.applicationCustomMatrix?.approverUserId || formData.applicationCustomMatrix?.documentControlUserId
+  ||
+  formData.projectFolderId || formData.projectFolderChangeReason?.trim() || formData.fileName?.trim()
+  || formData.fileNumber?.trim() || formData.remark?.trim() || formData.effectiveDate || formData.needTraining
+  || formData.effectiveMode || formData.relatedControlledFileIds?.length || formData.selectedSignoffDepartmentIds?.length
+  || formData.selectedDistributionDepartmentIds?.length
+  || fileList.value.length || drawingPdfFileList.value.length || attachmentFileList.value.length
+)
+
 const handleProjectCodeChange = async () => {
   const sequence = ++projectAttributesSelectionSequence
   const requestedProjectId = formData.dccProjectCodeId
   const previousProjectId = acceptedProjectCodeId.value
   projectAttributesLoading.value = true
   try {
+    if (requestedProjectId !== previousProjectId && previousProjectId != null && (hasUploadApplicationInput() || requestedProjectId == null)) {
+      await message.confirm('切换项目会清除已选文件夹、文件、编号、关联及本次部门选择，是否继续？', '确认切换项目')
+      if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
+    }
+    const previousSnapshot = hasTemporaryUploadState() ? projectAttributesPanel.value?.getSnapshot() : undefined
     if (requestedProjectId == null) {
-      if (previousProjectId != null) {
-        await message.confirm('清除项目会清除本次申请属性及关联选择，是否继续？', '确认清除项目')
-      }
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
       delete formData.projectAttributes
+      projectAttributesRestoreSnapshot.value = undefined
       projectAttributesPanelKey.value += 1
     } else {
       if (!projectAttributesPanel.value) throw new Error('项目属性组件尚未就绪')
@@ -1494,6 +1642,17 @@ const handleProjectCodeChange = async () => {
         return
       }
     }
+    if (!(await cleanupCurrentUploadSession())) {
+      if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
+      formData.dccProjectCodeId = previousProjectId
+      if (previousSnapshot) {
+        formData.projectAttributes = JSON.parse(JSON.stringify(previousSnapshot.actual))
+        projectAttributesRestoreSnapshot.value = previousSnapshot
+        projectAttributesPanelKey.value++
+      }
+      return
+    }
+    if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
     acceptedProjectCodeId.value = requestedProjectId
   } catch (error) {
     if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
@@ -1511,10 +1670,21 @@ const handleProjectCodeChange = async () => {
   projectFolders.value = []
   projectFoldersError.value = ''
   formData.projectFolderId = null
+  formData.projectFolderChangeReason = ''
   formData.relatedControlledFileIds = []
   selectedUploadRelations.value = []
   uploadRelationsVisible.value = false
   uploadRelationSource.value = undefined
+  formData.applicationCustomMatrix = null
+  formData.selectedSignoffDepartmentIds = undefined
+  formData.selectedDistributionDepartmentIds = undefined
+  formData.approvalMatrixSelection = undefined
+  approvalMatrixState.value = undefined
+  approvalMatrixScopeKey = ''
+  routeReadinessRequestSeq++
+  routeReadiness.value = undefined
+  routeReadinessSelectionKey.value = ''
+  signoffSelectionCategoryKey = ''
   resetProjectFileTemplateSelection()
   applyDccProjectCodeProductNumber()
   if (formData.dccProjectCodeId) {
@@ -1535,13 +1705,22 @@ const selectedProjectFolder = computed(() => projectFolders.value.find(folder =>
 
 const loadUploadProjectFolders = async (projectId: number | string) => {
   const sequence = ++projectFolderRequestSequence
+  const selectedFolderId = formData.projectFolderId
   projectFoldersLoading.value = true
   projectFoldersError.value = ''
+  projectFoldersProjectId.value = undefined
+  projectFolders.value = []
   try {
     const rows = await getProjectFolders(projectId)
     if (sequence !== projectFolderRequestSequence || String(formData.dccProjectCodeId) !== String(projectId)) return
+    buildProjectFolderTree(String(projectId), rows)
     projectFoldersProjectId.value = String(projectId)
     projectFolders.value = rows
+    if (selectedFolderId != null && formData.projectFolderId === selectedFolderId
+      && !rows.some(folder => String(folder.id) === String(selectedFolderId) && folder.active)) {
+      formData.projectFolderId = null
+      message.warning('原项目文件夹已删除或停用，请重新选择项目文件夹')
+    }
   } catch (error) {
     if (sequence !== projectFolderRequestSequence || String(formData.dccProjectCodeId) !== String(projectId)) return
     projectFolders.value = []
@@ -1550,6 +1729,14 @@ const loadUploadProjectFolders = async (projectId: number | string) => {
     if (sequence === projectFolderRequestSequence) projectFoldersLoading.value = false
   }
 }
+
+const refreshUploadProjectFolders = async (changedProjectId = formData.dccProjectCodeId) => {
+  if (submitLoading.value || changedProjectId == null
+    || String(changedProjectId) !== String(formData.dccProjectCodeId)) return
+  await loadUploadProjectFolders(changedProjectId)
+}
+
+defineExpose({ refreshUploadProjectFolders })
 
 const buildUploadRelationSource = (): SelectorSource => {
   if (!selectedProjectCode.value || !selectedProjectFolder.value || !previewUpload.value
@@ -1587,7 +1774,10 @@ const persistUploadRelations = async (rows: FileCandidate[]) => {
   if (current.contextKey !== uploadRelationSource.value?.contextKey) throw new Error('项目或上传文件已变化，请重新打开关联窗口')
   if (rows.some(row => row.tenantId !== current.tenantId)) throw new Error('关联文件租户不一致')
   const copy = rows.map(row => {
-    if (!row.controlled) throw new Error('只能关联受控版本')
+    if (row.projectId !== current.projectId) throw new Error('只能关联当前项目文件')
+    if (!row.controlled || row.status !== 'ACTIVE' || row.pendingEffect || !row.executable)
+      throw new Error('只能关联已生效的受控版本')
+    if (!row.canPreview) throw new Error('没有关联文件正文查看权限')
     return { ...row, controlledFileId: referenceIdentity(row.controlledFileId), masterId: referenceIdentity(row.masterId) }
   })
   if (new Set(copy.map(row => row.masterId)).size !== copy.length) throw new Error('关联文件不能重复')
@@ -1603,9 +1793,31 @@ const previewUploadRelation = async (row: FileCandidate) => {
 }
 
 const handleFileTypeTaxonomyChange = async () => {
-  if (!(await cleanupCurrentUploadSession())) { formData.fileTypeTaxonomyId = acceptedFileTypeTaxonomyId.value; return }
-  acceptedFileTypeTaxonomyId.value = formData.fileTypeTaxonomyId
+  const chosen=formData.fileTypeTaxonomyId==null?undefined:fileTypeTaxonomyPathMap.value.get(String(formData.fileTypeTaxonomyId))
+  if(chosen && (chosen.uploadBlocker || chosen.approvalSourceMode===null)) {
+    message.error(chosen.uploadBlocker || '所选文件类型未配置正式审批来源');formData.fileTypeTaxonomyId=acceptedFileTypeTaxonomyId.value;return
+  }
+  const sequence = ++fileTypeChangeRequestSequence
+  const requestedType = formData.fileTypeTaxonomyId
+  const previousType = acceptedFileTypeTaxonomyId.value
+  const current = () => sequence === fileTypeChangeRequestSequence && formData.fileTypeTaxonomyId === requestedType
+  if (submitLoading.value || projectAttributesLoading.value) { formData.fileTypeTaxonomyId = previousType; return }
+  try {
+    if (requestedType !== previousType && hasUploadApplicationInput())
+      await message.confirm('切换文件类型会清除本次文件、编号和部门选择，是否继续？', '确认切换文件类型')
+    if (!current()) return
+    if (!(await cleanupCurrentUploadSession())) { if (current()) formData.fileTypeTaxonomyId = previousType; return }
+    if (!current()) return
+  } catch (error) {
+    if (!current()) return
+    formData.fileTypeTaxonomyId = previousType
+    if (error !== 'cancel' && error !== 'close') message.error(resolveUploadErrorMessage(error, '切换文件类型失败'))
+    return
+  }
+  acceptedFileTypeTaxonomyId.value = requestedType
   fileTypeCategoryRequestSequence++
+  formData.fileNumber = ''
+  formData.selectedSignoffDepartmentIds = undefined
   resetUploadNameContext(true)
   resetCategorySelectionForFileTypeTaxonomyChange()
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
@@ -1715,17 +1927,31 @@ const existingUploadIdentityBlockReason = computed(() =>
     : ''
 )
 
-const isEffectiveDateBeforeToday = computed(() =>
-  Boolean(formData.effectiveDate && formData.effectiveDate < resolveTodayDate())
-)
+const handleEffectiveModeChange = () => {
+  if (formData.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE' || formData.effectiveMode === 'DELAYED') formData.effectiveDate = null
+  formRef.value?.clearValidate?.(['effectiveMode', 'effectiveDate'])
+}
+
+const effectiveSelectionValidation = computed(() => {
+  if (isExternalReview.value) return { valid: Boolean(formData.effectiveDate), message: formData.effectiveDate ? '' : '请选择生效日期' }
+  try {
+    buildUploadEffectiveChoice(formData.effectiveMode, formData.effectiveDate, resolveTodayDate())
+    return { valid: true, message: '' }
+  } catch (error) { return { valid: false, message: resolveUploadErrorMessage(error, '生效方式或日期无效') } }
+})
+const isCustomApprovalSource = computed(() => selectedFileTypeTaxonomyPath.value?.approvalSourceMode === 'APPLICATION_CUSTOM')
+const handleCustomMatrixChange = (value: ApplicationCustomMatrix) => { formData.applicationCustomMatrix = value; void refreshRouteReadiness() }
+const handleCustomDepartmentsChange = (ids: string[]) => {
+  formData.selectedSignoffDepartmentIds = [...ids]
+  if (formData.selectedDistributionDepartmentIds === undefined && ids.length) formData.selectedDistributionDepartmentIds = [...ids]
+  void refreshRouteReadiness()
+}
 const effectiveDatePreflightText = computed(() => {
-  if (!formData.effectiveDate) {
-    return '请选择生效日期。'
-  }
-  if (isEffectiveDateBeforeToday.value) {
-    return `生效日期 ${formData.effectiveDate} 早于今天；过去日期的处理规则尚未明确，请核对后再提交。`
-  }
-  return `生效日期 ${formData.effectiveDate} 已填写。`
+  if (isExternalReview.value) return formData.effectiveDate ? `生效日期 ${formData.effectiveDate} 已填写。` : '请选择生效日期。'
+  if (!effectiveSelectionValidation.value.valid) return effectiveSelectionValidation.value.message
+  return formData.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE'
+    ? '文控标准化审核完成时按本轮真实电子签名时间生效；不填写预设日期。'
+    : formData.effectiveMode === 'DELAYED' ? '延迟生效方式已选择；本次申请不填写具体时间，由原编制人在延迟生效确认任务中选择并电子签名。' : `历史预设生效日期 ${formData.effectiveDate} 已填写；最终按后台正式业务日期校验。`
 })
 
 const approvalChainPreflightText = computed(() => {
@@ -1793,13 +2019,11 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
     },
     {
       key: 'effective-date',
-      label: '生效日期',
-      status: formData.effectiveDate
-        ? (isEffectiveDateBeforeToday.value ? '需核对' : '已填写')
-        : '待填写',
+      label: '生效方式及日期',
+      status: effectiveSelectionValidation.value.valid ? '已填写' : '待核对',
       description: effectiveDatePreflightText.value,
-      ok: Boolean(formData.effectiveDate),
-      warning: !formData.effectiveDate
+      ok: effectiveSelectionValidation.value.valid,
+      warning: !effectiveSelectionValidation.value.valid
     },
     {
       key: 'category-selection',
@@ -1848,12 +2072,16 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
 
 const loadApprovalUsers = async () => {
   const token = ++approvalUsersRequestSeq
+  const actorKey = uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId())
   approvalUsersLoading.value = true
   approvalUsersError.value = ''
   approvalUsers.value = []
   try {
     const accounts = approvalUserOptions(await getSimpleUserList())
-    if (token === approvalUsersRequestSeq) approvalUsers.value = accounts
+    if (token !== approvalUsersRequestSeq) return
+    if (actorKey !== uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()))
+      throw new Error('登录账号或租户已变化，请重新读取启用账号目录')
+    approvalUsers.value = accounts
   } catch (cause) {
     if (token === approvalUsersRequestSeq)
       approvalUsersError.value = cause instanceof Error ? cause.message : String(cause)
@@ -1874,13 +2102,51 @@ const loadSignoffDepartments = async () => {
   } finally { if (token === signoffDirectoryRequestSeq) signoffDepartmentsLoading.value = false }
 }
 
+const ensureUploadApprovalMatrix = () => {
+  const tenantId = referenceIdentity(getVisitTenantId() ?? getTenantId())
+  const projectId = referenceIdentity(formData.dccProjectCodeId)
+  const categoryId = signoffIdentity(formData.categoryId)
+  const taxonomyId = uploadFileTypeIdentity(formData.fileTypeTaxonomyId)
+  const key = JSON.stringify([tenantId, projectId, categoryId, taxonomyId, 'NEW',
+    selectedFileTypeTaxonomyPath.value?.approvalSourceMode,
+    uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId())])
+  if (!approvalMatrixState.value || key !== approvalMatrixScopeKey) {
+    approvalMatrixScopeKey = key
+    approvalMatrixState.value = new UploadApprovalMatrixState({ tenantId, projectId, categoryId, taxonomyId,
+      approvalSourceMode: selectedFileTypeTaxonomyPath.value?.approvalSourceMode ?? undefined,
+      requesterId: referenceIdentity(userStore.getUser.id),
+      actionType: 'NEW', applicationContextKey: createControlledFileUploadSessionId() })
+    formData.approvalMatrixSelection = undefined
+  }
+  if (isCustomApprovalSource.value) approvalMatrixState.value.setApplicationCustomMatrix(formData.applicationCustomMatrix ?? null)
+  return approvalMatrixState.value
+}
+
+const confirmUploadMatrixChange = async (phase: 'SUBMIT' | 'SAVE' = 'SUBMIT') => {
+  const state = ensureUploadApprovalMatrix()
+  const accepted = await state.confirmChange(async rows => {
+    try {
+      await ElMessageBox.confirm(h('div', { style: 'max-height:65vh;overflow:auto;white-space:pre-wrap' }, rows.map(row =>
+        h('p', [h('strong', `${row.label}：`), h('span', row.value)]))), '公共审批配置已变化，请确认本次使用的配置',
+        { confirmButtonText: '确认当前配置', cancelButtonText: '取消', type: 'warning' })
+      return true
+    } catch (cause) { if (cause === 'cancel' || cause === 'close') return false; throw cause }
+  })
+  if (!accepted || state !== approvalMatrixState.value) return false
+  formData.approvalMatrixSelection = state.selection(phase)
+  return true
+}
+
 const refreshRouteReadiness = async () => {
   const requestSeq = ++routeReadinessRequestSeq
+  const actorKey = uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId())
   if (!formData.categoryId) {
     routeReadiness.value = undefined
     routeReadinessSelectionKey.value = ''
     signoffSelectionCategoryKey = ''
-    formData.selectedSignoffDepartmentIds = undefined
+  formData.selectedSignoffDepartmentIds = undefined
+  formData.selectedDistributionDepartmentIds = undefined
+  formData.applicationCustomMatrix = null
     routeReadinessError.value = ''
     routeReadinessLoading.value = false
     return false
@@ -1894,20 +2160,58 @@ const refreshRouteReadiness = async () => {
     const categoryKey = signoffCategoryKey(categoryId, formData.processType)
     if (categoryKey !== signoffSelectionCategoryKey) {
       formData.selectedSignoffDepartmentIds = undefined
+      formData.selectedDistributionDepartmentIds = undefined
       signoffSelectionCategoryKey = categoryKey
     }
-    const selectedDepartments = isExternalReview.value ? undefined : normalizeSignoffDepartments(formData.selectedSignoffDepartmentIds, true)
-    const requestKey = signoffRequestKey(categoryId, selectedDepartments, formData.processType)
-    const readiness = await checkControlledFileRouteReadiness({ categoryId, actionType: 'NEW',
-      ...(selectedDepartments === undefined ? {} : { selectedSignoffDepartmentIds: selectedDepartments }) })
+    const selectedDepartments = isExternalReview.value ? undefined : isCustomApprovalSource.value ? [...(formData.selectedSignoffDepartmentIds ?? [])] : normalizeSignoffDepartments(formData.selectedSignoffDepartmentIds, true)
+    const requestKey = isCustomApprovalSource.value ? JSON.stringify([categoryId, selectedDepartments, formData.applicationCustomMatrix]) : signoffRequestKey(categoryId, selectedDepartments, formData.processType)
+    const matrix = isExternalReview.value ? undefined : ensureUploadApprovalMatrix()
+    const matrixRequest = matrix?.begin(selectedDepartments)
+    const readiness = await checkControlledFileRouteReadiness(matrixRequest?.request || { categoryId, actionType: 'NEW' })
     if (requestSeq !== routeReadinessRequestSeq) {
       return false
     }
-    if (requestKey !== signoffRequestKey(formData.categoryId,
-      isExternalReview.value ? undefined : formData.selectedSignoffDepartmentIds, formData.processType))
+    if (actorKey !== uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()))
+      throw new Error('登录账号或租户已变化，请重新校验审批路线')
+    if (requestKey !== (isCustomApprovalSource.value ? JSON.stringify([signoffIdentity(formData.categoryId), [...(formData.selectedSignoffDepartmentIds ?? [])], formData.applicationCustomMatrix]) : signoffRequestKey(formData.categoryId,
+      isExternalReview.value ? undefined : formData.selectedSignoffDepartmentIds, formData.processType)))
       throw new Error('会签部门或文件类别已变化，请重新校验')
     if (!isExternalReview.value) {
+      if (!matrix || !matrixRequest || matrix !== ensureUploadApprovalMatrix() || !matrix.accept(matrixRequest, readiness)) return false
+      if (isCustomApprovalSource.value) {
+        routeReadinessSelectionKey.value = signoffRequestKey(formData.categoryId, selectedDepartments?.length ? selectedDepartments : undefined, formData.processType)
+        routeReadiness.value = readiness
+        formData.approvalMatrixSelection = matrix.selection('SAVE')
+        return readiness.ready
+      }
+      if (!readiness.ready && !readiness.nodes.length) {
+        routeReadinessSelectionKey.value = requestKey
+        routeReadiness.value = readiness
+        return false
+      }
       const resolvedDepartments = defaultSignoffDepartments(readiness)
+      if (formData.selectedDistributionDepartmentIds === undefined) {
+        const defaultMatrix = selectedDepartments === undefined ? matrix : matrix.createDefaultPreview()
+        const defaultRequest = selectedDepartments === undefined ? undefined : defaultMatrix.begin()
+        const initialResponse = defaultRequest ? await checkControlledFileRouteReadiness(defaultRequest.request) : readiness
+        if (requestSeq !== routeReadinessRequestSeq) return false
+        if (actorKey !== uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()))
+          throw new Error('登录账号或租户已变化，请重新校验审批路线')
+        if (JSON.stringify(readiness.nodes.filter(node => node.stageCode === 'SUPERVISOR_REVIEW'))
+          !== JSON.stringify(initialResponse.nodes.filter(node => node.stageCode === 'SUPERVISOR_REVIEW')))
+          throw new Error('直属主管正式预检来源已变化，请重新校验审批路线')
+        if (requestKey !== signoffRequestKey(formData.categoryId, formData.selectedSignoffDepartmentIds, formData.processType))
+          throw new Error('会签部门或文件类别已变化，请重新校验')
+        if (JSON.stringify([initialResponse.matrixBefore, initialResponse.matrixAfter, initialResponse.preparedProcessDefinitionId,
+          initialResponse.preparedDefinitionDigest, initialResponse.ready])
+          !== JSON.stringify([readiness.matrixBefore, readiness.matrixAfter, readiness.preparedProcessDefinitionId,
+            readiness.preparedDefinitionDigest, readiness.ready]))
+          throw new Error(matrixRuntimeBlockerMessage(initialResponse) || '审批矩阵或流程准备来源已变化，请重新校验')
+        if (matrix !== ensureUploadApprovalMatrix() || (defaultRequest && !defaultMatrix.accept(defaultRequest, initialResponse))) return false
+        const initial = initialUploadDepartmentSelection(initialResponse)
+        if (formData.selectedDistributionDepartmentIds === undefined)
+          formData.selectedDistributionDepartmentIds = initial.selectedDistributionDepartmentIds
+      }
       if (selectedDepartments === undefined) formData.selectedSignoffDepartmentIds = resolvedDepartments
       else if (JSON.stringify([...selectedDepartments].sort()) !== JSON.stringify([...resolvedDepartments].sort()))
         throw new Error('审批预检返回的会签部门与本次选择不一致')
@@ -2006,12 +2310,31 @@ const handleFileNameClear = () => {
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
+const refreshRejectedUploadMatrix = async (cause: unknown) => {
+  formData.approvalMatrixSelection = undefined
+  const state = approvalMatrixState.value
+  return await refreshApprovalMatrixRejection(state, cause, async () => {
+    await refreshRouteReadiness()
+    if (state !== approvalMatrixState.value) throw new Error('申请范围已变化，请重新读取当前项目和类型')
+    if (routeReadinessError.value) throw new Error(routeReadinessError.value)
+    if (!routeReadiness.value) throw new Error('正式审批预检未返回结果')
+    return matrixRuntimeBlockerMessage(routeReadiness.value)
+  })
+}
+
 const handleFileExceed: UploadProps['onExceed'] = () => {
   message.error('只允许上传一个文件')
 }
 
+const captureUploadSelectionContext = () => JSON.stringify({
+  project: formData.dccProjectCodeId, type: formData.fileTypeTaxonomyId,
+  category: formData.categoryId, process: formData.processType
+})
+
 const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value) return
   const requestSeq = ++sourceUploadRequestSeq
+  const selectionContext = captureUploadSelectionContext()
   const selectedUid = file.uid
   const validation = validateControlledFileSelection(
     uploadFiles.map((item) => ({
@@ -2032,9 +2355,12 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
     return
   }
   if (!(await cleanupCurrentUploadSession())) {
-    uploadRef.value?.clearFiles()
+    if (requestSeq === sourceUploadRequestSeq) uploadRef.value?.clearFiles()
     return
   }
+  if (requestSeq !== sourceUploadRequestSeq || selectionContext !== captureUploadSelectionContext()) return
+  uploadSessionId = createControlledFileUploadSessionId()
+  const clientSessionId = uploadSessionId
   resetDrawingPdfUpload()
   resetAttachmentUploads()
 
@@ -2054,17 +2380,19 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
     )
     const isCurrentSelection =
       requestSeq === sourceUploadRequestSeq &&
+      clientSessionId === uploadSessionId && selectionContext === captureUploadSelectionContext() &&
       fileList.value.some((selectedFile) => selectedFile.uid === selectedUid)
     if (!isCurrentSelection) {
       await cleanupStaleUploadResponse(uploaded, '受控文件')
       return
     }
-    if (uploaded.fileName !== file.raw.name) {
+    try { validateUploadPreviewResponse(uploaded, file.raw.name, true) }
+    catch (invalidResponse) {
       await cleanupStaleUploadResponse(uploaded, '受控文件')
-      throw new Error('预览原件完整名称与本次选择文件不一致，请重新上传')
+      throw invalidResponse
     }
     uploadSessionBinding.value = {
-      clientSessionId: uploadSessionId,
+      clientSessionId,
       scopedSessionId: uploaded.sessionId
     }
     previewUpload.value = uploaded
@@ -2083,6 +2411,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
 }
 
 const handleBeforeFileRemove: UploadProps['beforeRemove'] = async () => {
+  if (submitLoading.value || uploadSubmitted.value) return false
   const cleaned = await cleanupCurrentUploadSession(true)
   if (cleaned) {
     sourceUploadRequestSeq++
@@ -2102,7 +2431,10 @@ const handleDrawingPdfExceed: UploadProps['onExceed'] = () => {
 }
 
 const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value || uploadPreviewLoading.value || !previewUpload.value) return
   const requestSeq = ++drawingPdfUploadRequestSeq
+  const selectionContext = captureUploadSelectionContext()
+  const clientSessionId = uploadSessionId
   const selectedUid = file.uid
   const validation = validateSingleUploadFileSelection(
     uploadFiles.map((item) => ({
@@ -2135,6 +2467,8 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
     drawingPdfUploadRef.value?.clearFiles()
     return
   }
+  if (requestSeq !== drawingPdfUploadRequestSeq || clientSessionId !== uploadSessionId
+    || selectionContext !== captureUploadSelectionContext()) return
 
   uploadPreviewError.value = ''
   drawingPdfFileList.value = uploadFiles.slice(-1)
@@ -2148,11 +2482,14 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
     )
     const isCurrentSelection =
       requestSeq === drawingPdfUploadRequestSeq &&
+      clientSessionId === uploadSessionId && selectionContext === captureUploadSelectionContext() &&
       drawingPdfFileList.value.some((selectedFile) => selectedFile.uid === selectedUid)
     if (!isCurrentSelection) {
       await cleanupStaleUploadResponse(uploaded, '图纸 PDF')
       return
     }
+    try { validateUploadPreviewResponse(uploaded, file.raw.name, false) }
+    catch (invalidResponse) { await cleanupStaleUploadResponse(uploaded, '图纸 PDF'); throw invalidResponse }
     drawingPdfUpload.value = uploaded
   } catch (error) {
     if (requestSeq === drawingPdfUploadRequestSeq) {
@@ -2168,6 +2505,7 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
 }
 
 const handleBeforeDrawingPdfRemove: UploadProps['beforeRemove'] = async () => {
+  if (submitLoading.value || uploadSubmitted.value) return false
   const cleaned = await cleanupTemporaryUploadTicket(drawingPdfUpload.value, true)
   if (cleaned) {
     drawingPdfUploadRequestSeq++
@@ -2180,6 +2518,7 @@ const handleDrawingPdfRemove: UploadProps['onRemove'] = () => {
 }
 
 const handleAttachmentFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value || uploadPreviewLoading.value || !previewUpload.value) return
   if (!file.raw) {
     return
   }
@@ -2204,6 +2543,8 @@ const handleAttachmentFileChange: UploadProps['onChange'] = async (file, uploadF
       await cleanupStaleUploadResponse(uploaded, '普通附件')
       return
     }
+    try { validateUploadPreviewResponse(uploaded, file.raw.name, false) }
+    catch (invalidResponse) { await cleanupStaleUploadResponse(uploaded, '普通附件'); throw invalidResponse }
     attachmentUploads.value = [
       ...attachmentUploads.value.filter((upload) => upload.uid !== file.uid),
       {
@@ -2230,6 +2571,7 @@ const handleAttachmentFileChange: UploadProps['onChange'] = async (file, uploadF
 }
 
 const handleBeforeAttachmentRemove: UploadProps['beforeRemove'] = async (file) => {
+  if (submitLoading.value || uploadSubmitted.value) return false
   const attempt = findAttachmentUploadAttempt(file.uid)
   if (attempt?.status === 'UPLOADING') {
     nextAttachmentUploadGeneration(file.uid)
@@ -2254,15 +2596,18 @@ const handleAttachmentRemove: UploadProps['onRemove'] = (file, uploadFiles) => {
   clearSubmitFieldErrors(submitFieldErrors)
 }
 
-const freezeUploadApplicationDraft = (): UploadFormDraft => {
+const freezeUploadApplicationDraft = (savingDraft = false): UploadFormDraft => {
   const draft: UploadFormDraft = JSON.parse(JSON.stringify(formData))
+  if (!isExternalReview.value && !savingDraft) Object.assign(draft, buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveTodayDate()))
   if (!isExternalReview.value) {
+    const selectedType = selectedFileTypeTaxonomyPath.value
+    if (selectedType?.uploadBlocker) throw new Error(selectedType.uploadBlocker)
     if (projectFoldersLoading.value || projectFoldersError.value || !selectedProjectFolder.value
       || String(selectedProjectFolder.value.projectCodeId) !== String(draft.dccProjectCodeId)) {
       throw new Error(projectFoldersError.value || '请选择当前项目的有效文件夹')
     }
-    if (!draft.projectFolderChangeReason?.trim() || draft.projectFolderChangeReason.trim().length > 500) {
-      throw new Error('请填写500字以内的文件夹登记说明')
+    if ((draft.projectFolderChangeReason?.trim().length ?? 0) > 500) {
+      throw new Error('文件夹登记说明不能超过500字')
     }
     if (projectAttributesLoading.value || !projectAttributesPanel.value) {
       throw new Error('请等待当前项目属性读取完成')
@@ -2274,21 +2619,28 @@ const freezeUploadApplicationDraft = (): UploadFormDraft => {
     draft.projectAttributes = JSON.parse(JSON.stringify(snapshot.actual))
     if (signoffDepartmentsLoading.value || signoffDepartmentsError.value)
       throw new Error(signoffDepartmentsError.value || '请等待启用部门目录读取完成')
-    const selected = normalizeSignoffDepartments(draft.selectedSignoffDepartmentIds)!
-    if (selected.some(id => !signoffDepartments.value.some(department => department.id === id)))
+    const selected = savingDraft && isCustomApprovalSource.value ? [...(draft.selectedSignoffDepartmentIds ?? [])] : normalizeSignoffDepartments(draft.selectedSignoffDepartmentIds, savingDraft)
+    if (selected?.some(id => !signoffDepartments.value.some(department => department.id === id)))
       throw new Error('本次会签部门不在启用部门目录中，请重新选择')
-    if (routeReadinessSelectionKey.value !== signoffRequestKey(draft.categoryId, selected, draft.processType))
+    if (!savingDraft && routeReadinessSelectionKey.value !== signoffRequestKey(draft.categoryId, selected, draft.processType))
       throw new Error('本次会签部门尚未完成预检，请重新校验')
     draft.selectedSignoffDepartmentIds = selected
+    const distribution = savingDraft && draft.selectedDistributionDepartmentIds === undefined ? undefined : normalizeDistributionDepartments(draft.selectedDistributionDepartmentIds)
+    if (distribution?.some(id => !signoffDepartments.value.some(department => department.id === id)))
+      throw new Error('本次下发部门不在启用部门目录中，请重新选择')
+    draft.selectedDistributionDepartmentIds = distribution
   }
+    if (savingDraft) return draft
   if (approvalUsersLoading.value || approvalUsersError.value || !routeReadiness.value?.ready)
     throw new Error(approvalUsersError.value || '请等待启用账号及审批路线校验完成')
   resolvedUploadApprovers(routeReadiness.value, approvalUsers.value)
+  if (!isExternalReview.value) resolvedUploadApplicationPeople(routeReadiness.value, userStore.getUser, approvalUsers.value)
   return draft
 }
 
 const captureUploadSubmissionContext = () => JSON.stringify({
-  form: formData, preview: previewUpload.value, drawingPdf: drawingPdfUpload.value,
+  actor: uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()),
+  form: Object.fromEntries(Object.entries(formData).filter(([key]) => key !== 'approvalMatrixSelection')), preview: previewUpload.value, drawingPdf: drawingPdfUpload.value,
   attachments: resolveReadyAttachmentUploads(), relations: selectedUploadRelations.value,
   attributes: isExternalReview.value ? undefined : projectAttributesPanel.value?.getSnapshot(),
   project: selectedProjectCode.value, product: projectProduct.value, folder: selectedProjectFolder.value,
@@ -2301,7 +2653,7 @@ const confirmUploadApplication = (rows: UploadConfirmationRow[]) => ElMessageBox
     ...rows.map(row => h('div', { style: 'margin-bottom:8px;overflow-wrap:anywhere' }, [
       h('strong', `${row.label}：`), h('span', row.value)
     ])),
-    h('p', '受控日期由系统记录，生效日期可晚于受控日期。'),
+    h('p', '生效与受控分别记录；日常可用及自动下发须同时满足受控且已生效。'),
     h('p', '再次确认后才提交审批；取消保留已填写内容。')
   ]), '确认提交', {
     confirmButtonText: '确认提交', cancelButtonText: '取消', type: 'warning',
@@ -2309,8 +2661,50 @@ const confirmUploadApplication = (rows: UploadConfirmationRow[]) => ElMessageBox
   }
 )
 
+const saveUploadDraft = async () => {
+  if (isExternalReview.value || submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value
+    || uploadPreviewLoading.value || uploadDrawingPdfLoading.value || hasUnreadyAttachmentUploads.value) return
+  submitLoading.value = true
+  try {
+    const clickedContext = captureUploadSubmissionContext()
+    if (!previewUpload.value || !isVersionNoFormatValid.value || !formData.fileNumber.trim()
+      || !formData.categoryId || !formData.fileTypeTaxonomyId) throw new Error('请完成正文上传、编号、初始版本和文件类型后保存草稿')
+    if (projectProductLoading.value || projectProductError.value || projectProductResolvedId.value !== formData.dccProjectCodeId)
+      throw new Error(projectProductError.value || '当前项目产品身份尚未读取完成')
+    const product = validateDccProjectProductCode(formData.productCode, isProductRequiredForSelectedCategory.value)
+    if (!product.valid) throw new Error(product.message)
+    const drawing = validateDrawingPdfUpload(previewUpload.value, drawingPdfUpload.value)
+    if (!drawing.valid) throw new Error(drawing.message)
+    const attachments = resolveReadyAttachmentUploads()
+    if (!attachments) throw new Error('普通附件尚未全部上传完成')
+    await refreshRouteReadiness()
+    if (captureUploadSubmissionContext() !== clickedContext) throw new Error('项目、文件或本次配置已变化，请核对后重新保存')
+    if (routeReadinessError.value || !approvalMatrixState.value || (!isCustomApprovalSource.value && !approvalMatrixState.value.after))
+      throw new Error(routeReadinessError.value || '正式审批矩阵尚未配置，不能保存申请工作稿')
+    if (!(await confirmUploadMatrixChange('SAVE'))) return
+    if (captureUploadSubmissionContext() !== clickedContext) throw new Error('项目、文件或本次配置已变化，请核对后重新保存')
+    const draft = freezeUploadApplicationDraft(true)
+    const id = await uploadSubmitterService.saveDraft(draft,
+      JSON.parse(JSON.stringify(previewUpload.value)), drawingPdfUpload.value ? JSON.parse(JSON.stringify(drawingPdfUpload.value)) : undefined,
+      JSON.parse(JSON.stringify(attachments)))
+    uploadSubmitted.value = true
+    const exactId = referenceIdentity(id)
+    message.success('申请工作稿已保存')
+    try {
+      await router.push(buildSubmittedApplicationRoute(exactId, { management: '1', from: 'browser', returnTo: router.resolve({ name: 'DccControlledFileBrowser' }).path }))
+    } catch (navigationError) { message.error(`工作稿已保存，但页面跳转失败：${resolveUploadErrorMessage(navigationError, '请从受控文件目录查看工作稿')}`) }
+  } catch (cause) {
+    if (isApprovalMatrixStaleError(cause)) {
+      message.error(await refreshRejectedUploadMatrix(cause))
+      return
+    }
+    message.error(resolveUploadErrorMessage(cause, '申请工作稿保存失败，请核对后重试'))
+  }
+  finally { submitLoading.value = false }
+}
+
 const submitForm = async () => {
-  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value) {
+  if (submitLoading.value || uploadSubmitted.value || projectAttributesLoading.value || uploadPreviewLoading.value || uploadDrawingPdfLoading.value) {
     message.warning('请等待当前项目属性读取或提交完成')
     return
   }
@@ -2414,18 +2808,35 @@ const submitForm = async () => {
   submitLoading.value = true
   try {
     if (captureUploadSubmissionContext() !== clickedContext) throw new Error('项目、文件或申请信息已变化，请核对后重新提交')
+    if (!isExternalReview.value) resolvedUploadApplicationPeople(routeReadiness.value, userStore.getUser, approvalUsers.value)
+    if (!isExternalReview.value) {
+      const routeBeforeConfirmation = JSON.stringify({ route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value })
+      const matrixAccepted = await confirmUploadMatrixChange()
+      if (captureUploadSubmissionContext() !== clickedContext || routeBeforeConfirmation
+        !== JSON.stringify({ route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value }))
+        throw new Error('登录账号或审批路线及申请信息已变化，请核对后重新提交')
+      if (!matrixAccepted) return
+    }
     const draft = freezeUploadApplicationDraft()
     const preview = JSON.parse(JSON.stringify(previewUpload.value))
     const drawingPdf = drawingPdfUpload.value ? JSON.parse(JSON.stringify(drawingPdfUpload.value)) : undefined
     const attachments = JSON.parse(JSON.stringify(attachmentSnapshot))
+    validateUploadTickets(preview, drawingPdf, attachments)
     const approvers = resolvedUploadApprovers(routeReadiness.value, approvalUsers.value)
+    const people = isExternalReview.value ? undefined : resolvedUploadApplicationPeople(routeReadiness.value, userStore.getUser, approvalUsers.value)
     const summary = buildUploadConfirmationSummary(draft, preview, {
       projectName: selectedProjectCode.value?.projectName,
       folderName: selectedProjectFolder.value?.name,
       fileTypeName: isExternalReview.value ? selectedCategory.value?.name : selectedFileTypeTaxonomyLeafName.value,
       relatedFiles: JSON.parse(JSON.stringify(selectedUploadRelations.value)),
       signoffDepartments: draft.selectedSignoffDepartmentIds?.map(id => signoffDepartments.value.find(department => department.id === String(id))!),
-      approvers: approvers.accounts, approvalRule: approvers.rule
+      distributionDepartments: draft.selectedDistributionDepartmentIds?.map(id => signoffDepartments.value.find(department => department.id === String(id))!),
+      approvers: approvers.accounts, approvalRule: approvers.rule, approvalGroups: approvers.groups,
+      compiler: people?.compiler, supervisor: people?.supervisor,
+      documentControl: isCustomApprovalSource.value
+        ? approvalUsers.value.find(account => account.id === draft.applicationCustomMatrix?.documentControlUserId) : undefined,
+      runtimeCapabilityLimitations: approvers.capabilityLimitations,
+      drawingPdf, attachments
     })
     const currentContext = () => JSON.stringify({ context: captureUploadSubmissionContext(),
       route: routeReadiness.value, routeKey: routeReadinessSelectionKey.value })
@@ -2440,6 +2851,11 @@ const submitForm = async () => {
       || currentContext() !== confirmedContext) {
       throw new Error('项目、文件或申请信息已变化，请核对后重新提交')
     }
+    if (!isExternalReview.value) buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveTodayDate())
+    if (!isExternalReview.value && JSON.stringify(draft.approvalMatrixSelection)
+      !== JSON.stringify(ensureUploadApprovalMatrix().selection('SUBMIT')))
+      throw new Error('直属主管来源或审批准备已变化，请重新核对并确认')
+    validateUploadTickets(preview, drawingPdf, attachments)
     await uploadSubmitterService.submit(
       draft,
       preview,
@@ -2448,13 +2864,20 @@ const submitForm = async () => {
     )
     uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
-    await router.push({ name: 'DccControlledFileBrowser' })
+    try { await router.push({ name: 'DccControlledFileBrowser' }) }
+    catch (navigationError) {
+      message.error(`申请已提交成功，但页面跳转失败：${resolveUploadErrorMessage(navigationError, '请从受控文件目录查看提交结果')}`)
+    }
   } catch (error) {
     const feedback = buildSubmitFailureFeedback(
       error,
       '受控文件提交失败，请查看错误提示后重试',
       formData.processType
     )
+    if (!isExternalReview.value && isApprovalMatrixStaleError(error)) {
+      message.error(await refreshRejectedUploadMatrix(error))
+      return
+    }
     applySubmitFailureFeedback(submitFieldErrors, feedback)
     message.error(feedback.message)
   } finally {
@@ -2500,6 +2923,17 @@ watch(
   }
 )
 
+watch(
+  () => uploadApplicationActorKey(userStore.getUser, getVisitTenantId() ?? getTenantId()),
+  () => {
+    approvalUsersRequestSeq++; routeReadinessRequestSeq++
+    approvalUsers.value = []; routeReadiness.value = undefined; routeReadinessSelectionKey.value = ''
+    approvalMatrixState.value = undefined; approvalMatrixScopeKey = ''; formData.approvalMatrixSelection = undefined
+    void loadApprovalUsers(); void refreshRouteReadiness()
+    if (!isExternalReview.value) void loadSignoffDepartments()
+  }, { flush: 'sync' }
+)
+
 onMounted(() => {
   loadBaseData()
   if (!isExternalReview.value) void loadUploadFileTypes()
@@ -2508,10 +2942,18 @@ onMounted(() => {
 })
 
 onBeforeRouteLeave(async () => {
-  if (await cleanupCurrentUploadSession()) {
-    return true
+  if (submitLoading.value && !uploadSubmitted.value) return false
+  if (!(await cleanupCurrentUploadSession())) return false
+  if (!uploadSubmitted.value) {
+    resetSelectedPreview()
+    resetDrawingPdfUpload()
+    resetAttachmentUploads()
+    uploadRef.value?.clearFiles()
+    drawingPdfUploadRef.value?.clearFiles()
+    attachmentUploadRef.value?.clearFiles()
+    uploadSessionId = createControlledFileUploadSessionId()
   }
-  return false
+  return true
 })
 
 onBeforeUnmount(() => {

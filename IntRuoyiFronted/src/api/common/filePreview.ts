@@ -19,11 +19,14 @@ import {
   type ControlledFilePreviewMetadataVO,
   type ControlledFilePreviewWithWatermark
 } from '@/api/dcc/controlledFile/workflow'
+import { normalizeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 
 export type OnlineFilePreviewSource =
   | {
       type: 'DCC_CONTROLLED_FILE'
       controlledFileId: number | string
+      distribution?: import('@/utils/dccDistributionNavigation').DccDistributionReadIdentity
+      bodyReadContext?: DccBodyReadContext
     }
   | {
       type: 'DCC_CONTROLLED_FILE_ATTACHMENT'
@@ -40,10 +43,12 @@ export type OnlineFilePreviewSource =
     }
 
 export const buildDccControlledFilePreviewSource = (
-  controlledFileId: number | string
+  controlledFileId: number | string,
+  bodyReadContext?: DccBodyReadContext
 ): OnlineFilePreviewSource => ({
   type: 'DCC_CONTROLLED_FILE',
-  controlledFileId
+  controlledFileId,
+  bodyReadContext: normalizeDccBodyReadContext(controlledFileId, bodyReadContext)
 })
 
 export const buildDccControlledFileAttachmentPreviewSource = (
@@ -73,7 +78,10 @@ export const getOnlineFilePreviewMetadata = async (
   source: OnlineFilePreviewSource
 ): Promise<ControlledFilePreviewMetadataVO> => {
   if (source.type === 'DCC_CONTROLLED_FILE') {
-    return getControlledFilePreviewMetadata(source.controlledFileId)
+    if (source.distribution && source.bodyReadContext !== undefined) throw new Error('下发义务与正文业务上下文不能混用')
+    if (source.distribution) return getControlledFilePreviewMetadata(source.controlledFileId, source.distribution)
+    return getControlledFilePreviewMetadata(source.controlledFileId, undefined,
+      normalizeDccBodyReadContext(source.controlledFileId, source.bodyReadContext))
   }
   if (source.type === 'DCC_CONTROLLED_FILE_ATTACHMENT') {
     return parseControlledFilePreviewMetadata(
@@ -105,7 +113,10 @@ export const previewOnlineFileWithWatermark = async (
   metadata?: ControlledFilePreviewMetadataVO
 ): Promise<ControlledFilePreviewWithWatermark> => {
   if (source.type === 'DCC_CONTROLLED_FILE') {
-    return previewControlledFileWithWatermark(source.controlledFileId, metadata)
+    if (source.distribution && source.bodyReadContext !== undefined) throw new Error('下发义务与正文业务上下文不能混用')
+    if (source.distribution) return previewControlledFileWithWatermark(source.controlledFileId, metadata, source.distribution)
+    return previewControlledFileWithWatermark(source.controlledFileId, metadata, undefined,
+      normalizeDccBodyReadContext(source.controlledFileId, source.bodyReadContext))
   }
   const resolvedMetadata = metadata || (await getOnlineFilePreviewMetadata(source))
   const previewUrl = source.type === 'DCC_REGISTRATION_CERTIFICATE'

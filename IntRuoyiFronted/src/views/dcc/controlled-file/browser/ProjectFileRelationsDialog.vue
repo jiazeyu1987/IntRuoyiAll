@@ -1,6 +1,6 @@
 <template>
   <el-dialog :model-value="modelValue" title="文件关联" width="1000px" append-to-body destroy-on-close @close="close">
-    <p>{{ source.fileName }} · {{ source.fileNumber }} · {{ source.versionNo }}</p>
+    <p>{{ source.fileName }} · {{ source.fileNumber }} · {{ getDccVersionDisplayText(source.versionNo) }}</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <div v-loading="loading">
       <DetailRelationsPanel v-if="file" :key="String(file.id)" :file="file" :allow-edit="true" :auto-open-editor="true" />
@@ -10,6 +10,7 @@
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { getDccVersionDisplayText } from '../shared/version-display'
 import { getControlledFileRelationPermissions } from '@/api/dcc/controlledFile/applicationRead'
 import DetailRelationsPanel from '../detail/DetailRelationsPanel.vue'
 import type { DetailRelationFile } from '../detail/relation-contract'

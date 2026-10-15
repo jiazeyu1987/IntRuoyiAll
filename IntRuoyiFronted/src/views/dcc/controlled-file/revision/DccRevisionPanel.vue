@@ -2,15 +2,17 @@
   <section aria-label="受控版本变更" data-testid="dcc-revision-panel">
     <el-descriptions :column="1" border>
       <el-descriptions-item label="实际变更类型">{{ revisionChangeLabel(facts.revisionChangeType) }}</el-descriptions-item>
-      <el-descriptions-item label="来源受控版本">{{ facts.revisionSourceVersionNo || '未记录' }}</el-descriptions-item>
-      <el-descriptions-item label="选中小版本">{{ facts.selectedIterationVersionNo || '未记录' }}</el-descriptions-item>
+      <el-descriptions-item label="来源受控版本">{{ getDccVersionDisplayText(facts.revisionSourceVersionNo) }}</el-descriptions-item>
+      <el-descriptions-item label="选中小版本">{{ getDccVersionDisplayText(facts.selectedIterationVersionNo) }}</el-descriptions-item>
       <el-descriptions-item label="变更说明">{{ facts.changeDescription || '未记录' }}</el-descriptions-item>
     </el-descriptions>
     <el-alert v-if="checkedOutBy" :title="revisionCheckoutLabel(checkedOutBy, checkedOutByName, checkedOutTime)" type="info" :closable="false" />
     <el-alert v-if="lockedReason" :title="lockedReason" type="warning" :closable="false" />
     <el-form v-if="canPartial || canReplacement" label-width="110px" @submit.prevent="submit">
-      <el-form-item label="来源受控版本">{{ baselineVersionNo }}</el-form-item>
-      <el-form-item label="预设生效日期">{{ applicationFacts?.effectiveDate || '请先选择正文' }}</el-form-item>
+      <el-form-item label="来源受控版本">{{ getDccVersionDisplayText(baselineVersionNo) }}</el-form-item>
+      <el-form-item label="生效方式">{{ revisionEffectiveModeLabel(applicationFacts?.effectiveMode) }}</el-form-item>
+      <el-form-item v-if="applicationFacts?.effectiveMode === 'PRESET_DATE'" label="预设生效日期">{{ applicationFacts.effectiveDate || '未填写' }}</el-form-item>
+      <el-form-item label="本次下发部门">{{ applicationFacts?.selectedDistributionDepartmentIds ? `${applicationFacts.selectedDistributionDepartmentIds.length} 个部门（部门全员下发）` : '未记录' }}</el-form-item>
       <el-form-item label="实际变更类型">
         <el-radio-group v-model="intent" :disabled="busy || !!lockedReason || checkedOutBy != null">
           <el-radio v-if="canPartial" value="PARTIAL">局部变更</el-radio>
@@ -21,11 +23,11 @@
         <el-select v-model="selectedId" :disabled="busy || !!lockedReason || checkedOutBy != null" placeholder="选择本次送审正文">
           <el-option
           v-for="item in selectableIterations" :key="String(item.id)"
-            :label="item.versionNo" :value="String(item.id)" />
+            :label="getIterationLabel(item)" :value="String(item.id)" />
         </el-select>
       </el-form-item>
       <slot v-if="selectedIteration?.canPreview" name="selected-body" :selected-iteration-id="selectedId" :baseline-id="baselineId"></slot>
-      <el-form-item label="目标受控版本">{{ targetVersion || '当前不可分配' }}</el-form-item>
+      <el-form-item label="目标受控版本">{{ targetVersion ? getDccVersionDisplayText(targetVersion) : '当前不可分配' }}</el-form-item>
       <el-form-item label="变更说明">
         <el-input v-model="description" type="textarea" :disabled="busy || !!lockedReason || checkedOutBy != null" />
       </el-form-item>
@@ -40,8 +42,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { buildRevisionCommand, revisionChangeLabel, revisionCheckoutLabel } from './revision-model'
+import { getDccVersionDisplayText } from '../shared/version-display'
+import { formatControlledFileDateTime } from '../detail/presentation'
+import { buildRevisionCommand, revisionChangeLabel, revisionCheckoutLabel, revisionEffectiveModeLabel } from './revision-model'
 import type { RevisionApplicationFacts, RevisionCommand, RevisionFacts, RevisionId, RevisionIntent, RevisionTarget } from './revision-model'
+
+interface RevisionIterationOption {
+  id: RevisionId
+  versionNo: string
+  canPartial: boolean
+  canReplacement: boolean
+  canPreview: boolean
+  createTime?: string | number | null
+  changeDescription?: string | null
+}
 
 const props = defineProps<{
   baselineId: RevisionId
@@ -53,7 +67,7 @@ const props = defineProps<{
   applicationReady?: boolean
   initialSelectedIterationId?: string
   facts: RevisionFacts
-  iterations: Array<{ id: RevisionId; versionNo: string; canPartial: boolean; canReplacement: boolean; canPreview: boolean }>
+  iterations: RevisionIterationOption[]
   canPartial: boolean
   canReplacement: boolean
   checkedOutBy?: RevisionId
@@ -69,6 +83,17 @@ const intent = ref<RevisionIntent>()
 const description = ref('')
 const busy = ref(false)
 const submissionError = ref('')
+const getIterationLabel = (item: RevisionIterationOption) => {
+  const label = getDccVersionDisplayText(item.versionNo)
+  if (label !== '草稿') return `${label} · 文件 #${item.id}`
+  const hasCreateTime = typeof item.createTime === 'number' || Boolean(item.createTime?.trim())
+  return [
+    label,
+    hasCreateTime ? `编制时间：${formatControlledFileDateTime(item.createTime)}` : '编制时间未记录',
+    item.changeDescription?.trim() || '说明未记录',
+    `文件 #${item.id}`
+  ].join(' · ')
+}
 const selectableIterations = computed(() => props.iterations.filter(item => item.canPartial || item.canReplacement))
 const selectedIteration = computed(() => selectableIterations.value.find(item => String(item.id) === selectedId.value))
 const target = computed(() => intent.value === 'PARTIAL' ? props.partialTarget

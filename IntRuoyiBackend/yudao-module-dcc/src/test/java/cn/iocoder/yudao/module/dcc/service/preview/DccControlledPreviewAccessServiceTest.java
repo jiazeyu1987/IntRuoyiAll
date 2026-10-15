@@ -62,6 +62,7 @@ class DccControlledPreviewAccessServiceTest extends BaseDbUnitTest {
 
     @BeforeEach
     void setUp() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(31L);
         ReflectionTestUtils.setField(previewAccessService, "clock", FIXED_CLOCK);
         ReflectionTestUtils.setField(viewerTokenService, "clock", FIXED_CLOCK);
         ReflectionTestUtils.setField(viewerTokenService, "hmacSecret", TOKEN_SECRET);

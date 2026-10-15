@@ -242,7 +242,7 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
     cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService configurePublicCreation() {
         jdbc.update("UPDATE dcc_project_code SET project_code='SNAPSHOT-P' WHERE id=5");
         var categories=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper.class);
-        when(categories.selectById(2L)).thenReturn(cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().id(2L).code("SOP").active(true).fileTypeTaxonomyId(6L).build());
+        when(categories.selectById(2L)).thenReturn(cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX").id(2L).code("SOP").active(true).fileTypeTaxonomyId(6L).build());
         var bindings=mock(cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindingMapper.class);
         when(bindings.selectActiveByCategoryId(2L)).thenReturn(cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO.builder().id(1L).categoryId(2L).directoryId(3L).active(true).build());
         var directories=mock(cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper.class);

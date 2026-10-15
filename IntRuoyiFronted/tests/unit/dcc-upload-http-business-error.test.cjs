@@ -1,8 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript')
 const {AxiosError}=require('axios')
-const context={exports:{},Error,require:id=>{assert.ok(id.endsWith('project-attributes/state'));return{validateAttributes:value=>value}}}
+const context={exports:{},Error,require:id=>{if(id.endsWith('approval-matrix'))return require('./dcc-upload-test-loader.cjs').loadUploadMatrix();if(id.endsWith('signoff-departments'))return require('./dcc-upload-test-loader.cjs').loadUploadDepartments();assert.ok(id.endsWith('project-attributes/state'));return{validateAttributes:value=>value}}}
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/upload/submitter.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,context)
-const {resolveUploadPreviewErrorMessage,buildSubmitFailureFeedback}=context.exports
+const {resolveUploadPreviewErrorMessage,buildSubmitFailureFeedback,resolveUploadErrorMessage}=context.exports
 const generic='Request failed with status code 400'
 const http=body=>new AxiosError(generic,'ERR_BAD_REQUEST',{},null,{status:400,data:body,headers:{},config:{},statusText:'Bad Request'})
 test('actual AxiosError prioritizes formal response data msg over generic HTTP text in preview and submit feedback',()=>{
@@ -10,6 +10,10 @@ test('actual AxiosError prioritizes formal response data msg over generic HTTP t
  const error=http({code:400,msg:business,data:null});assert.ok(error instanceof Error)
  assert.equal(resolveUploadPreviewErrorMessage(error,'上传失败'),business)
  assert.ok(JSON.stringify(buildSubmitFailureFeedback(error,'送审失败')).includes(business))
+})
+test('readiness errors retain a formal HTTP business date reason rather than losing it to transport text',()=>{
+ const error=http({code:400,msg:'预设日期不得早于正式业务当日',data:null})
+ assert.equal(resolveUploadErrorMessage(error,'审批预检失败'),'预设日期不得早于正式业务当日')
 })
 test('missing or blank business msg retains the precise transport error and original other nested contracts',()=>{
  for(const body of [undefined,{}, {msg:''},{msg:'   '},{msg:null}])assert.equal(resolveUploadPreviewErrorMessage(http(body),'上传失败'),generic)

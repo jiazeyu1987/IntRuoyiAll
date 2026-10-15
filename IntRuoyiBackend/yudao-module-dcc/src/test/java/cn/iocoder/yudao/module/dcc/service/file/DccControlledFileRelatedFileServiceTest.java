@@ -162,14 +162,14 @@ class DccControlledFileRelatedFileServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void resolveCurrentActiveRelatedFileIds_retainedSignatureResolvesLatestControlledIncludingPendingEffect() {
-        DccControlledFileRelatedFileDO relation = relation(1L, 100L, 201L,
-                "DOC-201", "关联文件", "A/1");
-        relation.setRelatedMasterId(301L);
+    void resolveCurrentActiveRelatedFileIds_keepsExactSelectedHistoryWithoutLatestLookup() {
+        var relation = relation(1L,100L,201L,"DOC-201","冻结名称","A/1");
+        relation.setRelatedMasterId(301L);relation.setTenantId(1L);
         when(relatedFileMapper.selectListByControlledFileId(100L)).thenReturn(List.of(relation));
-        when(latestFileResolver.resolveLatest(301L)).thenReturn(new FileVersion(1L,211L,301L,40L,"DOC-201","关联文件","B/1","CONTROLLED",true,true,false));
-
-        assertEquals(List.of(211L), service.resolveCurrentActiveRelatedFileIds(100L, 20L));
+        when(latestFileResolver.resolveSelected(100L)).thenReturn(new FileVersion(1L,100L,10L,20L,"S","源","A/1","REJECTED",false,false,false));
+        when(latestFileResolver.resolveSelected(201L)).thenReturn(new FileVersion(1L,201L,301L,20L,"DOC-201","改名","A/1","OBSOLETE",false,false,false));
+        assertEquals(List.of(201L),service.resolveCurrentActiveRelatedFileIds(100L,20L));
+        verify(latestFileResolver,never()).resolveLatest(any());
     }
 
     @Test

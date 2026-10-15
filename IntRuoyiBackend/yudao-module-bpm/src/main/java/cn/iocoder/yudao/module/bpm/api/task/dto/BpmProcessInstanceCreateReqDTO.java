@@ -20,6 +20,11 @@ public class BpmProcessInstanceCreateReqDTO {
     @NotEmpty(message = "流程定义的标识不能为空")
     private String processDefinitionKey;
     /**
+     * 已冻结的精确流程定义编号；null 表示使用原标识入口。
+     * 提供该字段时仍须校验标识、租户、发起权限和审批人，不读取最新定义。
+     */
+    private String processDefinitionId;
+    /**
      * 变量实例（动态表单）
      */
     private Map<String, Object> variables;

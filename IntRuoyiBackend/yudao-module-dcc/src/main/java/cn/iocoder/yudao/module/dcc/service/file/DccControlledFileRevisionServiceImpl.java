@@ -33,10 +33,15 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
     @Resource private DccControlledFileAssignmentScopeService assignmentScopeService;
     @Resource private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Resource private DccControlledFileSourceOwnershipService sourceOwnershipService;
+    @Resource private DccControlledFileAttachmentService attachmentService;
     @Resource private DccControlledFileRelatedFileService relatedFileService;
     @Resource private DccControlledFileNameClaimService nameClaimService;
     @Resource private DccControlledFileVersionPolicy versionPolicy;
     @Resource private DccWorkflowDatePolicy datePolicy;
+    @Resource private DccApplicationRoundService applicationRoundService;
+    @Resource private DccApplicationExecutionContractService executionContracts;
+    @Resource private DccWorkingApplicationDraftInitializer workingApplicationDraftInitializer;
+    @Resource private cn.iocoder.yudao.module.system.api.dept.DeptApi deptApi;
     @Resource private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService bpmProcessInstanceService;
     @Resource private cn.iocoder.yudao.module.bpm.service.task.BpmTaskService bpmTaskService;
 
@@ -70,7 +75,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         var chain = Objects.requireNonNull(fileMapper.selectListByMasterIdForUpdate(master.getId()),"initial version chain");
         String key = request.getIdempotencyKey().trim();
-        String hash = payloadHash(null,selectedIterationId,request,selected);
+        String hash = payloadHash(userId,null,selectedIterationId,request,selected);
         var existing = chain.stream().filter(v -> Objects.equals(userId,v.getRequesterId())
                 && key.equals(v.getCreationIdempotencyKey())).findFirst().orElse(null);
         if (existing != null) {
@@ -78,9 +83,15 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                     || !Objects.equals(selectedIterationId,existing.getSelectedIterationControlledFileId())
                     || !Objects.equals(hash,existing.getCreationPayloadHash()))
                 throw new IllegalArgumentException("initial candidate replay conflicts with actual application facts");
+            var prepared = executionContracts.verifyInheritedPrepared(userId, existing.getId(), selected.getId(),
+                    requirePreparedSourceAttributeRound(selected));
+            requireRequestedPrepared(request, prepared);
+            attachmentService.requireFrozenOrdinaryAttachmentManifest(userId, selected.getId(), existing.getId(),
+                    attachmentService.readOrdinaryAttachmentManifest(userId, selected.getId()));
             return existing;
         }
-        datePolicy.requireReviewDate(request.getEffectiveDate());
+        datePolicy.requireEffectiveConfiguration(request.getEffectiveMode(), request.getEffectiveDate());
+        deptApi.validateDeptList(request.getSelectedDistributionDepartmentIds());
         var selectedVersion = versionPolicy.requireStored(selected);
         if (master.getLatestControlledFileId()!=null || master.getCurrentActiveControlledFileId()!=null
                 || !"NEW".equals(selected.getChangeType()) || !"WORKING".equals(selected.getStatus())
@@ -166,7 +177,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
         var chain = Objects.requireNonNull(fileMapper.selectListByMasterIdForUpdate(master.getId()), "version chain");
         String key = request.getIdempotencyKey().trim();
-        String payloadHash = payloadHash(baselineId, selectedId, request,selectedRead);
+        String payloadHash = payloadHash(userId,baselineId, selectedId, request,selectedRead);
         var existing = chain.stream().filter(v -> Objects.equals(userId, v.getRequesterId())
                 && key.equals(v.getCreationIdempotencyKey())).findFirst().orElse(null);
         if (existing != null) {
@@ -178,9 +189,15 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                     || !payloadHash.equals(existing.getCreationPayloadHash())) {
                 throw new IllegalArgumentException("revision replay payload conflicts with committed intent");
             }
+            var prepared = executionContracts.verifyInheritedPrepared(userId, existing.getId(), selected.getId(),
+                    requirePreparedSourceAttributeRound(selected));
+            requireRequestedPrepared(request, prepared);
+            attachmentService.requireFrozenOrdinaryAttachmentManifest(userId, selected.getId(), existing.getId(),
+                    attachmentService.readOrdinaryAttachmentManifest(userId, selected.getId()));
             return existing;
         }
-        datePolicy.requireReviewDate(request.getEffectiveDate());
+        datePolicy.requireEffectiveConfiguration(request.getEffectiveMode(), request.getEffectiveDate());
+        deptApi.validateDeptList(request.getSelectedDistributionDepartmentIds());
         if (!Objects.equals(master.getLatestControlledFileId(), baselineId)
                 || baseline.getControlledTime() == null
                 || !DccControlledFileVersionPolicy.isCurrentControlledStatus(baseline.getStatus())) {
@@ -248,9 +265,11 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             throw new IllegalArgumentException("formal revision key and change description are required");
         }
         if (request.getProjectAttributes() == null || request.getSelectedSignoffDepartmentIds() == null
-                || request.getNeedTraining() == null || request.getEffectiveDate() == null) {
-            throw new IllegalArgumentException("formal revision actual attributes, departments, training and effective date are required");
+                || request.getNeedTraining() == null
+                || !DccApplicationEffectiveSelection.isComplete(request.getEffectiveMode(), request.getEffectiveDate())) {
+            throw new IllegalArgumentException("formal revision requires actual attributes, signoff departments, training and explicit effective selection");
         }
+        normalizeDistributionDepartmentIds(request.getSelectedDistributionDepartmentIds());
     }
 
     private DccControlledFileDO freezeCandidate(Long userId, DccControlledFileDO selected,
@@ -265,6 +284,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         DccControlledFilePreparedSource frozen = null;
         DccControlledFilePreparedSource frozenPdf = null;
         try {
+            int sourceAttributeRound = requirePreparedSourceAttributeRound(selected);
             frozen = sourceOwnershipService.createVerifiedCopy(selected.getSourceFileId());
             if (!frozen.isolatedCopy() || selected.getSourceSha256() == null || !selected.getSourceSha256().equals(frozen.sourceSha256())) {
                 throw new IllegalStateException("selected working iteration source hash changed");
@@ -272,6 +292,14 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             if (selected.getDrawingPdfFileId() != null) frozenPdf = sourceOwnershipService.createVerifiedCopy(selected.getDrawingPdfFileId());
             var target = new DccControlledFileDO();
             BeanUtils.copyProperties(selected, target);
+            if ("APPLICATION_CUSTOM".equals(selected.getDraftApprovalSourceMode())) {
+                target.setDraftApprovalSourceMode(null);
+                target.setDraftApplicationCustomMatrixJson(null);
+                target.setDraftApplicationContextKey(null);
+            }
+            target.setPreparedWorkflowContract(null);
+            target.setPreparedProcessDefinitionId(null);
+            target.setPreparedDefinitionDigest(null);
             target.setId(null);
             target.setCreateTime(null); target.setUpdateTime(null); target.setCreator(null); target.setUpdater(null);
             target.setVersionNo(targetVersion.display()); target.setRevisionCode(targetVersion.majorIdentity());
@@ -296,7 +324,7 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             target.setRequesterId(userId); target.setSubmitterId(userId);
             target.setChangeDescription(request.getChangeDescription().trim());
             target.setNeedTraining(request.getNeedTraining());
-            target.setEffectiveDate(request.getEffectiveDate());
+            applyApplicationSelection(target, request);
             target.setRevisionChangeType(request.getRevisionChangeType());
             target.setRevisionAttemptNo(attempt==null?null:attempt.number());
             target.setReworkPredecessorControlledFileId(attempt==null || attempt.predecessor()==null?null:attempt.predecessor().getId());
@@ -305,10 +333,41 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             target.setPredecessorControlledFileId(selected.getId()); target.setRevisionBaseActiveControlledFileId(baseline == null ? null : baseline.getId());
             target.setSourceSha256(frozen.sourceSha256()); target.setPreviousSourceSha256(baseline == null ? null : baseline.getSourceSha256());
             if (fileMapper.insert(target) != 1 || target.getId() == null) throw new IllegalStateException("formal revision insert failed");
+            var inheritedPrepared = executionContracts.inheritPrepared(userId, target.getId(), selected.getId(), sourceAttributeRound);
+            requireRequestedPrepared(request, inheritedPrepared);
+            target.setPreparedWorkflowContract(inheritedPrepared.executionContract());
+            target.setPreparedProcessDefinitionId(inheritedPrepared.processDefinitionId());
+            target.setPreparedDefinitionDigest(inheritedPrepared.definitionDigest());
+            if ("APPLICATION_CUSTOM".equals(selected.getDraftApprovalSourceMode()))
+                workingApplicationDraftInitializer.initialize(userId, selected.getId(), target.getId(), null);
+            var draftFacts = executionContracts.readInheritedDraftFacts(userId, target.getId(), selected.getId(), sourceAttributeRound);
+            var customDraft = executionContracts.readInheritedCustomDraft(userId, target.getId(), selected.getId(), sourceAttributeRound);
+            if ("APPLICATION_CUSTOM".equals(selected.getDraftApprovalSourceMode()) && customDraft == null)
+                throw new IllegalStateException("CUSTOM_DRAFT_INHERITED_CONFIGURATION_MISSING");
+            if (customDraft != null) {
+                target.setDraftApprovalSourceMode(customDraft.draftApprovalSourceMode());
+                target.setDraftApplicationCustomMatrixJson(customDraft.draftApplicationCustomMatrixJson());
+                target.setDraftApplicationContextKey(customDraft.draftApplicationContextKey());
+            }
+            target.setDraftApprovalMatrixJson(draftFacts.approvalMatrixCanonical());
+            target.setSelectedSignoffDepartmentIdsJson(JSONUtil.toJsonStr(request.getSelectedSignoffDepartmentIds()
+                    .stream().sorted().map(String::valueOf).toList()));
+            if (fileMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DccControlledFileDO>()
+                    .eq(DccControlledFileDO::getId, target.getId()).eq(DccControlledFileDO::getTenantId, target.getTenantId())
+                    .eq(DccControlledFileDO::getStatus, "WORKING").isNull(DccControlledFileDO::getProcessInstanceId)
+                    .set(DccControlledFileDO::getDraftApprovalMatrixJson, target.getDraftApprovalMatrixJson())
+                    .set(customDraft != null, DccControlledFileDO::getDraftApprovalSourceMode, target.getDraftApprovalSourceMode())
+                    .set(customDraft != null, DccControlledFileDO::getDraftApplicationCustomMatrixJson, target.getDraftApplicationCustomMatrixJson())
+                    .set(customDraft != null, DccControlledFileDO::getDraftApplicationContextKey, target.getDraftApplicationContextKey())
+                    .set(DccControlledFileDO::getSelectedSignoffDepartmentIdsJson, target.getSelectedSignoffDepartmentIdsJson())) != 1)
+                throw new IllegalStateException("DRAFT_FACTS_TARGET_WRITE_FAILED");
             publicUploadPlacementService.inherit(userId,selected.getId(),target.getId(),request.getChangeDescription());
             sourceOwnershipService.claimSubmissionSource(target.getId(), frozen, userId, initial ? "INITIAL" : "REVISION");
             if (initial) relatedFileService.inheritRelatedFiles(selected.getId(), target.getId());
             else relatedFileService.freezeCurrentRelationsForRevision(userId, baseline.getId(), target.getId());
+            var ordinaryManifest = attachmentService.readOrdinaryAttachmentManifest(userId, selected.getId());
+            attachmentService.freezeOrdinaryAttachments(userId, selected.getId(), target.getId(), ordinaryManifest.attachmentIds());
+            attachmentService.requireFrozenOrdinaryAttachmentManifest(userId, selected.getId(), target.getId(), ordinaryManifest);
             DccControlledFileVersionSourceRollback.enlist(sourceOwnershipService, frozen, frozenPdf);
             return target;
         } catch (RuntimeException failure) {
@@ -317,7 +376,28 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
         }
     }
 
-    private String payloadHash(Long baseline, Long selected, DccControlledFileSubmitIterationReqVO request, DccControlledFileDO body) {
+    private int requirePreparedSourceAttributeRound(DccControlledFileDO source) {
+        String type = "NEW".equals(source.getChangeType()) ? "UPLOAD"
+                : "REVISION".equals(source.getChangeType()) ? "REVISION" : null;
+        if (type == null) throw new IllegalArgumentException("EXECUTION_CONTRACT_SOURCE_ACTION_REQUIRED");
+        if ("WORKING".equals(source.getStatus()) && source.getProcessInstanceId() == null)
+            return applicationRoundService.requireDraft(type, source.getId());
+        if (StrUtil.isBlank(source.getProcessInstanceId()))
+            throw new IllegalArgumentException("EXECUTION_CONTRACT_SOURCE_BOUND_BPM_REQUIRED");
+        int round = applicationRoundService.require(type, source.getId(), source.getProcessInstanceId());
+        applicationRoundService.assertBoundRound(source.getDccProjectCodeId(), type, source.getId(), round);
+        return round;
+    }
+
+    private void requireRequestedPrepared(DccControlledFileSubmitIterationReqVO request,
+                                          DccApplicationExecutionContractService.Prepared prepared) {
+        if (!Objects.equals(request.getExecutionContract(), prepared.executionContract())
+                || !Objects.equals(request.getExpectedProcessDefinitionId(), prepared.processDefinitionId())
+                || !Objects.equals(request.getExpectedDefinitionDigest(), prepared.definitionDigest()))
+            throw new IllegalArgumentException("EXECUTION_CONTRACT_EXPECTATION_STALE");
+    }
+
+    private String payloadHash(Long actorId, Long baseline, Long selected, DccControlledFileSubmitIterationReqVO request, DccControlledFileDO body) {
         var attributes = request.getProjectAttributes();
         if (attributes != null) {
             attributes.validated();
@@ -333,12 +413,39 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
             }
             departments = departments.stream().sorted().toList();
         }
+        var ordinaryManifest = attachmentService.readOrdinaryAttachmentManifest(actorId, selected);
+        if (!Objects.equals(request.getExpectedOrdinaryAttachmentIds(), ordinaryManifest.attachmentIds())
+                || !Objects.equals(request.getExpectedOrdinaryAttachmentManifestHash(), ordinaryManifest.payloadHash()))
+            throw new IllegalArgumentException("所选工作稿的普通附件清单或服务器摘要已变化，请重新读取并确认");
         String json = JSONUtil.toJsonStr(Arrays.asList(baseline, selected, request.getRevisionChangeType(),
                 request.getChangeDescription().trim(), request.getNeedTraining(),
-                request.getSelectedSignoffUserIds(), departments, attributes, request.getEffectiveDate().toString(),
-                Arrays.asList(body.getVersionNo(),body.getSourceFileId(),body.getSourceSha256(),body.getDrawingPdfFileId(),body.getSourceOriginalFileName())));
+                request.getSelectedSignoffUserIds(), departments, attributes, request.getEffectiveMode(),
+                request.getEffectiveDate() == null ? null : request.getEffectiveDate().toString(),
+                normalizeDistributionDepartmentIds(request.getSelectedDistributionDepartmentIds()),
+                Arrays.asList(request.getExecutionContract(), request.getExpectedProcessDefinitionId(), request.getExpectedDefinitionDigest()),
+                Arrays.asList(body.getPreparedWorkflowContract(), body.getPreparedProcessDefinitionId(), body.getPreparedDefinitionDigest()),
+                Arrays.asList(body.getVersionNo(),body.getSourceFileId(),body.getSourceSha256(),body.getDrawingPdfFileId(),body.getSourceOriginalFileName()),
+                ordinaryManifest.attachmentIds(), ordinaryManifest.facts(), ordinaryManifest.payloadHash()));
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8))); }
         catch (NoSuchAlgorithmException failure) { throw new IllegalStateException("SHA-256 unavailable", failure); }
+    }
+
+    private java.util.List<String> normalizeDistributionDepartmentIds(java.util.List<Long> departments) {
+        if (departments == null || departments.stream().anyMatch(id -> id == null || id < 1)
+                || departments.stream().distinct().count() != departments.size()) {
+            throw new IllegalArgumentException("distribution departments must be an explicit list of distinct positive IDs");
+        }
+        return departments.stream().sorted().map(String::valueOf).toList();
+    }
+
+    private void applyApplicationSelection(DccControlledFileDO target, DccControlledFileSubmitIterationReqVO request) {
+        target.setEffectiveMode(request.getEffectiveMode());
+        target.setEffectiveDate(request.getEffectiveDate());
+        target.setEffectiveTime(null);
+        target.setEffectiveSignatureId(null);
+        target.setEffectiveProcessInstanceId(null);
+        target.setDistributionDepartmentIdsJson(JSONUtil.toJsonStr(
+                normalizeDistributionDepartmentIds(request.getSelectedDistributionDepartmentIds())));
     }
 
     private boolean sameLogicalIdentity(DccControlledFileDO baseline, DccControlledFileDO selected) {

@@ -233,7 +233,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
 
         doAnswer(invocation -> {
             DccFileCategorySaveReqVO reqVO = invocation.getArgument(0);
-            DccFileCategoryDO category = DccFileCategoryDO.builder()
+            DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                     .code(reqVO.getCode())
                     .name(reqVO.getName())
                     .parentId(reqVO.getParentId())
@@ -1081,7 +1081,7 @@ class DccAdminFullConfigPackageServiceTest extends BaseDbUnitTest {
     }
 
     private DccFileCategoryDO insertCategory(String code, String name) {
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code(code)
                 .name(name)
                 .active(Boolean.TRUE)

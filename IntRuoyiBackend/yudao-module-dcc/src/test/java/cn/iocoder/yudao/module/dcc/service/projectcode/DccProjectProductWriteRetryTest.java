@@ -23,9 +23,13 @@ import static org.mockito.Mockito.*;
 
 /** 验证共同基线既有人员逻辑后的真实失败/重试，不把admin认定为待定需求最终人员。 */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class, DccProjectProductCreateWriteService.class,
+        cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
+        DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class, DccProjectProductCreateFailureService.class,
         DccProjectAttributesService.class, DccProjectLeaderService.class, DccFolderTemplateService.class,
         DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class})
+@org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
+@org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
@@ -48,6 +52,7 @@ class DccProjectProductWriteRetryTest extends BaseDbUnitTest {
     @MockitoBean private DccProjectAccessService access;
     @MockitoBean private GxpAuditService audit;
     @Test void writeFailureCanRetryWithoutPartialAssetsOrStaleActiveError() {
+        when(projectActors.isApprover(1L)).thenReturn(true); // This test exercises asset rollback/retry, not actor lookup.
         var leader = new AdminUserRespDTO(); leader.setId(7L); leader.setStatus(0); leader.setNickname("正式负责人");
         var existingReviewer = new AdminUserRespDTO(); existingReviewer.setId(1L); existingReviewer.setStatus(0); existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
         when(users.getUser(7L)).thenReturn(leader); when(users.getUser(1L)).thenReturn(existingReviewer);

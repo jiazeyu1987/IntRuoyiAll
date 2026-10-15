@@ -9,8 +9,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductCreateRequestMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectProductIdentityClaimMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccProjectProductCreateStatusConstants;
-import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
-import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,8 +51,6 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     private DccProjectProductCreateStateService stateService;
     @Resource
     private DccProjectProductCreateWriteService writeService;
-    @Resource
-    private AdminUserApi adminUserApi;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectLeaderService leaderService;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributesService attributesService;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccFolderTemplateService folderTemplateService;
@@ -62,6 +58,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService auditService;
     @Resource private DccProjectProductAuditService productAudit;
     @Resource private DccProjectReviewerConfigurationService reviewerConfiguration;
+    @Resource private DccProjectReviewerRoleService reviewerRoles;
     @Resource private DccProjectProductActorSupport projectActors;
     @Resource private DccProjectProductNotificationService notifications;
 
@@ -80,7 +77,8 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
 
     private Long createPendingRequest(Long applicantUserId,DccProjectProductCreateReqVO reqVO,String creationReason,Long previousRequestId) {
         if(applicantUserId==null || applicantUserId<=0) throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
-        var reviewer=reviewerConfiguration.requireConfigured();
+        reviewerRoles.readiness(applicantUserId);
+        var reviewerRole=reviewerRoles.freezeRole();
         String projectName = required(reqVO.getProjectName());
         String projectCode = required(reqVO.getProjectCode());
         var leader = leaderService.requireEnabledAccount(reqVO.getProjectLeaderUserId());
@@ -107,9 +105,9 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
                 .creationReason(creationReason).previousRequestId(previousRequestId)
                 .status(DccProjectProductCreateStatusConstants.PENDING_REVIEW)
                 .applicantUserId(applicantUserId)
-                .configuredReviewerUserId(reviewer.getId())
-                .configuredReviewerUsername(reviewer.getUsername())
-                .configuredReviewerNickname(reviewer.getNickname())
+                .reviewContract(DccProjectReviewerRoleService.CONTRACT)
+                .reviewerRoleId(reviewerRole.roleId())
+                .reviewerRoleCode(reviewerRole.roleCode())
                 .submittedTime(LocalDateTime.now())
                 .build();
         request.setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
@@ -190,6 +188,8 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     public DccProjectProductCreateRequestDO review(Long operatorUserId, Long requestId,
                                                    String reason, boolean approve) {
         DccProjectProductCreateRequestDO request = requireRequestForUpdate(requestId);
+        if (reviewerRoles.isRoleContract(request)) return reviewSingleRole(operatorUserId,request,reason,approve);
+        if (!projectActors.canUpdate(operatorUserId)) throw exception(DccProjectReviewerRoleService.ROLE_FORBIDDEN);
         reviewerConfiguration.assertFrozenReviewer(operatorUserId,request);
         if (!DccProjectProductCreateStatusConstants.PENDING_REVIEW.equals(request.getStatus())) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
@@ -223,6 +223,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     public DccProjectProductCreateRequestDO approve(Long operatorUserId, Long requestId,
                                                     String reason, boolean approve) {
         requireAdmin(operatorUserId);
+        requireLegacyContract(requestId);
         DccProjectProductCreateRequestDO request = stateService.markApprovalDecision(operatorUserId, requestId,
                 reason, approve);
         if (!approve) {
@@ -234,6 +235,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     @Override
     public DccProjectProductCreateRequestDO retryWrite(Long operatorUserId, Long requestId, String reason) {
         requireAdmin(operatorUserId);
+        requireLegacyContract(requestId);
         DccProjectProductCreateRequestDO request = stateService.markRetryWriting(operatorUserId, requestId, reason);
         return writeOrMarkFailed(request.getId());
     }
@@ -248,6 +250,39 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
         }
     }
 
+    /** New role contract is a single physical decision-and-creation transaction; late failure restores the pending request. */
+    private DccProjectProductCreateRequestDO reviewSingleRole(Long actor,DccProjectProductCreateRequestDO request,String reason,boolean approve) {
+        reviewerRoles.assertReviewer(actor,request);
+        String normalizedReason=required(reason);productAudit.validateReason(normalizedReason);
+        if (!DccProjectProductCreateStatusConstants.PENDING_REVIEW.equals(request.getStatus())) {
+            boolean replay=java.util.Objects.equals(actor,request.getReviewerUserId()) && request.getReviewedTime()!=null
+                && (approve ? DccProjectProductCreateStatusConstants.COMPLETED.equals(request.getStatus()) && normalizedReason.equals(request.getReviewReason())
+                            : DccProjectProductCreateStatusConstants.REJECTED.equals(request.getStatus()) && normalizedReason.equals(request.getRejectReason()));
+            if(replay)return request;
+            throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+        }
+        if(approve)validateUnique(request.getProjectCode(),request.getProductCode(),request.getProductName(),request.getId());
+        var before=productAudit.snapshot(request.getId());
+        request.setReviewerUserId(actor);request.setReviewedTime(LocalDateTime.now());
+        if(approve){
+            request.setReviewReason(normalizedReason);request.setStatus(DccProjectProductCreateStatusConstants.WRITING);
+            request.setWriteAttemptNo(1);request.setWriteReason(normalizedReason);request.setWriteOperatorUserId(actor);
+        } else {
+            request.setRejectReason(normalizedReason);request.setStatus(DccProjectProductCreateStatusConstants.REJECTED);
+            identityClaimMapper.deleteByRequestId(request.getId());
+        }
+        if(requestMapper.updateById(request)!=1)throw exception(cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.WRITE_INCOMPLETE,"项目角色审核决定");
+        productAudit.append("dcc.project-product.review",request.getId(),"1",normalizedReason,before);
+        if(!approve){notifications.rejected(request,false);return request;}
+        return writeService.writeApprovedRequest(request.getId());
+    }
+
+    private void requireLegacyContract(Long requestId){
+        var request=requestId==null?null:requestMapper.selectById(requestId);
+        if(request==null || !java.util.Objects.equals(request.getTenantId(),cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()))throw exception(DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS);
+        if(reviewerRoles.isRoleContract(request))throw exception(DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID);
+    }
+
     private DccProjectProductCreateRequestDO requireRequestForUpdate(Long requestId) {
         DccProjectProductCreateRequestDO request = requestMapper.selectByIdForUpdate(requestId);
         if (request == null || !java.util.Objects.equals(request.getTenantId(),
@@ -258,8 +293,7 @@ public class DccProjectProductCreateServiceImpl implements DccProjectProductCrea
     }
 
     private void requireAdmin(Long userId) {
-        AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
-        if (user == null || !"admin".equals(user.getUsername())) {
+        if (!projectActors.isApprover(userId)) {
             throw exception(DCC_PROJECT_PRODUCT_CREATE_ADMIN_REQUIRED);
         }
     }

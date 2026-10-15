@@ -57,6 +57,17 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
     @GxpWriteOperation(operationId = "signature.record.create")
     public ElectronicSignatureResult sign(ElectronicSignatureCommand command) {
         validateCommand(command);
+        RegisteredAction registered = findAction(command);
+        boolean reasonRequired = registered.adapter().isReasonRequired(command.actionCode(), command.subjectType());
+        if (reasonRequired && StrUtil.isBlank(command.reason())) {
+            throw exception(ESIGN_COMMAND_INVALID, "当前正式签名动作要求填写原因");
+        }
+        if (!reasonRequired && StrUtil.isBlank(command.reason())) {
+            // Empty represents absence of an optional opinion; it is never fabricated receipt wording.
+            command = new ElectronicSignatureCommand(command.moduleCode(), command.actionCode(), command.subjectType(),
+                    command.subjectId(), command.expectedSubjectVersion(), command.credential(), "",
+                    command.idempotencyKey(), command.businessOccurredAt(), command.businessTimeZone());
+        }
         Long actorId = SecurityFrameworkUtils.getLoginUserId();
         if (actorId == null) {
             throw exception(ESIGN_LOGIN_REQUIRED);
@@ -71,13 +82,36 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
         }
 
         adminUserApi.reauthenticateForSignature(actorId, command.credential());
-        SignatureActionDefinition actionDefinition = findAction(command);
-        SignatureSubjectSnapshot snapshot = loadSnapshot(command, actorId, actionDefinition);
-        LocalDateTime signedAt = LocalDateTime.now();
+        SignatureActionDefinition actionDefinition = registered.definition();
+        SignatureSubjectSnapshot snapshot = loadSnapshot(command, actorId, registered);
+        var resolution=registered.adapter().serverTimeResolution(new SignatureSubjectCommand(actorId,command.moduleCode(),command.actionCode(),
+                command.subjectType(),command.subjectId(),command.expectedSubjectVersion(),command.reason()),snapshot);
+        if(resolution==null)throw new IllegalStateException("正式电子签名服务端时间精度策略缺失");
+        LocalDateTime signedAt = switch(resolution) {
+            case ORIGINAL -> LocalDateTime.now();
+            case MICROS -> LocalDateTime.now(java.time.Clock.tick(java.time.Clock.system(java.time.ZoneId.of("Asia/Shanghai")),java.time.Duration.ofNanos(1000)));
+        };
+        var authorizedSnapshot=snapshot;
+        snapshot=registered.adapter().bindServerSignedAt(new SignatureSubjectCommand(actorId,command.moduleCode(),command.actionCode(),
+                command.subjectType(),command.subjectId(),command.expectedSubjectVersion(),command.reason()),authorizedSnapshot,signedAt);
+        if(snapshot==null || !Objects.equals(snapshot.subjectType(),authorizedSnapshot.subjectType()) || !Objects.equals(snapshot.subjectId(),authorizedSnapshot.subjectId())
+                || !Objects.equals(snapshot.subjectVersion(),authorizedSnapshot.subjectVersion()) || !Objects.equals(snapshot.processInstanceId(),authorizedSnapshot.processInstanceId())
+                || !Objects.equals(snapshot.taskId(),authorizedSnapshot.taskId()) || !Objects.equals(snapshot.nodeCode(),authorizedSnapshot.nodeCode())
+                || !Objects.equals(snapshot.nodeOrder(),authorizedSnapshot.nodeOrder()) || !Objects.equals(snapshot.beforeContentJson(),authorizedSnapshot.beforeContentJson())
+                || !Objects.equals(snapshot.afterContentJson(),authorizedSnapshot.afterContentJson()) || !Objects.equals(snapshot.fieldDiffJson(),authorizedSnapshot.fieldDiffJson()))
+            throw new IllegalStateException("服务端签名时间绑定不得替换已授权subject或流程内容身份");
+        if(!Objects.equals(snapshot.canonicalContentJson(),authorizedSnapshot.canonicalContentJson())) {
+            var original=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(authorizedSnapshot.canonicalContentJson(),Map.class);
+            var boundContent=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(snapshot.canonicalContentJson(),Map.class);
+            if(original==null || boundContent==null || original.containsKey("serverSignedAt") || original.containsKey("derivedSignatureEvidence"))
+                throw new IllegalStateException("签名时间绑定缺少完整已授权内容");
+            boundContent=new LinkedHashMap<>(boundContent);boundContent.remove("serverSignedAt");boundContent.remove("derivedSignatureEvidence");
+            if(!Objects.equals(original,boundContent))throw new IllegalStateException("签名时间绑定不得替换正文或用户所选业务内容");
+        }
         String contentHash = hash(snapshot.canonicalContentJson());
         String beforeContentHash = StrUtil.isBlank(snapshot.beforeContentJson()) ? null : hash(snapshot.beforeContentJson());
         String afterContentHash = StrUtil.isBlank(snapshot.afterContentJson()) ? null : hash(snapshot.afterContentJson());
-        String timeEvidenceId = "SERVER_CLOCK:" + signedAt;
+        String timeEvidenceId = (resolution==ElectronicSignatureSubjectAdapter.ServerTimeResolution.MICROS ? "SERVER_MICROS_CLOCK:" : "SERVER_CLOCK:") + signedAt;
         String evidenceHash = hash(evidencePayload(command, actorId, actionDefinition, snapshot, signedAt,
                 timeEvidenceId, contentHash, beforeContentHash, afterContentHash));
 
@@ -115,7 +149,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 .build();
         record.setTenantId(TenantContextHolder.getRequiredTenantId());
         signatureRecordMapper.insert(record);
-        gxpAuditService.append(buildGxpAuditCommand(command, snapshot, record));
+        gxpAuditService.append(buildGxpAuditCommand(command, snapshot, record, reasonRequired));
         return toResult(record);
     }
 
@@ -124,8 +158,8 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
             throw exception(ESIGN_COMMAND_INVALID, "命令不能为空");
         }
         if (StrUtil.hasBlank(command.moduleCode(), command.actionCode(), command.subjectType(), command.subjectId(),
-                command.expectedSubjectVersion(), command.credential(), command.reason(), command.idempotencyKey())) {
-            throw exception(ESIGN_COMMAND_INVALID, "模块、动作、对象、版本、凭据、原因和幂等键均不能为空");
+                command.expectedSubjectVersion(), command.credential(), command.idempotencyKey())) {
+            throw exception(ESIGN_COMMAND_INVALID, "模块、动作、对象、版本、凭据和幂等键均不能为空");
         }
         if (command.businessOccurredAt() != null && StrUtil.isBlank(command.businessTimeZone())) {
             throw exception(ESIGN_COMMAND_INVALID, "业务发生时间存在时业务时区不能为空");
@@ -138,25 +172,29 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                 .eq(ElectronicSignatureRecordDO::getIdempotencyKey, idempotencyKey));
     }
 
-    private SignatureActionDefinition findAction(ElectronicSignatureCommand command) {
+    private RegisteredAction findAction(ElectronicSignatureCommand command) {
         if (CollUtil.isEmpty(subjectAdapters)) {
             throw exception(ESIGN_ACTION_NOT_REGISTERED, command.moduleCode(), command.actionCode());
         }
-        return subjectAdapters.stream()
-                .filter(adapter -> Objects.equals(adapter.moduleCode(), command.moduleCode()))
-                .flatMap(adapter -> adapter.supportedActions().stream())
-                .filter(action -> Objects.equals(action.actionCode(), command.actionCode())
-                        && Objects.equals(action.subjectType(), command.subjectType()))
-                .findFirst()
-                .orElseThrow(() -> exception(ESIGN_ACTION_NOT_REGISTERED, command.moduleCode(), command.actionCode()));
+        var adapters = subjectAdapters.stream().filter(Objects::nonNull)
+                .filter(adapter -> Objects.equals(adapter.moduleCode(), command.moduleCode())).toList();
+        if (adapters.size() != 1 || CollUtil.isEmpty(adapters.get(0).supportedActions()))
+            throw exception(ESIGN_ACTION_NOT_REGISTERED, command.moduleCode(), command.actionCode());
+        var actions = adapters.get(0).supportedActions().stream().filter(Objects::nonNull)
+                .filter(action -> Objects.equals(action.moduleCode(), command.moduleCode())
+                        && Objects.equals(action.actionCode(), command.actionCode())
+                        && Objects.equals(action.subjectType(), command.subjectType())).toList();
+        if (actions.size() != 1)
+            throw exception(ESIGN_ACTION_NOT_REGISTERED, command.moduleCode(), command.actionCode());
+        return new RegisteredAction(adapters.get(0), actions.get(0));
     }
 
+    private record RegisteredAction(ElectronicSignatureSubjectAdapter adapter, SignatureActionDefinition definition) {}
+
     private SignatureSubjectSnapshot loadSnapshot(ElectronicSignatureCommand command, Long actorId,
-                                                  SignatureActionDefinition actionDefinition) {
-        ElectronicSignatureSubjectAdapter adapter = subjectAdapters.stream()
-                .filter(item -> Objects.equals(item.moduleCode(), command.moduleCode()))
-                .findFirst()
-                .orElseThrow(() -> exception(ESIGN_ACTION_NOT_REGISTERED, command.moduleCode(), command.actionCode()));
+                                                  RegisteredAction registered) {
+        SignatureActionDefinition actionDefinition = registered.definition();
+        ElectronicSignatureSubjectAdapter adapter = registered.adapter();
         SignatureSubjectSnapshot snapshot = adapter.loadAndAuthorize(new SignatureSubjectCommand(actorId,
                 command.moduleCode(), command.actionCode(), command.subjectType(), command.subjectId(),
                 command.expectedSubjectVersion(), command.reason()));
@@ -198,10 +236,18 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
 
     private GxpAuditCommand buildGxpAuditCommand(ElectronicSignatureCommand command,
                                                  SignatureSubjectSnapshot snapshot,
-                                                 ElectronicSignatureRecordDO record) {
+                                                 ElectronicSignatureRecordDO record, boolean reasonRequired) {
+        // DCC receipt subject is the complete encoded evidence; its full hash is an exact bounded audit identity.
+        // Keep the original subject in the signature record and audit after-state, and preserve existing action identities.
+        boolean optionalDccReceipt = !reasonRequired && "DCC".equals(command.moduleCode())
+                && "DISTRIBUTION_ACK".equals(command.actionCode()) && "DCC_CONTROLLED_FILE".equals(snapshot.subjectType());
+        String auditSubjectId = optionalDccReceipt
+                ? snapshot.subjectType() + ":SHA256:" + hash(snapshot.subjectId())
+                : snapshot.subjectType() + ":" + snapshot.subjectId();
+        String auditIdempotencyKey = optionalDccReceipt ? "DCC_RECEIPT_SIGNATURE:" + hash(command.idempotencyKey()) : command.idempotencyKey();
         return GxpAuditCommand.builder()
-                .operationId("signature.record.create")
-                .subjectId(snapshot.subjectType() + ":" + snapshot.subjectId())
+                .operationId(optionalDccReceipt ? "signature.dcc.distribution-receipt.create" : "signature.record.create")
+                .subjectId(auditSubjectId)
                 .subjectVersion(snapshot.subjectVersion())
                 .reason(command.reason())
                 .beforeState(GxpAuditStateEnvelope.builder()
@@ -214,7 +260,7 @@ public class ElectronicSignatureServiceImpl implements ElectronicSignatureServic
                         .objectVersion(snapshot.subjectVersion())
                         .canonicalJson(gxpAuditAfterStateJson(command, snapshot, record))
                         .build())
-                .idempotencyKey(command.idempotencyKey())
+                .idempotencyKey(auditIdempotencyKey)
                 .source("ElectronicSignatureServiceImpl.sign")
                 .signatureRecordId(String.valueOf(record.getId()))
                 .signatureContentHash(record.getContentHash())

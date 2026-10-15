@@ -1,15 +1,20 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.*;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +23,7 @@ import java.util.Set;
 
 /** Master -> version lock order is shared by finalization and scheduled activation. */
 @Service
+@Slf4j
 public class DccControlledFileLifecycleService {
     /** Official GxP SYSTEM_ACTOR identity, not a human account or electronic signer. */
     private static final Long SYSTEM_ACTOR_ID = -1L;
@@ -31,10 +37,185 @@ public class DccControlledFileLifecycleService {
     @Resource private DccObsoleteRetentionService obsoleteRetentionService;
     @Resource private DccWorkflowFileStateAudit fileStateAudit;
     @Resource private DccControlledContentAdapter platformAdapter;
+    @Resource private DccControlledFileSignatureMapper approvalSignatureMapper;
+    @Resource private DccElectronicSignatureManagementService signatureManagementService;
+    @Resource private cn.iocoder.yudao.module.bpm.service.task.BpmTaskService bpmTaskService;
+    @Resource private DccLifecycleEffectiveContractResolver effectiveContractResolver;
+    @Resource private DccDelayedEffectiveConfirmationEvidence confirmationEvidence;
+    // Batch -> existing distribution -> Finalization -> Lifecycle is resolved only when a real event is accepted.
+    @Lazy @Resource private DccDistributionBatchService distributionBatchService;
 
     public LocalDateTime currentTime() { return datePolicy.now(); }
 
     public DccWorkflowDatePolicy.ReminderDates distributionReminderDates() { return datePolicy.reminderDates(); }
+
+    /** W05 calls immediately after saving the real DOC_CONTROL_REVIEW signature, before BPM advances.
+     * Effectiveness is a signed fact; it does not grant daily access or replace the current version. */
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void recordStandardizationSignatureEffect(Long actorId,Long fileId,Long signatureId) {
+        requireTransaction();
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        if(actorId==null || actorId<=0 || fileId==null || fileId<=0 || signatureId==null || signatureId<=0)
+            throw new IllegalArgumentException("文控生效需要真实操作者、文件版本及签名身份");
+        var identity=controlledFileMapper.selectById(fileId);
+        if(identity==null || !Objects.equals(identity.getTenantId(),tenant))
+            throw new IllegalArgumentException("文控生效文件不存在或租户不匹配");
+        var master=masterMapper.selectByIdForUpdate(identity.getMasterId());
+        var file=controlledFileMapper.selectByIdAndTenantForUpdate(tenant,fileId);
+        if(master==null || file==null || !Objects.equals(master.getTenantId(),tenant)
+                || !Objects.equals(file.getMasterId(),master.getId()) || Boolean.TRUE.equals(file.getDeleted())
+                || !Set.of(DccControlledFileProcessDefinitionKeys.UPLOAD,DccControlledFileProcessDefinitionKeys.REVISION)
+                    .contains(file.getProcessDefinitionKey()==null?"":file.getProcessDefinitionKey()))
+            throw new IllegalArgumentException("文控生效必须对应本轮正式上传或升版");
+        boolean legacyDateContract=requireEffectiveContract(file,true);
+        var signature=requireStandardizationSignature(file,signatureId);
+        if(!Objects.equals(signature.getActorId(),actorId))
+            throw new IllegalArgumentException("文控生效操作者与正式签名不匹配");
+        if(legacyDateContract || DccWorkflowDatePolicy.PRESET_DATE.equals(file.getEffectiveMode())
+                || DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) return;
+        if(file.getEffectiveTime()!=null || file.getEffectiveSignatureId()!=null || file.getEffectiveProcessInstanceId()!=null) {
+            if(!Objects.equals(file.getEffectiveTime(),signature.getSignedAt())
+                    || !Objects.equals(file.getEffectiveSignatureId(),signatureId)
+                    || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId()))
+                throw new IllegalArgumentException("本轮已记录不同文控签名生效事实");
+            return;
+        }
+        if(!"PENDING_DOC_CONTROL_REVIEW".equals(file.getStatus()) || file.getControlledTime()!=null || file.getActivatedTime()!=null)
+            throw new IllegalStateException("只有本轮文控审核完成签名可首次记录生效事实");
+        var task=bpmTaskService.getTask(signature.getTaskId());
+        if(task==null || !Objects.equals(task.getId(),signature.getTaskId())
+                || !Objects.equals(task.getProcessInstanceId(),file.getProcessInstanceId())
+                || !tenant.toString().equals(task.getTenantId()) || !"DOC_CONTROL_REVIEW".equals(task.getTaskDefinitionKey())
+                || !actorId.toString().equals(task.getAssignee()))
+            throw new IllegalStateException("文控生效签名不属于当前正式文控任务");
+        var beforeEffect=fileStateAudit.capture(file,master);
+        requireOne(controlledFileMapper.updateById(DccControlledFileDO.builder().id(fileId)
+                .effectiveTime(signature.getSignedAt()).effectiveSignatureId(signatureId)
+                .effectiveProcessInstanceId(file.getProcessInstanceId()).build()));
+        file.setEffectiveTime(signature.getSignedAt());file.setEffectiveSignatureId(signatureId);
+        file.setEffectiveProcessInstanceId(file.getProcessInstanceId());
+        fileStateAudit.recordSignatureEffect(beforeEffect,file.getProcessInstanceId(),signature);
+        emit("EFFECTIVE",file,master.getCurrentActiveControlledFileId(),signature.getSignedAt());
+    }
+
+    private DccControlledFileSignatureDO requireStandardizationSignature(DccControlledFileDO file,Long signatureId) {
+        var signature=signatureId==null?null:approvalSignatureMapper.selectById(signatureId);
+        if(signature==null || Boolean.TRUE.equals(signature.getDeleted()) || !Objects.equals(signature.getId(),signatureId)
+                || !Objects.equals(signature.getControlledFileId(),file.getId()) || !Objects.equals(signature.getRevisionId(),file.getId())
+                || !Objects.equals(signature.getVersionNo(),file.getVersionNo()) || file.getProcessInstanceId()==null
+                || file.getProcessInstanceId().isBlank() || !file.getProcessInstanceId().equals(signature.getProcessInstanceId())
+                || !"APPROVE".equals(signature.getActionType()) || !"DOC_CONTROL_REVIEW_APPROVE".equals(signature.getMeaningCode())
+                || !Boolean.TRUE.equals(signature.getPasswordVerified()) || signature.getSignedAt()==null
+                || signature.getTaskId()==null || signature.getTaskId().isBlank() || signature.getActorId()==null || signature.getActorId()<=0
+                || !"VALID".equals(signature.getEvidenceStatus()) || signature.getEvidenceHash()==null || signature.getEvidenceHash().isBlank()
+                || !"v4-workflow".equals(signature.getEvidencePayloadVersion()))
+            throw new IllegalArgumentException("文控生效缺少同版本同轮次的真实审核签名");
+        var verification=signatureManagementService.verifySignatureEvidence(signatureId);
+        if(verification==null || !Objects.equals(verification.getSignatureId(),signatureId)
+                || !"VALID".equals(verification.getVerificationStatus()))
+            throw new IllegalStateException("文控生效签名证据验证失败");
+        return signature;
+    }
+
+    private void requireSignedEffect(DccControlledFileDO file) {
+        var signature=requireStandardizationSignature(file,file.getEffectiveSignatureId());
+        if(!Objects.equals(file.getEffectiveTime(),signature.getSignedAt())
+                || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId()))
+            throw new IllegalStateException("已签名生效事实与本轮真实签名不一致");
+    }
+
+    /** Reused by PUBLIC training and finalization; a saved effectiveness timestamp is not approval evidence. */
+    DccControlledFileSignatureDO requirePublicDocumentControlEvidence(DccControlledFileDO file,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        if(bound==null || !bound.trainingAfterDocumentControl() || file==null
+                || !Objects.equals(bound.tenantId(),TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(bound.tenantId(),file.getTenantId()) || !Objects.equals(bound.controlledFileId(),file.getId())
+                || !Objects.equals(bound.processInstanceId(),file.getProcessInstanceId()))
+            throw new IllegalStateException("文控后培训需要同轮次正式PUBLIC契约");
+        var docs=Objects.requireNonNull(approvalSignatureMapper.selectListByControlledFileId(file.getId()),"审批签名投影")
+                .stream().filter(Objects::nonNull).filter(s->Objects.equals(file.getProcessInstanceId(),s.getProcessInstanceId())
+                    && "APPROVE".equals(s.getActionType()) && "DOC_CONTROL_REVIEW_APPROVE".equals(s.getMeaningCode())
+                    && !Boolean.TRUE.equals(s.getDeleted())).toList();
+        if(docs.size()!=1) throw new IllegalStateException("本轮文控审核正式签名不唯一或缺失");
+        var doc=requireStandardizationSignature(file,docs.get(0).getId());
+        requireCompletedPublicTask(file,bound,doc,"DOC_CONTROL_REVIEW");
+        var owner=file.getFileOwnerSignatureId()==null?null:approvalSignatureMapper.selectById(file.getFileOwnerSignatureId());
+        if(owner==null || file.getFileOwnerUserId()==null || file.getFileOwnerUserId()<=0
+                || file.getFileOwnerUsernameSnapshot()==null || file.getFileOwnerNicknameSnapshot()==null
+                || !Objects.equals(file.getFileOwnerProcessInstanceId(),file.getProcessInstanceId())
+                || !Objects.equals(file.getFileOwnerSelectedTime(),owner.getSignedAt())
+                || !Objects.equals(file.getFileOwnerApprovalTaskId(),owner.getTaskId())
+                || !Objects.equals(owner.getControlledFileId(),file.getId()) || !Objects.equals(owner.getRevisionId(),file.getId())
+                || !Objects.equals(owner.getVersionNo(),file.getVersionNo()) || !Objects.equals(owner.getProcessInstanceId(),file.getProcessInstanceId())
+                || !"APPROVE".equals(owner.getActionType()) || !"MATRIX_APPROVAL_APPROVE".equals(owner.getMeaningCode())
+                || !Boolean.TRUE.equals(owner.getPasswordVerified()) || !"VALID".equals(owner.getEvidenceStatus())
+                || owner.getSignedAt()==null || owner.getEvidenceHash()==null || owner.getEvidenceHash().isBlank()
+                || !"v4-workflow".equals(owner.getEvidencePayloadVersion()) || Boolean.TRUE.equals(owner.getDeleted()))
+            throw new IllegalStateException("文件负责人缺少同轮次真实批准证据");
+        String suffix="；批准文件负责人事实："+cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                List.of(file.getFileOwnerUserId(),file.getFileOwnerUsernameSnapshot(),file.getFileOwnerNicknameSnapshot()));
+        if(owner.getComment()==null || !owner.getComment().endsWith(suffix) || owner.getComment().length()<=suffix.length())
+            throw new IllegalStateException("文件负责人投影与原签名载荷不一致");
+        var verified=signatureManagementService.verifySignatureEvidence(owner.getId());
+        if(verified==null || !Objects.equals(owner.getId(),verified.getSignatureId()) || !"VALID".equals(verified.getVerificationStatus()))
+            throw new IllegalStateException("文件负责人批准签名验签失败");
+        requireCompletedPublicTask(file,bound,owner,"MATRIX_APPROVAL");
+        return doc;
+    }
+
+    private void requireCompletedPublicTask(DccControlledFileDO file,DccBoundWorkflowContractResolver.BoundExecution bound,
+            DccControlledFileSignatureDO signature,String stage) {
+        var task=bpmTaskService.getHistoricTask(signature.getTaskId());
+        if(task==null || !Objects.equals(task.getId(),signature.getTaskId())
+                || !Objects.equals(task.getProcessInstanceId(),file.getProcessInstanceId())
+                || !Objects.equals(task.getProcessDefinitionId(),bound.processDefinitionId())
+                || !String.valueOf(file.getTenantId()).equals(task.getTenantId()) || !stage.equals(task.getTaskDefinitionKey())
+                || signature.getActorId()==null || !String.valueOf(signature.getActorId()).equals(task.getAssignee())
+                || task.getEndTime()==null || task.getTaskLocalVariables()==null
+                || !Integer.valueOf(cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.APPROVE.getStatus()).equals(task.getTaskLocalVariables()
+                    .get(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_STATUS)))
+            throw new IllegalStateException("PUBLIC文控或负责人批准任务缺少真实完成事实");
+    }
+
+    private boolean requireEffectiveContract(DccControlledFileDO file,boolean atControl) {
+        var contract=effectiveContractResolver.resolve(file);
+        if(contract==null || !Objects.equals(contract.tenantId(),file.getTenantId())
+                || !Objects.equals(contract.controlledFileId(),file.getId())
+                || !Objects.equals(contract.processInstanceId(),file.getProcessInstanceId()))
+            throw new IllegalArgumentException("生效方式缺少同版本同轮次正式流程契约");
+        if(contract.rule()==DccLifecycleEffectiveContract.Rule.DELAYED_CONFIRMATION_MODE) {
+            if(!DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())
+                    && !DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode()))
+                throw new IllegalArgumentException("本轮新确认流程仅允许立即或延迟生效");
+            datePolicy.requireSubmittedEffectiveConfiguration(file.getEffectiveMode(),file.getEffectiveDate());
+            return false;
+        }
+        if(contract.rule()==DccLifecycleEffectiveContract.Rule.NEW_EXPLICIT_MODE) {
+            if(atControl) datePolicy.requireSubmittedEffectiveConfiguration(file.getEffectiveMode(),file.getEffectiveDate());
+            else if(!DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())
+                    && !DccWorkflowDatePolicy.PRESET_DATE.equals(file.getEffectiveMode()))
+                throw new IllegalArgumentException("本轮新生效方式未识别");
+            return false;
+        }
+        // No inference from null: only the instance's exact registered frozen graph can select legacy semantics.
+        if(contract.rule()!=DccLifecycleEffectiveContract.Rule.LEGACY_V4_PRESET_DATE || file.getEffectiveMode()!=null)
+            throw new IllegalArgumentException("历史未知生效方式没有正式冻结流程契约，不能执行新写入");
+        if(file.getEffectiveTime()!=null || file.getEffectiveSignatureId()!=null || file.getEffectiveProcessInstanceId()!=null)
+            throw new IllegalStateException("旧日期契约不可混入推断的新生效事实");
+        if(atControl) datePolicy.requireReviewDate(file.getEffectiveDate());
+        else if(file.getEffectiveDate()==null) throw new IllegalStateException("旧正式日期契约缺少已保存生效日期");
+        return true;
+    }
+
+    /** Review boundary for W05: the already-submitted explicit selection or the exact registered legacy graph.
+     * New submission validation remains the strict String/date policy, never this legacy read boundary. */
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void requireReviewEffectiveSelection(DccControlledFileDO file) {
+        requireTransaction();
+        if(file==null || !Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId()))
+            throw new IllegalArgumentException("文控审核日期契约与当前租户不匹配");
+        requireEffectiveContract(file,true);
+    }
 
     void completeControl(DccControlledFileDO file, DccControlledFileMasterDO master, Long actorId) {
         requireTransaction();
@@ -43,8 +224,19 @@ public class DccControlledFileLifecycleService {
                 || !Objects.equals(file.getTenantId(),tenant) || !Objects.equals(master.getTenantId(),tenant)
                 || file.getProcessInstanceId() == null || file.getProcessInstanceId().isBlank())
             throw new IllegalArgumentException("受控文件、轮次及租户身份不匹配");
-        if (file.getControlledTime() != null) return;
-        datePolicy.requireReviewDate(file.getEffectiveDate());
+        if (file.getControlledTime() != null) {
+            if(DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) {
+                requireEffectiveContract(file,false);
+                requireControlledConfirmation(file);
+            }
+            return;
+        }
+        requireEffectiveContract(file,true);
+        var confirmation=DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())
+                ? confirmationEvidence.requireConfirmed(file) : null;
+        if(DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())) requireSignedEffect(file);
+        else if(file.getEffectiveTime()!=null || file.getEffectiveSignatureId()!=null || file.getEffectiveProcessInstanceId()!=null)
+            throw new IllegalStateException("按日期生效必须受控且到期后才能首次生成生效事实");
         LocalDateTime now = datePolicy.now();
         if (master.getLatestControlledFileId() != null && !master.getLatestControlledFileId().equals(file.getId())) {
             var latest = controlledFileMapper.selectByIdAndTenantForUpdate(tenant,master.getLatestControlledFileId());
@@ -60,14 +252,15 @@ public class DccControlledFileLifecycleService {
             throw new IllegalStateException("受控文件未生成，不能完成受控");
         var beforeControl = fileStateAudit.capture(file, master);
         closeLowerWorkingIterations(file,master,tenant);
+        LocalDateTime controlledAt=confirmation==null ? now : confirmation.signedAt();
         DccControlledFileDO update = DccControlledFileDO.builder().id(file.getId())
-                .controlledTime(now).publishedTime(now).status("CONTROLLED_PENDING_EFFECTIVE")
+                .controlledTime(controlledAt).publishedTime(now).status("CONTROLLED_PENDING_EFFECTIVE")
                 .publishedFileId(file.getPublishedFileId()).stampedFileId(file.getStampedFileId())
                 .stampedTime(file.getStampedTime()).finalizationError("").build();
         requireOne(controlledFileMapper.updateById(update));
         requireOne(masterMapper.updateById(DccControlledFileMasterDO.builder().id(master.getId())
                 .latestControlledFileId(file.getId()).status("ACTIVE_CHAIN").build()));
-        file.setControlledTime(now);
+        file.setControlledTime(controlledAt);
         file.setPublishedTime(now);
         file.setStatus("CONTROLLED_PENDING_EFFECTIVE");
         master.setLatestControlledFileId(file.getId());
@@ -75,7 +268,9 @@ public class DccControlledFileLifecycleService {
         platformAdapter.recordNativeControl(file,actorId,lifecycleEventKey("CONTROLLED",file));
         fileStateAudit.recordControl(beforeControl, file.getProcessInstanceId());
         emit("CONTROLLED", file, master.getCurrentActiveControlledFileId(), now);
-        if (!file.getEffectiveDate().isAfter(now.toLocalDate())) activateLocked(file, master, now);
+        if (DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())
+                || (confirmation!=null ? !confirmation.selectedEffectiveTime().isAfter(now)
+                    : !file.getEffectiveDate().isAfter(now.toLocalDate()))) activateLocked(file, master, now);
     }
 
     private void closeLowerWorkingIterations(DccControlledFileDO controlled,DccControlledFileMasterDO master,Long tenant) {
@@ -115,10 +310,20 @@ public class DccControlledFileLifecycleService {
         }
         if (file.getActivatedTime() != null) return false;
         LocalDateTime now = datePolicy.now();
-        if (file.getEffectiveDate() == null || file.getControlledTime() == null
+        if (file.getControlledTime() == null
                 || !"CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus()))
             throw new IllegalStateException("文件未受控或不在待生效状态");
-        if (file.getEffectiveDate().isAfter(now.toLocalDate())) return false;
+        boolean legacyDateContract=requireEffectiveContract(file,false);
+        if(DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) {
+            var confirmation=requireControlledConfirmation(file);
+            if(confirmation.selectedEffectiveTime().isAfter(now)) return false;
+        } else if(DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())) {
+            if(file.getEffectiveDate()!=null) throw new IllegalStateException("签名生效方式不得带预设日期");
+            requireSignedEffect(file);
+        } else if(legacyDateContract || DccWorkflowDatePolicy.PRESET_DATE.equals(file.getEffectiveMode())) {
+            if(file.getEffectiveDate()==null) throw new IllegalStateException("按日期生效缺少正式预设日期");
+            if(file.getEffectiveDate().isAfter(now.toLocalDate())) return false;
+        } else throw new IllegalArgumentException("历史未知生效方式不能推断为预设日期执行新生效写入");
         return activateLocked(file, master, now);
     }
 
@@ -148,6 +353,33 @@ public class DccControlledFileLifecycleService {
             if(candidate.compareTo(executing)==0)throw new IllegalStateException("待生效与执行版本不得重复正式版本号");
         }
         var beforeActivation=fileStateAudit.capture(file,master);
+        if(DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) {
+            var confirmation=requireControlledConfirmation(file);
+            if(confirmation.selectedEffectiveTime().isAfter(now))
+                throw new IllegalStateException("延迟生效时间尚未到达，不能启用或下发");
+            if(file.getEffectiveTime()==null) {
+                if(file.getEffectiveSignatureId()!=null || file.getEffectiveProcessInstanceId()!=null)
+                    throw new IllegalStateException("延迟生效存在不完整或混用的立即生效事实");
+                requireOne(controlledFileMapper.updateById(DccControlledFileDO.builder().id(file.getId())
+                        .effectiveTime(now).effectiveProcessInstanceId(file.getProcessInstanceId()).build()));
+                file.setEffectiveTime(now);file.setEffectiveProcessInstanceId(file.getProcessInstanceId());
+                emit("EFFECTIVE",file,oldId,now);
+            } else if(file.getEffectiveSignatureId()!=null
+                    || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId()))
+                throw new IllegalStateException("延迟实际生效事实含混用签名或错误轮次");
+        } else if(DccWorkflowDatePolicy.PRESET_DATE.equals(file.getEffectiveMode())) {
+            if(file.getEffectiveTime()==null) {
+                if(file.getEffectiveSignatureId()!=null || file.getEffectiveProcessInstanceId()!=null)
+                    throw new IllegalStateException("按日期生效存在不完整或伪造签名事实");
+                requireOne(controlledFileMapper.updateById(DccControlledFileDO.builder().id(file.getId())
+                        .effectiveTime(now).effectiveProcessInstanceId(file.getProcessInstanceId()).build()));
+                file.setEffectiveTime(now);file.setEffectiveProcessInstanceId(file.getProcessInstanceId());
+                emit("EFFECTIVE",file,oldId,now);
+            } else if(file.getEffectiveSignatureId()!=null || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId()))
+                throw new IllegalStateException("按日期生效事实含伪造签名或错误轮次");
+        }
+        if(file.getEffectiveMode()!=null && (file.getEffectiveTime()==null || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId())))
+            throw new IllegalStateException("日常启用必须同时持有正式受控及本轮生效事实");
         var beforeObsolete=obsoleteLowerControlled(file,master,chain,now);
         requireOne(controlledFileMapper.updateById(DccControlledFileDO.builder().id(file.getId())
                 .activatedTime(now).status("ACTIVE").build()));
@@ -197,28 +429,40 @@ public class DccControlledFileLifecycleService {
     }
 
     public List<DccControlledFileDO> pendingDistribution(boolean remindersOnly) {
-        return pendingDistribution(remindersOnly,distributionReminderDates());
+        return pendingDistribution(remindersOnly,null);
     }
 
     public List<DccControlledFileDO> pendingDistribution(boolean remindersOnly,DccWorkflowDatePolicy.ReminderDates dates) {
-        if(dates==null) throw new IllegalArgumentException("文控提醒日期上下文缺失");
+        if(remindersOnly) throw new IllegalStateException("文控提醒策略尚未批准");
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         var query = new LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getTenantId, tenantId)
-                .in(DccControlledFileDO::getStatus, "CONTROLLED_PENDING_EFFECTIVE", "ACTIVE")
+                .eq(DccControlledFileDO::getStatus, "ACTIVE")
                 .isNotNull(DccControlledFileDO::getControlledTime)
+                .isNotNull(DccControlledFileDO::getActivatedTime)
                 .isNull(DccControlledFileDO::getDistributedTime);
-        if (remindersOnly) query.le(DccControlledFileDO::getEffectiveDate, dates.reminderThrough());
-        return controlledFileMapper.selectList(query.orderByAsc(DccControlledFileDO::getEffectiveDate)
+        return controlledFileMapper.selectList(query.orderByAsc(DccControlledFileDO::getActivatedTime)
                 .orderByAsc(DccControlledFileDO::getId));
     }
 
     public List<DccControlledFileDO> dueVersions() {
+        LocalDateTime now=datePolicy.now();
         return controlledFileMapper.selectList(new LambdaQueryWrapper<DccControlledFileDO>()
                 .eq(DccControlledFileDO::getTenantId, TenantContextHolder.getRequiredTenantId())
                 .eq(DccControlledFileDO::getStatus, "CONTROLLED_PENDING_EFFECTIVE")
-                .le(DccControlledFileDO::getEffectiveDate, datePolicy.now().toLocalDate())
+                .and(q->q.and(delayed->delayed.eq(DccControlledFileDO::getEffectiveMode,DccWorkflowDatePolicy.DELAYED)
+                        .le(DccControlledFileDO::getDelayedEffectiveTime,now))
+                    .or(dated->dated.and(mode->mode.isNull(DccControlledFileDO::getEffectiveMode)
+                            .or().eq(DccControlledFileDO::getEffectiveMode,DccWorkflowDatePolicy.PRESET_DATE))
+                        .le(DccControlledFileDO::getEffectiveDate,now.toLocalDate())))
                 .orderByAsc(DccControlledFileDO::getEffectiveDate).orderByAsc(DccControlledFileDO::getId));
+    }
+
+    private DccDelayedEffectiveConfirmationEvidence.VerifiedConfirmation requireControlledConfirmation(DccControlledFileDO file) {
+        var confirmation=confirmationEvidence.requireConfirmed(file);
+        if(!Objects.equals(file.getControlledTime(),confirmation.signedAt()))
+            throw new IllegalStateException("延迟受控时间与本轮真实确认签名不一致");
+        return confirmation;
     }
 
     private void emit(String type, DccControlledFileDO file, Long oldId, LocalDateTime now) {
@@ -231,10 +475,38 @@ public class DccControlledFileLifecycleService {
                 VALUES (?,?,?,?,?,?,?,?,?,'PENDING')
                 """, tenant, eventKey, type, file.getMasterId(), file.getId(), oldId,
                 file.getVersionNo(), file.getProcessInstanceId(), now));
-        eventPublisher.publishEvent(new DccControlledFileLifecycleEvent(
+        var event=new DccControlledFileLifecycleEvent(
                 eventKey,
                 type, tenant, file.getMasterId(), file.getId(), oldId, file.getVersionNo(),
-                file.getProcessInstanceId(), now));
+                file.getProcessInstanceId(), now);
+        if("ACTIVATED".equals(type)) {
+            requireTransaction();
+            if(!TransactionSynchronizationManager.isSynchronizationActive())
+                throw new IllegalStateException("自动下发接收需要生效事务的正式提交同步边界");
+            Long batchId=distributionBatchService.acceptActivatedEvent(event);
+            if(batchId==null || batchId<=0)
+                throw new IllegalStateException("生效事件没有得到真实持久下发批次身份");
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+                @Override public void afterCommit() {
+                    TenantUtils.execute(tenant,()->{
+                        try {
+                            var result=distributionBatchService.processAutomaticBatch(batchId);
+                            if(result==null || !Objects.equals(result.batchId(),batchId))
+                                throw new IllegalStateException("提交后下发准备返回的批次身份不一致");
+                            if("FAILED".equals(result.status()))
+                                log.warn("DCC distribution preparation blocked after committed activation: tenant={}, file={}, batch={}, code={}",
+                                        tenant,file.getId(),batchId,result.errorCode());
+                        } catch(RuntimeException failure) {
+                            // The acceptance is durable and recoverable. An independent prepare/audit failure
+                            // cannot turn a committed ACTIVE file into a failed finalization or abort later callbacks.
+                            log.error("DCC distribution preparation failed after committed activation; persisted batch remains recoverable: tenant={}, file={}, batch={}, failureType={}",
+                                    tenant,file.getId(),batchId,failure.getClass().getSimpleName());
+                        }
+                    });
+                }
+            });
+        }
+        eventPublisher.publishEvent(event);
     }
 
     private String lifecycleEventKey(String type,DccControlledFileDO file) {

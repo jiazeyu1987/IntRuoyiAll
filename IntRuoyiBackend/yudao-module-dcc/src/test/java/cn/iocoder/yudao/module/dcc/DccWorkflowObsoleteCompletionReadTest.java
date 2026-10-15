@@ -48,6 +48,7 @@ class DccWorkflowObsoleteCompletionReadTest {
             var domain=new DccControlledFileObsoleteServiceImpl();
             var evidence=new DccWorkflowObsoleteEvidenceGuard();
             wire(evidence,"taskSnapshotMapper",mock(DccControlledFileTaskAssigneeSnapshotMapper.class),
+                    "forms",mock(cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper.class),
                     "signatureMapper",mock(DccControlledFileSignatureMapper.class),
                     "bpmTaskService",mock(cn.iocoder.yudao.module.bpm.service.task.BpmTaskService.class),
                     "signatureManagementService",mock(DccElectronicSignatureManagementService.class));
@@ -86,7 +87,8 @@ class DccWorkflowObsoleteCompletionReadTest {
                 assertThrows(RuntimeException.class,()->domain.applyApprovedObsoleteControlledFile(99L,42L,request));
                 effects.incrementAndGet();
             }));
-            String sql=Files.readString(Path.of("../sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql"));
+            Path root=Path.of("").toAbsolutePath();while(root!=null&&!Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
+            String sql=Files.readString(root.resolve("IntRuoyiBackend/sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql"));
             String marker="SET @dcc_obsolete_bpmn = '";int start=sql.indexOf(marker)+marker.length();
             String xml=sql.substring(start,sql.indexOf("';",start));
             engine.getRepositoryService().createDeployment().tenantId("1").addString("obsolete.bpmn20.xml",xml).deploy();

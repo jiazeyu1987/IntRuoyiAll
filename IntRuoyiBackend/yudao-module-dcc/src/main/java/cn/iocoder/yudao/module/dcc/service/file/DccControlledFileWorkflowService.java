@@ -23,6 +23,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUpl
 import java.util.List;
 
 public interface DccControlledFileWorkflowService {
+    DccControlledFileRouteReadinessRespVO previewRoute(Long actorId,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewReqVO request);
+    DccApplicationExecutionContractService.Prepared prepareLegacyWorkingApplication(Long actorId,Long fileId,String processDefinitionId);
 
     DccProjectProductRespVO previewProjectProduct(Long userId, Long projectCodeId);
 
@@ -53,6 +56,13 @@ public interface DccControlledFileWorkflowService {
 
     void saveWorkingApplicationAttributes(Long userId, Long fileId,
             cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual);
+
+    void saveWorkingApplicationAttributes(Long userId, Long fileId,
+            cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual,
+            String effectiveMode, java.time.LocalDate effectiveDate, List<Long> selectedDistributionDepartmentIds);
+
+    void saveWorkingApplication(Long actorId,Long fileId,
+            cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationSaveReqVO request);
 
     Long submitWorkingIteration(Long userId, Long iterationId, DccControlledFileSubmitIterationReqVO reqVO);
 

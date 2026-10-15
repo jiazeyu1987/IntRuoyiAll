@@ -57,29 +57,88 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
         assertEquals(first,files.selectById(second).getReworkPredecessorControlledFileId());
         assertEquals(second,files.selectById(third).getReworkPredecessorControlledFileId());
     }
-    @Test void actualApplicantReworkTaskEndsBeforeResubmissionAndKeepsOriginalReason() throws Exception {
-        String xml="""
-            <?xml version="1.0" encoding="UTF-8"?>
-            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="test">
-            <process id="dcc-controlled-file-revision" isExecutable="true"><startEvent id="start"/>
-            <sequenceFlow id="one" sourceRef="start" targetRef="MATRIX_REVIEW"/>
-            <userTask id="MATRIX_REVIEW" flowable:assignee="99"/><sequenceFlow id="two" sourceRef="MATRIX_REVIEW" targetRef="APPLICANT_REWORK"/>
-            <userTask id="APPLICANT_REWORK" flowable:assignee="99"/><sequenceFlow id="three" sourceRef="APPLICANT_REWORK" targetRef="end"/><endEvent id="end"/>
-            </process></definitions>
-            """;
-        var deployment=engine.getRepositoryService().createDeployment().tenantId("1").addString("rework.bpmn20.xml",xml).deploy();
-        try {
-            controlled("A/1");long selected=checkinDistinctBody(20L,"return-first",new byte[]{2,8,2});
-            long failed=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));var old=files.selectById(failed);
-            var review=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();engine.getTaskService().complete(review.getId());
-            jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_REWORK',reject_reason='原始退回意见' WHERE id=?",failed);
-            long correction=checkinDistinctBody(failed,"return-second",new byte[]{3,9,3});
-            long next=workflow.submitWorkingIteration(99L,correction,request("PARTIAL"));
-            assertEquals("A/2",files.selectById(next).getVersionNo());assertEquals("WITHDRAWN",files.selectById(failed).getStatus());
-            assertEquals("原始退回意见",files.selectById(failed).getRejectReason());
-            assertNotNull(engine.getHistoryService().createHistoricProcessInstanceQuery().processInstanceId(old.getProcessInstanceId()).finished().singleResult());
-            assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
-        } finally {engine.getRepositoryService().deleteDeployment(deployment.getId(),true);}
+    @Test void signedRejectionEndsOldTasksAndStartsFullNewRoundKeepingOriginalEvidence() throws Exception {
+        controlled("A/1");long selected=checkinDistinctBody(20L,"return-first",new byte[]{2,8,2});
+        long failed=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));var old=files.selectById(failed);
+        var beforeAttributes=jdbc.queryForMap("SELECT * FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",failed);
+        var oldBody=bytes.get(infraFiles.selectById(old.getSourceFileId()).getPath()).clone();
+        var review=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();engine.getTaskService().complete(review.getId());
+        var approval=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();assertEquals("MATRIX_APPROVAL",approval.getTaskDefinitionKey());
+        jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_APPROVAL' WHERE id=?",failed);
+        wireActualSignedRejection();
+        var command=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO();command.setTaskId(approval.getId());command.setPassword("isolated-signature-credential");command.setReason("原始退回意见");
+        var signed=workflow.rejectTask(99L,failed,command);assertEquals("REJECTED",signed.getTaskActionResult());assertNotNull(signed.getSignatureId());
+        var unified=jdbc.queryForMap("SELECT * FROM system_electronic_signature");assertEquals("REJECT",unified.get("action_code"));assertEquals(99L,unified.get("actor_id"));assertEquals("VALID",unified.get("verification_status"));
+        assertEquals(old.getProcessInstanceId(),unified.get("process_instance_id"));assertEquals(approval.getId(),unified.get("task_id"));
+        assertEquals(0,engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).count());
+        var signature=jdbc.queryForMap("SELECT * FROM dcc_controlled_file_signature WHERE id=?",signed.getSignatureId());
+        assertEquals("VALID",signature.get("evidence_status"));assertEquals("REJECT",signature.get("action_type"));assertEquals(approval.getId(),signature.get("task_id"));
+        assertNotNull(signature.get("source_file_hash"));assertNotNull(signature.get("evidence_hash"));
+        long correction=checkinDistinctBody(failed,"return-second",new byte[]{3,9,3});
+        long next=workflow.submitWorkingIteration(99L,correction,request("PARTIAL"));
+        assertEquals("A/2",files.selectById(next).getVersionNo());assertEquals("REJECTED",files.selectById(failed).getStatus());
+        assertEquals("原始退回意见",files.selectById(failed).getRejectReason());assertEquals(old.getSourceFileId(),files.selectById(failed).getSourceFileId());
+        assertArrayEquals(oldBody,bytes.get(infraFiles.selectById(old.getSourceFileId()).getPath()));assertArrayEquals(new byte[]{3,9,3},bytes.get(infraFiles.selectById(files.selectById(next).getSourceFileId()).getPath()));
+        assertEquals(beforeAttributes,jdbc.queryForMap("SELECT * FROM dcc_project_application_attributes WHERE application_id=? AND submitted=1",failed));
+        assertEquals(signature,jdbc.queryForMap("SELECT * FROM dcc_controlled_file_signature WHERE id=?",signed.getSignatureId()));
+        assertEquals(unified,jdbc.queryForMap("SELECT * FROM system_electronic_signature"));
+        assertNotNull(engine.getHistoryService().createHistoricProcessInstanceQuery().processInstanceId(old.getProcessInstanceId()).finished().singleResult());
+        assertNotEquals(old.getProcessInstanceId(),files.selectById(next).getProcessInstanceId());
+        assertEquals("MATRIX_REVIEW",engine.getTaskService().createTaskQuery().processInstanceId(files.selectById(next).getProcessInstanceId()).singleResult().getTaskDefinitionKey());
+        assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());assertEquals(20L,masters.selectById(10L).getCurrentActiveControlledFileId());
+    }
+    void wireActualSignedRejection()throws Exception {
+        // Real DCC evidence HMAC/projection and real unified sign writer. Only directory,
+        // password reauthentication, image availability and append audit are external ports.
+        var admin=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.user.AdminUserService.class);
+        var user=new cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO();user.setId(99L);user.setUsername("actual-rejector");user.setNickname("真实拒绝签名人");user.setDeptId(51L);user.setPostIds(Set.of(10L));
+        org.mockito.Mockito.when(admin.getUser(99L)).thenReturn(user);
+        var posts=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.dept.PostService.class);
+        var post=new cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO();post.setId(10L);post.setName("审核岗位");org.mockito.Mockito.when(posts.getPostList(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(post));
+        var departments=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.dept.DeptService.class);
+        var department=new cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO();department.setId(51L);department.setName("质量部");org.mockito.Mockito.when(departments.getDept(51L)).thenReturn(department);
+        var rolePermissions=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.permission.PermissionService.class);
+        org.mockito.Mockito.when(rolePermissions.getUserRoleIdListByUserId(99L)).thenReturn(Set.of(10L));
+        var roles=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.permission.RoleService.class);
+        var role=new cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO();role.setId(10L);role.setName("审批人");org.mockito.Mockito.when(roles.getRoleList(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(role));
+        var imagePort=org.mockito.Mockito.mock(DccElectronicSignatureImageService.class);
+        org.mockito.Mockito.when(imagePort.requireActiveSnapshot(99L)).thenReturn(DccElectronicSignatureImageSnapshot.builder().imageId(10L).versionNo(1).fileId(100L)
+                .fileUrl("isolated-signature-image").sha256("c".repeat(64)).contentType("image/png").fileSize(4L).imageStatus("ENABLED").verifiedStatus("VALID").build());
+        var properties=new DccSignatureEvidenceProperties();properties.setHmacSecret("r04-isolated-domain-signature-hmac-key");properties.setKeyVersion("r04-private-v1");
+        org.mockito.Mockito.when(storage.getFile(org.mockito.ArgumentMatchers.anyLong())).thenAnswer(c->infraFiles.selectById(c.getArgument(0)));
+        var evidence=new DccControlledFileSignatureEvidenceServiceImpl();wire(evidence,"controlledFileMapper",files,"fileService",storage,"signatureEvidenceProperties",properties);
+        java.nio.file.Path root=java.nio.file.Path.of("").toAbsolutePath();while(root!=null&&!java.nio.file.Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
+        String signatureSchema=java.nio.file.Files.readString(root.resolve("IntRuoyiBackend/yudao-module-signature/src/test/resources/sql/create_tables.sql"));
+        jdbc.execute(signatureSchema.substring(0,signatureSchema.indexOf("CREATE TABLE IF NOT EXISTS \"system_electronic_signature_review\"")));
+        jdbc.update("DELETE FROM system_electronic_signature");
+        var configuration=sql.getConfiguration();
+        if(!configuration.hasMapper(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class))configuration.addMapper(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class);
+        var unified=new cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl();
+        wire(unified,"adminUserApi",org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class),
+                "signatureRecordMapper",sql.getMapper(cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class),
+                "gxpAuditService",org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class),"subjectAdapters",List.of(new DccControlledFileSignatureSubjectAdapter()));
+        var verifier=new DccSignatureVerificationServiceImpl();wire(verifier,"adminUserService",admin,"deptService",departments,"postService",posts,"permissionService",rolePermissions,"roleService",roles,
+                "electronicSignatureAuthorizationService",org.mockito.Mockito.mock(DccElectronicSignatureAuthorizationService.class),"signatureEvidenceService",evidence,
+                "signatureImageService",imagePort,"signatureMapper",sql.getMapper(cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper.class),"electronicSignatureService",unified);
+        var processReader=new cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceImpl();wire(processReader,"runtimeService",engine.getRuntimeService(),"historyService",engine.getHistoryService());
+        var modelPort=org.mockito.Mockito.mock(cn.iocoder.yudao.module.bpm.service.definition.BpmModelService.class);
+        org.mockito.Mockito.when(modelPort.getBpmnModelByDefinitionId(org.mockito.ArgumentMatchers.anyString())).thenAnswer(c->engine.getRepositoryService().getBpmnModel(c.getArgument(0)));
+        var taskService=new cn.iocoder.yudao.module.bpm.service.task.BpmTaskServiceImpl();wire(taskService,"taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"historyService",engine.getHistoryService(),"processInstanceService",processReader,"modelService",modelPort);
+        var signedAction=new DccWorkflowSignoffAssignmentService();wire(signedAction,"taskService",engine.getTaskService());
+        var permissionPort=org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.PermissionApi.class);
+        org.mockito.Mockito.when(permissionPort.hasAnyPermissions(org.mockito.ArgumentMatchers.eq(99L),org.mockito.ArgumentMatchers.any(String[].class))).thenReturn(true);
+        wire(workflow,"signatureVerificationService",verifier,"signoffAssignmentService",signedAction,"bpmTaskService",taskService,"permissionApi",permissionPort);
+        wire(revisions,"bpmTaskService",taskService);
+    }
+    @Test void localApplicantReworkCannotFabricateARealTaskOrChangeOldEvidence()throws Exception{
+        controlled("A/1");long selected=checkinDistinctBody(20L,"spoof-first",new byte[]{2,8,2});long failed=workflow.submitWorkingIteration(99L,selected,request("PARTIAL"));
+        var old=files.selectById(failed);var review=engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult();engine.getTaskService().complete(review.getId());
+        jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_REWORK',reject_reason='原始退回意见' WHERE id=?",failed);
+        long correction=checkinDistinctBody(failed,"spoof-second",new byte[]{3,9,3});var original=files.selectById(failed);var attrs=jdbc.queryForList("SELECT * FROM dcc_project_application_attributes");
+        int before=count("dcc_controlled_file");assertThrows(IllegalArgumentException.class,()->workflow.submitWorkingIteration(99L,correction,request("PARTIAL")));
+        assertEquals(before,count("dcc_controlled_file"));assertEquals(original,files.selectById(failed));assertEquals(attrs,jdbc.queryForList("SELECT * FROM dcc_project_application_attributes"));
+        assertEquals("MATRIX_APPROVAL",engine.getTaskService().createTaskQuery().processInstanceId(old.getProcessInstanceId()).singleResult().getTaskDefinitionKey());
+        assertEquals(0,count("dcc_controlled_file_signature"));assertEquals(1,engine.getRuntimeService().createProcessInstanceQuery().count());
     }
     private long correction() throws Exception {
         controlled("A/1");long source=checkinDistinctBody(20L,"initial-body",new byte[]{5,5,5});
@@ -118,9 +177,10 @@ class DccRejectedRevisionRetryDatabaseTest extends DccWorkflowSelectedIterationD
             var futures=new ArrayList<Future<Object>>();
             for(var req:List.of(first,second))futures.add(pool.submit(()->{
                 cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+                authenticateFixtureActor();
                 try {assertTrue(start.await(5,TimeUnit.SECONDS));return workflow.submitWorkingIteration(99L,selected,req);}
                 catch(cn.iocoder.yudao.framework.common.exception.ServiceException | IllegalArgumentException denied){return denied;}
-                finally {cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
+                finally {cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}
             }));
             start.countDown();var values=List.of(futures.get(0).get(15,TimeUnit.SECONDS),futures.get(1).get(15,TimeUnit.SECONDS));
             assertEquals(sameKey?2:1,values.stream().filter(v->v instanceof Long).count());

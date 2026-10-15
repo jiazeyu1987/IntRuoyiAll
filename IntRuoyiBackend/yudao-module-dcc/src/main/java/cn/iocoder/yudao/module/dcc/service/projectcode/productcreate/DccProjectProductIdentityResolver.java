@@ -22,7 +22,7 @@ public final class DccProjectProductIdentityResolver {
     public static Product resolve(DccProjectCodeDO project, MdmProductApi mdm,
                                   DccApprovedProductIdentityMapper approved) {
         if (project==null || project.getId()==null || StrUtil.isBlank(project.getProjectCode())
-                || StrUtil.isBlank(project.getProjectName())) throw invalid();
+                || StrUtil.isBlank(project.getProjectName()) || !"ENABLE".equals(project.getStatus())) throw invalid();
         Long tenant=TenantContextHolder.getRequiredTenantId();
         if (TenantContextHolder.isIgnore() || !Objects.equals(tenant,project.getTenantId())) throw invalid();
         if (project.getProductMasterId()!=null) {

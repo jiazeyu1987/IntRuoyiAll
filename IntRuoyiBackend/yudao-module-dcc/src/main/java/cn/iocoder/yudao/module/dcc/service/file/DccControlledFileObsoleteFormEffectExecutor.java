@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectExecutor
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectPrecheck;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectResult;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormControlledActionLifecycleAdapter;
+import cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteReqVO;
 import org.springframework.stereotype.Service;
 
@@ -14,16 +15,23 @@ import java.util.Map;
 
 @Service
 public class DccControlledFileObsoleteFormEffectExecutor
-        implements FormBusinessEffectExecutor, FormControlledActionLifecycleAdapter {
+        implements FormBusinessEffectExecutor, FormExactBpmSubmissionAdapter {
 
     public static final String EXECUTOR_CODE = "DCC_OBSOLETE";
     private static final String LIFECYCLE_CONTEXT_ERROR =
             "DCC_OBSOLETE lifecycle adapter only accepts DCC CONTROLLED_FILE OBSOLETE actions";
 
     private final DccControlledFileObsoleteService obsoleteService;
+    @jakarta.annotation.Resource private DccObsoleteFormExecutionPreparationService executionPreparation;
 
     public DccControlledFileObsoleteFormEffectExecutor(DccControlledFileObsoleteService obsoleteService) {
         this.obsoleteService = obsoleteService;
+    }
+    @Override
+    public VerifiedSubmission verifyExactSubmission(PersistedDraft persisted,FormActionInstance requested,Long actorUserId){
+        if(!supports(requested))throw new IllegalArgumentException(LIFECYCLE_CONTEXT_ERROR);
+        if(executionPreparation==null)throw new IllegalStateException("DCC_OBSOLETE_EXECUTION_SOURCE_NOT_READY");
+        return executionPreparation.verifyReservedExactSubmission(persisted,requested,actorUserId);
     }
 
     @Override
@@ -82,6 +90,7 @@ public class DccControlledFileObsoleteFormEffectExecutor
         }
         Long controlledFileId = requiredControlledFileId(instance);
         toObsoleteReqVO(instance.getFormData(), controlledFileId);
+        executionPreparation.onPendingApprovalStarted(instance);
     }
 
     @Override
@@ -95,13 +104,6 @@ public class DccControlledFileObsoleteFormEffectExecutor
         }
         Long controlledFileId = requiredControlledFileId(instance);
         toObsoleteReqVO(instance.getFormData(), controlledFileId);
-    }
-
-    private void requirePreflightPassed(FormActionInstance instance) {
-        FormBusinessEffectPrecheck precheck = preflight(instance);
-        if (!precheck.isPassed()) {
-            throw new IllegalArgumentException(precheck.getFailureReason());
-        }
     }
 
     private boolean isDccObsolete(BusinessActionContext context) {

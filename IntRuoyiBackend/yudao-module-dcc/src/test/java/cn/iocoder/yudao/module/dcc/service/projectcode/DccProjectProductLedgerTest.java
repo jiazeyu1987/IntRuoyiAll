@@ -31,12 +31,16 @@ import static org.mockito.Mockito.*;
 
 /** 实际服务/事务/H2统一账本，只有外部账号目录及授权端口替身。 */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,DccProjectProductCreateWriteService.class,
+        cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
+        DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class,DccProjectProductCreateFailureService.class,
         DccProjectAttributesService.class,DccProjectLeaderService.class,DccFolderTemplateService.class,
         DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class,GxpAuditServiceImpl.class})
 @SqlMergeMode(SqlMergeMode.MergeMode.MERGE)
 @Sql(scripts="/sql/dcc_b_gxp_audit_tables.sql",executionPhase=Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts="/sql/dcc_b_gxp_audit_clean.sql",executionPhase=Sql.ExecutionPhase.AFTER_TEST_METHOD)
+@org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
+@org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
@@ -65,6 +69,7 @@ class DccProjectProductLedgerTest extends BaseDbUnitTest {
     @MockitoBean PermissionApi permissions;
     @MockitoBean DccProjectAccessService access;
     @BeforeEach void accounts() {
+        when(projectActors.isApprover(1L)).thenReturn(true); // Keep formal authority explicit in ledger fixture.
         var leader=new AdminUserRespDTO();leader.setId(7L);leader.setStatus(0);leader.setNickname("正式负责人");
         var existingReviewer=new AdminUserRespDTO();existingReviewer.setId(1L);existingReviewer.setStatus(0);existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
         when(users.getUser(7L)).thenReturn(leader);when(users.getUser(1L)).thenReturn(existingReviewer);

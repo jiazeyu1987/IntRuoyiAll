@@ -7,6 +7,7 @@
     @paste="blockPreviewInteraction"
     @contextmenu="blockPreviewInteraction"
     @dragstart="blockPreviewInteraction"
+    @scroll.capture="handlePdfScroll"
   >
     <div class="protected-viewer-toolbar">
       <div>
@@ -16,6 +17,9 @@
         </div>
       </div>
       <div class="protected-viewer-toolbar__actions">
+        <span v-if="registeredPreviewVisible" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
+          本次浏览登记时间：{{ registeredPreviewLabel }}
+        </span>
         <div
           v-if="resolvedWatermarkText"
           class="protected-preview-badge"
@@ -38,6 +42,27 @@
     />
 
     <template v-if="resolvedPreviewKind === 'PDF'">
+      <div v-if="pageEntries.length" class="protected-viewer-pdf-tools" data-testid="protected-viewer-pdf-tools">
+        <div class="protected-viewer-pdf-tools__row">
+          <el-button size="small" aria-label="上一页" :disabled="pdfCurrentPage <= 1" @click="goToPdfPage(pdfCurrentPage - 1)">上一页</el-button>
+          <span aria-live="polite">第 {{ pdfCurrentPage }} / {{ pageEntries.length }} 页</span>
+          <el-button size="small" aria-label="下一页" :disabled="pdfCurrentPage >= pageEntries.length" @click="goToPdfPage(pdfCurrentPage + 1)">下一页</el-button>
+          <el-input v-model="pdfPageInput" class="protected-viewer-pdf-tools__page" size="small" aria-label="PDF 页码" inputmode="numeric" @keyup.enter="handlePdfPageJump" />
+          <el-button size="small" aria-label="跳转页码" @click="handlePdfPageJump">跳转</el-button>
+          <span v-if="pdfNavigationError" role="alert" class="protected-viewer-pdf-tools__error">{{ pdfNavigationError }}</span>
+        </div>
+        <div class="protected-viewer-pdf-tools__row">
+          <el-input v-model="pdfSearchQuery" class="protected-viewer-pdf-tools__query" size="small" aria-label="PDF 正文关键字" :disabled="!pdfCanSearch" placeholder="搜索 PDF 正文" @keyup.enter="handlePdfSearch" />
+          <el-button size="small" aria-label="搜索 PDF 正文" :disabled="!pdfCanSearch || !pdfSearchQuery.trim()" @click="handlePdfSearch">搜索</el-button>
+          <el-button size="small" aria-label="上一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchPrevious">上一处</el-button>
+          <el-button size="small" aria-label="下一处匹配" :disabled="!pdfSearchMatches.length" @click="handlePdfSearchNext">下一处</el-button>
+          <span role="status" aria-live="polite">{{ pdfSearchMessage }}</span>
+        </div>
+        <div v-if="pdfSearchMatches[pdfSearchMatchIndex]" class="protected-viewer-pdf-tools__excerpt">
+          第 {{ pdfSearchMatches[pdfSearchMatchIndex].pageNumber }} 页：{{ pdfSearchMatches[pdfSearchMatchIndex].excerpt }}
+        </div>
+        <div v-if="pdfSearchError" role="alert" class="protected-viewer-pdf-tools__error">{{ pdfSearchError }}</div>
+      </div>
       <div v-if="pageEntries.length" ref="viewerFrameRef" class="protected-viewer-frame protected-viewer-frame--transformable">
         <div
           v-if="canTransformPreview"
@@ -91,7 +116,7 @@
           </div>
         </div>
 
-        <div v-for="page in pageEntries" :key="page.pageNumber" class="protected-viewer-page">
+        <div v-for="page in pageEntries" :key="`${renderVersion}-${page.pageNumber}`" :ref="(element) => bindPdfPageRef(page.pageNumber, element)" class="protected-viewer-page">
           <div class="protected-viewer-page__header">第 {{ page.pageNumber }} / {{ pageEntries.length }} 页</div>
           <div class="protected-viewer-page__canvas-wrap">
             <div class="protected-viewer-page__canvas-viewport" :style="getPdfPageViewportStyle(page)">
@@ -171,7 +196,9 @@
         </div>
         <div class="protected-viewer-image-wrap">
           <div class="protected-viewer-transform-stage" :style="imagePreviewTransformStyle">
-            <img class="protected-viewer-image" :src="mediaObjectUrl" :alt="resolvedFileName || '受控图片预览'" />
+            <img
+              :key="renderVersion" :data-preview-generation="renderVersion" @load="handleMediaLoaded" @error="handleMediaError"
+              class="protected-viewer-image" :src="mediaObjectUrl" :alt="resolvedFileName || '受控图片预览'" />
             <div
               v-if="watermarkBackground"
               class="protected-viewer-page__overlay"
@@ -201,6 +228,7 @@
         </div>
         <div class="protected-viewer-media-wrap">
           <video
+            :key="renderVersion" :data-preview-generation="renderVersion" @loadeddata="handleMediaLoaded" @error="handleMediaError"
             class="protected-viewer-video"
             :src="mediaObjectUrl"
             controls
@@ -236,6 +264,7 @@
         <div class="protected-viewer-audio-card">
           <div class="protected-viewer-audio-title">{{ resolvedFileName || title || '受控音频预览' }}</div>
           <audio
+            :key="renderVersion" :data-preview-generation="renderVersion" @loadeddata="handleMediaLoaded" @error="handleMediaError"
             class="protected-viewer-audio"
             :src="mediaObjectUrl"
             controls
@@ -282,8 +311,11 @@
 
     <template v-else-if="resolvedPreviewKind === 'OFFICE'">
       <OnlyOfficeReadOnlyViewer
+        :key="renderVersion"
         :base-url="resolvedOnlyOfficeBaseUrl"
         :document-url="resolvedOnlyOfficeDocumentUrl"
+        @opened="handleOfficeOpened"
+        @error="handleOfficeError"
         :document-title="resolvedFileName || title || 'Office 受控预览'"
         :watermark-label="resolvedWatermarkLabel"
         :watermark-detail="watermarkDetail"
@@ -326,6 +358,7 @@ import {
   shouldBlockPreviewShortcut
 } from './presentation'
 import OnlyOfficeReadOnlyViewer from './OnlyOfficeReadOnlyViewer.vue'
+import { extractPdfTextPages, findPdfTextMatches, type PdfTextMatch, type PdfTextPage } from './pdf-tools'
 
 defineOptions({ name: 'ProtectedPdfViewer' })
 
@@ -346,8 +379,11 @@ const props = defineProps<{
   watermark?: ControlledPreviewWatermark | null
   title?: string
 }>()
+const emit = defineEmits<{
+  opened: [event: { source: OnlineFilePreviewSource; metadata: ControlledFilePreviewMetadataVO }]
+}>()
 
-interface ViewerCanvasPageProxy {
+interface ViewerCanvasPageProxy extends PdfTextPage {
   getViewport: (params: { scale: number }) => { width: number; height: number }
   render: (params: {
     canvasContext: CanvasRenderingContext2D
@@ -372,11 +408,59 @@ const errorMessage = ref('')
 const viewerFrameRef = ref<HTMLDivElement>()
 const pageEntries = ref<Array<{ pageNumber: number; width: number; height: number }>>([])
 const canvasRefMap = new Map<number, HTMLCanvasElement>()
+const pdfPageRefMap = new Map<number, HTMLElement>()
+const pdfCurrentPage = ref(1)
+const pdfPageInput = ref('1')
+const pdfNavigationError = ref('')
+const pdfTextPages = ref<string[]>([])
+const pdfTextStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const pdfSearchError = ref('')
+const pdfSearchQuery = ref('')
+const pdfSubmittedSearchQuery = ref('')
+const pdfSearchMatches = ref<PdfTextMatch[]>([])
+const pdfSearchMatchIndex = ref(-1)
+const pdfCanSearch = computed(() => pdfTextStatus.value === 'ready' && pdfTextPages.value.some(text => text.trim()))
+const pdfSearchMessage = computed(() => {
+  if (pdfTextStatus.value === 'loading') return '正在读取 PDF 正文文本…'
+  if (pdfTextStatus.value === 'error') return 'PDF 正文搜索不可用，请查看错误提示。'
+  if (pdfTextStatus.value !== 'ready') return ''
+  if (!pdfCanSearch.value) return '当前 PDF 无可搜索文本，扫描件或纯图页面不支持文字搜索。'
+  if (!pdfSubmittedSearchQuery.value) return '可搜索 PDF 正文文本'
+  if (!pdfSearchMatches.value.length) return '未找到匹配的正文文本'
+  return `第 ${pdfSearchMatchIndex.value + 1} / ${pdfSearchMatches.value.length} 处匹配`
+})
 const renderVersion = ref(0)
 let previewUnmounted = false
 const pdfLoadingTask = shallowRef<ViewerLoadingTask | null>(null)
 const pdfDocument = shallowRef<ViewerCanvasDocumentProxy | null>(null)
 const resolvedPreviewMetadata = shallowRef<ControlledFilePreviewMetadataVO | null>(null)
+const registeredPreviewVisible = ref(false)
+const clearRegisteredPreview = () => { registeredPreviewVisible.value = false }
+const registeredPreviewLabel = computed(() => {
+  if (!registeredPreviewVisible.value) return ''
+  const value = resolvedPreviewMetadata.value?.previewRegisteredAt
+  if (!value) return '未记录'
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) {
+    throw new Error('本次浏览登记时间缺少有效服务器时区')
+  }
+  return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(value)) + '（Asia/Shanghai，UTC+08:00）'
+})
+const markRegisteredPreviewVisible = (generation: number) => {
+  if (!isCurrentRenderVersion(generation) || errorMessage.value || resolvedPreviewUnavailableReason.value) return
+  registeredPreviewVisible.value = true
+}
+const handleMediaLoaded = (event: Event) => {
+  const element = event.currentTarget as (HTMLElement & { currentSrc?: string }) | null
+  if (!element || element.dataset.previewGeneration !== String(renderVersion.value)
+    || element.getAttribute('src') !== mediaObjectUrl.value || element.currentSrc !== mediaObjectUrl.value) return
+  markRegisteredPreviewVisible(renderVersion.value)
+}
+const handleMediaError = (event: Event) => {
+  const element = event.currentTarget as (HTMLElement & { currentSrc?: string }) | null
+  if (!element || element.dataset.previewGeneration !== String(renderVersion.value) || element.getAttribute('src') !== mediaObjectUrl.value) return
+  clearRegisteredPreview()
+  errorMessage.value = '当前图片或音视频正文加载失败，请查看文件和受控阅读权限'
+}
 const resolvedWatermark = shallowRef<ControlledPreviewWatermark | null>(null)
 const resolvedPreviewKind = ref<ControlledFilePreviewKind | ''>('')
 const resolvedOnlyOfficeBaseUrl = ref('')
@@ -415,6 +499,13 @@ const imagePreviewTransformStyle = computed(() => ({
 }))
 const resolvedOnlinePreviewSource = computed<OnlineFilePreviewSource | null>(() => {
   if (props.previewSource) {
+    const source = props.previewSource
+    if (source.type === 'DCC_CONTROLLED_FILE') {
+      if (props.controlledFileId !== undefined && props.controlledFileId !== null && props.controlledFileId !== ''
+        && String(props.controlledFileId) !== String(source.controlledFileId)) throw new Error('正文source与所选文件身份不一致')
+      if (source.distribution && source.bodyReadContext !== undefined) throw new Error('下发义务与正文业务上下文不能混用')
+      if (!source.distribution) return buildDccControlledFilePreviewSource(source.controlledFileId, source.bodyReadContext)
+    }
     return props.previewSource
   }
   if (props.controlledFileId !== undefined && props.controlledFileId !== null && props.controlledFileId !== '') {
@@ -430,6 +521,90 @@ const bindCanvasRef = (pageNumber: number, element: unknown) => {
   }
   canvasRefMap.delete(pageNumber)
 }
+
+const bindPdfPageRef = (pageNumber: number, element: unknown) => {
+  if (element instanceof HTMLElement) {
+    pdfPageRefMap.set(pageNumber, element)
+    return
+  }
+  pdfPageRefMap.delete(pageNumber)
+}
+
+const resetPdfTools = () => {
+  pdfCurrentPage.value = 1
+  pdfPageInput.value = '1'
+  pdfNavigationError.value = ''
+  pdfTextPages.value = []
+  pdfTextStatus.value = 'idle'
+  pdfSearchError.value = ''
+  pdfSearchQuery.value = ''
+  pdfSubmittedSearchQuery.value = ''
+  pdfSearchMatches.value = []
+  pdfSearchMatchIndex.value = -1
+  pdfPageRefMap.clear()
+}
+
+const goToPdfPage = (pageNumber: number) => {
+  if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > pageEntries.value.length) {
+    pdfNavigationError.value = `请输入 1 至 ${pageEntries.value.length} 之间的整数页码`
+    return
+  }
+  const pageElement = pdfPageRefMap.get(pageNumber)
+  const frame = viewerFrameRef.value
+  if (!pageElement || !frame) {
+    pdfNavigationError.value = '正文页面尚未准备好，请等待加载完成'
+    return
+  }
+  pdfNavigationError.value = ''
+  pdfCurrentPage.value = pageNumber
+  pdfPageInput.value = String(pageNumber)
+  frame.scrollTo({ top: pageElement.offsetTop, behavior: 'instant' })
+}
+
+const handlePdfPageJump = () => {
+  const input = pdfPageInput.value.trim()
+  if (!/^[1-9]\d*$/.test(input)) {
+    pdfNavigationError.value = `请输入 1 至 ${pageEntries.value.length} 之间的整数页码`
+    return
+  }
+  goToPdfPage(Number(input))
+}
+
+const handlePdfScroll = (event: Event) => {
+  const frame = viewerFrameRef.value
+  if (!frame || event.target !== frame) return
+  for (const page of pageEntries.value) {
+    const element = pdfPageRefMap.get(page.pageNumber)
+    if (element && element.offsetTop + element.offsetHeight > frame.scrollTop + 24) {
+      pdfCurrentPage.value = page.pageNumber
+      pdfPageInput.value = String(page.pageNumber)
+      return
+    }
+  }
+}
+
+const handlePdfSearch = () => {
+  pdfSubmittedSearchQuery.value = pdfSearchQuery.value.trim()
+  pdfSearchMatches.value = pdfCanSearch.value
+    ? findPdfTextMatches(pdfTextPages.value, pdfSubmittedSearchQuery.value) : []
+  pdfSearchMatchIndex.value = pdfSearchMatches.value.length ? 0 : -1
+  if (pdfSearchMatches.value.length) goToPdfPage(pdfSearchMatches.value[0].pageNumber)
+}
+
+const movePdfSearchMatch = (step: number) => {
+  const count = pdfSearchMatches.value.length
+  if (!count) return
+  pdfSearchMatchIndex.value = (pdfSearchMatchIndex.value + step + count) % count
+  goToPdfPage(pdfSearchMatches.value[pdfSearchMatchIndex.value].pageNumber)
+}
+const handlePdfSearchNext = () => movePdfSearchMatch(1)
+const handlePdfSearchPrevious = () => movePdfSearchMatch(-1)
+
+watch(pdfSearchQuery, () => {
+  pdfSubmittedSearchQuery.value = ''
+  pdfSearchMatches.value = []
+  pdfSearchMatchIndex.value = -1
+}, { flush: 'sync' })
 
 const blockPreviewInteraction = (event: Event) => {
   event.preventDefault()
@@ -522,28 +697,25 @@ const destroyPdfArtifacts = async (currentRenderVersion?: number) => {
   }
   const documentToDestroy = pdfDocument.value
   const loadingTaskToDestroy = pdfLoadingTask.value
+  // Detach immediately: a newer load must never destroy the same old document twice.
+  pdfDocument.value = null
+  pdfLoadingTask.value = null
   pageEntries.value = []
   canvasRefMap.clear()
-  if (documentToDestroy?.cleanup) {
-    await documentToDestroy.cleanup()
-  }
+  resetPdfTools()
+  // destroy() cancels active rendering/text tasks; cleanup() rejects while a page renders.
   if (documentToDestroy?.destroy) {
     await documentToDestroy.destroy()
   } else if (loadingTaskToDestroy?.destroy) {
     await loadingTaskToDestroy.destroy()
   }
-  if (pdfDocument.value === documentToDestroy) {
-    pdfDocument.value = null
-  }
-  if (pdfLoadingTask.value === loadingTaskToDestroy) {
-    pdfLoadingTask.value = null
-  }
 }
 
 const resetPreviewState = async (currentRenderVersion?: number) => {
-  if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
-    return
-  }
+    if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
+      return
+    }
+  clearRegisteredPreview()
   revokeMediaObjectUrl()
   textPreviewContent.value = ''
   currentPdfBytes.value = null
@@ -648,7 +820,7 @@ const renderPdfPages = async (
     }
     const canvas = canvasRefMap.get(pageEntry.pageNumber)
     if (!canvas) {
-      continue
+      throw new Error(`第 ${pageEntry.pageNumber} 页预览画布未准备好`)
     }
     const viewport = page.getViewport({ scale })
     const renderViewport = page.getViewport({ scale: scale * outputScale })
@@ -658,7 +830,7 @@ const renderPdfPages = async (
     canvas.style.height = `${Math.ceil(viewport.height)}px`
     const context = canvas.getContext('2d', { alpha: false })
     if (!context) {
-      continue
+      throw new Error(`第 ${pageEntry.pageNumber} 页无法创建预览画布`)
     }
     await page.render({
       canvasContext: context,
@@ -673,10 +845,26 @@ const renderPdfPages = async (
   }
 }
 
+const loadPdfTextIndex = async (document: ViewerCanvasDocumentProxy, currentRenderVersion: number) => {
+  if (!isCurrentRenderVersion(currentRenderVersion)) return
+  pdfTextStatus.value = 'loading'
+  try {
+    const textPages = await extractPdfTextPages(document, () => isCurrentRenderVersion(currentRenderVersion))
+    if (textPages === null || !isCurrentRenderVersion(currentRenderVersion)) return
+    pdfTextPages.value = textPages
+    pdfTextStatus.value = 'ready'
+  } catch (error) {
+    if (!isCurrentRenderVersion(currentRenderVersion)) return
+    pdfTextStatus.value = 'error'
+    pdfSearchError.value = resolveViewerErrorMessage(error, 'PDF 正文文本读取失败，无法搜索。')
+  }
+}
+
 const loadPreview = async () => {
   const currentRenderVersion = renderVersion.value + 1
   renderVersion.value = currentRenderVersion
   loading.value = true
+  clearRegisteredPreview()
   errorMessage.value = ''
   resetViewerTransformState()
   resolvedWatermark.value = props.watermark || null
@@ -686,11 +874,9 @@ const loadPreview = async () => {
   resolvedOnlyOfficeDocumentUrl.value = props.onlyofficeDocumentUrl || ''
   resolvedPreviewUnavailableReason.value = props.previewUnavailableReason || ''
   resolvedFileName.value = props.title || ''
-  await resetPreviewState(currentRenderVersion)
-  if (!isCurrentRenderVersion(currentRenderVersion)) {
-    return
-  }
   try {
+    await resetPreviewState(currentRenderVersion)
+    if (!isCurrentRenderVersion(currentRenderVersion)) return
     if (resolvedOnlinePreviewSource.value && !props.previewKind) {
       const metadata = await getOnlineFilePreviewMetadata(resolvedOnlinePreviewSource.value)
       if (!isCurrentRenderVersion(currentRenderVersion)) {
@@ -738,6 +924,8 @@ const loadPreview = async () => {
         return
       }
       textPreviewContent.value = new TextDecoder().decode(previewPayload.bytes)
+      await nextTick()
+      if (textPreviewContent.value) markRegisteredPreviewVisible(currentRenderVersion)
       return
     }
 
@@ -747,9 +935,14 @@ const loadPreview = async () => {
     const scale = getProtectedViewerRenderScale(viewerFrameRef.value?.clientWidth)
     currentPdfBytes.value = previewPayload.bytes
     await renderPdfPages(previewPayload.bytes, currentRenderVersion, scale)
+    markRegisteredPreviewVisible(currentRenderVersion)
+    if (isCurrentRenderVersion(currentRenderVersion) && pdfDocument.value) {
+      await loadPdfTextIndex(pdfDocument.value, currentRenderVersion)
+    }
   } catch (error) {
     if (isCurrentRenderVersion(currentRenderVersion)) {
       errorMessage.value = resolveViewerErrorMessage(error, '受控预览加载失败，请查看错误提示后重试。')
+      clearRegisteredPreview()
     }
   } finally {
     if (isCurrentRenderVersion(currentRenderVersion)) {
@@ -769,10 +962,29 @@ onMounted(() => {
   window.addEventListener('keydown', handleWindowKeydown, true)
 })
 
+const handleOfficeOpened = (event: { documentUrl: string }) => {
+  const source = resolvedOnlinePreviewSource.value
+  const metadata = resolvedPreviewMetadata.value
+  if (previewUnmounted || resolvedPreviewKind.value !== 'OFFICE' || resolvedPreviewUnavailableReason.value
+    || !source || !metadata || event.documentUrl !== resolvedOnlyOfficeDocumentUrl.value
+    || event.documentUrl !== metadata.onlyofficeDocumentUrl) return
+  const sourceSnapshot = source.type === 'DCC_CONTROLLED_FILE' && source.distribution
+    ? { ...source, distribution: { ...source.distribution } } : { ...source }
+  emit('opened', { source: sourceSnapshot, metadata: { ...metadata } })
+  markRegisteredPreviewVisible(renderVersion.value)
+}
+const handleOfficeError = (event: { documentUrl: string; message: string }) => {
+  if (previewUnmounted || event.documentUrl !== resolvedOnlyOfficeDocumentUrl.value
+    || resolvedPreviewKind.value !== 'OFFICE') return
+  clearRegisteredPreview()
+  errorMessage.value = event.message
+}
+
 onBeforeUnmount(() => {
   previewUnmounted = true
   renderVersion.value += 1
   void resetPreviewState()
+  clearRegisteredPreview()
   window.removeEventListener('keydown', handleWindowKeydown, true)
 })
 
@@ -800,6 +1012,40 @@ watch(
   min-height: 560px;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.protected-viewer-pdf-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.protected-viewer-pdf-tools__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.protected-viewer-pdf-tools__page {
+  width: 80px;
+}
+
+.protected-viewer-pdf-tools__query {
+  width: min(100%, 280px);
+}
+
+.protected-viewer-pdf-tools__error {
+  color: var(--el-color-danger);
+}
+
+.protected-viewer-pdf-tools__excerpt {
+  overflow-wrap: anywhere;
 }
 
 .protected-viewer-toolbar {

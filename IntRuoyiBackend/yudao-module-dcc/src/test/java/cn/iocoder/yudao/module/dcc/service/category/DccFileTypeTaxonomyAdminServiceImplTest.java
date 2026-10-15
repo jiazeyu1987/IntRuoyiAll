@@ -35,6 +35,7 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
     @Resource
     private DccProjectFileTemplateItemMapper templateItemMapper;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper categoryMapper;
+    @Resource private javax.sql.DataSource testDataSource;
 
     @Test
     void activeCategoryMappingMustBeUniqueAndEnabled() {
@@ -43,11 +44,11 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
         Long leaf = createTaxonomy(stage, "B-MAP-3", "映射类型", 3);
         assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(leaf),
                 cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
-        var first = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+        var first = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code("B-C1").name("分类1").parentId(0L).active(true).sort(0).source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(leaf).build();
         categoryMapper.insert(first);
         assertEquals(first.getId(), taxonomyAdminService.resolveActiveCategoryId(leaf));
-        var second = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+        var second = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code("B-C2").name("分类2").parentId(0L).active(true).sort(0).source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(leaf).build();
         categoryMapper.insert(second);
         assertServiceException(() -> taxonomyAdminService.resolveActiveCategoryId(leaf),
@@ -74,6 +75,30 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, templateItemMapper.selectListByProjectCodeId(910L).size());
         assertServiceException(() -> taxonomyAdminService.resolveActivePath(leaf), FILE_TYPE_TAXONOMY_INACTIVE);
         assertServiceException(() -> taxonomyAdminService.deleteTaxonomy(leaf), FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
+    }
+
+    @Test
+    void categoryMappingRejectsNonLeafAndDuplicateActiveCategory() {
+        Long root = createTaxonomy(null, "W02-ROOT", "W02根", 1);
+        Long stage = createTaxonomy(root, "W02-STAGE", "设计和开发策划阶段", 2);
+        Long type = createTaxonomy(stage, "W02-TYPE", "W02类型", 3);
+        Long leaf = createTaxonomy(type, "W02-LEAF", "W02细分", 4);
+        assertServiceException(() -> taxonomyAdminService.validateCategoryMapping(type, null, true),
+                FILE_TYPE_TAXONOMY_DELETE_CHILD_EXISTS);
+        assertEquals(leaf, taxonomyAdminService.validateCategoryMapping(leaf, null, true).id());
+        var category = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
+                .code("W02-CAT").name("W02类别").parentId(0L).active(true).sort(0).source("LOCAL")
+                .lifecycleStage("PLAN").fileTypeTaxonomyId(leaf).build();
+        categoryMapper.insert(category);
+        new org.springframework.jdbc.core.JdbcTemplate(testDataSource).update(
+                "UPDATE dcc_file_category SET tenant_id=? WHERE id=?",
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), category.getId());
+        assertServiceException(() -> taxonomyAdminService.validateCategoryMapping(leaf, null, true),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_CATEGORY_INVALID);
+        assertEquals(leaf, taxonomyAdminService.validateCategoryMapping(leaf, category.getId(), true).id());
+        assertEquals(leaf, taxonomyAdminService.validateCategoryMapping(leaf, null, false).id());
+        assertServiceException(() -> taxonomyAdminService.createTaxonomy(req(leaf, "W02-CHILD", "不可增加下级", 5)),
+                FILE_TYPE_TAXONOMY_DELETE_REFERENCED);
     }
 
     @Test
@@ -229,7 +254,11 @@ class DccFileTypeTaxonomyAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     private Long createTaxonomy(Long parentId, String code, String name, int sort) {
-        return taxonomyAdminService.createTaxonomy(req(parentId, code, name, sort));
+        Long id = taxonomyAdminService.createTaxonomy(req(parentId, code, name, sort));
+        new org.springframework.jdbc.core.JdbcTemplate(testDataSource).update(
+                "UPDATE dcc_file_type_taxonomy SET tenant_id=? WHERE id=?",
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId(), id);
+        return id;
     }
 
     private DccFileTypeTaxonomySaveReqVO req(Long parentId, String code, String name, int sort) {

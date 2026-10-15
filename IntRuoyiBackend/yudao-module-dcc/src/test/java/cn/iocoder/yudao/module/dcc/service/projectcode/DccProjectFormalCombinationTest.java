@@ -39,6 +39,7 @@ import static org.mockito.Mockito.*;
 @Import({DccProjectAttributesService.class,DccProjectApplicationSnapshotService.class,DccApplicationRoundService.class,
         DccProjectFilePlacementService.class,DccProjectLeaderService.class,DccFolderTemplateService.class,
         DccProjectConfigurationAuditService.class,DccProjectAccessServiceImpl.class,
+        cn.iocoder.yudao.module.dcc.service.file.DccStorageMappingMutationGuard.class,
         GxpAuditServiceImpl.class,DccProjectFormalCombinationTest.JdbcFixture.class,
         cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectApplicationSnapshotController.class,
         cn.iocoder.yudao.module.dcc.controller.admin.projectcode.DccProjectAttributesController.class,
@@ -86,7 +87,8 @@ class DccProjectFormalCombinationTest extends BaseDbUnitTest {
 
     @BeforeEach void accounts() {
         for (long id : new long[]{1,7,8,9}) {
-            when(users.getUser(id)).thenReturn(new AdminUserRespDTO().setId(id).setStatus(0).setNickname("账号"+id));
+            when(users.getUser(id)).thenReturn(new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0)
+                    .setUsername("b-combination-"+id).setNickname("账号"+id));
             when(permissions.getUserRoleIdListByUserId(id)).thenReturn(Set.of());
         }
         when(permissions.hasAnyPermissions(7L,"dcc:project-code:query","dcc:controlled-file:submit","dcc:controlled-file:query")).thenReturn(true);

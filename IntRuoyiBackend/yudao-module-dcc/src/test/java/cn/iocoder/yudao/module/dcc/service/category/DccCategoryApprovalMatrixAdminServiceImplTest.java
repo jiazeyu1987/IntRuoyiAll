@@ -64,6 +64,20 @@ import static org.mockito.Mockito.when;
         DccControlledFileCategoryPermissionSupport.class
 })
 class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
+    @Test
+    void invalidActiveRuleFailsBeforeAnyRouteWrite() {
+        var category = createCategory("W02-INVALID", "非法配置");
+        var request = new DccCategoryApprovalMatrixSaveReqVO().setEffectiveTime(LocalDateTime.now())
+                .setRules(List.of(new DccCategoryApprovalMatrixSaveReqVO.Rule().setStageType("SIGNOFF")
+                        .setActive(true).setMarker("●").setSubjectType("DEPT"),
+                        new DccCategoryApprovalMatrixSaveReqVO.Rule().setStageType("APPROVAL")
+                        .setActive(true).setMarker("●").setSubjectType("USER").setSubjectId(11L)));
+        assertServiceException(() -> matrixAdminService.importApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, "启用规则缺少有效主体身份");
+        assertEquals(0, routeMapper.selectList(DccCategoryApprovalRouteDO::getCategoryId, category.getId()).size());
+        assertServiceException(() -> matrixAdminService.previewApprovalMatrix(category.getId(), request),
+                DccCategoryApprovalMatrixAdminErrors.RULE_INVALID, 1, "启用规则缺少有效主体身份");
+    }
     @Resource private javax.sql.DataSource testDataSource;
     @Resource private org.springframework.transaction.PlatformTransactionManager matrixTransactions;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
@@ -155,7 +169,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                         .setStageType("SIGNOFF")
                         .setActive(true)
                         .setSubjectLabel("QMS")
-                        .setMarker("▲")
+                        .setMarker("●")
                         .setSubjectType("DEPT")
                         .setSubjectId(122L)
                         .setSubjectDepartmentPath("瑛泰医疗-质量体系中心-QMS")
@@ -164,7 +178,7 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                         .setStageType("APPROVAL")
                         .setActive(true)
                         .setSubjectLabel("技术委员会")
-                        .setMarker("▲")
+                        .setMarker("◎")
                         .setSubjectType("ROLE")
                         .setSubjectId(233L)
                         .setSubjectName("技术委员会")
@@ -179,12 +193,10 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals("122", nodes.get(1).getCandidateSourceIds());
         assertEquals("ROLE", nodes.get(2).getCandidateSourceType());
         assertEquals("233", nodes.get(2).getCandidateSourceIds());
-        assertEquals("▲", nodes.get(1).getMarker(), "审核节点必须统一持久化 ▲ 标记");
-        assertEquals("▲", nodes.get(2).getMarker(), "批准节点必须统一持久化 ▲ 标记");
-        assertTrue(nodes.get(1).getRuleRemark() == null || nodes.get(1).getRuleRemark().isEmpty(),
-                "审核节点不应继续持久化行备注");
-        assertTrue(nodes.get(2).getRuleRemark() == null || nodes.get(2).getRuleRemark().isEmpty(),
-                "批准节点不应继续持久化行备注");
+        assertEquals("●", nodes.get(1).getMarker(), "会签节点保留原始必须标记");
+        assertEquals("◎", nodes.get(2).getMarker(), "批准节点保留原始可选标记，执行语义归W05");
+        assertEquals("审核部门", nodes.get(1).getRuleRemark());
+        assertEquals("批准部门", nodes.get(2).getRuleRemark());
         assertNotNull(nodes.get(2).getSubjectLabel(), "批准节点必须持久化主体标签元数据");
         verify(roleApi).validRoleList(List.of(233L));
     }
@@ -405,10 +417,10 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 .map(DccCategoryApprovalMatrixRespVO.Rule::getSubjectName)
                 .toList());
         assertTrue(respVO.getRules().stream().allMatch(rule -> "DCC_POSITION".equals(rule.getSubjectType())));
-        assertTrue(respVO.getRules().stream().allMatch(rule -> "▲".equals(rule.getMarker())),
-                "旧 marker=● 读取时必须统一回显为 ▲");
-        assertTrue(respVO.getRules().stream().allMatch(rule -> rule.getRemark() == null || rule.getRemark().isEmpty()),
-                "旧行备注读取时必须清空，不再回显到规则行");
+        assertTrue(respVO.getRules().stream().allMatch(rule -> "●".equals(rule.getMarker())),
+                "历史原始参与标记不可改写");
+        assertTrue(respVO.getRules().stream().allMatch(rule -> rule.getRemark() != null),
+                "历史行备注保真读取");
     }
 
     @Test
@@ -777,6 +789,8 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
                 new AdminUserRespDTO().setId(204L).setNickname("授权代表A")));
         when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L)
                 .setNickname("文控A")
+                .setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                .setStatus(cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE.getStatus())
                 .setDeptId(10L)
                 .setPostIds(Set.of()));
         when(permissionApi.getUserRoleIdListByRoleIds(anyList())).thenReturn(Set.of());
@@ -812,6 +826,16 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals("ROUTE_SNAPSHOT", item.getPendingPreviewSource());
         assertEquals("CONDITIONAL", item.getDownloadStatus());
         assertEquals("DOWNLOAD_RULE", item.getDownloadSource());
+        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L)
+                .setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                .setStatus(cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.DISABLE.getStatus()));
+        assertEquals("NO", matrixAdminService.getUserReviewMatrixAccess(201L).get(0).getDownloadStatus(),
+                "停用账号不能凭类别规则获取下载资格");
+        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L)
+                .setTenantId(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId() + 1)
+                .setStatus(cn.iocoder.yudao.framework.common.enums.CommonStatusEnum.ENABLE.getStatus()));
+        assertEquals("NO", matrixAdminService.getUserReviewMatrixAccess(201L).get(0).getDownloadStatus(),
+                "跨租户账号不能凭类别规则获取下载资格");
     }
 
     @Test
@@ -882,6 +906,66 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         stubNonUploaderPositions();stubUserNames(901L,902L,903L);
         return new DccCategoryApprovalMatrixSaveReqVO().setEffectiveTime(LocalDateTime.now().minusMinutes(1)).setRemark("legacy-only").setRules(List.of(dccPositionRule("SIGNOFF","审核岗位",qa.getId(),"审核岗位"),dccPositionRule("APPROVAL","批准岗位",approval.getId(),"批准岗位")));
     }
+
+    @Test void supervisorPreviewAndListReportFrozenDriftWithoutRewritingSnapshots() {
+        var category = createCategory("IC25-SUPERVISOR", "主管冻结配置消费");
+        var request = isolationMatrix();
+        var current = matrixAdminService.importApprovalMatrix(category.getId(), request);
+        Long fileId = insertDriftFile(category.getId(), DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW, "999");
+        var jdbc = new org.springframework.jdbc.core.JdbcTemplate(testDataSource);
+        var before = jdbc.queryForList("SELECT * FROM dcc_controlled_file_route_snapshot WHERE controlled_file_id=?", fileId);
+
+        var preview = matrixAdminService.previewApprovalMatrix(category.getId(), request);
+        var risk = preview.getRisks().stream().filter(item -> "SNAPSHOT_DRIFT".equals(item.getCode())).findFirst().orElseThrow();
+        assertEquals("WARNING", risk.getSeverity()); assertFalse(risk.getBlocking());
+        assertTrue(risk.getMessage().contains("1 个进行中文件"));
+        var row = matrixAdminService.getReviewMatrixRows(null, null, null, true).get(0);
+        assertTrue(row.getRisks().stream().anyMatch(item -> "SNAPSHOT_DRIFT".equals(item.getCode()) && !item.getBlocking()));
+        assertEquals(current.getId(), matrixAdminService.getApprovalMatrix(category.getId()).getRouteId(),
+                "管理配置读取仍沿当前公共配置；不把进行中冻结配置覆盖编辑投影");
+        assertEquals(before, jdbc.queryForList("SELECT * FROM dcc_controlled_file_route_snapshot WHERE controlled_file_id=?", fileId));
+        assertEquals("999", routeSnapshotMapper.selectListByControlledFileId(fileId).get(0).getResolvedUserIds());
+        assertEquals(4, routeSnapshotMapper.selectListByControlledFileId(fileId).get(0).getRouteVersionNo());
+    }
+
+    @Test void matchingSupervisorSnapshotAndNonApprovalStatesDoNotReportDrift() {
+        var category = createCategory("IC25-MATCH", "主管相同冻结配置");
+        var request = isolationMatrix();
+        var basePreview = matrixAdminService.previewApprovalMatrix(category.getId(), request);
+        String matchingIds = basePreview.getViewSubjects().stream().map(item -> String.valueOf(item.getUserId()))
+                .sorted().collect(java.util.stream.Collectors.joining(","));
+        insertDriftFile(category.getId(), DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW, matchingIds);
+        for (var status : List.of(DccControlledFileStatusEnum.WORKING, DccControlledFileStatusEnum.ACTIVE,
+                DccControlledFileStatusEnum.REJECTED, DccControlledFileStatusEnum.OBSOLETE)) {
+            insertDriftFile(category.getId(), status, "999");
+        }
+        assertTrue(matrixAdminService.previewApprovalMatrix(category.getId(), request).getRisks().stream()
+                .noneMatch(item -> "SNAPSHOT_DRIFT".equals(item.getCode())));
+    }
+
+    @Test void supervisorAndAllOriginalApprovalStatusesRemainSnapshotSensitive() {
+        var category = createCategory("IC25-ALL", "审批状态邻接回归");
+        var request = isolationMatrix();
+        List<Long> files = List.of(DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW,
+                DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW, DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW,
+                DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL, DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL)
+                .stream().map(status -> insertDriftFile(category.getId(), status, "999")).toList();
+        var preview = matrixAdminService.previewApprovalMatrix(category.getId(), request);
+        var risk = preview.getRisks().stream().filter(item -> "SNAPSHOT_DRIFT".equals(item.getCode())).findFirst().orElseThrow();
+        assertTrue(risk.getMessage().contains("5 个进行中文件")); assertFalse(risk.getBlocking());
+        for (Long fileId : files) assertEquals("999", routeSnapshotMapper.selectListByControlledFileId(fileId).get(0).getResolvedUserIds());
+    }
+
+    private Long insertDriftFile(Long categoryId, DccControlledFileStatusEnum status, String resolvedIds) {
+        Long id = randomLongId();
+        var file = createPendingFile(categoryId, id); file.setStatus(status.getStatus()); file.setFileNumber("IC25-" + id);
+        controlledFileMapper.insert(file);
+        routeSnapshotMapper.insert(DccControlledFileRouteSnapshotDO.builder().controlledFileId(id).routeVersionNo(4)
+                .stageNo(1).stageCode("SUPERVISOR_REVIEW").stageName("本轮冻结主管审核").stageOrder(1)
+                .candidateSourceType("USER").candidateSourceId(999L).candidateSourceIds(resolvedIds)
+                .resolvedUserIds(resolvedIds).approveMethod("ALL").requireAllApprovals(true).build());
+        return id;
+    }
     private List<DccCategoryApprovalRouteDO> typedRoutes(Long categoryId) {
         return List.of("NEW","REVISION","OBSOLETE").stream().map(action->{var route=DccCategoryApprovalRouteDO.builder().categoryId(categoryId).actionType(action).versionNo(77).active(true).effectiveTime(LocalDateTime.now().minusMinutes(2)).remark("untouched-"+action).build();routeMapper.insert(route);
             routeNodeMapper.insert(createRouteNode(route.getId(),1,"MATRIX_REVIEW","typed-node",991L,List.of(991L),"ALL",true));return route;}).toList();
@@ -927,8 +1011,20 @@ class DccCategoryApprovalMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(current.getVersionNo(),matrixAdminService.getApprovalMatrix(category.getId()).getRouteVersionNo());var positions=matrixAdminService.getActiveMatrixPositionIdsByCategoryIds(List.of(category.getId())).get(category.getId());assertNotNull(positions);assertFalse(positions.signoffPositionIds().contains(777L));
     }
 
+    @Test void savingFutureMatrixKeepsCurrentEffectiveConfigurationUntilItsTime() {
+        var category = createCategory("W02-FUTURE-SAVE", "未来配置连续可用");
+        var request = isolationMatrix();
+        var current = matrixAdminService.importApprovalMatrix(category.getId(), request);
+        request.setEffectiveTime(LocalDateTime.now().plusDays(2).withNano(0));
+        var scheduled = matrixAdminService.importApprovalMatrix(category.getId(), request);
+        assertTrue(routeMapper.selectById(current.getId()).getActive());
+        assertEquals(current.getId(), matrixAdminService.getApprovalMatrix(category.getId()).getRouteId());
+        assertEquals(scheduled.getId(), routeMapper.selectLatestActiveByCategoryId(category.getId(), request.getEffectiveTime()).getId());
+        assertFalse(routeNodeMapper.selectListByRouteId(current.getId()).isEmpty());
+    }
+
     private DccFileCategoryDO createCategory(String code, String name) {
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .id(randomLongId())
                 .code(code)
                 .name(name)

@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessBlockerRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
@@ -35,6 +36,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW
 public class DccControlledFileRouteReadinessService {
 
     static final String BLOCKER_POST = "APPROVER_POST_MISSING";
+    static final String BLOCKER_ACCOUNT = "APPROVER_ACCOUNT_INVALID";
     static final String BLOCKER_PERMISSION = "APPROVER_STAGE_PERMISSION_MISSING";
     static final String BLOCKER_AUTHORIZATION = "APPROVER_SIGNATURE_NOT_AUTHORIZED";
     static final String BLOCKER_IMAGE = "APPROVER_SIGNATURE_IMAGE_INVALID";
@@ -101,7 +103,7 @@ public class DccControlledFileRouteReadinessService {
         Map<Long, AdminUserRespDTO> userMap = adminUserApi.getUserList(orderedUserIds).stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(AdminUserRespDTO::getId, user -> user,
-                        (left, right) -> left, LinkedHashMap::new));
+                        (left, right) -> { throw new IllegalStateException("审批账号目录存在重复身份"); }, LinkedHashMap::new));
         Map<Long, Boolean> authorizationMap = signatureAuthorizationService.getAuthorizationMap(orderedUserIds);
         Map<Long, Boolean> imageValidityMap = resolveImageValidity(orderedUserIds);
         List<DccControlledFileRouteReadinessBlockerRespVO> blockers = new ArrayList<>();
@@ -110,6 +112,10 @@ public class DccControlledFileRouteReadinessService {
             for (Long userId : node.resolvedUserIds()) {
                 AdminUserRespDTO user = userMap.get(userId);
                 String userName = userName(userId, user);
+                if (user == null || !Objects.equals(user.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                        || !Integer.valueOf(0).equals(user.getStatus())) {
+                    blockers.add(blocker(BLOCKER_ACCOUNT, "审批人不存在、已停用或不属于本租户", node, userId, userName));
+                }
                 if (user == null || CollUtil.isEmpty(user.getPostIds())) {
                     blockers.add(blocker(BLOCKER_POST, "审批人未配置系统岗位", node, userId, userName));
                 }
@@ -138,6 +144,9 @@ public class DccControlledFileRouteReadinessService {
     /** Formal callers may already have resolved and validated the exact frozen route. */
     public void requireReadyResolvedRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route) {
         evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route")).requireReady();
+    }
+    public RouteReadinessEvaluation evaluateFrozenRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){
+        return evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route"));
     }
 
     public void requireReadyParticipants(String stageCode, List<Long> userIds) {
@@ -200,7 +209,8 @@ public class DccControlledFileRouteReadinessService {
     }
 
     private String requiredPermission(String stageCode) {
-        if (DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(stageCode)
+        if (DccControlledFileStageCodeEnum.SUPERVISOR_REVIEW.getCode().equals(stageCode)
+                || DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(stageCode)
                 || DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(stageCode)) {
             return REVIEW_PERMISSION;
         }

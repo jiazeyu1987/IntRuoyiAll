@@ -51,6 +51,21 @@ public class UserController {
     private DeptService deptService;
     @Resource
     private UserDingTalkImportExcelParser userDingTalkImportExcelParser;
+    @Resource private cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService directSupervisorService;
+
+    @GetMapping("/direct-supervisor")
+    @Operation(summary="查询用户直属主管关系")
+    @PreAuthorize("@ss.hasPermission('system:user:query')")
+    public CommonResult<UserDirectSupervisorRespVO> getDirectSupervisor(@RequestParam("userId") Long userId) {
+        return success(directSupervisorService.getRelation(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(),userId));
+    }
+
+    @PutMapping("/direct-supervisor")
+    @Operation(summary="独立设置或清空用户直属主管")
+    @PreAuthorize("@ss.hasPermission('system:user:update')")
+    public CommonResult<UserDirectSupervisorRespVO> saveDirectSupervisor(@Valid @RequestBody UserDirectSupervisorSaveReqVO request) {
+        return success(directSupervisorService.saveRelation(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId(),request));
+    }
 
     @PostMapping("/create")
     @Operation(summary = "新增用户")

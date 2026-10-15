@@ -69,3 +69,39 @@ BPM拒绝回调的状态CAS必须匹配经过核验的真实流程key，不能�
 原生升版撤回仍须能沿原目标修正重提；页面按钮可见或 checkout HTTP200 不能证明获锁。服务资格、checkout SQL CAS、checkin 真实正文和失败前驱策略需同时接通，且读取真正已结束、取消的原 BPM 历史。不能把 legacy nextMinor 重提或删除旧流程当作保持目标和历史的修复。证据：主任务 g68-withdrawn-revision-root-review.md。
 
 检出修正链还需正式multipart上传上下文同样核验已结束的原生撤回申请，隔离票据测试不能证明真实上传预检接通。普通文件详情不应主动读取没有消费者的旧关联字段，导致合法主文件被无权旧关联阻断；独立历史入口继续严格拒绝。明确选定文件的检出浏览将准确同租户File/Master身份传到后台，以同Master全部版本限制候选，再保原权限、版本聚合与关键词规则；全域33k逐版本权限扫描不是提高超时或授管理员可以代替的修复。菜单权限需随正式脚本交付，类别规则不代系统permission。证据：主管理 g69-checkin-upload-root-review.md、g70-menu-root-review.md、g71-main-detail-root-review.md、g72-exact-selection-root-review.md，真实最终链见 g73-final-html-business-alignment.md。
+
+## HTML 真实失败项修复复核（2026-10-06）
+
+准确检出浏览仍可能被“仅当前受控版本”的 SQL 条件过滤：初始上传返工没有受控 head，不能以普通受控目录条件查它。准确操作入口解除该条件后继续核验实际 File/Master、租户、范围和正文权限；详情必须返回工作稿上保存的正式受控基线，不从 Master 当前指针猜基线。
+
+线下培训的提交和批准预检、进入等待的通知须复用同一人员资格；缺少合格人员应为明确业务配置错误。审批前阻止签名和流程推进，不能授予批准类别权限来掩盖缺少 TRAINING_RECORD。手工构造的查询授权 guard 测试也要注入正式培训端口，原生样本应具有真实流程 key。
+
+作废原编号保留期内的新文件链校验跨项目和类型，但同一 Master 的版本继续使用自身编号。现代占用和经过核验的历史证据均采用当前锁定读，避免事务旧快照；原活动文件的项目/类型身份和历史原件不被改写。审批摘要 SQL 需选择真正的版本/类别字段。受控时间、生效计划和实际 activatedTime 必须分开；意见展示与签名原始载荷也应分开，显示中文不改变签名证据。
+
+已有管理组件增加公开入口时，前端显示权限必须与实际 controller 一致，不能凭名称猜新权限。修复后的离线回归、构建和原真实 E2E 分开留档，原失败台账不能被单元 PASS 覆盖。证据：`doc/tasks/20261006-dcc-browser-html-alignment/fix-review.md`。
+
+## 审批来源与新版本草稿身份前置检查
+
+- Trigger: DCC新增本次自定义矩阵、保存草稿、驳回检入或正式候选冻结。
+- Preflight check: 从正式类别读取明确来源；PUBLIC保留真实矩阵版本，APPLICATION_CUSTOM不借公共route/version。复制版本对象前清除旧custom身份，实际新文件和草稿轮次建立后重新生成canonical，并在原事务CAS保存；重提读取原冻结配置并重新核当前人员资格。
+- Blocker: 新候选INSERT包含另一个文件ID的canonical、缺实际草稿轮次、仅前端保存而后端未继承、PUBLIC V2重开漏原prepared ID/hash、或预检响应合同与实际定义不一致。
+- Verification: 实际Query/Revision/Workflow与H2/Flowable验证新建、保存恢复、检入、候选重提、身份约束、CAS失败回滚和当前人员停用；原文件、公共矩阵及历史签名保持原事实。
+- Forbidden action: 禁止直接复制旧canonical、猜轮次或最新版定义、给custom伪造公共版本、用helper或页面单测替代完整组合。
+- Evidence: `doc/tasks/20261014-dcc-gap-fix-coordination/verification-report.md`；M12自定义9、重提1及A34继承6项正式验证。
+
+## 继承测试夹具与正式验证证据
+
+- Trigger: 集成测试子类复用包含@Test的父类、正式Maven与私有runner结果不一致、或冻结后提交代码。
+- Preflight check: 列出子类声明方法、参数化实例和原父类用例；专属夹具子类与原父类分别执行。先核真实schema、所需Mapper、Maven模块basedir与独立runner的显式仓库根；固定来源指纹后再测。
+- Blocker: 父测试在子类专属seed下重复插入目录、错误全表计数，私有runner补schema后冒称正式通过，目标0run/skip、旧XML或测试期间源码漂移。
+- Verification: 用正式-am实际退出码与fresh XML逐类计数；保留失败批次，复验只替换对应范围证据。提交前比较当前源码与最终验证指纹，单独核暂存diff和真实Git退出码。
+- Forbidden action: 禁止删除父断言、补默认schema、把未执行目标记PASS、累计重叠测试为独立业务覆盖，或用后续命令退出码覆盖失败命令。
+- Evidence: `doc/tasks/20261014-dcc-gap-fix-coordination/final-verification.json`；M12/M14/M15有效47份报告共1008项。
+
+## 复验遗漏路径修复（2026-10-07）
+
+独立作废经表单中心启动，与上传/升版的BPM启动路径不同。通知名称须由锁定文件的正式编号/版本在createInstance时冻结，再由表单runtime校验对象身份后设置；只给上传/升版fileCode不能修作废。签名动作也有ASSIGN和ASSIGNED两种正式投影，完整表、签名目的和时间线须统一中文及用户意见展示，保持原机器证据不变。
+
+上传页被KeepAlive缓存，成功后的uploadSubmitted不能永久阻止下一个文件。仅已提交页面重入建立新会话与空草稿，失效旧异步并清旧绑定票据；初始化要明确列出属性/部门等可选字段，否则Object.assign不会清旧值。未提交和提交中的状态不重置。编号预检无当前Master时还须只读检查作废保留编号，提交时仍用锁定读最终校验，不能把“未查到当前受控版”直接当可新增。证据：`doc/tasks/20261006-dcc-browser-html-alignment/rf-fix-review.md`。
+
+真实重入还须重新加载被失效的账号/部门目录；只重置请求序号会使onMounted发出的旧响应失效，KeepAlive不会再次执行onMounted。重入函数补loadApprovalUsers及loadSignoffDepartments，真实第二文件提交、第三次目录可读验证。培训正向用独立启用doc_control账号及TRAINING_RECORD规则，通过本人工作台上传线下测试PDF后进入文控审核；不要把其正文拒绝当培训失败，也不要因此扩正文权限。证据：`doc/tasks/20261006-dcc-browser-html-alignment/training-validation-report.md`。

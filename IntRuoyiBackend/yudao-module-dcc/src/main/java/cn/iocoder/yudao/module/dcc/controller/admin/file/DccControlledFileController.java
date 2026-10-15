@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file;
 
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccProjectProductRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSubmissionValidationGroup;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationSaveReqVO;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
@@ -115,6 +117,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import cn.iocoder.yudao.module.dcc.service.file.DccApprovalMatrixChangeException;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -140,6 +144,17 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 @RequestMapping("/dcc/controlled-files")
 @Validated
 public class DccControlledFileController {
+
+    /** Preserve actionable organizational configuration failures at the existing HTTP boundary. */
+    @org.springframework.web.bind.annotation.ExceptionHandler(
+            cn.iocoder.yudao.module.dcc.service.file.DccUserManagementDirectSupervisorSource.RelationUnavailableException.class)
+    public CommonResult<?> handleDirectSupervisorUnavailable(
+            cn.iocoder.yudao.module.dcc.service.file.DccUserManagementDirectSupervisorSource.RelationUnavailableException failure) {
+        var business = failure.toServiceException();
+        return CommonResult.error(business.getCode(), business.getMessage());
+    }
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.DccTrainingApplicationProgressService trainingApplicationProgress;
 
     public static final String PREVIEW_WATERMARK_HEADER = "X-DCC-Preview-Watermark";
     public static final String ACCESS_EVENT_CODE_HEADER = "X-DCC-Access-Event-Code";
@@ -295,13 +310,17 @@ public class DccControlledFileController {
                 .body(binary.bytes());
     }
 
+    @ExceptionHandler(DccApprovalMatrixChangeException.class)
+    public CommonResult<DccApprovalMatrixExceptionAdvice.Comparison> approvalMatrixChanged(DccApprovalMatrixChangeException change) {
+        return new DccApprovalMatrixExceptionAdvice().changed(change);
+    }
+
     @PostMapping("/route-preview")
     @Operation(summary = "Preview the resolved submit route")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileRouteReadinessRespVO> previewRoute(
             @Valid @RequestBody DccControlledFileRoutePreviewReqVO reqVO) {
-        return success(workflowService.previewRoute(getLoginUserId(), reqVO.getCategoryId(),
-                reqVO.getSelectedSignoffUserIds(), reqVO.getSelectedSignoffDepartmentIds(), reqVO.getActionType()));
+        return success(workflowService.previewRoute(getLoginUserId(), reqVO));
     }
 
     @GetMapping("/upload-name-options")
@@ -317,7 +336,7 @@ public class DccControlledFileController {
     @Operation(summary = "Submit one new controlled file and start approval")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
-    public CommonResult<Long> submitControlledFile(@Valid @RequestBody DccControlledFileSubmitReqVO reqVO) {
+    public CommonResult<Long> submitControlledFile(@Validated(DccSubmissionValidationGroup.class) @RequestBody DccControlledFileSubmitReqVO reqVO) {
         Long actorId = getLoginUserId();
         return success(publicUploadPlacementService.create(actorId, reqVO,
                 storage -> workflowService.submitNewWithDerivedStorage(actorId,reqVO,storage)));
@@ -489,6 +508,13 @@ public class DccControlledFileController {
         return success(queryService.listApplicationRounds(getLoginUserId(), id));
     }
 
+    @GetMapping("/{id:\\d+}/training-application-progress")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<cn.iocoder.yudao.module.dcc.service.file.DccTrainingApplicationProgressService.Progress> getTrainingApplicationProgress(
+            @PathVariable("id") Long id, @RequestParam("bpmRound") String bpmRound) {
+        return success(trainingApplicationProgress.read(getLoginUserId(),id,bpmRound));
+    }
+
     @GetMapping("/{id:\\d+}/relation-permissions")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:controlled-file:query','dcc:controlled-file:review','dcc:controlled-file:approve')")
     public CommonResult<cn.iocoder.yudao.module.dcc.service.file.DccFileRelationPermissions> getRelationPermissions(
@@ -520,8 +546,8 @@ public class DccControlledFileController {
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
     public CommonResult<Boolean> saveWorkingApplicationAttributes(
             @PathVariable("id") Long id,
-            @Valid @RequestBody cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes actual) {
-        workflowService.saveWorkingApplicationAttributes(getLoginUserId(), id, actual);
+            @Valid @RequestBody DccWorkingApplicationSaveReqVO request) {
+        workflowService.saveWorkingApplication(getLoginUserId(), id, request);
         return success(true);
     }
 
@@ -869,8 +895,12 @@ public class DccControlledFileController {
                                                         @RequestHeader(VIEWER_TOKEN_ID_HEADER) String viewerTokenId,
                                                         @RequestHeader(VIEWER_TOKEN_NONCE_HEADER) String viewerTokenNonce,
                                                         HttpServletRequest request) {
-        var binary = queryService.readPreviewFile(getLoginUserId(), id, viewerToken, accessEventCode,
-                watermarkTraceCode, viewerTokenId, viewerTokenNonce, auditContext(request, accessEventCode));
+        Long[] task = distributionPreviewTask(request);
+        var binary = task == null
+                ? queryService.readPreviewFile(getLoginUserId(), id, bodyReadRequest(id, request, true), viewerToken, accessEventCode,
+                    watermarkTraceCode, viewerTokenId, viewerTokenNonce, auditContext(request, accessEventCode))
+                : queryService.readDistributionPreviewFile(getLoginUserId(), id, task[0], task[1], viewerToken, accessEventCode,
+                    watermarkTraceCode, viewerTokenId, viewerTokenNonce, auditContext(request, accessEventCode));
         return ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
@@ -887,7 +917,52 @@ public class DccControlledFileController {
     @PreAuthorize("isAuthenticated()")
     public CommonResult<DccControlledFilePreviewMetadataRespVO> getPreviewMetadata(@PathVariable("id") Long id,
                                                                                   HttpServletRequest request) {
-        return success(queryService.getPreviewMetadata(getLoginUserId(), id, auditContext(request, null)));
+        Long[] task = distributionPreviewTask(request);
+        return success(task == null
+                ? queryService.getPreviewMetadata(getLoginUserId(), id, bodyReadRequest(id, request, false), auditContext(request, null))
+                : queryService.getDistributionPreviewMetadata(getLoginUserId(), id, task[0], task[1], auditContext(request, null)));
+    }
+
+    private cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext bodyReadRequest(
+            Long id, HttpServletRequest request, boolean binary) {
+        var params = request.getParameterValues("bodyReadContext");
+        var headers = java.util.Collections.list(request.getHeaders(
+                cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.HEADER));
+        if (binary && params != null || !binary && !headers.isEmpty()
+                || params != null && params.length != 1 || headers.size() > 1)
+            throw new IllegalArgumentException("正文上下文必须使用唯一正式参数或请求头");
+        String wire = binary ? headers.isEmpty() ? null : headers.get(0) : params == null ? null : params[0];
+        return wire == null ? cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.daily(id)
+                : cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.fromWire(id, wire);
+    }
+
+    private Long[] distributionPreviewTask(HttpServletRequest request) {
+        String[] distribution = request.getParameterValues("distributionId");
+        String[] recipient = request.getParameterValues("recipientId");
+        if (distribution == null && recipient == null) return null;
+        if (request.getParameterValues("bodyReadContext") != null
+                || request.getHeader(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.HEADER) != null)
+            throw new IllegalArgumentException("下发义务与正文业务上下文不能混用");
+        if (distribution == null || recipient == null || distribution.length != 1 || recipient.length != 1)
+            throw new IllegalArgumentException("下发查阅必须同时提供唯一的分发及接收义务身份");
+        try {
+            if (!distribution[0].matches("[1-9][0-9]*") || !recipient[0].matches("[1-9][0-9]*"))
+                throw new IllegalArgumentException("下发查阅身份必须为精确正整数");
+            return new Long[]{Long.valueOf(distribution[0]), Long.valueOf(recipient[0])};
+        } catch (NumberFormatException invalid) {
+            throw new IllegalArgumentException("下发查阅身份超过正式Long范围", invalid);
+        }
+    }
+
+    @PostMapping("/{id:\\d+}/distributions/{distributionId:\\d+}/recipients/{recipientId:\\d+}/office-body-opened")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<Boolean> confirmDistributionOfficeOpened(@PathVariable Long id,
+            @PathVariable Long distributionId,@PathVariable Long recipientId,
+            @Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccDistributionOfficeOpenedReqVO proof,
+            HttpServletRequest request) {
+        return success(queryService.confirmDistributionOfficeBodyOpened(getLoginUserId(),id,distributionId,recipientId,
+                proof.getViewerToken(),proof.getAccessEventCode(),proof.getWatermarkTraceCode(),proof.getViewerTokenId(),
+                proof.getViewerTokenNonce(),auditContext(request,proof.getAccessEventCode())));
     }
 
     @GetMapping("/{id:\\d+}/attachments/{attachmentId:\\d+}/preview")
@@ -971,6 +1046,25 @@ public class DccControlledFileController {
                 .header(DOWNLOAD_REQUEST_ID_HEADER, binary.downloadRequestId())
                 .header(DOWNLOAD_PLAIN_SHA256_HEADER, binary.plainSha256())
                 .body(binary.bytes());
+    }
+
+    @GetMapping("/{id:\\d+}/attachments/{attachmentId:\\d+}/download")
+    @Operation(summary = "Download version attachment with controlled file download authority")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadControlledFileAttachment(@PathVariable("id") Long id,
+            @PathVariable("attachmentId") Long attachmentId,
+            @RequestParam("nonControlledWarningConfirmed") Boolean warningConfirmed,
+            @RequestParam("downloadRequestId") String downloadRequestId, HttpServletRequest request) {
+        var binary = queryService.readAttachmentDownloadFile(getLoginUserId(),id,attachmentId,warningConfirmed,
+                downloadRequestId,auditContext(request,downloadRequestId));
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.parseMediaType(binary.contentType()))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.attachment().filename(binary.fileName(),StandardCharsets.UTF_8).build().toString())
+                .header(org.springframework.http.HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION+","+ACCESS_EVENT_CODE_HEADER+","+DOWNLOAD_REQUEST_ID_HEADER+","+DOWNLOAD_PLAIN_SHA256_HEADER)
+                .header(ACCESS_EVENT_CODE_HEADER,binary.accessEventCode())
+                .header(DOWNLOAD_REQUEST_ID_HEADER,binary.downloadRequestId())
+                .header(DOWNLOAD_PLAIN_SHA256_HEADER,binary.plainSha256()).body(binary.bytes());
     }
 
     @GetMapping("/{id:\\d+}/approval-print/print-html")
@@ -1092,6 +1186,16 @@ public class DccControlledFileController {
         respVO.setCleanupTime(status.cleanupTime());
         respVO.setCleanedCount(cleanedCount);
         return respVO;
+    }
+
+    @GetMapping("/{id:\\d+}/obsolete-application-draft")
+    @Operation(summary = "Read the current applicant's exact obsolete form draft")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:query')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteApplicationRespVO>
+            getObsoleteApplicationDraft(@PathVariable("id") Long id,
+                @Valid cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteReworkSourceReqVO source) {
+        return success(source.hasSource() ? obsoleteService.getObsoleteReworkSource(getLoginUserId(),id,source)
+                : obsoleteService.getObsoleteApplicationDraft(getLoginUserId(),id));
     }
 
     @PostMapping("/{id:\\d+}/obsolete")

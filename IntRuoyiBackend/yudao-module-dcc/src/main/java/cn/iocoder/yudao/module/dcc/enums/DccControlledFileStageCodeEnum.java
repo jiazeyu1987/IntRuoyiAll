@@ -10,6 +10,8 @@ import java.util.Arrays;
 @AllArgsConstructor
 public enum DccControlledFileStageCodeEnum implements ArrayValuable<String> {
 
+    SUPERVISOR_REVIEW("SUPERVISOR_REVIEW", "Direct supervisor review"),
+    DELAYED_EFFECTIVE_CONFIRM("DELAYED_EFFECTIVE_CONFIRM", "延迟生效确认"),
     APPLICANT_REWORK("APPLICANT_REWORK", "Applicant rework"),
     DOC_CONTROL_REVIEW("DOC_CONTROL_REVIEW", "Document control review"),
     MATRIX_REVIEW("MATRIX_REVIEW", "Matrix review"),

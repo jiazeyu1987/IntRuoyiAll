@@ -14,7 +14,8 @@ function moduleFrom(source, dependencies = {}) {
 }
 const projection = moduleFrom(read('src/api/form-center/actionProjection.ts'))
 const lifecycle = moduleFrom(read('src/views/dcc/controlled-file/shared/lifecycle.ts'), { '@/api/form-center/actionProjection': projection })
-const presentation = moduleFrom(read('src/views/dcc/controlled-file/browser/presentation.ts'), { '../shared/lifecycle': lifecycle, '@/utils/formatTime': { formatDateTimeValue: (_value, empty) => empty } })
+const versionDisplay = moduleFrom(read('src/views/dcc/controlled-file/shared/version-display.ts'))
+const presentation = moduleFrom(read('src/views/dcc/controlled-file/browser/presentation.ts'), { '../shared/lifecycle': lifecycle, '../shared/version-display': versionDisplay, '@/utils/formatTime': { formatDateTimeValue: (_value, empty) => empty } })
 const { descriptor } = parse(read('src/views/dcc/controlled-file/browser/index.vue'))
 const ast = ts.createSourceFile('browser.ts', descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
 const getter = ast.statements.find(n => ts.isVariableStatement(n) && n.declarationList.declarations.some(d => ts.isIdentifier(d.name) && d.name.text === 'getBrowserCurrentActiveRowSummary'))
@@ -46,7 +47,8 @@ test('actual presentation classifies selected working/inflight/pending/history a
 })
 test('actual browser row summary keeps selected version separate from master current execution without changing identity', () => {
   const summary = rowSummary()(row)
-  assert.equal(summary.versionNo, 'A/1-1')
+  assert.equal(summary.versionNo, '草稿')
+  assert.equal(working.versionNo, 'A/1-1')
   assert.equal(summary.versionKindText, '工作小版本')
   assert.match(summary.currentVersionSource, /master 当前执行版本 A\/1/)
   assert.equal(row.selectedVersionId, working.id)
@@ -66,6 +68,6 @@ test('both actual name and number metadata templates render working instead of c
     app.component('el-tag', { setup: (_, { slots }) => () => vue.h('span', slots.default?.()) })
     const root = { children: [] }; app.mount(root)
     const text = n => (n.text || '') + (n.children || []).map(text).join('')
-    try { const actual = text(root); assert.match(actual, /工作小版本/); assert.doesNotMatch(actual, /历史版/); assert.match(actual, /版本号：A\/1-1/); assert.match(actual, /master 当前执行版本 A\/1/) } finally { app.unmount() }
+    try { const actual = text(root); assert.match(actual, /工作小版本/); assert.doesNotMatch(actual, /历史版/); assert.match(actual, /版本号：草稿/); assert.doesNotMatch(actual, /A\/1-1/); assert.match(actual, /master 当前执行版本 A\/1/) } finally { app.unmount() }
   }
 })

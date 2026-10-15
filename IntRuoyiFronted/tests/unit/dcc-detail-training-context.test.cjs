@@ -91,14 +91,15 @@ test('a false binding response cannot report progression to document control rev
   assert.equal(state.env.applicantTrainingRecordDialog.visible, true)
   assert.ok(state.env.applicantTrainingRecordDialog.inlineError)
 })
-test('a confirmed training binding reports the next actual review stage', async () => {
+test('a confirmed training binding reports the upload without inventing a subsequent review', async () => {
   const state = handlers()
   const sessionId = trainingSession(10, 'round-1', 'nonce')
   state.env.applicantTrainingRecordUploadSessionId.value = sessionId
   state.env.applicantTrainingRecordDialog.file = ticket(sessionId)
   await state.submit()
   assert.equal(state.calls.successes.length, 1)
-  assert.match(state.calls.successes[0], /文控审核/)
+  assert.match(state.calls.successes[0], /培训记录已上传/)
+  assert.doesNotMatch(state.calls.successes[0], /文控审核|已受控|已生效|已下发/)
 })
 test('repeated training confirmation binds once and an old response cannot complete a new round', async () => {
   let complete

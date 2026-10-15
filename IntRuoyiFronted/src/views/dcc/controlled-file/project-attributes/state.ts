@@ -20,6 +20,7 @@ export interface AttributeState {
   actual?: ProjectAttributes
   dirty: boolean
   error: string
+  requestError: string
   requestSequence: number
 }
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -62,7 +63,7 @@ export const createAttributeState = (applicationType: ApplicationType, saved?: A
     applicationType, projectId: saved?.projectId,
     defaultSource: saved ? clone(saved.defaultSource) : undefined,
     actual: saved ? clone(saved.actual) : undefined,
-    dirty: Boolean(saved), error: '', requestSequence: 0
+    dirty: Boolean(saved), error: '', requestError: '', requestSequence: 0
   }
 }
 export const editActual = (state: AttributeState, actual: ProjectAttributes) => {
@@ -75,18 +76,22 @@ const applyProjectDefaults = async (
   confirm: () => Promise<boolean>, forceConfirm: boolean
 ): Promise<boolean> => {
   const sequence = ++state.requestSequence
+  const retainedBinding = !state.error && Boolean(state.projectId && state.defaultSource && state.actual)
   try {
     if ((forceConfirm || state.dirty) && !await confirm()) return false
     if (sequence !== state.requestSequence) return false
     const defaults = validateAttributes(await load(projectId))
     if (sequence !== state.requestSequence) return false
     state.projectId = projectId; state.defaultSource = clone(defaults); state.actual = clone(defaults)
-    state.dirty = false; state.error = ''
+    state.dirty = false; state.error = ''; state.requestError = ''
     return true
   } catch (error) {
     // 已被新项目/手改替代的请求按取消结束，不能污染新的正式上下文。
     if (sequence !== state.requestSequence) return false
-    state.error = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error ? error.message : String(error)
+    // A failed target read does not invalidate the unchanged, previously loaded project binding.
+    if (retainedBinding) state.requestError = message
+    else state.error = message
     throw error
   }
 }

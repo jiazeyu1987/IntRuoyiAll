@@ -115,11 +115,15 @@
         {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
       <el-descriptions-item label="当前执行受控版本">
-        {{ file?.currentActiveVersionNo || '-' }}
+        {{ getDccVersionDisplayText(file?.currentActiveVersionNo) }}
       </el-descriptions-item>
       <el-descriptions-item label="流程实例">
         {{ file?.processInstanceId || '-' }}
       </el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟生效时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveTime) || '尚未确认' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveConfirmedAt) || '尚未签名确认' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ file.delayedEffectiveSignatureId ? `#${file.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ file.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
       <el-descriptions-item label="提交人">
         {{ requesterName || file?.requesterId || '-' }}
       </el-descriptions-item>
@@ -151,6 +155,8 @@
 <script lang="ts" setup>
 import type { ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
 import { formatControlledFileDateTime } from '../detail/presentation'
+import { formatDelayedEffectiveFact } from '../workflow/effective-facts'
+import { getDccVersionDisplayText } from './version-display'
 
 defineOptions({ name: 'ControlledFileBasicInfoPanel' })
 

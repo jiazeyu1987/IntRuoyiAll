@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 @Component
 public class DccControlledFileVersionPolicy {
 
-    private static final Pattern FIRST_SEGMENT_PATTERN = Pattern.compile("[A-Z]");
+    private static final Pattern FIRST_SEGMENT_PATTERN = Pattern.compile("[A-Z]+");
     private static final Pattern NUMERIC_SEGMENT_PATTERN = Pattern.compile("[1-9][0-9]*");
 
     private final DccControlledFileVersionPolicyProperties properties;
@@ -117,7 +117,6 @@ public class DccControlledFileVersionPolicy {
         if (previous == null || next == null || previous.isWorkingIteration() || next.isWorkingIteration()) {
             return false;
         }
-        if ("Z".equals(previous.majorIdentity()) && (majorChange || previous.iterationNo() == 9)) return false;
         return (majorChange ? previous.nextMajor() : previous.nextMinor()).display().equals(next.display());
     }
 
@@ -177,8 +176,16 @@ public class DccControlledFileVersionPolicy {
 
     static String incrementRevisionLetter(String revision) {
         String letter = Objects.requireNonNull(revision, "revision").trim().toUpperCase(Locale.ROOT);
-        if (!letter.matches("[A-Y]")) throw new IllegalArgumentException("revision after Z is not defined");
-        return Character.toString(letter.charAt(0) + 1);
+        if (!FIRST_SEGMENT_PATTERN.matcher(letter).matches()) throw new IllegalArgumentException("invalid revision letters");
+        char[] next = letter.toCharArray();
+        for (int i = next.length - 1; i >= 0; i--) {
+            if (next[i] != 'Z') {
+                next[i]++;
+                return new String(next);
+            }
+            next[i] = 'A';
+        }
+        return "A" + new String(next);
     }
 
     public VersionNumber nextMinor(DccControlledFileDO file, Collection<DccControlledFileDO> chain) {
@@ -286,9 +293,6 @@ public class DccControlledFileVersionPolicy {
         }
 
         public VersionNumber nextMajor() {
-            if (segments.get(0).length() != 1 || "Z".equals(segments.get(0))) {
-                throw new IllegalArgumentException("revision after Z is not defined");
-            }
             List<String> next = new ArrayList<>(Math.max(segments.size(), majorIdentitySegmentCount + 1));
             next.add(incrementRevisionLetter(segments.get(0)));
             while (next.size() < Math.max(segments.size(), majorIdentitySegmentCount + 1)) {

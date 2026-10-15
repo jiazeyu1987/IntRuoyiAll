@@ -873,8 +873,21 @@ public class BpmProcessInstanceServiceImpl implements BpmProcessInstanceService 
                         createReqDTO.getApproveUserSelectAssignees());
             }
             // 获得流程定义
-            ProcessDefinition definition = processDefinitionService
-                    .getActiveProcessDefinition(createReqDTO.getProcessDefinitionKey());
+            ProcessDefinition definition;
+            if (createReqDTO.getProcessDefinitionId() == null) {
+                definition = processDefinitionService.getActiveProcessDefinition(createReqDTO.getProcessDefinitionKey());
+            } else {
+                if (StrUtil.isBlank(createReqDTO.getProcessDefinitionId())) {
+                    throw exception(PROCESS_DEFINITION_NOT_EXISTS);
+                }
+                definition = processDefinitionService.getProcessDefinition(createReqDTO.getProcessDefinitionId());
+                if (definition == null
+                        || !Objects.equals(definition.getId(), createReqDTO.getProcessDefinitionId())
+                        || !Objects.equals(definition.getKey(), createReqDTO.getProcessDefinitionKey())
+                        || !Objects.equals(definition.getTenantId(), FlowableUtils.getTenantId())) {
+                    throw exception(PROCESS_DEFINITION_NOT_EXISTS);
+                }
+            }
             // 发起流程
             return createProcessInstance0(userId, definition, createReqDTO.getVariables(), createReqDTO.getName(),
                     createReqDTO.getBusinessKey(),

@@ -125,6 +125,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void createCategory_missingRequirementFlags_defaultsToTrue() {
         DccFileCategorySaveReqVO reqVO = new DccFileCategorySaveReqVO();
+        reqVO.setApprovalSourceMode("PUBLIC_MATRIX");
         reqVO.setCode("LOCAL-REQ");
         reqVO.setName("Local Requirement");
         reqVO.setActive(Boolean.TRUE);
@@ -147,6 +148,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void createCategory_withoutClientSource_persistsLocalSource() {
         DccFileCategorySaveReqVO reqVO = new DccFileCategorySaveReqVO();
+        reqVO.setApprovalSourceMode("PUBLIC_MATRIX");
         reqVO.setCode("LOCAL-NO-SOURCE");
         reqVO.setName("Local No Source");
         reqVO.setActive(Boolean.TRUE);
@@ -165,6 +167,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void createCategory_withFileTypeTaxonomy_validatesActiveTaxonomyPath() {
         DccFileCategorySaveReqVO reqVO = new DccFileCategorySaveReqVO();
+        reqVO.setApprovalSourceMode("PUBLIC_MATRIX");
         reqVO.setCode("LOCAL-TAXONOMY");
         reqVO.setName("Local Taxonomy");
         reqVO.setActive(Boolean.TRUE);
@@ -185,6 +188,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void createCategory_missingFileTypeTaxonomy_failFast() {
         DccFileCategorySaveReqVO reqVO = new DccFileCategorySaveReqVO();
+        reqVO.setApprovalSourceMode("PUBLIC_MATRIX");
         reqVO.setCode("LOCAL-NO-STAGE");
         reqVO.setName("Local Missing Stage");
         reqVO.setActive(Boolean.TRUE);
@@ -200,6 +204,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
     void updateCategory_ignoresClientLifecycleStageAndDerivesFromTaxonomy() {
         DccFileCategoryDO category = createCategory("LOCAL-STAGE", "Stage", "LOCAL", true, 1);
         DccFileCategorySaveReqVO reqVO = new DccFileCategorySaveReqVO();
+        reqVO.setApprovalSourceMode("PUBLIC_MATRIX");
         reqVO.setId(category.getId());
         reqVO.setCode(category.getCode());
         reqVO.setName(category.getName());
@@ -214,6 +219,20 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
         DccFileCategoryDO updated = categoryMapper.selectById(category.getId());
         assertEquals("OUTPUT", updated.getLifecycleStage());
         assertEquals(8803L, updated.getFileTypeTaxonomyId());
+    }
+
+    @Test
+    void updateCategory_usedMasterCannotChangeTypeIdentity() {
+        DccFileCategoryDO category = createCategory("W02-USED", "已使用类别", "LOCAL", true, 1);
+        controlledFileMasterMapper.insert(DccControlledFileMasterDO.builder()
+                .id(randomLongId()).categoryId(category.getId()).fileNumber("W02-USED-NO").fileName("已使用文件")
+                .status("ACTIVE").build());
+        DccFileCategorySaveReqVO req = new DccFileCategorySaveReqVO();
+        req.setApprovalSourceMode("PUBLIC_MATRIX");
+        req.setId(category.getId()); req.setCode(category.getCode()); req.setName(category.getName());
+        req.setActive(true); req.setSort(1); req.setFileTypeTaxonomyId(8803L);
+        assertServiceException(() -> categoryAdminService.updateCategory(req), DccFileCategoryAdminErrors.USED_TYPE_CHANGE_FORBIDDEN);
+        assertEquals(category.getFileTypeTaxonomyId(), categoryMapper.selectById(category.getId()).getFileTypeTaxonomyId());
     }
 
     @Test
@@ -386,6 +405,7 @@ class DccFileCategoryAdminServiceImplTest extends BaseDbUnitTest {
                                              Long parentId) {
         DccFileCategoryDO category = DccFileCategoryDO.builder()
                 .id(randomLongId())
+                .approvalSourceMode("PUBLIC_MATRIX")
                 .code(code)
                 .name(name)
                 .parentId(parentId)

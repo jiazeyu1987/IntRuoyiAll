@@ -47,7 +47,7 @@ class DccSelectorBrowserMappingIntegrationTest extends BaseDbUnitTest {
         master(11,6,null,22L);file(22,11,6,5,"B/1","CONTROLLED_PENDING_EFFECTIVE");
         master(12,5,9007199254740993L,9007199254740993L);file(9007199254740993L,12,5,5,"A/1","ACTIVE");
         master(13,6,25L,25L);file(25,13,6,6,"A/1","ACTIVE");
-        jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(1,1,5,500,21,5),(2,1,6,501,22,5)");
+        jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(1,1,5,500,20,5),(2,1,6,501,22,5)");
         var query=new DccControlledFileQueryServiceImpl();
         // Isolate only external policy/storage ports; the Query implementation and SQL are real.
         for(var field:DccControlledFileQueryServiceImpl.class.getDeclaredFields())if(!Modifier.isStatic(field.getModifiers()) && field.getAnnotation(Resource.class)!=null)
@@ -59,6 +59,9 @@ class DccSelectorBrowserMappingIntegrationTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(eq(99L),anyLong())).thenReturn(true);
         ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
+        var projects=mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);
+        when(projects.listReadableProjectIds(99L)).thenReturn(List.of(5L,6L));
+        ReflectionTestUtils.setField(query,"projectAccessService",projects);
         var storage=mock(FileMapper.class);when(storage.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("controlled.pdf").type("application/pdf").build());
         ReflectionTestUtils.setField(query,"fileMapper",storage);
         var settings=mock(DccControlledFileBrowserSettingsService.class);when(settings.getBlacklistedExtensionPatterns()).thenReturn(List.of());
@@ -70,17 +73,18 @@ class DccSelectorBrowserMappingIntegrationTest extends BaseDbUnitTest {
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
     @Test void formalBrowserResponsesFeedDMappingWithoutClientPaginationOrNasInference() throws Exception {
-        var first=page("GLOBAL",null,null,1,2);var second=page("GLOBAL",null,null,2,2);
-        var directory=page("PROJECT_FOLDER","5","500",1,2);var wrongNas=page("PROJECT_FOLDER","5","5",1,2);
-        assertEquals(3,first.get("total").intValue());assertEquals(2,first.get("list").size());
-        assertEquals("21",first.get("list").get(0).get("id").textValue());assertEquals("21",first.get("list").get(0).get("latestControlledFileId").textValue());
-        assertTrue(first.get("list").get(0).get("pendingEffect").booleanValue());assertFalse(first.get("list").get(0).get("canPreview").booleanValue());
+        var first=page("GLOBAL",null,null,1,1);var second=page("GLOBAL",null,null,2,1);
+        var directory=page("PROJECT_FOLDER","5","500",1,1);var wrongNas=page("PROJECT_FOLDER","5","5",1,1);
+        assertEquals(2,first.get("total").intValue());assertEquals(1,first.get("list").size());
+        assertEquals("20",first.get("list").get(0).get("id").textValue());assertEquals("21",first.get("list").get(0).get("latestControlledFileId").textValue());
+        assertEquals("20",first.get("list").get(0).get("currentActiveControlledFileId").textValue());
+        assertFalse(first.get("list").get(0).get("pendingEffect").booleanValue());assertTrue(first.get("list").get(0).get("executable").booleanValue());assertFalse(first.get("list").get(0).get("canPreview").booleanValue());
         assertEquals("9007199254740993",second.get("list").get(0).get("id").textValue());
         assertTrue(second.get("list").get(0).get("projectFolderId").isNull());assertTrue(second.get("list").get(0).get("projectFolderName").isNull());
         assertEquals(1,directory.get("total").intValue());assertEquals("500",directory.get("list").get(0).get("projectFolderId").textValue());
         assertEquals(0,wrongNas.get("total").intValue());
         var artifact=Map.of("globalFirst",first,"globalSecond",second,"projectFolder",directory,"wrongNasFolder",wrongNas);
-        Path path=Path.of("../../doc/tasks/20260930-dcc-d-relations/h02-real-selector-responses.json");
+        Path path=Path.of("../../doc/tasks/20261011-dcc-w08-version-browser-permissions/selector-controller-responses.json");
         Files.writeString(path,json.writerWithDefaultPrettyPrinter().writeValueAsString(artifact),StandardCharsets.UTF_8);
     }
     private com.fasterxml.jackson.databind.JsonNode page(String scope,String project,String folder,int number,int size) throws Exception {

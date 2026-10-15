@@ -13,6 +13,8 @@ public enum DccControlledFileStatusEnum implements ArrayValuable<String> {
 
     DRAFT("DRAFT", "Draft"),
     WORKING("WORKING", "Working"),
+    PENDING_SUPERVISOR_REVIEW("PENDING_SUPERVISOR_REVIEW", "Pending direct supervisor review"),
+    PENDING_DELAYED_EFFECTIVE_CONFIRM("PENDING_DELAYED_EFFECTIVE_CONFIRM", "待延迟生效确认"),
     PENDING_DOC_CONTROL_REVIEW("PENDING_DOC_CONTROL_REVIEW", "Pending doc control review"),
     PENDING_MATRIX_REVIEW("PENDING_MATRIX_REVIEW", "Pending matrix review"),
     PENDING_MATRIX_APPROVAL("PENDING_MATRIX_APPROVAL", "Pending matrix approval"),

@@ -43,6 +43,8 @@ import static org.mockito.Mockito.*;
 
 /** Actual Spring/H2 request + official notify services + Gxp; account/template ports are explicit fixtures. */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,
+        cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
+        DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateWriteService.class,DccProjectProductCreateStateService.class,
         DccProjectProductCreateFailureService.class,DccProjectAttributesService.class,DccProjectLeaderService.class,
         DccFolderTemplateService.class,DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class,

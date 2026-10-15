@@ -13,7 +13,7 @@
         label="审阅版本"
         prop="versionNo"
         width="120"
-      />
+      ><template #default="{ row }">{{ getDccVersionDisplayText(row.versionNo) }}</template></el-table-column>
       <el-table-column label="负责人"
         ><template #default="{ row }"
           ><el-select
@@ -41,6 +41,7 @@
 </template>
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { getDccVersionDisplayText } from '../shared/version-display'
 import type { ArrangementCommand, ArrangementForm } from '../relations/arrangement-form'
 import { isWorkflowId } from '../workflow/workflow-actions'
 const props = defineProps<{

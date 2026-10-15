@@ -47,6 +47,13 @@ class DccWorkflowObsoleteRoundSignatureTest {
         var bpm = mock(BpmTaskService.class);
         var runtime = mock(RuntimeService.class);
         var assignment = new DccWorkflowSignoffAssignmentService();
+        var definitions = mock(cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService.class);
+        var obsoleteDefinition = mock(org.flowable.engine.repository.ProcessDefinition.class);
+        when(obsoleteDefinition.getId()).thenReturn("dcc-controlled-file-obsolete:4:1");
+        when(obsoleteDefinition.getTenantId()).thenReturn("1");
+        when(obsoleteDefinition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.OBSOLETE);
+        when(definitions.getProcessDefinition("dcc-controlled-file-obsolete:4:1")).thenReturn(obsoleteDefinition);
+        ReflectionTestUtils.setField(assignment,"definitions",definitions);
         ReflectionTestUtils.setField(assignment,"remediationService",mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationRemediationService.class));
         var signing = new DccSignatureVerificationServiceImpl();
         var evidence = spy(new DccControlledFileSignatureEvidenceServiceImpl());
@@ -59,7 +66,8 @@ class DccWorkflowObsoleteRoundSignatureTest {
         when(files.selectByIdAndTenantForUpdate(1L, 10L)).thenReturn(file);
         when(masters.selectByIdForUpdate(20L)).thenReturn(DccControlledFileMasterDO.builder().id(20L).tenantId(1L).build());
         var row = DccControlledFileTaskAssigneeSnapshotDO.builder().id(1L).controlledFileId(10L).stageCode("MATRIX_REVIEW")
-                .processInstanceId("obsolete-round-2").departmentId(51L).leaderUserId(99L).assigneeUserId(99L).build();
+                .processInstanceId("obsolete-round-2").departmentId(51L).leaderUserId(99L).assigneeUserId(99L)
+                .obligationId("form-2:MATRIX_REVIEW:51").nodeInstanceId("obsolete-node-51").build();
         when(assignments.selectOne(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(row);
         when(assignments.updateById(any(DccControlledFileTaskAssigneeSnapshotDO.class))).thenReturn(1);
         Task task = mock(Task.class);
@@ -68,6 +76,7 @@ class DccWorkflowObsoleteRoundSignatureTest {
         when(task.getProcessDefinitionId()).thenReturn("dcc-controlled-file-obsolete:4:1");
         when(task.getProcessInstanceId()).thenReturn("obsolete-round-2");
         when(task.getTenantId()).thenReturn("1");
+        when(task.getExecutionId()).thenReturn("obsolete-node-51");
         when(task.getTaskLocalVariables()).thenReturn(Map.of(BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,
                 "form-2:MATRIX_REVIEW:51"));
         when(bpm.getTask("obsolete-task-51")).thenReturn(task);
@@ -75,11 +84,25 @@ class DccWorkflowObsoleteRoundSignatureTest {
         when(runtime.getVariables("obsolete-round-2")).thenReturn(Map.of("systemCode", "DCC", "objectType",
                 "CONTROLLED_FILE", "actionCode", "OBSOLETE", "objectId", "10"));
         var directory = mock(AdminUserApi.class);
-        when(directory.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setDeptId(51L).setStatus(0).setPostIds(Set.of(1L)));
+        when(directory.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(1L).setDeptId(51L).setStatus(0).setPostIds(Set.of(1L)));
         wire(assignment, "fileMapper", files, "masterMapper", masters, "snapshotMapper", assignments,
                 "bpmTaskService", bpm, "runtimeService", runtime, "taskService", mock(TaskService.class),
                 "adminUserApi", directory, "readinessService", mock(DccControlledFileRouteReadinessService.class),
                 "signatureService", signing);
+        var rounds=mock(DccApplicationRoundService.class);when(rounds.require("OBSOLETE",10L,"obsolete-round-2")).thenReturn(2);
+        var formInstances=mock(cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper.class);
+        when(formInstances.selectList(any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(List.of(
+                cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO.builder().id(2L).instanceCode("RECORDED-V1").tenantId(1L).systemCode("DCC")
+                        .objectType("CONTROLLED_FILE").actionCode("OBSOLETE").objectId("10").objectVersion("A/1").status("IN_APPROVAL").bpmProcessInstanceId("obsolete-round-2")
+                        .formDataJson("{\"dccExecutionPreparation\":{\"formatVersion\":\"DCC_OBSOLETE_FORM_PREPARATION_V1\"}}").build()));
+        // This HMAC test consumes the declared recorded-graph read port. Real V1 HMAC/full BPM
+        // provenance is separately exercised by the whole ExecutionPreparationTest.
+        var recordedGraph=mock(DccBoundWorkflowContractResolver.class);when(recordedGraph.resolveRoundFlowContract(eq(file),any())).thenReturn(new DccBoundWorkflowContractResolver.RoundFlowContract(1L,10L,"OBSOLETE",2,"obsolete-round-2",DccControlledFileProcessDefinitionKeys.OBSOLETE,"dcc-controlled-file-obsolete:4:1","recorded-deployment","recorded-full-digest","PUBLIC_MATRIX_NATIVE_V1",DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_OBSOLETE_APPROVAL_END,null,2L,"RECORDED-V1",DccBoundWorkflowContractResolver.RoundContractStatus.READY,null));wire(assignment,"obsoleteBoundContracts",recordedGraph);
+        var relationStages=mock(cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageSnapshotService.class);
+        when(relationStages.prepare(any(),any(),any(),any(),any(),anyString(),isNull(),anyString())).thenAnswer(call->
+                new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationStageContracts.Prepared(99L,10L,call.getArgument(2),call.getArgument(5),
+                        "a".repeat(64),"b".repeat(64),"c".repeat(64),call.getArgument(7),List.of(),List.of()));
+        wire(assignment,"rounds",rounds,"formInstances",formInstances,"relationStageService",relationStages,"signatureMapper",signatures);
         var properties = new DccSignatureEvidenceProperties();
         properties.setHmacSecret("test-only-secret"); properties.setKeyVersion("test-round-key");
         var storage = mock(FileService.class);

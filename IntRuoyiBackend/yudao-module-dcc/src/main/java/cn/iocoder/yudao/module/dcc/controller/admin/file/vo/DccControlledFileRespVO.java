@@ -8,6 +8,15 @@ import java.util.List;
 
 @Data
 public class DccControlledFileRespVO {
+    /** Server digest of this exact saved ordinary-attachment manifest; never a client-supplied digest. */
+    private String ordinaryAttachmentManifestHash;
+    private LocalDateTime delayedEffectiveTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long delayedEffectiveSignatureId;
+    private String delayedEffectiveProcessInstanceId;
+    private LocalDateTime delayedEffectiveConfirmedAt;
+    /** Metadata only; does not confer preview, download, or approval rights. */
+    private Boolean canReadTrainingApplicationProgress = false;
 
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long id;
@@ -15,6 +24,9 @@ public class DccControlledFileRespVO {
     private Long tenantId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long latestControlledFileId;
+    /** Daily-use pointer; may differ from latestControlledFileId while a successor awaits effectiveness. */
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long currentActiveControlledFileId;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long projectFolderId;
     private String projectFolderName;
@@ -99,6 +111,13 @@ public class DccControlledFileRespVO {
     private String currentActiveVersionNo;
     @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime effectiveTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long effectiveSignatureId;
+    private String effectiveProcessInstanceId;
+    private List<String> selectedDistributionDepartmentIds;
     private String remark;
     private String status;
     private Long requesterId;
@@ -107,6 +126,7 @@ public class DccControlledFileRespVO {
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
+    private String changeType;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime controlledTime;
     @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

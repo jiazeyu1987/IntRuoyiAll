@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTaskAssigneeSnapshotDO;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,6 +19,36 @@ final class DccFrozenApprovalSignatures {
             "MATRIX_APPROVAL");
 
     private DccFrozenApprovalSignatures() {}
+    static void requireComplete(DccControlledFileDO file,List<DccControlledFileRouteSnapshotDO> snapshots,List<DccControlledFileSignatureDO> signatures,
+            List<DccControlledFileTaskAssigneeSnapshotDO> assignments,DccBoundWorkflowContractResolver.BoundExecution bound){
+        if(bound==null||file==null||!Objects.equals(bound.controlledFileId(),file.getId())||!Objects.equals(bound.tenantId(),file.getTenantId())
+                ||!Objects.equals(bound.processInstanceId(),file.getProcessInstanceId())||!Objects.equals(bound.processKey(),file.getProcessDefinitionKey()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if(!bound.trainingAfterDocumentControl()){requireComplete(file,snapshots,signatures,assignments);return;}
+        if(!DccApplicationExecutionContractService.isPublicContract(file.getPreparedWorkflowContract())||bound.attributeRound()==null
+                ||!Objects.equals(file.getPreparedWorkflowContract(),bound.executionContract())
+                ||!Objects.equals(bound.processDefinitionId(),file.getPreparedProcessDefinitionId())||!Objects.equals(bound.definitionDigest(),file.getPreparedDefinitionDigest())
+                ||snapshots==null||snapshots.size()!=4||signatures==null||assignments==null)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var supervisor=snapshots.stream().filter(row->row!=null&&"SUPERVISOR_REVIEW".equals(row.getStageCode())).toList();
+        if(supervisor.size()!=1)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var stage=supervisor.get(0);var users=parseIds(stage.getResolvedUserIds());var candidates=parseIds(stage.getCandidateSourceIds());
+        if(!Objects.equals(file.getId(),stage.getControlledFileId())||!Integer.valueOf(0).equals(stage.getStageNo())||!Integer.valueOf(0).equals(stage.getStageOrder())
+                ||!"USER".equals(stage.getCandidateSourceType())||users.size()!=1||!users.equals(candidates)||!Objects.equals(users.get(0),stage.getCandidateSourceId())
+                ||!"ANY".equals(stage.getApproveMethod())||Boolean.TRUE.equals(stage.getRequireAllApprovals())||stage.getApproveRatio()!=null
+                ||signatures.stream().filter(Objects::nonNull).noneMatch(sig->Objects.equals(users.get(0),sig.getActorId())&&isValidStageSignature(file,"SUPERVISOR_REVIEW",sig)))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var nativeStages=snapshots.stream().filter(row->row!=null&&!"SUPERVISOR_REVIEW".equals(row.getStageCode())).toList();
+        requireComplete(file,nativeStages,signatures,assignments);
+        for(var row:assignments){if(row!=null&&"MATRIX_REVIEW".equals(row.getStageCode())&&Objects.equals(file.getProcessInstanceId(),row.getProcessInstanceId())){
+            var signed=signatures.stream().filter(Objects::nonNull).filter(sig->Objects.equals(row.getAssignmentSignatureId(),sig.getId())).toList();
+            if(signed.size()!=1||!Objects.equals(row.getAssignedTime(),signed.get(0).getSignedAt()))throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }}
+        if(file.getFileOwnerUserId()==null||file.getFileOwnerUserId()<=0||file.getFileOwnerSignatureId()==null||file.getFileOwnerSelectedTime()==null
+                ||!Objects.equals(file.getFileOwnerProcessInstanceId(),file.getProcessInstanceId())||file.getFileOwnerApprovalTaskId()==null
+                ||signatures.stream().filter(Objects::nonNull).noneMatch(sig->Objects.equals(file.getFileOwnerSignatureId(),sig.getId())
+                    &&Objects.equals(file.getFileOwnerApprovalTaskId(),sig.getTaskId())&&isValidStageSignature(file,"MATRIX_APPROVAL",sig)))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+    }
 
     static void requireComplete(DccControlledFileDO file, List<DccControlledFileRouteSnapshotDO> snapshots,
             List<DccControlledFileSignatureDO> signatures,

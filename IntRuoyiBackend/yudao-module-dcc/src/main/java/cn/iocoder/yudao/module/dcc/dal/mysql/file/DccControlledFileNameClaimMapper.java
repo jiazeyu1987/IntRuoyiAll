@@ -34,6 +34,12 @@ public interface DccControlledFileNameClaimMapper extends BaseMapperX<DccControl
     DccControlledFileNameClaimDO selectActiveByNumber(@Param("tenantId") Long tenantId, @Param("projectId") Long projectId,
             @Param("leafId") Long leafId, @Param("numberKey") byte[] numberKey);
 
+    // Retained identifiers remain occupied until explicit release; project/type changes cannot bypass them.
+    @Select("SELECT id FROM dcc_controlled_file_name_claim WHERE tenant_id=#{tenantId} AND number_key=#{numberKey} AND master_id<>#{masterId} AND obsolete_time IS NOT NULL AND deleted=0 ORDER BY id FOR UPDATE")
+    java.util.List<Long> lockRetainedNumberOwners(@Param("tenantId") Long tenantId,@Param("numberKey") byte[] numberKey,@Param("masterId") Long masterId);
+    @Select("SELECT COUNT(*) FROM dcc_controlled_file_name_claim WHERE tenant_id=#{tenantId} AND number_key=#{numberKey} AND obsolete_time IS NOT NULL AND deleted=0")
+    long countRetainedNumberOwners(@Param("tenantId") Long tenantId,@Param("numberKey") byte[] numberKey);
+
     @Update("""
             UPDATE dcc_controlled_file_name_claim
             SET obsolete_time=CASE WHEN obsolete_time IS NULL OR obsolete_time<#{obsoleteTime} THEN #{obsoleteTime} ELSE obsolete_time END,

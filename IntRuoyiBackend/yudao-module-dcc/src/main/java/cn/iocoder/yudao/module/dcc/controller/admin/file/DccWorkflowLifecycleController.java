@@ -52,13 +52,12 @@ public class DccWorkflowLifecycleController {
     public CommonResult<List<DccControlledFileRespVO>> pending(@RequestParam(defaultValue="false") boolean remindersOnly) {
         Long user=getLoginUserId();
         if(!permissions.hasAnyRoles(user,"doc_control")) throw new IllegalArgumentException("待下发列表仅文控角色可办理");
-        var reminderDates=lifecycle.distributionReminderDates();
-        return success(lifecycle.pendingDistribution(remindersOnly,reminderDates).stream()
+        if(remindersOnly) throw new IllegalArgumentException("自动下发提醒策略尚未确定，不能按预设日期生成提醒");
+        return success(lifecycle.pendingDistribution(false).stream()
                 .filter(file -> categoryPermissions.hasCategoryPermission(file.getCategoryId(),user,
                         cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.DISTRIBUTE))
                 .map(file -> {
                     var response=cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(file,DccControlledFileRespVO.class);
-                    response.setDistributionReminderStage(reminderDates.stage(file.getEffectiveDate()));
                     return response;
                 }).toList());
     }

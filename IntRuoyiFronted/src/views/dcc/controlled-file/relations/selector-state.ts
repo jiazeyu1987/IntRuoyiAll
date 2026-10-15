@@ -5,7 +5,7 @@ export interface FileCandidate {
   fileNumber: string; fileName: string; versionNo: string; status: string
   controlled: boolean; pendingEffect: boolean; executable: boolean; canPreview: boolean
 }
-export interface SelectorContext { contextKey: string; tenantId: string; masterId?: string; selectionMode?: 'multiple' | 'single'; forbidSelfRelation?: boolean; allowEmptySelection?: boolean }
+export interface SelectorContext { contextKey: string; tenantId: string; masterId?: string; relationProjectId?: string; selectionMode?: 'multiple' | 'single'; forbidSelfRelation?: boolean; allowEmptySelection?: boolean }
 export interface SelectorQuery { projectId?: string; folderId?: string; keyword: string; pageNo: number; pageSize: number }
 export interface SelectorPage { list: FileCandidate[]; total: number }
 interface RequestToken { generation: number; sequence: number; query: SelectorQuery }
@@ -27,6 +27,7 @@ export class FileSelectorState {
   }
   private assertIdentity(row: FileCandidate) {
     this.assertRowIdentity(row)
+    if (this.context.relationProjectId != null && row.projectId !== this.context.relationProjectId) throw new Error('DCC_SELECTOR_PROJECT_MISMATCH')
     if (row.masterId === this.context.masterId && this.context.forbidSelfRelation !== false) throw new Error('DCC_SELECTOR_SELF_RELATION')
   }
   private assertRowIdentity(row: FileCandidate) {
@@ -38,13 +39,17 @@ export class FileSelectorState {
   select(row: FileCandidate) {
     if (this.saving) throw new Error('DCC_SELECTOR_SAVING')
     this.assertIdentity(row)
-    if (!row.controlled) throw new Error('DCC_SELECTOR_NOT_CONTROLLED')
+    this.assertSelectable(row)
     if (this.context.selectionMode === 'single') { this.selected = [{ ...row }]; return }
     if (!this.selected.some(item => item.masterId === row.masterId)) this.selected.push({ ...row })
   }
   remove(masterId: string) {
     if (this.saving) throw new Error('DCC_SELECTOR_SAVING')
     this.selected = this.selected.filter(row => row.masterId !== masterId)
+  }
+  private assertSelectable(row: FileCandidate) {
+    if (!row.controlled || row.status !== 'ACTIVE' || row.pendingEffect || !row.executable)
+      throw new Error('DCC_SELECTOR_EFFECTIVE_CONTROLLED_REQUIRED')
   }
   begin(query: SelectorQuery): RequestToken {
     this.rows = []; this.total = 0; this.error = ''; this.loading = true
@@ -77,7 +82,7 @@ export class FileSelectorState {
     try {
       if (this.context.allowEmptySelection === false && this.selected.length === 0) throw new Error('请先选择文件')
       if (this.context.selectionMode === 'single' && this.selected.length !== 1) throw new Error('请选择一个文件')
-      this.selected.forEach(row => { this.assertIdentity(row); if (!row.controlled) throw new Error('DCC_SELECTOR_NOT_CONTROLLED') })
+      this.selected.forEach(row => { this.assertIdentity(row); this.assertSelectable(row) })
       await persist(this.selected.map(row => ({ ...row })))
       return generation === this.generation
     } catch (error) {

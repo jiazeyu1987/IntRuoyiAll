@@ -35,7 +35,8 @@ assert.match(
   /publishedTime/,
   'timeline builder must include published time when available'
 )
-assert.match(detailPresentation, /effectiveDate/, 'timeline builder must include effective date')
+assert.match(detailPresentation, /activatedTime/, 'timeline must use the actual activation fact')
+assert.doesNotMatch(detailPresentation, /occurredAt:\s*file\.effectiveDate/, 'a planned date must never become an event that already happened')
 assert.match(detailPresentation, /distributionStatuses/, 'timeline builder must include distribution events')
 assert.match(detailPresentation, /trainingStatuses/, 'timeline builder must include training events')
 assert.match(detailPresentation, /signatureSummaries/, 'timeline builder must include signature events')

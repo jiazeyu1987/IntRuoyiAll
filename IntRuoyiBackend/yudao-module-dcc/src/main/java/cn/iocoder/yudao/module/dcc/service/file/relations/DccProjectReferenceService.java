@@ -25,7 +25,7 @@ public class DccProjectReferenceService {
         require(actorId,projectId,folderId);requireReason(reason);
         if(selectedFileIds==null || selectedFileIds.isEmpty()) throw new DccRelationInputFailure("DCC_REFERENCE_SELECTION_REQUIRED");
         store.lockReferenceContext(TenantContextHolder.getRequiredTenantId(),projectId,folderId);
-        authority.assertProjectLeader(actorId,projectId);authority.assertFolderBelongsToProject(projectId,folderId);
+        authority.assertProjectLeader(actorId,projectId);authority.assertFolderBelongsToProjectForUpdate(projectId,folderId);
         Long tenant=TenantContextHolder.getRequiredTenantId();
         var selected=new java.util.ArrayList<FileVersion>();var unique=new java.util.LinkedHashSet<Long>();
         for(Long id:selectedFileIds){
@@ -45,7 +45,7 @@ public class DccProjectReferenceService {
         requireReason(reason);
         store.lockReferenceContext(TenantContextHolder.getRequiredTenantId(),projectId,folderId);
         authority.assertProjectLeader(actorId, projectId);
-        authority.assertFolderBelongsToProject(projectId, folderId);
+        authority.assertFolderBelongsToProjectForUpdate(projectId, folderId);
         Long tenant = TenantContextHolder.getRequiredTenantId();
         FileVersion selected = selected(tenant, selectedFileId);
         store.lockMaster(tenant, selected.masterId());
@@ -59,24 +59,25 @@ public class DccProjectReferenceService {
         if (existing != null) {
             if (!Objects.equals(existing.selectedControlledFileId(), selectedFileId))
                 throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_VERSION_CONFLICT");
-            return new ReferenceView(existing,selected,store.referenceProjectCountForUpdate(tenant,selected.masterId()));
+            return new ReferenceView(existing,selected,store.referenceProjectCountForUpdate(tenant,selected.masterId(),selectedFileId));
         }
         // The selected row was read with FOR UPDATE after its master lock, including exact replay.
-        if (!selected.controlled()) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_SOURCE_NOT_CONTROLLED");
+        if (!selected.controlled() || !selected.executable() || selected.pendingEffect() || !"ACTIVE".equals(selected.status()))
+            throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_EFFECTIVE_CONTROLLED_REQUIRED");
         if (store.jdbc().update("INSERT INTO dcc_project_file_reference "
                 + "(tenant_id,project_id,folder_id,master_id,selected_controlled_file_id,created_by) VALUES (?,?,?,?,?,?)",
                 tenant, projectId, folderId, selected.masterId(), selectedFileId, actorId) != 1)
             throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_WRITE_FAILED");
         var created = Objects.requireNonNull(store.reference(tenant,projectId,folderId,selected.masterId()));
         store.audit("dcc.project-reference.create", "REFERENCE:"+created.id(), reason, null, created);
-        return new ReferenceView(created,selected,store.referenceProjectCountForUpdate(tenant,selected.masterId()));
+        return new ReferenceView(created,selected,store.referenceProjectCountForUpdate(tenant,selected.masterId(),selectedFileId));
     }
     @Transactional(rollbackFor = Exception.class)
     public long cancel(Long actorId, Long projectId, Long folderId, Long masterId, Long expectedReferenceId, boolean confirmed, String reason) {
         require(actorId, projectId, folderId, masterId, expectedReferenceId); requireReason(reason);
         store.lockReferenceContext(TenantContextHolder.getRequiredTenantId(),projectId,folderId);
         authority.assertProjectLeader(actorId, projectId);
-        authority.assertFolderBelongsToProject(projectId, folderId);
+        authority.assertFolderBelongsToProjectForUpdate(projectId, folderId);
         if (!confirmed) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationInputFailure("DCC_REFERENCE_CONFIRMATION_REQUIRED");
         Long tenant = TenantContextHolder.getRequiredTenantId();
         store.lockMaster(tenant, masterId);
@@ -87,7 +88,7 @@ public class DccProjectReferenceService {
         if (store.jdbc().update("DELETE FROM dcc_project_file_reference WHERE tenant_id=? AND id=?",tenant,existing.id())!=1)
             throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_REFERENCE_CANCEL_FAILED");
         store.audit("dcc.project-reference.cancel", "REFERENCE:"+existing.id(), reason, existing, null);
-        return store.referenceProjectCountForUpdate(tenant,masterId);
+        return store.referenceProjectCountForUpdate(tenant,masterId,existing.selectedControlledFileId());
     }
     public List<ReferenceView> list(Long actorId, Long projectId, Long folderId) {
         require(actorId, projectId, folderId); authority.assertFolderBelongsToProject(projectId,folderId);
@@ -102,8 +103,9 @@ public class DccProjectReferenceService {
     public ReferenceUsage getUsage(Long actorId,Long selectedFileId){
         require(actorId,selectedFileId);Long tenant=TenantContextHolder.getRequiredTenantId();
         var selected=selected(tenant,selectedFileId);access.assertNameVisible(actorId,selectedFileId);
-        long count=store.referenceProjectCount(tenant,selected.masterId());
-        return new ReferenceUsage(selected.masterId(),count,count>0);
+        store.assertUsageIdentity(tenant,selected);
+        long count=store.referenceProjectCount(tenant,selected.masterId(),selectedFileId);
+        return new ReferenceUsage(tenant,selectedFileId,selected.masterId(),count,count>0);
     }
     @Transactional(readOnly=true,isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public ReferenceUsagePage getUsagePage(Long actorId,Long selectedFileId,Integer pageNo,Integer pageSize) {
@@ -114,9 +116,9 @@ public class DccProjectReferenceService {
         var readable=Objects.requireNonNull(projectAccessService.listReadableProjectIds(actorId),"formal readable destination projects");
         if(readable.stream().anyMatch(id->id==null || id<=0))throw new IllegalStateException("formal destination project scope contains invalid identity");
         var scope=readable.stream().distinct().sorted().toList();
-        long global=store.referenceProjectCount(tenant,source.masterId());var visible=Objects.requireNonNull(store.visibleUsageCounts(tenant,source.masterId(),scope),"authorized usage counts");
-        var rows=store.usagePage(tenant,source.masterId(),scope,pageSize,Math.multiplyExact((long)pageNo-1,pageSize)).stream().map(row->{
-            if(!scope.contains(row.projectId()) || !Objects.equals(source.masterId(),row.masterId()))throw new DccRelationFailure("DCC_REFERENCE_USAGE_IDENTITY_INVALID");
+        long global=store.referenceProjectCount(tenant,source.masterId(),selectedFileId);var visible=Objects.requireNonNull(store.visibleUsageCounts(tenant,source.masterId(),selectedFileId,scope),"authorized usage counts");
+        var rows=store.usagePage(tenant,source.masterId(),selectedFileId,scope,pageSize,Math.multiplyExact((long)pageNo-1,pageSize)).stream().map(row->{
+            if(!scope.contains(row.projectId()) || !Objects.equals(source.masterId(),row.masterId()) || !Objects.equals(source.controlledFileId(),row.selectedControlledFileId()))throw new DccRelationFailure("DCC_REFERENCE_USAGE_IDENTITY_INVALID");
             var permission=Objects.requireNonNull(queryService.getRelationPermissions(actorId,row.selectedControlledFileId()),"exact fixed version relation permissions");
             if(!Objects.equals(permission.controlledFileId(),row.selectedControlledFileId()) || !Objects.equals(permission.tenantId(),tenant)
                     || !Objects.equals(permission.masterId(),source.masterId()) || !Objects.equals(permission.versionNo(),row.versionNo()))
@@ -128,7 +130,7 @@ public class DccProjectReferenceService {
         return new ReferenceUsagePage(tenant,selectedFileId,source.masterId(),global,visible.projects(),visible.rows(),rows,visible.projects()<global);
     }
     private ReferenceView view(Long tenant, Reference ref, FileVersion selected) {
-        return new ReferenceView(ref,selected,store.referenceProjectCount(tenant,ref.masterId()));
+        return new ReferenceView(ref,selected,store.referenceProjectCount(tenant,ref.masterId(),ref.selectedControlledFileId()));
     }
     private FileVersion selected(Long tenant,Long fileId) {
         FileVersion file=files.resolveSelected(fileId);

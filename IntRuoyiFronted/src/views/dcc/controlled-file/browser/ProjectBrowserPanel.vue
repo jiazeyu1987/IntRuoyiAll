@@ -36,33 +36,23 @@
       </div>
       <div class="search"><el-input v-model="state.keyword" placeholder="文件名称、编号或项目名称" clearable @keyup.enter="state.search(state.scope)" /><el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button><el-button v-if="state.folder" @click="operationVisible = true">选择文件操作</el-button></div>
       <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
-      <el-table :data="state.rows" v-loading="state.loading" row-key="controlledFileId">
-        <el-table-column label="文件名称" min-width="180">
-          <template #default="{ row }">
-            <span
-              data-testid="dcc-project-browser-file-name" class="project-file-name"
-              :class="{ 'is-referenced': state.usage[row.masterId]?.referenced === true }">{{ row.fileName }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="fileNumber" label="编号" min-width="110" />
-        <el-table-column prop="projectName" label="所属项目" min-width="120" />
-        <el-table-column prop="folderName" label="文件夹" min-width="100" />
-        <el-table-column prop="versionNo" label="版本" width="100" />
-        <el-table-column label="状态" min-width="120"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column>
-        <el-table-column label="被引用情况" min-width="180"><template #default="{ row }"><DccReferenceBadge v-if="state.usage[row.masterId]" :is-reference="false" :project-count="state.usage[row.masterId].referenceProjectCount" :source-project-name="row.projectName" :pending-effect="row.pendingEffect" :obsolete="row.status === 'OBSOLETE'" /><el-button link data-testid="dcc-project-reference-usage" @click="openUsage(row)">使用明细</el-button></template></el-table-column>
-        <el-table-column label="操作" width="205"><template #default="{ row }"><el-button link :disabled="!row.canPreview" @click="previewRow(row)">正文</el-button><el-button link data-testid="dcc-project-file-relations" @click="openRelationsRow(row)">关联</el-button><el-button link @click="openOperationRow(row)">操作面板</el-button></template></el-table-column>
-      </el-table>
-      <el-pagination v-model:current-page="state.pageNo" :page-size="state.pageSize" :total="state.total" layout="total, prev, pager, next" @current-change="state.loadFiles()" />
-      <section v-if="state.project && state.folder" class="references">
-        <h4>此文件夹引用</h4>
-        <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
-        <DccProjectReferences
-          :key="state.contextKey" :context-key="state.contextKey" :project-id="state.project.id" :folder-id="state.folder.folderId!" :folder-name="state.folder.name" :is-project-leader="state.canReference" :selector-source="selectorSource" :directories="state.directories" :load-page="loadPage" :open-preview="preview"
+      <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
+      <DccProjectReferences v-if="state.scope === 'directory' && state.project && state.folder"
+          :key="state.contextKey" :context-key="state.contextKey" :selection-context-key="listContextKey" :project-id="state.project.id" :folder-id="state.folder.folderId!" :folder-name="state.folder.name" :is-project-leader="state.canReference" :selector-source="selectorSource" :directories="state.directories" :load-page="loadPage" :open-preview="preview"
           :open-reference-preview="previewReference" :open-reference-trace="traceReference"
           @show-usage="openUsage($event.selectedVersion)"
           :load-references="loadReferences" :create-references="createReferences" :cancel-reference="cancelReference"
-          @changed="state.referencesChanged()" @saved-read-failure="state.referencesChanged()" />
-      </section>
+          @changed="state.referencesChanged()" @refreshed="state.referencesChanged()" @saved-read-failure="state.referencesChanged()">
+        <template #default="{ rows, loading, busy, readingReferenceId, selectedReference, selectReference, readReference }">
+          <ProjectFolderFileTable :files="state.rows" :references="rows" :usage="state.usage" :keyword="state.appliedKeyword" :version-view="state.versionView"
+            :loading="state.loading || loading || busy" :can-reference="state.canReference" :selected-reference="selectedReference" :reading-reference-id="readingReferenceId"
+            @select-reference="selectReference" @read-reference="readReference" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
+        </template>
+      </DccProjectReferences>
+      <ProjectFolderFileTable v-else :files="state.rows" :references="[]" :usage="state.usage" :keyword="state.appliedKeyword" :version-view="state.versionView"
+        :loading="state.loading" :can-reference="false" @preview="previewRow" @relations="openRelationsRow" @operation="openOperationRow" @usage="openUsage" />
+      <p v-if="state.scope === 'directory' && state.folder">当前文件夹引用与文件同表显示；引用固定所选受控版本。分页仅统计本项目文件。</p>
+      <el-pagination v-model:current-page="state.pageNo" :page-size="state.pageSize" :total="state.total" layout="total, prev, pager, next" @current-change="state.loadFiles()" />
     </main>
     <DccFileSelector v-if="state.folder" v-model="operationVisible" :source="selectorSource" purpose="operation" :directories="state.directories" :selected="[]" :load-page="loadPage" :open-preview="preview" :persist="openOperation" />
     <ProjectFileRelationsDialog v-if="relationsVisible && relationsSource" v-model="relationsVisible" :source="relationsSource" :context-key="listContextKey" />
@@ -79,7 +69,7 @@ import { checkPermi } from '@/utils/permission'
 import ProjectFolderEditor from '../basic-data/components/ProjectFolderEditor.vue'
 import DccFileSelector from '../relations/DccFileSelector.vue'
 import DccProjectReferences from '../relations/DccProjectReferences.vue'
-import DccReferenceBadge from '../relations/DccReferenceBadge.vue'
+import ProjectFolderFileTable from './ProjectFolderFileTable.vue'
 import ProjectFileRelationsDialog from './ProjectFileRelationsDialog.vue'
 import DccReferenceUsageDialog from '../relations/DccReferenceUsageDialog.vue'
 import type { ReferenceUsageSource } from '../relations/DccReferenceUsageDialog.vue'
@@ -88,8 +78,6 @@ import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
 import { referenceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
 import { buildControlledFileViewerPath, buildControlledFileTraceabilityPath } from '../view/presentation'
 import { ProjectBrowserState, PROJECT_BROWSER_VERSION_VIEWS } from './project-browser'
-import { getDccControlledFileStatusLabel, type DccControlledFileStatus } from '../shared/lifecycle'
-const statusLabel = (status: string) => getDccControlledFileStatusLabel(status as DccControlledFileStatus)
 const route = useRoute(), router = useRouter(), user = useUserStore()
 const state = reactive(new ProjectBrowserState(referenceIdentity(getVisitTenantId() || getTenantId()), referenceIdentity(user.getUser.id)))
 const versionViewGroups = [...new Set(PROJECT_BROWSER_VERSION_VIEWS.map(option => option.group))].map(name => ({
@@ -112,7 +100,7 @@ const handleFolderMaintenanceSaved = async (projectId: number | string) => {
 }
 const relationsVisible = ref(false), relationsSource = ref<FileCandidate>()
 const usageVisible = ref(false), usageSource = ref<ReferenceUsageSource>()
-const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.keyword, state.versionView, state.pageNo]))
+const listContextKey = computed(() => JSON.stringify([state.contextKey, state.scope, state.appliedKeyword, state.versionView, state.pageNo]))
 const openRelationsRow = (row: FileCandidate) => {
   if (state.loading || !state.rows.some(file => file.controlledFileId === row.controlledFileId)) return
   relationsSource.value = JSON.parse(JSON.stringify(row)); relationsVisible.value = true
@@ -169,8 +157,6 @@ onMounted(() => Promise.all([state.loadProjects(), state.loadActor(), state.load
 .project-browser { display: grid; grid-template-columns: minmax(260px, 28%) minmax(0, 1fr); gap: 18px; }
 aside, main { min-width: 0; padding: 14px; background: var(--el-bg-color); }
 .search { display: flex; gap: 8px; margin-bottom: 12px; }
-.references { margin-top: 24px; }
 .version-view { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.project-file-name.is-referenced { color: #b85a00; }
 @media (max-width: 900px) { .project-browser { grid-template-columns: 1fr; } }
 </style>

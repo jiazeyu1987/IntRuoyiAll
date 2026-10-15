@@ -24,6 +24,22 @@ import java.util.Set;
 /** One internal creation hook. Callers acquire project before Master/File; never inject Query or Workflow here. */
 @Service
 public class DccWorkingApplicationDraftInitializer {
+    // BEGIN IC16 READ-ONLY PROVENANCE
+    public record ApplicationProvenance(Long tenantId,Long projectId,String applicationType,Long targetFileId,Integer targetAttributeRound,
+                                        Long sourceApplicationId,Integer sourceAttributeRound){}
+    @Transactional(readOnly=true)
+    public ApplicationProvenance readApplicationProvenance(Long actorId,Long targetFileId,Integer targetAttributeRound){
+        Long tenant=TenantContextHolder.getRequiredTenantId();var target=fileMapper.selectById(targetFileId);
+        if(target==null||!Objects.equals(target.getTenantId(),tenant)||!Objects.equals(target.getRequesterId(),actorId)
+                ||targetAttributeRound==null||targetAttributeRound<=0)throw invalid();
+        String type=typeOf(target);var saved=attributesMapper.find(type,targetFileId,targetAttributeRound);
+        if(saved==null||!Objects.equals(saved.getTenantId(),tenant)||!Objects.equals(saved.getProjectCodeId(),target.getDccProjectCodeId()))throw invalid();
+        projectAccess.assertProjectEditorOrOwner(actorId,target.getDccProjectCodeId());
+        if((saved.getSourceApplicationId()==null)!=(saved.getSourceApplicationRound()==null))throw invalid();
+        return new ApplicationProvenance(tenant,target.getDccProjectCodeId(),type,targetFileId,targetAttributeRound,
+                saved.getSourceApplicationId(),saved.getSourceApplicationRound());
+    }
+    // END IC16 READ-ONLY PROVENANCE
     @Resource private DccProjectCodeMapper projectMapper;
     @Resource private DccControlledFileMasterMapper masterMapper;
     @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper fileMapper;
@@ -33,6 +49,18 @@ public class DccWorkingApplicationDraftInitializer {
     @Resource private DccProjectApplicationAttributesMapper attributesMapper;
     @Resource private DccProjectAccessService projectAccess;
     @Resource private DccControlledFileCategoryPermissionSupport categoryPermission;
+    @Resource @org.springframework.context.annotation.Lazy
+    private DccControlledFileNameClaimService verifiedSourceNames;
+
+    private DccControlledFileDO verifiedSourceIdentity(DccControlledFileDO source) {
+        if (source == null || !blank(source.getSourceOriginalFileName())) return source;
+        String verifiedName = verifiedSourceNames.requireSourceName(source);
+        if (blank(verifiedName)) throw new IllegalStateException("正式已核验来源原名为空");
+        var projection = new DccControlledFileDO();
+        org.springframework.beans.BeanUtils.copyProperties(source, projection);
+        projection.setSourceOriginalFileName(verifiedName);
+        return projection;
+    }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public DccProjectApplicationAttributesDO initialize(Long actorId, Long sourceFileId, Long targetFileId,
@@ -81,6 +109,7 @@ public class DccWorkingApplicationDraftInitializer {
                     || master.getCurrentActiveControlledFileId() != null
                     || target.getRevisionChangeType() != null && !"INITIAL".equals(target.getRevisionChangeType())) throw invalid();
         } else {
+            source = verifiedSourceIdentity(source);
             requireFile(source, tenant, project.getId(), master);
             if (!Objects.equals(source.getFileNumber(), target.getFileNumber())
                     || !Objects.equals(source.getFileTypeTaxonomyId(), target.getFileTypeTaxonomyId())

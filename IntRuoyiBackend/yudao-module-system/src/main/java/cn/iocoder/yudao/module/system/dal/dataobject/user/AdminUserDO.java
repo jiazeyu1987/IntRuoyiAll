@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import cn.iocoder.yudao.module.system.enums.common.SexEnum;
 import com.baomidou.mybatisplus.annotation.KeySequence;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
@@ -67,6 +68,12 @@ public class AdminUserDO extends TenantBaseDO {
      * 部门 ID
      */
     private Long deptId;
+    /** Independently maintained relationship; ordinary user update/import must never overwrite it. */
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Long directSupervisorUserId;
+    /** Server-owned persisted CAS revision. Initial zero is supplied by the database, not user-save DTOs. */
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Long directSupervisorRevision;
     /**
      * 岗位编号数组
      */

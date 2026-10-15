@@ -4,6 +4,8 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileDis
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileDistributionRecipientSignReqVO;
 
 public interface DccDistributionReceiptService {
+    /** Internal callback only after the exact controlled-version body has been authorized and read successfully. */
+    void recordDistributionBodyOpened(Long userId, Long controlledFileId, Long distributionId, Long recipientId);
 
     void acknowledgeElectronicDistribution(Long userId, Long controlledFileId, Long distributionId,
                                            Long recipientId,

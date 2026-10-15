@@ -12,7 +12,7 @@
       <div class="onlyoffice-viewer-toolbar">
         <div class="onlyoffice-viewer-toolbar__hint">
           <span>Ctrl + 滚轮可缩放预览</span>
-          <span>当前仅调整查看比例，不放开受控权限</span>
+          <span>仅调整查看比例和方向；分页、正文搜索使用文档内工具</span>
         </div>
         <div class="onlyoffice-viewer-toolbar__actions">
           <el-button
@@ -25,6 +25,9 @@
           >
             缩小
           </el-button>
+          <el-button text bg size="small" aria-label="旋转预览" @click="rotatePreview">旋转</el-button>
+          <el-button text bg size="small" aria-label="复原预览" :disabled="previewRotationDegrees === 0 && previewZoomValue === DEFAULT_ZOOM_VALUE" @click="resetView">复原</el-button>
+          <span class="onlyoffice-viewer-toolbar__rotation" aria-live="polite">{{ previewRotationDegrees }}°</span>
           <div class="onlyoffice-viewer-toolbar__value">{{ previewZoomLabel }}</div>
           <el-button
             text
@@ -50,6 +53,7 @@
       </div>
       <div
         class="onlyoffice-viewer-frame__stage"
+        ref="stageRef"
         @mouseenter="isPointerInsideStage = true"
         @mouseleave="handleStageLeave"
         @wheel="handleWheelZoom"
@@ -106,6 +110,10 @@ const props = defineProps<{
   watermarkBackground?: string
   unavailableReason?: string
 }>()
+const emit = defineEmits<{
+  opened: [event: { documentUrl: string }]
+  error: [event: { documentUrl: string; message: string }]
+}>()
 
 const containerId = `dcc-onlyoffice-${Math.random().toString(36).slice(2, 10)}`
 const DEFAULT_ZOOM_VALUE = 100
@@ -115,10 +123,16 @@ const ZOOM_STEP_VALUE = 10
 const VIEWER_STAGE_HEIGHT = 720
 const errorMessage = ref('')
 const mountRef = ref<HTMLDivElement>()
+const stageRef = ref<HTMLDivElement>()
+const stageWidth = ref(0)
+let stageResizeObserver: ResizeObserver | null = null
 const previewZoomValue = ref(DEFAULT_ZOOM_VALUE)
+const previewRotationDegrees = ref(0)
 const isPointerInsideStage = ref(false)
 const isZoomModifierPressed = ref(false)
 let editorInstance: { destroyEditor?: () => void } | null = null
+let editorGeneration = 0
+let viewerUnmounted = false
 
 const onlyOfficeReadOnlyPermissions = {
   edit: false,
@@ -147,10 +161,12 @@ const canZoomIn = computed(() => previewZoomValue.value < MAX_ZOOM_VALUE)
 const wheelZoomArmed = computed(() => isPointerInsideStage.value && isZoomModifierPressed.value)
 const scalerStyle = computed(() => {
   const zoomScale = previewZoomValue.value / 100
+  const quarterTurn = previewRotationDegrees.value % 180 !== 0
+  const width = stageWidth.value || stageRef.value?.clientWidth || 0
   return {
-    width: `${100 / zoomScale}%`,
-    height: `${VIEWER_STAGE_HEIGHT / zoomScale}px`,
-    transform: `scale(${zoomScale})`
+    width: quarterTurn ? `${VIEWER_STAGE_HEIGHT / zoomScale}px` : `${100 / zoomScale}%`,
+    height: `${(quarterTurn ? width : VIEWER_STAGE_HEIGHT) / zoomScale}px`,
+    transform: `translate(-50%, -50%) rotate(${previewRotationDegrees.value}deg) scale(${zoomScale})`
   }
 })
 
@@ -252,6 +268,23 @@ const resetZoom = () => {
   applyZoom(DEFAULT_ZOOM_VALUE)
 }
 
+const rotatePreview = () => {
+  previewRotationDegrees.value = (previewRotationDegrees.value + 90) % 360
+}
+
+const resetView = () => {
+  resetZoom()
+  previewRotationDegrees.value = 0
+}
+
+watch(stageRef, (element) => {
+  stageResizeObserver?.disconnect()
+  stageWidth.value = element?.clientWidth || 0
+  if (!element) return
+  stageResizeObserver = new ResizeObserver(() => { stageWidth.value = element.clientWidth })
+  stageResizeObserver.observe(element)
+})
+
 const syncZoomModifierState = (event?: KeyboardEvent) => {
   isZoomModifierPressed.value = Boolean(event?.ctrlKey || event?.metaKey)
 }
@@ -287,7 +320,12 @@ const handleWheelZoom = (event: WheelEvent) => {
 }
 
 const mountEditor = async () => {
+  const generation = ++editorGeneration
+  let documentReadyEmitted = false
   destroyEditor()
+  resetView()
+  isPointerInsideStage.value = false
+  isZoomModifierPressed.value = false
   errorMessage.value = props.unavailableReason || ''
   if (errorMessage.value) {
     return
@@ -300,6 +338,7 @@ const mountEditor = async () => {
   }
   try {
     await loadOnlyOfficeScript(baseUrl)
+    if (viewerUnmounted || generation !== editorGeneration || documentUrl !== String(props.documentUrl || '').trim()) return
     if (!window.DocsAPI?.DocEditor) {
       errorMessage.value = 'OnlyOffice 预览脚本未就绪'
       return
@@ -331,17 +370,27 @@ const mountEditor = async () => {
         }
       },
       events: {
+        onDocumentReady: () => {
+          if (viewerUnmounted || generation !== editorGeneration || documentReadyEmitted || errorMessage.value
+            || documentUrl !== String(props.documentUrl || '').trim()) return
+          documentReadyEmitted = true
+          emit('opened', { documentUrl })
+        },
         onError: (event: unknown) => {
+          if (viewerUnmounted || generation !== editorGeneration
+            || documentUrl !== String(props.documentUrl || '').trim()) return
           errorMessage.value = resolveOnlyOfficeDocumentErrorMessage(event)
+          editorGeneration++
+          emit('error', { documentUrl, message: errorMessage.value })
           destroyEditor()
         }
       },
       type: 'desktop',
       width: '100%',
-      height: '720px'
+      height: '100%'
     })
   } catch (error) {
-    errorMessage.value = resolveOnlyOfficeErrorMessage(error)
+    if (!viewerUnmounted && generation === editorGeneration) errorMessage.value = resolveOnlyOfficeErrorMessage(error)
   }
 }
 
@@ -360,6 +409,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stageResizeObserver?.disconnect()
+  viewerUnmounted = true
+  editorGeneration++
   window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('keyup', handleWindowKeyup)
   window.removeEventListener('blur', handleWindowBlur)
@@ -411,6 +463,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .onlyoffice-viewer-toolbar__value {
@@ -436,7 +489,10 @@ onBeforeUnmount(() => {
 }
 
 .onlyoffice-viewer-frame__scaler {
-  transform-origin: top left;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
   transition: transform 0.16s ease;
 }
 

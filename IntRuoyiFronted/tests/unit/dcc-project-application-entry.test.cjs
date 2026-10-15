@@ -17,6 +17,13 @@ function moduleAt(path, host = {}) {
     const resolve = context.require
     context.require = id => id === './dccOfflineTrainingRecord' ? moduleAt('src/utils/dccOfflineTrainingRecord.ts') : resolve(id)
   }
+  if (path === 'src/api/dcc/controlledFile/projectProductRequests.ts') {
+    const resolve = context.require
+    context.require = id => id.endsWith('/project-reviewer') ? moduleAt('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts')
+      : id.endsWith('/project-product-role') ? moduleAt('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts') : resolve(id)
+  }
+  if (path === 'src/views/dcc/controlled-file/basic-data/components/project-product-role.ts')
+    context.require = id => { assert.equal(id, './project-reviewer'); return moduleAt('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts') }
   vm.runInNewContext(ts.transpileModule(read(path), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)
   return context.exports
 }
@@ -36,16 +43,19 @@ function routeHost(get = async id => row(id)) {
     projectProductRequests: vue.ref([]), projectProductError: vue.ref(''),
     projectProductExactRequestId: vue.ref(), projectProductExpandedRequestIds: vue.ref([]),
     reviewerConfiguration: vue.ref(), projectProductRequestReadSequence: 0, projectProductDialogSequence: 0,
+    projectProductActionReason: vue.ref(''),
+    checkPermi: () => true, getTenantId: () => '1', getVisitTenantId: () => undefined,
+    canHandleProjectRequest: reviewers.canHandleProjectRequest,
     resetProjectProductForm() {},
     dccProjectProductRequestIdentity: value => { assert.equal(typeof value, 'string'); return value },
     getDccProjectProductRequest: async id => { calls.push(id); return get(id) },
     getDccProjectProductRequests: async () => { calls.push('pending'); return [] },
     canReviewProjectProduct: reviewers.canReviewProjectProduct,
-    userStore: { getUser: { id: '7' } }, window: { prompt: () => '实际办理意见' },
+    userStore: { getUser: { id: '7', username: 'admin' } }, window: { prompt: () => '实际办理意见' },
     message: { success() {}, warning() {} }, getList: async () => {}
   }
   const source = parse(page).descriptor.scriptSetup.content
-  vm.runInNewContext(ts.transpileModule(declarations(source, ['loadProjectProductRequests', 'openProjectProductDialog', 'consumeProjectProductRequestRoute', 'closeProjectProductRequestEntry', 'handleProjectProductAction']) + '\nexports.consume=consumeProjectProductRequestRoute;exports.refresh=loadProjectProductRequests;exports.close=closeProjectProductRequestEntry;exports.handle=handleProjectProductAction;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state)
+  vm.runInNewContext(ts.transpileModule(declarations(source, ['projectRequestAccess', 'projectProductActorScope', 'canPerformProjectAction', 'loadProjectProductRequests', 'openProjectProductDialog', 'consumeProjectProductRequestRoute', 'closeProjectProductRequestEntry', 'handleProjectProductAction']) + '\nexports.consume=consumeProjectProductRequestRoute;exports.refresh=loadProjectProductRequests;exports.close=closeProjectProductRequestEntry;exports.handle=handleProjectProductAction;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, state)
   return { state, calls, ...state.exports }
 }
 test('formal exact request GET preserves original Long ID and refuses response identity drift', async () => {
@@ -91,7 +101,7 @@ test('late request cannot replace the newly selected original or reopen a closed
 })
 test('actual original review and approval handlers retain exact ID through existing opinion wrappers and reread', async () => {
   const writes = [], api = moduleAt('src/api/dcc/controlledFile/projectProductRequests.ts', {
-    require: () => ({ default: { post: async query => { writes.push(query); return row(requestId) } } })
+    require: () => ({ default: { post: async query => { writes.push(query); return { ...row(requestId), status: query.url.includes('/review/') ? 'PENDING_APPROVAL' : 'COMPLETED' } } } })
   })
   for (const node of ['review', 'approve']) {
     const actualRow = { ...row(requestId), configuredReviewerUserId: '7', status: node === 'review' ? 'PENDING_REVIEW' : 'PENDING_APPROVAL' }

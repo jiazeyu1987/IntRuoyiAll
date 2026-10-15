@@ -10,7 +10,9 @@ const actionsPath = 'src/views/dcc/controlled-file/workflow/workflow-actions.ts'
 const listPath = 'src/views/dcc/controlled-file/workflow/PendingWorkflowDistributionList.vue'
 const apiPath = 'src/api/dcc/controlledFile/workflowLifecycle.ts'
 const fullLong = '9223372036854775709'
-const pending = (id = fullLong, date = '2099-10-03', stage = 'FUTURE') => ({ id, fileNumber: 'SOP-001', title: '待下发文件', versionNo: 'B/1', effectiveDate: date, controlledTime: '2026-10-03 08:30:00', status: 'CONTROLLED_PENDING_EFFECTIVE', distributionReminderStage: stage })
+const pending = (id = fullLong) => ({ id, fileNumber: 'SOP-001', title: '待下发文件', versionNo: 'B/1',
+  effectiveMode: 'PRESET_DATE', effectiveDate: '2026-10-03', controlledTime: '2026-10-03 08:30:00',
+  activatedTime: '2026-10-03 09:00:00', effectiveTime: '2026-10-03 09:00:00', status: 'ACTIVE' })
 const make = (type, text = '') => ({ type, text, children: [], props: {}, parent: null })
 const renderer = vue.createRenderer({ createElement: type => make(type), createText: text => make('#text', text), createComment: text => make('#comment', text),
   setText: (node, text) => { node.text = text }, setElementText: (node, text) => { node.text = text; node.children = [] },
@@ -44,7 +46,8 @@ function mount({ roles = ['doc_control'], permission = true, load = async () => 
   }
   const actions = evaluate(actionsPath, name => { throw new Error(name) })
   const lifecycle = () => evaluate(apiPath, name => { if (name === '@/config/axios') return { default: request }; throw new Error(name) })
-  const list = () => evaluate(listPath, name => { if (name === 'vue') return vue; if (name === './workflow-actions') return actions; throw new Error(name) }).default
+  const format = () => evaluate('src/utils/formatTime.ts', name => { if (name === 'dayjs') return { default: require('dayjs') }; throw new Error(name) })
+  const list = () => evaluate(listPath, name => { if (name === 'vue') return vue; if (name === './workflow-actions') return actions; if (name === '@/utils/formatTime') return format(); throw new Error(name) }).default
   const component = evaluate(pagePath, name => {
     if (name === 'vue') return vue
     if (name === 'element-plus') return { ElMessageBox: {} }
@@ -57,7 +60,7 @@ function mount({ roles = ['doc_control'], permission = true, load = async () => 
     if (name === '@/api/bpm/processInstance') return { getProcessInstance: async () => { throw new Error('No todo fixture') } }
     if (name === '@/api/dcc/controlledFile/workflow') return { CONTROLLED_FILE_PROCESS_DEFINITION_KEY: 'DCC', CONTROLLED_FILE_UPLOAD_PROCESS_DEFINITION_KEY: 'NEW', CONTROLLED_FILE_REVISION_PROCESS_DEFINITION_KEY: 'REVISION', CONTROLLED_FILE_OBSOLETE_PROCESS_DEFINITION_KEY: 'OBSOLETE', EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY: 'EXTERNAL', getControlledFileBrowserPage: async args => { browserCalls.push(args); return { list: [], total: 0 } } }
     if (name === '@/api/dcc/controlledFile/training') return { getMyTrainingTaskPage: async () => ({ list: [], total: 0 }) }
-    if (name === '@/utils/formatTime') return { formatDateTimeValue: () => '已刷新' }
+    if (name === '@/utils/formatTime') return format()
     if (name === '@/api/dcc/controlledFile/publicationFollowup') return { getMyImpactTaskPage: async () => ({ list: [], total: 0 }) }
     if (name === '../shared/approval') return { buildDccTaskCenterRowView: () => ({}) }
     if (name === '../shared/viewer-navigation') return { openControlledFileViewer: () => { throw new Error('Pending distribution must open manage detail') } }
@@ -81,8 +84,8 @@ test('mounted public workbench reads the formal date-sorted list and navigates e
     await settle()
     assert.equal(mounted.calls.length, 1, 'real pending workflow list must be mounted and loaded once')
     assert.equal(mounted.calls[0].params.remindersOnly, false)
-    for (const value of ['待下发文件', 'B/1', '2026-10-03 08:30:00', '2099-10-03', '生效前不得执行', '后续待下发']) assert.ok(text(mounted.root).includes(value), value)
-    find(mounted.root, 'el-button', '办理下发').props.onClick(); await settle()
+    for (const value of ['待下发文件', 'B/1', '2026-10-03 08:30:00', '2026-10-03 09:00:00', '受控且已生效后自动下发']) assert.ok(text(mounted.root).includes(value), value)
+    find(mounted.root, 'el-button', '查看下发结果').props.onClick(); await settle()
     assert.equal(mounted.routes[0].path, `/dcc/controlled-file/detail/${fullLong}`)
     assert.equal(mounted.routes[0].query.mode, 'manage')
     assert.equal(mounted.browserCalls.some(query => query.status === 'PENDING_MANUAL_DISTRIBUTION'), false)
@@ -91,28 +94,27 @@ test('mounted public workbench reads the formal date-sorted list and navigates e
 
 test('super_admin without explicit doc_control and accounts without distribute permission never read the list', async () => {
   for (const options of [{ roles: ['super_admin'] }, { roles: ['doc_control'], permission: false }]) {
-    const mounted = mount(options); try { await settle(); assert.equal(mounted.calls.length, 0); assert.equal(find(mounted.root, 'el-button', '办理下发'), undefined); assert.equal(mounted.browserCalls.some(query => query.status === 'PENDING_MANUAL_DISTRIBUTION'), false) } finally { mounted.app.unmount() }
+    const mounted = mount(options); try { await settle(); assert.equal(mounted.calls.length, 0); assert.equal(find(mounted.root, 'el-button', '查看下发结果'), undefined); assert.equal(mounted.browserCalls.some(query => query.status === 'PENDING_MANUAL_DISTRIBUTION'), false) } finally { mounted.app.unmount() }
   }
 })
 
-test('remindersOnly and public refresh go through the existing lifecycle endpoint and remove distributed rows', async () => {
+test('public refresh uses the actual lifecycle endpoint and removes distributed rows without an unapproved reminder filter', async () => {
   let reads = 0
   const mounted = mount({ load: async filter => ++reads === 1 ? [pending()] : [{ ...pending(), distributedTime: '2026-10-03 09:00:00' }] })
   try {
-    await settle(); const checkbox = find(mounted.root, 'el-checkbox', '仅显示')
-    assert.ok(checkbox, 'public reminder filter must be mounted')
-    checkbox.props['onUpdate:modelValue'](true); await settle()
-    assert.equal(mounted.calls.at(-1).params.remindersOnly, true)
-    assert.equal(find(mounted.root, 'el-button', '办理下发'), undefined)
+    await settle(); assert.equal(find(mounted.root, 'el-checkbox', '仅显示'), undefined)
+    assert.ok(find(mounted.root, 'el-button', '查看下发结果'))
     find(mounted.root, 'el-button', '刷新待处置列表').props.onClick(); await settle()
-    assert.equal(mounted.calls.length, 3)
+    assert.equal(mounted.calls.length, 2)
+    assert.equal(mounted.calls.every(call => call.params.remindersOnly === false), true)
+    assert.equal(find(mounted.root, 'el-button', '查看下发结果'), undefined)
   } finally { mounted.app.unmount() }
 })
 
-test('missing reminder configuration is visible without old-status fallback or a zero-success metric', async () => {
-  const mounted = mount({ load: async () => { throw new Error('生效提醒提前天数尚未配置') } })
+test('missing formal distribution source is visible without old-status fallback or a zero-success metric', async () => {
+  const mounted = mount({ load: async () => { throw new Error('自动下发正式来源尚未就绪') } })
   try {
-    await settle(); assert.ok(text(mounted.root).includes('生效提醒提前天数尚未配置'))
+    await settle(); assert.ok(text(mounted.root).includes('自动下发正式来源尚未就绪'))
     assert.equal(mounted.calls.length, 1)
     assert.equal(mounted.browserCalls.some(query => query.status === 'PENDING_MANUAL_DISTRIBUTION'), false)
     const metric = nodes(mounted.root, node => node.type === 'button' && text(node).includes('待文控下发'))[0]
@@ -127,7 +129,7 @@ test('revoking the real role during a pending read removes the public panel and 
     await settle(); assert.equal(mounted.calls.length, 1)
     mounted.user.getRoles = ['super_admin']; await settle()
     finish([pending()]); await settle()
-    assert.equal(find(mounted.root, 'el-button', '办理下发'), undefined)
+    assert.equal(find(mounted.root, 'el-button', '查看下发结果'), undefined)
     assert.equal(text(mounted.root).includes('待下发文件'), false)
   } finally { mounted.app.unmount() }
 })
@@ -149,7 +151,7 @@ test('global workbench refresh re-reads the panel and missing runtime roles cann
   try {
     await settle(); find(mounted.root, 'el-button', '刷新').props.onClick(); await settle()
     assert.equal(mounted.calls.length, 2)
-    assert.equal(find(mounted.root, 'el-button', '办理下发'), undefined)
+    assert.equal(find(mounted.root, 'el-button', '查看下发结果'), undefined)
     mounted.user.getIsSetUser = false; await settle()
     assert.equal(find(mounted.root, 'el-button', '刷新待处置列表'), undefined)
     assert.equal(mounted.calls.length, 2)

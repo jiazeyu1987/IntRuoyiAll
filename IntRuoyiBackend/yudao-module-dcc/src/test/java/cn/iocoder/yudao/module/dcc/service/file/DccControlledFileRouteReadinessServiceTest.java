@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
@@ -26,6 +27,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
+
+    @org.junit.jupiter.api.BeforeEach void tenant() { TenantContextHolder.setTenantId(1L); }
+    @org.junit.jupiter.api.AfterEach void clearTenant() { TenantContextHolder.clear(); }
 
     @Mock
     private DccControlledFileApprovalRouteAssigneeResolver routeAssigneeResolver;
@@ -129,8 +133,25 @@ class DccControlledFileRouteReadinessServiceTest extends BaseMockitoUnitTest {
                 DccCategoryApprovalRouteDO.builder().id(30L).categoryId(10L).versionNo(1).active(true).build(), nodes);
     }
 
+    @Test void frozenRouteRejectsDisabledForeignOrMissingApproverEvenWithPostsAndSignatureEvidence() {
+        var frozen=resolvedRoute(List.of(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                1,"MATRIX_REVIEW","会签",1,"DEPT",51L,List.of(51L,52L),"ALL",100,true,List.of(101L,101L))));
+        when(permissionApi.hasAnyPermissions(101L,"dcc:controlled-file:review")).thenReturn(true);
+        when(signatureAuthorizationService.getAuthorizationMap(List.of(101L))).thenReturn(Map.of(101L,true));
+        when(signatureImageService.requireActiveSnapshot(101L)).thenReturn(validImage());
+        for(var account:List.of(user(101L,"停用",Set.of(10L)).setStatus(1),user(101L,"异租户",Set.of(10L)).setTenantId(122L))) {
+            when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(account));
+            var error=assertThrows(ServiceException.class,()->service.requireReadyResolvedRoute(frozen));
+            assertEquals(CONTROLLED_FILE_ROUTE_NOT_READY.getCode(),error.getCode());
+            assertTrue(error.getMessage().contains("已停用或不属于本租户"));
+        }
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of());
+        assertThrows(ServiceException.class,()->service.requireReadyResolvedRoute(frozen));
+        org.mockito.Mockito.verifyNoInteractions(routeAssigneeResolver);
+    }
+
     private AdminUserRespDTO user(Long id, String nickname, Set<Long> postIds) {
-        return new AdminUserRespDTO().setId(id).setNickname(nickname).setPostIds(postIds);
+        return new AdminUserRespDTO().setId(id).setTenantId(1L).setStatus(0).setNickname(nickname).setPostIds(postIds);
     }
 
     private DccElectronicSignatureImageSnapshot validImage() {

@@ -13,6 +13,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import java.util.Objects;
 
 @Service
 public class DccControlledFileAccessAuditService {
@@ -27,10 +28,13 @@ public class DccControlledFileAccessAuditService {
     @Transactional(rollbackFor = Exception.class)
     public DccControlledFileAccessEventDO createAccessEvent(DccAccessEventCreateCommand command) {
         requireAccessEvent(command);
+        boolean previewEvent = "PREVIEW".equals(StrUtil.trim(command.accessType()));
         DccControlledFileAccessEventDO accessEvent = DccControlledFileAccessEventDO.builder()
+                .tenantId(previewEvent || command.processInstanceId() != null ? TenantContextHolder.getRequiredTenantId() : null)
                 .accessEventCode(StrUtil.trim(command.accessEventCode()))
                 .controlledFileId(command.fileId())
                 .fileVersionNo(StrUtil.trim(command.versionId()))
+                .processInstanceId(command.processInstanceId())
                 .userId(command.userId())
                 .accessType(StrUtil.trim(command.accessType()))
                 .purpose(StrUtil.trim(command.purpose()))
@@ -42,7 +46,26 @@ public class DccControlledFileAccessAuditService {
                 .requestId(StrUtil.trim(command.requestId()))
                 .occurredAt(command.occurredAt())
                 .build();
-        accessEventMapper.insert(accessEvent);
+        int inserted = accessEventMapper.insert(accessEvent);
+        if (previewEvent || command.processInstanceId() != null) {
+            if (inserted != 1 || accessEvent.getId() == null || accessEvent.getId() <= 0)
+                throw new IllegalStateException("Access event insert did not persist one row");
+            var saved = accessEventMapper.selectById(accessEvent.getId());
+            if (saved == null || !Objects.equals(saved.getId(), accessEvent.getId())
+                    || !Objects.equals(saved.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                    || !Objects.equals(saved.getControlledFileId(), command.fileId())
+                    || !Objects.equals(saved.getUserId(), command.userId())
+                    || !Objects.equals(saved.getFileVersionNo(), StrUtil.trim(command.versionId()))
+                    || !Objects.equals(saved.getAccessEventCode(), StrUtil.trim(command.accessEventCode()))
+                    || !Objects.equals(saved.getPurpose(), StrUtil.trim(command.purpose()))
+                    || !Objects.equals(saved.getProcessInstanceId(), command.processInstanceId())
+                    || (previewEvent && (!Objects.equals(saved.getAccessType(), StrUtil.trim(command.accessType()))
+                        || !Objects.equals(saved.getResult(), StrUtil.trim(command.result()))
+                        || !Objects.equals(saved.getOccurredAt(), command.occurredAt())))) {
+                throw new IllegalStateException("Persisted issuing round event identity does not match");
+            }
+            return saved;
+        }
         return accessEvent;
     }
 
@@ -194,6 +217,12 @@ public class DccControlledFileAccessAuditService {
         requireNotBlank(command.result(), "result");
         if (command.occurredAt() == null) {
             throw new IllegalArgumentException("occurredAt is required");
+        }
+        if (command.processInstanceId() != null && (command.processInstanceId().isBlank()
+                || !command.processInstanceId().equals(command.processInstanceId().strip())
+                || command.processInstanceId().length() > 128
+                || command.processInstanceId().chars().anyMatch(value -> value < 33 || value > 126))) {
+            throw new IllegalArgumentException("Exact issuing process instance identity is invalid");
         }
     }
 

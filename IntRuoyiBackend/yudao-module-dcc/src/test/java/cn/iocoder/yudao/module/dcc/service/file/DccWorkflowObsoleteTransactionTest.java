@@ -232,11 +232,50 @@ class DccWorkflowObsoleteTransactionTest extends BaseDbUnitTest {
     }
     private DccControlledFileLifecycleService lifecycle() {
         var result=new DccControlledFileLifecycleService();var dates=new DccWorkflowDatePolicy();dates.setZoneId("Asia/Singapore");
+        jdbc.execute("CREATE TABLE IF NOT EXISTS w05_activation_accept_fixture(id BIGINT AUTO_INCREMENT PRIMARY KEY,event_key VARCHAR(255) UNIQUE)");
+        var batches=mock(DccDistributionBatchService.class);
+        when(batches.acceptActivatedEvent(any())).thenAnswer(call->{
+            var event=call.<DccControlledFileLifecycleEvent>getArgument(0);
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_workflow_lifecycle_event WHERE tenant_id=? AND event_key=? AND controlled_file_id=?",
+                    Integer.class,event.tenantId(),event.eventKey(),event.controlledFileId()));
+            var existing=jdbc.queryForList("SELECT id FROM w05_activation_accept_fixture WHERE event_key=?",Long.class,event.eventKey());
+            if(!existing.isEmpty())return existing.get(0);
+            jdbc.update("INSERT INTO w05_activation_accept_fixture(event_key) VALUES(?)",event.eventKey());
+            return jdbc.queryForObject("SELECT id FROM w05_activation_accept_fixture WHERE event_key=?",Long.class,event.eventKey());
+        });
         wire(result,"controlledFileMapper",files,"masterMapper",masters,"obsoleteAuditMapper",audits,"datePolicy",dates,
                 "platformAdapter",mock(DccControlledContentAdapter.class),
+                "distributionBatchService",batches,
                 "versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),"jdbcTemplate",jdbc,
                 "eventPublisher",(org.springframework.context.ApplicationEventPublisher)event->{});
         wire(result,"fileStateAudit",stateAudit());
+        try{
+            // Exact immutable v4 model and instance identity are supplied by read-only BPM ports.
+            // This fixture exercises the real contract resolver, never infers PRESET from null mode.
+            java.nio.file.Path root=java.nio.file.Path.of("").toAbsolutePath();
+            while(root!=null&&!java.nio.file.Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
+            if(root==null)throw new IllegalStateException("known v4 source missing");
+            String sql=java.nio.file.Files.readString(root.resolve("IntRuoyiBackend/sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql"),java.nio.charset.StandardCharsets.UTF_8);
+            var matcher=java.util.regex.Pattern.compile("SET @dcc_upload_bpmn = '([\\s\\S]*?)';").matcher(sql);
+            if(!matcher.find())throw new IllegalStateException("known full v4 upload model missing");
+            var model=cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModelUtils.getBpmnModel(matcher.group(1).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var process=mock(org.flowable.engine.runtime.ProcessInstance.class);when(process.getId()).thenReturn("upload-round");
+            when(process.getTenantId()).thenReturn("1");when(process.getBusinessKey()).thenReturn("42");
+            when(process.getProcessDefinitionId()).thenReturn("exact-v4-upload-definition");
+            when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.UPLOAD);
+            when(process.getProcessVariables()).thenReturn(Map.of("controlledFileId",42L));
+            var processes=mock(BpmProcessInstanceService.class);when(processes.getProcessInstance("upload-round")).thenReturn(process);
+            var definition=mock(org.flowable.engine.repository.ProcessDefinition.class);when(definition.getId()).thenReturn("exact-v4-upload-definition");
+            when(definition.getKey()).thenReturn(DccControlledFileProcessDefinitionKeys.UPLOAD);when(definition.getTenantId()).thenReturn("1");
+            when(definition.getDeploymentId()).thenReturn("exact-v4-upload-deployment");
+            var definitions=mock(cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService.class);
+            when(definitions.getProcessDefinition("exact-v4-upload-definition")).thenReturn(definition);
+            when(definitions.getProcessDefinitionBpmnModel("exact-v4-upload-definition")).thenReturn(model);
+            var leaf=new DccBoundWorkflowContractResolver();wire(leaf,"processes",processes,"definitions",definitions);
+            var resolver=new DccLifecycleEffectiveContractResolver();wire(resolver,"boundContracts",leaf);
+            wire(result,"effectiveContractResolver",resolver);
+            jdbc.update("UPDATE dcc_controlled_file SET process_definition_key=? WHERE id=42",DccControlledFileProcessDefinitionKeys.UPLOAD);
+        }catch(java.io.IOException missing){throw new IllegalStateException("known v4 immutable source unavailable",missing);}
         return result;
     }
 

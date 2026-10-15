@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.file.vo;
 
 import lombok.Data;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 @Data
 public class DccControlledFileCheckinReqVO {
@@ -17,6 +20,10 @@ public class DccControlledFileCheckinReqVO {
     private String drawingPdfUploadTicket;
 
     private String sessionId;
+
+    /** Each ordinary attachment has its own scoped CHECKIN session and ATTACHMENT ticket slot. */
+    @Valid
+    private List<@NotNull DccControlledFileAttachmentUploadTicketReqVO> attachmentUploadTickets;
 
     private String changeDescription;
 

@@ -53,6 +53,7 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
         jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,2,'USER',99,'VIEW',1,'正式测试目的项目读取规则')");
         query=new DccControlledFileQueryServiceImpl();for(var field:query.getClass().getDeclaredFields())if(field.getAnnotation(Resource.class)!=null)ReflectionTestUtils.setField(query,field.getName(),mock(field.getType()));
         ReflectionTestUtils.setField(query,"controlledFileMapper",files);ReflectionTestUtils.setField(query,"controlledFileMasterMapper",masters);ReflectionTestUtils.setField(query,"projectCodeMapper",projectRows);ReflectionTestUtils.setField(query,"projectAccessService",projects);
+        ReflectionTestUtils.setField(query,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy());
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
         var directory=mock(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService.class);when(directory.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.QUERY)).thenReturn(Set.of(3L));when(directory.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());ReflectionTestUtils.setField(query,"directoryAccessPermissionService",directory);
         var categories=mock(DccControlledFileCategoryPermissionSupport.class);when(categories.hasCategoryPermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))).thenReturn(true);ReflectionTestUtils.setField(query,"permissionSupport",categories);
@@ -68,12 +69,20 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
     @Test void sourceNameReadableReverseUsageCountsAuthorizedFoldersAndKeepsStoredVersions() {
         Object first=page(1,1),second=page(2,1);
         assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(first,"referenceProjectCount"));assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(first,"visibleReferenceProjectCount"));
-        assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(first,"total"));assertEquals(true,ReflectionTestUtils.invokeMethod(first,"detailsRestricted"));
-        List<?> one=ReflectionTestUtils.invokeMethod(first,"list"),two=ReflectionTestUtils.invokeMethod(second,"list");assertEquals(1,one.size());assertEquals(1,two.size());
+        assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(first,"total"));assertEquals(true,ReflectionTestUtils.invokeMethod(first,"detailsRestricted"));
+        List<?> one=ReflectionTestUtils.invokeMethod(first,"list"),two=ReflectionTestUtils.invokeMethod(second,"list");assertEquals(1,one.size());assertEquals(0,two.size());
         assertEquals(SOURCE,(Object)ReflectionTestUtils.invokeMethod(one.get(0),"selectedControlledFileId"));assertEquals("A/1",ReflectionTestUtils.invokeMethod(one.get(0),"versionNo"));assertEquals("OBSOLETE",ReflectionTestUtils.invokeMethod(one.get(0),"status"));
-        assertEquals("A/2",ReflectionTestUtils.invokeMethod(two.get(0),"versionNo"));assertEquals("可读目标项目",ReflectionTestUtils.invokeMethod(one.get(0),"projectName"));assertEquals("质量目录",ReflectionTestUtils.invokeMethod(one.get(0),"folderName"));
+        var newer=service.getUsagePage(99L,101L,1,20);assertEquals(1,newer.total());assertEquals("A/2",newer.list().get(0).versionNo());assertEquals(101L,newer.list().get(0).selectedControlledFileId());
+        assertEquals("可读目标项目",ReflectionTestUtils.invokeMethod(one.get(0),"projectName"));assertEquals("质量目录",ReflectionTestUtils.invokeMethod(one.get(0),"folderName"));
         assertEquals(0,((List<?>)ReflectionTestUtils.invokeMethod(page(3,1),"list")).size());
         verify(access,atLeastOnce()).assertNameVisible(99L,SOURCE);verify(access,never()).assertContentReadable(any(),any());
+    }
+    @Test void usageCountSqlAvoidsBareMysqlReservedRowsAndKeepsRealAggregates() throws Exception {
+        String source=Files.readString(Path.of("src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java"));
+        assertFalse(java.util.regex.Pattern.compile("(?i)\\bAS\\s+ROWS\\b").matcher(source).find(),
+                "MySQL rejects the bare ROWS count alias; H2 alone does not prove portability");
+        var result=new DccRelationStore(jdbc,mock(GxpAuditService.class)).visibleUsageCounts(1L,10L,SOURCE,List.of(2L));
+        assertEquals(1,result.projects());assertEquals(1,result.rows());
     }
     @Test void httpRequiresExactSelectedFileAndReturnsLongIdentityStrings() throws Exception {
         var controller=new DccProjectReferenceController(service);try(var login=mockStatic(SecurityFrameworkUtils.class)){login.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
@@ -87,10 +96,10 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
         assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(restricted,"referenceProjectCount"));assertEquals(0L,(Object)ReflectionTestUtils.invokeMethod(restricted,"visibleReferenceProjectCount"));assertEquals(0L,(Object)ReflectionTestUtils.invokeMethod(restricted,"total"));assertEquals(true,ReflectionTestUtils.invokeMethod(restricted,"detailsRestricted"));
         assertTrue(((List<?>)ReflectionTestUtils.invokeMethod(restricted,"list")).isEmpty());
         jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,2,'USER',99,'VIEW',1,'正式读取恢复'),(1,3,'USER',99,'VIEW',1,'正式第二目的项目读取')");
-        Object all=page(1,20);assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(all,"visibleReferenceProjectCount"));assertEquals(3L,(Object)ReflectionTestUtils.invokeMethod(all,"total"));assertEquals(false,ReflectionTestUtils.invokeMethod(all,"detailsRestricted"));
+        Object all=page(1,20);assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(all,"visibleReferenceProjectCount"));assertEquals(2L,(Object)ReflectionTestUtils.invokeMethod(all,"total"));assertEquals(false,ReflectionTestUtils.invokeMethod(all,"detailsRestricted"));
         List<?> rows=ReflectionTestUtils.invokeMethod(all,"list");assertEquals("A/1",ReflectionTestUtils.invokeMethod(rows.get(0),"versionNo"));
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL WHERE id=10");all=page(1,20);rows=ReflectionTestUtils.invokeMethod(all,"list");assertEquals("A/1",ReflectionTestUtils.invokeMethod(rows.get(0),"versionNo"));
-        assertEquals("A/2",ReflectionTestUtils.invokeMethod(rows.get(1),"versionNo"));
+        assertEquals("A/1",ReflectionTestUtils.invokeMethod(rows.get(1),"versionNo"));
     }
     @Test void formalProjectAssignmentHardScopeRestrictsOnlyDestinationDetails() {
         when(permissionApi.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(true);
@@ -100,35 +109,45 @@ class DccReferenceUsagePageDatabaseTest extends BaseDbUnitTest {
         Object one=page(1,20);assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(one,"visibleReferenceProjectCount"));assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(one,"total"));List<?> rows=ReflectionTestUtils.invokeMethod(one,"list");assertEquals(3L,(Object)ReflectionTestUtils.invokeMethod(rows.get(0),"projectId"));
     }
     @Test void bodyPermissionIsIndependentAndNeverRequiresManagementDetail() {
+        // A readable destination does not grant body scope on the source project.
+        assertFalse(projects.listReadableProjectIds(99L).contains(1L));
+        jdbc.update("INSERT INTO dcc_project_access_rule(tenant_id,dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason) VALUES(1,1,'USER',99,'VIEW',1,'精确历史源项目正式读取资格')");
+        assertTrue(projects.listReadableProjectIds(99L).contains(1L));
         Object page=page(1,20);List<?> rows=ReflectionTestUtils.invokeMethod(page,"list");assertFalse((Boolean)ReflectionTestUtils.invokeMethod(rows.get(0),"canPreview"));
         var storage=mock(cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper.class);when(storage.selectById(200L)).thenReturn(cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO.builder().id(200L).name("SOP.pdf").type("application/pdf").build());ReflectionTestUtils.setField(query,"fileMapper",storage);
         var directories=(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService)ReflectionTestUtils.getField(query,"directoryAccessPermissionService");when(directories.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of(3L));
         page=page(1,20);rows=ReflectionTestUtils.invokeMethod(page,"list");assertTrue((Boolean)ReflectionTestUtils.invokeMethod(rows.get(0),"canPreview"));
+        assertFalse(directories.hasDirectoryManagementPermission(99L));
         verify(access,never()).assertContentReadable(any(),any());
     }
     @ParameterizedTest @ValueSource(strings={"WRONG_MASTER","FOREIGN_FILE_TENANT","WRONG_FOLDER_PROJECT","MISSING_FOLDER","MISSING_PROJECT","MISSING_FILE"})
     void malformedReferenceIdentityFailsRatherThanDroppingRowsOrReturningEmptySuccess(String invalid) {
-        switch(invalid){case "WRONG_MASTER"->jdbc.update("UPDATE dcc_controlled_file SET master_id=999 WHERE id=?",SOURCE);case "FOREIGN_FILE_TENANT"->jdbc.update("UPDATE dcc_controlled_file SET tenant_id=2 WHERE id=101");case "WRONG_FOLDER_PROJECT"->jdbc.update("UPDATE dcc_project_folder SET project_code_id=3 WHERE id=21");case "MISSING_FOLDER"->jdbc.update("DELETE FROM dcc_project_folder WHERE id=21");case "MISSING_PROJECT"->jdbc.update("DELETE FROM dcc_project_code WHERE id=3");case "MISSING_FILE"->jdbc.update("DELETE FROM dcc_controlled_file WHERE id=101");}
+        switch(invalid){case "WRONG_MASTER"->jdbc.update("UPDATE dcc_controlled_file SET master_id=999 WHERE id=?",SOURCE);case "FOREIGN_FILE_TENANT"->jdbc.update("UPDATE dcc_controlled_file SET tenant_id=2 WHERE id=?",SOURCE);case "WRONG_FOLDER_PROJECT"->jdbc.update("UPDATE dcc_project_folder SET project_code_id=3 WHERE id=21");case "MISSING_FOLDER"->jdbc.update("DELETE FROM dcc_project_folder WHERE id=21");case "MISSING_PROJECT"->jdbc.update("DELETE FROM dcc_project_code WHERE id=3");case "MISSING_FILE"->jdbc.update("DELETE FROM dcc_controlled_file WHERE id=?",SOURCE);}
         assertThrows(DccRelationFailure.class,()->page(1,20));
     }
     @Test void wrongTenantSourceAndInvalidPageCannotEnterUsageQueries() {
         TenantContextHolder.setTenantId(2L);assertThrows(DccRelationFailure.class,()->page(1,20));TenantContextHolder.setTenantId(1L);
         assertThrows(DccRelationInputFailure.class,()->page(0,20));assertThrows(DccRelationInputFailure.class,()->page(1,201));
         var directory=(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService)ReflectionTestUtils.getField(query,"directoryAccessPermissionService");when(directory.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.QUERY)).thenReturn(Set.of());
+        // Remove the independent legal obsolete-management name grant before asserting name denial.
+        var categories=(DccControlledFileCategoryPermissionSupport)ReflectionTestUtils.getField(query,"permissionSupport");
+        when(categories.hasCategoryPermission(any(),eq(99L),eq(cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.OBSOLETE))).thenReturn(false);
+        assertTrue(directory.getAuthorizedDirectoryIds(99L,cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.PREVIEW).isEmpty());
+        assertFalse(directory.hasDirectoryManagementPermission(99L));
         assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->page(1,20));
     }
     @Test void concurrentCancellationCannotMixAuthorizedCountAndPageSnapshots() throws Exception {
         var counted=new CountDownLatch(1);var cancelled=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
         var store=new DccRelationStore(jdbc,mock(GxpAuditService.class)){
-            @Override public UsageCounts visibleUsageCounts(Long tenant,Long master,List<Long> ids){var result=super.visibleUsageCounts(tenant,master,ids);counted.countDown();try{assertTrue(cancelled.await(10,TimeUnit.SECONDS));}catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}return result;}
+            @Override public UsageCounts visibleUsageCounts(Long tenant,Long master,Long selected,List<Long> ids){var result=super.visibleUsageCounts(tenant,master,selected,ids);counted.countDown();try{assertTrue(cancelled.await(10,TimeUnit.SECONDS));}catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException(e);}return result;}
         };
         var reader=new DccProjectReferenceService(store,mock(DccProjectReferenceAuthority.class),access,(DccLatestControlledFileResolver)ReflectionTestUtils.getField(service,"files"));ReflectionTestUtils.setField(reader,"projectAccessService",projects);ReflectionTestUtils.setField(reader,"queryService",query);
         var factory=new org.springframework.aop.framework.ProxyFactory(reader);factory.setProxyTargetClass(true);factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(transactions,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));var proxy=(DccProjectReferenceService)factory.getProxy();
         try {
             var reading=pool.submit(()->{TenantContextHolder.setTenantId(1L);try{return proxy.getUsagePage(99L,SOURCE,1,20);}finally{TenantContextHolder.clear();}});
             assertTrue(counted.await(10,TimeUnit.SECONDS));service.cancel(99L,2L,21L,10L,1L,true,"并发取消任务自有引用");cancelled.countDown();
-            var snapshot=reading.get(15,TimeUnit.SECONDS);assertEquals(2,snapshot.total());assertEquals(2,snapshot.list().size());
-            Object next=page(1,20);assertEquals(1L,(Object)ReflectionTestUtils.invokeMethod(next,"total"));assertEquals(1,((List<?>)ReflectionTestUtils.invokeMethod(next,"list")).size());
+            var snapshot=reading.get(15,TimeUnit.SECONDS);assertEquals(1,snapshot.total());assertEquals(1,snapshot.list().size());
+            Object next=page(1,20);assertEquals(0L,(Object)ReflectionTestUtils.invokeMethod(next,"total"));assertEquals(0,((List<?>)ReflectionTestUtils.invokeMethod(next,"list")).size());
         } finally {cancelled.countDown();pool.shutdownNow();}
     }
     @Test void permissionInfrastructureFailureIsNotConvertedToEmptyUsage() {

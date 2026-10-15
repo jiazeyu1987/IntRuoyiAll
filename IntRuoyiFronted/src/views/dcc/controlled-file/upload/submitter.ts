@@ -1,5 +1,7 @@
 import type {
   ControlledFileChangeType,
+  DccEffectiveMode,
+  ApprovalMatrixConfirmationSelection,
   ControlledFileSubmitReqVO,
   ControlledFileUploadPreviewContext,
   ControlledFileUploadRespVO,
@@ -7,8 +9,12 @@ import type {
 } from '@/api/dcc/controlledFile/workflow'
 import { validateAttributes } from '../project-attributes/state'
 import type { ProjectAttributes } from '../project-attributes/state'
+import { normalizeDistributionDepartments, requireUploadApplicationAccount } from './signoff-departments'
+import type { UploadApprovalGroup, UploadApplicationAccount, UploadApprovalAccount } from './signoff-departments'
+import { requireApprovalMatrixSelection } from './approval-matrix'
 
 export interface UploadFormDraft {
+  applicationCustomMatrix?: { approverUserId: string | null; documentControlUserId: string | null } | null
   categoryId: number | null
   directoryId: number | null
   fileName: string
@@ -26,10 +32,13 @@ export interface UploadFormDraft {
   processType: 'CONTROLLED_FILE' | 'EXTERNAL_REVIEW'
   changeType: ControlledFileChangeType
   versionNo?: string
-  effectiveDate: string
+  effectiveMode: DccEffectiveMode | null
+  effectiveDate: string | null
   remark?: string
   projectAttributes?: ProjectAttributes
   selectedSignoffDepartmentIds?: Array<number | string>
+  selectedDistributionDepartmentIds?: Array<number | string>
+  approvalMatrixSelection?: ApprovalMatrixConfirmationSelection
 }
 
 export interface UploadSelectionCandidate {
@@ -63,8 +72,16 @@ export interface UploadConfirmationFacts {
   fileTypeName?: string
   relatedFiles: Array<{ fileName: string; versionNo: string; pendingEffect?: boolean }>
   signoffDepartments?: Array<{ id: string; name: string }>
+  distributionDepartments?: Array<{ id: string; name: string }>
   approvers: Array<{ id: string; name: string; deptName?: string }>
+  compiler?: UploadApplicationAccount
+  supervisor?: UploadApplicationAccount
+  documentControl?: UploadApprovalAccount
   approvalRule: string
+  approvalGroups?: UploadApprovalGroup[]
+  runtimeCapabilityLimitations?: string[]
+  drawingPdf?: Pick<ControlledFileUploadRespVO, 'fileName'>
+  attachments?: Array<Pick<ControlledFileUploadRespVO, 'fileName'>>
 }
 
 const confirmedText = (value: string | undefined, field: string): string => {
@@ -77,16 +94,27 @@ export const buildUploadConfirmationSummary = (
 ): UploadConfirmationRow[] => {
   const rows: UploadConfirmationRow[] = []
   if (draft.processType === 'CONTROLLED_FILE') {
+    const compiler = requireUploadApplicationAccount(facts.compiler, '编制人')
+    const supervisor = requireUploadApplicationAccount(facts.supervisor, '直属主管')
     rows.push({ label: '项目', value: confirmedText(facts.projectName, '项目') },
       { label: '存储文件夹', value: confirmedText(facts.folderName, '项目文件夹') },
-      { label: '文件类型', value: confirmedText(facts.fileTypeName, '文件类型') })
+      { label: '文件类型', value: confirmedText(facts.fileTypeName, '文件类型') },
+      { label: '编制人', value: `${compiler.name}（${compiler.deptName}）` },
+      { label: '直属主管', value: `${supervisor.name}（${supervisor.deptName}）` })
   } else {
     rows.push({ label: '文件类别', value: confirmedText(facts.fileTypeName, '文件类别') })
   }
   rows.push({ label: '完整文件名称（含后缀）', value: confirmedText(preview.fileName, '源文件完整名称') },
     { label: '文件编号', value: confirmedText(draft.fileNumber, '文件编号') },
-    { label: draft.processType === 'CONTROLLED_FILE' ? '初始版本号' : '版本号', value: confirmedText(draft.versionNo, '版本号') },
-    { label: '预设生效日期', value: confirmedText(draft.effectiveDate, '预设生效日期') })
+    { label: draft.processType === 'CONTROLLED_FILE' ? '初始版本号' : '版本号', value: confirmedText(draft.versionNo, '版本号') })
+  if (draft.processType === 'EXTERNAL_REVIEW') rows.push({ label: '生效日期', value: confirmedText(draft.effectiveDate ?? undefined, '生效日期') })
+  else {
+    const effect = buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveUploadTodayDate())
+    rows.push({ label: '生效方式', value: effect.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE' ? '文控审核后立即生效' : effect.effectiveMode === 'DELAYED' ? '延迟生效' : '按预设日期生效（历史申请）' })
+    if (effect.effectiveMode === 'PRESET_DATE') rows.push({ label: '预设生效日期', value: effect.effectiveDate! })
+    if (effect.effectiveMode === 'DELAYED') rows.push({ label: '延迟生效确认', value: '文控审核及必要培训完成后，由原编制人选择生效时间并电子签名确认' })
+    if (effect.effectiveMode === 'AFTER_STANDARDIZATION_SIGNATURE') rows.push({ label: '生效时间', value: '文控标准化审核完成时记录本轮真实电子签名时间；日常可用和下发须同时满足受控且已生效。' })
+  }
   if (draft.processType === 'CONTROLLED_FILE') {
     const actual = validateAttributes(draft.projectAttributes as ProjectAttributes)
     const choices: Record<string, string> = { Y: '是', N: '否', NA: '不适用' }
@@ -99,12 +127,39 @@ export const buildUploadConfirmationSummary = (
       `${confirmedText(file.fileName, '关联文件名称')} · ${confirmedText(file.versionNo, '关联受控版本')}${file.pendingEffect ? ' · 待生效' : ''}`).join('；') : '未关联' })
     if (!Array.isArray(facts.signoffDepartments) || !facts.signoffDepartments.length) throw new Error('提交确认缺少会签部门')
     rows.push({ label: '会签部门', value: facts.signoffDepartments.map(department => confirmedText(department.name, '会签部门名称')).join('、') })
+    const ids = normalizeDistributionDepartments(draft.selectedDistributionDepartmentIds)
+    if (!Array.isArray(facts.distributionDepartments) || facts.distributionDepartments.length !== ids.length
+      || facts.distributionDepartments.some((department, index) => !department || department.id !== ids[index]))
+      throw new Error('提交确认下发部门与本次实际名单不一致')
+    rows.push({ label: '下发部门', value: ids.length
+      ? facts.distributionDepartments.map(department => confirmedText(department.name, '下发部门名称')).join('、') : '未选择下发部门' },
+      { label: '下发范围', value: '受控且已生效后，向所选下发部门的全部人员下发；签收不增加下载、打印或编制权限。' })
   }
   if (!Array.isArray(facts.approvers) || !facts.approvers.length) throw new Error('提交确认缺少批准人')
   rows.push({ label: '批准人', value: facts.approvers.map(account =>
     `${confirmedText(account.name, '批准人名称')}${account.deptName ? `（${account.deptName}）` : ''} · 账号ID ${confirmedText(account.id, '批准人身份')}`).join('；') },
     { label: '批准规则', value: confirmedText(facts.approvalRule, '批准规则') })
+  if (draft.approvalMatrixSelection?.approvalSourceMode === 'APPLICATION_CUSTOM') {
+    const selection = requireApprovalMatrixSelection(draft.approvalMatrixSelection, { phase: 'SUBMIT', actionType: draft.changeType }, {
+      applicationCustomMatrix: draft.applicationCustomMatrix ?? null, selectedSignoffDepartmentIds: draft.selectedSignoffDepartmentIds ?? null
+    })
+    const config = selection.applicationCustomMatrix!
+    if (facts.approvers.length !== 1 || facts.approvers[0].id !== config.approverUserId)
+      throw new Error('本次自定义批准人与确认名单不一致')
+    const control = facts.documentControl
+    if (!control || uploadIdentity(control.id) !== config.documentControlUserId) throw new Error('提交确认缺少本次正式文控审核人')
+    rows.push({ label: '审批来源', value: '本次自定义审批配置，仅用于本申请，不修改公共矩阵' },
+      { label: '文控审核人', value: `${confirmedText(control.name, '文控审核人名称')}${control.deptName ? `（${control.deptName}）` : ''} · 账号ID ${control.id}` },
+      { label: '本次自定义矩阵', value: '直属主管独立审核；各选定部门负责人签名指派后逐部门完成会签，全部通过；由本次所选批准人批准并确认负责人，最后由本次所选文控审核人审核。' })
+  }
+  if (facts.approvalGroups) for (const group of facts.approvalGroups)
+    rows.push({ label: `原批准组 ${group.sourceNodeId}`, value: confirmedText(group.summary, '原批准组规则') })
+  if (facts.runtimeCapabilityLimitations?.length) rows.push({ label: '运行能力说明', value: facts.runtimeCapabilityLimitations.join('；') })
   if (draft.processType === 'CONTROLLED_FILE') rows.push({ label: '培训', value: draft.needTraining ? '需要培训' : '不需要培训' })
+  rows.push({ label: '图纸 PDF', value: facts.drawingPdf ? confirmedText(facts.drawingPdf.fileName, '图纸 PDF 名称') : '未上传' },
+    { label: '普通附件', value: facts.attachments?.length
+      ? facts.attachments.map(file => confirmedText(file.fileName, '附件名称')).join('；') : '未上传' },
+    { label: '提交备注', value: draft.remark?.trim() || '未填写' })
   return rows
 }
 
@@ -115,6 +170,7 @@ interface UploadSubmitterServiceDeps {
     context: ControlledFileUploadPreviewContext
   ) => Promise<ControlledFileUploadRespVO>
   submit: (data: ControlledFileSubmitReqVO) => Promise<number>
+  createWorking?: (data: ControlledFileSubmitReqVO) => Promise<number>
 }
 
 const trimText = (value: string | null | undefined) => value?.trim() ?? ''
@@ -204,6 +260,48 @@ export const validateProductCode = (value: string | undefined): UploadSelectionV
   return { valid: true }
 }
 
+export const validateUploadEffectiveDate = (value: string | null | undefined, today: string): UploadSelectionValidation => {
+  const calendarDate = (text: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false
+    const [year, month, day] = text.split('-').map(Number)
+    if (year < 1) return false
+    const date = new Date(0)
+    date.setUTCFullYear(year, month - 1, day)
+    date.setUTCHours(0, 0, 0, 0)
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  }
+  if (!calendarDate(today)) throw new Error('当前日期无效，无法校验预设生效日期')
+  if (!value || !calendarDate(value)) return { valid: false, message: '请选择有效的预设生效日期' }
+  if (value < today) return { valid: false, message: '预设生效日期不能早于今天，请重新选择' }
+  return { valid: true }
+}
+
+export const resolveUploadTodayDate = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+export const buildUploadEffectiveChoice = (mode: unknown, date: string | null | undefined, today: string, executionContract?: string | null): {
+  effectiveMode: DccEffectiveMode; effectiveDate: string | null
+} => {
+  if (mode === 'DELAYED') {
+    if (executionContract != null && executionContract !== 'PUBLIC_MATRIX_NATIVE_V2') throw new Error('延迟生效确认仅支持本次正式新流程，历史申请不能隐式升级')
+    if (date !== null) throw new Error('延迟生效在申请阶段不填写具体生效时间或预设日期')
+    return { effectiveMode: mode, effectiveDate: null }
+  }
+  if (mode === 'AFTER_STANDARDIZATION_SIGNATURE') {
+    if (date !== null) throw new Error('文控标准化后生效时不能填写预设日期')
+    return { effectiveMode: mode, effectiveDate: null }
+  }
+  if (mode === 'PRESET_DATE') {
+    if (executionContract === 'PUBLIC_MATRIX_NATIVE_V2') throw new Error('新流程不能使用历史预设日期方式')
+    const result = validateUploadEffectiveDate(date, today)
+    if (!result.valid) throw new Error(result.message)
+    return { effectiveMode: mode, effectiveDate: date as string }
+  }
+  throw new Error('请选择生效方式')
+}
+
 export const validateDccProjectProductCode = (
   productCode: string | undefined,
   productRequired = false
@@ -288,13 +386,7 @@ export const resolveUploadErrorMessage = (
   fallback: string,
   processType?: UploadFormDraft['processType']
 ) => {
-  if (error instanceof Error && error.message && error.message !== 'error') {
-    return normalizeKnownUploadErrorMessage(error.message, fallback, processType)
-  }
-  if (typeof error === 'string' && error && error !== 'error') {
-    return normalizeKnownUploadErrorMessage(error, fallback, processType)
-  }
-  return fallback
+  return normalizeKnownUploadErrorMessage(resolveNestedUploadErrorText(error) || fallback, fallback, processType)
 }
 
 const readErrorField = (source: unknown, key: string): unknown => {
@@ -348,7 +440,7 @@ export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: strin
   const businessCode = readErrorField(readErrorField(readErrorField(error, 'response'), 'data'), 'code')
   if (businessCode === 1080000348 || businessCode === '1080000348'
     || rawMessage === '文件名称已存在，请先走作废或者升版路线') {
-    return '文件名称已被占用：已作废文件在20年保留期内仍占用原名。请引用已有文件，或在既有文件链中办理升版。'
+    return '文件名称已被占用；受控文件及20年保留期内的作废文件继续占用原名。请引用已有文件，或在既有文件链中办理升版。'
   }
   const normalized = rawMessage.toLowerCase()
   if (
@@ -417,18 +509,61 @@ const uploadIdentity = (value: number | string | null | undefined): string => {
   return String(value)
 }
 
-const placementReason = (value?: string): string => {
+const placementReason = (value?: string): string | undefined => {
   const reason = value?.trim()
-  if (!reason || reason.length > 500) throw new Error('请填写500字以内的文件夹登记说明')
-  return reason
+  if (reason && reason.length > 500) throw new Error('文件夹登记说明不能超过500字')
+  return reason || undefined
 }
 
-export const buildSubmitPayload = (
+export const validateUploadTickets = (
+  preview: ControlledFileUploadRespVO,
+  drawingPdf?: ControlledFileUploadRespVO,
+  attachments: ControlledFileUploadRespVO[] = []
+) => {
+  const identities = new Set<string>()
+  for (const upload of [preview, ...(drawingPdf ? [drawingPdf] : []), ...attachments]) {
+    if (!upload || !trimText(upload.uploadTicket) || !trimText(upload.sessionId) || !trimText(upload.fileName))
+      throw new Error('上传票据或文件身份不完整，请重新上传')
+    if (upload.expireTime != null && (!Number.isFinite(upload.expireTime) || upload.expireTime <= Date.now()))
+      throw new Error('上传票据已过期，请重新上传')
+    if (identities.has(upload.uploadTicket)) throw new Error('上传票据不能重复绑定正文或附件')
+    identities.add(upload.uploadTicket)
+  }
+  if (drawingPdf && drawingPdf.sessionId !== preview.sessionId)
+    throw new Error('图纸 PDF 与正文上传会话不一致，请重新上传')
+}
+
+export const validateUploadPreviewResponse = (upload: ControlledFileUploadRespVO, selectedFileName: string, requirePreviewKind: boolean) => {
+  validateUploadTickets(upload)
+  if (upload.fileName !== selectedFileName) throw new Error('上传原件完整名称与本次选择文件不一致，请重新上传')
+  if (requirePreviewKind && !['PDF', 'IMAGE', 'TEXT', 'OFFICE', 'VIDEO', 'AUDIO', 'DOWNLOAD_ONLY'].includes(upload.previewKind || ''))
+    throw new Error('上传响应缺少有效的正式预览类型，请重新上传')
+}
+
+const buildUploadPayload = (
   draft: UploadFormDraft,
   previewFile: ControlledFileUploadRespVO,
-  drawingPdfUpload?: ControlledFileUploadRespVO,
-  attachmentUploads: ControlledFileUploadRespVO[] = []
-): ControlledFileSubmitReqVO => ({
+  drawingPdfUpload: ControlledFileUploadRespVO | undefined,
+  attachmentUploads: ControlledFileUploadRespVO[],
+  creatingDraft: boolean
+): ControlledFileSubmitReqVO => {
+  validateUploadTickets(previewFile, drawingPdfUpload, attachmentUploads)
+  const matrix = draft.processType === 'EXTERNAL_REVIEW' ? undefined : requireApprovalMatrixSelection(draft.approvalMatrixSelection,
+    { phase: creatingDraft ? 'SAVE' : 'SUBMIT', actionType: draft.changeType }, {
+      applicationCustomMatrix: draft.applicationCustomMatrix ?? null, selectedSignoffDepartmentIds: draft.selectedSignoffDepartmentIds ?? null
+    })
+  if (draft.processType !== 'EXTERNAL_REVIEW' && matrix?.approvalSourceMode !== 'APPLICATION_CUSTOM' && draft.applicationCustomMatrix != null)
+    throw new Error('当前公共来源不能携带其他类型的自定义账号配置')
+  if (creatingDraft && draft.effectiveMode === null && draft.effectiveDate !== null)
+    throw new Error('未选择生效方式的草稿不能填写预设日期')
+  const effective = draft.processType === 'EXTERNAL_REVIEW'
+    ? { effectiveDate: confirmedText(draft.effectiveDate ?? undefined, '生效日期') }
+    : creatingDraft && draft.effectiveMode === null ? { effectiveDate: null }
+    : creatingDraft && draft.effectiveMode === 'PRESET_DATE' && draft.effectiveDate === null
+      ? { effectiveMode: draft.effectiveMode, effectiveDate: null }
+    : buildUploadEffectiveChoice(draft.effectiveMode, draft.effectiveDate, resolveUploadTodayDate(), draft.approvalMatrixSelection?.executionContract)
+  return {
+  ...matrix,
   categoryId: draft.categoryId as number,
   ...(draft.processType === 'CONTROLLED_FILE' && draft.changeType === 'NEW'
     ? {} : { directoryId: draft.directoryId as number }),
@@ -456,13 +591,24 @@ export const buildSubmitPayload = (
   projectAttributes: draft.processType === 'EXTERNAL_REVIEW' ? undefined
     : JSON.parse(JSON.stringify(validateAttributes(draft.projectAttributes as ProjectAttributes))),
   selectedSignoffDepartmentIds: draft.selectedSignoffDepartmentIds === undefined ? undefined : [...draft.selectedSignoffDepartmentIds],
+  selectedDistributionDepartmentIds: draft.processType === 'EXTERNAL_REVIEW' || (creatingDraft && draft.selectedDistributionDepartmentIds === undefined)
+    ? undefined : normalizeDistributionDepartments(draft.selectedDistributionDepartmentIds),
   needTraining: Boolean(draft.needTraining),
   processType: draft.processType,
   changeType: draft.changeType,
   versionNo: trimText(draft.versionNo) || undefined,
-  effectiveDate: draft.effectiveDate,
+  ...effective,
   remark: trimText(draft.remark) || undefined
-})
+  }
+}
+
+export const buildSubmitPayload = (draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
+  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []): ControlledFileSubmitReqVO =>
+  buildUploadPayload(draft, preview, drawingPdf, attachments, false)
+
+export const buildWorkingDraftPayload = (draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
+  drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []): ControlledFileSubmitReqVO =>
+  buildUploadPayload(draft, preview, drawingPdf, attachments, true)
 
 export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) => {
   return {
@@ -476,6 +622,11 @@ export const createUploadSubmitterService = (deps: UploadSubmitterServiceDeps) =
       attachmentUploads: ControlledFileUploadRespVO[] = []
     ) {
       return await deps.submit(buildSubmitPayload(draft, previewFile, drawingPdfUpload, attachmentUploads))
+    },
+    async saveDraft(draft: UploadFormDraft, preview: ControlledFileUploadRespVO,
+      drawingPdf?: ControlledFileUploadRespVO, attachments: ControlledFileUploadRespVO[] = []) {
+      if (!deps.createWorking) throw new Error('正式工作申请保存服务未接入')
+      return await deps.createWorking(buildWorkingDraftPayload(draft, preview, drawingPdf, attachments))
     }
   }
 }

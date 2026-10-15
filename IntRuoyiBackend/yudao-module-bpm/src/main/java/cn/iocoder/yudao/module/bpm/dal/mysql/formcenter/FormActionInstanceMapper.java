@@ -12,6 +12,11 @@ import java.util.List;
 @Mapper
 public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstanceDO> {
 
+    default FormActionInstanceDO selectByIdAndTenantForUpdate(Long tenantId, Long instanceId) {
+        return selectOne(new QueryWrapperX<FormActionInstanceDO>().eq("id", instanceId)
+                .eq("tenant_id", tenantId).last("FOR UPDATE"));
+    }
+
     default List<FormActionInstanceDO> selectSameBusinessAction(Long tenantId, String systemCode, String objectType,
             String objectId, String objectVersion, String actionCode) {
         return selectList(new QueryWrapperX<FormActionInstanceDO>()

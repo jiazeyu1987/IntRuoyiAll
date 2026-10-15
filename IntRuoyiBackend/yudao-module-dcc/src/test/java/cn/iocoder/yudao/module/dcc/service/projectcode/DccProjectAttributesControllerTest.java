@@ -38,10 +38,14 @@ class DccProjectAttributesControllerTest extends BaseDbUnitTest {
         var user = new AdminUserRespDTO(); user.setId(7L); user.setStatus(0); user.setNickname("负责人");
         when(users.getUser(7L)).thenReturn(user);
     }
+    private DccProjectAttributesController.Configuration configuration(Long id, Long leader, DccProjectAttributes value, String reason) {
+        return new DccProjectAttributesController.Configuration(leader, value, reason,
+                mapper.selectById(id) == null ? "a".repeat(64) : controller.configuration(id).getData().configurationToken());
+    }
     @Test void configurePersistsFormalAccountAndDefaultsButKeepsSavedApplication() {
         Long id = project();
         attributes.saveDraft(7L, id, "OBSOLETE", 81L, 1, defaults("CE"));
-        controller.configure(id, new DccProjectAttributesController.Configuration(7L, defaults("FDA"), "修改项目默认"));
+        controller.configure(id, configuration(id, 7L, defaults("FDA"), "修改项目默认"));
         var saved = mapper.selectById(id);
         assertEquals(7L, saved.getProjectLeaderUserId());
         assertEquals("负责人", saved.getProjectLeader());
@@ -57,18 +61,18 @@ class DccProjectAttributesControllerTest extends BaseDbUnitTest {
         Long id = project();
         doThrow(new IllegalStateException("统一审计失败")).when(audit).append(any());
         assertThrows(RuntimeException.class, () -> controller.configure(id,
-                new DccProjectAttributesController.Configuration(7L, defaults("FDA"), "修改项目默认")));
+                configuration(id, 7L, defaults("FDA"), "修改项目默认")));
         assertEquals(defaults("NMPA"), attributes.defaults(mapper.selectById(id)));
         assertNull(mapper.selectById(id).getProjectLeaderUserId());
     }
     @Test void missingReasonInvalidAccountAndUnknownProjectReject() {
         Long id = project();
         assertThrows(RuntimeException.class, () -> controller.configure(id,
-                new DccProjectAttributesController.Configuration(7L, defaults("FDA"), " ")));
+                configuration(id, 7L, defaults("FDA"), " ")));
         assertThrows(RuntimeException.class, () -> controller.configure(id,
-                new DccProjectAttributesController.Configuration(99L, defaults("FDA"), "修改")));
+                configuration(id, 99L, defaults("FDA"), "修改")));
         assertThrows(RuntimeException.class, () -> controller.configure(999L,
-                new DccProjectAttributesController.Configuration(7L, defaults("FDA"), "修改")));
+                configuration(999L, 7L, defaults("FDA"), "修改")));
         verifyNoInteractions(audit);
     }
     @Test void configurationAndInitializationEndpointsKeepExplicitPermissions() throws Exception {
@@ -76,5 +80,7 @@ class DccProjectAttributesControllerTest extends BaseDbUnitTest {
                 .getMethod("configure", Long.class, DccProjectAttributesController.Configuration.class).getAnnotation(PreAuthorize.class).value());
         assertEquals("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:submit','dcc:controlled-file:query')", DccProjectAttributesController.class
                 .getMethod("defaults", Long.class, String.class).getAnnotation(PreAuthorize.class).value());
+        assertEquals("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')", DccProjectAttributesController.class
+                .getMethod("configuration", Long.class).getAnnotation(PreAuthorize.class).value());
     }
 }

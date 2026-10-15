@@ -28,6 +28,8 @@ class DccRelationRemediationTransactionTest {
         jdbc.update("INSERT INTO dcc_controlled_file_master VALUES (10,1,0)");
         jdbc.execute("CREATE TABLE dcc_controlled_file_related_file (tenant_id BIGINT,controlled_file_id BIGINT,related_master_id BIGINT,deleted INT)");
         jdbc.update("INSERT INTO dcc_controlled_file_related_file VALUES (1,100,20,0),(1,100,30,0)");
+        jdbc.execute("CREATE TABLE dcc_controlled_file_signature(id BIGINT PRIMARY KEY,controlled_file_id BIGINT,process_instance_id VARCHAR(128),task_id VARCHAR(128),actor_id BIGINT,signed_at DATETIME,action_type VARCHAR(32),evidence_status VARCHAR(32),deleted INT)");
+        DccRelationStageH2Schema.create(jdbc);
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))
             if(!sql.isBlank()) jdbc.execute(sql);
         files=mock(DccLatestControlledFileResolver.class); access=mock(DccRelationAccessPolicy.class);

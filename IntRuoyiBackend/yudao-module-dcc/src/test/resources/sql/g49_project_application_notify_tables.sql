@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS "system_users" (
     "nickname" varchar(30) not null,
     "remark" varchar(500) default null,
     "dept_id" bigint default null,
+    "direct_supervisor_user_id" bigint default null,
+    "direct_supervisor_revision" bigint not null default 0,
     "post_ids" varchar(255) default null,
     "email" varchar(50) default '',
     "mobile" varchar(11) default '',

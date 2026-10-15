@@ -1,7 +1,7 @@
 import {
   getDccControlledFileStageByStatus,
   getDccControlledFileStageByKey,
-  type DccControlledFileStageKey,
+  type DccControlledFileRuntimeStageKey,
   type DccControlledFileStatus
 } from './lifecycle'
 import type { ControlledFileRouteSnapshotVO } from '@/api/dcc/controlledFile/workflow'
@@ -38,7 +38,7 @@ export interface DccTaskLike {
 }
 
 export interface DccTaskStageProgress {
-  stageCode: DccControlledFileStageKey
+  stageCode: DccControlledFileRuntimeStageKey
   stageName: string
   stageOrder: number
   totalCount: number
@@ -69,7 +69,8 @@ export interface DccTaskHandlingHint {
   responsibilityHint: string
 }
 
-const STAGE_CODE_SET = new Set<DccControlledFileStageKey>([
+const STAGE_CODE_SET = new Set<DccControlledFileRuntimeStageKey>([
+  'SUPERVISOR_REVIEW',
   'DOC_CONTROL_REVIEW',
   'MATRIX_REVIEW',
   'MATRIX_APPROVAL',
@@ -79,9 +80,12 @@ const STAGE_CODE_SET = new Set<DccControlledFileStageKey>([
 const toStageCode = (
   stageCode: string | undefined,
   stageNo: number | undefined
-): DccControlledFileStageKey | undefined => {
-  if (stageCode && STAGE_CODE_SET.has(stageCode as DccControlledFileStageKey)) {
-    return stageCode as DccControlledFileStageKey
+): DccControlledFileRuntimeStageKey | undefined => {
+  if (stageCode) {
+    if (!STAGE_CODE_SET.has(stageCode as DccControlledFileRuntimeStageKey)) {
+      throw new Error(`审批节点代码未支持：${stageCode}`)
+    }
+    return stageCode as DccControlledFileRuntimeStageKey
   }
   switch (stageNo) {
     case 1:

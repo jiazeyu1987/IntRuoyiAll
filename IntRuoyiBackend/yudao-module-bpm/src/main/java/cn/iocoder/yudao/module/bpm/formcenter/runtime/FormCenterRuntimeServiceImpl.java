@@ -626,6 +626,43 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     public void saveDraft(Long instanceId, FormInstanceDraftReqVO reqVO, Long userId) {
         FormActionInstanceDO instance = requireInstance(instanceId);
         requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
+        FormControlledActionLifecycleAdapter adapter = null;
+        if (lifecycleAdapters.stream().anyMatch(candidate -> candidate instanceof
+                cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter)) {
+            FormActionInstance domain = toDomainInstance(instance, toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId())));
+            adapter = lifecycleAdapters.stream().filter(candidate -> candidate.supports(domain)).findFirst().orElse(null);
+        }
+        if (adapter instanceof cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter) {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            instance = actionInstanceMapper.selectByIdAndTenantForUpdate(tenantId, instanceId);
+            if (instance == null || !Objects.equals(instance.getTenantId(), tenantId)
+                    || userId == null || userId <= 0 || !Objects.equals(instance.getApplicantUserId(), userId)
+                    || instance.getBpmProcessInstanceId() != null) {
+                throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                        "Exact draft save requires its real tenant and applicant before BPM binding");
+            }
+            requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
+            FormActionInstance lockedDomain = toDomainInstance(instance,
+                    toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId())));
+            if (requireLifecycleAdapter(lockedDomain) != adapter) {
+                throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                        "Locked draft lifecycle adapter differs from the selected adapter");
+            }
+            String savedJson = JsonUtils.toJsonString(reqVO.getFormData());
+            var update = new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FormActionInstanceDO>()
+                    .eq(FormActionInstanceDO::getId, instance.getId()).eq(FormActionInstanceDO::getTenantId, tenantId)
+                    .eq(FormActionInstanceDO::getApplicantUserId, userId).eq(FormActionInstanceDO::getStatus, instance.getStatus())
+                    .isNull(FormActionInstanceDO::getBpmProcessInstanceId)
+                    .set(FormActionInstanceDO::getFormDataJson, savedJson);
+            if (instance.getFormDataJson() == null) update.isNull(FormActionInstanceDO::getFormDataJson);
+            else update.eq(FormActionInstanceDO::getFormDataJson, instance.getFormDataJson());
+            if (actionInstanceMapper.update(null, update) != 1) {
+                throw new IllegalStateException("Exact draft save lost its locked form CAS");
+            }
+            instance.setFormDataJson(savedJson);
+            recordSnapshot(instance, FormSnapshotType.DRAFT, savedJson);
+            return;
+        }
         instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
         actionInstanceMapper.updateById(instance);
         recordSnapshot(instance, FormSnapshotType.DRAFT, instance.getFormDataJson());
@@ -646,7 +683,62 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         }
         FormActionInstance domainInstance = toDomainInstance(instance, resolvedPolicy);
         domainInstance.setFormData(reqVO.getFormData());
-        FormControlledActionLifecycleAdapter lifecycleAdapter = runLifecyclePreflight(domainInstance);
+        FormControlledActionLifecycleAdapter lifecycleAdapter = requireLifecycleAdapter(domainInstance);
+        cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter.VerifiedSubmission exactSubmission = null;
+        if (lifecycleAdapter instanceof cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter exactAdapter) {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            instance = actionInstanceMapper.selectByIdAndTenantForUpdate(tenantId, instanceId);
+            if (instance == null || !Objects.equals(instance.getTenantId(), tenantId)
+                    || !Objects.equals(instance.getApplicantUserId(), userId)) {
+                throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                        "Exact form submission requires its real tenant and applicant");
+            }
+            requireStatus(instance, FormInstanceStatus.DRAFT, FormInstanceStatus.REWORKING);
+            resolvedPolicy = toPolicy(requireBusinessApprovalPolicy(instance.getPolicyId()));
+            approvalMode = resolvedPolicy.getApprovalMode();
+            if (approvalMode != FormApprovalMode.BPM_REQUIRED) {
+                throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                        "Exact form preparation requires a BPM approval policy");
+            }
+            domainInstance = toDomainInstance(instance, resolvedPolicy);
+            domainInstance.setFormData(reqVO.getFormData());
+            if (requireLifecycleAdapter(domainInstance) != lifecycleAdapter) {
+                throw new FormCenterException(FormCenterErrorCode.FORM_ACTION_CONTEXT_INVALID,
+                        "Locked form lifecycle adapter differs from the selected adapter");
+            }
+            exactSubmission = exactAdapter.verifyExactSubmission(
+                    new cn.iocoder.yudao.module.bpm.formcenter.service.FormExactBpmSubmissionAdapter.PersistedDraft(
+                            tenantId, instance.getId(), instance.getInstanceCode(), instance.getApplicantUserId(),
+                            instance.getStatus(), instance.getBpmProcessInstanceId(), instance.getFormDataJson()),
+                    domainInstance, userId);
+            if (exactSubmission == null || !Objects.equals(resolvedPolicy.getBpmProcessKey(), exactSubmission.processDefinitionKey())
+                    || exactSubmission.processDefinitionId() == null || exactSubmission.processDefinitionId().isBlank()
+                    || !exactSubmission.processDefinitionId().equals(exactSubmission.processDefinitionId().strip())
+                    || exactSubmission.formDataJson() == null || exactSubmission.formDataJson().isBlank()
+                    || exactSubmission.startUserSelectAssignees() == null || exactSubmission.approveUserSelectAssignees() == null) {
+                throw new FormCenterException(FormCenterErrorCode.BPM_BINDING_MISSING,
+                        "The business adapter did not verify an exact definition and saved form data");
+            }
+            Map<String, Object> verifiedData = JsonUtils.parseObject(exactSubmission.formDataJson(),
+                    new TypeReference<Map<String, Object>>() {});
+            if (verifiedData == null) throw new IllegalArgumentException("Verified form data must be a JSON object");
+            // The opted-in business verifier acquires its ordered locks before File preflight.
+            // Both checks must finish before canonical data is written or BPM is started.
+            domainInstance.setFormData(verifiedData);
+            runLifecyclePreflight(domainInstance);
+            var update = new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<FormActionInstanceDO>()
+                    .eq(FormActionInstanceDO::getId, instance.getId()).eq(FormActionInstanceDO::getTenantId, tenantId)
+                    .eq(FormActionInstanceDO::getStatus, instance.getStatus())
+                    .eq(FormActionInstanceDO::getApplicantUserId, userId)
+                    .set(FormActionInstanceDO::getFormDataJson, exactSubmission.formDataJson());
+            if (actionInstanceMapper.update(null, update) != 1) {
+                throw new IllegalStateException("Exact form preparation lost its locked draft CAS");
+            }
+            instance.setFormDataJson(exactSubmission.formDataJson());
+            domainInstance.setFormData(verifiedData);
+        } else {
+            runLifecyclePreflight(domainInstance);
+        }
         if (approvalMode == FormApprovalMode.DIRECT) {
             instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
             actionInstanceMapper.updateById(instance);
@@ -658,12 +750,14 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
             notifyPendingApprovalClosed(instance, outcome, null, lifecycleAdapter);
             return toInstanceResp(instance);
         }
-        String processInstanceId = processInstanceApi.createProcessInstance(userId,
-                buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees(),
-                        reqVO.getApproveUserSelectAssignees()));
+        BpmProcessInstanceCreateReqDTO bpmRequest = buildBpmRequest(instance, resolvedPolicy,
+                exactSubmission == null ? reqVO.getStartUserSelectAssignees() : exactSubmission.startUserSelectAssignees(),
+                exactSubmission == null ? reqVO.getApproveUserSelectAssignees() : exactSubmission.approveUserSelectAssignees());
+        if (exactSubmission != null) bpmRequest.setProcessDefinitionId(exactSubmission.processDefinitionId());
+        String processInstanceId = processInstanceApi.createProcessInstance(userId, bpmRequest);
         try {
             instance.setStatus(FormInstanceStatus.IN_APPROVAL.name());
-            instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
+            if (exactSubmission == null) instance.setFormDataJson(JsonUtils.toJsonString(reqVO.getFormData()));
             instance.setBpmProcessInstanceId(processInstanceId);
             actionInstanceMapper.updateById(instance);
             recordSnapshot(instance, FormSnapshotType.SUBMIT, instance.getFormDataJson());
@@ -1073,6 +1167,18 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         if ("dcc-controlled-file-obsolete".equals(policy.getBpmProcessKey())) {
             Map<String,Object> data = JsonUtils.parseObject(instance.getFormDataJson(),
                     new TypeReference<Map<String,Object>>() {});
+            Object code = data == null ? null : data.get("fileCode");
+            Object version = data == null ? null : data.get("fileVersion");
+            Object fileId = data == null ? null : data.get("controlledFileId");
+            if (!(code instanceof String fileCode) || fileCode.isBlank() || !fileCode.equals(fileCode.strip())
+                    || !(version instanceof String fileVersion) || fileVersion.isBlank()
+                    || !Objects.equals(fileVersion, instance.getObjectVersion())
+                    || fileId == null || !Objects.equals(String.valueOf(fileId), instance.getObjectId()))
+                throw new IllegalArgumentException("DCC 作废缺少准确冻结文件编号、版本或文件身份");
+            variables.put("fileCode", fileCode);
+            variables.put("fileVersion", fileVersion);
+            variables.put("controlledFileId", Long.valueOf(instance.getObjectId()));
+            reqDTO.setName("DCC受控文件作废审批 " + fileCode + " / " + fileVersion);
             Object raw = data == null ? null : data.get("dccSignoffDepartmentIds");
             List<Long> leaders = startUserSelectAssignees == null ? null : startUserSelectAssignees.get("MATRIX_REVIEW");
             if (!(raw instanceof List<?> ids) || ids.isEmpty() || leaders == null || ids.size() != leaders.size())

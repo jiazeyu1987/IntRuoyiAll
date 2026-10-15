@@ -1,8 +1,10 @@
 package cn.iocoder.yudao.module.dcc.controller.admin.category.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Schema(description = "管理后台 - DCC 文件类别新增/修改 Request VO")
@@ -17,6 +19,10 @@ public class DccFileCategorySaveReqVO {
 
     @NotBlank(message = "类别名称不能为空")
     private String name;
+
+    @NotBlank(message = "请明确文件类别审批来源")
+    @Pattern(regexp = "PUBLIC_MATRIX|APPLICATION_CUSTOM", message = "文件类别审批来源无效")
+    private String approvalSourceMode;
 
     @NotNull(message = "类别启用状态不能为空")
     private Boolean active;
@@ -35,4 +41,7 @@ public class DccFileCategorySaveReqVO {
 
     private Boolean distributionRequired;
     private Boolean trainingRequired;
+
+    @Valid
+    private DccCategoryDirectoryBindingSaveReqVO directoryBinding;
 }

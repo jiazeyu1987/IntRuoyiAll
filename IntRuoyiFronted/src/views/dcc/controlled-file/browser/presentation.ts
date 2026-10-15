@@ -11,6 +11,7 @@ import {
 } from '../shared/lifecycle'
 import type { DccControlledFileActionProjectionVO } from '@/api/dcc/controlledFile/workflow'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { getDccVersionDisplayText } from '../shared/version-display'
 
 export const BROWSER_STATUS_FILTER_OPTIONS = DCC_CONTROLLED_FILE_STATUS_OPTIONS
 
@@ -25,7 +26,7 @@ type BrowserRowReadableState = {
 interface BrowserVersionSummarySource {
   versionNo?: string
   status?: string
-  effectiveDate?: string
+  effectiveDate?: string | readonly number[] | null
   publishedTime?: number
   publishedArtifactAvailable?: boolean
   stampedArtifactAvailable?: boolean
@@ -52,6 +53,21 @@ export const getBrowserStatusLabel = (status: string | undefined) =>
 
 export const getBrowserStatusTagType = (status: string | undefined): DccControlledFileTagType =>
   getDccControlledFileStatusTagType(status as DccControlledFileStatus | undefined)
+
+export const formatBrowserEffectiveDate = (value: BrowserVersionSummarySource['effectiveDate']) => {
+  if (value == null || value === '') return '-'
+  let year: number, month: number, day: number
+  if (Array.isArray(value) && value.length === 3 && value.every(Number.isInteger)) {
+    ;[year, month, day] = value
+  } else if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    ;[year, month, day] = value.split('-').map(Number)
+  } else return '日期格式异常'
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  if (year < 1 || year > 9999 || date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '日期格式异常'
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
 
 export const isBrowserHistoryVisible = (status: string | undefined) => {
   const typedStatus = status as DccControlledFileStatus | undefined
@@ -97,14 +113,14 @@ export const getBrowserVersionSummary = (
   }
 
   return {
-    versionText: version.versionNo || '-',
+    versionText: getDccVersionDisplayText(version.versionNo),
     statusLabel: getBrowserStatusLabel(version.status),
     statusTagType: getBrowserStatusTagType(version.status),
     versionKindText,
     versionKindTagType,
     isCurrentActiveVersion,
     modifying: Boolean(isSelectedVersionModifying || version.modifying),
-    effectiveText: `生效：${version.effectiveDate || '-'}`,
+    effectiveText: `生效：${formatBrowserEffectiveDate(version.effectiveDate)}`,
     publishedText: `发布：${formatDateTimeValue(version.publishedTime, '-')}`,
     publishedFileStatusText: getBrowserPublishedFileStatusText(version),
     stampedFileStatusText: getBrowserStampedFileStatusText(version),

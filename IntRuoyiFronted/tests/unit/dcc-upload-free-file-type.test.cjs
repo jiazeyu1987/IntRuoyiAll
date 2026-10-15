@@ -19,6 +19,14 @@ test('actual chosen file name is the source context before preview even without 
  const calls=[],file={uid:1,name:'Arbitrary.SOP.docx',raw:{name:'Arbitrary.SOP.docx',type:'application/docx'}}
  const s={sourceUploadRequestSeq:0,isExternalReview:ref(false),formData:{fileName:'old-template',fileTypeTaxonomyId:'11',categoryId:2},validateControlledFileSelection:()=>({valid:true}),uploadRef:ref(),resetSelectedPreview:()=>{},cleanupCurrentUploadSession:async()=>true,resetDrawingPdfUpload:()=>{},resetAttachmentUploads:()=>{},clearSubmitFieldErrors:()=>{},submitFieldErrors:{},uploadPreviewError:ref(''),fileList:ref([]),previewUpload:ref(),previewFileBlob:ref(),uploadPreviewLoading:ref(false),uploadSessionBinding:ref(),uploadSessionId:'session-client',buildUploadPreviewContext:()=>{},uploadSubmitterService:{uploadPreview:async(raw,purpose,context)=>{calls.push({raw,purpose,context});return{fileName:raw.name,sessionId:'real-scoped-session',uploadTicket:'ticket'}}},cleanupStaleUploadResponse:async()=>{},message:{error:()=>{}},resolveUploadPreviewErrorMessage:e=>e.message,resetUploadNameLinkage:()=>{},clearCurrentVersionInfo:()=>{}}
  const {c,handler}=execute(block("const handleFileChange: UploadProps['onChange']",'const handleBeforeFileRemove:'),s,'handleFileChange')
+ c.submitLoading=ref(false);c.projectAttributesLoading=ref(false);c.uploadSubmitted=ref(false)
+ c.captureUploadSelectionContext=()=>JSON.stringify([c.formData.categoryId,c.formData.fileTypeTaxonomyId])
+ c.createControlledFileUploadSessionId=()=> 'new-independent-session'
+ const helpers={exports:{},Error,require:()=>({validateAttributes:value=>value})}
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/upload/submitter.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,helpers)
+ c.validateUploadPreviewResponse=helpers.exports.validateUploadPreviewResponse
+ const transport=c.uploadSubmitterService.uploadPreview
+ c.uploadSubmitterService.uploadPreview=async(...args)=>({...await transport(...args),previewKind:'OFFICE'})
  c.buildUploadPreviewContext=()=>({fileName:c.formData.fileName,fileTypeTaxonomyId:'11',categoryId:2})
  await handler(file,[file])
  assert.equal(calls.length,1)

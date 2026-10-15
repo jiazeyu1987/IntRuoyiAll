@@ -16,6 +16,7 @@ class DccFolderTemplateServiceTest extends BaseDbUnitTest {
     @Resource private DccFolderTemplateService service;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean private DccFolderTemplateMapper templates;
     @Resource private DccProjectCodeMapper projects;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean private DccProjectFolderMapper folders;
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean private DccFolderTemplateHistoryMapper history;
     @MockitoBean private PermissionApi permissions;
     @MockitoBean private cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projectAccess;
@@ -107,6 +108,28 @@ class DccFolderTemplateServiceTest extends BaseDbUnitTest {
         Long unused = service.save(7L, new DccFolderTemplateService.Save(null, "未用", null, true, structure("文件"), "测试操作"));
         service.delete(7L, unused, "删除未使用模板");
         assertNull(templates.selectById(unused));
+    }
+    @Test void disabledProjectCannotGenerateEvenFromAnOtherwiseValidFrozenSnapshot() {
+        Long template = service.save(7L, new DccFolderTemplateService.Save(null, "模板", null, true, structure("文件"), "创建模板"));
+        String snapshot = service.captureForRequest(template);
+        Long projectId = project("DISABLED-GENERATION");
+        var project = projects.selectById(projectId);
+        project.setStatus("DISABLE"); projects.updateById(project);
+        assertThrows(RuntimeException.class, () -> service.generate(projectId, template, snapshot));
+        assertTrue(folders.listByProject(projectId).isEmpty());
+    }
+    @Test void generationMustRejectExistingFoldersEvenIfAnEarlierPlainReadWouldBeEmpty() {
+        Long template = service.save(7L, new DccFolderTemplateService.Save(null, "模板", null, true, structure("文件"), "创建模板"));
+        String snapshot = service.captureForRequest(template);
+        Long projectId = project("CURRENT-GENERATION");
+        var first = service.generate(projectId, template, snapshot);
+        clearInvocations(folders);
+        // Model an earlier RR consistent-read snapshot; the production current read remains real H2 SQL.
+        doReturn(List.of()).when(folders).listByProject(projectId);
+        assertThrows(RuntimeException.class, () -> service.generate(projectId, template, snapshot));
+        assertEquals(first.size(), folders.listByProjectForUpdate(projectId).size());
+        verify(folders, never()).listByProject(projectId);
+        verify(folders, never()).insert(any(DccProjectFolderDO.class));
     }
     @Test void cycleMissingParentDuplicateSiblingAndEmptyStructureReject() {
         for (var invalid : List.of(

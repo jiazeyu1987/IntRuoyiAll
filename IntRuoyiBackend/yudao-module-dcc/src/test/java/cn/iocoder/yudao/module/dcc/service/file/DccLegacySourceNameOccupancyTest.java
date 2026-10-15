@@ -51,7 +51,7 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   assertEquals(0,claims.countUnresolvedNames(1L));
   assertNull(jdbc.queryForObject("SELECT source_original_file_name FROM dcc_controlled_file_name_claim WHERE id=7",String.class));
  }
- void selectorFixture(){legacyFixture();formalLegacyIdentity();jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status) VALUES(5,1,'Formal project','P5','ENABLE')");jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20 WHERE id=10");jdbc.update("UPDATE dcc_controlled_file SET controlled_time=CURRENT_TIMESTAMP WHERE id=20");}
+ void selectorFixture(){legacyFixture();formalLegacyIdentity();jdbc.update("INSERT INTO dcc_project_code(id,tenant_id,project_name,project_code,status) VALUES(5,1,'Formal project','P5','ENABLE')");jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=20,current_active_controlled_file_id=20 WHERE id=10");jdbc.update("UPDATE dcc_controlled_file SET controlled_time=CURRENT_TIMESTAMP,activated_time=CURRENT_TIMESTAMP WHERE id=20");}
  @Test void legacySourceNameKeywordMustUseVerifiedExactVersionInAllCandidateCountAndPageQueries() {
   selectorFixture();var request=new DccControlledFileSelectorQuery(null,null,null,"SOP.pdf",1,10);
   assertEquals(1,selector.selectCandidates(1L,request).size());
@@ -92,6 +92,7 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   var master=org.springframework.test.util.ReflectionTestUtils.getField(names,"masterMapper");org.springframework.test.util.ReflectionTestUtils.setField(query,"controlledFileMasterMapper",master);
   var directory=org.mockito.Mockito.mock(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService.class);org.mockito.Mockito.when(directory.hasDirectoryManagementPermission(99L)).thenReturn(true);org.springframework.test.util.ReflectionTestUtils.setField(query,"directoryAccessPermissionService",directory);
   var assigned=org.mockito.Mockito.mock(DccControlledFileAssignmentScopeService.class);org.mockito.Mockito.when(assigned.isWithinAssignedFileScope(org.mockito.ArgumentMatchers.eq(99L),org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);org.springframework.test.util.ReflectionTestUtils.setField(query,"assignmentScopeService",assigned);
+  var projects=org.mockito.Mockito.mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);org.mockito.Mockito.when(projects.listReadableProjectIds(99L)).thenReturn(java.util.List.of(5L));org.springframework.test.util.ReflectionTestUtils.setField(query,"projectAccessService",projects);
   return query;
  }
 
@@ -236,7 +237,21 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   names.claimIdentity(1L,"SOP.pdf",5L,6L,"N-1",12L);
   assertEquals(0,jdbc.queryForObject("SELECT deleted FROM dcc_controlled_file_name_claim WHERE id=7",Integer.class));
   assertNull(jdbc.queryForObject("SELECT retain_until FROM dcc_controlled_file_name_claim WHERE id=7",java.sql.Timestamp.class));
-  assertEquals("MODERN",reservations.readName(1L,"SOP.pdf".getBytes(java.nio.charset.StandardCharsets.UTF_8)).getReservationKind());
+   assertEquals("MODERN",reservations.readName(1L,"SOP.pdf".getBytes(java.nio.charset.StandardCharsets.UTF_8)).getReservationKind());
+  }
+ @Test void retainedLegacyNumberBlocksNewChainAcrossProjectAndTypeUsingVerifiedEvidence() {
+  legacyFixture();formalLegacyIdentity();
+  jdbc.update("UPDATE dcc_controlled_file_name_claim SET dcc_project_code_id=NULL,file_type_taxonomy_leaf_id=NULL,normalized_file_number=NULL WHERE id=7");
+  jdbc.update("UPDATE dcc_legacy_source_name_evidence SET claim_project_id=NULL,claim_leaf_id=NULL,claim_number=NULL");
+  var obsolete=java.time.LocalDateTime.of(2026,10,6,12,0);
+  names.retainObsoleteIdentity(1L,10L,obsolete,obsolete.plusYears(20));
+  newMaster(12,8,"N-1");
+  jdbc.update("UPDATE dcc_controlled_file_master SET file_type_taxonomy_leaf_id=9 WHERE id=12");
+  var rejected=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+    ()->names.claimIdentity(1L,"different.pdf",8L,9L,"N-1",12L));
+  assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RETAINED_NUMBER_EXISTS.getCode(),rejected.getCode());
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_name_claim",Integer.class));
+  names.claimExistingVersion(1L,"SOP.pdf",5L,6L,"N-1",10L,20L);
  }
  @Test void activeLegacyReservationAndNewShareTheRealExactRegistryLock() throws Exception {
   legacyFixture();newMaster(11,7,"N-2");
@@ -250,6 +265,22 @@ public class DccLegacySourceNameOccupancyTest extends BaseDbUnitTest {
   } finally {unlock.countDown();pool.shutdownNow();}
   assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_source_name_reservation",Integer.class));
   assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_name_claim WHERE source_original_file_name IS NOT NULL",Integer.class));
+ }
+ @Test void retainedLegacyNumberReadGateUsesVerifiedTenantEvidenceAndExplicitRelease() {
+  legacyFixture();formalLegacyIdentity();
+  var obsolete=java.time.LocalDateTime.of(2026,10,7,12,0);
+  names.retainObsoleteIdentity(1L,10L,obsolete,obsolete.plusYears(20));
+  assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->names.requireNumberAvailableForNewFile("N-1"));
+  TenantContextHolder.setTenantId(2L);
+  names.requireNumberAvailableForNewFile("N-1");
+  TenantContextHolder.setTenantId(1L);
+  jdbc.update("UPDATE dcc_legacy_source_name_scope SET status='PREPARED' WHERE id=1");
+  names.requireNumberAvailableForNewFile("N-1");
+  jdbc.update("UPDATE dcc_legacy_source_name_scope SET status='VERIFIED' WHERE id=1");
+  assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->names.requireNumberAvailableForNewFile("N-1"));
+  jdbc.update("UPDATE dcc_legacy_source_name_evidence SET released_time=CURRENT_TIMESTAMP");
+  names.requireNumberAvailableForNewFile("N-1");
+  assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_legacy_source_name_evidence",Integer.class));
  }
  public static String jsonExtract(String value,String path){if(value==null)return null;var n=cn.hutool.json.JSONUtil.parseObj(value).get(path.substring(2));return n==null?null:cn.hutool.json.JSONUtil.toJsonStr(n);}
  public static String jsonUnquote(String value){if(value==null)return null;if(value.startsWith("\""))return cn.hutool.json.JSONUtil.parseArray("["+value+"]").getStr(0);return value;}

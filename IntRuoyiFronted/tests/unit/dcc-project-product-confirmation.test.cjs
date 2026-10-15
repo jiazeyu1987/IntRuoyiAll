@@ -6,12 +6,15 @@ const vm = require('node:vm')
 
 const source = fs.readFileSync('src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue', 'utf8')
 const handler = source.slice(source.indexOf('const submitProjectProductRequest ='), source.indexOf('const handleProjectProductAction ='))
-const reviewer = { configured: true, enabled: true, reviewerUserId: '9223372036854775707', reviewerUsername: 'quality', reviewerNickname: '质量审核' }
+const reviewer = { reviewContract: 'ROLE_SINGLE_REVIEW_V1', roleId: '9223372036854775706', roleCode: 'dcc_project_reviewer', roleName: '项目审核员', canReview: false, candidates: [{ userId: '9223372036854775707', username: 'quality', nickname: '质量审核' }, { userId: '8', username: 'review-b', nickname: '审核乙' }] }
 const attrs = { targetMarkets: ['CE'], licenseHolder: 'Y', actualManufacturer: 'N', documentTransfer: 'N' }
 function host({ confirm = async () => {}, configuration = async () => ({ ...reviewer }), rejectedId } = {}) {
   const writes = [], confirmations = [], successes = []
   const context = {
     projectProductLoading: { value: false }, projectProductError: { value: '' },
+    projectProductDialogSequence: 1, projectProductActorScope: () => 'actual-confirmation-fixture',
+    projectRequestAccess: () => ({ query: true }), checkPermi: () => true,
+    projectProductExactRequestId: { value: undefined }, projectProductRequests: { value: [] }, dccProjectProductRequestIdentity: String,
     projectProductFormRef: { value: { validate: async () => true } },
     projectProductDialogVisible: { value: true }, projectProductMode: { value: 'create' },
     projectProductResubmitRequestId: { value: rejectedId }, reviewerConfiguration: { value: undefined },
@@ -21,11 +24,11 @@ function host({ confirm = async () => {}, configuration = async () => ({ ...revi
     projectLeaderUsers: { value: [{ id: 7, nickname: '项目负责人', username: 'leader' }] },
     folderTemplates: { value: [{ id: 9, name: '模板A', active: true, structureJson: '{"nodes":[]}' }] },
     validateAttributes: value => value,
-    requireConfiguredReviewer: value => { if (!value.configured || !value.enabled) throw new Error('审核配置无效'); return value },
-    getDccProjectReviewerConfiguration: configuration,
+    requireProjectReviewerRole: value => { if (!value.candidates.length) throw new Error('角色配置无效'); return value },
+    getDccProjectReviewerRole: configuration,
     confirmProjectProductApplication: async (...values) => { confirmations.push(values); await confirm(context) },
-    createDccProjectProductRequest: async value => writes.push({ value }),
-    resubmitDccProjectProductRequest: async (id, value) => writes.push({ id, value }),
+    createDccProjectProductRequest: async value => { writes.push({ value }); return '9007199254740999' },
+    resubmitDccProjectProductRequest: async (id, value) => { writes.push({ id, value }); return '9007199254740999' },
     message: { success: value => successes.push(value) }, resetProjectProductForm() {}, loadProjectProductRequests: async () => {},
     Error, JSON
   }
@@ -52,12 +55,12 @@ test('confirmed rejected request cannot drift to another request while review is
 })
 test('reviewer changed after confirmation is displayed and must be reconfirmed before any write', async () => {
   let reads = 0
-  const h = host({ configuration: async () => reads++ ? { ...reviewer, reviewerUserId: '8', reviewerUsername: 'new-review', reviewerNickname: '新审核人' } : { ...reviewer } })
+  const h = host({ configuration: async () => reads++ ? { ...reviewer, candidates: [{ userId: '8', username: 'new-review', nickname: '新审核人' }] } : { ...reviewer } })
   await h.submit()
   assert.equal(h.confirmations.length, 1)
   assert.equal(h.writes.length, 0)
   assert.match(h.context.projectProductError.value, /审核.*变化|审核.*确认/)
-  assert.equal(h.context.reviewerConfiguration.value.reviewerUserId, '8')
+  assert.equal(h.context.reviewerConfiguration.value.candidates[0].userId, '8')
 })
 test('unchanged confirmed request submits exactly its captured original payload once', async () => {
   const h = host({ rejectedId: '9007199254740993' })
@@ -78,7 +81,8 @@ test('changing actual project attributes or closing the form while confirming se
     const h = host({ confirm: async c => change(c) })
     await h.submit()
     assert.equal(h.writes.length, 0)
-    assert.match(h.context.projectProductError.value, /变化|确认/)
+    if (h.context.projectProductDialogVisible.value) assert.match(h.context.projectProductError.value, /变化|确认/)
+    else assert.equal(h.context.projectProductError.value, '')
   }
 })
 test('a pending confirmation blocks repeated submission and acknowledges only the real write', async () => {
@@ -104,16 +108,18 @@ function typedModule(file, resolve) {
 }
 function confirmationHelper(confirm) {
   const configuration = typedModule('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts', () => { throw Error('unexpected dependency') })
+  const roles = typedModule('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts', name => { if (name === './project-reviewer') return configuration; throw Error(name) })
   const attributes = typedModule('src/views/dcc/controlled-file/project-attributes/state.ts', () => { throw Error('unexpected dependency') })
   return typedModule('src/views/dcc/controlled-file/basic-data/components/project-product-confirmation.ts', name => {
     if (name === 'vue') return require('vue')
     if (name === 'element-plus') return { ElMessageBox: { confirm } }
     if (name === './project-reviewer') return configuration
+    if (name === './project-product-role') return roles
     if (name === '../../project-attributes/state') return attributes
     throw Error(name)
   }).confirmProjectProductApplication
 }
-test('actual review summary uses safe Vue text and includes exact configured account and three attributes', async () => {
+test('actual review summary uses safe Vue text and includes the role, every candidate and three attributes', async () => {
   let body, options
   const confirm = confirmationHelper(async (message, title, config) => { body = message; options = config })
   const h = host()
@@ -130,7 +136,7 @@ test('actual review summary uses safe Vue text and includes exact configured acc
   }
   visit(body)
   const rendered = texts.join(' ')
-  for (const value of ['项目A', 'PA', 'P-01', '<img src=x onerror=alert(1)>', '模板A', '是否为注册人', '是否为生产方', '目标市场说明', '目标项目', reviewer.reviewerUserId, reviewer.reviewerUsername, '备注', '新项目申请'])
+  for (const value of ['项目A', 'PA', 'P-01', '<img src=x onerror=alert(1)>', '模板A', '是否为注册人', '是否为生产方', '目标市场说明', '目标项目', reviewer.roleName, reviewer.candidates[0].username, reviewer.candidates[1].username, '备注', '新项目申请'])
     assert.ok(rendered.includes(value), value)
   assert.equal(options.confirmButtonText, '提交申请')
   assert.equal(options.cancelButtonText, '返回修改')
@@ -141,6 +147,6 @@ test('missing leader or disabled folder template fails before opening the review
   const h = host()
   await assert.rejects(confirm(h.context.projectProductForm, [], h.context.folderTemplates.value, reviewer, false), /负责人|模板/)
   await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, [{ id: 9, name: '模板A', active: false }], reviewer, false), /负责人|模板/)
-  await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, { ...reviewer, enabled: false }, false), /启用/)
+  await assert.rejects(confirm(h.context.projectProductForm, h.context.projectLeaderUsers.value, h.context.folderTemplates.value, { ...reviewer, candidates: [] }, false), /角色|成员|未就绪/)
   assert.equal(opened, 0)
 })

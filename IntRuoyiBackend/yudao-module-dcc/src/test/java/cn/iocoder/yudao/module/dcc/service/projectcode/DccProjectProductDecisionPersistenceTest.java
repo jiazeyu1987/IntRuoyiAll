@@ -28,9 +28,13 @@ import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProj
 
 /** 当前基线人员逻辑下验证真实决策/事务，未指定待讨论的正式审核人。 */
 @Import({DccProjectReviewerConfigurationService.class,DccProjectProductCreateServiceImpl.class,DccProjectProductCreateWriteService.class,
+        cn.iocoder.yudao.module.dcc.service.productcatalog.DccProductCatalogRowNumberAllocator.class,
+        DccW01ProjectProductJdbcFixture.class,
         DccProjectProductCreateStateService.class,DccProjectProductCreateFailureService.class,
         DccProjectAttributesService.class,DccProjectLeaderService.class,DccFolderTemplateService.class,
         DccProjectConfigurationAuditService.class,DccProjectProductAuditService.class})
+@org.springframework.test.context.TestPropertySource(properties="spring.sql.init.encoding=UTF-8")
+@org.springframework.test.context.jdbc.SqlConfig(encoding="UTF-8")
 class DccProjectProductDecisionPersistenceTest extends BaseDbUnitTest {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     cn.iocoder.yudao.module.dcc.service.projectcode.productcreate.DccProjectProductNotificationService projectNotifications;
@@ -54,6 +58,7 @@ class DccProjectProductDecisionPersistenceTest extends BaseDbUnitTest {
     @MockitoBean DccProjectAccessService access;
     @MockitoBean GxpAuditService audit;
     @BeforeEach void accounts() {
+        when(projectActors.isApprover(1L)).thenReturn(true); // Explicit external authority port for persistence cases.
         var leader=new AdminUserRespDTO();leader.setId(7L);leader.setStatus(0);leader.setNickname("正式负责人");
         var existingReviewer=new AdminUserRespDTO();existingReviewer.setId(1L);existingReviewer.setStatus(0);existingReviewer.setUsername("admin");existingReviewer.setTenantId(1L);existingReviewer.setNickname("显式配置测试审核人");
         when(users.getUser(7L)).thenReturn(leader);when(users.getUser(1L)).thenReturn(existingReviewer);

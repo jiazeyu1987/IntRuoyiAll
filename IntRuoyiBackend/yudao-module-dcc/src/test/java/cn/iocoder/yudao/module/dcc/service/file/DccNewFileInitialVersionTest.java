@@ -36,7 +36,7 @@ class DccNewFileInitialVersionTest {
     void versionNumberAdvancesOnlyOnExplicitServerOperation() {
         assertEquals("A/2", DccWindchillVersionNumber.parse("A/1").nextIteration().display());
         assertEquals("B/1", DccWindchillVersionNumber.parse("A/9").nextRevision().display());
-        assertThrows(IllegalArgumentException.class, () -> DccWindchillVersionNumber.parse("Z/2").nextRevision());
+        assertEquals("AA/1", DccWindchillVersionNumber.parse("Z/2").nextRevision().display());
     }
 
     @Test

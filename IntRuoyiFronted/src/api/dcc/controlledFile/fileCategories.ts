@@ -1,5 +1,12 @@
 import request from '@/config/axios'
 
+export type DccApprovalSourceMode = 'PUBLIC_MATRIX' | 'APPLICATION_CUSTOM'
+export const requireCategoryApprovalSourceMode = (value: unknown): DccApprovalSourceMode => {
+  if (value !== 'PUBLIC_MATRIX' && value !== 'APPLICATION_CUSTOM')
+    throw new Error('文件类别审批来源未配置或无效，请在类别管理中明确维护')
+  return value
+}
+
 export type DccCategoryLifecycleStage =
   | 'PLAN'
   | 'INPUT'
@@ -13,6 +20,7 @@ export interface ControlledFileCategoryVO {
   parentId?: number | null
   code: string
   name: string
+  approvalSourceMode: DccApprovalSourceMode
   lifecycleStage: DccCategoryLifecycleStage
   fileTypeTaxonomyId?: number | null
   directoryId?: number | null
@@ -32,6 +40,10 @@ export interface ControlledFileCategoryVO {
 export interface ControlledFileCategoryDirectoryBindingReqVO {
   directoryId: number
   active: boolean
+}
+
+export interface ControlledFileCategorySaveReqVO extends ControlledFileCategoryVO {
+  directoryBinding?: ControlledFileCategoryDirectoryBindingReqVO | null
 }
 
 export type ControlledFileCategoryPermissionAction =
@@ -68,7 +80,10 @@ export interface ControlledFileCategoryDepartmentRuleVO {
 
 export interface ControlledFileCategoryApprovalMatrixVO {
   categoryId: number
+  fileTypeTaxonomyId?: number | string | null
+  routeId?: number | string | null
   routeVersionNo?: number
+  defaultSignoffDepartmentIds?: Array<number | string>
   effectiveTime?: number
   remark?: string
   rules: ControlledFileCategoryReviewMatrixRuleVO[]
@@ -116,7 +131,7 @@ export interface ControlledFileCategoryReviewMatrixSubjectVO {
   positionId?: number
   positionName?: string
   subjectLabel?: string
-  marker?: '▲'
+  marker?: string
   subjectType?: ControlledFileCategoryReviewMatrixSubjectType
   subjectId?: number
   reason?: string
@@ -169,7 +184,8 @@ export interface ControlledFileCategoryReviewMatrixRuleVO {
   stageType: ControlledFileCategoryReviewMatrixStageType
   active: boolean
   subjectLabel?: string
-  marker?: '▲'
+  marker?: string
+  remark?: string
   subjectType?: ControlledFileCategoryReviewMatrixSubjectType
   subjectId?: number
   subjectName?: string
@@ -324,14 +340,18 @@ export interface ControlledFileCategoryViewMatrixUserLookupVO {
 }
 
 export const getFileCategoryList = async (): Promise<ControlledFileCategoryVO[]> => {
-  return await request.get({ url: '/dcc/file-categories' })
+  const rows = await request.get<ControlledFileCategoryVO[]>({ url: '/dcc/file-categories' })
+  if (!Array.isArray(rows)) throw new Error('正式文件类别目录响应缺失')
+  return rows.map(row => ({ ...row, approvalSourceMode: requireCategoryApprovalSourceMode(row?.approvalSourceMode) }))
 }
 
-export const createFileCategory = async (data: ControlledFileCategoryVO) => {
+export const createFileCategory = async (data: ControlledFileCategorySaveReqVO) => {
+  requireCategoryApprovalSourceMode(data?.approvalSourceMode)
   return await request.post({ url: '/dcc/file-categories', data })
 }
 
-export const updateFileCategory = async (id: number, data: ControlledFileCategoryVO) => {
+export const updateFileCategory = async (id: number, data: ControlledFileCategorySaveReqVO) => {
+  requireCategoryApprovalSourceMode(data?.approvalSourceMode)
   return await request.put({ url: `/dcc/file-categories/${id}`, data })
 }
 

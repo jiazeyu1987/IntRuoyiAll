@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationContracts.*
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessServiceImpl;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccSignoffAssignmentReqVO;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskServiceImpl;
@@ -60,8 +61,11 @@ import static org.mockito.Mockito.*;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 
-@Import({DccControlledFileLifecycleService.class,DccWorkflowDatePolicy.class,DccWorkflowFileStateAudit.class,
-        DccObsoleteRetentionService.class,DccControlledFileNameClaimService.class,
+@Import({DccControlledFileLifecycleService.class,DccLifecycleEffectiveContractResolver.class,DccWorkflowDatePolicy.class,DccWorkflowFileStateAudit.class,
+        DccBoundWorkflowContractResolver.class,DccObsoleteFormPreparationProof.class,DccApprovalMatrixTokenProperties.class,
+        DccObsoleteFormRuntimeStore.class,DccObsoleteFormRuntimeSnapshotMapper.class,DccObsoleteFormRuntimeObligationMapper.class,
+        DccObsoleteRetentionService.class,DccControlledFileNameClaimService.class,DccApplicationRoundService.class,
+        DccDistributionBatchService.class,DccWorkflowDistributionService.class,
         DccLatestControlledFileResolverImpl.class,DccRelationRemediationService.class,DccRelationStore.class,
         DccRelationAccessPolicyImpl.class,DccProjectAccessServiceImpl.class,
         DccRelationControlledEventConsumer.class,DccRelationNotificationPostCommitScheduler.class,
@@ -88,44 +92,65 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     @Resource ApplicationEventPublisher publisher;@Resource TestQueue queue;
     @Resource DccControlledContentAdapter platformAdapter;
     @Resource ControlledContentLifecycleCoreService platformCore;
+    @Resource cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService realAudit;
+    @Resource DccRelationAccessPolicy realAccess;
+    @Resource DccApplicationRoundService relationRounds;
+    @Resource DccDistributionBatchMapper batchRows;
     @MockitoBean DccControlledFileQueryService query;
     @MockitoBean TaskService tasks;
     // Current unbound-read authorization dependencies; these bound participant fixtures do not call them.
     @MockitoBean cn.iocoder.yudao.module.bpm.service.task.BpmTaskService readBpmTasks;
     @MockitoBean cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionService readDefinitions;
+    @MockitoBean cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService effectiveProcesses;
+    ProcessEngine contractEngine;
+    String baselineRound,nativeRound,revisionDefinitionId;
+    // This fixture explicitly uses PRESET_DATE. Calling the signed-mode external verifier is an error,
+    // never a mock VALID result used to bypass the production signature guard.
+    @MockitoBean DccElectronicSignatureManagementService signatureManagement;
     @MockitoBean AdminUserApi users;
     @MockitoBean PermissionApi permissions;
     @MockitoBean DeptApi departments;
     @MockitoBean RoleApi roles;
     @MockitoBean PostApi posts;
     @MockitoBean NotifyTemplateService templates;
+    // Existing dispatch ports are not consumed when the roster policy is explicitly undecided.
+    @MockitoBean DccControlledFileCategoryPermissionSupport distributionPermissions;
+    @MockitoBean DccControlledFileFinalizationService distributionFinalization;
+    @MockitoBean DccControlledFileMessageDeliveryService distributionDelivery;
     @BeforeEach void seed() throws Exception {
         try(var connection=jdbc.getDataSource().getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         createActualPlatformTables();
         for(String sql:Files.readString(Path.of("../sql/mysql/20260930_dcc_d_relations.sql")).replaceAll("(?m)^--.*$","").split(";"))if(!sql.isBlank())jdbc.execute(sql);
+        DccRelationStageH2Schema.create(jdbc);
+        DccRelationStageH2Schema.createRoundTable(jdbc);
         for(String sql:new ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);
         cleanupOwnTables();queue.tasks.clear();dates.setZoneId("Asia/Singapore");dates.setReminderLeadDays(3);
+        prepareExactLegacyProcesses();
+        when(signatureManagement.verifySignatureEvidence(anyLong())).thenThrow(new AssertionError("PRESET_DATE fixture must not invoke signed-mode verifier"));
+        doThrow(new AssertionError("undecided roster must not send distribution jobs")).when(distributionDelivery).dispatchMessageJob(any(),anyMap());
         when(users.getUser(7L)).thenReturn(new AdminUserRespDTO().setId(7L).setTenantId(1L).setStatus(0)
                 .setUsername("dcc-d-control").setNickname("文控").setDeptId(10L).setPostIds(Set.of(10L)));
         var login=new LoginUser();login.setId(7L);login.setTenantId(1L);login.setUserType(2);login.setInfo(Map.of("username","dcc-d-control",LoginUser.INFO_KEY_NICKNAME,"文控"));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login,null,List.of()));
-        policy("dcc.relation.arrange");policy("dcc.relation.controlled");
+        policy("dcc.relation.arrange");policy("dcc.relation.controlled");policy("dcc.relation.stage.freeze");
+        jdbc.update("UPDATE gxp_audit_policy_operation SET signature_policy='REQUIRED' WHERE operation_id='dcc.relation.stage.freeze'");
+        batchPolicy("dcc.distribution.batch.accept");batchPolicy("dcc.distribution.batch.fail");
         policy("dcc.controlled-file.control");policy("dcc.controlled-file.activate");policy("dcc.controlled-file.auto-obsolete");
         var template=NotifyTemplateDO.builder().id(710L).code("dcc_relation_remediation").type(2).nickname("DCC系统").status(0)
                 .content("{fileNumber} {versionNo} 关联整改期限 {dueAt}")
                 .params(List.of("fileNumber","versionNo","relatedMasterId","dueAt","sourceControlledFileId","detailUrl")).build();
         when(templates.getNotifyTemplateByCodeFromCache("dcc_relation_remediation")).thenReturn(template);
         when(templates.formatNotifyTemplateContent(anyString(),anyMap())).thenAnswer(i->new NotifyTemplateServiceImpl().formatNotifyTemplateContent(i.getArgument(0),i.getArgument(1)));
-        when(users.getUser(8L)).thenReturn(new AdminUserRespDTO().setId(8L).setStatus(0));
+        when(users.getUser(8L)).thenReturn(new AdminUserRespDTO().setId(8L).setTenantId(1L).setStatus(0));
         when(permissions.getUserRoleIdListByUserId(8L)).thenReturn(Set.of());
         var taskQuery=mock(TaskQuery.class,RETURNS_SELF);
         when(tasks.createTaskQuery()).thenReturn(taskQuery);
         when(taskQuery.list()).thenReturn(List.of(mock(Task.class)));
         jdbc.update("INSERT INTO dcc_project_code(id,project_name,project_code,status,tenant_id) VALUES(1,'源项目','SOURCE-P','ENABLE',1),(2,'目标项目','TARGET-P','ENABLE',1)");
-        jdbc.update("INSERT INTO dcc_project_access_rule(dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason,tenant_id) VALUES(2,'USER',8,'EDIT',TRUE,'组合验证正式整改权限',1)");
-        jdbc.update("INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,dcc_project_code_id,current_active_controlled_file_id,latest_controlled_file_id) VALUES(10,1,'主.pdf','SOURCE','ACTIVE_CHAIN',1,1,1,1),(20,1,'目标.pdf','TARGET','ACTIVE_CHAIN',1,2,200,201)");
-        insertFile(1,10,"A/1","ACTIVE","round-old",LocalDate.now().minusDays(5));
-        insertFile(2,10,"B/1","READY_TO_PUBLISH","round-new",LocalDate.now().plusDays(10));
+        jdbc.update("INSERT INTO dcc_project_access_rule(dcc_project_code_id,subject_type,subject_id,access_level,active,change_reason,tenant_id) VALUES(1,'USER',8,'EDIT',TRUE,'组合验证正式整改权限',1)");
+        jdbc.update("INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,dcc_project_code_id,current_active_controlled_file_id,latest_controlled_file_id) VALUES(10,1,'主.pdf','SOURCE','ACTIVE_CHAIN',1,1,1,1),(20,1,'目标.pdf','TARGET','ACTIVE_CHAIN',1,1,200,201)");
+        insertFile(1,10,"A/1","ACTIVE",baselineRound,LocalDate.now().minusDays(5));
+        insertFile(2,10,"B/1","READY_TO_PUBLISH",nativeRound,LocalDate.now().plusDays(10));
         insertFile(200,20,"A/1","ACTIVE","target-old",LocalDate.now().minusDays(5));
         insertFile(201,20,"B/1","CONTROLLED_PENDING_EFFECTIVE","target-new",LocalDate.now().plusDays(10));
         jdbc.update("UPDATE dcc_controlled_file SET controlled_time=CURRENT_TIMESTAMP,activated_time=CURRENT_TIMESTAMP WHERE id IN(1,200)");
@@ -135,22 +160,59 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                 DccControlledFileProcessDefinitionKeys.UPLOAD,DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
         jdbc.update("UPDATE dcc_controlled_file SET process_definition_key=?,process_type=?,revision_source_controlled_file_id=1,revision_source_version_no='A/1',revision_base_active_controlled_file_id=1,revision_change_type='REPLACEMENT' WHERE id=2",
                 DccControlledFileProcessDefinitionKeys.REVISION,DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
+        new TransactionTemplate(manager).executeWithoutResult(s->{relationRounds.bind(1L,"UPLOAD",1L,baselineRound);relationRounds.bind(1L,"REVISION",2L,nativeRound);});
         new TransactionTemplate(manager).executeWithoutResult(s->{
             var baseline=files.selectById(1L);
             var active=platformCore.registerActiveRef(platformKey(),10L,1L,"A/1","ACTIVE",7L,"正式隔离受控基线");
             jdbc.update("UPDATE controlled_content_version_ref SET approval_process_instance_id=? WHERE id=?",
                     baseline.getProcessInstanceId(),active.getId());
         });
-        jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(2,200,2,20,'目标.pdf','A/1','UPLOAD',1)");
-        jdbc.update("INSERT INTO dcc_controlled_file_task_assignee_snapshot(controlled_file_id,stage_code,department_id,assignee_user_id,leader_user_id,process_instance_id,bpm_task_id,obligation_id,tenant_id) VALUES(2,'MATRIX_REVIEW',10,7,7,'round-new','signoff-task','relation-obligation',1)");
-        new TransactionTemplate(manager).executeWithoutResult(s->remediation.saveArrangements(7L,2L,"round-new",List.of(new Arrangement(20L,8L,LocalDate.now().plusDays(5).atTime(12,0))),"会签整改安排"));
+        jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_number_snapshot,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(2,200,1,20,'TARGET','目标.pdf','A/1','UPLOAD',1)");
+        jdbc.update("INSERT INTO dcc_controlled_file_task_assignee_snapshot(controlled_file_id,stage_code,department_id,assignee_user_id,leader_user_id,process_instance_id,bpm_task_id,obligation_id,tenant_id) VALUES(2,'MATRIX_REVIEW',10,7,7,?,'signoff-task','relation-obligation',1)",nativeRound);
+        new TransactionTemplate(manager).executeWithoutResult(s->remediation.saveArrangements(7L,2L,nativeRound,List.of(new Arrangement(20L,8L,LocalDate.now().plusDays(5).atTime(12,0))),"会签整改安排"));
     }
     void insertFile(long id,long master,String version,String status,String round,LocalDate date){
-        jdbc.update("INSERT INTO dcc_controlled_file(id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,file_number,version_no,status,submitter_id,requester_id,tenant_id,published_file_id,stamped_file_id,effective_date,process_instance_id,dcc_project_code_id) VALUES(?,?,1,1,100,100,'测试.pdf','测试',?,?,?,7,7,1,100,100,?,?,?)",id,master,master==10?"SOURCE":"TARGET",version,status,date,round,master==10?1:2);
+        // The actual registered v4 graph authorizes its historical date semantics; explicit new mode is not backfilled.
+        jdbc.update("INSERT INTO dcc_controlled_file(id,master_id,category_id,directory_id,source_file_id,original_file_id,file_name,title,file_number,version_no,status,submitter_id,requester_id,tenant_id,published_file_id,stamped_file_id,effective_mode,effective_date,distribution_department_ids_json,process_instance_id,dcc_project_code_id) VALUES(?,?,1,1,100,100,'测试.pdf','测试',?,?,?,7,7,1,100,100,?,?, '[]',?,1)",id,master,master==10?"SOURCE":"TARGET",version,status,null,date,round);
     }
     void policy(String id){jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'DCC-D-ISOLATED',?,'SERVICE_METHOD','DCC.TEST','DCC','DCC_RELATION','CREATE','REQUIRED','NOT_REQUIRED','ABSENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','INT-D-01','dcc-d','GXP',TRUE)",id);}
-    void cleanupOwnTables(){for(String table:List.of("controlled_content_transition_audit","controlled_content_version_ref","dcc_relation_change_command","dcc_relation_notification_outbox","dcc_relation_remediation_task","dcc_relation_controlled_event","dcc_relation_arrangement","dcc_current_file_relation","dcc_current_file_relation_set","system_notify_message"))jdbc.update("DELETE FROM "+table);jdbc.update("DELETE FROM dcc_controlled_file_related_file WHERE controlled_file_id=2");jdbc.update("DELETE FROM dcc_controlled_file_task_assignee_snapshot WHERE controlled_file_id=2");}
-    @AfterEach void after(){cleanupOwnTables();queue.tasks.clear();SecurityContextHolder.clearContext();}
+    void batchPolicy(String operation){jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'W04-TRUE-BATCH-FIXTURE',?,'SERVICE_METHOD','W04_BATCH_ACTUAL','DCC','DCC_DISTRIBUTION_BATCH','UPDATE','REQUIRED','NOT_REQUIRED','PRESENT_TO_PRESENT','GXP_CONTROLLED_DOCUMENT','BATCH14','W04','GXP',TRUE)",operation);}
+    void cleanupOwnTables(){for(String table:List.of("dcc_distribution_dispatch_attempt","dcc_distribution_batch","dcc_relation_stage_member","dcc_relation_stage_snapshot","controlled_content_transition_audit","controlled_content_version_ref","dcc_relation_change_command","dcc_relation_notification_outbox","dcc_relation_remediation_task","dcc_relation_controlled_event","dcc_relation_arrangement","dcc_current_file_relation","dcc_current_file_relation_set","system_notify_message"))jdbc.update("DELETE FROM "+table);jdbc.update("DELETE FROM dcc_application_round_link WHERE tenant_id=1 AND application_id IN (1,2)");jdbc.update("DELETE FROM dcc_controlled_file_related_file WHERE controlled_file_id=2");jdbc.update("DELETE FROM dcc_controlled_file_task_assignee_snapshot WHERE controlled_file_id=2");}
+    @AfterEach void after(){
+        cleanupOwnTables();queue.tasks.clear();SecurityContextHolder.clearContext();
+        if(contractEngine!=null){contractEngine.getRepositoryService().createDeploymentQuery().list().forEach(row->contractEngine.getRepositoryService().deleteDeployment(row.getId(),true));contractEngine.close();}
+    }
+    void prepareExactLegacyProcesses() throws Exception {
+        var configuration=new SpringProcessEngineConfiguration();configuration.setDataSource(jdbc.getDataSource());configuration.setTransactionManager(manager);
+        configuration.setDatabaseType("mysql");configuration.setDatabaseSchemaUpdate("true");configuration.setAsyncExecutorActivate(false);configuration.setDisableIdmEngine(true);
+        contractEngine=configuration.buildProcessEngine();
+        var text=Files.readString(Path.of("../sql/mysql/20260930_dcc_a_workflow_bpmn_v4.sql"));
+        var exact=new HashMap<String,String>();
+        for(String type:List.of("upload","revision")){
+            String marker="SET @dcc_"+type+"_bpmn = '";int start=text.indexOf(marker);assertTrue(start>=0);
+            start+=marker.length();String model=text.substring(start,text.indexOf("';",start));
+            var deployment=contractEngine.getRepositoryService().createDeployment().tenantId("1").addString(type+".bpmn20.xml",model).deploy();
+            var definition=contractEngine.getRepositoryService().createProcessDefinitionQuery().deploymentId(deployment.getId()).singleResult();
+            exact.put(type,definition.getId());
+        }
+        revisionDefinitionId=exact.get("revision");
+        var formalDefinitions=new cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServiceImpl();
+        wire(formalDefinitions,"repositoryService",contractEngine.getRepositoryService());
+        var formalProcesses=new cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceImpl();
+        wire(formalProcesses,"runtimeService",contractEngine.getRuntimeService(),"historyService",contractEngine.getHistoryService());
+        when(readDefinitions.getProcessDefinition(anyString())).thenAnswer(c->formalDefinitions.getProcessDefinition(c.getArgument(0)));
+        when(readDefinitions.getProcessDefinitionBpmnModel(anyString())).thenAnswer(c->formalDefinitions.getProcessDefinitionBpmnModel(c.getArgument(0)));
+        when(effectiveProcesses.getProcessInstance(anyString())).thenAnswer(c->formalProcesses.getProcessInstance(c.getArgument(0)));
+        when(effectiveProcesses.getHistoricProcessInstance(anyString())).thenAnswer(c->formalProcesses.getHistoricProcessInstance(c.getArgument(0)));
+        baselineRound=startExactLegacy(exact.get("upload"),1L,"baseline-obligation");
+        nativeRound=startExactLegacy(revisionDefinitionId,2L,"relation-obligation");
+    }
+    String startExactLegacy(String definitionId,Long fileId,String obligation){
+        contractEngine.getIdentityService().setAuthenticatedUserId("7");
+        try{return contractEngine.getRuntimeService().createProcessInstanceBuilder().processDefinitionId(definitionId).businessKey(fileId.toString())
+                .variables(Map.of("controlledFileId",fileId,"needTraining",false,"PROCESS_DCC_TASK_OBLIGATION_IDS",Map.of("MATRIX_REVIEW",List.of(obligation)))).start().getId();}
+        finally{contractEngine.getIdentityService().setAuthenticatedUserId(null);}
+    }
     void control(){
         prepareActualPlatformFinalization();
         new TransactionTemplate(manager).executeWithoutResult(s->{lifecycle.completeControl(files.selectByIdAndTenantForUpdate(1L,2L),masters.selectByIdForUpdate(10L),7L);assertEquals(0,count("system_notify_message"));});
@@ -222,11 +284,20 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         jdbc.update("UPDATE dcc_controlled_file SET effective_date=? WHERE id=2",LocalDate.now());lifecycle.activateDue(2L);queue.drain();
         assertEquals(1,count("system_notify_message"));assertEquals(deadline,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
         assertEquals(2L,masters.selectById(10L).getCurrentActiveControlledFileId());
+        var batch=batchRows.selectList().get(0);assertEquals(1,batchRows.selectList().size());
+        assertEquals("FAILED",batch.getStatus());assertEquals("EMPTY_SCOPE_UNDECIDED",batch.getErrorCode());
+        assertEquals(2L,batch.getControlledFileId());assertEquals("[]",batch.getDepartmentIdsJson());
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE operation_id='dcc.distribution.batch.accept'",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE operation_id='dcc.distribution.batch.fail'",Integer.class));
+        assertEquals("ACTIVE",files.selectById(2L).getStatus());assertEquals(1,count("dcc_relation_controlled_event"));
+        assertEquals(1,count("dcc_relation_notification_outbox"));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_message_job",Integer.class));
         var obsoleteTime=files.selectById(1L).getObsoletedTime();assertNotNull(obsoleteTime);
         assertEquals(obsoleteTime,jdbc.queryForObject("SELECT obsolete_time FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
         assertEquals(obsoleteTime.plusYears(20),jdbc.queryForObject("SELECT retain_until FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
         assertEquals(0,jdbc.queryForObject("SELECT deleted FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",Integer.class));
         assertFalse(lifecycle.activateDue(2L));queue.drain();assertEquals(1,count("system_notify_message"));
+        assertEquals(1,batchRows.selectList().size());
         assertEquals(obsoleteTime.plusYears(20),jdbc.queryForObject("SELECT retain_until FROM dcc_controlled_file_name_claim WHERE tenant_id=1 AND master_id=10",LocalDateTime.class));
     }
     @Test void failedRealIdentityRetentionRollsBackActivationWithoutRepeatingCommittedControlRemediation(){
@@ -242,12 +313,56 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertEquals(1,count("dcc_relation_remediation_task"));assertEquals(1,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());
         assertEquals(deadline,jdbc.queryForObject("SELECT due_at FROM dcc_relation_remediation_task",LocalDateTime.class));
     }
+    @Test void sourceInheritanceMissingPolicyRollsBackAndRecordedHumanSourceHasNoFabricatedSignature() {
+        var target=DccControlledFileDO.builder().id(3L).tenantId(1L).masterId(10L).dccProjectCodeId(1L).categoryId(1L).directoryId(1L)
+                .sourceFileId(100L).originalFileId(100L).fileName("主.pdf").title("主").fileNumber("SOURCE").versionNo("B/2").status("WORKING").requesterId(7L).submitterId(7L).build();
+        assertEquals(1,files.insert(target));
+        int targetRound=new TransactionTemplate(manager).execute(s->relationRounds.reserveDraft(1L,"REVISION",3L));
+        var service=new DccRelationStageSnapshotService(new DccRelationStore(jdbc,realAudit),new DccRelationStageSnapshotMapper(jdbc),query,resolver,realAccess);
+        wire(service,"rounds",relationRounds);
+        var evidence=service.readRoundEvidence(7L,2L,"REVISION",nativeRound);
+        var failure=assertThrows(ServiceException.class,()->new TransactionTemplate(manager).execute(s->service.inheritRoundSelections(
+                7L,2L,"REVISION",nativeRound,3L,"REVISION",targetRound,evidence.relationDigest())));
+        assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_NOT_FOUND.getCode(),failure.getCode());
+        assertNull(relationRounds.readRelationSource(1L,"REVISION",3L,targetRound));
+        policy("dcc.relation.round.inherit");
+        jdbc.update("UPDATE gxp_audit_policy_operation SET action_type='UPDATE',state_policy='PRESENT_TO_PRESENT' WHERE operation_id='dcc.relation.round.inherit'");
+        var inherited=new TransactionTemplate(manager).execute(s->service.inheritRoundSelections(7L,2L,"REVISION",nativeRound,3L,"REVISION",targetRound,evidence.relationDigest()));
+        var audit=jdbc.queryForMap("SELECT actor_id,signature_record_id,signature_content_hash,idempotency_key,before_state,after_state FROM gxp_audit_event WHERE operation_id='dcc.relation.round.inherit'");
+        assertEquals(7L,((Number)audit.get("actor_id")).longValue());assertNull(audit.get("signature_record_id"));assertNull(audit.get("signature_content_hash"));
+        assertTrue(audit.get("idempotency_key").toString().startsWith("DCC_RELATION_SOURCE:"));
+        assertEquals("PRESENT",audit.get("before_state"));assertEquals("PRESENT",audit.get("after_state"));
+        assertEquals(inherited,new TransactionTemplate(manager).execute(s->service.inheritRoundSelections(7L,2L,"REVISION",nativeRound,3L,"REVISION",targetRound,evidence.relationDigest())));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE operation_id='dcc.relation.round.inherit'",Integer.class));
+        jdbc.update("DELETE FROM dcc_application_round_link WHERE application_id=3 AND tenant_id=1");
+    }
+    @Test void requiredStagePolicyRejectsMissingAuditReferenceAndRollsBackTheActualSavedProjection() {
+        var service=new DccRelationStageSnapshotService(new DccRelationStore(jdbc,realAudit),new DccRelationStageSnapshotMapper(jdbc),query,resolver,realAccess);
+        wire(service,"rounds",relationRounds);
+        int attribute=relationRounds.require("REVISION",2L,nativeRound);
+        var identity=new DccRelationStageContracts.ValidatedTaskIdentity(1L,nativeRound,"audit-ref-task","relation-obligation",
+                "MATRIX_REVIEW","audit-ref-node",10L,"ASSIGN","REVISION",attribute,null);
+        var prepared=new TransactionTemplate(manager).execute(s->service.prepare(7L,2L,identity,List.of(),List.of(),"audit-ref-cmd",null,"签名关联测试"));
+        var failure=assertThrows(ServiceException.class,()->new TransactionTemplate(manager).execute(s->{
+            var record=DccControlledFileSignatureDO.builder().controlledFileId(2L).revisionId(2L).versionNo("B/1").processInstanceId(nativeRound)
+                    .taskId("audit-ref-task").actorId(7L).actionType("ASSIGN").signatureMode("PASSWORD").signedAt(dates.now())
+                    .evidenceHash("actual-projection-reference-test").evidenceStatus("VALID").comment("签名关联测试；"+prepared.signedReasonMarker()).build();
+            assertEquals(1,signatures.insert(record));
+            service.freeze(prepared,new DccRelationStageContracts.SignatureIdentity(record.getId(),record.getSignedAt(),record.getEvidenceHash()));
+            // Deliberately omit a required audit reference; this is a failing test input to the real kernel, never successful fallback.
+            new DccRelationStore(jdbc,realAudit).audit("dcc.relation.stage.freeze","MISSING_REF_TEST","真实拒绝输入",null,Map.of("id",record.getId()));
+            return null;
+        }));
+        assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_SIGNATURE_REQUIRED.getCode(),failure.getCode());
+        assertEquals(0,count("dcc_controlled_file_signature"));assertEquals(0,count("dcc_relation_stage_snapshot"));assertEquals(0,count("dcc_relation_stage_member"));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE operation_id='dcc.relation.stage.freeze'",Integer.class));
+    }
     @Test void unregisteredEventKeyCannotConsumeAFileFactOrCreateAnyRemediation(){
         jdbc.update("UPDATE dcc_controlled_file SET controlled_time=?,status='CONTROLLED_PENDING_EFFECTIVE' WHERE id=2",dates.now());
         jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=2 WHERE id=10");
         var time=files.selectById(2L).getControlledTime();
         assertThrows(RuntimeException.class,()->new TransactionTemplate(manager).executeWithoutResult(s->publisher.publishEvent(
-                new DccControlledFileLifecycleEvent("invented-key","CONTROLLED",1L,10L,2L,1L,"B/1","round-new",time))));
+                new DccControlledFileLifecycleEvent("invented-key","CONTROLLED",1L,10L,2L,1L,"B/1",nativeRound,time))));
         assertEquals(0,count("dcc_relation_controlled_event"));assertEquals(0,count("dcc_relation_notification_outbox"));assertTrue(queue.tasks.isEmpty());
     }
     @ParameterizedTest
@@ -276,8 +391,8 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
     @Test void lateHistoricalEventCannotRegressCurrentRelationsUsingACachedLatestPointer() throws Exception {
         var oldTime=dates.now().minusDays(5);
         jdbc.update("UPDATE dcc_controlled_file SET controlled_time=? WHERE id=1",oldTime);
-        jdbc.update("INSERT INTO dcc_workflow_lifecycle_event(tenant_id,event_key,event_type,master_id,controlled_file_id,previous_active_file_id,version_no,approval_process_instance_id,occurred_at,delivery_status) VALUES(1,'DCC:1:1:round-old:CONTROLLED','CONTROLLED',10,1,NULL,'A/1','round-old',?,'PENDING')",oldTime);
-        var oldEvent=new DccControlledFileLifecycleEvent("DCC:1:1:round-old:CONTROLLED","CONTROLLED",1L,10L,1L,null,"A/1","round-old",oldTime);
+        jdbc.update("INSERT INTO dcc_workflow_lifecycle_event(tenant_id,event_key,event_type,master_id,controlled_file_id,previous_active_file_id,version_no,approval_process_instance_id,occurred_at,delivery_status) VALUES(1,?,'CONTROLLED',10,1,NULL,'A/1',?,?,'PENDING')","DCC:1:1:"+baselineRound+":CONTROLLED",baselineRound,oldTime);
+        var oldEvent=new DccControlledFileLifecycleEvent("DCC:1:1:"+baselineRound+":CONTROLLED","CONTROLLED",1L,10L,1L,null,"A/1",baselineRound,oldTime);
         var pool=Executors.newSingleThreadExecutor();
         try{
             new TransactionTemplate(manager).executeWithoutResult(status->{
@@ -304,47 +419,38 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         assertThrows(org.springframework.transaction.IllegalTransactionStateException.class,()->resolver.resolveLatestForUpdate(10L));
     }
     @ParameterizedTest
-    @ValueSource(strings={"SELECTED","UNSELECTED","MISSING_ARRANGEMENT_POLICY","LATE_CONTROL_FAILURE"})
+    @ValueSource(strings={"SELECTED","UNSELECTED","MISSING_ARRANGEMENT_POLICY","MISSING_STAGE_POLICY","LATE_CONTROL_FAILURE"})
     void realSignedArrangementAndFlowableTaskFeedTheSameControlAndNotificationFacts(String scenario) throws Exception {
         boolean selected=!"UNSELECTED".equals(scenario),auditFailure="MISSING_ARRANGEMENT_POLICY".equals(scenario);
+        boolean stagePolicyFailure="MISSING_STAGE_POLICY".equals(scenario);
         boolean lateControlFailure="LATE_CONTROL_FAILURE".equals(scenario);
         int initialAudit=count("gxp_audit_event");
         jdbc.update("DELETE FROM dcc_relation_arrangement WHERE source_file_id=2");
         jdbc.update("DELETE FROM dcc_controlled_file_task_assignee_snapshot WHERE controlled_file_id=2");
-        var configuration=new SpringProcessEngineConfiguration();configuration.setDataSource(jdbc.getDataSource());configuration.setTransactionManager(manager);
-        configuration.setDatabaseType("mysql");configuration.setDatabaseSchemaUpdate("true");configuration.setAsyncExecutorActivate(false);configuration.setDisableIdmEngine(true);
-        ProcessEngine engine=configuration.buildProcessEngine();String round=null;
+        ProcessEngine engine=contractEngine;String round=null;
         try{
-            String model="""
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="DCC-signed-control-combination">
-                      <process id="dcc-controlled-file-revision" isExecutable="true">
-                        <startEvent id="start"/><sequenceFlow id="toSignoff" sourceRef="start" targetRef="MATRIX_REVIEW"/>
-                        <userTask id="MATRIX_REVIEW" name="会签" flowable:assignee="7"/>
-                        <sequenceFlow id="toEnd" sourceRef="MATRIX_REVIEW" targetRef="end"/><endEvent id="end"/>
-                      </process>
-                    </definitions>
-                    """;
-            engine.getRepositoryService().createDeployment().tenantId("1").addString("signed-control.bpmn20.xml",model).deploy();
-            round=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-revision","2",Map.of("controlledFileId",2L),"1").getId();
+            round=startExactLegacy(revisionDefinitionId,2L,"signed-control-obligation");
             var task=engine.getTaskService().createTaskQuery().processInstanceId(round).singleResult();
+            engine.getTaskService().setAssignee(task.getId(),"7");
             engine.getTaskService().setVariableLocal(task.getId(),BpmnVariableConstants.TASK_VARIABLE_DCC_OBLIGATION_ID,"signed-control-obligation");
             jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_REVIEW',process_instance_id=? WHERE id=2",round);
+            final String actualSignedRound=round;
+            new TransactionTemplate(manager).executeWithoutResult(s->relationRounds.bind(1L,"REVISION",2L,actualSignedRound));
             assertEquals(DccControlledFileProcessDefinitionKeys.REVISION,files.selectById(2L).getProcessDefinitionKey());
             assertEquals(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode(),files.selectById(2L).getProcessType());
             assertEquals(round,files.selectById(2L).getProcessInstanceId());
             assertEquals("1",task.getTenantId());
             assertTrue(task.getProcessDefinitionId().startsWith(DccControlledFileProcessDefinitionKeys.REVISION+":"));
-            jdbc.update("INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,dcc_project_code_id,current_active_controlled_file_id,latest_controlled_file_id) VALUES(30,1,'未选目标.pdf','UNSELECTED','ACTIVE_CHAIN',1,2,300,300)");
+            jdbc.update("INSERT INTO dcc_controlled_file_master(id,category_id,file_name,file_number,status,tenant_id,dcc_project_code_id,current_active_controlled_file_id,latest_controlled_file_id) VALUES(30,1,'未选目标.pdf','UNSELECTED','ACTIVE_CHAIN',1,1,300,300)");
             insertFile(300,30,"A/1","ACTIVE","unselected-target-round",LocalDate.now().minusDays(5));
             jdbc.update("UPDATE dcc_controlled_file SET file_number='UNSELECTED',controlled_time=CURRENT_TIMESTAMP,activated_time=CURRENT_TIMESTAMP WHERE id=300");
             var unselectedIdentity=jdbc.queryForMap("SELECT f.id AS file_id,f.master_id,f.file_number,m.file_number AS master_number,f.tenant_id,f.dcc_project_code_id AS project_id,f.status,f.version_no FROM dcc_controlled_file f JOIN dcc_controlled_file_master m ON m.id=f.master_id AND m.tenant_id=f.tenant_id WHERE f.id=300");
             assertEquals("UNSELECTED",unselectedIdentity.get("file_number"));
             assertEquals(unselectedIdentity.get("file_number"),unselectedIdentity.get("master_number"));
             System.out.println("G64_UNSELECTED_IDENTITY "+unselectedIdentity);
-            jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(2,300,2,30,'未选目标.pdf','A/1','UPLOAD',1)");
+            jdbc.update("INSERT INTO dcc_controlled_file_related_file(controlled_file_id,related_controlled_file_id,project_code_id,related_master_id,related_file_number_snapshot,related_file_name_snapshot,related_version_no_snapshot,relation_source,tenant_id) VALUES(2,300,1,30,'UNSELECTED','未选目标.pdf','A/1','UPLOAD',1)");
             jdbc.update("INSERT INTO dcc_controlled_file_task_assignee_snapshot(controlled_file_id,stage_code,department_id,assignee_user_id,leader_user_id,process_instance_id,bpm_task_id,obligation_id,tenant_id) VALUES(2,'MATRIX_REVIEW',10,7,7,?,?,'signed-control-obligation',1)",round,task.getId());
-            when(users.getUser(9L)).thenReturn(new AdminUserRespDTO().setId(9L).setStatus(0).setDeptId(10L).setNickname("本轮会签人").setPostIds(Set.of(10L)));
+            when(users.getUser(9L)).thenReturn(new AdminUserRespDTO().setId(9L).setTenantId(1L).setStatus(0).setDeptId(10L).setNickname("本轮会签人").setPostIds(Set.of(10L)));
             when(tasks.createTaskQuery()).thenAnswer(call->engine.getTaskService().createTaskQuery());
             var bpm=new BpmTaskServiceImpl();wire(bpm,"taskService",engine.getTaskService());
             var signing=mock(DccSignatureVerificationService.class);
@@ -354,7 +460,10 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
                         .processInstanceId(call.getArgument(3)).taskId(task.getId()).actorId(7L).actionType("ASSIGN").meaningCode("MATRIX_REVIEW_ASSIGN")
                         .signatureMode("PASSWORD").passwordVerified(true).signedAt(dates.now()).comment(call.getArgument(7)).evidencePayloadVersion("v4-workflow").evidenceStatus("VALID").build();
                 assertEquals(1,signatures.insert(record));
-                return DccUnifiedSignatureResult.builder().signatureId(record.getId()).evidenceStatus("VALID").build();
+                record.setEvidenceHash("isolated-actual-signed-arrangement-"+record.getId());
+                assertEquals(1,signatures.updateById(record));
+                return DccUnifiedSignatureResult.builder().signatureId(record.getId()).signedAt(record.getSignedAt())
+                        .evidenceHash(record.getEvidenceHash()).evidenceStatus("VALID").build();
             });
             var definitions=new cn.iocoder.yudao.module.bpm.service.definition.BpmProcessDefinitionServiceImpl();
             wire(definitions,"repositoryService",engine.getRepositoryService());
@@ -362,30 +471,46 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
             wire(assignment,"definitions",definitions);
             wire(assignment,"fileMapper",files,"masterMapper",masters,"snapshotMapper",obligations,"bpmTaskService",bpm,
                     "taskService",engine.getTaskService(),"runtimeService",engine.getRuntimeService(),"adminUserApi",users,
-                    "readinessService",mock(DccControlledFileRouteReadinessService.class),"signatureService",signing,"remediationService",remediation);
+                    "readinessService",mock(DccControlledFileRouteReadinessService.class),"signatureService",signing,
+                    "signatureMapper",signatures,"remediationService",remediation);
+            var stage=new DccRelationStageSnapshotService(new DccRelationStore(jdbc,realAudit),
+                    new DccRelationStageSnapshotMapper(jdbc),query,resolver,realAccess);
+            wire(stage,"rounds",relationRounds);
+            wire(assignment,"relationStageService",stage);
+            wire(assignment,"rounds",relationRounds);
             var dueAt=LocalDate.now().plusDays(5).atTime(12,0);var input=new DccSignoffAssignmentReqVO();
             input.setTaskId(task.getId());input.setAssigneeUserId(9L);input.setPassword("isolated-kernel-port");input.setReason("本轮明确整改安排");
             input.setRelationArrangements(selected?List.of(new Arrangement(20L,8L,dueAt)):List.of());
-            if(auditFailure){
-                jdbc.update("DELETE FROM gxp_audit_policy_operation WHERE operation_id='dcc.relation.arrange'");
+            input.setSupplementalRelatedControlledFileIds(List.of());
+            if(auditFailure || stagePolicyFailure){
+                jdbc.update("DELETE FROM gxp_audit_policy_operation WHERE operation_id=?",stagePolicyFailure?"dcc.relation.stage.freeze":"dcc.relation.arrange");
                 var error=assertThrows(ServiceException.class,()->new TransactionTemplate(manager).executeWithoutResult(status->assignment.assign(7L,2L,input)));
                 assertEquals(cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.GXP_AUDIT_POLICY_NOT_FOUND.getCode(),error.getCode());
                 assertEquals("7",engine.getTaskService().createTaskQuery().taskId(task.getId()).singleResult().getAssignee());
                 assertNull(engine.getTaskService().getVariableLocal(task.getId(),"dccAssignmentSignatureId"));
                 assertNull(obligations.selectListByControlledFileId(2L).get(0).getAssignmentSignatureId());
                 assertEquals(0,count("dcc_controlled_file_signature"));assertEquals(0,count("dcc_relation_arrangement"));
+                assertEquals(0,count("dcc_relation_stage_snapshot"));assertEquals(0,count("dcc_relation_stage_member"));
                 assertEquals(initialAudit,count("gxp_audit_event"));assertEquals(0,count("dcc_relation_controlled_event"));assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());return;
             }
             new TransactionTemplate(manager).executeWithoutResult(status->assignment.assign(7L,2L,input));
             assertEquals("9",engine.getTaskService().createTaskQuery().taskId(task.getId()).singleResult().getAssignee());
             var saved=obligations.selectListByControlledFileId(2L).get(0);assertNotNull(saved.getAssignmentSignatureId());
+            var stageAudit=jdbc.queryForMap("SELECT signature_record_id,signature_content_hash,after_state_json FROM gxp_audit_event WHERE operation_id='dcc.relation.stage.freeze'");
+            assertEquals("DCC_CONTROLLED_FILE_SIGNATURE:"+saved.getAssignmentSignatureId(),stageAudit.get("signature_record_id"));
+            assertEquals(signatures.selectById(saved.getAssignmentSignatureId()).getEvidenceHash(),stageAudit.get("signature_content_hash"));
             assertEquals(saved.getAssignmentSignatureId(),engine.getTaskService().getVariableLocal(task.getId(),"dccAssignmentSignatureId"));
             assertTrue(signatures.selectById(saved.getAssignmentSignatureId()).getComment().contains(saved.getAssignmentPayloadHash()));
-            assertEquals(selected?1:0,count("dcc_relation_arrangement"));assertEquals(initialAudit+(selected?1:0),count("gxp_audit_event"));assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());
+            assertEquals(selected?1:0,count("dcc_relation_arrangement"));assertEquals(initialAudit+1+(selected?1:0),count("gxp_audit_event"));assertEquals(0,count("system_notify_message"));assertTrue(queue.tasks.isEmpty());
             assertEquals(selected?1:0,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE tenant_id=1 AND operation_id='dcc.relation.arrange' AND subject_id=?",Integer.class,"ARRANGEMENT:2:"+round+":20"));
             new TransactionTemplate(manager).executeWithoutResult(status->assignment.assign(7L,2L,input));assertEquals(1,count("dcc_controlled_file_signature"));
             // Approval/finalization preconditions are explicitly supplied; this fixture does not simulate the complete A approval route.
-            engine.getTaskService().complete(task.getId());jdbc.update("UPDATE dcc_controlled_file SET status='READY_TO_PUBLISH' WHERE id=2");
+            engine.getTaskService().complete(task.getId());
+            for(String approvalStage:List.of("MATRIX_APPROVAL","DOC_CONTROL_REVIEW")){
+                var nextTask=engine.getTaskService().createTaskQuery().processInstanceId(round).singleResult();
+                assertEquals(approvalStage,nextTask.getTaskDefinitionKey());engine.getTaskService().complete(nextTask.getId());
+            }
+            jdbc.update("UPDATE dcc_controlled_file SET status='READY_TO_PUBLISH' WHERE id=2");
             assertEquals(0,count("dcc_relation_remediation_task"));assertEquals(0,count("dcc_relation_notification_outbox"));
             if(lateControlFailure){
                 prepareActualPlatformFinalization();
@@ -426,7 +551,7 @@ class DccRelationControlledEventIntegrationTest extends BaseDbUnitTest {
         }finally{
             if(round!=null && engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(round).singleResult()!=null)
                 engine.getRuntimeService().deleteProcessInstance(round,"task-owned offline fixture cleanup");
-            engine.close();jdbc.update("DELETE FROM dcc_controlled_file_signature WHERE controlled_file_id=2");
+            jdbc.update("DELETE FROM dcc_controlled_file_signature WHERE controlled_file_id=2");
         }
     }
     private void wire(Object target,Object... pairs){for(int index=0;index<pairs.length;index+=2)ReflectionTestUtils.setField(target,(String)pairs[index],pairs[index+1]);}

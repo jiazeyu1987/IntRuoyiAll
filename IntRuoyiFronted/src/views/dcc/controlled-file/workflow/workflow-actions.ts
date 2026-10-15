@@ -18,12 +18,13 @@ export interface PendingWorkflowDistributionFile {
   fileNumber: string
   title?: string
   versionNo: string
-  effectiveDate: string
+  effectiveMode?: 'AFTER_STANDARDIZATION_SIGNATURE' | 'DELAYED' | 'PRESET_DATE' | null
+  effectiveDate?: string | null
+  effectiveTime?: string | null
   controlledTime: string
   activatedTime?: string
-  distributedTime?: string
+  distributedTime?: string | null
   status: 'ACTIVE' | 'CONTROLLED_PENDING_EFFECTIVE'
-  distributionReminderStage: 'OVERDUE' | 'DUE' | 'UPCOMING' | 'FUTURE'
 }
 
 export interface SignoffAssignment {
@@ -32,6 +33,7 @@ export interface SignoffAssignment {
   password: string
   reason: string
   relationArrangements?: ArrangementCommand[]
+  supplementalRelatedControlledFileIds?: WorkflowId[]
 }
 
 export const isWorkflowId = (id: WorkflowId): boolean => typeof id === 'number'

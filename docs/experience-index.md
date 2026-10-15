@@ -127,6 +127,8 @@
 
 ## 路由
 
+- Keywords: DCC自定义矩阵, APPLICATION_CUSTOM, canonical跨文件, PUBLIC V2草稿, prepared定义期待, 继承测试夹具, 父类目录重复, fresh XML, 源码漂移 -> `docs/dcc-business-integration-experience.md#审批来源与新版本草稿身份前置检查` and `docs/dcc-business-integration-experience.md#继承测试夹具与正式验证证据`
+
 - 经验沉淀 / 新增经验 / 更新经验 / 经验文件格式 / 前置经验 / 经验门禁模板：先执行本文件“经验文档写入规范（强制）”，再按下方关键词选择目标文档。
 - 测试服发布 / 仅测试服 / current HEAD test release / publish-test / 运行态验收 / release-info 版本变更说明：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`
 - publish-test preview 崩溃 / release package candidate scan / dead RUNNING operation / runtime-control JVM 退出：`docs/release-build-preflight-lessons.md#2026-07-11-runtime-control-发布候选扫描与-dead-operation-门禁`。

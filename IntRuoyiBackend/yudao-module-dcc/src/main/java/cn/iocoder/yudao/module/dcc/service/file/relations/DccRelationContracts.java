@@ -21,7 +21,9 @@ public final class DccRelationContracts {
                             @JsonFormat(shape=JsonFormat.Shape.STRING) Long selectedControlledFileId,
                             @JsonFormat(shape=JsonFormat.Shape.STRING) Long createdBy) {}
     public record ReferenceView(Reference reference, FileVersion selectedVersion, long referenceProjectCount) {}
-    public record ReferenceUsage(@JsonFormat(shape=JsonFormat.Shape.STRING) Long masterId,
+    public record ReferenceUsage(@JsonFormat(shape=JsonFormat.Shape.STRING) Long tenantId,
+                                 @JsonFormat(shape=JsonFormat.Shape.STRING) Long sourceControlledFileId,
+                                 @JsonFormat(shape=JsonFormat.Shape.STRING) Long masterId,
                                  long referenceProjectCount,boolean referenced) {}
     public record ReferenceUsagePage(@JsonFormat(shape=JsonFormat.Shape.STRING) Long tenantId,
             @JsonFormat(shape=JsonFormat.Shape.STRING) Long sourceControlledFileId,

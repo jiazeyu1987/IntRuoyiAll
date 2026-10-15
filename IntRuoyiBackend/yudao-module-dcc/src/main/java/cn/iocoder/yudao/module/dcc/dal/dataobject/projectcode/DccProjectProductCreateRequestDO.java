@@ -43,6 +43,13 @@ public class DccProjectProductCreateRequestDO extends TenantBaseDO {
     private String status;
     private Long applicantUserId;
     private Long reviewerUserId;
+    /** Null is the preserved configured-user/admin legacy contract; only new requests set an explicit role contract. */
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private String reviewContract;
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Long reviewerRoleId;
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private String reviewerRoleCode;
     private Long configuredReviewerUserId;
     private String configuredReviewerUsername;
     private String configuredReviewerNickname;

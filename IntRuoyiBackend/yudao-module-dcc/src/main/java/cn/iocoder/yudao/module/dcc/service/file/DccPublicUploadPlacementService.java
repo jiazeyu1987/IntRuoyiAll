@@ -8,7 +8,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
-import cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFilePlacementService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -26,7 +25,6 @@ public class DccPublicUploadPlacementService {
     @Resource private DccProjectFolderMapper folders;
     @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper files;
     @Resource private DccProjectAccessService access;
-    @Resource private DccProjectConfigurationAuditService audit;
     @Resource private DccProjectFilePlacementService placements;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper placementRows;
 
@@ -86,8 +84,9 @@ public class DccPublicUploadPlacementService {
         Long projectId = request.getDccProjectCodeId();
         Long folderId = request.getProjectFolderId();
         if (projectId == null || projectId <= 0 || folderId == null || folderId <= 0) throw fail(FOLDER_INVALID);
-        String reason = request.getProjectFolderChangeReason();
-        audit.validateReason(reason);
+        String reason = request.getProjectFolderChangeReason() == null ? "" : request.getProjectFolderChangeReason().trim();
+        if (reason.length() > 500) throw new cn.iocoder.yudao.framework.common.exception.ServiceException(
+                INVALID.getCode(), "文件夹登记说明不能超过500字");
         access.assertProjectViewerOrAbove(actorId, projectId);
         access.assertProjectEditorOrOwner(actorId, projectId);
         var project = projects.selectByIdForUpdate(projectId);

@@ -22,8 +22,10 @@ import org.mockito.Mock;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,26 +143,12 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void createProductCatalogShouldInsertDatabaseRowWithNextSourceRowNumber() {
+    void directCreateCannotAllocateOrInsertCatalogOutsideApprovedProjectProductRequest() {
         DccProductCatalogSaveReqVO reqVO = request("瑛泰产品", "新增产品");
-        when(productCatalogMapper.selectMaxOriginalRowNo("瑛泰产品")).thenReturn(181);
-        doAnswer(invocation -> {
-            invocation.<DccProductCatalogDO>getArgument(0).setId(100L);
-            return 1;
-        }).when(productCatalogMapper).insert(any(DccProductCatalogDO.class));
-
-        DccProductCatalogRespVO result = service.createProductCatalog(reqVO);
-
-        assertEquals(182, result.getOriginalRowNo());
-        assertEquals("新增产品", result.getProduct());
-        assertEquals("新增项目", result.getProjectName());
-        assertEquals("NEW", result.getProjectCode());
-        ArgumentCaptor<DccProductCatalogDO> captor = ArgumentCaptor.forClass(DccProductCatalogDO.class);
-        verify(productCatalogMapper).insert(captor.capture());
-        assertEquals(182, captor.getValue().getOriginalRowNo());
-        assertEquals("瑛泰产品", captor.getValue().getDataSource());
-        assertEquals("新增项目", captor.getValue().getProjectName());
-        assertEquals("NEW", captor.getValue().getProjectCode());
+        var error = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.createProductCatalog(reqVO));
+        assertEquals(DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED.getCode(), error.getCode());
+        verifyNoInteractions(productCatalogMapper, projectCodeMapper, relationMapper);
     }
 
     @Test

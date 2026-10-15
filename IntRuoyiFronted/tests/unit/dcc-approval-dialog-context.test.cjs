@@ -5,20 +5,23 @@ const ts = require('typescript')
 const vm = require('node:vm')
 const vue = require('vue')
 const { parse } = require('vue/compiler-sfc')
+const versionDisplay = {}
+new Function('exports', ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/version-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(versionDisplay)
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve } }
 const flush = async () => { for (let n = 0; n < 25; n++) await Promise.resolve() }
 function parent({ confirm = async () => true, readyGate, saveGate, failGate, cleanupGate, ownerRequired = true } = {}) {
   const raw = fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue', 'utf8')
   const page = ts.createSourceFile('detail.ts', parse(raw).descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  const names = new Set(['submitActionDialog', 'refreshTaskActionReadiness', 'openActionDialog', 'closeActionDialog', 'readActionDialogRequest', 'actionDialogRequestIsCurrent'])
+  const names = new Set(['submitActionDialog', 'refreshTaskActionReadiness', 'openActionDialog', 'closeActionDialog', 'readActionDialogRequest', 'actionDialogRequestIsCurrent', 'returnToCompletedTaskInbox'])
   const code = page.statements.filter(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => names.has(d.name.getText(page)))).map(s => s.getText(page)).join('\n')
-  const sent = [], success = [], feedback = [], closed = [], env = { exports: {}, Error, JSON, String, Promise, structuredClone,
-    actionDialogGeneration: 1, taskActionReadinessRequestSeq: 0,
+  const sent = [], success = [], feedback = [], closed = [], navigated = [], env = { exports: {}, Error, JSON, String, Promise, structuredClone, ...versionDisplay,
+    actionDialogGeneration: 1, taskActionReadinessRequestSeq: 0, taskListRevision: 0,
+    useApprovalTodoBadgeStoreWithOut: () => ({ invalidateTaskLists: () => { env.taskListRevision++ } }),
     actionDialog: vue.reactive({ visible: true, submitting: false, mode: 'approve', inlineError: '', fieldErrors: {}, form: { password: 'unit-only-A', reason: 'A意见', fileOwnerUserId: '9007199254740993' } }),
     approvalTodoTask: vue.ref({ id: 'task-A', taskDefinitionKey: 'MATRIX_APPROVAL' }), fileDetail: vue.ref({ id: '10', fileNumber: 'F', versionNo: 'A/2' }), controlledFileId: vue.ref('10'), currentUserId: vue.ref('6'),
     isExternalReviewProcess: vue.ref(false), shouldCollectFourthNodeFiles: vue.ref(false), isFourthNodeApprovalTask: vue.ref(false), isSignoffTask: vue.ref(false), signoffReadyForReview: vue.ref(true),
     taskActionReadiness: vue.reactive({ ready: false, blockers: [], error: '', loading: false }), fourthNodeUpload: { selectedDistributionScopes: [] }, externalReviewAction: {},
-    requiresFileOwnerSelection: vue.ref(ownerRequired), route: vue.reactive({ fullPath: 'route-A' }), approvalProcessInstanceId: vue.ref('bpm-A'),
+    requiresFileOwnerSelection: vue.ref(ownerRequired), route: vue.reactive({ fullPath: 'route-A', query: {} }), approvalProcessInstanceId: vue.ref('bpm-A'), router: { push: async target => navigated.push(target) },
     validateExternalReviewConclusion: () => true, applyTaskActionReadinessFieldErrors() {}, resetFourthNodeUploads() {}, cleanupFourthNodeUploadSessions: async () => { if (cleanupGate) await cleanupGate.promise; return true }, loadDocControlDirectoryTree: async () => {},
     getControlledFileTaskActionReadiness: async () => { if (readyGate) await readyGate.promise; return { ready: true, blockers: [], finalApproval: false } },
     message: { confirm, success: text => success.push(text), error: text => feedback.push(text), warning: text => feedback.push(text), info: text => feedback.push(text) },
@@ -46,8 +49,14 @@ function parent({ confirm = async () => true, readyGate, saveGate, failGate, cle
     env.actionDialog.form.password = 'unit-only-B'; env.actionDialog.form.reason = 'B意见'; env.actionDialog.form.fileOwnerUserId = '7'
     env.taskActionReadiness.ready = true; env.actionDialog.submitting = busy
   }
-  return { env, sent, success, feedback, closed, change, ...env.exports.api }
+  return { env, sent, success, feedback, closed, navigated, change, ...env.exports.api }
 }
+test('completed approval-center task returns to inbox without rereading expired task body',async()=>{
+  const p=parent({ownerRequired:false});p.env.route.query={handling:'approval',from:'approval-center'};let reloads=0;p.env.reloadAll=async()=>{reloads++;throw Error('expired task body')};await p.submitActionDialog();assert.equal(p.sent.length,1);assert.equal(reloads,0);assert.equal(p.env.taskListRevision,1);assert.equal(p.navigated[0].path,'/approval-center/todo')
+})
+test('unconfirmed version owner defaults to original requester, never current approver',()=>{
+  const p=parent();p.env.fileDetail.value.requesterId='9007199254740901';p.openActionDialog('approve');assert.equal(p.env.actionDialog.form.fileOwnerUserId,'9007199254740901')
+})
 test('original click cannot submit another task after readiness returns, even when the new dialog is ready', async () => {
   const gate = deferred(), p = parent({ readyGate: gate }), old = p.submitActionDialog()
   await p.change(); gate.resolve(); await old
@@ -104,4 +113,13 @@ test('frozen upload scope and owner payload are not replaced by subsequent form 
   assert.equal(p.sent[0].payload.selectedDistributionScopes[0].departmentId, 20)
   assert.equal(p.sent[0].payload.fileOwnerUserId, '9007199254740993')
   gate.resolve(); await signing
+})
+
+test('approval confirmation hides the working counter but the clicked request snapshot keeps its exact version and task', async () => {
+  const prompts = [], p = parent({ confirm: async value => { prompts.push(value); return true } })
+  p.env.fileDetail.value.versionNo = 'A/1-2'
+  await p.submitActionDialog()
+  assert.equal(prompts.length, 1); assert.match(prompts[0], /草稿/); assert.doesNotMatch(prompts[0], /A\/1-2/)
+  assert.equal(p.sent.length, 1); assert.equal(p.sent[0].id, '10'); assert.equal(p.sent[0].payload.taskId, 'task-A')
+  assert.equal(p.env.fileDetail.value.versionNo, 'A/1-2')
 })

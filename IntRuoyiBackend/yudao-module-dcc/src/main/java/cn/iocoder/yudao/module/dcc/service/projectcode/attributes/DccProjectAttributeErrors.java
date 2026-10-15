@@ -20,5 +20,6 @@ public final class DccProjectAttributeErrors {
     public static final ErrorCode DEFAULTS_CHANGED = new ErrorCode(1_080_090_012, "项目默认属性已变化，请重新读取并确认恢复");
     public static final ErrorCode REJECTED_REQUEST_REWORK_INVALID = new ErrorCode(1_080_090_013, "仅原申请人可从未重提的驳回申请修改后重新提交");
     public static final ErrorCode WRITE_INCOMPLETE = new ErrorCode(1_080_090_014, "项目配置写入不完整：{}，请重试");
+    public static final ErrorCode CONFIGURATION_CHANGED = new ErrorCode(1_080_090_020, "项目默认属性或负责人配置已变化，请重新打开并核对后保存");
     public static ServiceException fail(ErrorCode code) { return exception(code); }
 }

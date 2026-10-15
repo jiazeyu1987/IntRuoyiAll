@@ -51,8 +51,23 @@ test('browser approval entry cannot route an unavailable working selection', asy
   const state = handler()
   await state.invoke({ id: '1' }, {
     id: '42', versionNo: 'B/1-2', status: 'WORKING', requesterId: '99',
-    checkedOut: false, actionProjection: { actionLocked: true }
+    checkedOut: false, actionProjection: { actionLocked: true, pendingRequestId: '88', actionLockReason: 'OBSOLETE_APPROVAL_PENDING' }
   })
   assert.equal(state.calls.destinations.length, 0)
   assert.equal(state.calls.writes.length, 0)
+})
+
+test('ordinary nonactive formal-action lock does not hide the owner working application entry', async () => {
+  const state = handler()
+  await state.invoke({ id: '1' }, { id: '42', versionNo: 'B/1-2', status: 'WORKING', requesterId: '99', checkedOut: false,
+    actionProjection: { actionLocked: true, pendingRequestId: null, actionLockReason: 'Controlled file is not active' } })
+  assert.deepEqual(state.calls.destinations, ['42']);assert.equal(state.calls.writes.length,0)
+})
+
+test('working entry retains requester, state, checkout and real pending-request boundaries', async () => {
+  for (const changes of [{requesterId:'100'},{status:'ACTIVE'},{checkedOut:true},{checkedOutBy:'99'},
+    {actionProjection:{actionLocked:true,pendingRequestId:'88'}},{actionProjection:undefined}]) {
+    const state=handler();await state.invoke({id:'1'},{id:'42',status:'WORKING',requesterId:'99',checkedOut:false,actionProjection:{actionLocked:true,pendingRequestId:null},...changes})
+    assert.equal(state.calls.destinations.length,0);assert.equal(state.calls.writes.length,0)
+  }
 })

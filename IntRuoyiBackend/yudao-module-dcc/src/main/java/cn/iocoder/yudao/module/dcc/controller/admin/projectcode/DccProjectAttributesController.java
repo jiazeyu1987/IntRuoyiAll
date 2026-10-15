@@ -16,6 +16,11 @@ import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUti
 import static cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributeErrors.*;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
+import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.util.Arrays;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/dcc/project-codes")
@@ -41,7 +46,33 @@ public class DccProjectAttributesController {
         return success(folderService.readProjectFolders(getLoginUserId(), projectId));
     }
 
-    public record Configuration(Long projectLeaderUserId, DccProjectAttributes defaultAttributes, String changeReason) {}
+    public record Configuration(Long projectLeaderUserId, DccProjectAttributes defaultAttributes,
+                                String changeReason, String expectedConfigurationToken) {}
+    public record ConfigurationView(@JsonFormat(shape = JsonFormat.Shape.STRING) Long id,
+                                    @JsonFormat(shape = JsonFormat.Shape.STRING) Long projectLeaderUserId,
+                                    String defaultAttributesJson, String configurationToken) {}
+
+    @GetMapping("/{projectId}/attributes/configuration")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')")
+    public CommonResult<ConfigurationView> configuration(@PathVariable Long projectId) {
+        accessService.assertProjectViewerOrAbove(getLoginUserId(), projectId);
+        var project = projectMapper.selectById(projectId);
+        requireConfigurationProject(project);
+        // Raw stored values remain readable for explicit repair; proposed new values are validated on save.
+        return success(new ConfigurationView(project.getId(), project.getProjectLeaderUserId(),
+                project.getDefaultAttributesJson(), configurationToken(project)));
+    }
+
+    private String configurationToken(DccProjectCodeDO project) {
+        return DigestUtil.sha256Hex(JsonUtils.toJsonString(Arrays.asList(project.getTenantId(), project.getId(),
+                project.getProjectLeaderUserId(), project.getProjectLeader(), project.getDefaultAttributesJson())));
+    }
+
+    private void requireConfigurationProject(DccProjectCodeDO project) {
+        if (project == null || !Objects.equals(project.getTenantId(),
+                cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())
+                || !"ENABLE".equals(project.getStatus())) throw fail(DEFAULTS_MISSING);
+    }
     @GetMapping("/{projectId}/attributes/defaults")
     @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:submit','dcc:controlled-file:query')")
     public CommonResult<DccProjectAttributes> defaults(@PathVariable Long projectId, @RequestParam String applicationType) {
@@ -58,7 +89,9 @@ public class DccProjectAttributesController {
         var user = leaderService.requireEnabledAccount(input.projectLeaderUserId());
         String json = service.encode(input.defaultAttributes());
         var project = projectMapper.selectByIdForUpdate(projectId);
-        if (project == null || !java.util.Objects.equals(project.getTenantId(), cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId())) throw fail(DEFAULTS_MISSING);
+        requireConfigurationProject(project);
+        if (input.expectedConfigurationToken() == null || !input.expectedConfigurationToken().matches("[a-f0-9]{64}")
+                || !configurationToken(project).equals(input.expectedConfigurationToken())) throw fail(CONFIGURATION_CHANGED);
         String before = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(project);
         int written = projectMapper.update(null, new LambdaUpdateWrapper<DccProjectCodeDO>()
                 .eq(DccProjectCodeDO::getId, projectId)

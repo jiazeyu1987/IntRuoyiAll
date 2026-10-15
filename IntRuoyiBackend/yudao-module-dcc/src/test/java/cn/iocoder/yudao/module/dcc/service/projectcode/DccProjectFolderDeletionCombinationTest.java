@@ -48,7 +48,13 @@ class DccProjectFolderDeletionCombinationTest extends DccProjectFormalCombinatio
         assertNotNull(folders.selectById(empty.getId()));assertTrue(events.selectList().isEmpty());
     }
     <T>Future<T> submit(ExecutorService pool,java.util.function.Supplier<T> action){
-        return pool.submit(()->{TenantContextHolder.setTenantId(1L);login(7L);try{return action.get();}finally{TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}});
+        return pool.submit(()->{TenantContextHolder.setTenantId(1L);TenantContextHolder.setIgnore(false);login(7L);try{return action.get();}finally{TenantContextHolder.clear();org.springframework.security.core.context.SecurityContextHolder.clearContext();}});
+    }
+    void requireLocked(CountDownLatch locked,Future<?> holder) throws Exception {
+        if(locked.await(10,TimeUnit.SECONDS))return;
+        // Preserve the original wait bound; expose an early real business failure instead of only a latch assertion.
+        if(holder.isDone())holder.get(0,TimeUnit.MILLISECONDS);
+        fail("实际持锁事务未到达原10秒等待门禁");
     }
     @Test void referenceCreationHoldingSharedLockMakesConcurrentDeleteWaitAndThenReject() throws Exception{
         referencePolicies();var source=project("CONCURRENT-SOURCE",9L);var target=project("CONCURRENT-TARGET",7L);
@@ -57,7 +63,7 @@ class DccProjectFolderDeletionCombinationTest extends DccProjectFormalCombinatio
         try{
             var creating=submit(pool,()->tx(()->{references.create(7L,target.getId(),folder.getId(),file.getId(),"引用先锁");locked.countDown();
                 try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException e){throw new IllegalStateException(e);}return true;}));
-            assertTrue(locked.await(10,TimeUnit.SECONDS));
+            requireLocked(locked,creating);
             var deleting=submit(pool,()->{folderMaintenance.delete(7L,target.getId(),folder.getId(),true,"并发删除");return true;});
             assertThrows(TimeoutException.class,()->deleting.get(200,TimeUnit.MILLISECONDS));release.countDown();assertTrue(creating.get(10,TimeUnit.SECONDS));
             assertThrows(ExecutionException.class,()->deleting.get(10,TimeUnit.SECONDS));assertNotNull(folders.selectById(folder.getId()));
@@ -71,7 +77,7 @@ class DccProjectFolderDeletionCombinationTest extends DccProjectFormalCombinatio
         try{
             var deleting=submit(pool,()->tx(()->{folderMaintenance.delete(7L,target.getId(),folder.getId(),true,"删除先锁");locked.countDown();
                 try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException e){throw new IllegalStateException(e);}return true;}));
-            assertTrue(locked.await(10,TimeUnit.SECONDS));
+            requireLocked(locked,deleting);
             var creating=submit(pool,()->references.create(7L,target.getId(),folder.getId(),file.getId(),"等待后引用"));
             assertThrows(TimeoutException.class,()->creating.get(200,TimeUnit.MILLISECONDS));release.countDown();assertTrue(deleting.get(10,TimeUnit.SECONDS));
             assertThrows(ExecutionException.class,()->creating.get(10,TimeUnit.SECONDS));assertNull(folders.selectById(folder.getId()));
@@ -93,7 +99,7 @@ class DccProjectFolderDeletionCombinationTest extends DccProjectFormalCombinatio
         try{
             var cancelling=submit(pool,()->tx(()->{references.cancel(7L,target.getId(),folder.getId(),file.getMasterId(),ref.reference().id(),true,"取消最后引用");locked.countDown();
                 try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException e){throw new IllegalStateException(e);}return true;}));
-            assertTrue(locked.await(10,TimeUnit.SECONDS));
+            requireLocked(locked,cancelling);
             var deleting=submit(pool,()->{folderMaintenance.delete(7L,target.getId(),folder.getId(),true,"取消后的空目录");return true;});
             assertThrows(TimeoutException.class,()->deleting.get(200,TimeUnit.MILLISECONDS));release.countDown();
             assertTrue(cancelling.get(10,TimeUnit.SECONDS));assertTrue(deleting.get(10,TimeUnit.SECONDS));

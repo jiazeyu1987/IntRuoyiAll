@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRu
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccDirectoryAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessSubjectTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
+import cn.iocoder.yudao.module.dcc.service.file.DccAccessUserIdentity;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
@@ -46,7 +47,7 @@ public class DccDirectoryAccessPermissionServiceImpl implements DccDirectoryAcce
             return Collections.emptySet();
         }
         AdminUserRespDTO user = adminUserApi.getUser(userId);
-        if (user == null) {
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) {
             return Collections.emptySet();
         }
         List<DccDirectoryAccessRuleDO> rules = accessRuleMapper.selectList(DccDirectoryAccessRuleDO::getActive, Boolean.TRUE);

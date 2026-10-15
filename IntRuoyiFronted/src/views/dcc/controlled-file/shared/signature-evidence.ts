@@ -1,6 +1,10 @@
 export type DccSignatureTagType = 'success' | 'primary' | 'warning' | 'danger' | 'info'
 
 export const DCC_SIGNATURE_TASK_ACTION_OPTIONS = [
+  { label: '会签指派', value: 'ASSIGN' },
+  { label: '会签指派', value: 'ASSIGNED' },
+  { label: '审批通过', value: 'APPROVE' },
+  { label: '审批驳回', value: 'REJECT' },
   { label: '审批通过', value: 'APPROVED' },
   { label: '审批驳回', value: 'REJECTED' },
   { label: '流程回退', value: 'RETURNED' },
@@ -11,6 +15,9 @@ export const DCC_SIGNATURE_TASK_ACTION_OPTIONS = [
 ] as const
 
 export const DCC_SIGNATURE_MEANING_OPTIONS = [
+  { label: '直属主管审核通过', value: 'SUPERVISOR_REVIEW_APPROVE' },
+  { label: '直属主管审核驳回', value: 'SUPERVISOR_REVIEW_REJECT' },
+  { label: '会签指派', value: 'MATRIX_REVIEW_ASSIGN' },
   { label: '文控审核通过', value: 'DOC_CONTROL_REVIEW_APPROVE' },
   { label: '文控审核驳回', value: 'DOC_CONTROL_REVIEW_REJECT' },
   { label: '文控审核回退', value: 'DOC_CONTROL_REVIEW_RETURN' },
@@ -78,15 +85,22 @@ const authorizationStateLabelMap = new Map(
 )
 
 export const getDccSignatureTaskActionLabel = (value: string | undefined) => {
-  return value ? signatureActionLabelMap.get(value as never) ?? value : '-'
+  return value ? (signatureActionLabelMap.get(value as never) ?? `未识别签名动作（${value}）`) : '-'
+}
+
+/** Display only the user's opinion; persisted evidence and signatures remain unchanged. */
+export const getDccSignatureOpinionLabel = (value?: string | null) => {
+  if (!value) return '未记录'
+  const at = value.search(/；(?:会签指派事实：部门=|批准文件负责人事实：\[)/)
+  return (at < 0 ? value : value.slice(0, at)) || '未记录'
 }
 
 export const getDccSignatureMeaningLabel = (value: string | undefined) => {
-  return value ? signatureMeaningLabelMap.get(value as never) ?? value : '-'
+  return value ? (signatureMeaningLabelMap.get(value as never) ?? value) : '-'
 }
 
 export const getDccSignatureEvidenceStatusLabel = (value: string | undefined) => {
-  return value ? evidenceStatusLabelMap.get(value as never) ?? value : '-'
+  return value ? (evidenceStatusLabelMap.get(value as never) ?? value) : '-'
 }
 
 export const getDccSignatureEvidenceStatusTagType = (
@@ -105,7 +119,7 @@ export const getDccSignatureEvidenceStatusTagType = (
 }
 
 export const getDccControlledCopyHashStatusLabel = (value: string | undefined) => {
-  return value ? controlledCopyHashStatusLabelMap.get(value as never) ?? value : '-'
+  return value ? (controlledCopyHashStatusLabelMap.get(value as never) ?? value) : '-'
 }
 
 export const getDccControlledCopyHashStatusTagType = (
@@ -121,7 +135,7 @@ export const getDccControlledCopyHashStatusTagType = (
 }
 
 export const getDccSignatureAuthorizationStateLabel = (value: string | undefined) => {
-  return value ? authorizationStateLabelMap.get(value as never) ?? value : '-'
+  return value ? (authorizationStateLabelMap.get(value as never) ?? value) : '-'
 }
 
 export const getDccSignatureAuthorizationStateTagType = (

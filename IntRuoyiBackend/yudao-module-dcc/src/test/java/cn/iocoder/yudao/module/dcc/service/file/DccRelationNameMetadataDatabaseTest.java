@@ -48,7 +48,7 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         for(String field:new String[]{"assignmentScopeService","directoryAccessPermissionService","permissionSupport","viewMatrixAccessService","distributionRecipientMapper","routeSnapshotMapper","bpmTaskService"})ReflectionTestUtils.setField(guard,field,ReflectionTestUtils.getField(query,field));
         ReflectionTestUtils.setField(query,"detailAuthorizationGuard",guard);
     }
-    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
+    @AfterEach void clear(){jdbc.update("DELETE FROM dcc_controlled_file_related_file");jdbc.update("DELETE FROM dcc_project_file_placement");jdbc.update("DELETE FROM dcc_project_folder_storage_mapping");TenantContextHolder.clear();}
 
     @Test void authorizedMainDetailDoesNotEagerlyReadAnUnauthorizedHistoricalRelationAndExplicitHistoryStaysStrict() throws Exception {
         jdbc.update("UPDATE dcc_controlled_file SET version_no='A/2' WHERE id=9007199254740993");
@@ -184,6 +184,18 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         assertEquals("500",json.get("projectFolderId").textValue());
         assertEquals(before,jdbc.queryForMap("SELECT * FROM dcc_project_file_placement WHERE id=1"));
     }
+    @Test void normalWorkingDetailCarriesItsExactStoredFormalBaselineWithoutBorrowingMasterHead() {
+        jdbc.update("UPDATE dcc_controlled_file_master SET latest_controlled_file_id=NULL WHERE id=10");
+        jdbc.update("UPDATE dcc_controlled_file SET status='WORKING',controlled_time=NULL,version_no='A/1-1',revision_base_active_controlled_file_id=20 WHERE id=9007199254740993");
+        var response=authorizedDetail();
+        assertEquals(20L,response.getRevisionBaseActiveControlledFileId());
+        assertNull(masters.selectById(10L).getLatestControlledFileId());
+    }
+    @Test void approvalSnapshotReadIncludesRealVersionAndCategoryIncludingRetainedHistory() {
+        var snapshot=files.selectByIdIncludingDeleted(9007199254740993L);
+        assertEquals(files.selectById(9007199254740993L).getVersionNo(),snapshot.getVersionNo());
+        assertEquals(2L,snapshot.getCategoryId());
+    }
     private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO authorizedDetail() {
         var detail=mock(DccControlledFileDetailAuthorizationGuard.class);
         when(detail.isAllowed(any(),any(),anyBoolean(),any())).thenReturn(true);
@@ -250,6 +262,7 @@ class DccRelationNameMetadataDatabaseTest extends BaseDbUnitTest {
         var json=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
                 cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(result),Map.class);
         assertEquals(Boolean.TRUE,json.get("hasCurrentControlledSource"));
+        assertEquals("20",json.get("latestControlledFileId"));
         assertFalse(result.controlled());assertFalse(result.canEdit());assertFalse(result.canPreview());
     }
 

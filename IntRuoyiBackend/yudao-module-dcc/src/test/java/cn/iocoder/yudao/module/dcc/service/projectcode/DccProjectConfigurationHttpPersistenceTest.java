@@ -267,13 +267,13 @@ class DccProjectConfigurationHttpPersistenceTest extends BaseDbUnitTest {
             parent = taxonomies.createTaxonomy(input);
         }
         Long typeId = parent;
-        var category = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+        var category = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code("B-MAP-C1").name("正式类别1").parentId(0L).active(true).sort(0)
                 .source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(typeId).build();
         categories.insert(category);
         mvc.perform(get("/dcc/file-type-taxonomies/{id}/active-category", typeId))
                 .andExpect(jsonPath("$.code").value(0)).andExpect(jsonPath("$.data").value(category.getId()));
-        var ambiguous = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder()
+        var ambiguous = cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .code("B-MAP-C2").name("正式类别2").parentId(0L).active(true).sort(0)
                 .source("LOCAL").lifecycleStage("GENERAL").fileTypeTaxonomyId(typeId).build();
         categories.insert(ambiguous);

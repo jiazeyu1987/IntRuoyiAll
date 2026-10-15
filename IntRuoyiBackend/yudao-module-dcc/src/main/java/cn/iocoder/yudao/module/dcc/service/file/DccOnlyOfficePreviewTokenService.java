@@ -102,12 +102,25 @@ public class DccOnlyOfficePreviewTokenService {
     public IssuedPreviewToken issueControlledFile(Long tenantId, Long userId, Long fileId, String versionId,
                                                   Long accessEventId, String purpose, Long ttlSeconds,
                                                   Long infraFileId, BusinessFileAccessReference reference) {
+        return issueControlledFile(tenantId, userId, fileId, versionId, accessEventId, purpose, ttlSeconds, infraFileId, reference, null);
+    }
+
+    public IssuedPreviewToken issueControlledFile(Long tenantId, Long userId, Long fileId, String versionId,
+            Long accessEventId, String purpose, Long ttlSeconds, Long infraFileId,
+            BusinessFileAccessReference reference, DccControlledFileBodyReadContext bodyContext) {
         requireConfigured();
         requireControlledContext(tenantId, userId, fileId, versionId, accessEventId, purpose, ttlSeconds);
+        if (bodyContext != null) {
+            bodyContext.requireFile(fileId, versionId);
+            if (!Objects.equals(bodyContext.purpose(), purpose)) throw new IllegalArgumentException("Office body context purpose mismatch");
+        } else if (DccControlledFileBodyReadContext.isBodyPurpose(purpose)) {
+            throw new IllegalArgumentException("Office body context is required for body purpose");
+        }
         requireBusinessContext(AUDIENCE_CONTROLLED_FILE_PREVIEW,
                 BusinessFileAccessOperation.ONLYOFFICE_PREVIEW, infraFileId, tenantId, userId,
                 null, reference, ttlSeconds);
-        if (reference == null || !Objects.equals(reference.businessId(), fileId)
+        if (reference == null || !"dcc".equals(reference.providerId()) || !"DCC_CONTROLLED_FILE".equals(reference.businessType())
+                || !Objects.equals(reference.businessId(), fileId)
                 || !Objects.equals(StrUtil.trim(reference.versionKey()), StrUtil.trim(versionId))) {
             throw new IllegalArgumentException("controlled file token formal reference mismatch");
         }
@@ -126,6 +139,7 @@ public class DccOnlyOfficePreviewTokenService {
         payload.setVersionId(StrUtil.trim(versionId));
         payload.setAccessEventId(accessEventId);
         payload.setPurpose(StrUtil.trim(purpose));
+        payload.setBodyReadContext(bodyContext == null ? null : bodyContext.wire());
         payload.setTtlSeconds(ttlSeconds);
         payload.setIssuedAtEpochSecond(issuedAt.getEpochSecond());
         payload.setExpiresAtEpochSecond(issuedAt.plusSeconds(ttlSeconds).getEpochSecond());
@@ -136,16 +150,29 @@ public class DccOnlyOfficePreviewTokenService {
     public PreviewTokenPayload verifyControlledFile(String token, Long expectedFileId) {
         PreviewTokenPayload payload = verifySignedPayload(token);
         requireControlledPayload(payload);
+        if (payload.getBodyReadContext() != null) {
+            var bodyContext = DccControlledFileBodyReadContext.fromWire(expectedFileId, payload.getBodyReadContext());
+            bodyContext.requireFile(expectedFileId, payload.getVersionId());
+            if (!Objects.equals(bodyContext.purpose(), payload.getPurpose())) throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        } else if (DccControlledFileBodyReadContext.isBodyPurpose(payload.getPurpose())) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        }
         if (!Instant.now().isBefore(Instant.ofEpochSecond(payload.getExpiresAtEpochSecond()))) {
             throw exception(CONTROLLED_FILE_VIEWER_TOKEN_EXPIRED);
         }
         if (!RESOURCE_CONTROLLED_FILE.equals(payload.getResourceType())
                 || !Objects.equals(payload.getFileId(), expectedFileId)
-                || !PURPOSE_CONTROLLED_PREVIEW.equals(payload.getPurpose())
+                || !isSupportedControlledPurpose(payload.getUserId(), payload.getFileId(), payload.getPurpose())
                 || !AUDIENCE_CONTROLLED_FILE_PREVIEW.equals(payload.getAudience())
                 || !BusinessFileAccessOperation.ONLYOFFICE_PREVIEW.name().equals(payload.getOperation())) {
             throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
         }
+        if (!"dcc".equals(payload.getProviderId()) || !"DCC_CONTROLLED_FILE".equals(payload.getBusinessType())
+                || !Objects.equals(payload.getBusinessId(), payload.getFileId())
+                || !Objects.equals(payload.getVersionKey(), payload.getVersionId())) {
+            throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        }
+        requireMatchingTenantContext(payload);
         return payload;
     }
 
@@ -219,6 +246,9 @@ public class DccOnlyOfficePreviewTokenService {
         requireNotBlank(versionId, "versionId");
         requirePositive(accessEventId, "accessEventId");
         requireNotBlank(purpose, "purpose");
+        if (!isSupportedControlledPurpose(userId, fileId, purpose)) {
+            throw new IllegalArgumentException("controlled preview purpose must be ordinary preview or an exact distribution task");
+        }
         requirePositive(ttlSeconds, "ttlSeconds");
     }
 
@@ -231,6 +261,16 @@ public class DccOnlyOfficePreviewTokenService {
                 expectedContext.ttlSeconds());
         requireNotBlank(expectedContext.nonce(), "nonce");
         requireNotBlank(expectedContext.tokenId(), "tokenId");
+    }
+
+    private boolean isSupportedControlledPurpose(Long userId, Long fileId, String purpose) {
+        if (DccControlledFileBodyReadContext.isBodyPurpose(purpose)) return true;
+        if (PURPOSE_CONTROLLED_PREVIEW.equals(StrUtil.trim(purpose))) return true;
+        try {
+            return DccDistributionPreviewContext.fromPurpose(userId, fileId, purpose).purpose().equals(purpose);
+        } catch (IllegalArgumentException invalidPurpose) {
+            return false;
+        }
     }
 
     private void requireControlledPayload(PreviewTokenPayload payload) {
@@ -360,6 +400,7 @@ public class DccOnlyOfficePreviewTokenService {
         private String versionId;
         private Long accessEventId;
         private String purpose;
+        private String bodyReadContext;
         private Long ttlSeconds;
         private Long issuedAtEpochSecond;
         private Long expiresAtEpochSecond;

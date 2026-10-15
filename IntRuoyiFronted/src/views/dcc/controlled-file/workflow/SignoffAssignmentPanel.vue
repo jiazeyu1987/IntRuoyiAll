@@ -1,9 +1,9 @@
 <template>
   <section>
     <slot name="frozen-evidence" ></slot>
-    <p>{{ departmentName }}：先签名指派，再由被指派人正式会签。可以指派本人。</p>
-    <el-select v-model="selected" placeholder="选择本部门会签人" :disabled="busy || assigned">
-      <el-option v-for="user in users" :key="String(user.id)" :label="user.name" :value="user.id" />
+    <p>{{ departmentName }}：先签名指派本部门人员，再由被指派人正式会签。本人属于本部门时可以指派本人。</p>
+    <el-select v-model="selected" filterable clearable placeholder="搜索并选择本部门会签人" :disabled="busy || assigned">
+      <el-option v-for="user in users" :key="String(user.id)" :label="user.departmentName ? `${user.name}（${user.departmentName}）` : user.name" :value="user.id" />
     </el-select>
     <el-input v-model="reason" placeholder="指派意见" :disabled="busy || assigned" />
     <el-input v-model="password" type="password" show-password placeholder="当前账号签名密码" :disabled="busy || assigned" />
@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
   processInstanceId: string
   taskId: string
   departmentName: string
-  users: Array<{ id: WorkflowId; name: string }>
+  users: Array<{ id: WorkflowId; name: string; departmentName?: string }>
   assigned: boolean
   relationArrangements?: ArrangementCommand[]
   arrangementsReady?: boolean
@@ -50,6 +50,10 @@ onBeforeUnmount(() => {
 })
 const submit = async () => {
   if (busy.value || props.assigned) return
+  if (!props.users.some(user => String(user.id) === String(selected.value))) {
+    error.value = '请从当前本部门正式候选目录选择会签人'
+    return
+  }
   if (props.arrangementsReady === false) { error.value = '整改安排尚未加载或校验完成，请核对后再签名'; return }
   if (!isWorkflowId(props.fileId) || !props.processInstanceId?.trim() || !props.taskId?.trim()) {
     error.value = '会签任务上下文缺失，请刷新任务后重新办理'

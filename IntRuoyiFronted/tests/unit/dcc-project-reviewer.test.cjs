@@ -7,7 +7,9 @@ const root = path.resolve(__dirname, '../..')
 function load(relative, resolve = () => { throw new Error('unexpected dependency') }) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8')
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  const exports = {}; new Function('exports', 'require', output)(exports, resolve); return exports
+  const exports = {}; new Function('exports', 'require', output)(exports, name => name.endsWith('/project-product-role')
+    ? load('src/views/dcc/controlled-file/basic-data/components/project-product-role.ts')
+    : name.endsWith('/project-reviewer') ? load('src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts') : resolve(name)); return exports
 }
 const id = '9223372036854775707'
 const config = { configured: true, reviewerUserId: id, reviewerUsername: 'reviewer', reviewerNickname: '审核人员', enabled: true }
@@ -46,15 +48,16 @@ test('review permission uses the immutable request reviewer, never current confi
   assert.equal(model.canReviewProjectProduct(row, 9007199254740992), false)
 })
 
-test('public create and history page mount real reviewer configuration and frozen identities', () => {
+test('new creation uses the role while history retains frozen legacy reviewer facts', () => {
   const source = fs.readFileSync(path.join(root, 'src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue'), 'utf8')
-  assert.match(source, /<ProjectReviewerConfiguration\b/)
+  assert.doesNotMatch(source, /<ProjectReviewerConfiguration\b/)
   assert.match(source, /configuredReviewerNickname/)
-  assert.match(source, /canReviewProjectProduct\(row, userStore\.getUser\.id\)/)
+  assert.match(source, /canPerformProjectAction\(row, 'review'\)/)
   assert.match(source, /data-testid="dcc-project-product-records-open"/)
   assert.match(source, /v-if="projectProductMode === 'create'"/)
   const submit = source.slice(source.indexOf('const submitProjectProductRequest ='), source.indexOf('const handleProjectProductAction ='))
-  assert.match(submit, /requireConfiguredReviewer\(await getDccProjectReviewerConfiguration\(\)\)/)
+  assert.match(submit, /requireProjectReviewerRole\(await getDccProjectReviewerRole\(\)\)/)
+  assert.doesNotMatch(submit, /getDccProjectReviewerConfiguration/)
 })
 
 function configurationComponent({ confirm = async () => true, permitted = true, saveError, readConfig = async () => config } = {}) {
