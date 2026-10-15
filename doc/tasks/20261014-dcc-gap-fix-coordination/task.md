@@ -16,7 +16,7 @@
 每项需生产diff、RED/GREEN/REGRESSION具体结果、版本/权限/事务/重放关键不变量。Root按实际源码及新证据review，不用旧报告关闭问题。统一验证仅当前实际来源。用户未授权本轮E2E、服务重启、实库写入或Git；不执行这些动作。隔离H2/Flowable开发测试可按规则串行执行。
 
 ## Current Status
-ready_for_closeout — 用户现已明确授权本地提交且明确不推送；软件1008/1008与前端验证、清理均已通过。当前正在本地Git收尾，push不作为本轮完成门禁。
+completed — 12项软件修复、Root review、1008/1008后端、前端类型/构建及清理均通过；用户现明确提交不推送，本地实现提交a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2已成功，push已移出本轮门禁。Git收尾记录见doc/tasks/20261015-dcc-verified-local-commit/。
 
 ## 设计约束检查
 - 当前实际分支int_qms；无切换、提交、推送。

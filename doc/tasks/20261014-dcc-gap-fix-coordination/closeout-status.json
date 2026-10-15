@@ -1,6 +1,6 @@
 {
   "softwareGoal": "complete",
-  "engineeringTaskStatus": "ready_for_closeout",
+  "engineeringTaskStatus": "completed",
   "onlyEngineeringBlocker": null,
   "branch": "int_qms",
   "backendPassed": 1008,
@@ -12,8 +12,10 @@
   "build": "PASS B01; emitted temporary artifacts verified then cleaned",
   "cleanup": "PASS canonical preview/apply, task-owned build files only",
   "gitAuthorization": "2026-10-15 user: 提交不推送",
-  "localCommitState": "preparing",
+  "localCommitState": "committed",
   "pushAuthorized": false,
   "noLiveDbServiceE2EDeploymentWrites": true,
-  "priorRepairRunNoGitWrites": true
+  "priorRepairRunNoGitWrites": true,
+  "implementationCommit": "a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2",
+  "pushExecuted": false
 }

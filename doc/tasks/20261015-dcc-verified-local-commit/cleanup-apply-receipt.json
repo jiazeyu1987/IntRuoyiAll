@@ -1,0 +1,6 @@
+{
+  "mode": "apply",
+  "exitCode": 0,
+  "task": "20261015-dcc-verified-local-commit",
+  "scope": "own temporary Git pathspec/message/raw outputs only"
+}

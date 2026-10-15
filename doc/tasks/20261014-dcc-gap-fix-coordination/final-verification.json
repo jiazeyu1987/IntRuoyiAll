@@ -31,5 +31,10 @@
     "deletedBytes": 35269727,
     "evidencePreserved": true
   },
-  "engineeringStatus": "Local commit authorized; push explicitly excluded by user; see 20261015-dcc-verified-local-commit"
+  "engineeringStatus": "completed within explicit local-commit-only scope; no push",
+  "localCommit": {
+    "implementation": "a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2",
+    "branch": "int_qms",
+    "pushExecuted": false
+  }
 }

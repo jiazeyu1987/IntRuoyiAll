@@ -1,6 +1,6 @@
 # Root Review
 
-最终软件review已通过：12线程范围均已接收并冻结；有效后端报告47份共1008/1008、0F/E/skip，F02前端38/38、T04类型与B01完整构建通过。正式证据、失败修正经过和限制见verification-report.md及final-verification.json。当前分支int_qms；工程Git收尾未授权，不标工程completed。
+最终软件review已通过：12线程范围均已接收并冻结；有效后端报告47份共1008/1008、0F/E/skip，F02前端38/38、T04类型与B01完整构建通过。正式证据、失败修正经过和限制见verification-report.md及final-verification.json。当前分支int_qms；用户现明确提交不推送，本地实现提交a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2已完成，push不纳入本轮门禁。
 
 |任务|代码复核|RED/GREEN|回归|结论|
 |---|---|---|---|---|

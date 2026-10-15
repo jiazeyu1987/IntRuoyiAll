@@ -12,7 +12,7 @@
 复核上一轮后端1008/1008、前端F02/T04/B01证据与当前源码一致；检查暂存清单、diff-check、提交结果和origin引用未变。无源码行为变更则不重复业务测试。文档做结构验证。
 
 ## Current Status
-in_progress — 已核当前int_qms、暂存区为空；正在界定375个已跟踪变更及历史未跟踪产物中的本次提交范围。用户明确禁止推送。
+completed — 用户指定的本地代码提交a3b8234ecfba6bbafff2e8aa4dc3d1e60eccb1d2已成功；901文件清单、暂存diff-check与正常hook均通过，清理preview/apply通过。源码验收指纹未变。用户明确不推送，origin引用未变；收尾记录由独立文档提交保存，实际hash记closing-commit-receipt.json/Git log。
 
 ## 设计约束检查
 - 用户本轮明确授权Git commit，明确不推送；覆盖仓库收尾规则的默认推送要求，不执行push。
@@ -21,6 +21,23 @@ in_progress — 已核当前int_qms、暂存区为空；正在界定375个已跟
 - 不全量git add，不回滚、清理或暂存无关资产。
 
 ## Cleanup Keep
+- doc/tasks/20261015-dcc-verified-local-commit/scope-inventory.json
+- doc/tasks/20261015-dcc-verified-local-commit/selected-files.json
+- doc/tasks/20261015-dcc-verified-local-commit/force-add-files.json
+- doc/tasks/20261015-dcc-verified-local-commit/prestage-validation.json
+- doc/tasks/20261015-dcc-verified-local-commit/staged-diff-check.json
+- doc/tasks/20261015-dcc-verified-local-commit/staged-diff-check-after.json
+- doc/tasks/20261015-dcc-verified-local-commit/implementation-commit-receipt.json
+- doc/tasks/20261015-dcc-verified-local-commit/implementation-committed-files.json
+- doc/tasks/20261015-dcc-verified-local-commit/documentation-structure.json
+- doc/tasks/20261015-dcc-verified-local-commit/cleanup-preview.log
+- doc/tasks/20261015-dcc-verified-local-commit/cleanup-preview-receipt.json
+- doc/tasks/20261015-dcc-verified-local-commit/cleanup-apply.log
+- doc/tasks/20261015-dcc-verified-local-commit/cleanup-apply-receipt.json
+- doc/tasks/20261015-dcc-verified-local-commit/closing-commit-receipt.json
+- doc/tasks/20261015-dcc-verified-local-commit/closing-commit.log
+- doc/tasks/20261015-dcc-verified-local-commit/closing-commit-diff-check.log
+
 - doc/tasks/20261015-dcc-verified-local-commit/task.md
 - doc/tasks/20261015-dcc-verified-local-commit/execution-log.md
 - doc/tasks/20261015-dcc-verified-local-commit/verification-report.md
