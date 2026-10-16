@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>备份恢复验证小程序</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><p class="eyebrow">数据与附件</p><h1>备份恢复验证小程序</h1><p>测试租户 · aoteman</p></header>
+<main>
+  <p id="message" role="status" aria-live="polite" data-testid="message"></p>
+  <section id="login-panel" aria-labelledby="login-heading">
+    <h2 id="login-heading">登录</h2>
+    <form id="login-form" data-testid="login-form">
+      <label>租户编号<input name="tenantId" value="122" required pattern="122" maxlength="3" inputmode="numeric" data-testid="tenant"></label>
+      <label>用户名<input name="username" autocomplete="username" value="aoteman" required maxlength="80" data-testid="username"></label>
+      <label>密码<input name="password" type="password" autocomplete="current-password" required maxlength="256" data-testid="password"></label>
+      <button type="submit" data-testid="login">登录</button>
+    </form>
+  </section>
+  <section id="workspace" hidden>
+    <p>租户 <span data-testid="tenant-identity" id="tenant-identity"></span> · 用户 <span data-testid="username-identity" id="username-identity"></span></p>
+    <div class="section-bar"><h2>记录</h2><div><button id="add-record" type="button" data-testid="add-record">新增记录</button><button id="refresh" type="button" data-testid="refresh">刷新</button><button id="logout" type="button" data-testid="logout">退出登录</button></div></div>
+    <p id="state" data-testid="write-state"></p>
+    <form id="record-form" data-testid="record-form">
+      <h3 id="form-heading">新增记录</h3>
+      <label>记录编号<input name="key" required maxlength="80" pattern="[A-Za-z0-9_-]+" data-testid="record-key"></label>
+      <label>标题<input name="title" required maxlength="120" data-testid="record-title"></label>
+      <label>内容<textarea name="content" rows="4" maxlength="5000" data-testid="record-content"></textarea></label>
+      <div class="actions"><button type="submit" data-testid="save-record">保存记录</button><button id="cancel-edit" type="button" hidden data-testid="cancel-edit">取消编辑</button></div>
+    </form>
+    <p class="hint">每条记录可关联一个附件。文件大小为 1 字节至 64 KiB，上传新文件会替换原附件。</p>
+    <div id="records" data-testid="records"></div>
+    <p id="empty" hidden data-testid="empty">暂无记录，请新增第一条记录。</p>
+  </section>
+  <dialog id="attachment-dialog">
+    <form id="attachment-form"><h3 id="attachment-heading">上传附件</h3><p id="attachment-message" role="status"></p><label>选择文件<input type="file" name="file" required data-testid="attachment-file"></label><div class="actions"><button type="submit" data-testid="save-attachment">保存附件</button><button type="button" id="cancel-attachment">取消</button></div></form>
+  </dialog>
+  <dialog id="confirm-dialog"><p id="confirm-text"></p><div class="actions"><button id="confirm-yes" type="button" data-testid="confirm-delete">确认删除</button><button id="confirm-no" type="button">取消</button></div></dialog>
+</main>
+</body></html>

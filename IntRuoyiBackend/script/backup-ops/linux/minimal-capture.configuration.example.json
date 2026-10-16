@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "minimal-source-capture-config/v1",
+  "sourceConfigRef": "smallapp-source",
+  "archiveRoot": "/var/lib/backup-ops/capture-staging",
+  "sourceLockPath": "/var/lib/backup-ops/locks/smallapp-source.lock",
+  "tools": {"docker": "/usr/bin/docker", "ip": "/usr/sbin/ip"},
+  "limits": {
+    "workSeconds": 1800,
+    "cleanupSeconds": 120,
+    "clientWaitSeconds": 10,
+    "maxWrittenBytes": 21474836480,
+    "minimumFreeBytes": 1073741824,
+    "stopSeconds": 30,
+    "querySeconds": 60,
+    "readySeconds": 60,
+    "dataMaxRows": 100000,
+    "dataMaxNodes": 1000000,
+    "dataMaxBytes": 1073741824,
+    "dataSeconds": 600
+  },
+  "source": {
+    "sourceIdentity": "<existing-sourceFingerprint>",
+    "sourceFingerprint": "<existing-sourceFingerprint>",
+    "databaseUuid": "<actual-mysql-server-uuid>",
+    "database": "<actual_database_name>",
+    "mysqlContainerId": "<actual-64-character-container-id>",
+    "minioContainerId": "<actual-64-character-container-id>",
+    "minioDataPath": "/replace/with/actual/minio/data",
+    "minioMountDestination": "/data",
+    "writerContainerIds": ["<actual-64-character-writer-container-id>"],
+    "applicationImageIds": ["sha256:<actual-immutable-image-digest-for-each-selected-service>"],
+    "passwordPin": {"path": "/etc/backup-ops/private/mysql-root-password", "bytes": "<actual-int>", "sha256": "<actual-sha256>"},
+    "objectSourcePin": {"path": "/etc/backup-ops/source-object.json", "bytes": "<actual-int>", "sha256": "<actual-sha256>"},
+    "configurationPins": [
+      {"role": "application-config", "reference": {"path": "/replace/with/actual/config-file", "bytes": "<actual-int>", "sha256": "<actual-sha256>"}}
+    ],
+    "materialPins": [
+      {"purpose": "deployment", "reference": {"path": "/replace/with/actual/deployment-file", "bytes": "<actual-int>", "sha256": "<actual-sha256>"}}
+    ]
+  },
+  "parent": null
+}

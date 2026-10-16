@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "SmallAppUiContract/v1",
+  "version": "smallapp-20261014-r2-redis",
+  "actualBrowserVerified": false,
+  "selectorKind": "css",
+  "login": {
+    "tenant": "[data-testid=tenant]",
+    "username": "[data-testid=username]",
+    "password": "[data-testid=password]",
+    "submit": "[data-testid=login]",
+    "authenticated": "#workspace",
+    "tenantIdentity": "[data-testid=tenant-identity]",
+    "usernameIdentity": "[data-testid=username-identity]"
+  },
+  "fields": {
+    "key": "[data-testid=record-key]",
+    "title": "[data-testid=record-title]",
+    "body": "[data-testid=record-content]"
+  },
+  "controls": {
+    "listReady": "[data-testid=records][data-ready=true]",
+    "rows": "[data-testid=record]",
+    "add": "[data-testid=add-record]",
+    "save": "[data-testid=save-record]",
+    "edit": "[data-testid=edit-record]",
+    "delete": "[data-testid=delete-record]",
+    "confirmDelete": "[data-testid=confirm-delete]",
+    "uploadAttachment": "[data-testid=upload-attachment]",
+    "replaceAttachment": "[data-testid=replace-attachment]",
+    "fileInput": "[data-testid=attachment-file]",
+    "saveAttachment": "[data-testid=save-attachment]",
+    "attachmentName": "[data-testid=attachment-name]",
+    "downloadAttachment": "[data-testid=download-attachment]",
+    "deleteAttachment": "[data-testid=delete-attachment]",
+    "confirmDeleteAttachment": "[data-testid=confirm-delete]",
+    "rowTitle": "[data-testid=row-title]",
+    "rowBody": "[data-testid=row-body]"
+  },
+  "attachmentReferenceAttribute": "data-object-reference",
+  "finalRead": {
+    "recordsUrl": "/api/records",
+    "recordsPointer": "/records",
+    "recordFields": {
+      "key": "/record_key",
+      "title": "/title",
+      "body": "/content",
+      "tenantId": "/tenant_id"
+    },
+    "attachmentsPointer": "/attachments",
+    "attachmentFields": {
+      "recordKey": "/recordKey",
+      "reference": "/reference",
+      "bytes": "/bytes"
+    }
+  },
+  "mutations": {
+    "POST /api/login": [
+      "tenantId",
+      "username",
+      "password",
+      "csrf"
+    ],
+    "POST /api/records": [
+      "key",
+      "title",
+      "content"
+    ],
+    "PUT /api/records/<id>": [
+      "key",
+      "title",
+      "content",
+      "expectedVersion"
+    ],
+    "DELETE /api/records/<id>": [
+      "expectedVersion"
+    ],
+    "PUT /api/records/<id>/attachment": "1-65536 raw bytes; X-CSRF-Token, X-Expected-Version, UTF-8 percent-encoded X-File-Name; application/octet-stream",
+    "DELETE /api/records/<id>/attachment": [
+      "expectedVersion"
+    ]
+  },
+  "browserWriteOwner": "W06 through actual pages only",
+  "backupUi": "Three separate actual Spug manual entries are owned by Spug and consume W01 common execution bridge. This app contains business UI only, with no placeholder backup button or replacement engine.",
+  "redisAcceptance": {
+    "actualBrowserVerified": false,
+    "authenticatedRead": "GET /api/session -> /sessionCache must be REDIS_READ_BACK_WITH_SQL_AUTHORITY",
+    "healthRead": "GET /health -> /components/redis actual UP/version/mode/role/classification",
+    "roleCookies": {
+      "source": [
+        "smallapp_session_source",
+        "smallapp_login_source"
+      ],
+      "target": [
+        "smallapp_session_target",
+        "smallapp_login_target"
+      ]
+    },
+    "restoreRule": "Independent target browser context; actual page login after explicitly authorized OPEN; verify preserved records/files, original expiry and actual database-derived Redis result, no API writes"
+  }
+}

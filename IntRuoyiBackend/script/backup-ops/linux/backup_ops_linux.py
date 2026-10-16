@@ -702,9 +702,12 @@ class Runner:
             fh.write(f"[{datetime.now().isoformat()}] {message}\n")
 
     def run(self, command: str, code: str, failure: str) -> str:
-        self.log("RUN " + command)
+        # Commands and tool output can contain passwords even on successful runs.
+        # Retain a stable execution identity; raw output is returned only to the caller.
+        command_digest = hashlib.sha256(command.encode("utf-8")).hexdigest()
+        self.log("RUN code={0} commandSha256={1}".format(code, command_digest))
         result = subprocess.run(
-            command,
+            "set -o pipefail\n" + command,
             shell=True,
             executable="/bin/bash",
             stdout=subprocess.PIPE,
@@ -713,10 +716,12 @@ class Runner:
             universal_newlines=True,
         )
         output = result.stdout or ""
-        if output:
-            self.log(output.rstrip())
+        self.log("RESULT code={0} exitCode={1} outputBytes={2} outputSha256={3}".format(
+            code, result.returncode, len(output.encode("utf-8")),
+            hashlib.sha256(output.encode("utf-8")).hexdigest()))
         if result.returncode != 0:
-            raise BackupOpsError(code, "fail", f"{failure}\n{output.strip()}".strip())
+            raise BackupOpsError(code, "fail", "{0} exitCode={1}; commandSha256={2}".format(
+                failure, result.returncode, command_digest))
         return output
 
     def finalize(self, status: str, code: str, message: str, context: dict) -> int:
@@ -2169,6 +2174,12 @@ def wait_http_ok(url: str, timeout: int = 180) -> None:
 
 
 def backup_now(config: dict, runner: Runner, backup_kind: str) -> dict:
+    # This legacy DCC path cannot produce formal recovery evidence. Refuse its
+    # existing scope mismatch before reading runtime secrets or exporting data.
+    if config.get("environment") != "test" or get_required(
+            config, ["servers", "production", "host"], "servers.production.host") != "172.30.30.58":
+        raise BackupOpsError("INTBK-1003", "blocked",
+                             "Legacy backup-now requires test/172.30.30.58; formal snapshot producer is required.")
     backup_kind = str(backup_kind or "").strip().upper()
     if backup_kind not in {"FULL", "INCREMENTAL"}:
         raise BackupOpsError(
@@ -2224,12 +2235,12 @@ def backup_now(config: dict, runner: Runner, backup_kind: str) -> dict:
         preflight = write_mysql_binlog_preflight(backup_root, config, runner, mysql_container, mysql_password)
         export_mysql_binlog_segment(backup_root, runner, mysql_container, mysql_password, preflight)
     dump_path = backup_root / "mysql" / f"{db_name}.sql.gz"
-    dump_command = "mysqldump --single-transaction --routines --triggers --hex-blob -uroot -p{0} {1} | gzip -c".format(
+    dump_command = "mysqldump --single-transaction --routines --triggers --hex-blob -uroot -p{0} {1}".format(
         shlex.quote(mysql_password),
         shlex.quote(db_name),
     )
     runner.run(
-        "docker exec {0} sh -lc {1} > {2}".format(
+        "docker exec {0} sh -lc {1} | gzip -c > {2}".format(
             shlex.quote(mysql_container),
             shlex.quote(dump_command),
             shlex.quote(str(dump_path)),
@@ -2722,6 +2733,26 @@ def project_target_environment(
 
 
 def main() -> int:
+    # Formal native capture has an explicit private request contract. It must
+    # not enter the legacy DCC config/runner or silently choose a server.
+    selected = argparse.ArgumentParser(add_help=False)
+    selected.add_argument('--mode')
+    mode, remaining = selected.parse_known_args()
+    if mode.mode == 'formal-capture':
+        # Disable before importing any control module, including argparse's
+        # accepted option abbreviations. No formal action needs cache writes.
+        sys.dont_write_bytecode=True
+        from formal_capture_producer import main as capture_main
+        return capture_main(remaining)
+    if mode.mode == 'formal-object-restore':
+        from formal_restore_producer import main as restore_main
+        return restore_main(remaining)
+    if mode.mode == 'formal-sql-restore':
+        from formal_sql_restore import main as sql_restore_main
+        return sql_restore_main(remaining)
+    if mode.mode == 'formal-replica-export':
+        from formal_replica_producer import main as replica_main
+        return replica_main(remaining)
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", required=True)
     parser.add_argument("--config", required=True)

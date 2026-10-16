@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "SmallAppRecoverySemantics/v1",
+  "version": "smallapp-20261014-r2-redis",
+  "authority": {
+    "mysql": "Six unchanged real tables: tenant/user identity, absolute-expiry sessions, records, object metadata and references",
+    "minio": "Real immutable object bytes addressed by persisted bucket/key; preserve bytes/SHA-256/references and actual deletion semantics",
+    "redis": "Required derived login cache; no authority to create identity or extend SQL session expiry"
+  },
+  "restoreExpectations": {
+    "preserved": ["Restored MySQL record_key/title/content/version at selected FULL+I1 point", "Active object bytes, filename, bucket/key and SHA-256", "SQL unexpired sessions and exact original absolute expiry at selected restore point"],
+    "expiredOrDenied": ["Sessions past original SQL expiry at actual target time", "Sessions absent/revoked at selected restore point or user inactive", "Source-role browser cookies at target role", "Cache values inconsistent with SQL or without TTL"],
+    "rebuilt": ["Fresh target Redis cache from restored live SQL sessions, exact identity/CSRF and original PXAT", "A confirmed cache miss from live SQL only while application gate OPEN"],
+    "pointInTimeRule": "A later source logout after the selected recovery point is not present in that database point; do not claim post-point revocation survives restoration",
+    "freshTargetLogin": "Source/target cookies have distinct names. W06 logs into target using an independent browser context after explicit authorized OPEN; no automatic OPEN, credential downgrade or token resurrection"
+  },
+  "writers": [
+    {"path": "POST /api/login", "assets": ["MySQL failed-login/lock/session rows", "Redis session cache"], "barrier": "Gate.mutation; SQL commit then SET PXAT and GET/PTTL readback before cookie"},
+    {"path": "POST /api/logout", "assets": ["MySQL session row", "Redis session key"], "barrier": "Gate.mutation; SQL delete and Redis DEL/readback before SQL commit"},
+    {"path": "Authenticated GET/POST/PUT/DELETE with confirmed Redis miss", "assets": ["Redis session cache"], "barrier": "Gate.lock plus Gate.mutation; QUIESCED/PROTECTED cannot SET"},
+    {"path": "Record and attachment UI mutations", "assets": ["MySQL record/object/reference rows", "MinIO immutable keys"], "barrier": "Existing Gate.mutation and durable object intents"},
+    {"path": "Existing target DERIVED_DATA approved adapter", "assets": ["Target Redis live-session cache"], "barrier": "TARGET PROTECTED, empty dedicated Redis and required existing native guard before writes/readback"},
+    {"path": "Redis automatic TTL expiry", "assets": ["Redis derived keys only"], "barrier": "Not an app writer; original absolute expiry continues during capture/stop. No Redis payload to freeze or restore"}
+  ],
+  "captureInputs": {
+    "referenceRecipe": "capture_binding.reference_recipe: unchanged six-table nonsecret semantic columns",
+    "derivedRecipe": "capture_binding.derived_recipe: redis REBUILD/DATABASE with redis-policy.json actual pin; queue NOT_PRESENT",
+    "quiescence": "SmallAppControlResult/v2; lock drained, no pending objects, real Redis health. Existing native container/PID/tree ownership, fences and claim/grant/lease remain required",
+    "materials": ["Same existing FULL SQL and native I1 binlog chain", "Same MinIO object chain/version/deletion materials", "Actual backend/frontend immutable app images including r2 source and eleven pinned dependencies", "Actual consumed application-instance.yaml, .env, config/data.env, docker-compose.yml, data-compose.json", "Actual Redis image/config/volume and policy configuration pins via W05/W08 registration"],
+    "sameEngineRule": "IntRuoyi and SmallApp retain existing common engine/entry/version. Only application instance and asset configuration vary"
+  },
+  "w06ObservableScope": {
+    "browserOnlyWrites": true,
+    "selectors": "ui-contract.json unchanged business controls",
+    "login": "Actual target login then records/attachments UI load proves real Redis session consumer; no fake idle Redis UP acceptance",
+    "finalReadOnly": ["GET /api/session sessionCache=REDIS_READ_BACK_WITH_SQL_AUTHORITY", "GET /health actual mysql/minio/redis checks and actual observed redis serverVersion", "GET /api/records unchanged final fields and object references"],
+    "expiryAndRevocation": "Use actual naturally expired/revoked sessions and selected point/time evidence; pure checks are not browser verification. No new SQL/API mutation or broad matrix",
+    "rebuild": "Existing adapter actual request/result/readback pins plus target browser access; raw source/target cache bytes need not match due to absolute expiry and role key namespace"
+  },
+  "runtimeVerified": false,
+  "externalDispatchBlockedByDefault": true
+}

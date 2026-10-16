@@ -1,0 +1,278 @@
+{
+  "schemaVersion": "w02-recorded-mount-order-inspects/v1",
+  "sourceEvidencePins": [
+    {
+      "path": "E:\\Int\\CacheData\\IntRuoyi\\spug-integration-20261010\\w05-second-full-readonly-evidence-20261015.json",
+      "bytes": 51062,
+      "sha256": "141fac441de28f00fd84a5ee73c2064199e9b8351eb96f84812f2b1698f83351"
+    },
+    {
+      "path": "E:\\Int\\CacheData\\IntRuoyi\\spug-integration-20261010\\w05-second-full-mount-order-readonly-20261015.json",
+      "bytes": 7079,
+      "sha256": "f3da946546abb40559d3f59c9daf2546c59fc3ef92f6d91d53e2e7ded7e8412b"
+    }
+  ],
+  "operationId": "smallapp-98f2d8f885fd4c75a2dda181a1df26db",
+  "writerInspects": [
+    {
+      "id": "e14820d3ec5fa1c049c3905d65f8fb3369eb65bc041d41071ea590af413dc957",
+      "image": "sha256:080bba335c0d9bb3b699778c982d05339ce4736d112682aca02efadcfbfa7775",
+      "running": false,
+      "paused": false,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/backend",
+          "Destination": "/run/smallapp",
+          "Mode": "",
+          "RW": true,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "volume",
+          "Name": "8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b",
+          "Source": "/var/lib/docker/volumes/8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b/_data",
+          "Destination": "/var/lib/mysql",
+          "Driver": "local",
+          "Mode": "",
+          "RW": true,
+          "Propagation": ""
+        }
+      ]
+    },
+    {
+      "id": "05613444c284afb53cd6ef1c81c713a83c605d37a3febe1a95e51ec75f03efb3",
+      "image": "sha256:080bba335c0d9bb3b699778c982d05339ce4736d112682aca02efadcfbfa7775",
+      "running": true,
+      "paused": false,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/frontend",
+          "Destination": "/run/smallapp",
+          "Mode": "",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "volume",
+          "Name": "d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e",
+          "Source": "/var/lib/docker/volumes/d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e/_data",
+          "Destination": "/var/lib/mysql",
+          "Driver": "local",
+          "Mode": "",
+          "RW": true,
+          "Propagation": ""
+        }
+      ]
+    }
+  ],
+  "minioInspect": {
+    "id": "aa8f466a6efd8e63abe0174dc453fff5404ad2c501170e778eff5c51b957d909",
+    "image": "sha256:69b2ec208575b69597784255eec6fa6a2985ee9e1a47f4411a51f7f5fdd193a9",
+    "running": true,
+    "paused": false,
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/main-chain-20261013-r1/data/minio",
+        "Destination": "/data",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/main-chain-20261013-r1/configuration/minio-start.sh",
+        "Destination": "/run/mainchain/minio-start.sh",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/secrets/main-chain-20261013-r1/minio-root-user",
+        "Destination": "/run/private/minio-root-user",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/secrets/main-chain-20261013-r1/minio-root-password",
+        "Destination": "/run/private/minio-root-password",
+        "Mode": "",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  },
+  "observations": [
+    {
+      "id": "e14820d3ec5fa1c049c3905d65f8fb3369eb65bc041d41071ea590af413dc957",
+      "samples": 12,
+      "runningStates": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "pausedStates": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "identityCount": 1,
+      "orderedMountVariantCount": 2,
+      "canonicalMountVariantCount": 1,
+      "orderedMountVariants": [
+        {
+          "count": 10,
+          "mounts": [
+            {
+              "Destination": "/run/smallapp",
+              "Mode": "",
+              "Propagation": "rprivate",
+              "RW": true,
+              "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/backend",
+              "Type": "bind"
+            },
+            {
+              "Destination": "/var/lib/mysql",
+              "Driver": "local",
+              "Mode": "",
+              "Name": "8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b",
+              "Propagation": "",
+              "RW": true,
+              "Source": "/var/lib/docker/volumes/8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b/_data",
+              "Type": "volume"
+            }
+          ]
+        },
+        {
+          "count": 2,
+          "mounts": [
+            {
+              "Destination": "/var/lib/mysql",
+              "Driver": "local",
+              "Mode": "",
+              "Name": "8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b",
+              "Propagation": "",
+              "RW": true,
+              "Source": "/var/lib/docker/volumes/8f027def0b0f587fa08f37a8b2cbc765c9f0229899671a72fb9311347c61c01b/_data",
+              "Type": "volume"
+            },
+            {
+              "Destination": "/run/smallapp",
+              "Mode": "",
+              "Propagation": "rprivate",
+              "RW": true,
+              "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/backend",
+              "Type": "bind"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "05613444c284afb53cd6ef1c81c713a83c605d37a3febe1a95e51ec75f03efb3",
+      "samples": 12,
+      "runningStates": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "pausedStates": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "identityCount": 1,
+      "orderedMountVariantCount": 2,
+      "canonicalMountVariantCount": 1,
+      "orderedMountVariants": [
+        {
+          "count": 10,
+          "mounts": [
+            {
+              "Destination": "/run/smallapp",
+              "Mode": "",
+              "Propagation": "rprivate",
+              "RW": false,
+              "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/frontend",
+              "Type": "bind"
+            },
+            {
+              "Destination": "/var/lib/mysql",
+              "Driver": "local",
+              "Mode": "",
+              "Name": "d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e",
+              "Propagation": "",
+              "RW": true,
+              "Source": "/var/lib/docker/volumes/d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e/_data",
+              "Type": "volume"
+            }
+          ]
+        },
+        {
+          "count": 2,
+          "mounts": [
+            {
+              "Destination": "/var/lib/mysql",
+              "Driver": "local",
+              "Mode": "",
+              "Name": "d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e",
+              "Propagation": "",
+              "RW": true,
+              "Source": "/var/lib/docker/volumes/d0d89f01792f2b8a8818753e8abb8f3ae83abeb2fe8de6d5e57d43260d16278e/_data",
+              "Type": "volume"
+            },
+            {
+              "Destination": "/run/smallapp",
+              "Mode": "",
+              "Propagation": "rprivate",
+              "RW": false,
+              "Source": "/mnt/intruoyi-data/backup-restore-lab/20261012-w01-w07/source/smallapp-20261014-r1/application/private/runtime-r2-redis/frontend",
+              "Type": "bind"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

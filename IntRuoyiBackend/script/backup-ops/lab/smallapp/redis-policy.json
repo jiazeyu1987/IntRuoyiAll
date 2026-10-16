@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "SmallAppRedisRecoveryPolicy/v1",
+  "version": "smallapp-20261014-r2-redis",
+  "redis": {
+    "classification": "REBUILD",
+    "requiredForBusiness": true,
+    "executorKey": "smallapp.redis-session-cache.mysql.v1",
+    "rebuildFrom": "DATABASE",
+    "authority": "smallapp_sessions joined to active smallapp_users, tenant_id=122",
+    "captureRedisPayload": false,
+    "expiryRule": "SET PXAT to floor(original SQL expires_at UTC in milliseconds); no sliding expiration",
+    "freshTargetRule": "Actual independent standalone/master task Redis, database 0 empty before derived stage; no FLUSHDB or source reuse",
+    "consumer": "Every accepted login SET/GET/PTTL; every authenticated request real GET/PTTL checked against SQL authority",
+    "missingKeyRule": "Only a successful Redis GET returning nil may rebuild from a live SQL row while gate OPEN",
+    "failureRule": "Redis connection/authentication/protocol/health/payload errors fail; no SQL-only authentication or retry",
+    "rebuildCallable": "core.Store.rebuild_redis_from_database(existingNativeGuard)",
+    "rebuildTiming": "Existing DERIVED_DATA stage after DATABASE result pin and before application startup",
+    "rebuildAuthorization": "Existing approved target-bound derived executor, inherited target lock, bound guard, deadline, request/plan/target/database pins",
+    "rebuildObservationSchema": "SmallAppRedisRebuildObservation/v1; business observation only, not RecoveryDerivedExecution/v1 proof"
+  },
+  "queue": {"classification": "NOT_PRESENT", "requiredForBusiness": false, "executorKey": null, "rebuildFrom": null},
+  "actualServerVersion": null,
+  "actualServerImagePin": null,
+  "runtimeObserved": false,
+  "minimumServerVersionForPxat": "6.2.0",
+  "compatibilitySource": "https://redis.io/docs/latest/commands/set/",
+  "actualRuntimeBindingsOwner": "W05/W08; immutable observed server version/image/config, dedicated source/target identity and private redis credential reference"
+}

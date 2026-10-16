@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "SmallAppConfigurationDescriptor/v2",
+  "version": "smallapp-20261014-r2-redis",
+  "actualConfigurationIncluded": false,
+  "authoritativeValidators": {
+    "backend": "core.config",
+    "frontend": "frontend.frontend_config"
+  },
+  "publicFileSchema": "SmallAppPublicConfiguration/v2",
+  "publicFileRequiredFields": [
+    "schemaVersion",
+    "version",
+    "backend",
+    "frontend"
+  ],
+  "publicFilePathInCapturedSource": "config/application-instance.yaml",
+  "publicFileFormat": "UTF-8 strict JSON (a YAML subset); materialize.py actually consumes this single bundle for both roles",
+  "backendRequiredFields": [
+    "schemaVersion",
+    "version",
+    "logicalConfigRef",
+    "runtimeRole",
+    "tenantId",
+    "username",
+    "database",
+    "s3",
+    "redis",
+    "http",
+    "controlSocket",
+    "startState",
+    "secretRefs"
+  ],
+  "databaseRequiredFields": [
+    "host",
+    "port",
+    "name",
+    "tlsCaFile"
+  ],
+  "s3RequiredFields": [
+    "endpoint",
+    "region",
+    "bucket",
+    "keyPrefix",
+    "tlsCaFile"
+  ],
+  "backendHttpRequiredFields": [
+    "listenHost",
+    "listenPort",
+    "origin",
+    "cookieSecure"
+  ],
+  "frontendRequiredFields": [
+    "schemaVersion",
+    "version",
+    "backendOrigin",
+    "backendTlsCaFile",
+    "http"
+  ],
+  "frontendHttpRequiredFields": [
+    "listenHost",
+    "listenPort",
+    "origin"
+  ],
+  "fixedIdentity": {
+    "tenantId": 122,
+    "username": "aoteman"
+  },
+  "logicalReferences": [
+    "smallapp-20261014-source-r1",
+    "smallapp-20261014-target-r1"
+  ],
+  "databaseNamePattern": "brlab_20261012_smallapp_[a-z0-9_]+",
+  "bucketPattern": "brlab-20261012-smallapp-[a-z0-9-]+",
+  "keyPrefix": "smallapp/122/",
+  "sourceStartState": "OPEN or PROTECTED",
+  "targetStartState": "PROTECTED",
+  "secretReferences": {
+    "mysql": "smallapp.mysql",
+    "s3": "smallapp.s3",
+    "control": "smallapp.control",
+    "redis": "smallapp.redis"
+  },
+  "privateCredentialFields": {
+    "mysql": [
+      "username",
+      "password"
+    ],
+    "s3": [
+      "accessKey",
+      "secretKey"
+    ],
+    "control": [
+      "authKeyBase64",
+      "controlToken"
+    ],
+    "redis": [
+      "username",
+      "password"
+    ]
+  },
+  "privateInputTransport": "inherited FD >= 3, identified only by SMALLAPP_CONFIG_FD; no secret argv/env/logs",
+  "containerPrivateTransport": "launch.py opens fixed /run/smallapp/<role>.private.json (owner UID, 0600, no symlink) and execs selected role with inherited FD",
+  "credentialLogging": "fixed error codes and exception classes only",
+  "derivedServices": {
+    "redis": "REBUILD/DATABASE; required login session consumer",
+    "queue": "NOT_PRESENT"
+  },
+  "restoreAddressRule": "Fresh isolated MySQL/MinIO/Redis services; preserve SQL schema, bucket/key and expiry. Redis rebuilds from database, distinct role namespace and dedicated database 0. Remap endpoints/private credentials only; no raw cache restore or source service reuse.",
+  "actualObservedPinsOwner": "W05; addresses, IDs, exact Linux runtime/image/config/credential registry bindings must be observed, never supplied as defaults by this descriptor",
+  "backendRuntimeSchema": "SmallAppRuntimeConfig/v2",
+  "redisRequiredFields": [
+    "host",
+    "port",
+    "database",
+    "instanceId",
+    "keyPrefix",
+    "serverVersion",
+    "tlsCaFile"
+  ],
+  "redisScope": {
+    "database": 0,
+    "topology": "Actual independent task-owned standalone/master SOURCE and TARGET containers, isolated volume /data and endpoints; no shared/source target reuse",
+    "instanceIdPattern": "brlab-20261012-smallapp-<source|target>-[a-z0-9-]+",
+    "keyPrefix": "brlab-20261012:smallapp:122:<source|target>:",
+    "actualServerVersion": null,
+    "minimumServerVersion": "6.2.0; observed exact runtime INFO version required, no chosen default",
+    "tls": "Explicit actual CA or explicitly registered plaintext; no auto downgrade"
+  },
+  "r1Coexistence": "r1 sealed 22-file archive and historical reports remain immutable. r2 requires a distinct source artifact/image/runtime closure/public configuration/registration and grant. Logical refs may remain aliases only after W08 installs current immutable bindings; do not stop/reinstall current W05 r1 work."
+}
