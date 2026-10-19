@@ -300,8 +300,8 @@ export interface FrontlinePqcProcessVO {
 
 export interface FrontlinePqcTaskOptionVO {
   pqcTaskId: number
-  routeProcessId: number
-  processId: number
+  routeProcessId?: number | null
+  processId?: number | null
   productionProcessName: string | null
   regulationVersionId: number
   qaProcessId: number
@@ -352,6 +352,7 @@ export interface FrontlinePqcDeviceParameterVO {
 }
 
 export interface FrontlinePqcInspectionItemVO {
+  plannedInspectionQuantity?: number
   itemSort: number
   itemCode: string
   itemName: string

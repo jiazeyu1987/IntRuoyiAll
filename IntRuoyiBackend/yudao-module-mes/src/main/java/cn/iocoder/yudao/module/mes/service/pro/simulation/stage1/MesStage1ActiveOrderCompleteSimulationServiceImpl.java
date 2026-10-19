@@ -1495,11 +1495,11 @@ public class MesStage1ActiveOrderCompleteSimulationServiceImpl
 
     private void validateStage1PqcProgressTask(Long activeOrderId, MesPqcInspectionTaskDO task) {
         if (task == null
-                || task.getRouteProcessId() == null
-                || task.getProcessId() == null
+                || task.getRouteProcessId() != null
+                || task.getProcessId() != null
                 || task.getRegulationVersionId() == null
                 || task.getQaProcessId() == null
-                || blank(task.getQaItemCode())
+                || !blank(task.getQaItemCode())
                 || blank(task.getInspectionRuleKey())
                 || blank(task.getInspectionType())
                 || task.getBusinessDate() == null

@@ -29,6 +29,15 @@ test('341 without batch query retains the formal source identifier and cannot ge
   assert.equal(build(420,source(),false),undefined)
   assert.throws(() => build(422,source(),false),/不匹配/)
 })
+
+test('verified QA account identity remains readable when the signature has no frozen display name', () => {
+  const data = source()
+  data.qaSignature.signerName = undefined
+  assert.equal(build(420, data, true).query.activeOrderId, '419')
+  assert.equal(build(420, data, false), undefined)
+  data.qaSignatureEvidence.actorId = 346
+  assert.throws(() => build(420, data, true), /QA签名证据不完整/)
+})
 test('partial source or invalid QA evidence produces a visible error before linking or rendering', () => {
   for(const mutation of [{qaSignature:undefined},{qaSignatureEvidence:undefined},{qaSignatureVerification:undefined},{reviewOpinion:''},
       {qaSignatureVerification:{signatureId:29026,verificationStatus:'MISMATCH'}}]) assert.throws(() => build(420,{...source(),...mutation},true))

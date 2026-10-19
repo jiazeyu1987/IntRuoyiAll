@@ -91,6 +91,8 @@ export interface SubmissionReviewExpectedContext {
 }
 
 export interface ProcessPoolTimelineEventVO {
+  displayedRevisionId?: number
+  displayedPayloadHash?: string
   expectedReviews?: SubmissionReviewExpectedContext[]
   id: number
   processPoolEventId?: number

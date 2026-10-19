@@ -90,10 +90,9 @@ public class MesActiveOrderCorrectionEvidenceService {
         Map<Long, String> ids = new LinkedHashMap<>();
         for (var process : detail.getProcesses()) {
             for (var submission : process.getSubmissions()) ids.put(submission.getEventId(), process.getProcessName());
-            for (var submission : process.getPqcSubmissions()) {
-                submission.getSubmittedEventIds().forEach(id -> ids.put(id, process.getProcessName()));
-                submission.getProductionEventIds().forEach(id -> ids.put(id, process.getProcessName()));
-            }
+        }
+        for (var submission : detail.getPqcSubmissions()) {
+            submission.getSubmittedEventIds().forEach(id -> ids.put(id, submission.getQaProcessName()));
         }
         check(ids.keySet().stream().allMatch(id -> id != null && id > 0), "补正历史原事件身份缺失");
         return ids;

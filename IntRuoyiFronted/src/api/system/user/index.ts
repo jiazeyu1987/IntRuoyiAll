@@ -27,6 +27,11 @@ export interface UserVO {
   disabled?: boolean
 }
 
+export interface UserListVO extends UserVO {
+  postNames: string[]
+  roleNames: string[]
+}
+
 export interface UserAssignedPostVO {
   id: number | string
   name: string

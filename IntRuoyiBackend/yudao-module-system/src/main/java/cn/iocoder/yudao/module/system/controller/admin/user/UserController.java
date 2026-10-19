@@ -10,9 +10,14 @@ import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.user.*;
 import cn.iocoder.yudao.module.system.convert.user.UserConvert;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.dept.PostDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.enums.common.SexEnum;
 import cn.iocoder.yudao.module.system.service.dept.DeptService;
+import cn.iocoder.yudao.module.system.service.dept.PostService;
+import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.service.permission.RoleService;
 import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import cn.iocoder.yudao.module.system.service.user.UserDingTalkImportExcelParser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +38,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.apilog.core.enums.OperateTypeEnum.EXPORT;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
@@ -49,6 +60,12 @@ public class UserController {
     private AdminUserService userService;
     @Resource
     private DeptService deptService;
+    @Resource
+    private PostService postService;
+    @Resource
+    private RoleService roleService;
+    @Resource
+    private PermissionService permissionService;
     @Resource
     private UserDingTalkImportExcelParser userDingTalkImportExcelParser;
 
@@ -137,8 +154,33 @@ public class UserController {
         // 拼接数据
         Map<Long, DeptDO> deptMap = deptService.getDeptMap(
                 convertList(pageResult.getList(), AdminUserDO::getDeptId));
-        return success(new PageResult<>(UserConvert.INSTANCE.convertList(pageResult.getList(), deptMap),
-                pageResult.getTotal()));
+        List<UserRespVO> users = UserConvert.INSTANCE.convertList(pageResult.getList(), deptMap);
+        populateDisplayNames(users);
+        return success(new PageResult<>(users, pageResult.getTotal()));
+    }
+
+    // Resolve names only for the users already selected by the data-scoped user query.
+    // Listing users must not require role assignment, role management or post management permissions.
+    private void populateDisplayNames(List<UserRespVO> users) {
+        Map<Long, Set<Long>> rolesByUser = new LinkedHashMap<>();
+        Set<Long> postIds = new LinkedHashSet<>();
+        Set<Long> roleIds = new LinkedHashSet<>();
+        for (UserRespVO user : users) {
+            Set<Long> assignedRoles = permissionService.getUserRoleIdListByUserId(user.getId());
+            rolesByUser.put(user.getId(), assignedRoles);
+            roleIds.addAll(assignedRoles);
+            if (user.getPostIds() != null) postIds.addAll(user.getPostIds());
+        }
+        Map<Long, PostDO> posts = postService.getPostList(postIds).stream()
+                .collect(Collectors.toMap(PostDO::getId, Function.identity()));
+        Map<Long, RoleDO> roles = roleService.getRoleList(roleIds).stream()
+                .collect(Collectors.toMap(RoleDO::getId, Function.identity()));
+        for (UserRespVO user : users) {
+            user.setPostNames((user.getPostIds() == null ? Set.<Long>of() : user.getPostIds()).stream()
+                    .map(posts::get).filter(Objects::nonNull).map(PostDO::getName).toList());
+            user.setRoleNames(rolesByUser.get(user.getId()).stream()
+                    .map(roles::get).filter(Objects::nonNull).map(RoleDO::getName).toList());
+        }
     }
 
     @GetMapping("/list")

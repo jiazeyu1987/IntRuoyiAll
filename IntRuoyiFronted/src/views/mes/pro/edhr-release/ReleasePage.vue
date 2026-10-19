@@ -105,6 +105,7 @@
                 >
                   不合格审查
                 </el-button>
+                <el-button v-if="row.releaseStatus === 'RELEASED'" link type="primary" @click="openSignedDossier(row)">已签资料</el-button>
                 <el-button link type="primary" :disabled="!row.releaseTransactionId" @click="openCheckItems(row)">
                   检查项
                 </el-button>
@@ -131,6 +132,23 @@
       </div>
     </div>
 
+    <el-drawer v-model="signedDossierVisible" title="上市放行时签署的资料" size="82%">
+      <div v-loading="signedDossierLoading">
+        <el-alert v-if="signedDossierError" :title="signedDossierError" type="error" :closable="false" />
+        <template v-if="signedDossier">
+          <p>资料修订：{{ signedDossier.revision }}　清单摘要：{{ signedDossier.manifestHash }}</p>
+          <el-table :data="signedDossier.files" empty-text="本次签署的资料清单为空">
+            <el-table-column label="文件名" prop="fileName" />
+            <el-table-column label="资料类别">
+              <template #default="{ row }">{{ dossierCategoryLabels[row.categoryKey] || row.categoryKey }}</template>
+            </el-table-column>
+            <el-table-column label="文件编号" prop="fileId" />
+            <el-table-column label="大小（字节）" prop="fileSize" />
+            <el-table-column label="文件摘要" prop="sha256" min-width="300" />
+          </el-table>
+        </template>
+      </div>
+    </el-drawer>
     <el-drawer v-model="drawerVisible" title="电子批记录放行检查项" size="82%" class="edhr-release-page__drawer">
       <el-alert
         v-if="currentRow"
@@ -223,6 +241,7 @@
 
 <script setup lang="ts">
 import {
+  getEdhrRelease,
   getEdhrReleaseCheckItemPage,
   getEdhrReleaseEventPage,
   getEdhrReleasePage,
@@ -246,6 +265,38 @@ import {
 import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReleasePage' })
+
+const dossierCategoryLabels: Record<string, string> = {
+  INCOMING_INSPECTION_FILE: '来料检文件', STERILIZATION_FILE: '灭菌文件',
+  FINISHED_PRODUCT_FILE: '成品检文件', OTHER_FILE: '其他文件'
+}
+interface SignedDossier {
+  revision: string
+  manifestHash: string
+  files: Array<{ fileName: string; categoryKey: string; fileId: string; fileSize: string; sha256: string }>
+}
+const signedDossier = ref<SignedDossier>()
+const signedDossierVisible = ref(false)
+const signedDossierLoading = ref(false)
+const signedDossierError = ref('')
+let signedDossierRequest = 0
+const openSignedDossier = async (row: EdhrReleaseRowVO) => {
+  const request = ++signedDossierRequest
+  signedDossier.value = undefined
+  signedDossierError.value = ''
+  signedDossierVisible.value = true
+  signedDossierLoading.value = true
+  try {
+    const detail = await getEdhrRelease(row.releaseTransactionId)
+    if (request !== signedDossierRequest) return
+    if (!detail.signedDossierManifestJson) throw new Error('该历史放行记录未签署独立资料清单')
+    signedDossier.value = JSON.parse(detail.signedDossierManifestJson)
+  } catch (error) {
+    if (request === signedDossierRequest) signedDossierError.value = error instanceof Error ? error.message : '读取已签资料失败'
+  } finally {
+    if (request === signedDossierRequest) signedDossierLoading.value = false
+  }
+}
 
 const message = useMessage()
 const router = useRouter()

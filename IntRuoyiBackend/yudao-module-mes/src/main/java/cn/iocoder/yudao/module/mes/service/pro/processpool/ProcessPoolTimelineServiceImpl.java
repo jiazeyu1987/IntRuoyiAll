@@ -185,6 +185,7 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setModificationHistorySummary(event.getModificationHistorySummary());
         if (MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION.equals(event.getEventType())
                 || MesProProcessPoolEventDO.EVENT_TYPE_PRODUCTION_SUBMIT.equals(event.getEventType())) {
+            respVO.setDisplayedPayloadHash(MesCorrectionBaselineGuard.payloadHash(event.getOriginalPayloadJson()));
             respVO.setExpectedReviews(List.of(displayedReviewContext(event)));
         }
         fillProductionSubmissionPayload(event, respVO);

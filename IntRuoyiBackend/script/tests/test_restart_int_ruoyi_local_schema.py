@@ -332,5 +332,5 @@ def test_local_restart_backend_package_runs_from_backend_repo_root() -> None:
 
     assert "Push-Location -LiteralPath $RepoRoot" in block
     assert "Pop-Location" in block
-    assert block.index("Push-Location -LiteralPath $RepoRoot") < block.index("& mvn -pl yudao-server -am -DskipTests package")
-    assert block.index("Pop-Location") > block.index("& mvn -pl yudao-server -am -DskipTests package")
+    assert block.index("Push-Location -LiteralPath $RepoRoot") < block.index("& mvn -pl yudao-server -am '-DskipTests' package")
+    assert block.index("Pop-Location") > block.index("& mvn -pl yudao-server -am '-DskipTests' package")

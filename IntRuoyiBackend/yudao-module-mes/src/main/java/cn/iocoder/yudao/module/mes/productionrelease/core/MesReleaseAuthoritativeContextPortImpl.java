@@ -168,9 +168,16 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
         if (command.getWorkTaskId() == null) throw blocker(application, "formal approval task is required");
         var task = approvalTasks.selectById(command.getWorkTaskId());
         var selected = materialSelections.requireCurrentVerified(tenantId, transaction, task, application != null);
-        if (command.getMaterialGateReceiptId() != null && !Objects.equals(command.getMaterialGateReceiptId(), selected.materialFact().ownerReceipt().getReceiptId()))
-            throw blocker(application, "material receipt does not match the immutable approval assignment");
-        command.setMaterialGateReceiptId(selected.materialFact().ownerReceipt().getReceiptId());
+        if(selected.activeOrderFact()!=null) {
+            if(application==null || !Objects.equals(application.getId(),selected.activeOrderFact().applicationId())
+                    || !"ACTIVE_ORDER_COMPLETION".equals(persistedEntryType) || materialGateRequired
+                    || command.getMaterialGateReceiptId()!=null || command.getMaterialGateManifestHash()!=null)
+                throw blocker(application,"active-order facts cannot be substituted for a four-material assignment");
+        } else {
+            if (command.getMaterialGateReceiptId() != null && !Objects.equals(command.getMaterialGateReceiptId(), selected.materialFact().ownerReceipt().getReceiptId()))
+                throw blocker(application, "material receipt does not match the immutable approval assignment");
+            command.setMaterialGateReceiptId(selected.materialFact().ownerReceipt().getReceiptId());
+        }
         MesReleaseMaterialGateReceipt gateReceipt = materialGateRequired
                 ? loadMaterialGateReceipt(tenantId, batchExecutionId, command.getMaterialGateReceiptId(),
                 source.getSourceSnapshotHash(), application)
@@ -237,8 +244,7 @@ public class MesReleaseAuthoritativeContextPortImpl implements MesReleaseAuthori
                 || source.getOriginLinkId() == null || isBlank(source.getTraceLinkHash())
                 || isBlank(source.getSourceSnapshotHash()) || isBlank(source.getRelationStatus())
                 || !("CAPTURED".equalsIgnoreCase(source.getRelationStatus())
-                || "BOUND".equalsIgnoreCase(source.getRelationStatus())
-                || "READY".equalsIgnoreCase(source.getRelationStatus()))
+                || "BOUND".equalsIgnoreCase(source.getRelationStatus()))
                 || "NOT_APPLICABLE".equalsIgnoreCase(source.getRelationStatus())
                 || !Objects.equals(source.getSourceSnapshotHash(), origin.getSourceSnapshotHash())) {
             throw blocker(application, "Flow 7 Origin/TraceLink/Manifest mapping is not ready");

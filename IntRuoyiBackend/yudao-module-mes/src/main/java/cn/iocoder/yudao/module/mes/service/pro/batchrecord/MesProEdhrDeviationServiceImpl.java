@@ -456,6 +456,8 @@ public class MesProEdhrDeviationServiceImpl implements MesProEdhrDeviationServic
                 .setLevelBasis(deviation.getLevelBasis())
                 .setCloseReason(deviation.getCloseReason())
                 .setClosedAt(deviation.getClosedAt())
+                .setClosedBy(deviation.getClosedBy()).setClosedContentVersion(deviation.getClosedContentVersion())
+                .setClosedContentHash(deviation.getClosedContentHash()).setClosedSignatureIdsJson(deviation.getClosedSignatureIdsJson())
                 .setNonconformanceReviewId(deviation.getNonconformanceReviewId())
                 .setInitiatedAt(deviation.getInitiatedAt())
                 .setInitiatorSignatureId(deviation.getInitiatorSignatureId())

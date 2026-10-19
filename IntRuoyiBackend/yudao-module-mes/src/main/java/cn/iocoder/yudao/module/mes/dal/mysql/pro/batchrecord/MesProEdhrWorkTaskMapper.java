@@ -305,6 +305,22 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                 MesProEdhrWorkTaskStatus.OVERDUE));
     }
 
+    /** The application is generated before its batch; approval binds that formal batch atomically. */
+    default int completePqcApprovedTask(Long id, Long batchExecutionId, LocalDateTime completedAt) {
+        if (batchExecutionId == null || batchExecutionId <= 0) {
+            throw new IllegalArgumentException("PQC approval requires a formal batch");
+        }
+        return update(new MesProEdhrWorkTaskDO().setBatchExecutionId(batchExecutionId)
+                        .setStatus(MesProEdhrWorkTaskStatus.DONE).setCompletedAt(completedAt).setReason("APPROVE"),
+                new LambdaUpdateWrapper<MesProEdhrWorkTaskDO>()
+                        .eq(MesProEdhrWorkTaskDO::getId, id)
+                        .eq(MesProEdhrWorkTaskDO::getTaskType, "PQC_PRODUCTION_RELEASE")
+                        .and(w -> w.isNull(MesProEdhrWorkTaskDO::getBatchExecutionId)
+                                .or().eq(MesProEdhrWorkTaskDO::getBatchExecutionId, batchExecutionId))
+                        .in(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.TODO,
+                                MesProEdhrWorkTaskStatus.DOING, MesProEdhrWorkTaskStatus.OVERDUE));
+    }
+
     default int completePqcDecisionTask(Long id, LocalDateTime completedAt, String decision) {
         return update(new MesProEdhrWorkTaskDO()
                         .setStatus(MesProEdhrWorkTaskStatus.DONE)

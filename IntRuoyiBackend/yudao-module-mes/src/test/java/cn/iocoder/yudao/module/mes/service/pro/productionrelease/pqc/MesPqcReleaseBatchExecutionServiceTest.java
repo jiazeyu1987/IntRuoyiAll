@@ -62,6 +62,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -107,6 +108,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+        configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
@@ -129,6 +131,27 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setManagerCandidateSnapshotHash("manager-candidates"));
         lenient().when(applicationMapper.handoffReportsToManager(eq(APPLICATION_ID), eq(VERSION + 1), any(),
                 eq(9101L), eq(9201L), eq("manager-candidates"))).thenReturn(1);
+    }
+
+    // Business orchestration tests retain signature-ID boundary doubles; authentication
+    // persistence and identity revalidation are exercised in MesPqcReleaseAuthenticationBoundaryTest.
+    private void configureAuthenticationBoundary() {
+        var authentication = mock(cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService.class);
+        var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        lenient().when(transactions.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
+        lenient().when(authentication.authenticate(any())).thenAnswer(call -> {
+            var request=call.getArgument(0,cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest.class);
+            return new cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationOutcome(
+                    new cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner(request.tenantId(),"SYSTEM_USER",request.actorId(),request.actorId(),"00000000-0000-0000-0000-000000000001",1L,"request"),null);
+        });
+        var signatures=mock(MesPqcReleaseAuthenticatedSignatureService.class);
+        lenient().when(signatures.record(any(),any(),any(),any(),any())).thenAnswer(call -> {
+            var signer=call.getArgument(0,cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner.class);
+            return signatureService.recordPqcReleaseSignature(signer.actorId(),call.getArgument(1),call.getArgument(2),"signature-password",call.getArgument(3));
+        });
+        ReflectionTestUtils.setField(service,"signatureAuthentication",authentication);
+        ReflectionTestUtils.setField(service,"transactionManager",transactions);
+        ReflectionTestUtils.setField(service,"authenticatedSignatures",signatures);
     }
 
     @AfterEach
@@ -267,6 +290,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 nonconformanceReviewService, nonconformanceReviewMapper,
                 Clock.fixed(Instant.parse("2026-08-15T12:00:00Z"), ZoneOffset.UTC));
         ReflectionTestUtils.setField(service, "lifecycleGuard", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard.class));
+        configureAuthenticationBoundary();
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "approvalAuthority", org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper.class);
@@ -279,7 +303,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 new MesProductionReleaseReportStageInitializationResult().setReportUploadTasks(reportTasks()).setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
                 eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(workTaskMapper.completePqcApprovedTask(eq(PQC_WORK_TASK_ID),eq(BATCH_EXECUTION_ID),any())).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
                 eq("signature-password"), eq("正式来源核对通过"))).thenReturn(9901L);
         var command = approveCommand("dynamic-loss-flow").setApprovalOpinion("正式来源核对通过");
@@ -324,7 +348,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
                 eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(workTaskMapper.completePqcApprovedTask(eq(PQC_WORK_TASK_ID),eq(BATCH_EXECUTION_ID),any())).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(
                 eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
                 eq("signature-password"), eq("正式来源核对通过")))
@@ -353,7 +377,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
         verify(dossierPort, never()).write(any(), any());
         verify(reportStageInitializer, never()).initializeRequiredReportStage(any());
         verify(nonconformanceReviewService).ensureWorkOrderNotFrozen(3001L, "PQC放行");
-        verify(signatureService).validatePqcSubmitSignature(PQC_USER_ID, "signature-password");
+        verify((cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService)
+                ReflectionTestUtils.getField(service, "signatureAuthentication")).authenticate(any());
         verify(batchExecutionPort).markReadyForMarketRelease(BATCH_EXECUTION_ID, PQC_USER_ID);
         verify(gxpAuditService).acquireLedgerLock();
         ArgumentCaptor<GxpAuditCommand> auditCaptor = ArgumentCaptor.forClass(GxpAuditCommand.class);
@@ -387,7 +412,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                         .setReportSnapshotHash("report-hash"));
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
                 eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(workTaskMapper.completePqcApprovedTask(eq(PQC_WORK_TASK_ID),eq(BATCH_EXECUTION_ID),any())).thenReturn(1);
         when(signatureService.recordPqcReleaseSignature(
                 eq(PQC_USER_ID), eq(BATCH_EXECUTION_ID), eq(APPLICATION_ID),
                 eq("signature-password"), eq("正式来源核对通过")))
@@ -446,7 +471,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
         assertEquals(instant.toEpochMilli(), mapper.valueToTree(result).get("decidedAt").longValue(),
                 "the actual decision DTO must serialize the injected instant without an eight-hour shift");
         assertEquals(expected, result.getDecidedAt());
-        verify(workTaskMapper).completePqcDecisionTask(PQC_WORK_TASK_ID, expected, decision);
+        if ("APPROVE".equals(decision)) verify(workTaskMapper).completePqcApprovedTask(PQC_WORK_TASK_ID,BATCH_EXECUTION_ID,expected);
+        else verify(workTaskMapper).completePqcDecisionTask(PQC_WORK_TASK_ID, expected, decision);
         if ("APPROVE".equals(decision)) {
             verify(applicationMapper).approveFromPending(eq(APPLICATION_ID), eq(VERSION),
                     eq(BATCH_EXECUTION_ID), eq(PQC_USER_ID), eq(expected), any(String.class), any());
@@ -737,7 +763,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 eq("signature-password"), isNull())).thenReturn(9901L);
         when(applicationMapper.approveFromPending(eq(APPLICATION_ID), eq(VERSION), eq(BATCH_EXECUTION_ID),
                 eq(PQC_USER_ID), any(), any(String.class), any())).thenReturn(1);
-        when(workTaskMapper.completePqcDecisionTask(eq(PQC_WORK_TASK_ID), any(), eq("APPROVE"))).thenReturn(1);
+        when(workTaskMapper.completePqcApprovedTask(eq(PQC_WORK_TASK_ID),eq(BATCH_EXECUTION_ID),any())).thenReturn(1);
 
         MesPqcProductionReleaseDecisionResult result = service.approve(PQC_USER_ID,
                 approveCommand("pqc-approve-report-failure"));
@@ -747,7 +773,7 @@ class MesPqcReleaseBatchExecutionServiceTest {
     }
 
     @Test
-    void decisionMethodsUseOneRequiredRollbackTransaction() throws Exception {
+    void passwordAuthenticationIsOutsideTheBusinessDecisionTransaction() throws Exception {
         Transactional approve = MesPqcProductionReleaseServiceImpl.class
                 .getMethod("approve", Long.class, MesPqcProductionReleaseApproveCommand.class)
                 .getAnnotation(Transactional.class);
@@ -755,9 +781,8 @@ class MesPqcReleaseBatchExecutionServiceTest {
                 .getMethod("reject", Long.class, MesPqcProductionReleaseRejectCommand.class)
                 .getAnnotation(Transactional.class);
 
-        assertEquals(Propagation.REQUIRED, approve.propagation());
+        assertEquals(Propagation.NOT_SUPPORTED, approve.propagation());
         assertEquals(Propagation.REQUIRED, reject.propagation());
-        assertEquals(Exception.class, approve.rollbackFor()[0]);
         assertEquals(Exception.class, reject.rollbackFor()[0]);
     }
 

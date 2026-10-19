@@ -58,7 +58,8 @@ public class MesProEdhrDeviationHandlingController {
     @Operation(summary = "常规关闭偏差")
     @PreAuthorize("@ss.hasAnyPermissions('mes:pro-edhr-deviation:qa-close','mes:pro-edhr-deviation:quality-approve')")
     public CommonResult<Boolean> close(@Valid @RequestBody MesProEdhrDeviationHandlingCloseReqVO reqVO) {
-        handlingService.closeNormally(SecurityFrameworkUtils.getLoginUserId(), reqVO.getDeviationId());
+        handlingService.closeNormally(SecurityFrameworkUtils.getLoginUserId(), reqVO.getDeviationId(),
+                reqVO.getExpectedContentVersion(), reqVO.getExpectedContentHash());
         return success(true);
     }
 }

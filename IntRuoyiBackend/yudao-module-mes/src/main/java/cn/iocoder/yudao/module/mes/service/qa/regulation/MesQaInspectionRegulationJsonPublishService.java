@@ -80,6 +80,7 @@ public class MesQaInspectionRegulationJsonPublishService {
         request.setRegulationCode(parsed.regulationCode());
         request.setRegulationName(parsed.regulationName());
         request.setVersionNo(versionNo);
+        request.setExpectedDraftRevision(0L);
         request.setEffectiveDate(parsed.effectiveDate());
         request.setFinalInspectionApplicable(false);
         request.setFinalInspectionNotApplicableReason("表单解析 JSON 未规定末检");

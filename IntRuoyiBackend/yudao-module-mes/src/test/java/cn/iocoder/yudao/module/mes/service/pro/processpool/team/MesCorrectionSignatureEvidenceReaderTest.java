@@ -35,6 +35,34 @@ class MesCorrectionSignatureEvidenceReaderTest {
         verify(f.diffs, never()).insert(any(MesProProcessPoolEventRevisionDiffDO.class));
         verify(f.audits, never()).insert(any(GxpAuditEventDO.class));
     }
+    @Test void independentQaCorrectionNeedsNoProductionProcess() {
+        var f = new Fixture("{\"outputQuantity\":11}", true);
+        assertEquals("VALID", f.reader.read(f.event, f.revision).verification().verificationStatus());
+    }
+    @ParameterizedTest @ValueSource(strings = {"qa", "source", "eventRouteProcess", "eventProcess", "revisionRouteProcess", "revisionProcess"})
+    void rejectsInvalidIndependentQaCorrectionIdentity(String broken) {
+        var f = new Fixture("{\"outputQuantity\":11}", true);
+        switch (broken) {
+            case "qa" -> f.event.setQaProcessId(null);
+            case "source" -> f.event.setFeedbackSourceType("FEEDBACK");
+            case "eventRouteProcess" -> f.event.setRouteProcessId(5L);
+            case "eventProcess" -> f.event.setProcessId(6L);
+            case "revisionRouteProcess" -> f.revision.setRouteProcessId(5L);
+            case "revisionProcess" -> f.revision.setProcessId(6L);
+            default -> throw new AssertionError(broken);
+        }
+        assertThrows(IllegalStateException.class, () -> f.reader.read(f.event, f.revision));
+    }
+    @ParameterizedTest @ValueSource(strings = {"routeProcess", "process"})
+    void productionCorrectionStillRequiresProductionProcess(String missing) {
+        var f = new Fixture();
+        if ("routeProcess".equals(missing)) {
+            f.event.setRouteProcessId(null); f.revision.setRouteProcessId(null);
+        } else {
+            f.event.setProcessId(null); f.revision.setProcessId(null);
+        }
+        assertThrows(IllegalStateException.class, () -> f.reader.read(f.event, f.revision));
+    }
     @ParameterizedTest @ValueSource(strings = {"tenant", "event", "actor", "snapshot", "missingSignature", "canonical", "hash", "auditTenant", "auditSource", "auditSignature", "auditPayload", "duplicateAudit", "diffTenant", "diffEvent", "noDiff", "unchanged", "challenge", "duplicateDiff", "simulated"})
     void rejectsBrokenFormalAssociation(String broken) {
         var f = new Fixture();
@@ -183,6 +211,9 @@ class MesCorrectionSignatureEvidenceReaderTest {
         }
         void pqc() {
             event.setEventType("PQC_INSPECTION");
+            event.setQaProcessId(60L).setFeedbackSourceType("MES_PQC_INSPECTION_TASK")
+                    .setRouteProcessId(null).setProcessId(null);
+            revision.setRouteProcessId(null).setProcessId(null);
             audit.setOperationId("mes.pqc-inspection.correct");
             audit.setRequestId("MES-PQC-CORRECTION:10");
             audit.setReasonCode("MES_PQC_INSPECTION_CORRECT");

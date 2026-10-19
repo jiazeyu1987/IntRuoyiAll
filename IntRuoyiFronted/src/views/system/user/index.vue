@@ -364,9 +364,6 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import * as DeptApi from '@/api/system/dept'
-import * as PermissionApi from '@/api/system/permission'
-import * as PostApi from '@/api/system/post'
-import * as RoleApi from '@/api/system/role'
 import * as UserApi from '@/api/system/user'
 import UserForm from './UserForm.vue'
 import UserImportForm from './UserImportForm.vue'
@@ -377,10 +374,8 @@ import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
   buildDeptLeaderLookup,
-  buildDisplayNameLookup,
   formatDisplayNames,
   isDeptLeader,
-  resolveDisplayNames,
   sortUsersByDeptLeader
 } from './utils'
 
@@ -391,9 +386,8 @@ const { t } = useI18n() // 国际化
 const route = useRoute()
 const { push } = useRouter()
 const userStore = useUserStore()
-const lookupPageSize = 200
 
-interface UserTableRow extends UserApi.UserVO {
+interface UserTableRow extends UserApi.UserListVO {
   postNamesText: string
   roleNamesText: string
 }
@@ -456,8 +450,6 @@ const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
-const postNameById = ref(new Map<number, string>())
-const roleNameById = ref(new Map<number, string>())
 const deptTreeRenderKey = ref(0)
 const highlightedUserId = ref<number>()
 const queryParams = reactive({
@@ -477,53 +469,9 @@ const selectedDeptName = computed(() =>
 )
 
 const loadDeptMetadata = async () => {
-  const deptList = (await DeptApi.getDeptList({})) as DeptApi.DeptVO[]
+  const deptList = await DeptApi.getSimpleDeptList()
   deptLeaderByDeptId.value = buildDeptLeaderLookup(deptList)
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
-}
-
-const loadPagedLookupItems = async <T,>(
-  fetchPage: (params: PageParam) => Promise<{ list: T[]; total: number }>
-) => {
-  const items: T[] = []
-  let pageNo = 1
-  let totalCount = 0
-  do {
-    const page = await fetchPage({ pageNo, pageSize: lookupPageSize })
-    const pageItems = (page.list ?? []) as T[]
-    items.push(...pageItems)
-    totalCount = page.total ?? pageItems.length
-    pageNo += 1
-  } while (items.length < totalCount)
-  return items
-}
-
-const loadUserDisplayMetadata = async () => {
-  const [postList, roleList] = await Promise.all([
-    loadPagedLookupItems<PostApi.PostVO>(PostApi.getPostPage),
-    loadPagedLookupItems<RoleApi.RoleVO>(RoleApi.getRolePage)
-  ])
-  postNameById.value = buildDisplayNameLookup(postList)
-  roleNameById.value = buildDisplayNameLookup(roleList)
-}
-
-const loadRoleNamesByUserId = async (users: UserApi.UserVO[]) => {
-  const roleEntries = await Promise.all(
-    users.map(async (user) => {
-      const roleIds = (await PermissionApi.getUserRoleList(user.id)) as Array<number | string>
-      return [user.id, resolveDisplayNames(roleIds, roleNameById.value)] as const
-    })
-  )
-  return new Map<number, string[]>(roleEntries)
-}
-
-const buildUserTableRows = async (users: UserApi.UserVO[]): Promise<UserTableRow[]> => {
-  const roleNamesByUserId = await loadRoleNamesByUserId(users)
-  return users.map((user) => ({
-    ...user,
-    postNamesText: formatDisplayNames(resolveDisplayNames(user.postIds, postNameById.value)),
-    roleNamesText: formatDisplayNames(roleNamesByUserId.get(user.id) ?? [])
-  }))
 }
 
 const isDeptLeaderUser = (user: UserTableRow) => isDeptLeader(user, deptLeaderByDeptId.value)
@@ -551,11 +499,15 @@ const getList = async () => {
   loading.value = true
   try {
     const data = await UserApi.getUserPage(queryParams)
-    const pageList = data.list as UserApi.UserVO[]
+    const pageList = data.list as UserApi.UserListVO[]
     const orderedList = shouldPrioritizeDeptLeaders.value
       ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, queryParams.deptId)
       : pageList
-    list.value = await buildUserTableRows(orderedList)
+    list.value = orderedList.map((user) => ({
+      ...user,
+      postNamesText: formatDisplayNames(user.postNames),
+      roleNamesText: formatDisplayNames(user.roleNames)
+    }))
     total.value = data.total
   } finally {
     loading.value = false
@@ -780,7 +732,7 @@ const openLifecycleDeactivate = (row: UserApi.UserVO) => {
 
 /** 初始化 */
 onMounted(async () => {
-  await Promise.all([loadDeptMetadata(), loadUserDisplayMetadata()])
+  await loadDeptMetadata()
   await syncUserQueryFromRoute()
   await getList()
 })

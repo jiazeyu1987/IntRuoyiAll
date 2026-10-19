@@ -8,12 +8,10 @@
 - 终态页签的正式业务对象必须以用户明确口径为准；若需求指定展示PQC放行申请及不合格处置结果，应直接查询放行申请的 `VOIDED` 视图并按 `applicationId` 读取详情，不得因页签名称为“作废”而混入批次执行或活跃订单等其他终态来源。只有需求明确承载多个来源时才合并。
 - Evidence: `doc/tasks/20260922-batch-execution-tabs/verification-report.md`。
 
-## 触发场景
+## 适用场景
 
-- 修改 `IntRuoyiFronted` 下的 Vue、TypeScript、TSX、路由、API 包装、状态管理、样式、构建配置或前端测试前，必须先读取本文件。
-- 涉及真实页面验证时，还必须读取 `docs/e2e-rules.md`。
-- 涉及本机端口、Vite、前后端代理或服务重启时，还必须读取 `docs/local-runtime.md`。
-- 涉及菜单、权限、动态路由或租户绑定时，还必须读取 `docs/database-rules.md` 和 `docs/login-access.md`。
+- 按当前前端改动需要查阅本文件相关段落，未变化的已读规则不重复读取。
+- 真实页面、本机运行态、菜单权限或租户问题，按需要查阅对应 E2E、运行态、数据库及登录说明；不要求每次操作前串行读取所有文档。
 
 ## 项目边界
 
@@ -29,7 +27,7 @@
 - 详情页的可选附属查询应使用独立加载状态，不得阻塞主详情展示；默认区分成功空结果与请求失败。用户明确允许某个可选查询失败按无数据展示时，仅在该调用处关闭全局提示并清空相关数据，不得影响其它调用方；分页中途失败不可展示部分单据。验证时使用未完成的请求证明主详情已结束加载，再分别验证空结果、有数据、失败和默认调用方的错误行为。
 
 - 先确认页面入口、路由、权限、API、状态和复用组件的现有契约。
-- 功能、修复、重构和行为变更必须先记录 BDD，再执行 RED -> GREEN -> REGRESSION。
+- 功能、修复、重构和行为变更完成与风险匹配的验证；BDD、TDD 及 RED/GREEN 记录按任务需要或用户明确要求选用。
 - 后端或请求失败必须通过 UI、网络、控制台或测试明确暴露。
 - 不得使用空 `catch {}`、静默 toast、吞异常或默认成功状态掩盖请求失败。
 - 写入接口若设置 `ignoreErrorMessage: true`，调用方必须在当前可见业务区域本地 `catch` 并展示正式错误；已处理的用户操作错误不得继续冒泡成全局“系统异常”。
@@ -75,13 +73,13 @@
 
 ## 前端静态契约隔离门禁
 
-- Trigger: 当前任务需要 RED/GREEN 静态契约，但已有大契约或全量 `pnpm ts:check` 先失败在无关历史问题上。
+- Trigger: 当前任务需要定向行为或静态契约验证，但已有大契约或全量 `pnpm ts:check` 先失败在无关历史问题上。
 - API 静态合同应容忍合法的函数签名换行、缩进和格式化差异，只锁定参数、正式 URL、载荷和错误行为；排版导致的失败应收窄正则并记录为无关噪声，不得修改生产 API 来迎合脆弱合同。
 - SFC 静态合同包含负向断言时，必须先截取目标 handler、模板或配置块，再在该块内断言旧能力不存在；当旧能力在同页其它正式流程仍存在时，不得扫描整页、整段 `<script>`、所有 import 或共享 helper 名称。
 - Preflight check: 先运行最接近的既有契约并冻结首个无关失败；若失败点不属于当前任务，新增或改用任务专用最小静态契约覆盖当前行为。静态合同从单个源码文件截取函数、模板或配置块时，结束锚点必须是“下一个明确同类块/函数名”或配对标记；测试列表、弹窗或标准组件时优先使用该组件自身的结束标签，不得借用相邻且可能被删除的展示区块标记作为结束边界；解析 TypeScript 数组声明如 `const x: Type[] = [...]` 时，必须先定位赋值号再寻找数组起始 `[`，避免把类型标注 `[]` 当作数组字面量；同文件后续可能追加相邻产品模板、角色模板或配置块时，禁止用宽泛的 `const qaRegulationItems`、`</script>`、文件结尾等远端锚点导致新增块被旧合同误计数。
-- Blocker: 无法证明失败点与当前任务无关、或专用契约不能稳定先 RED 后 GREEN 时，不得宣称当前行为完成。新增相邻模板后，既有合同若出现行数翻倍、误报重复项或负向断言跨块命中，必须先收窄旧合同边界再判断业务是否回归，不得为了通过测试删除新模板或放宽计数断言。
-- Verification: `execution-log.md` 同时记录无关 blocker、专用契约 RED/GREEN、以及全量回归命令的剩余阻塞摘要。
-- Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
+- Blocker: 实际失败影响本任务行为或验证不足时，不得宣称当前行为完成；不把先 RED 后 GREEN 的形式作为默认完成条件。新增相邻模板后，既有合同若出现行数翻倍、误报重复项或负向断言跨块命中，必须先收窄旧合同边界再判断业务是否回归，不得为了通过测试删除新模板或放宽计数断言。
+- Verification: 简要报告实际定向验证结果及无关全量检查的阻塞；不强制指定日志文件或 RED/GREEN 格式。
+- Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；不能跳过当前需求所需的实际验证，不强制 RED/GREEN 顺序。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。任务 `doc/tasks/20260806-qa-id-balloon-pressure-pump-pdf-items/`，新增 `PQC-ID-001` 相邻产品模板后，旧 `PQC-IDI-001` 静态合同原本用 `const qaRegulationItems` 作远端结束锚点，误把新 17 行计入旧 22 行合同；最终将旧合同结束锚点收窄到 `const createBalloonPressurePumpQaRegulationItems`，并新增 ID 专用合同。任务 `doc/tasks/20260806-qa-idi-pressure-pump-screenshot-pages-verify/`，逐页截图对表时必须同时锁定源码顺序、PDF 页码、`itemName` 和 `sourceOriginalItem`，避免图 4 `整体粘结 / 外观` 被后续图 5 `气密性` 合并单元格分组污染。任务 `doc/tasks/20260807-team-leader-review-leader-name/`，`data-production-leader-module-tab-report\b` 会把 `data-production-leader-module-tab-report-history` 一并计入，因为 `-` 是非单词字符；静态合同统计 `data-*` 前缀时必须使用 `(?=[\s/>])`、负向断言或完整属性边界。
 - Evidence extension: 任务 `doc/tasks/20260830-nas-original-path-sync/`，NAS 未受控文件新增“按原路径同步”流程时，同页仍保留浏览器本地归类下载 `showDirectoryPicker`；静态合同必须抽取 `handleSyncNasOriginalPathFiles` 目标 handler 后再做负向断言，不能整页禁止 `showDirectoryPicker`。
 - Evidence extension: 任务 `doc/tasks/20260921-frontline-production-failure-lock/`，一线生产失败确认锁定修复中，同页其它正式流程仍保留 `message.error`；全屏内联错误合同应抽取 `showFrontlineError` 目标错误边界后再断言不使用 body-level toast，不能整页禁止 `message.error`。
@@ -941,9 +939,9 @@
 - 类型信息修复验证：保留项目既定类型检查命令与tsconfig范围；比较实际生产源码修复前后生成的JavaScript，并核验SFC编译和相关行为合同。Git文本与Windows工作区比较时只统一CRLF/LF，不删除其他空白或内容；编译输出一致只能补充行为保持证据，不能替代全量类型检查。
 - Trigger: 并发页面改动后全量 `vue-tsc` 报错较多、类型检查长时间无输出或 OOM；静态合同因统一列表、严格 ID 解析或局部类型收窄重构而失败，但正式行为未退化。
 - 未使用声明清理补充：删除前同时核对模板、正式调用链与初始化副作用，废弃表格的 hook 不能仅因解构未使用就断定没有副作用。行为合同应验证实际入口身份、载荷及拒绝条件，不能靠未使用的 import 证明入口存在；抽取源码的测试应以仍参与行为的函数作边界，并规范换行，避免死代码清理或参数换行产生假失败。
-- Preflight check: 全量类型检查只启动一个任务自有进程，并使用项目既定 8 GB Node 堆；出现无输出时先按 PID 核对是否存在本任务重复 `vue-tsc`，不得继续叠加。静态合同必须锁定正式数据映射、成功/失败顺序和用户可观察行为；负向断言只截取目标函数或目标配置块，不扫描整页宽泛词汇。实现由旧输入框迁移到统一列表、由内联可空对象改为断言后的局部常量时，应更新合同到新的正式边界，不得为了旧正则恢复废弃函数或重复控件。新增虚拟来源字段或分组字段时，静态合同必须覆盖前端过滤条件和页面可见性条件，避免后端已返回正式字段但被旧物理身份校验吞掉。使用前端交付 evidence validator 时，证据文件本身必须包含 `BDD:`、`RED:`、`GREEN:` 标记；不能只把这些标记放在 execution-log 后再让 evidence 文件用一句“见日志”代替。
+- Preflight check: 全量类型检查只启动一个任务自有进程，并使用项目既定 8 GB Node 堆；出现无输出时先按 PID 核对是否存在本任务重复 `vue-tsc`，不得继续叠加。静态合同必须锁定正式数据映射、成功/失败顺序和用户可观察行为；负向断言只截取目标函数或目标配置块，不扫描整页宽泛词汇。实现由旧输入框迁移到统一列表、由内联可空对象改为断言后的局部常量时，应更新合同到新的正式边界，不得为了旧正则恢复废弃函数或重复控件。新增虚拟来源字段或分组字段时，静态合同必须覆盖前端过滤条件和页面可见性条件，避免后端已返回正式字段但被旧物理身份校验吞掉。证据校验工具按任务需要选用，固定 BDD/RED/GREEN 标记和单独 evidence 文件不作为通用完成门槛。
 - Blocker: 同一工作区存在多个本任务 `vue-tsc` 争用内存、类型检查因 4 GB 堆 OOM、全量 `ts:check` 先失败在无关文件 Git 冲突标记/语法残片、静态合同只因函数名/局部变量名/旧 DOM 结构变化而失败，或宽泛正则命中无关错误文案时，必须先消除验证噪声并收窄合同，不能把它记成源码回归。真实 E2E 出现接口载荷已有目标字段但页面文本缺失，例如 `real_device_group_not_visible`，必须先检查 computed/filter 是否仍要求旧字段形态，不得用后端接口通过替代页面断言。
-- Verification: 以单实例 `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit --pretty false` 的 exit 0 为严格类型证据；若全量检查被明确无关冲突标记阻塞，可补充任务范围内的 `eslint <目标文件>` 与临时聚焦 `vue-tsc -p <任务内tsconfig>` 作为当前改动证据，但必须把全量 `ts:check` 记录为 BLOCKED 而非 PASS，临时 tsconfig 需显式包含项目全局 `types/**/*.d.ts` 和 Vite client 声明，避免 PageParam/Recordable/ImportMeta 误报。静态合同同时证明正式查询参数映射、请求成功后再提交 URL/缓存状态、失败继续抛出，以及无 fallback/默认成功/吞异常。虚拟/分组字段还必须证明前端过滤条件接受新字段正式身份，并用真实 Playwright 页面断言目标字段实际可见。前端交付证据校验通过后，收尾清理可删除一次性 evidence 文件，但必须先把验证摘要保留到 `verification-report.md`。最后运行 `git diff --check`。
+- Verification: 以单实例 `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit --pretty false` 的 exit 0 为严格类型证据；若全量检查被明确无关冲突标记阻塞，可补充任务范围内的 `eslint <目标文件>` 与临时聚焦 `vue-tsc -p <任务内tsconfig>` 作为当前改动证据，但必须把全量 `ts:check` 记录为 BLOCKED 而非 PASS，临时 tsconfig 需显式包含项目全局 `types/**/*.d.ts` 和 Vite client 声明，避免 PageParam/Recordable/ImportMeta 误报。静态合同同时证明正式查询参数映射、请求成功后再提交 URL/缓存状态、失败继续抛出，以及无 fallback/默认成功/吞异常。虚拟/分组字段还必须证明前端过滤条件接受新字段正式身份，并用真实 Playwright 页面断言目标字段实际可见。有本任务临时证据需要清理时，保留必要验证结果后按归属清理，不强制额外报告文件。最后运行 `git diff --check`。
 - Forbidden action: 禁止并行重复启动全量类型检查、用提高内存掩盖真实 TypeScript 错误、关闭严格规则、排除目录、引入 `any` 绕过、把聚焦 vue-tsc 冒充全量 `ts:check`、恢复不可达旧实现只为满足字符串正则，或用整页关键词扫描替代目标代码块合同。
 - Evidence: `doc/tasks/20260813-concurrent-regression-repair/verification-report.md`；`doc/tasks/20260830-dcc-process-device-type-parameter-catalog/verification-report.md`，`PROCESS_POOL_REPORT` 设备参数改为 `@deviceGroup` 后，后端静态和接口已正确返回设备组字段，但真实 E2E 先暴露前端旧过滤条件仍要求物理 `deviceId/deviceCode/deviceName`，最终补充静态合同和真实页面断言后通过。
 

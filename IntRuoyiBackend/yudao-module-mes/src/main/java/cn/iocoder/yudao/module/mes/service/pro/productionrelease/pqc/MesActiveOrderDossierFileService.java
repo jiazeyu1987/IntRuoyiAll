@@ -47,7 +47,6 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_PROCESS_P
 @RequiredArgsConstructor
 public class MesActiveOrderDossierFileService {
 
-    private static final String FILE_DIRECTORY_PREFIX = "mes/active-order-dossier/";
     private static final Set<String> CATEGORY_KEYS = Set.of(
             "INCOMING_INSPECTION_FILE", "STERILIZATION_FILE", "FINISHED_PRODUCT_FILE", "OTHER_FILE");
     private static final List<CategoryDefinition> CATEGORY_DEFINITIONS = List.of(
@@ -64,6 +63,8 @@ public class MesActiveOrderDossierFileService {
     private final FileService fileService;
     private final MesProEdhrOperationAuditService operationAuditService;
 
+    @Resource private MesDossierUploadStagingService staging;
+    @Resource private org.springframework.transaction.PlatformTransactionManager transactions;
     @Resource
     private GxpAuditService gxpAuditService;
     @Resource private cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrBatchLifecycleGuard lifecycleGuard;
@@ -122,7 +123,7 @@ public class MesActiveOrderDossierFileService {
         return row;
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public FileItem upload(Long actorUserId, UploadCommand command) {
         if (command == null) {
             throw ServiceExceptionUtil.invalidParamException("资料文件上传参数为空。");
@@ -139,22 +140,31 @@ public class MesActiveOrderDossierFileService {
         if (StrUtil.isBlank(contentType)) {
             throw ServiceExceptionUtil.invalidParamException("上传文件缺少文件类型，不能写入资料文件。");
         }
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        tx.executeWithoutResult(status -> requireUploadContext(actorUserId, command));
+        var staged = staging.upload(actorUserId, command.activeOrderId(), category.key(), fileName, contentType, command.content());
+        return tx.execute(status -> bindUpload(actorUserId, command, category, staged));
+    }
+
+    private ResolvedContext requireUploadContext(Long actorUserId, UploadCommand command) {
         gxpAuditService.acquireLedgerLock();
         var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), false);
-        ResolvedContext context = new ResolvedContext(authorized.activeOrder(), authorized.application());
+        ResolvedContext context = new ResolvedContext(activeOrderMapper.selectByIdForUpdate(authorized.activeOrder().getId()), authorized.application());
+        if (context.activeOrder() == null) throw dossierFileBlocked("活跃订单已不存在，请重新加载");
         assertMutable(context.activeOrder());
         if (context.application() != null && context.application().getBatchExecutionId() != null) {
             lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
         }
+        return context;
+    }
+
+    private FileItem bindUpload(Long actorUserId, UploadCommand command, CategoryDefinition category,
+            MesDossierUploadStagingService.Staged staged) {
+        ResolvedContext context = requireUploadContext(actorUserId, command);
         String operatorName = resolveOperatorName(actorUserId);
-        String directory = FILE_DIRECTORY_PREFIX + context.activeOrder().getId() + "/" + category.key()
-                + "/" + java.util.UUID.randomUUID();
-        Long fileId = fileService.createFileAndReturnId(command.content(), fileName, directory, contentType);
-        if (fileId == null || fileId <= 0) {
-            throw new IllegalStateException("文件服务未返回有效文件编号，不能登记资料文件。");
-        }
-        FileDO file = fileService.getFile(fileId);
-        validateStoredFile(fileId, file, command.content());
+        FileDO file = staged.file();
+        validateStoredFile(file.getId(), file, command.content());
+        staging.bind(staged, actorUserId, command.activeOrderId());
         LocalDateTime operatedAt = LocalDateTime.now();
         MesProcessPoolActiveOrderDossierFileDO row = MesProcessPoolActiveOrderDossierFileDO.builder()
                 .activeOrderId(context.activeOrder().getId())
@@ -172,17 +182,9 @@ public class MesActiveOrderDossierFileService {
                 .operatorName(operatorName)
                 .operatedAt(operatedAt)
                 .build();
-        try {
-            int inserted = dossierFileMapper.insert(row);
-            if (inserted != 1 || row.getId() == null) {
-                IllegalStateException failure = new IllegalStateException("资料文件关系写入失败，不能确认上传成功。");
-                cleanupStoredFile(fileId, failure);
-                throw failure;
-            }
-        } catch (RuntimeException ex) {
-            cleanupStoredFile(fileId, ex);
-            throw ex;
-        }
+        if (dossierFileMapper.insert(row) != 1 || row.getId() == null)
+            throw new IllegalStateException("资料文件关系写入失败，不能确认上传成功。");
+        advanceManifest(context.activeOrder());
         recordDossierOperation("DOSSIER_UPLOAD", "活跃订单资料上传", actorUserId, operatorName, row, null, row.getSha256(),
                 operatedAt);
         appendDossierGxpAudit("mes.dossier.upload", "ABSENT", "PRESENT", row, null, row.getSha256(), operatedAt);
@@ -200,7 +202,8 @@ public class MesActiveOrderDossierFileService {
         }
         gxpAuditService.acquireLedgerLock();
         var authorized = dossierReadScopeService.requireMutation(actorUserId, command.activeOrderId(), command.applicationId(), true);
-        ResolvedContext context = new ResolvedContext(authorized.activeOrder(), authorized.application());
+        ResolvedContext context = new ResolvedContext(activeOrderMapper.selectByIdForUpdate(authorized.activeOrder().getId()), authorized.application());
+        if (context.activeOrder() == null) throw dossierFileBlocked("活跃订单已不存在，请重新加载");
         assertMutable(context.activeOrder());
         if (context.application() != null && context.application().getBatchExecutionId() != null) {
             lifecycleGuard.requireDossierMutable(context.application().getBatchExecutionId());
@@ -223,15 +226,17 @@ public class MesActiveOrderDossierFileService {
         if (deleted != 1) {
             throw new IllegalStateException("删除资料文件关系失败，不能确认删除成功：" + row.getId());
         }
-        try {
-            fileService.deleteFile(file.getId());
-        } catch (Exception ex) {
-            throw new IllegalStateException("删除资料文件实体失败：" + file.getId(), ex);
-        }
+        // Logical removal is atomic with the audits. Retain the immutable object for signed history.
+        advanceManifest(context.activeOrder());
         recordDossierOperation("DOSSIER_DELETE", "活跃订单资料删除", actorUserId, operatorName, row, row.getSha256(), null,
                 LocalDateTime.now());
         appendDossierGxpAudit("mes.dossier.delete", "PRESENT", "ABSENT", row, row.getSha256(), null,
                 LocalDateTime.now());
+    }
+
+    private void advanceManifest(MesProcessPoolActiveOrderDO order) {
+        if (order.getDossierRevision() == null || activeOrderMapper.advanceDossierRevision(order.getId(), order.getDossierRevision()) != 1)
+            throw new IllegalStateException("资料集合已变更，请重新加载");
     }
 
     private ResolvedContext resolveContext(Long actorUserId, Long activeOrderId, Long applicationId) {
@@ -329,13 +334,7 @@ public class MesActiveOrderDossierFileService {
         }
     }
 
-    private void cleanupStoredFile(Long fileId, RuntimeException failure) {
-        try {
-            fileService.deleteFile(fileId);
-        } catch (Exception cleanupFailure) {
-            failure.addSuppressed(cleanupFailure);
-        }
-    }
+
 
     private void recordDossierOperation(String operationType, String actionName, Long actorUserId, String operatorName,
                                         MesProcessPoolActiveOrderDossierFileDO row, String beforeHash,

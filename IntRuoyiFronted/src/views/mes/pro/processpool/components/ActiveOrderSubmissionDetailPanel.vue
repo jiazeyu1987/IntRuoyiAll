@@ -3894,10 +3894,9 @@ const compareActiveOrderPqcProcessGroups = (
 
 const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
   const detailResult = props.detail
-  if (!detailResult?.processes?.length) return []
+  if (!detailResult) return []
   const groupsByQaProcessId = new Map<number, ActiveOrderDetailPqcProcessGroup>()
-  for (const process of detailResult.processes) {
-    for (const submission of process.pqcSubmissions ?? []) {
+  for (const submission of detailResult.pqcSubmissions ?? []) {
       const qaProcessId = Number(submission.qaProcessId)
       const qaProcessSort = Number(submission.qaProcessSort)
       const qaProcessName = normalizeActiveOrderPqcText(submission.qaProcessName)
@@ -3923,7 +3922,6 @@ const pqcProcessGroups = computed<ActiveOrderDetailPqcProcessGroup[]>(() => {
         qaProcessSort,
         submissions: [submission]
       })
-    }
   }
   return Array.from(groupsByQaProcessId.values()).sort(compareActiveOrderPqcProcessGroups)
 })
@@ -4254,8 +4252,7 @@ const formatPqcLossReason = (
 
 const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
   const rows: ActiveOrderPqcLossReportRow[] = []
-  for (const process of props.detail?.processes ?? []) {
-    for (const submission of process.pqcSubmissions ?? []) {
+  for (const submission of props.detail?.pqcSubmissions ?? []) {
       const scrapQuantity = Number(submission.scrapQuantity)
       if (!Number.isFinite(scrapQuantity) || scrapQuantity <= 0) {
         continue
@@ -4268,14 +4265,13 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
       const approverSignatures = latestPqcReviewerSignature ? [latestPqcReviewerSignature] : []
       rows.push({
         key: [
-          process.routeProcessId,
-          process.processId,
+          submission.qaProcessId,
           submission.pqcTaskId,
           submission.submittedEventId,
           rows.length
         ].join('::'),
         unqualifiedDateText: formatSummaryCycleDate(submission.businessDate) || blankSummaryField,
-        processNameText: submission.qaProcessName || process.processName || blankSummaryField,
+        processNameText: submission.qaProcessName || blankSummaryField,
         unqualifiedQuantityText: formatTraceQuantity(scrapQuantity),
         unqualifiedReasonText: formatPqcLossReason(submission),
         disposalMethodText: '☑ 报废　☐ 其他：',
@@ -4286,7 +4282,6 @@ const pqcLossReportRows = computed<ActiveOrderPqcLossReportRow[]>(() => {
         inspectorSignatures,
         approverSignatures
       })
-    }
   }
   return rows
 })

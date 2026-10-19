@@ -310,7 +310,7 @@ class MesActiveOrderDossierFileServiceTest {
     }
 
     @Test
-    void deleteRemovesOnlyTheCurrentActiveOrderFileAndOwnedInfraFile() throws Exception {
+    void deleteRemovesAssociationAndRetainsImmutableOriginal() throws Exception {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
@@ -324,7 +324,7 @@ class MesActiveOrderDossierFileServiceTest {
                 10L, null, "INCOMING_INSPECTION_FILE", 8001L));
 
         verify(fixture.dossierFileMapper).deleteById(8001L);
-        verify(fixture.fileService).deleteFile(7001L);
+        verify(fixture.fileService, never()).deleteFile(7001L);
         var auditCaptor = org.mockito.ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
         verify(fixture.operationAuditService).recordInCallerTransaction(auditCaptor.capture());
         assertEquals("DOSSIER_DELETE", auditCaptor.getValue().getOperationType());
@@ -372,7 +372,7 @@ class MesActiveOrderDossierFileServiceTest {
     }
 
     @Test
-    void deletePropagatesPhysicalFileDeleteFailure() throws Exception {
+    void removalDoesNotDependOnPhysicalStorageAvailability() throws Exception {
         var fixture = fixture();
         when(fixture.activeOrderMapper.selectById(10L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
                 .id(10L).leaderUserId(7L).workOrderId(20L).build());
@@ -383,13 +383,10 @@ class MesActiveOrderDossierFileServiceTest {
         when(fixture.dossierFileMapper.deleteById(8001L)).thenReturn(1);
         doThrow(new Exception("storage unavailable")).when(fixture.fileService).deleteFile(7001L);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> fixture.service.delete(7L,
-                new MesActiveOrderDossierFileService.DeleteCommand(
-                        10L, null, "INCOMING_INSPECTION_FILE", 8001L)));
-
-        assertTrue(ex.getMessage().contains("删除资料文件实体失败"));
-        assertNotNull(ex.getCause());
-        verify(fixture.operationAuditService, never()).recordInCallerTransaction(any());
+        fixture.service.delete(7L, new MesActiveOrderDossierFileService.DeleteCommand(
+                10L, null, "INCOMING_INSPECTION_FILE", 8001L));
+        verify(fixture.fileService, never()).deleteFile(7001L);
+        verify(fixture.operationAuditService).recordInCallerTransaction(any());
     }
 
     @Test
@@ -409,7 +406,7 @@ class MesActiveOrderDossierFileServiceTest {
         f.service.delete(7L, new MesActiveOrderDossierFileService.DeleteCommand(10L, 55L, "OTHER_FILE", 8001L));
         verify(f.readScope).requireMutation(7L, 10L, 55L, true);
         verify(guard).requireDossierMutable(40L);
-        verify(f.fileService).deleteFile(7001L);
+        verify(f.fileService, never()).deleteFile(7001L);
     }
 
     private static MesProcessPoolActiveOrderDossierFileDO dossierFile(Long id, Long activeOrderId,
@@ -444,6 +441,24 @@ class MesActiveOrderDossierFileServiceTest {
         var readScope = mock(MesActiveOrderDossierReadScopeService.class);
         var service = new MesActiveOrderDossierFileService(applicationMapper, activeOrderMapper,
                 dossierFileMapper, nonconformanceReviewMapper, adminUserApi, fileService, operationAuditService);
+        var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
+        ReflectionTestUtils.setField(service, "transactions", transactions);
+        var staging = mock(MesDossierUploadStagingService.class);
+        ReflectionTestUtils.setField(service, "staging", staging);
+        when(staging.upload(any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            byte[] bytes = call.getArgument(5);
+            String name = call.getArgument(3), type = call.getArgument(4);
+            String path = "mes/active-order-dossier/" + call.getArgument(1) + "/" + call.getArgument(2) + "/" + java.util.UUID.randomUUID();
+            Long id = fileService.createFileAndReturnId(bytes, name, path, type);
+            return new MesDossierUploadStagingService.Staged(id, fileService.getFile(id));
+        });
+        when(activeOrderMapper.selectByIdForUpdate(any())).thenAnswer(call -> {
+            var row = activeOrderMapper.selectById((Long) call.getArgument(0));
+            if (row != null && row.getDossierRevision() == null) row.setDossierRevision(0L);
+            return row;
+        });
+        when(activeOrderMapper.advanceDossierRevision(any(), any())).thenReturn(1);
         ReflectionTestUtils.setField(service, "gxpAuditService", gxpAuditService);
         ReflectionTestUtils.setField(service, "nonconformanceReviewService", mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
         ReflectionTestUtils.setField(service, "dossierReadScopeService", readScope);

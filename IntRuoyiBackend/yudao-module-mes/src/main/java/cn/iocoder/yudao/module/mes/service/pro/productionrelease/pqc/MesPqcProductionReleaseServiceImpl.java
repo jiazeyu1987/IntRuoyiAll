@@ -141,13 +141,28 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         this.clock = clock;
     }
 
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService signatureAuthentication;
+    @jakarta.annotation.Resource private org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @jakarta.annotation.Resource private MesPqcReleaseAuthenticatedSignatureService authenticatedSignatures;
+
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public MesPqcProductionReleaseDecisionResult approve(
             Long actorUserId, MesPqcProductionReleaseApproveCommand command) {
         requireApproveCommand(actorUserId, command);
+        var tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
+        var outcome = signatureAuthentication.authenticate(new cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationRequest(
+                tenant, "SYSTEM_USER", actorUserId, actorUserId, java.util.UUID.randomUUID().toString(), command.getSignaturePassword()));
+        if (outcome.signer() == null) throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("签名认证失败：" + outcome.rejectionCode());
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status ->
+                approveAuthenticated(actorUserId, command, outcome.signer()));
+    }
+
+    private MesPqcProductionReleaseDecisionResult approveAuthenticated(Long actorUserId,
+            MesPqcProductionReleaseApproveCommand command, cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner signer) {
         gxpAuditService.acquireLedgerLock();
         approvalAuthority.lockTenantApprovalAuthority(cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId());
+        signatureAuthentication.lockAndRevalidate(signer, clock.instant());
         String idempotencyKey = MesReleaseFlowIdempotency.requireKey(command.getIdempotencyKey());
         String opinion = trimAndValidateOptionalText(command.getApprovalOpinion(), "approvalOpinion");
         String udiControlDocumentNo = trimAndValidateUdiDocumentNo(command.getUdiControlDocumentNo());
@@ -168,13 +183,11 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
         nonconformanceReviewService.ensureWorkOrderNotFrozen(application.getWorkOrderId(), "PQC放行");
         ensureNoClosedNonconformanceOutcome(application);
         lifecycleGuard.requireReleaseAllowed(requireExistingBatchExecutionId(application));
-        signatureService.validatePqcSubmitSignature(actorUserId, command.getSignaturePassword());
 
         Long batchExecutionId = requireExistingBatchExecutionId(application);
         Map<String, Object> affectedBefore = affectedStates.capture(
                 batchExecutionId, application.getId(), application.getReleaseTransactionId(), null, false);
-        Long signatureId = signatureService.recordPqcReleaseSignature(
-                actorUserId, batchExecutionId, application.getId(), command.getSignaturePassword(), opinion);
+        Long signatureId = authenticatedSignatures.record(signer, batchExecutionId, application.getId(), opinion, payloadHash);
         LocalDateTime decidedAt = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
         String activeOrderFactsSnapshotHash = MesProductionReleaseFormalFactSnapshots.activeOrderFactsSnapshotHash(
                 application, "APPROVE", actorUserId, decidedAt);
@@ -205,7 +218,7 @@ public class MesPqcProductionReleaseServiceImpl implements MesPqcProductionRelea
                 batchExecutionId, actorUserId, decidedAt, activeOrderFactsSnapshotHash,
                 JSON.toJSONString(result));
         requireCasSuccess(updated, application);
-        requireTaskCompletion(workTaskMapper.completePqcDecisionTask(workTask.getId(), decidedAt, "APPROVE"), application);
+        requireTaskCompletion(workTaskMapper.completePqcApprovedTask(workTask.getId(), batchExecutionId, decidedAt), application);
         MesProductionReleaseManagerStageInitializationResult managerStage = managerStageInitializer
                 .initializeManagerReleaseStage(new MesProductionReleaseManagerStageInitializationCommand()
                         .setApplicationId(application.getId())

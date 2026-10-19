@@ -1,7 +1,7 @@
 <template>
   <span v-if="canQuery" class="release-task-notification-entry">
     <el-button link type="primary" data-release-task-notification-entry @click="open">
-      交接通知
+      <slot>交接通知</slot>
     </el-button>
     <Dialog v-model="visible" title="交接通知" width="900px" data-release-task-notification-dialog>
       <div v-loading="loading">

@@ -63,7 +63,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void importWordDraft_createsNewDraftWithExplicitFinalNotApplicable() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(null);
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(null);
         when(regulationService.saveDraft(any())).thenReturn(savedDraft(71L, 72L, "B/0"));
 
         MesQaInspectionRegulationImportRespVO response = importService.importWordDraft(file(), DCC_PROJECT_ID);
@@ -73,6 +73,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         verify(regulationService).saveDraft(requestCaptor.capture());
         MesQaInspectionRegulationSaveReqVO request = requestCaptor.getValue();
         assertEquals("CREATE", response.getRoute());
+        assertEquals(0L, request.getExpectedDraftRevision());
         assertEquals(1, response.getProcessCount());
         assertEquals(1, response.getItemCount());
         assertEquals(0, response.getInheritedItemCount());
@@ -91,7 +92,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     void importWordDraft_upgradesAndInheritsExactNamedItemConfiguration() throws Exception {
         MesQaInspectionRegulationDO regulation = publishedRegulation();
         when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(regulation);
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(regulation);
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
         when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
@@ -107,6 +108,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
         MesQaInspectionRegulationSaveReqVO.InspectionItem item =
                 request.getProcesses().get(0).getItems().get(0);
         assertEquals("UPGRADE", response.getRoute());
+        assertEquals(0L, request.getExpectedDraftRevision());
         assertEquals(1, response.getInheritedItemCount());
         assertEquals("LEGACY-P01", request.getProcesses().get(0).getProcessCode());
         assertEquals("LEGACY-I01", item.getItemCode());
@@ -123,7 +125,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void importWordDraft_rejectsPublishedSameVersionWithoutSaving() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/0"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/0"))
                 .thenReturn(MesQaInspectionRegulationVersionDO.builder()
@@ -143,7 +145,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void importWordDraft_usesLatestPublishedVersionWhenRegulationPointerIsStale() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
         MesQaInspectionRegulationPublishedVersionRespVO latest = existingConfiguration();
@@ -164,7 +166,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void importWordDraft_rejectsDifferentOpenDraftWithoutSaving() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of(
                 MesQaInspectionRegulationVersionDO.builder()
                         .id(70L)
@@ -183,16 +185,21 @@ class MesQaInspectionRegulationWordImportServiceTest {
     @Test
     void importWordDraft_updatesSameVersionDraft() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         MesQaInspectionRegulationVersionDO draft = MesQaInspectionRegulationVersionDO.builder()
                 .id(70L)
+                .draftRevision(7L)
                 .regulationId(REGULATION_ID)
                 .versionNo("B/1")
                 .lifecycleStatus("DRAFT")
                 .build();
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of(draft));
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(draft);
-        when(regulationService.getCurrent(DCC_PROJECT_ID)).thenReturn(existingConfiguration());
+        MesQaInspectionRegulationPublishedVersionRespVO current = existingConfiguration();
+        current.setVersionNo("B/1");
+        current.setLifecycleStatus("DRAFT");
+        current.setDraftRevision(7L);
+        when(regulationService.getCurrent(DCC_PROJECT_ID)).thenReturn(current);
         when(regulationService.saveDraft(any())).thenReturn(savedDraft(REGULATION_ID, 70L, "B/1"));
 
         MesQaInspectionRegulationImportRespVO response = importService.importWordDraft(file(), DCC_PROJECT_ID);
@@ -202,14 +209,74 @@ class MesQaInspectionRegulationWordImportServiceTest {
         verify(regulationService).saveDraft(requestCaptor.capture());
         assertEquals("UPGRADE", response.getRoute());
         assertEquals(REGULATION_ID, requestCaptor.getValue().getRegulationId());
+        assertEquals(7L, requestCaptor.getValue().getExpectedDraftRevision());
         assertEquals(1, response.getInheritedItemCount());
+    }
+
+    @Test
+    void importWordDraft_rejectsDraftChangedWhileLoadingInheritedConfiguration() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
+        var draft = MesQaInspectionRegulationVersionDO.builder().id(70L)
+                .regulationId(REGULATION_ID).versionNo("B/1").lifecycleStatus("DRAFT")
+                .draftRevision(7L).build();
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of(draft));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(draft);
+        var current = existingConfiguration();
+        current.setVersionNo("B/1");
+        current.setLifecycleStatus("DRAFT");
+        current.setDraftRevision(8L);
+        when(regulationService.getCurrent(DCC_PROJECT_ID)).thenReturn(current);
+
+        assertThrows(ServiceException.class, () -> importService.importWordDraft(file(), DCC_PROJECT_ID));
+        verify(regulationService, never()).saveDraft(any());
+    }
+
+    @Test
+    void importWordDraft_repeatedImportAndPublishUsesEachSavedRevision() throws Exception {
+        when(parser.parse(any(), any())).thenReturn(parsed("B/1"));
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
+        var draft = MesQaInspectionRegulationVersionDO.builder().id(70L)
+                .regulationId(REGULATION_ID).versionNo("B/1").lifecycleStatus("DRAFT")
+                .draftRevision(1L).build();
+        var current = existingConfiguration();
+        current.setVersionNo("B/1");
+        current.setLifecycleStatus("DRAFT");
+        current.setDraftRevision(1L);
+        when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of(draft));
+        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(draft);
+        when(regulationService.getCurrent(DCC_PROJECT_ID)).thenReturn(current);
+        when(regulationService.saveDraft(any())).thenAnswer(call -> {
+            MesQaInspectionRegulationSaveReqVO request = call.getArgument(0);
+            assertEquals(draft.getDraftRevision(), request.getExpectedDraftRevision());
+            draft.setDraftRevision(draft.getDraftRevision() + 1);
+            current.setDraftRevision(draft.getDraftRevision());
+            var saved = savedDraft(REGULATION_ID, 70L, "B/1");
+            saved.setDraftRevision(draft.getDraftRevision());
+            return saved;
+        });
+        when(regulationService.publish(any())).thenAnswer(call -> {
+            MesQaInspectionRegulationSaveReqVO request = call.getArgument(0);
+            assertEquals(3L, request.getExpectedDraftRevision());
+            var published = existingConfiguration();
+            published.setVersionNo("B/1");
+            return published;
+        });
+
+        importService.importWordDraft(file(), DCC_PROJECT_ID);
+        importService.importWordDraft(file(), DCC_PROJECT_ID,
+                MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA, true);
+        assertEquals(3L, draft.getDraftRevision());
+        verify(regulationService).publish(any());
     }
 
     @Test
     void importWordDraft_upgradesByFullSourceOriginalItemWhenTerminalItemNamesRepeat() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
                 "大包装工序", "外箱 / 外观"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
         when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
@@ -235,7 +302,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     void importWordDraft_ignoresAmbiguousLegacyTerminalNameWhenNewItemHasFullPath() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
                 "大包装工序", "外箱 / 外观"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
         when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))
@@ -260,7 +327,7 @@ class MesQaInspectionRegulationWordImportServiceTest {
     void importWordDraft_rejectsAmbiguousLegacyTerminalNameWhenNewItemNeedsThatKey() throws Exception {
         when(parser.parse(any(), any())).thenReturn(parsedWithItem("B/1",
                 "大包装工序", "外观"));
-        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID)).thenReturn(publishedRegulation());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
         when(versionMapper.selectListDraftByRegulationId(REGULATION_ID)).thenReturn(List.of());
         when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "B/1")).thenReturn(null);
         when(regulationService.getPublishedVersion(DCC_PROJECT_ID, null))

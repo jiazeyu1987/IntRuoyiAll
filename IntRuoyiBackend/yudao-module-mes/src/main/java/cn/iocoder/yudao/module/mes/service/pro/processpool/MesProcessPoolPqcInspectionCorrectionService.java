@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionPieceDetailDO;
@@ -112,6 +113,9 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         this.nonconformanceReviewService = nonconformanceReviewService;
     }
 
+    @jakarta.annotation.Resource
+    private MesCorrectionBaselineGuard baselineGuard;
+
     @Transactional(rollbackFor = Exception.class)
     public Long correct(MesProcessPoolPqcInspectionCorrectionCommand command) {
         return correctInternal(command, null);
@@ -156,6 +160,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, command.getEventId());
         }
         validatePqcEvent(event);
+        if (ownReturn == null) baselineGuard.requireCurrent(event, command.getExpectedRevisionId(), command.getExpectedPayloadHash());
         if (ownReturn == null) {
             scopeService.assertCanAccessEmployee(command.getActorUserId(),
                     MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PQC, event.getActualEmployeeId());
@@ -223,8 +228,9 @@ public class MesProcessPoolPqcInspectionCorrectionService {
 
         GxpAuditStateEnvelope before = correctionAuditState(event, task, record, existingDetails, previousReview);
         String afterPayloadJson = JsonUtils.toJsonString(afterPayload);
+        String signedChallenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterPayloadJson, command.getChangeReason());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
-                recordCorrectionSignature(command, event.getId(), afterPayloadJson);
+                recordCorrectionSignature(command, event, afterPayloadJson);
         String signatureContentHash = verifyCorrectionSignature(command, event, afterPayloadJson, signature);
         Long revisionId = revisionService.updatePqcInspectionRecord(
                 MesProcessPoolEventRevisionUpdateReqBO.builder()
@@ -251,7 +257,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         GxpAuditStateEnvelope after = correctionAuditState(finalEvent, finalTask, finalRecord,
                 pieceDetailMapper.selectListByTaskIdForUpdate(task.getId()), finalReview);
         appendCorrectionAudit(command, event, task, revisionId, signature, previousReview, finalReview,
-                before, after, afterPayloadJson, signatureContentHash);
+                before, after, afterPayloadJson, signatureContentHash, signedChallenge);
         if (leaderReturnedCorrection) {
             handoffService.completeLeaderPqcCorrectionAndScheduleReview(event.getId(), previousReview.getId(),
                     revisionId, command.getActorUserId());
@@ -264,7 +270,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                                        Long revisionId, MesProBatchRecordExecutionFieldAuditSignatureResult signature,
                                        MesProcessPoolSubmissionReviewDO previous, MesProcessPoolSubmissionReviewDO current,
                                        GxpAuditStateEnvelope before, GxpAuditStateEnvelope after,
-                                       String signedPayload, String signatureContentHash) {
+                                       String signedPayload, String signatureContentHash, String challenge) {
         if (revisionId == null || revisionId <= 0) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionCorrection.revisionId");
         }
@@ -283,9 +289,6 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         String operation = "mes.pqc-inspection.correct";
         ObjectNode identity = auditObject("tenantId", event.getTenantId(), "operationId", operation,
                 "identity", List.of(event.getId().toString(), revisionId.toString()));
-        String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(signedPayload)
-                + "|" + command.getChangeReason().trim());
         gxpAuditService.append(GxpAuditCommand.builder().eventSchemaVersion(2).operationId(operation)
                 .subjectId("MES_PROCESS_POOL_EVENT:" + event.getId()).subjectVersion(after.getObjectVersion())
                 .beforeState(before).afterState(after).reasonSource("USER")
@@ -298,7 +301,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                                 null, signatureContentHash, "PQC_INSPECTION_CORRECTION"),
                         // The challenge binds the signed request; it is not the signature record content hash.
                         new GxpAuditEvidence("SIGNATURE_CHALLENGE", signature.getSignatureId().toString(),
-                                null, challenge, "SIGNED_CORRECTION_REQUEST"),
+                                null, challenge, "SIGNED_CORRECTION_REQUEST_V2"),
                         new GxpAuditEvidence("REVISION", revisionId.toString(), null,
                                 MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(signedPayload), "CORRECTED_PAYLOAD")))
                 .build());
@@ -312,9 +315,7 @@ public class MesProcessPoolPqcInspectionCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "correctionSignature.tenant");
         }
         var evidence = electronicSignatureQueryService.getById(signature.getSignatureId());
-        String challenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(payload)
-                + "|" + command.getChangeReason().trim());
+        String challenge = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), payload, command.getChangeReason());
         String subject = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesBatchRecordSignatureSubjectAdapter
                 .encodeSubjectId(0L, MesProBatchRecordExecutionSignatureService.ACTION_FIELD_CHANGE,
                         null, null, null, null, null, null, null, null, null, null, null, null, null, null, challenge);
@@ -512,11 +513,11 @@ public class MesProcessPoolPqcInspectionCorrectionService {
                 || !Objects.equals(event.getFeedbackSourceId(), task.getId())
                 || !Objects.equals(event.getWorkOrderId(), task.getWorkOrderId())
                 || !Objects.equals(event.getRouteId(), task.getRouteId())
+                || task.getRouteProcessId() != null || task.getProcessId() != null
+                || event.getRouteProcessId() != null || event.getProcessId() != null
                 || task.getQaProcessId() == null || task.getQaProcessId() <= 0
                 || !Objects.equals(event.getQaProcessId(), task.getQaProcessId())
                 || !Objects.equals(event.getId(), task.getSubmittedEventId())
-                || task.getRouteProcessId() == null || task.getRouteProcessId() <= 0
-                || task.getProcessId() == null || task.getProcessId() <= 0
                 || !(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
                 || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionTask");
@@ -571,11 +572,15 @@ public class MesProcessPoolPqcInspectionCorrectionService {
         if (!existingByItem.keySet().equals(requestedByItem.keySet())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.itemCode");
         }
+        if (!MesPqcInspectionItemPlan.require(task).keySet().equals(existingByItem.keySet())
+                || !Objects.equals(command.getActualInspectionQuantity(), task.getPlannedInspectionQuantity())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "frozenInspectionItemPlan");
+        }
         List<MesPqcInspectionPieceDetailDO> updated = new ArrayList<>();
         for (Map.Entry<String, List<MesPqcInspectionPieceDetailDO>> entry : existingByItem.entrySet()) {
             MesProcessPoolPqcInspectionCorrectionCommand.ItemResultCommand requested = requestedByItem.get(entry.getKey());
             List<String> values = requested.getSampleValues();
-            if (values == null || values.size() != command.getActualInspectionQuantity()) {
+            if (values == null || values.size() != MesPqcInspectionItemPlan.require(task).get(entry.getKey())) {
                 throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "itemResults.sampleValues");
             }
             MesPqcInspectionPieceDetailDO template = entry.getValue().get(0);
@@ -728,10 +733,8 @@ public class MesProcessPoolPqcInspectionCorrectionService {
     }
 
     private MesProBatchRecordExecutionFieldAuditSignatureResult recordCorrectionSignature(
-            MesProcessPoolPqcInspectionCorrectionCommand command, Long eventId, String afterPayloadJson) {
-        String challengeHash = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                eventId + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(afterPayloadJson)
-                + "|" + command.getChangeReason().trim());
+            MesProcessPoolPqcInspectionCorrectionCommand command, MesProProcessPoolEventDO event, String afterPayloadJson) {
+        String challengeHash = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterPayloadJson, command.getChangeReason());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
                 signatureService.recordFieldChangeSignature(
                         new MesProBatchRecordExecutionFieldAuditSignatureCommand()

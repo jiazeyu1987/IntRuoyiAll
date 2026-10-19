@@ -25,6 +25,15 @@ public class MesProEdhrBatchActiveOrderDetailService {
 
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderDetail getDetail(Long batchExecutionId) {
+        return detailService.getArchivedFormalDetail(requireBatchSource(batchExecutionId));
+    }
+
+    @Transactional(readOnly = true)
+    public MesTeamLeaderActiveOrderDetail getSignatureDetail(Long batchExecutionId, Long signatureId) {
+        return detailService.getArchivedSignatureDetail(requireBatchSource(batchExecutionId), signatureId);
+    }
+
+    private Long requireBatchSource(Long batchExecutionId) {
         EdhrBatchExecutionRespVO batch = batchExecutionService.get(batchExecutionId);
         Long activeOrderId = batch == null ? null : batch.getActiveOrderId();
         if (activeOrderId == null) {
@@ -35,11 +44,22 @@ public class MesProEdhrBatchActiveOrderDetailService {
                 || !Objects.equals(activeOrder.getWorkOrderId(), batch.getWorkOrderId())) {
             throw exception(PRO_EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID);
         }
-        return detailService.getArchivedFormalDetail(activeOrderId);
+        return activeOrderId;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public MesTeamLeaderActiveOrderDetail getDetailByActiveOrderId(Long activeOrderId) {
+        requireActiveOrderSource(activeOrderId);
+        return detailService.getArchivedFormalDetail(activeOrderId);
+    }
+
+    @Transactional(readOnly = true)
+    public MesTeamLeaderActiveOrderDetail getSignatureDetailByActiveOrderId(Long activeOrderId, Long signatureId) {
+        requireActiveOrderSource(activeOrderId);
+        return detailService.getArchivedSignatureDetail(activeOrderId, signatureId);
+    }
+
+    private void requireActiveOrderSource(Long activeOrderId) {
         if (activeOrderId == null || activeOrderId <= 0) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_MISSING");
         }
@@ -47,6 +67,5 @@ public class MesProEdhrBatchActiveOrderDetailService {
         if (activeOrder == null || activeOrder.getLeaderUserId() == null) {
             throw new IllegalStateException("EDHR_BATCH_ACTIVE_ORDER_SOURCE_INVALID");
         }
-        return detailService.getArchivedFormalDetail(activeOrderId);
     }
 }

@@ -1136,6 +1136,8 @@ public class MesProcessPoolTeamLeaderController {
                 .setProcesses(detail.getProcesses().stream()
                         .map(MesProcessPoolTeamLeaderController::toActiveOrderProcessDetailRespVO)
                         .toList())
+                .setPqcSubmissions(detail.getPqcSubmissions().stream()
+                        .map(MesProcessPoolTeamLeaderController::toActiveOrderPqcSubmissionDetailRespVO).toList())
                 .setActiveOrderStatus(toActiveOrderStatusSummaryRespVO(detail.getActiveOrderStatus()))
                 .setPqcProductionRelease(toActiveOrderPqcProductionReleaseSummaryRespVO(
                         detail.getPqcProductionRelease()))

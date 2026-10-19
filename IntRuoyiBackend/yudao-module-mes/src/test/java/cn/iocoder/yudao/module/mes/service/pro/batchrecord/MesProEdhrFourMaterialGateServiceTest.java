@@ -74,8 +74,15 @@ class MesProEdhrFourMaterialGateServiceTest {
         verifyNoInteractions(traceabilityService, taskMapper, attachmentMapper, fileService);
     }
 
-    @Test
-    void fourCurrentMaterialsReturnReady() {
+    @ParameterizedTest
+    @ValueSource(strings = {"CAPTURED", "BOUND"})
+    void fourCurrentMaterialsReturnReady(String relationStatus) {
+        when(traceabilityService.resolveSourcePrecheck(any()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setSourceVersion(1).setRelationStatus(relationStatus)
+                        .setReadAt(LocalDateTime.now()));
         List<MesProEdhrBatchExecutionTaskDO> tasks = new ArrayList<>();
         List<MesProBatchRecordExecutionAttachmentDO> attachments = new ArrayList<>();
         long id = 1L;
@@ -123,6 +130,19 @@ class MesProEdhrFourMaterialGateServiceTest {
         assertEquals(1_040_760_401, error.getCode());
         assertTrue(error.getMessage().contains(MesProEdhrBatchTraceabilityBlocker.TRACE_MAPPING_BLOCKED));
         verifyNoInteractions(taskMapper, attachmentMapper, fileService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "BLOCKED", "NOT_APPLICABLE", "READY"})
+    void unresolvedSourceRelationFailsBeforeMaterialQueries(String relationStatus) {
+        when(traceabilityService.resolveSourcePrecheck(any()))
+                .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO()
+                        .setBatchExecutionId(BATCH_ID).setOriginLinkId(9L)
+                        .setTraceLinkHash("trace-hash").setSourceSnapshotHash(SOURCE_HASH)
+                        .setSourceVersion(1).setRelationStatus(relationStatus));
+        ServiceException error = assertThrows(ServiceException.class, () -> gate.evaluate(BATCH_ID));
+        assertEquals(TRACE_CAPTURE_BLOCKED.getCode(), error.getCode());
+        verifyNoInteractions(taskMapper, attachmentMapper, fileService, receiptWriter);
     }
 
     @Test

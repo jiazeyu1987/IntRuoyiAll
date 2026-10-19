@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTr
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderReleaseApplicationMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.AfterEach;
@@ -41,6 +42,7 @@ class MesProEdhrActiveOrderLeaderBatchVisibilityTest {
     @Mock private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Mock private MesProEdhrBatchExecutionOriginMapper batchOriginMapper;
     @Mock private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock private MesProcessPoolActiveOrderReleaseApplicationMapper releaseApplicationMapper;
     @Mock private MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper;
     @Mock private MesProRouteProcessService routeProcessService;
     private MesProEdhrBatchExecutionVisibilityService service;
@@ -57,6 +59,7 @@ class MesProEdhrActiveOrderLeaderBatchVisibilityTest {
         ReflectionTestUtils.setField(service, "batchTaskMapper", batchTaskMapper);
         ReflectionTestUtils.setField(service, "batchOriginMapper", batchOriginMapper);
         ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
+        ReflectionTestUtils.setField(service, "releaseApplicationMapper", releaseApplicationMapper);
         batch = new MesProEdhrBatchExecutionDO().setId(BATCH).setTenantId(1L).setWorkOrderId(WORK)
                 .setRouteId(ROUTE).setRouteVersionId(VERSION).setRouteVersionNo("V17")
                 .setRouteSnapshotJson("{\"routeId\":980091,\"configSnapshots\":{}}")

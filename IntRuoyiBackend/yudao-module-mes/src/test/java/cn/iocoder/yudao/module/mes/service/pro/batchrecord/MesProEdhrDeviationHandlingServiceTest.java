@@ -161,12 +161,67 @@ class MesProEdhrDeviationHandlingServiceTest {
                 MesProEdhrDeviationHandlingServiceImpl.NODE_DEPARTMENT_OWNER,
                 MesProEdhrDeviationHandlingServiceImpl.NODE_QUALITY_OWNER,
                 MesProEdhrDeviationHandlingServiceImpl.NODE_QA);
-        when(deviationMapper.closeNormally(eq(71L), eq(901L), eq("NORMAL_COMPLETED"), any()))
+        when(deviationMapper.closeNormally(eq(71L), eq(901L), eq("NORMAL_COMPLETED"), any(), eq(201L), eq(1), eq(handling.getContentHash()), anyString()))
                 .thenReturn(1);
 
-        service.closeNormally(201L, 901L);
+        service.closeNormally(201L, 901L, handling.getContentVersion(), handling.getContentHash());
 
-        verify(deviationMapper).closeNormally(eq(71L), eq(901L), eq("NORMAL_COMPLETED"), any());
+        var signatures=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(deviationMapper).closeNormally(eq(71L),eq(901L),eq("NORMAL_COMPLETED"),any(),eq(201L),eq(1),eq(handling.getContentHash()),signatures.capture());
+        assertEquals(8801L,JSON.parseObject(signatures.getValue()).getLong("INITIATOR"));
+        var audit=org.mockito.ArgumentCaptor.forClass(MesProEdhrOperationAuditCommand.class);
+        verify(operationAuditService).recordInCallerTransaction(audit.capture());
+        assertEquals(201L,audit.getValue().getActorUserId());
+        assertEquals(handling.getContentHash(),JSON.parseObject(audit.getValue().getMetadataJson()).getString("contentHash"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void closeFactsAndAuditCommitOrRollBackTogether(boolean failAudit) {
+        var dataSource = new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:close_" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1", "sa", "");
+        var db = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        db.execute("CREATE TABLE close_fact(id BIGINT PRIMARY KEY, status VARCHAR, actor BIGINT, revision INT, hash VARCHAR, signatures VARCHAR)");
+        db.execute("CREATE TABLE close_audit(actor BIGINT)");
+        db.update("INSERT INTO close_fact(id,status) VALUES(901,'OPEN')");
+        var deviation = openDeviation("NORMAL").setInitiatorSignatureId(8801L);
+        var handling = completeHandling(7701L, 1);
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L,901L)).thenReturn(deviation);
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L,901L)).thenReturn(handling);
+        stubSignatures(deviation, handling, MesProEdhrDeviationHandlingServiceImpl.NODE_PREPARER,
+                MesProEdhrDeviationHandlingServiceImpl.NODE_VERIFIER, MesProEdhrDeviationHandlingServiceImpl.NODE_DEPARTMENT_OWNER,
+                MesProEdhrDeviationHandlingServiceImpl.NODE_QA, MesProEdhrDeviationHandlingServiceImpl.NODE_QUALITY_OWNER);
+        when(deviationMapper.closeNormally(eq(71L),eq(901L),anyString(),any(),eq(201L),eq(1),anyString(),anyString()))
+                .thenAnswer(call -> db.update("UPDATE close_fact SET status='CLOSED',actor=?,revision=?,hash=?,signatures=? WHERE id=901 AND status='OPEN'",
+                        call.getArgument(4),call.getArgument(5),call.getArgument(6),call.getArgument(7)));
+        doAnswer(call -> {
+            var audit = call.getArgument(0, MesProEdhrOperationAuditCommand.class);
+            db.update("INSERT INTO close_audit VALUES(?)",audit.getActorUserId());
+            if (failAudit) throw new IllegalStateException("audit persistence failed");
+            return null;
+        }).when(operationAuditService).recordInCallerTransaction(any());
+        var tx = new org.springframework.jdbc.datasource.DataSourceTransactionManager(dataSource);
+        var proxyFactory = new org.springframework.aop.framework.ProxyFactory(service);
+        proxyFactory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(tx,
+                new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
+        var proxy = (MesProEdhrDeviationHandlingService) proxyFactory.getProxy();
+        if (failAudit) assertThrows(IllegalStateException.class, () -> proxy.closeNormally(201L,901L,1,handling.getContentHash()));
+        else proxy.closeNormally(201L,901L,1,handling.getContentHash());
+        var fact = db.queryForMap("SELECT * FROM close_fact WHERE id=901");
+        assertEquals(failAudit ? "OPEN" : "CLOSED", fact.get("STATUS"));
+        assertEquals(failAudit ? null : 201L, fact.get("ACTOR"));
+        assertEquals(failAudit ? null : handling.getContentHash(), fact.get("HASH"));
+        assertEquals(failAudit ? 0 : 1, db.queryForObject("SELECT COUNT(*) FROM close_audit", Integer.class));
+    }
+
+    @Test
+    void staleCloseDoesNotConsumeLatestCompletedSignaturesOrWriteAudit() {
+        when(deviationMapper.selectByTenantAndIdForUpdate(71L,901L)).thenReturn(openDeviation("NORMAL"));
+        when(handlingMapper.selectByTenantAndDeviationIdForUpdate(71L,901L)).thenReturn(completeHandling(7701L,2));
+        var failure=assertThrows(ServiceException.class,()->service.closeNormally(201L,901L,1,"old-hash"));
+        assertEquals(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT.getCode(),failure.getCode());
+        verify(deviationMapper,never()).closeNormally(anyLong(),anyLong(),anyString(),any(),anyLong(),anyInt(),anyString(),anyString());
+        verify(operationAuditService,never()).recordInCallerTransaction(any());
     }
 
     @Test
@@ -182,10 +237,10 @@ class MesProEdhrDeviationHandlingServiceTest {
                 MesProEdhrDeviationHandlingServiceImpl.NODE_QUALITY_OWNER);
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> service.closeNormally(201L, 901L));
+                () -> service.closeNormally(201L, 901L, handling.getContentVersion(), handling.getContentHash()));
 
         assertEquals(PRO_EDHR_DEVIATION_HANDLING_SIGNATURE_REQUIRED.getCode(), error.getCode());
-        verify(deviationMapper, never()).closeNormally(anyLong(), anyLong(), anyString(), any());
+        verify(deviationMapper, never()).closeNormally(anyLong(), anyLong(), anyString(), any(), anyLong(), anyInt(), anyString(), anyString());
     }
 
     @Test
@@ -202,10 +257,10 @@ class MesProEdhrDeviationHandlingServiceTest {
                 MesProEdhrDeviationHandlingServiceImpl.NODE_QUALITY_OWNER);
 
         ServiceException error = assertThrows(ServiceException.class,
-                () -> service.closeNormally(201L, 901L));
+                () -> service.closeNormally(201L, 901L, handling.getContentVersion(), handling.getContentHash()));
 
         assertEquals(PRO_EDHR_DEVIATION_HANDLING_SIGNATURE_REQUIRED.getCode(), error.getCode());
-        verify(deviationMapper, never()).closeNormally(anyLong(), anyLong(), anyString(), any());
+        verify(deviationMapper, never()).closeNormally(anyLong(), anyLong(), anyString(), any(), anyLong(), anyInt(), anyString(), anyString());
     }
 
     @org.junit.jupiter.params.ParameterizedTest

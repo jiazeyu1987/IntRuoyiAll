@@ -16,6 +16,9 @@ import java.util.Objects;
 
 @Mapper
 public interface MesProcessPoolActiveOrderMapper extends BaseMapperX<MesProcessPoolActiveOrderDO> {
+    @Update("UPDATE mes_pro_process_pool_active_order SET dossier_revision=dossier_revision+1 WHERE id=#{id} AND dossier_revision=#{revision} AND deleted=0")
+    int advanceDossierRevision(@Param("id") Long id, @Param("revision") Long revision);
+
 
     @Update("UPDATE mes_pro_process_pool_active_order SET active_status = 'REMOVED', business_status = 'CANCELED', "
             + "removed_at = #{at}, version = version + 1 WHERE id = #{id} AND version = #{version} "

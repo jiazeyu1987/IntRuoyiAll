@@ -151,134 +151,155 @@
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 240)" fixed="right">
               <template #default="{ row }">
-                <ReleaseTaskNotificationEntry
-                  v-hasPermi="['mes:pro-edhr-work-task:query']"
-                  :batch-execution-id="row.id"
-                  :release-transaction-id="row.releaseTransactionId"
-                />
-                <div
-                  v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button
-                    link
-                    type="primary"
-                    data-edhr-batch-active-order-detail
-                    @click="openActiveOrderDetail(row)"
+                <div class="edhr-batch-page__operation-grid">
+                  <ReleaseTaskNotificationEntry
+                    v-hasPermi="['mes:pro-edhr-work-task:query']"
+                    :batch-execution-id="row.id"
+                    :release-transaction-id="row.releaseTransactionId"
                   >
-                    详情
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-change:void']"
-                    link
-                    type="warning"
-                    @click="handleWithdrawVoidRequest(row)"
+                    交接
+                  </ReleaseTaskNotificationEntry>
+                  <div
+                    v-if="resolveBatchVoidOperationState(row) === 'pending-withdrawable'"
+                    class="edhr-batch-page__actions"
                   >
-                    撤回作废申请
-                  </el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button
-                    link
-                    type="primary"
-                    data-edhr-batch-active-order-detail
-                    @click="openActiveOrderDetail(row)"
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-change:void']"
+                      link
+                      type="warning"
+                      @click="handleWithdrawVoidRequest(row)"
+                    >
+                      撤回作废申请
+                    </el-button>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'pending-readonly'"
+                    class="edhr-batch-page__actions"
                   >
-                    详情
-                  </el-button>
-                  <span class="edhr-batch-page__muted">作废申请中</span>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button
-                    link
-                    type="primary"
-                    data-edhr-batch-active-order-detail
-                    @click="openActiveOrderDetail(row)"
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <span class="edhr-batch-page__muted">作废申请中</span>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'voided'"
+                    class="edhr-batch-page__actions"
                   >
-                    详情
-                  </el-button>
-                </div>
-                <div
-                  v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
-                  class="edhr-batch-page__actions"
-                >
-                  <el-button
-                    link
-                    type="primary"
-                    data-edhr-batch-active-order-detail
-                    @click="openActiveOrderDetail(row)"
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                  </div>
+                  <div
+                    v-else-if="resolveBatchVoidOperationState(row) === 'release-locked'"
+                    class="edhr-batch-page__actions"
                   >
-                    详情
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
-                    link
-                    type="warning"
-                    data-edhr-batch-action="reject"
-                    @click="handleRejectClick(row)"
-                  >
-                    驳回
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-release:approve']"
-                    link
-                    type="primary"
-                    data-edhr-batch-action="release"
-                    @click="openReleaseDialog(row)"
-                  >
-                    上市放行
-                  </el-button>
-                </div>
-                <div v-else class="edhr-batch-page__actions">
-                  <el-button
-                    link
-                    type="primary"
-                    data-edhr-batch-active-order-detail
-                    @click="openActiveOrderDetail(row)"
-                  >
-                    详情
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-production-release:pqc-reject']"
-                    link
-                    type="warning"
-                    data-edhr-batch-action="reject"
-                    @click="handleRejectClick(row)"
-                  >
-                    驳回
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-change:void']"
-                    link
-                    type="danger"
-                    @click="openVoidDialog(row)"
-                  >
-                    作废
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-release:approve']"
-                    link
-                    type="primary"
-                    data-edhr-batch-action="release"
-                    @click="openReleaseDialog(row)"
-                  >
-                    上市放行
-                  </el-button>
-                  <el-button
-                    v-hasPermi="['mes:pro-edhr-batch-execution:upload']"
-                    link
-                    type="primary"
-                    data-edhr-batch-action="upload"
-                    @click="openActiveOrderOtherUploadTab(row)"
-                  >
-                    上传
-                  </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      link
+                      type="warning"
+                      data-edhr-batch-action="reject"
+                      @click="handleRejectClick(row)"
+                    >
+                      驳回
+                    </el-button>
+                    <el-button
+                      v-hasPermi="[
+                        'mes:pro-process-pool-team-leader:maintain',
+                        'mes:pro-production-release:pqc-approve',
+                        'mes:pro-edhr-batch-execution:upload'
+                      ]"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="upload"
+                      @click="openActiveOrderOtherUploadTab(row)"
+                    >
+                      上传
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-release:approve']"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="release"
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                  </div>
+                  <div v-else class="edhr-batch-page__actions">
+                    <el-button
+                      link
+                      type="primary"
+                      data-edhr-batch-active-order-detail
+                      @click="openActiveOrderDetail(row)"
+                    >
+                      详情
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-production-release:pqc-reject']"
+                      link
+                      type="warning"
+                      data-edhr-batch-action="reject"
+                      @click="handleRejectClick(row)"
+                    >
+                      驳回
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-change:void']"
+                      link
+                      type="danger"
+                      @click="openVoidDialog(row)"
+                    >
+                      作废
+                    </el-button>
+                    <el-button
+                      v-hasPermi="[
+                        'mes:pro-process-pool-team-leader:maintain',
+                        'mes:pro-production-release:pqc-approve',
+                        'mes:pro-edhr-batch-execution:upload'
+                      ]"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="upload"
+                      @click="openActiveOrderOtherUploadTab(row)"
+                    >
+                      上传
+                    </el-button>
+                    <el-button
+                      v-hasPermi="['mes:pro-edhr-release:approve']"
+                      link
+                      type="primary"
+                      data-edhr-batch-action="release"
+                      @click="openReleaseDialog(row)"
+                    >
+                      放行
+                    </el-button>
+                  </div>
                 </div>
               </template>
             </el-table-column>
@@ -2079,11 +2100,21 @@ onDeactivated(() => { releaseDialogVisible.value = false; resetMarketReleaseDial
   gap: 6px;
 }
 
-.edhr-batch-page__actions {
-  display: flex;
-  flex-wrap: wrap;
+.edhr-batch-page__operation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.edhr-batch-page__operation-grid :deep(.el-button) {
+  margin: 0;
+}
+
+.edhr-batch-page__actions {
+  display: contents;
 }
 
 .edhr-batch-page__dialog-alert {

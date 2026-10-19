@@ -2333,6 +2333,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .id(versionId)
                         .regulationId(7001L)
                         .versionNo("V1")
+                        .inspectionTypeRulesJson(qaStageRules())
+                        .finalInspectionApplicable(false).finalInspectionNotApplicableReason("无末检")
                         .lifecycleStatus("PUBLISHED")
                         .build());
         Long qaProcessId = 8001L;
@@ -2379,6 +2381,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
                         .id(versionId)
                         .regulationId(7001L)
                         .versionNo("B/1")
+                        .inspectionTypeRulesJson(qaStageRules())
+                        .finalInspectionApplicable(false).finalInspectionNotApplicableReason("无末检")
                         .lifecycleStatus("PUBLISHED")
                         .build());
         lenient().when(routeProcessMapper.selectByIdIgnoreDeleted(routeProcessId)).thenReturn(
@@ -2448,4 +2452,11 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .enabled(Boolean.TRUE)
                 .build();
     }
+    private static String qaStageRules() {
+        return "[{\"key\":\"FIRST\",\"inspectionType\":\"FIRST\",\"required\":true},"
+                + "{\"key\":\"PATROL_AM\",\"inspectionType\":\"PATROL\",\"required\":true},"
+                + "{\"key\":\"PATROL_PM\",\"inspectionType\":\"PATROL\",\"required\":true},"
+                + "{\"key\":\"FINAL\",\"inspectionType\":\"FINAL\",\"required\":false}]";
+    }
+
 }

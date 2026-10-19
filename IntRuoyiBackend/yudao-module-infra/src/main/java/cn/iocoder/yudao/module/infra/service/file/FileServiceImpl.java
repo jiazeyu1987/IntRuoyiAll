@@ -276,6 +276,7 @@ public class FileServiceImpl implements FileService {
         if (StrUtil.isNotEmpty(directory)) {
             name = directory + StrUtil.SLASH + name;
         }
+        Assert.isFalse(isDossierStoragePath(name), "活跃订单资料只能从业务页面上传");
         return name;
     }
 
@@ -302,6 +303,7 @@ public class FileServiceImpl implements FileService {
     @Override
     public Long createFile(FileCreateReqVO createReqVO) {
         createReqVO.setUrl(HttpUtils.removeUrlQuery(createReqVO.getUrl())); // 目的：移除私有桶情况下，URL 的签名参数
+        Assert.isFalse(isDossierStoragePath(createReqVO.getPath()), "不能从通用文件接口登记活跃订单资料");
         FileDO file = BeanUtils.toBean(createReqVO, FileDO.class);
         fileMapper.insert(file);
         return file.getId();
@@ -453,7 +455,18 @@ public class FileServiceImpl implements FileService {
         }
     }
 
+    private static boolean isDossierStoragePath(String path) {
+        if (path == null) return false;
+        String normalized = Path.of(path.replace('\\', '/')).normalize().toString().replace('\\', '/');
+        while (normalized.startsWith("/")) normalized = normalized.substring(1);
+        normalized = normalized.toLowerCase(java.util.Locale.ROOT);
+        return normalized.startsWith("mes/active-order-dossier/") || normalized.equals("mes/active-order-dossier");
+    }
+
     private void validateDeleteAllowed(FileDO file) {
+        if (isDossierStoragePath(file.getPath())) {
+            throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.invalidParamException("活跃订单资料为留存证据，请从业务页面移除关联，不能删除或移动原文件");
+        }
         if (ShowroomProtectedFileRules.isProtectedShowroomFile(file)) {
             throw exception(FILE_PROTECTED_SHOWROOM_MEDIA, file.getId());
         }
@@ -470,6 +483,8 @@ public class FileServiceImpl implements FileService {
         for (String segment : normalized.split("/")) {
             Assert.isFalse("..".equals(segment), "移动目标路径不能包含上级目录");
         }
+        Assert.isFalse(isDossierStoragePath(normalized),
+                "不能向活跃订单资料保留目录移动文件");
         return normalized;
     }
 

@@ -79,19 +79,21 @@ public class MesQaInspectionRegulationWordImportService {
 
         MesQaInspectionRegulationDO regulation =
                 regulationMapper.selectByDccProjectCodeId(dccProjectCodeId, resolvedOwnerModule);
-        MesQaInspectionRegulationPublishedVersionRespVO baseline = null;
+        ImportBaseline importBaseline = new ImportBaseline(null, 0L);
         String route = regulation == null ? "CREATE" : "UPGRADE";
         if (regulation != null) {
-            baseline = validateVersionsAndLoadBaseline(regulation, parsed.versionNo());
+            importBaseline = validateVersionsAndLoadBaseline(regulation, parsed.versionNo());
         }
 
         BuildResult buildResult = buildSaveRequest(
-                dccProjectCodeId, resolvedOwnerModule, regulation, parsed, baseline);
+                dccProjectCodeId, resolvedOwnerModule, regulation, parsed, importBaseline.snapshot());
+        buildResult.request().setExpectedDraftRevision(importBaseline.expectedDraftRevision());
         MesQaInspectionRegulationSaveRespVO saved =
                 regulationService.saveDraft(buildResult.request());
         MesQaInspectionRegulationPublishedVersionRespVO publishedVersion = null;
         if (publishAfterImport) {
             buildResult.request().setRegulationId(saved.getRegulationId());
+            buildResult.request().setExpectedDraftRevision(saved.getDraftRevision());
             publishedVersion = regulationService.publish(buildResult.request());
         }
         return MesQaInspectionRegulationImportRespVO.builder()
@@ -113,7 +115,10 @@ public class MesQaInspectionRegulationWordImportService {
                 .build();
     }
 
-    private MesQaInspectionRegulationPublishedVersionRespVO validateVersionsAndLoadBaseline(
+    private record ImportBaseline(MesQaInspectionRegulationPublishedVersionRespVO snapshot,
+                                  Long expectedDraftRevision) {}
+
+    private ImportBaseline validateVersionsAndLoadBaseline(
             MesQaInspectionRegulationDO regulation, String importedVersionNo) {
         List<MesQaInspectionRegulationVersionDO> drafts =
                 versionMapper.selectListDraftByRegulationId(regulation.getId());
@@ -151,7 +156,13 @@ public class MesQaInspectionRegulationWordImportService {
         if (baseline == null || !Objects.equals(baseline.getRegulationId(), regulation.getId())) {
             throw exception(QA_INSPECTION_REGULATION_SNAPSHOT_INVALID, regulation.getId());
         }
-        return baseline;
+        if (draft != null && (!Objects.equals(baseline.getVersionNo(), importedVersionNo)
+                || !Objects.equals(baseline.getLifecycleStatus(), STATUS_DRAFT)
+                || baseline.getDraftRevision() == null
+                || !Objects.equals(baseline.getDraftRevision(), draft.getDraftRevision()))) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, importedVersionNo);
+        }
+        return new ImportBaseline(baseline, draft == null ? 0L : baseline.getDraftRevision());
     }
 
     private BuildResult buildSaveRequest(

@@ -88,6 +88,7 @@ class MesPqcCorrectionSignatureEvidenceTest {
 
     @BeforeEach void formalCorrection() {
         TenantContextHolder.setTenantId(1L);
+        cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "correction-signature"),
                 GxpAuditEventDO.class);
         event = new MesProProcessPoolEventDO().setId(EVENT).setEventType("PQC_INSPECTION")
@@ -149,7 +150,7 @@ class MesPqcCorrectionSignatureEvidenceTest {
         audit.setEventSchemaVersion(2);
 
         lenient().when(teamDetailService.getDetail(341L, ACTIVE_ORDER)).thenReturn(detail());
-        lenient().when(batchDetailService.getDetail(800L)).thenReturn(detail());
+        lenient().when(batchDetailService.getSignatureDetail(800L, SIGNATURE)).thenReturn(detail());
         lenient().when(eventMapper.selectById(EVENT)).thenReturn(event);
         lenient().when(reviewMapper.selectListByEventId(EVENT)).thenReturn(List.of(previous, correction));
         lenient().when(revisionMapper.selectById(REVISION)).thenReturn(revision);
@@ -339,12 +340,12 @@ class MesPqcCorrectionSignatureEvidenceTest {
         rejected();
     }
 
-    @Test void unifiedMismatchIsReturnedInsteadOfAssumedValidForCorrection() {
+    @Test void unifiedMismatchCannotAuthorizeVerifiedCorrectionContent() {
         when(signatureQueryService.verifyEvidence(SIGNATURE)).thenReturn(new ElectronicSignatureVerificationDTO(
                 SIGNATURE, "MISMATCH", evidence.contentHash(), "changed", evidence.evidenceHash(), "changed", "SHA-256", "v1",
                 "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "MISMATCH", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
                 "CONSISTENT", List.of("DIGEST_MISMATCH"), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
-        assertEquals("MISMATCH", service.getTeam(341L, ACTIVE_ORDER, SIGNATURE).verification().verificationStatus());
+        assertThrows(IllegalStateException.class, () -> service.getTeam(341L, ACTIVE_ORDER, SIGNATURE));
     }
 
 
@@ -355,7 +356,7 @@ class MesPqcCorrectionSignatureEvidenceTest {
         assertEquals("FIELD_CHANGE", result.evidence().actionCode());
         assertEquals("VALID", result.verification().verificationStatus());
         assertEquals("eDHR测试PQC组长", result.signerName());
-        verify(signatureQueryService).verifyEvidence(15059L);
+        verify(signatureQueryService, atLeastOnce()).verifyEvidence(15059L);
     }
 
     @Test void actualPersisted15059ContainsEqualNullBearingSnapshotsAndStableAuditHash() {
@@ -396,7 +397,6 @@ class MesPqcCorrectionSignatureEvidenceTest {
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> service.getTeam(9908090341L, 1009200409L, 15059L));
         assertEquals(1_040_760_452, ex.getCode());
-        verify(signatureQueryService, never()).verifyEvidence(anyLong());
     }
 
     private void loadActualPersistedCorrection15059() {
@@ -424,13 +424,16 @@ class MesPqcCorrectionSignatureEvidenceTest {
         audit = correctionAudits.get(0);
         var signatureRow = (com.fasterxml.jackson.databind.node.ObjectNode) facts.get("signature").deepCopy();
         signatureRow.put("canonicalContentJson", facts.get("signature").get("canonicalContentJson").toString());
+        // The old capture omitted authentication metadata. This explicit consumer-port fixture
+        // supplies the V1 session/password method; the captured canonical JSON and hashes stay exact.
+        // It is not evidence that signature 15059 passes the creation-audit/cryptographic verifier.
+        signatureRow.put("authenticationMethod", "SESSION_PLUS_PASSWORD");
         evidence = JsonUtils.parseObject(signatureRow.toString(), ElectronicSignatureEvidenceDTO.class);
-        var actualDetail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(1009200409L).setProcesses(List.of(
-                new MesTeamLeaderActiveOrderDetail.ProcessDetail().setPqcSubmissions(List.of(
+        var actualDetail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(1009200409L).setPqcSubmissions(List.of(
                         new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(1009622119L))
                                 .setSubmittedEventIds(List.of(282246L)).setReviewerSignatures(List.of(
                                         new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(15059L)
-                                                .setSignerName("eDHR测试PQC组长")))))));
+                                                .setSignerName("eDHR测试PQC组长")))));
         lenient().when(teamDetailService.getDetail(9908090341L, 1009200409L)).thenReturn(actualDetail);
         lenient().when(eventMapper.selectById(282246L)).thenReturn(event);
         lenient().when(reviewMapper.selectListByEventId(282246L)).thenReturn(reviewRows);
@@ -440,7 +443,7 @@ class MesPqcCorrectionSignatureEvidenceTest {
         lenient().when(signatureQueryService.getById(15059L)).thenAnswer(invocation -> evidence);
         lenient().when(signatureQueryService.verifyEvidence(15059L)).thenAnswer(invocation ->
                 new ElectronicSignatureVerificationDTO(15059L, "VALID", evidence.contentHash(), evidence.contentHash(),
-                        evidence.evidenceHash(), evidence.evidenceHash(), "SHA-256", "v1",
+                        evidence.evidenceHash(), evidence.evidenceHash(), evidence.algorithm(), evidence.keyVersion(),
                         "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
                         "CONSISTENT", List.of(), LocalDateTime.of(2026, 10, 7, 12, 0), "V1"));
     }
@@ -894,16 +897,15 @@ class MesPqcCorrectionSignatureEvidenceTest {
     private void rejected() {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.getTeam(341L, ACTIVE_ORDER, SIGNATURE));
         assertEquals(1_040_760_452, ex.getCode());
-        verify(signatureQueryService, never()).verifyEvidence(anyLong());
+        // The current reader verifies the frozen signature before checking correction source bindings.
     }
 
     private MesTeamLeaderActiveOrderDetail detail() {
-        return new MesTeamLeaderActiveOrderDetail().setActiveOrderId(ACTIVE_ORDER).setProcesses(List.of(
-                new MesTeamLeaderActiveOrderDetail.ProcessDetail().setPqcSubmissions(List.of(
+        return new MesTeamLeaderActiveOrderDetail().setActiveOrderId(ACTIVE_ORDER).setPqcSubmissions(List.of(
                         new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(140L))
                                 .setSubmittedEventIds(List.of(EVENT)).setReviewerSignatures(List.of(
                                         new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(743L).setSignerName("原复核人员"),
-                                        new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(SIGNATURE).setSignerName("名单更新后的其他名称")))))));
+                                        new MesTeamLeaderActiveOrderDetail.SignatureDetail().setSignatureId(SIGNATURE).setSignerName("名单更新后的其他名称")))));
     }
 
     private ElectronicSignatureEvidenceDTO signatureEvidence(Long id, Long actor, String action, String sourceType,

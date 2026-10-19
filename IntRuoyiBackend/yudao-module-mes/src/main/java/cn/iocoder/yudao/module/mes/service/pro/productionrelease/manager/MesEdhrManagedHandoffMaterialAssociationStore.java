@@ -17,6 +17,7 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
     private final MesEdhrManagedHandoffMaterialAssociationMapper mapper;
     private final MesProcessPoolActiveOrderReleaseApplicationMapper applications;
     private final GxpCreationAuditVerificationService events;
+    @jakarta.annotation.Resource private MesEdhrActiveOrderReleaseFactService activeOrderFacts;
     public MesEdhrManagedHandoffMaterialAssociationStore(MesEdhrManagedHandoffMaterialAssociationMapper mapper,
             MesProcessPoolActiveOrderReleaseApplicationMapper applications, GxpCreationAuditVerificationService events) {
         this.mapper=mapper; this.applications=applications; this.events=events;
@@ -40,7 +41,23 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
                 || !Objects.equals(tx.getVersion(),payload.get("releaseTransactionVersion").intValue())
                 || !cn.hutool.crypto.digest.DigestUtil.sha256Hex(tx.getPrecheckSnapshotJson()).equals(payload.get("precheckSnapshotHash").textValue()))
             throw new IllegalStateException("HANDOFF_CURRENT_APPLICATION_MISMATCH");
-        requireSourceRequest(row, app);        var event=events.requireVerifiedEvent(tenant,row.getHandoffAuditEventId());
+        requireSourceRequest(row, app);
+        if("MANAGED_ACTIVE_ORDER_ASSOCIATION_V1".equals(payload.path("associationProtocol").asText())) {
+            var fact=activeOrderFacts.require(app.getId(),tx.getBatchExecutionId(),app.getReportSnapshotHash());
+            var proof=fact.completionCreation();
+            if(!Objects.equals(proof.sourceRowId(),payload.path("completionSourceRowId").longValue())
+                    || !Objects.equals(proof.sourceReceiptId(),payload.path("completionReceiptId").asText())
+                    || !Objects.equals(proof.sourceVersion(),payload.path("completionVersion").asText())
+                    || !Objects.equals(proof.sourceHash(),payload.path("completionReceiptHash").asText())
+                    || !Objects.equals(proof.creationEventId(),payload.path("completionCreationEventId").longValue())
+                    || !Objects.equals(proof.creationEventHash(),payload.path("completionCreationEventHash").asText())
+                    || !Objects.equals(fact.sourceSnapshotHash(),payload.path("sourceSnapshotHash").asText())
+                    || !Objects.equals(fact.pqcSignatureId(),payload.path("pqcSignatureId").longValue())
+                    || !Objects.equals(fact.pqcEvidenceHash(),payload.path("pqcEvidenceHash").asText())
+                    || !Objects.equals(fact.pqcCreationEventId(),payload.path("pqcCreationEventId").longValue()))
+                throw new IllegalStateException("ACTIVE_ORDER_HANDOFF_PROVENANCE_MISMATCH");
+        }
+        var event=events.requireVerifiedEvent(tenant,row.getHandoffAuditEventId());
         if (!Objects.equals(event.eventHash(),row.getHandoffAuditEventHash())
                 || !"mes.market-release.manager-stage.initialize".equals(event.columns().operationId())
                 || !Objects.equals(event.columns().requestId(),row.getHandoffKey())
@@ -89,7 +106,7 @@ public class MesEdhrManagedHandoffMaterialAssociationStore {
         catch(java.io.IOException e){throw new IllegalStateException("HANDOFF_JSON_INVALID",e);}
     }
     private static void validate(MesEdhrManagedHandoffMaterialAssociationDO row) {
-        var encoded=MesEdhrSourceCreationCodec.encodeManagedHandoffMaterialAssociationV1(parse(row.getAssociationPayloadJson()));
+        var encoded=MesEdhrSourceCreationCodec.encodeManagedHandoffAssociation(parse(row.getAssociationPayloadJson()));
         JsonNode p=parse(row.getAssociationPayloadJson());
         String key=MesEdhrSourceCreationCodec.managedHandoffAuditKey(row.getTenantId(),row.getApplicationId(),row.getSourceMethod(),
                 row.getSourceWorkTaskId(),row.getSourceExpectedApplicationVersion(),row.getSourceIdempotencyKey());

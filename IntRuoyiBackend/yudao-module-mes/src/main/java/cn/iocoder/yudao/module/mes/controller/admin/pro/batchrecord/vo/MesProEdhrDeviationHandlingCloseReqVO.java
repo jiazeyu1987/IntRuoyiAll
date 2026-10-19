@@ -7,4 +7,8 @@ import lombok.Data;
 public class MesProEdhrDeviationHandlingCloseReqVO {
     @NotNull
     private Long deviationId;
+    @NotNull
+    private Integer expectedContentVersion;
+    @jakarta.validation.constraints.NotBlank
+    private String expectedContentHash;
 }

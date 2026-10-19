@@ -10,23 +10,49 @@ import java.util.HashSet;
 @Component
 public final class EdhrReleaseContentPolicy {
     private final JsonNode schema;
+    private final JsonNode activeOrderSchema;
+    private final JsonNode activeOrderV2Schema;
     public EdhrReleaseContentPolicy() {
-        try (var input = getClass().getResourceAsStream("/approval/edhr-release-content-v1.schema.json")) {
+        schema=load("/approval/edhr-release-content-v1.schema.json");
+        var changes=load("/approval/edhr-release-content-active-order-v1.schema.json");
+        var active=(com.fasterxml.jackson.databind.node.ObjectNode)schema.deepCopy();
+        active.set("properties",changes.get("properties"));
+        var definitions=(com.fasterxml.jackson.databind.node.ObjectNode)active.get("$defs");
+        changes.get("$defs").fields().forEachRemaining(field -> definitions.set(field.getKey(),field.getValue()));
+        activeOrderSchema=active;
+        var v2 = (com.fasterxml.jackson.databind.node.ObjectNode) active.deepCopy();
+        var v2Changes = load("/approval/edhr-release-content-active-order-v2.schema.json");
+        v2.set("properties", v2Changes.get("properties"));
+        var v2Definitions = (com.fasterxml.jackson.databind.node.ObjectNode) v2.get("$defs");
+        v2Changes.get("$defs").fields().forEachRemaining(field -> v2Definitions.set(field.getKey(), field.getValue()));
+        activeOrderV2Schema = v2;
+    }
+    private JsonNode load(String path) {
+        try (var input = getClass().getResourceAsStream(path)) {
             if (input == null) throw new IllegalStateException("EDHR_CONTENT_POLICY_RESOURCE_MISSING");
-            schema = ApprovalContentJson.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+            return ApprovalContentJson.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
         } catch (java.io.IOException e) { throw new IllegalStateException("EDHR_CONTENT_POLICY_RESOURCE_UNREADABLE", e); }
     }
-    public void validate(JsonNode value) { validate(schema, value, "$", true); }
-    public void validateBatchGuard(JsonNode value) { validate(schema.at("/$defs/batchGuard"),value,"$.batchGuard",true); }
-    private void validate(JsonNode spec, JsonNode value, String path, boolean enforce) {
-        if (spec.has("$ref")) validate(schema.at(spec.get("$ref").asText().substring(1)), value, path, enforce);
-        if (spec.has("allOf")) for (var item : spec.get("allOf")) validate(item, value, path, enforce);
+    public void validate(JsonNode value) {
+        String version=value==null?null:value.path("contentPolicyVersion").asText();
+        if("approval-content-v1".equals(version)) validate(schema,schema,value,"$",true);
+        else if("approval-content-active-order-v1".equals(version)) validate(activeOrderSchema,activeOrderSchema,value,"$",true);
+        else if("approval-content-active-order-v2".equals(version)) validate(activeOrderV2Schema,activeOrderV2Schema,value,"$",true);
+        else fail("$","unregistered content policy");
+    }
+    public void validateBatchGuard(JsonNode value) { validate(schema,schema.at("/$defs/batchGuard"),value,"$.batchGuard",true); }
+
+    private void validate(JsonNode definitions, JsonNode spec, JsonNode value, String path, boolean enforce) {
+        if (spec.has("$ref")) {
+            validate(definitions,definitions.at(spec.get("$ref").asText().substring(1)),value,path,enforce);
+        }
+        if (spec.has("allOf")) for (var item : spec.get("allOf")) validate(definitions,item, value, path, enforce);
         if (spec.has("if")) {
-            String branch = matches(spec.get("if"), value, path) ? "then" : "else";
-            if (spec.has(branch)) validate(spec.get(branch), value, path, enforce);
+            String branch = matches(definitions,spec.get("if"), value, path) ? "then" : "else";
+            if (spec.has(branch)) validate(definitions,spec.get(branch), value, path, enforce);
         }
         if (spec.has("anyOf")) {
-            for (var item : spec.get("anyOf")) if (matches(item, value, path)) return;
+            for (var item : spec.get("anyOf")) if (matches(definitions,item, value, path)) return;
             fail(path, "no permitted shape");
         }
         if (value == null || value.isMissingNode()) fail(path, "missing value");
@@ -44,7 +70,7 @@ public final class EdhrReleaseContentPolicy {
             var fields = value.fields(); while (fields.hasNext()) {
                 var field = fields.next(); var property = spec.path("properties").get(field.getKey());
                 if (property == null && spec.path("additionalProperties").isBoolean() && !spec.path("additionalProperties").asBoolean()) fail(path + "." + field.getKey(), "unknown key");
-                if (property != null) validate(property, field.getValue(), path + "." + field.getKey(), enforce);
+                if (property != null) validate(definitions,property, field.getValue(), path + "." + field.getKey(), enforce);
             }
         }
         if (value.isTextual()) {
@@ -63,12 +89,12 @@ public final class EdhrReleaseContentPolicy {
             if (spec.has("maxItems") && value.size() > spec.get("maxItems").asInt()) fail(path, "too many items");
             var seen = new HashSet<JsonNode>(); for (int i = 0; i < value.size(); i++) {
                 if (spec.path("uniqueItems").asBoolean() && !seen.add(value.get(i))) fail(path, "duplicate item");
-                if (spec.has("items")) validate(spec.get("items"), value.get(i), path + "[" + i + "]", enforce);
+                if (spec.has("items")) validate(definitions,spec.get("items"), value.get(i), path + "[" + i + "]", enforce);
             }
         }
     }
-    private boolean matches(JsonNode spec, JsonNode value, String path) {
-        try { validate(spec, value, path, true); return true; } catch (IllegalArgumentException e) { return false; }
+    private boolean matches(JsonNode definitions, JsonNode spec, JsonNode value, String path) {
+        try { validate(definitions,spec, value, path, true); return true; } catch (IllegalArgumentException e) { return false; }
     }
     private static void fail(String path, String reason) { throw new IllegalArgumentException("EDHR_CONTENT_INVALID: " + path + ": " + reason); }
 }

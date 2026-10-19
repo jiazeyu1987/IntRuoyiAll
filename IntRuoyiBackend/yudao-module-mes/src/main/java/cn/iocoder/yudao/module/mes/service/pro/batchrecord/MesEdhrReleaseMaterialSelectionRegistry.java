@@ -11,6 +11,7 @@ public class MesEdhrReleaseMaterialSelectionRegistry {
     private final MesEdhrReleaseSubmissionMaterialAssociationStore submissions;
     private final MesEdhrManagedHandoffMaterialAssociationStore managed;
     private final MesReleaseMaterialGateReceiptPort materials;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrActiveOrderReleaseFactService activeOrderFacts;
     public MesEdhrReleaseMaterialSelectionRegistry(MesEdhrReleaseSubmissionMaterialAssociationStore submissions,
             MesEdhrManagedHandoffMaterialAssociationStore managed, MesReleaseMaterialGateReceiptPort materials) {
         this.submissions=submissions;this.managed=managed;this.materials=materials;
@@ -23,6 +24,10 @@ public class MesEdhrReleaseMaterialSelectionRegistry {
         if(isManaged){
             var association=managed.requireCurrentVerified(tenant,tx,task.getId());
             var p=MesEdhrManagedHandoffMaterialAssociationStore.parse(association.getAssociationPayloadJson());
+            if("MANAGED_ACTIVE_ORDER_ASSOCIATION_V1".equals(p.path("associationProtocol").asText())) {
+                var fact=activeOrderFacts.require(association.getApplicationId(),tx.getBatchExecutionId(),p.path("reportSnapshotHash").asText());
+                return new MesEdhrVerifiedMaterialSelection("MANAGED_ACTIVE_ORDER",tx.getId(),task.getId(),p.path("precheckSnapshotHash").asText(),null,fact);
+            }
             receipt=p.get("materialReceiptId").textValue();source=p.get("sourceSnapshotHash").textValue();precheck=p.get("precheckSnapshotHash").textValue();
             hash=p.get("materialReceiptHash").textValue();rowId=p.get("materialSourceRowId").longValue();eventId=p.get("materialCreationEventId").longValue();eventHash=p.get("materialCreationEventHash").textValue();
         }else{
@@ -34,6 +39,6 @@ public class MesEdhrReleaseMaterialSelectionRegistry {
         if(!Objects.equals(fact.provenance().sourceRowId(),rowId)||!Objects.equals(fact.provenance().sourceHash(),hash)
                 ||!Objects.equals(fact.provenance().creationEventId(),eventId)||!Objects.equals(fact.provenance().creationEventHash(),eventHash))
             throw new IllegalStateException("MATERIAL_SELECTION_PROVENANCE_MISMATCH");
-        return new MesEdhrVerifiedMaterialSelection(isManaged?"MANAGED":"GENERAL",tx.getId(),task.getId(),precheck,fact);
+        return new MesEdhrVerifiedMaterialSelection(isManaged?"MANAGED":"GENERAL",tx.getId(),task.getId(),precheck,fact,null);
     }
 }

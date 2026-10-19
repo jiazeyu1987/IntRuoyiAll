@@ -63,14 +63,19 @@ public class MesCorrectionSignatureEvidenceReader {
                 && Objects.equals(event.getWorkOrderId(), revision.getWorkOrderId()) && positive(revision.getWorkOrderId())
                 && positive(event.getFeedbackSourceId())
                 && Objects.equals(event.getRouteId(), revision.getRouteId()) && positive(revision.getRouteId())
-                && positive(revision.getRouteProcessId()) && positive(revision.getProcessId())
                 && "EFFECTIVE".equals(revision.getRevisionStatus()) && revision.getServerRevisionTime() != null
                 && positive(revision.getRevisionSignatureId()) && positive(revision.getModifiedByUserId())
                 && Objects.equals(revision.getModifiedByUserId(), revision.getRevisionSignatureUserId()), "修订正式身份不一致");
         boolean production = "PRODUCTION_SUBMIT".equals(event.getEventType());
         check(production || "PQC_INSPECTION".equals(event.getEventType()), "修订业务类型无效");
-        if (production) check(Objects.equals(event.getRouteProcessId(), revision.getRouteProcessId())
+        if (production) check(positive(revision.getRouteProcessId()) && positive(revision.getProcessId())
+                && Objects.equals(event.getRouteProcessId(), revision.getRouteProcessId())
                 && Objects.equals(event.getProcessId(), revision.getProcessId()), "生产修订工序不一致");
+        else check(positive(event.getQaProcessId())
+                && "MES_PQC_INSPECTION_TASK".equals(event.getFeedbackSourceType())
+                && event.getRouteProcessId() == null && event.getProcessId() == null
+                && revision.getRouteProcessId() == null && revision.getProcessId() == null,
+                "PQC修订必须属于独立QA工序");
         var before = JsonUtils.parseTree(revision.getBeforePayload());
         var after = JsonUtils.parseTree(revision.getAfterPayload());
         check(before != null && before.isObject() && after != null && after.isObject()
@@ -129,13 +134,20 @@ public class MesCorrectionSignatureEvidenceReader {
         check(manifest != null && manifest.size() == 3 && new HashSet<>(manifest).size() == 3, "修订审计证据清单无效");
         var challenges = manifest.stream().filter(e -> "SIGNATURE_CHALLENGE".equals(e.evidenceType())
                 && evidence.id().toString().equals(e.sourceId()) && e.sourceVersion() == null
-                && "SIGNED_CORRECTION_REQUEST".equals(e.role())).toList();
+                && Set.of("SIGNED_CORRECTION_REQUEST", "SIGNED_CORRECTION_REQUEST_V2").contains(e.role())).toList();
         check(challenges.size() == 1 && challenges.get(0).sha256() != null
                 && challenges.get(0).sha256().matches("[0-9a-f]{64}"), "修订签名挑战缺失");
         String challenge = challenges.get(0).sha256();
         String challengePayload = MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(revision.getAfterPayload());
-        check(Objects.equals(challenge, MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + challengePayload + "|" + revision.getChangeReason().trim())),
+        String expectedChallenge;
+        if ("SIGNED_CORRECTION_REQUEST_V2".equals(challenges.get(0).role())) {
+            expectedChallenge = cn.iocoder.yudao.module.mes.service.pro.processpool.MesCorrectionBaselineGuard.challenge(
+                    event.getId(), revision.getBeforePayload(), revision.getAfterPayload(), revision.getChangeReason());
+        } else {
+            // Explicit historical v1 signature protocol, not a retry with weaker validation.
+            expectedChallenge = MesProBatchRecordExecutionFieldAuditHasher.sha256(event.getId() + "|" + challengePayload + "|" + revision.getChangeReason().trim());
+        }
+        check(Objects.equals(challenge, expectedChallenge),
                 "修订签名挑战与正式修订正文不一致");
         Set<GxpAuditEvidence> expectedEvidence = Set.of(challenges.get(0),
                 new GxpAuditEvidence("SIGNATURE", evidence.id().toString(), null, evidence.contentHash(),

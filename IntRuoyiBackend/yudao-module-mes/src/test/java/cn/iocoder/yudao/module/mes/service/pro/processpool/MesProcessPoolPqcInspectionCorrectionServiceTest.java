@@ -259,7 +259,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     }
 
     @Test
-    void correctsQaSubmissionWhoseProductionIdentityBelongsToTheBoundTask() {
+    void correctsIndependentQaSubmissionWithoutProductionProcessIdentity() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
         var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
         event.setRouteProcessId(null).setProcessId(null);
@@ -275,7 +275,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {
-            "qaProcess", "missingQaProcess", "submittedEvent", "missingProductionProcess"})
+            "qaProcess", "missingQaProcess", "submittedEvent", "unexpectedProductionProcess"})
     void rejectsBrokenQaTaskBindingBeforeCorrectionSignature(String defect) {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
         var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
@@ -284,7 +284,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             case "qaProcess" -> event.setQaProcessId(6002L);
             case "missingQaProcess" -> { event.setQaProcessId(null); task.setQaProcessId(null); }
             case "submittedEvent" -> task.setSubmittedEventId(Fixture.EVENT_ID + 1);
-            case "missingProductionProcess" -> { event.setProcessId(null); task.setProcessId(null); }
+            case "unexpectedProductionProcess" -> { event.setProcessId(4001L); task.setProcessId(4001L); }
             default -> throw new IllegalArgumentException(defect);
         }
 
@@ -325,6 +325,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     @Test
     void correctionCanonicalChallengeMatchesSigningAuditAndReformattedJson() throws Exception {
         Fixture fixture = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        fixture.freezeSamplePlan(2);
         var command = fixture.command(List.of("2.5", "3.5"), 0).setChangeReason("  纠正检验值  ");
         assertEquals(701L, fixture.service.correct(command));
         var revision = ArgumentCaptor.forClass(MesProcessPoolEventRevisionUpdateReqBO.class);
@@ -334,9 +335,8 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                 .writeValueAsString(sortSnapshotKeys(JsonUtils.parseTree(payload)));
         org.junit.jupiter.api.Assertions.assertNotEquals(payload, rendered);
         assertEquals(JsonUtils.parseTree(payload), JsonUtils.parseTree(rendered));
-        String expected = MesProBatchRecordExecutionFieldAuditHasher.sha256(Fixture.EVENT_ID + "|"
-                + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(rendered)
-                + "|" + command.getChangeReason().trim());
+        String expected = MesCorrectionBaselineGuard.challenge(Fixture.EVENT_ID,
+                fixture.eventMapper.selectById(Fixture.EVENT_ID).getRawPayload(), rendered, command.getChangeReason());
         var signed = ArgumentCaptor.forClass(cn.iocoder.yudao.module.mes.service.pro.batchrecord
                 .MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
         verify(fixture.signatureService).recordFieldChangeSignature(signed.capture());
@@ -361,6 +361,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             "value", "type", "arrayOrder", "missing", "nullToMissing", "cycle"})
     void canonicalCorrectionChallengeRejectsRealPayloadChangesBeforeBusinessWrites(String defect) {
         Fixture fixture = new Fixture("NUMERIC", decimal("1"), decimal("5"), 1);
+        fixture.freezeSamplePlan(2);
         var command = fixture.command(List.of("2.5", "3.5"), 0);
         var event = fixture.eventMapper.selectById(Fixture.EVENT_ID);
         var task = fixture.taskMapper.selectById(Fixture.TASK_ID);
@@ -369,7 +370,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
         com.fasterxml.jackson.databind.node.ObjectNode payload = ReflectionTestUtils.invokeMethod(fixture.service,
                 "buildAfterPayload", event, task, command, details, "SUCCESS");
         MesProBatchRecordExecutionFieldAuditSignatureResult signature = ReflectionTestUtils.invokeMethod(fixture.service,
-                "recordCorrectionSignature", command, Fixture.EVENT_ID, JsonUtils.toJsonString(payload));
+                "recordCorrectionSignature", command, event, JsonUtils.toJsonString(payload));
         assertEquals("VALID", fixture.formalSignatures.query.verifyEvidence(signature.getSignatureId()).verificationStatus());
         var item = (com.fasterxml.jackson.databind.node.ObjectNode) payload.path("pqcItemDetails").get(0);
         switch (defect) {
@@ -419,7 +420,19 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             this.defect = defect;
             cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
             ReflectionTestUtils.setField(query, "signatureRecordMapper", mapper);
-            ReflectionTestUtils.setField(query, "subjectAdapters", List.of(adapter));
+            // This fixture exercises the actual signature digest/time reader. Creation-audit
+            // persistence is a separate explicit unit boundary, not database or E2E evidence.
+            var creation = mock(cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService.class);
+            when(creation.verifySignatureCreation(any())).thenAnswer(call -> {
+                var expected = call.getArgument(0,
+                        cn.iocoder.yudao.module.system.service.gxpaudit.SignatureAuditExpectation.class);
+                assertEquals(record.getId(), expected.signatureId());
+                assertEquals(record.getTenantId(), expected.tenantId());
+                assertEquals(record.getContentHash(), expected.contentHash());
+                return new cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerification(
+                        "CONSISTENT", List.of(), 1L);
+            });
+            ReflectionTestUtils.setField(query, "signatureCreationVerificationService", creation);
             when(mapper.selectById(any(java.io.Serializable.class))).thenAnswer(call ->
                     record != null && java.util.Objects.equals(record.getId(), call.getArgument(0)) ? record : null);
             org.mockito.Mockito.doAnswer(call -> prepare(call.getArgument(0), Fixture.signature()))
@@ -447,7 +460,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                         .timeEvidenceId("SERVER_CLOCK:" + result.getSignedAt()).authenticationMethod("SESSION_PLUS_PASSWORD")
                         .canonicalContentJson(canonical).contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical))
                         .algorithm("SHA-256").keyVersion("system-local-v1").policyVersion(definition.policyVersion())
-                        .verificationStatus("VALID").build();
+                        .verificationStatus("VALID").idempotencyKey("pqc-correction-fixture:" + result.getSignatureId()).build();
                 record.setTenantId(1L);
                 record.setEvidenceHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(String.join("|",
                         "1", String.valueOf(actor), "MES", action, "MES_BATCH_RECORD", subject, version,
@@ -702,10 +715,11 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             Fixture fixture, cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService audit,
             FormalSignatureFixture signatures) {
         var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext();
+        context.registerBean("baselineGuard", MesCorrectionBaselineGuard.class, () -> mock(MesCorrectionBaselineGuard.class));
         context.registerBean("gxpAuditService",
                 cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService.class, () -> audit);
-        context.registerBean("electronicSignatureQueryService",
-                cn.iocoder.yudao.module.signature.api.ElectronicSignatureQueryService.class, () -> signatures.query);
+        // The completed reader already has its explicit creation-audit port above.
+        context.getBeanFactory().registerSingleton("electronicSignatureQueryService", signatures.query);
         context.registerBean("signatureRecordMapper",
                 cn.iocoder.yudao.module.signature.dal.mysql.ElectronicSignatureRecordMapper.class, () -> signatures.mapper);
         context.registerBean("adminUserApi", cn.iocoder.yudao.module.system.api.user.AdminUserApi.class,
@@ -1228,6 +1242,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     @Test
     void rejectsScrapQuantityBelowFailedPieceDetailFloorBeforeWrite() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        fixture.freezeSamplePlan(5);
 
         ServiceException error = assertThrows(ServiceException.class,
                 () -> fixture.service.correct(fixture.command(
@@ -1245,6 +1260,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
     @Test
     void permitsScrapQuantityEqualFailedPieceDetailFloor() {
         Fixture fixture = new Fixture("BOOLEAN", null, null, null);
+        fixture.freezeSamplePlan(5);
 
         assertEquals(701L, fixture.service.correct(fixture.command(
                 List.of("不合格", "不合格", "合格", "合格", "合格"), 2)));
@@ -1403,6 +1419,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             service = new MesProcessPoolPqcInspectionCorrectionService(eventMapper, pqcRecordMapper,
                     taskMapper, pieceDetailMapper, revisionService, signatureService, scopeService,
                     releaseStateService, aggregationService, nonconformanceReviewService);
+            ReflectionTestUtils.setField(service, "baselineGuard", mock(MesCorrectionBaselineGuard.class));
             ReflectionTestUtils.setField(service, "activeOrderMapper", activeOrderMapper);
             ReflectionTestUtils.setField(service, "reviewMapper", reviewMapper);
             ReflectionTestUtils.setField(service, "handoffService", handoffService);
@@ -1434,6 +1451,21 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
             return command(List.of(requestedValue), 0);
         }
 
+        private void freezeSamplePlan(int quantity) {
+            var task = taskMapper.selectById(TASK_ID);
+            task.setPlannedInspectionQuantity(quantity).setActualInspectionQuantity(quantity)
+                    .setInspectionItemPlanJson("{\"QA-001\":" + quantity + "}");
+            var template = pieceDetailMapper.selectListByTaskId(TASK_ID).get(0);
+            var pieces = new ArrayList<MesPqcInspectionPieceDetailDO>();
+            for (int i = 1; i <= quantity; i++) {
+                var piece = JsonUtils.parseObject(JsonUtils.toJsonString(template), MesPqcInspectionPieceDetailDO.class);
+                piece.setId(7200L + i).setSampleNo(i);
+                pieces.add(piece);
+            }
+            when(pieceDetailMapper.selectListByTaskId(TASK_ID)).thenReturn(pieces);
+            when(pieceDetailMapper.selectListByTaskIdForUpdate(TASK_ID)).thenReturn(pieces);
+        }
+
         private MesProcessPoolPqcInspectionCorrectionCommand command(List<String> requestedValues,
                                                                      int scrapQuantity) {
             return new MesProcessPoolPqcInspectionCorrectionCommand()
@@ -1453,7 +1485,7 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
                     .id(EVENT_ID).eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
                     .feedbackSourceType("MES_PQC_INSPECTION_TASK").feedbackSourceId(TASK_ID)
                     .recordbookSourceType("MES_PQC_INSPECTION_TASK").recordbookSourceId(TASK_ID)
-                    .workOrderId(1001L).routeId(2001L).routeProcessId(3001L).processId(4001L).qaProcessId(6001L)
+                    .workOrderId(1001L).routeId(2001L).routeProcessId(null).processId(null).qaProcessId(6001L)
                     .actualEmployeeId(101L).rawPayload("{\"inspectionResult\":\"SUCCESS\"," +
                             "\"scrapQuantity\":0,\"nonconformanceDescription\":\"纠正前\"}")
                     .build();
@@ -1463,8 +1495,9 @@ class MesProcessPoolPqcInspectionCorrectionServiceTest {
 
         private static MesPqcInspectionTaskDO task() {
             MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder().id(TASK_ID).activeOrderId(5001L)
-                    .workOrderId(1001L).routeId(2001L).routeProcessId(3001L).processId(4001L)
-                    .qaProcessId(6001L).submittedEventId(EVENT_ID)
+                    .workOrderId(1001L).routeId(2001L).routeProcessId(null).processId(null)
+                    .qaProcessId(6001L).qaItemCode("").inspectionItemPlanJson("{\"QA-001\":1}")
+                    .plannedInspectionQuantity(1).submittedEventId(EVENT_ID)
                     .actualInspectionQuantity(1).taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED).build();
             task.setTenantId(1L);
             return task;

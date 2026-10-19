@@ -70,6 +70,19 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageTodoReturnsEmptyPageWithoutLoadingProcessInstancesWhenTaskPageIsEmpty() {
+        when(centerQuery.todo(any(), eq("DCC_TASK")))
+                .thenReturn(new PageResult<>(List.of(), 23L));
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.DCC, null, 4, 10));
+
+        assertEquals(23L, page.getTotal());
+        assertEquals(List.of(), page.getList());
+        org.mockito.Mockito.verifyNoInteractions(processInstanceService, controlledFileMapper, fileCategoryMapper);
+    }
+
+    @Test
     void pageTodoMapsBpmDccTasksToControlledFileSummary() {
         Task task = mock(Task.class);
         when(task.getId()).thenReturn("task-1");
