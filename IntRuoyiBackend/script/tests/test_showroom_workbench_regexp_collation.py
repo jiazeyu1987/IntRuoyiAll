@@ -8,7 +8,7 @@ import test_dcc_workbench_regexp_collation as fixture
 import test_mes_workbench_regexp_collation as mes
 
 MAPPER = fixture.BACKEND / "yudao-module-showroom/src/main/resources/mapper/profileworkbench/ShowroomWorkbenchTodoMapper.xml"
-SHARED = fixture.BACKEND / "yudao-module-system/src/main/resources/mapper/profileworkbench/ProfileWorkbenchTodoSql.xml"
+SHARED = fixture.BACKEND / "yudao-module-system/src/main/resources/mapper/profileworkbench/WorkbenchQuerySql.xml"
 
 
 def detail():
@@ -25,9 +25,16 @@ def source(fields, collation):
 
 
 def normalized(fields, collation):
-    base = "SELECT 37 AS numeric_id, (" + detail() + ") AS detail, NULL AS due_at, NULL AS created_at FROM " + source(fields, collation)
+    base = "SELECT LPAD(CAST(37 AS CHAR),20,'0') AS row_order_key, (" + detail() + ") AS detail, NULL AS due_at, NULL AS created_at FROM " + source(fields, collation)
     node = ET.parse(SHARED).getroot().find("sql[@id='normalizedProjection']")
-    return node.text + base + node.find("include").tail
+    sql = node.text or ""
+    for child in node:
+        if child.tag == "include" and child.get("refid") == "${baseRef}":
+            sql += base
+        elif child.tag != "bind":
+            raise AssertionError("Unexpected normalized projection element: " + child.tag)
+        sql += child.tail or ""
+    return sql
 
 
 class ShowroomWorkbenchRegexpCollationTest(unittest.TestCase):
@@ -59,8 +66,8 @@ class ShowroomWorkbenchRegexpCollationTest(unittest.TestCase):
             projection = normalized(fields, collation)
             with self.subTest(collation=collation):
                 self.assertEqual("1", fixture.mysql("SELECT COUNT(*) FROM (" + projection + ") r WHERE OCTET_LENGTH(r.detail) > 0"))
-                self.assertEqual("公司#7 · 发展历程 · 通知".encode("utf-8").hex().upper() + "\t1\t1970-01-01 00:00:00\t1970-01-01 00:00:00",
-                                 fixture.mysql("SELECT HEX(r.detail),r.due_group,r.due_sort,r.created_sort FROM (" + projection + ") r ORDER BY r.due_group ASC,r.due_sort ASC,r.created_sort DESC,r.numeric_id DESC LIMIT 20"))
+                self.assertEqual("公司#7 · 发展历程 · 通知".encode("utf-8").hex().upper() + "\t1\t1970-01-01 00:00:00.000000\t1970-01-01 00:00:00.000000",
+                                 fixture.mysql("SELECT HEX(r.detail),r.due_group,r.due_sort,r.created_sort FROM (" + projection + ") r ORDER BY r.due_group ASC,r.due_sort ASC,r.created_sort DESC,CAST(CONVERT(r.row_order_key USING utf8mb4) AS BINARY) DESC LIMIT 20"))
 
     def test_each_unfixed_pattern_reproduces_mysql_1267(self):
         fields = {"target_type": "CUSTOM", "target_id": "7", "field_code": "自定义", "template_content": "通知"}

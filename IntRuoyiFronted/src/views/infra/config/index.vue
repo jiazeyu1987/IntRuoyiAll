@@ -3,6 +3,7 @@
 
   <!-- 搜索 -->
   <ContentWrap>
+    <el-button v-hasPermi="['infra:config:query']" @click="configRouter.push({ name: 'InfraBasicConfig' })">基础配置</el-button>
     <el-form
       class="-mb-15px"
       :model="queryParams"
@@ -148,6 +149,7 @@
   <ConfigForm ref="formRef" @success="getList" />
 </template>
 <script lang="ts" setup>
+const configRouter = useRouter()
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'

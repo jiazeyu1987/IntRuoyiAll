@@ -29,6 +29,9 @@ public class BpmTaskCandidateDeptLeaderMultiStrategyTest extends BaseMockitoUnit
         // 准备参数
         String param = "10,20|2";
         // mock 方法
+        when(deptApi.requireSupervisor(any(), any())).thenAnswer(invocation ->
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO()
+                        .setUserId((Long) invocation.getArgument(0) + 1));
         when(deptApi.getDept(any())).thenAnswer((Answer<DeptRespDTO>) invocationOnMock -> {
             Long deptId = invocationOnMock.getArgument(0);
             return randomPojo(DeptRespDTO.class, o -> o.setId(deptId).setParentId(deptId * 100).setLeaderUserId(deptId + 1));

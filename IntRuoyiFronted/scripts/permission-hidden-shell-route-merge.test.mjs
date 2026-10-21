@@ -31,7 +31,7 @@ const flattenRelativeRouteEntries = (routes, parentPath = '') => {
 
 const buildPermissionHelpers = () => {
   const source = readText('src/store/modules/permission.ts')
-  const start = source.indexOf('const normalizeTopLevelRoutePath =')
+  const start = source.indexOf('const SIGNATURE_GOVERNANCE_ROUTE_PATH =')
   const end = source.indexOf('export interface PermissionState')
 
   assert.notEqual(start, -1, 'permission helper block should exist')
@@ -338,4 +338,27 @@ test('showroom route module no longer registers frontstage screen device routes 
   assert.doesNotMatch(source, /canonicalFrontstage: true/)
   assert.doesNotMatch(source, /deviceMode: 'screen'/)
   assert.doesNotMatch(source, /title: '前台大屏'/)
+})
+
+
+test('published config menus replace static shells without requiring business list routes', () => {
+  const { mergeStaticRoutesWithDynamicRoutes } = buildPermissionHelpers()
+  for (const [domain, path, name] of [
+    ['mes', 'pro/edhr-config', 'MesEdhrGlobalConfig'], ['erp', 'sync/config', 'ErpTableAutoSyncConfig'],
+    ['dcc', 'registration-certificate/config', 'DccRegistrationCertificateConfig'], ['infra', 'config/basic', 'InfraBasicConfig']
+  ]) {
+    const url = `/${domain}/${path}`
+    const result = mergeStaticRoutesWithDynamicRoutes(
+      [{ path: url, name: `${name}Root`, meta: { hidden: true }, children: [{ path: '', name, meta: { hidden: true, activeMenu: url, noCache: true } }] }],
+      [{ path: `/${domain}`, name: domain, meta: { hidden: false }, children: [{ path, name, meta: { hidden: false, activeMenu: url, noCache: true } }] }])
+    const routes = [...result.mergedStaticRoutes, ...result.dynamicRoutesToAdd]
+    const entries = flattenRelativeRouteEntries(routes)
+    assert.deepEqual(entries.filter(entry => entry.name === name).map(entry => entry.path), [`${domain}/${path}`])
+    assert.equal(entries.some(entry => entry.name === `${name}Root`), false)
+    const leaf = routes.flatMap(route => route.children || []).find(route => route.name === name)
+    assert.equal(leaf.meta.hidden, false)
+    assert.equal(leaf.meta.activeMenu, url)
+    assert.equal(leaf.meta.noCache, true)
+    assert.equal(entries.length, 2, 'catalog and config alone suffice; no list permission route')
+  }
 })

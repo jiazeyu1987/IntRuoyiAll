@@ -146,6 +146,11 @@ public interface ErrorCodeConstants {
     ErrorCode DEPT_PARENT_ERROR = new ErrorCode(1_002_004_004, "不能设置自己为父部门");
     ErrorCode DEPT_NOT_ENABLE = new ErrorCode(1_002_004_006, "部门({})不处于开启状态，不允许选择");
     ErrorCode DEPT_PARENT_IS_CHILD = new ErrorCode(1_002_004_007, "不能设置自己的子部门为父部门");
+    ErrorCode DEPT_SUPERVISOR_REQUIRED = new ErrorCode(1_002_004_009, "部门（{}）及其上级部门均无可用主管，请先配置主管");
+    ErrorCode DEPT_SUPERVISOR_INVALID = new ErrorCode(1_002_004_010, "用户（{}）不存在、已停用或已离职，不能设为主管");
+    ErrorCode DEPT_HIERARCHY_INVALID = new ErrorCode(1_002_004_011, "部门（{}）的上级关系缺失或存在循环，请修复组织关系");
+    ErrorCode DEPT_DELETE_HAS_USERS = new ErrorCode(1_002_004_012, "部门（{}）仍有员工（含停用员工），本次删除未执行");
+    ErrorCode DEPT_DELETE_HAS_CHILDREN = new ErrorCode(1_002_004_013, "部门（{}）仍有子部门，本次批量删除未执行");
     ErrorCode DEPT_EXITS_USERS = new ErrorCode(1_002_004_008, "当前公司或部门下仍存在员工，请先删除员工后再删除组织");
 
     // ========== 岗位模块 1-002-005-000 ==========

@@ -38,13 +38,13 @@ assert.match(
   'profile child route must opt in so top tags view can show the workbench todo count'
 )
 
-assert.match(badgeStore, /getProfileWorkbenchTodoCount\(token\.badgeSources\)/)
+assert.match(badgeStore, /getProfileWorkbenchTodoCount\(context\)/)
 assert.doesNotMatch(badgeStore, /getMyDistributionTaskPage|getMyTrainingTaskPage|getEdhrWorkTaskMyPage|normalizeAssignmentPage|assignments\.length/)
 
 assert.match(
   badgeStore,
-  /checkPermi\(\['mes:pro-edhr-work-task:query'\]\)[\s\S]*checkPermi\(\['mes:pro-edhr-batch-execution:query'\]\)/,
-  'badge store must count eDHR tasks for dynamic batch-execution-only assignees'
+  /authorizedWorkbenchSources\(\)\.map\(source => source\.sourceId\)/,
+  'badge store must consume the same authoritative source directory as the workbench'
 )
 assert.doesNotMatch(
   badgeStore,
@@ -54,13 +54,13 @@ assert.doesNotMatch(
 assert.match(badgeStore, /requireProfileWorkbenchTodoTotal\(total\)/)
 assert.match(badgeStore, /epoch: \+\+this\.badgeUpdateEpoch/)
 assert.match(badgeStore, /tryCommit\(token: ProfileWorkbenchBadgeToken, patch: BadgePatch\)[\s\S]*if \(!this\.isCurrentToken\(token\)\) return false/)
-assert.match(badgeStore, /pendingTodoTotalRequest && this\.isCurrentToken\(pendingTodoTotalRequest\.token\)/)
+assert.match(badgeStore, /isWorkbenchReadCurrent\(token\.lease\)/, 'shared lifetime must guard each badge read')
 
 assert.match(badgeStore, /throw error/, 'badge store must rethrow load failures instead of swallowing them')
 assert.doesNotMatch(badgeStore, /mock|fallback|降级|吞异常/i, 'badge store must not use mock or fallback counts')
 assert.match(
   badgeStore,
-  /getHasVisibleTodoBadge:\s*\(state\)\s*=>\s*state\.loaded\s*&&\s*state\.todoTotal\s*>\s*0/,
+  /getHasVisibleTodoBadge:\s*state\s*=>\s*state\.loaded\s*&&\s*state\.todoTotal !== undefined\s*&&\s*state\.todoTotal > 0/,
   'badge store must expose a positive-count visibility getter so zero does not render'
 )
 
@@ -91,8 +91,8 @@ assert.match(
 
 assert.match(
   profileWorkbench,
-  /profileWorkbenchTodoBadgeStore\.refreshTodoTotal\(\)/,
-  'manual refresh inside personal workbench must refresh the global badge count'
+  /profileWorkbenchTodoBadgeStore\.applyTodoTotal\(badge, page\.businessTotal\)/,
+  'page refresh must supply businessTotal from its exact page response'
 )
 
 console.log('PASS: profile workbench todo badge static contract')

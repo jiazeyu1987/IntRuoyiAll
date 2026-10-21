@@ -24,8 +24,8 @@
       <el-form-item label="显示排序" prop="sort">
         <el-input-number v-model="formData.sort" :min="0" controls-position="right" />
       </el-form-item>
-      <el-form-item label="负责人" prop="leaderUserId">
-        <el-select v-model="formData.leaderUserId" clearable placeholder="请输入负责人">
+      <el-form-item label="部门主管" prop="leaderUserId">
+        <el-select v-model="formData.leaderUserId" clearable filterable placeholder="请选择主管；留空时由上级主管代管">
           <el-option
             v-for="item in userList"
             :key="item.id"
@@ -33,6 +33,9 @@
             :value="item.id"
           />
         </el-select>
+        <div v-if="existingSupervisor?.configuredUserInvalid" class="text-[var(--el-color-danger)]">
+          原主管 {{ existingSupervisor.configuredUserName || existingSupervisor.configuredUserId }} 已失效，请重新选择或清空。
+        </div>
       </el-form-item>
       <el-form-item label="联系电话" prop="phone">
         <el-input v-model="formData.phone" maxlength="11" placeholder="请输入联系电话" />
@@ -96,6 +99,7 @@ const formRules = reactive<FormRules>({
 const formRef = ref() // 表单 Ref
 const deptTree = ref() // 树形结构
 const userList = ref<UserApi.UserVO[]>([]) // 用户列表
+const existingSupervisor = ref<DeptApi.DeptSupervisorVO>()
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number) => {
@@ -103,11 +107,13 @@ const open = async (type: string, id?: number) => {
   dialogTitle.value = t('action.' + type)
   formType.value = type
   resetForm()
+  existingSupervisor.value = undefined
   // 修改时，设置数据
   if (id) {
     formLoading.value = true
     try {
       formData.value = await DeptApi.getDept(id)
+      existingSupervisor.value = (formData.value as unknown as DeptApi.DeptVO).supervisor
     } finally {
       formLoading.value = false
     }
@@ -129,7 +135,7 @@ const submitForm = async () => {
   // 提交请求
   formLoading.value = true
   try {
-    const data = formData.value as unknown as DeptApi.DeptVO
+    const data = { ...formData.value, leaderUserId: formData.value.leaderUserId || null } as unknown as DeptApi.DeptVO
     if (formType.value === 'create') {
       await DeptApi.createDept(data)
       message.success(t('common.createSuccess'))

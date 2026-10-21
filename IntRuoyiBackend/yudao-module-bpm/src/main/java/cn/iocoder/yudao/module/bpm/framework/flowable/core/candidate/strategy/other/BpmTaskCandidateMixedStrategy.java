@@ -103,7 +103,7 @@ public class BpmTaskCandidateMixedStrategy extends AbstractBpmTaskCandidateDeptL
         if (dept == null) {
             return new LinkedHashSet<>();
         }
-        Long leaderUserId = getAssignLevelDeptLeaderId(dept, Integer.parseInt(param));
+        Long leaderUserId = getAssignLevelDeptLeaderId(dept, Integer.parseInt(param), startUserId);
         return leaderUserId == null ? new LinkedHashSet<>() : new LinkedHashSet<>(Set.of(leaderUserId));
     }
 

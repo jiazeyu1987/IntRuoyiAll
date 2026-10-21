@@ -11,7 +11,7 @@ const backendRoot = exists('IntRuoyiBackend') ? 'IntRuoyiBackend' : '../IntRuoyi
 const sqlPath = `${backendRoot}/sql/mysql/20260816_dcc_registration_certificate_menu.sql`
 const profileIndexPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/Index.vue`
 const componentIndexPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/components/index.ts`
-const configComponentPath = `${appRoot ? `${appRoot}/` : ''}src/views/Profile/components/RegistrationCertificateConfig.vue`
+const configComponentPath = `${appRoot ? `${appRoot}/` : ''}src/views/dcc/registration-certificate/config/components/ReminderScheduleSetting.vue`
 const configApiPath = `${appRoot ? `${appRoot}/` : ''}src/api/dcc/registrationCertificate/reminderConfig.ts`
 const listPagePath = `${appRoot ? `${appRoot}/` : ''}src/views/dcc/registration-certificate/index/index.vue`
 const configControllerPath =
@@ -66,51 +66,15 @@ assert.doesNotMatch(sql, /golden-finger|mes:pro-batch-record-execution:golden-fi
 assert.match(sql, /visible`\s*=\s*b'0'|b'0'\s+AS `visible`|,\s*b'0'\s*,\s*b'1'/, 'detail/history route rows must be hidden dynamic routes')
 
 const profileIndex = read(profileIndexPath)
-for (const token of [
-  'RegistrationCertificateConfig',
-  'REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION',
-  'REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION',
-  'hasAnyProfileConfigPermission',
-  'hasRegistrationCertificateConfigPermission',
-  'hasRegistrationCertificateConfigUpdatePermission',
-  'name="registrationCertificate"',
-  ':can-update="hasRegistrationCertificateConfigUpdatePermission"'
-]) {
-  assert.match(profileIndex, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `Profile index must contain ${token}`)
-}
-assert.doesNotMatch(
-  profileIndex,
-  /<el-tab-pane\s+label="配置"\s+name="config"\s+v-if="hasGoldenFingerPermission"/,
-  'Profile config tab must not be gated only by golden-finger permission'
-)
-assert.match(
-  profileIndex,
-  /<el-tab-pane[\s\S]{0,180}label="注册证配置"[\s\S]{0,160}v-if="hasRegistrationCertificateConfigPermission"/,
-  'registration certificate config pane must mount only with its own query permission'
-)
-assert.match(
-  profileIndex,
-  /route\.query\.tab\s*===\s*'config'[\s\S]{0,260}hasAnyProfileConfigPermission/,
-  'Profile must allow direct navigation to the config tab when an approved config permission exists'
-)
-assert.match(
-  profileIndex,
-  /route\.query\.config\s*===\s*'registrationCertificate'[\s\S]{0,260}hasRegistrationCertificateConfigPermission/,
-  'Profile must allow direct navigation to the registration-certificate config sub-tab'
-)
-assert.match(
-  profileIndex,
-  /<el-tab-pane\s+name="workbench"\s+lazy>/,
-  'Profile workbench tab must be lazy so direct registration-certificate config navigation does not preload unrelated workbench requests'
-)
-assert.match(
-  profileIndex,
-  /activeName\.value\s*===\s*'workbench'[\s\S]{0,180}refreshProfileWorkbenchTodoBadge\(\)/,
-  'Profile must request workbench badge data only while the workbench tab is active'
-)
-
-const componentIndex = read(componentIndexPath)
-assert.match(componentIndex, /RegistrationCertificateConfig/, 'Profile component barrel must export registration certificate config')
+const configPage = read(`${appRoot ? `${appRoot}/` : ''}src/views/dcc/registration-certificate/config/index.vue`)
+assert.match(configPage, /ReminderScheduleSetting ref="scheduleRef" :can-update="canUpdate"/, 'owning page retains schedule editor and independent update permission')
+assert.match(configPage, /dcc:registration-certificate:config:query/, 'query permission is independent')
+assert.match(configPage, /dcc:registration-certificate:config:update/, 'update permission is independent')
+assert.doesNotMatch(configPage, /query-current/, 'standalone configuration does not demand list permission')
+assert.doesNotMatch(profileIndex, /RegistrationCertificateConfig|REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION/, 'Profile no longer imports DCC configuration')
+assert.match(profileIndex, /<el-tab-pane\s+name="workbench"\s+lazy>/, 'workbench remains lazy')
+assert.match(profileIndex, /activeName\.value\s*===\s*'workbench'[\s\S]{0,180}refreshProfileWorkbenchTodoBadge\(\)/, 'badge queries still require visible workbench')
+assert.doesNotMatch(read(componentIndexPath), /RegistrationCertificateConfig/, 'Profile barrel no longer carries DCC configuration')
 
 const configApi = read(configApiPath)
 for (const token of [

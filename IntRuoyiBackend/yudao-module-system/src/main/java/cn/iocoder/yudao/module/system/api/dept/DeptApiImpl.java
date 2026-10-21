@@ -20,6 +20,14 @@ public class DeptApiImpl implements DeptApi {
 
     @Resource
     private DeptService deptService;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
+
+    @Override
+    public cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO requireSupervisor(Long deptId, Long excludedUserId) {
+        return supervisorService.requireSupervisor(deptId, excludedUserId);
+    }
+
 
     @Override
     public DeptRespDTO getDept(Long id) {

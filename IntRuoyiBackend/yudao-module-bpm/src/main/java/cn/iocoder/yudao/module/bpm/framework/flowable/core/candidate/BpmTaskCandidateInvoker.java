@@ -108,6 +108,7 @@ public class BpmTaskCandidateInvoker {
             Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByTask(execution, param);
             // 1.2 移除被禁用的用户
             removeDisableUsers(userIds);
+            validateSupervisorCandidates(strategy, userIds);
 
             // 2. 候选人为空时，根据“审批人为空”的配置补充
             if (CollUtil.isEmpty(userIds)) {
@@ -120,6 +121,7 @@ public class BpmTaskCandidateInvoker {
             ProcessInstance processInstance = SpringUtil.getBean(BpmProcessInstanceService.class)
                     .getProcessInstance(execution.getProcessInstanceId());
             Assert.notNull(processInstance, "流程实例({}) 不存在", execution.getProcessInstanceId());
+            routeStartUserToSupervisor(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
             removeStartUserIfSkip(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
             return userIds;
         });
@@ -148,6 +150,7 @@ public class BpmTaskCandidateInvoker {
                 startUserId, processDefinitionId, processVariables);
         // 1.2 移除被禁用的用户
         removeDisableUsers(userIds);
+        validateSupervisorCandidates(strategy, userIds);
 
         // 2. 候选人为空时，根据“审批人为空”的配置补充
         if (CollUtil.isEmpty(userIds)) {
@@ -157,8 +160,33 @@ public class BpmTaskCandidateInvoker {
         }
 
         // 3. 移除发起人的用户
+        routeStartUserToSupervisor(userIds, flowElement, startUserId);
         removeStartUserIfSkip(userIds, flowElement, startUserId);
         return userIds;
+    }
+
+    private void validateSupervisorCandidates(Integer strategy, Set<Long> userIds) {
+        if (Objects.equals(strategy, BpmTaskCandidateStrategyEnum.DEPT_LEADER.getStrategy())
+                || Objects.equals(strategy, BpmTaskCandidateStrategyEnum.MULTI_DEPT_LEADER_MULTI.getStrategy())
+                || Objects.equals(strategy, BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER.getStrategy())
+                || Objects.equals(strategy, BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER_MULTI.getStrategy())
+                || Objects.equals(strategy, BpmTaskCandidateStrategyEnum.FORM_DEPT_LEADER.getStrategy())) {
+            Assert.notEmpty(userIds, "部门主管已失效，请维护组织主管后重新提交");
+        }
+    }
+
+    private void routeStartUserToSupervisor(Set<Long> userIds, FlowElement element, Long startUserId) {
+        if (!userIds.contains(startUserId)
+                || !Objects.equals(BpmnModelUtils.parseAssignStartUserHandlerType(element),
+                    BpmUserTaskAssignStartUserHandlerTypeEnum.TRANSFER_DEPT_LEADER.getType())
+                || Objects.equals(element.getId(),
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnModelConstants.START_USER_NODE_ID)) return;
+        var user = adminUserApi.getUser(startUserId);
+        Assert.notNull(user, "申请人不存在，无法确定审批主管");
+        Long supervisor = SpringUtil.getBean(cn.iocoder.yudao.module.system.api.dept.DeptApi.class)
+                .requireSupervisor(user.getDeptId(), startUserId).getUserId();
+        userIds.remove(startUserId);
+        userIds.add(supervisor);
     }
 
     @VisibleForTesting

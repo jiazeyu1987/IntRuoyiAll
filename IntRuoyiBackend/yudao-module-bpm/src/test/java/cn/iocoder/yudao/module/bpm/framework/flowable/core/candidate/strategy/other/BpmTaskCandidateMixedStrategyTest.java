@@ -73,6 +73,8 @@ public class BpmTaskCandidateMixedStrategyTest extends BaseMockitoUnitTest {
         when(processInstance.getStartUserId()).thenReturn("1");
         when(adminUserApi.getUser(eq(1L))).thenReturn(
                 randomPojo(AdminUserRespDTO.class, o -> o.setId(1L).setDeptId(100L)));
+        when(deptApi.requireSupervisor(100L, 1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO().setUserId(1001L));
         when(deptApi.getDept(eq(100L))).thenReturn(
                 randomPojo(DeptRespDTO.class, o -> o.setId(100L).setLeaderUserId(1001L)));
 
@@ -90,6 +92,8 @@ public class BpmTaskCandidateMixedStrategyTest extends BaseMockitoUnitTest {
         ));
         when(adminUserApi.getUser(eq(1L))).thenReturn(
                 randomPojo(AdminUserRespDTO.class, o -> o.setId(1L).setDeptId(100L)));
+        when(deptApi.requireSupervisor(100L, 1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO().setUserId(1001L));
         when(deptApi.getDept(eq(100L))).thenReturn(
                 randomPojo(DeptRespDTO.class, o -> o.setId(100L).setLeaderUserId(1001L)));
 

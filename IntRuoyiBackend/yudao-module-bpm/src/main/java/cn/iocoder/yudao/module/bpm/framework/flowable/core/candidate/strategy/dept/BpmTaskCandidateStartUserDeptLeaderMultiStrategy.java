@@ -50,10 +50,7 @@ public class BpmTaskCandidateStartUserDeptLeaderMultiStrategy extends AbstractBp
         Long startUserId = NumberUtils.parseLong(processInstance.getStartUserId());
         // 获取发起人的 multi 部门负责人
         DeptRespDTO dept = super.getStartUserDept(startUserId);
-        if (dept == null) {
-            return new HashSet<>();
-        }
-        return super.getMultiLevelDeptLeaderIds(toList(dept.getId()), level);
+        return super.getMultiLevelDeptLeaderIds(toList(dept.getId()), level, startUserId);
     }
 
     @Override
@@ -61,10 +58,7 @@ public class BpmTaskCandidateStartUserDeptLeaderMultiStrategy extends AbstractBp
                                               Long startUserId, String processDefinitionId, Map<String, Object> processVariables) {
         int level = Integer.parseInt(param); // 参数是部门的层级
         DeptRespDTO dept = super.getStartUserDept(startUserId);
-        if (dept == null) {
-            return new HashSet<>();
-        }
-        return super.getMultiLevelDeptLeaderIds(toList(dept.getId()), level);
+        return super.getMultiLevelDeptLeaderIds(toList(dept.getId()), level, startUserId);
     }
 
 }

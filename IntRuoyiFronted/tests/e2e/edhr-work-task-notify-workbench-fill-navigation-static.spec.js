@@ -59,10 +59,11 @@ assert.match(
 
 assert.match(
   profileWorkbench,
-  /row\.sourceId === 'EDHR_WORK_TASK'[\s\S]*await navigateToEdhrWorkTask\(router, navigation\)/,
-  'canonical eDHR source must use the formal task navigation payload'
+  /await openWorkbenchAction\(router, row\.sourceId, row\.action, callerCurrent\)/,
+  'workbench must dispatch opaque actions to the module registry'
 )
 const queryApi = readSource('src/api/system/profileWorkbenchTodo/index.ts')
-assert.match(queryApi, /K in keyof EdhrWorkTaskRouteLike/)
+assert.match(readSource('src/workbench-sources/mes/registration.ts'), /navigateToEdhrWorkTask\(router, payload, window\.location\.origin, isCurrent\)/)
+assert.doesNotMatch(queryApi, /EdhrWorkTaskRouteLike/)
 assert.match(queryApi, /typeof value !== 'string'/, 'navigation IDs stay strings')
 console.log('PASS: eDHR work task notify and workbench fill navigation static contract')

@@ -38,7 +38,7 @@ test('registration certificate page configures all fixed expiry thresholds with 
 })
 
 test('profile config rejects malformed threshold recipient response before spreading values', async () => {
-  const profileConfigPath = resolve('src/views/Profile/components/RegistrationCertificateConfig.vue')
+  const profileConfigPath = resolve('src/views/dcc/registration-certificate/config/components/ReminderScheduleSetting.vue')
   const profileConfig = await readFile(profileConfigPath, 'utf8')
 
   assert.match(profileConfig, /for \(const key of \['T_30', 'T_8', 'T_2', 'T_1'\]/)

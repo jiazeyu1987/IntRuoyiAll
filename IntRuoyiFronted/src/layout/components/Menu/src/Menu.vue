@@ -8,6 +8,7 @@ import { isUrl } from '@/utils/is'
 import { useDesign } from '@/hooks/web/useDesign'
 import { LayoutType } from '@/types/layout'
 import ReleaseInfoDock from '@/components/ReleaseInfoDock/ReleaseInfoDock.vue'
+import { invalidateWorkbenchContext, registerWorkbenchFocusRefresh } from '@/workbench/queryContext'
 import {
   hasApprovalTodoBadgeRoute,
   useApprovalTodoBadgeStore
@@ -53,7 +54,8 @@ export default defineComponent({
     }
 
     const reportProfileWorkbenchTodoBadgeError = (error: unknown) => {
-      console.error('个人工作台待处理数量加载失败', error)
+      const code = (error as { code?: unknown } | null)?.code
+      console.error('个人工作台待处理数量加载失败', Number.isSafeInteger(code) ? code : 'WORKBENCH_REQUEST_FAILED')
     }
 
     const loadProfileWorkbenchTodoBadge = () => {
@@ -109,6 +111,13 @@ export default defineComponent({
       loadApprovalTodoBadge()
       loadProfileWorkbenchTodoBadge()
     })
+
+    const releaseFocusRefresh = registerWorkbenchFocusRefresh(false, () => {
+      if (!hasProfileWorkbenchTodoBadgeRoute(permissionStore.getRouters)) return
+      invalidateWorkbenchContext()
+      loadProfileWorkbenchTodoBadge()
+    })
+    onBeforeUnmount(releaseFocusRefresh)
 
     watch(
       () => permissionStore.getRouters,

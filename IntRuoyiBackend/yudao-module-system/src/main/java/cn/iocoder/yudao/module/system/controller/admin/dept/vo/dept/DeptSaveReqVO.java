@@ -32,6 +32,17 @@ public class DeptSaveReqVO {
     @Schema(description = "负责人的用户编号", example = "2048")
     private Long leaderUserId;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @lombok.Setter(lombok.AccessLevel.NONE)
+    private boolean leaderUserIdPresent;
+
+    @com.fasterxml.jackson.annotation.JsonSetter("leaderUserId")
+    public DeptSaveReqVO setLeaderUserId(Long leaderUserId) {
+        this.leaderUserId = leaderUserId;
+        this.leaderUserIdPresent = true;
+        return this;
+    }
+
     @Schema(description = "联系电话", example = "15601691000")
     @Size(max = 11, message = "联系电话长度不能超过11个字符")
     private String phone;

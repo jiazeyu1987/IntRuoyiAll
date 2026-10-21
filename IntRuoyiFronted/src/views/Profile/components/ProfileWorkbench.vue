@@ -162,39 +162,39 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getProfileWorkbenchTodoPage,
-  hideProfileWorkbenchTask,
-  restoreProfileWorkbenchTask,
+  initializeWorkbenchContext,
+  setProfileWorkbenchTaskVisibility,
+  type WorkbenchContext,
   type ProfileWorkbenchTodoRow,
   type ProfileWorkbenchTodoSourceId,
   type ProfileWorkbenchTodoQuery
 } from '@/api/system/profileWorkbenchTodo'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
+
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useProfileWorkbenchTodoBadgeStore,
   normalizeProfileWorkbenchSources,
-  profileWorkbenchBadgeScopeKey,
-  resolveProfileWorkbenchBadgeScope,
   type ProfileWorkbenchBadgeToken
 } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
-import { usePermissionStore } from '@/store/modules/permission'
-import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
-import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
-import { checkPermi } from '@/utils/permission'
+
+import { getAccessToken } from '@/utils/auth'
+import { authorizedWorkbenchSources, refreshWorkbenchDirectory, openWorkbenchAction, workbenchIdentityKey } from '@/workbench/registry'
+
+
+import { beginWorkbenchRead, isWorkbenchReadCurrent, invalidateWorkbenchContext, registerWorkbenchFocusRefresh, workbenchInvalidationReason, workbenchLifetime, type WorkbenchReadLease } from '@/workbench/queryContext'
 
 defineOptions({ name: 'ProfileWorkbench' })
 
-const TASK_TYPES = ['文控', '批记录', '排产', '展厅', '行政'] as const
-type TodoTaskType = (typeof TASK_TYPES)[number]
+type TodoTaskType = string
 const TODO_TABLE_KEY = 'profile.workbench.todo'
 const router = useRouter()
 const userStore = useUserStore()
-const permissionStore = usePermissionStore()
+
 const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
-const { wsCache } = useCache()
+
 
 const loading = ref(false)
 const actionTaskKey = ref('')
@@ -208,6 +208,7 @@ const sortState = ref<{ key?: string; prop?: string; order?: 'ascending' | 'desc
 let requestGeneration = 0
 let disposed = false
 let visibilityActionGeneration = 0
+let refreshingAfterWrite = false
 
 const todoDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'taskType', label: '任务类型', width: 120, sortable: 'custom' },
@@ -244,189 +245,109 @@ const queryParams = reactive<{
   quickFilter: undefined
 })
 
-const todoQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+const todoQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {
     key: 'taskType',
     label: '任务类型',
     type: 'select',
     queryParamKey: 'taskType',
-    options: TASK_TYPES.map((taskType) => ({ label: taskType, value: taskType }))
+    options: [...new Set(authorizedWorkbenchSources().map(source => source.taskType))].map(taskType => ({ label: taskType, value: taskType }))
   },
   { key: 'source', label: '来源', type: 'text', placeholder: '请输入来源' },
   { key: 'detail', label: '待办详情', type: 'text', placeholder: '请输入待办详情' },
   { key: 'statusLabel', label: '状态', type: 'text', placeholder: '请输入状态' }
-]
-
-
-const canViewDccTraining = computed(() => checkPermi(['dcc:controlled-file:training:mine']))
-const canViewDccDistribution = computed(() => checkPermi(['dcc:controlled-file:query']))
-const canViewEdhrWorkTasks = computed(
-  () =>
-    checkPermi(['mes:pro-edhr-work-task:query']) ||
-    checkPermi(['mes:pro-edhr-batch-execution:query'])
-)
-const canViewWorkOrders = computed(() => checkPermi(['mes:pro-work-order:query']))
-const canViewShowroomAssignments = computed(
-  () => {
-    void permissionStore.getRouters
-    return userStore.getRoles.includes('super_admin') || hasCachedRouteName('ShowroomAdminAssignment')
-  }
-)
-
-
-const hasCachedRouteName = (targetName: string) => {
-  const visit = (items: unknown[]): boolean =>
-    items.some((item) => {
-      if (!item || typeof item !== 'object') {
-        return false
-      }
-      const record = item as Record<string, unknown>
-      if (record.name === targetName || record.componentName === targetName) {
-        return true
-      }
-      return Array.isArray(record.children) ? visit(record.children) : false
-    })
-  const cachedRoutes = wsCache.get(CACHE_KEY.ROLE_ROUTERS)
-  return Array.isArray(cachedRoutes) ? visit(cachedRoutes) : false
-}
-
-
-const enabledSources = computed<ProfileWorkbenchTodoSourceId[]>(() => {
-  // Route store is reactive; the showroom page gate still uses the existing cached route contract.
-  void permissionStore.getRouters
-  const sources: ProfileWorkbenchTodoSourceId[] = []
-  if (canViewDccDistribution.value) sources.push('DCC_DISTRIBUTION')
-  if (canViewDccTraining.value) sources.push('DCC_TRAINING')
-  if (canViewEdhrWorkTasks.value) sources.push('EDHR_WORK_TASK')
-  if (canViewWorkOrders.value) sources.push('WORK_ORDER')
-  if (canViewShowroomAssignments.value) sources.push('SHOWROOM_ASSIGNMENT')
-  return normalizeProfileWorkbenchSources(sources)
-})
-
-const pageScopeKey = () => JSON.stringify([
-  String(userStore.getUser.id), String(getTenantId() ?? ''), String(getVisitTenantId() ?? ''), enabledSources.value
 ])
 
+
+const enabledSources = computed<ProfileWorkbenchTodoSourceId[]>(() => normalizeProfileWorkbenchSources(authorizedWorkbenchSources().map(source => source.sourceId)))
+
+const rawQueryKey = () => JSON.stringify([queryParams, activeVisibilityTab.value, sortState.value])
 interface PageToken {
   generation: number
-  scopeKey: string
   queryKey: string
+  lease: WorkbenchReadLease
   badge: ProfileWorkbenchBadgeToken
 }
-
+let currentContext: WorkbenchContext | undefined
+let currentLease: WorkbenchReadLease | undefined
 const buildPageQuery = (): ProfileWorkbenchTodoQuery => {
   const filter = queryParams.quickFilter
-  if (filter && filter.operator !== 'contains' && filter.operator !== 'eq') {
-    throw new Error('个人工作台不支持该过滤条件。')
-  }
+  if (filter && filter.operator !== 'contains' && filter.operator !== 'eq') throw new Error('个人工作台不支持该过滤条件。')
   const sortKey = sortState.value.prop || sortState.value.key
-  return {
-    pageNo: queryParams.pageNo,
-    pageSize: queryParams.pageSize,
-    visibility: activeVisibilityTab.value,
-    enabledSources: [...enabledSources.value],
-    taskType: queryParams.taskType,
-    quickFilter: filter ? {
-      fieldKey: filter.fieldKey,
-      operator: filter.operator as 'contains' | 'eq',
-      value: filter.value === undefined ? undefined : String(filter.value)
-    } : undefined,
-    sort: sortState.value.order && sortKey ? {
-      key: sortKey, order: sortState.value.order === 'ascending' ? 'asc' : 'desc'
-    } : undefined
-  }
+  return { pageNo: queryParams.pageNo, pageSize: queryParams.pageSize, visibility: activeVisibilityTab.value,
+    enabledSources: [...enabledSources.value], taskType: queryParams.taskType,
+    quickFilter: filter ? { fieldKey: filter.fieldKey, operator: filter.operator as 'contains' | 'eq',
+      value: filter.value === undefined ? '' : String(filter.value) } : undefined,
+    sort: sortState.value.order && sortKey ? { key: sortKey, order: sortState.value.order === 'ascending' ? 'asc' : 'desc' } : undefined }
 }
-
-const currentQueryKey = () => JSON.stringify(buildPageQuery())
-
 const hasAuthenticatedUser = () => Boolean(getAccessToken()) && userStore.getUser.id > 0
-
 const tryCommitPage = (token: PageToken, commit: () => void) => {
-  if (
-    disposed || !hasAuthenticatedUser() || token.generation !== requestGeneration || token.scopeKey !== pageScopeKey() ||
-    token.queryKey !== currentQueryKey()
-  ) return false
+  if (disposed || !hasAuthenticatedUser() || token.generation !== requestGeneration ||
+    token.queryKey !== rawQueryKey() || !isWorkbenchReadCurrent(token.lease)) return false
   commit()
   return true
 }
-
 const resolveErrorMessage = (error: unknown, message: string) => {
   const responseMessage = (error as any)?.response?.data?.message || (error as any)?.response?.data?.msg
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return message
 }
-
 const invalidatePage = () => {
   requestGeneration += 1
   todoRows.value = []
   total.value = undefined
   hiddenTotal.value = undefined
+  currentContext = undefined
+  currentLease = undefined
   loading.value = false
   loadErrorMessages.value = []
 }
-
-const pageMatchesBadgeSources = (query: ProfileWorkbenchTodoQuery, token: ProfileWorkbenchBadgeToken) =>
-  JSON.stringify(normalizeProfileWorkbenchSources(query.enabledSources)) ===
-  JSON.stringify(normalizeProfileWorkbenchSources(token.badgeSources))
-
 const loadWorkbench = async (): Promise<boolean> => {
   if (disposed) return false
-  if (!hasAuthenticatedUser()) {
-    invalidatePage()
-    profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
-    return false
-  }
-  if (visibilityWritePending.value) return false
-  const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
+  // Revoke both consumers before the first await; their subsequent read leases are independent.
+  invalidateWorkbenchContext()
   invalidatePage()
-  const query = buildPageQuery()
-  const token: PageToken = {
-    generation: requestGeneration, scopeKey: pageScopeKey(), queryKey: JSON.stringify(query), badge
-  }
-  const suppliesBadge = pageMatchesBadgeSources(query, badge)
-  tryCommitPage(token, () => { loading.value = true })
-  if (suppliesBadge) profileWorkbenchTodoBadgeStore.tryCommit(badge, { loading: true })
-  // A page with a different source gate cannot supply the menu badge's count.
-  const badgeRefresh = suppliesBadge ? undefined : profileWorkbenchTodoBadgeStore.refreshTodoTotal()
-    .then(() => undefined, (error: unknown) => error)
+  const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
+  const token: PageToken = { generation: requestGeneration, queryKey: rawQueryKey(), lease: beginWorkbenchRead(), badge }
+  if (!hasAuthenticatedUser()) return false
+  loading.value = true
+  profileWorkbenchTodoBadgeStore.tryCommit(badge, { loading: true })
   try {
-    const page = await getProfileWorkbenchTodoPage(query)
+    const directory = await refreshWorkbenchDirectory()
+    if (!tryCommitPage(token, () => {})) return false
+    profileWorkbenchTodoBadgeStore.bindDirectory(badge)
+    const query = buildPageQuery()
+    const context = await initializeWorkbenchContext(directory.registryRevision, directory.sources, token.lease.contextEpoch, {
+      visibility: query.visibility, taskType: query.taskType,
+      quickFilter: query.quickFilter ? { ...query.quickFilter, value: query.quickFilter.value ?? '' } : undefined,
+      sort: query.sort
+    })
+    if (!tryCommitPage(token, () => {})) return false
+    const page = await getProfileWorkbenchTodoPage(context, query.pageNo, query.pageSize, directory.sources)
     const committed = tryCommitPage(token, () => {
-      todoRows.value = page.list
-      total.value = page.total
+      todoRows.value = page.rows
+      total.value = page.filteredTotal
       hiddenTotal.value = page.hiddenTotal
       queryParams.pageNo = page.effectivePageNo
-      token.queryKey = currentQueryKey()
+      token.queryKey = rawQueryKey()
+      currentContext = context
+      currentLease = token.lease
     })
-    if (committed && suppliesBadge) profileWorkbenchTodoBadgeStore.applyTodoTotal(badge, page.businessTotal)
+    // Only this exact page response supplies its badge; never splice another count snapshot into it.
+    if (committed) profileWorkbenchTodoBadgeStore.applyTodoTotal(badge, page.businessTotal)
     return committed
   } catch (error) {
     tryCommitPage(token, () => {
-      todoRows.value = []
-      total.value = undefined
-      hiddenTotal.value = undefined
       loadErrorMessages.value = [resolveErrorMessage(error, '待办任务加载失败，请重试。')]
-    })
-    if (suppliesBadge) tryCommitPage(token, () => {
-      profileWorkbenchTodoBadgeStore.tryCommit(badge, {
-        loaded: false, error: resolveErrorMessage(error, '待处理数量加载失败')
-      })
+      profileWorkbenchTodoBadgeStore.tryCommit(badge, { loaded: false, error: resolveErrorMessage(error, '待处理数量加载失败') })
     })
     return false
   } finally {
-    tryCommitPage(token, () => { loading.value = false })
-    if (suppliesBadge) tryCommitPage(token, () => {
+    tryCommitPage(token, () => {
+      loading.value = false
       profileWorkbenchTodoBadgeStore.tryCommit(badge, { loading: false })
     })
-    if (badgeRefresh) {
-      const error = await badgeRefresh
-      if (error !== undefined) {
-        tryCommitPage(token, () => {
-          loadErrorMessages.value.push(`待处理数量：${resolveErrorMessage(error, '刷新失败')}`)
-        })
-      }
-    }
   }
 }
 
@@ -438,116 +359,84 @@ const getTaskTypeTagType = (taskType: TodoTaskType) => {
   return ''
 }
 
-const requireNavigationId = (value: string | undefined, label: string) => {
-  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
-    throw new Error(`待办任务缺少有效${label}。`)
-  }
-  return value
-}
-
 const openTodo = async (row: ProfileWorkbenchTodoRow) => {
+  const lease = currentLease
+  const generation = requestGeneration
+  if (!lease || !isWorkbenchReadCurrent(lease)) return
+  const callerCurrent = () => !disposed && generation === requestGeneration && isWorkbenchReadCurrent(lease)
   try {
-    const navigation = row.navigation
-    if (row.sourceId === 'EDHR_WORK_TASK') {
-      await navigateToEdhrWorkTask(router, navigation)
-    } else if (row.sourceId === 'DCC_DISTRIBUTION') {
-      await router.push({
-        name: 'DccControlledFileDetail',
-        params: { id: requireNavigationId(navigation.controlledFileId, '受控文件编号') },
-        query: {
-          viewer: '1', from: 'profile-distribution',
-          distributionId: requireNavigationId(navigation.distributionId, '分发编号'),
-          recipientId: requireNavigationId(navigation.recipientId, '收件人编号')
-        }
-      })
-    } else if (row.sourceId === 'DCC_TRAINING') {
-      await router.push({
-        name: 'DccTrainingTask',
-        params: { progressId: requireNavigationId(navigation.progressId, '培训进度编号') }
-      })
-    } else if (row.sourceId === 'WORK_ORDER') {
-      await router.push({
-        path: '/mes/pro/work-order', query: navigation.code ? { code: navigation.code } : undefined
-      })
-    } else if (row.sourceId === 'SHOWROOM_ASSIGNMENT') {
-      await router.push({
-        name: 'ShowroomAdminAssignment',
-        query: { assignmentId: requireNavigationId(navigation.assignmentId, '指派编号') }
-      })
-    } else {
-      throw new Error('待办任务来源不受支持。')
-    }
+    await openWorkbenchAction(router, row.sourceId, row.action, callerCurrent)
   } catch (error) {
-    ElMessage.error(resolveErrorMessage(error, '进入任务失败'))
+    if (!disposed && generation === requestGeneration && isWorkbenchReadCurrent(lease)) {
+      ElMessage.error(resolveErrorMessage(error, '进入任务失败'))
+    }
   }
 }
 
-const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolean) => {
-  if (actionTaskKey.value) return
+const runVisibilityAction = async (row: ProfileWorkbenchTodoRow, restore: boolean, confirmed = false) => {
+  if (visibilityWritePending.value || (actionTaskKey.value && !confirmed)) return
+  if (!currentContext || !currentLease || !isWorkbenchReadCurrent(currentLease) ||
+    !todoRows.value.some(item => item.taskKey === row.taskKey)) {
+    ElMessage.error('任务上下文已失效，请重新加载。')
+    actionTaskKey.value = ''
+    return
+  }
+  const context = currentContext
+  let lease = currentLease
+  const identity = workbenchIdentityKey()
+  const actionGeneration = ++visibilityActionGeneration
+  const ownsAction = () => !disposed && actionGeneration === visibilityActionGeneration &&
+    identity === workbenchIdentityKey() && isWorkbenchReadCurrent(lease)
   actionTaskKey.value = row.taskKey
   visibilityWritePending.value = true
-  const actionGeneration = ++visibilityActionGeneration
-  const scopeKey = pageScopeKey()
-  const actionBadge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
+  const badge = profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
   invalidatePage()
   let writeSucceeded = false
   try {
-    if (restore) {
-      await restoreProfileWorkbenchTask(row.taskKey)
-    } else {
-      await hideProfileWorkbenchTask({
-        taskKey: row.taskKey, taskType: row.taskType, source: row.source,
-        businessId: row.businessId, detail: row.detail
-      })
-    }
+    await setProfileWorkbenchTaskVisibility(context, row.taskKey, restore ? 'restore' : 'hide')
+    if (!ownsAction()) return
     writeSucceeded = true
-    if (disposed || actionGeneration !== visibilityActionGeneration || scopeKey !== pageScopeKey()) return
     visibilityWritePending.value = false
-    const refreshGeneration = requestGeneration + 1
-    const refreshed = await loadWorkbench()
-    if (disposed || refreshGeneration !== requestGeneration || scopeKey !== pageScopeKey()) return
-    if (refreshed) {
-      ElMessage.success(restore ? '任务已恢复' : '任务已隐藏，可在已隐藏中恢复')
-    } else {
-      loadErrorMessages.value.unshift(restore
-        ? '任务已恢复，但列表刷新失败，请重试。'
-        : '任务已隐藏，但列表刷新失败，请重试。')
-    }
+    refreshingAfterWrite = true
+    const refresh = loadWorkbench()
+    refreshingAfterWrite = false
+    lease = beginWorkbenchRead()
+    const refreshGeneration = requestGeneration
+    const refreshed = await refresh
+    if (!ownsAction() || refreshGeneration !== requestGeneration) return
+    if (refreshed) ElMessage.success(restore ? '任务已恢复' : '任务已隐藏，可在已隐藏中恢复')
+    else loadErrorMessages.value.unshift(restore ? '任务已恢复，但列表刷新失败，请重试。' : '任务已隐藏，但列表刷新失败，请重试。')
   } catch (error) {
-    if (disposed || actionGeneration !== visibilityActionGeneration || scopeKey !== pageScopeKey()) return
-    profileWorkbenchTodoBadgeStore.tryCommit(actionBadge, {
-      loaded: false, loading: false, error: resolveErrorMessage(error, '任务操作失败')
-    })
-    loadErrorMessages.value = [resolveErrorMessage(error, writeSucceeded
-      ? '任务操作已成功，但列表刷新失败，请重试。'
-      : restore ? '恢复任务失败，请重试。' : '隐藏任务失败，请重试。')]
+    if (!ownsAction()) return
+    profileWorkbenchTodoBadgeStore.tryCommit(badge, { loaded: false, loading: false, error: resolveErrorMessage(error, '任务操作失败') })
+    loadErrorMessages.value = [resolveErrorMessage(error, writeSucceeded ? '任务操作已成功，但列表刷新失败，请重试。' :
+      restore ? '恢复任务失败，请重试。' : '隐藏任务失败，请重试。')]
   } finally {
-    if (actionGeneration === visibilityActionGeneration) {
+    if (ownsAction()) {
       visibilityWritePending.value = false
       actionTaskKey.value = ''
     }
   }
 }
-
 const handleHideTodo = async (row: ProfileWorkbenchTodoRow) => {
   if (actionTaskKey.value) return
-  const confirmedScope = pageScopeKey()
-  const confirmedGeneration = requestGeneration
+  const lease = beginWorkbenchRead()
+  const generation = requestGeneration
+  const actionGeneration = ++visibilityActionGeneration
+  const ownsConfirmation = () => !disposed && actionGeneration === visibilityActionGeneration &&
+    generation === requestGeneration && isWorkbenchReadCurrent(lease)
+  actionTaskKey.value = row.taskKey
   try {
-    await ElMessageBox.confirm(
-      `确认隐藏“${row.detail || row.source}”？可在“已隐藏”中恢复。`,
-      '隐藏个人工作台任务',
-      { confirmButtonText: '隐藏', cancelButtonText: '取消', type: 'warning' }
-    )
+    await ElMessageBox.confirm(`确认隐藏“${row.detail || row.source}”？可在“已隐藏”中恢复。`, '隐藏个人工作台任务',
+      { confirmButtonText: '隐藏', cancelButtonText: '取消', type: 'warning' })
+    if (!ownsConfirmation()) return
+    await runVisibilityAction(row, false, true)
   } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    ElMessage.error(resolveErrorMessage(error, '隐藏确认失败'))
-    return
+    if (ownsConfirmation() && error !== 'cancel' && error !== 'close') ElMessage.error(resolveErrorMessage(error, '隐藏确认失败'))
+  } finally {
+    if (ownsConfirmation()) actionTaskKey.value = ''
   }
-  if (disposed || confirmedScope !== pageScopeKey() || confirmedGeneration !== requestGeneration) return
-  await runVisibilityAction(row, false)
 }
-
 const handleRestoreTodo = (row: ProfileWorkbenchTodoRow) => runVisibilityAction(row, true)
 const handleVisibilityTabChange = () => {
   queryParams.pageNo = 1
@@ -563,7 +452,7 @@ const todoQuickFilter = useTableQuickFilter(
 )
 
 watch(
-  () => JSON.stringify([pageScopeKey(), profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope())]),
+  () => workbenchIdentityKey(),
   () => {
     visibilityActionGeneration += 1
     visibilityWritePending.value = false
@@ -573,13 +462,27 @@ watch(
   },
   { flush: 'sync' }
 )
+watch(workbenchLifetime, () => {
+  invalidatePage()
+  if (workbenchInvalidationReason.value) loadErrorMessages.value = [workbenchInvalidationReason.value]
+  if (!refreshingAfterWrite) {
+    visibilityActionGeneration += 1
+    visibilityWritePending.value = false
+    actionTaskKey.value = ''
+  }
+}, { flush: 'sync' })
+let releaseFocusRefresh: (() => void) | undefined
 onBeforeUnmount(() => {
+  releaseFocusRefresh?.()
   disposed = true
   visibilityActionGeneration += 1
   invalidatePage()
   profileWorkbenchTodoBadgeStore.beginBadgeUpdate()
 })
-onMounted(() => { void loadWorkbench() })
+onMounted(() => {
+  releaseFocusRefresh = registerWorkbenchFocusRefresh(true, () => { void loadWorkbench() })
+  void loadWorkbench()
+})
 </script>
 
 <style scoped>

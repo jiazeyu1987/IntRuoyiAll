@@ -84,6 +84,7 @@ import static org.mockito.Mockito.*;
 
 @Import({AdminUserServiceImpl.class, org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration.class})
 public class AdminUserServiceImplTest extends BaseDbUnitTest {
+    @MockitoBean private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
 
     private static final String TEST_INIT_PASSWORD = "Yudao@2026";
 
@@ -858,6 +859,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         ReflectionTestUtils.setField(service, "userMapper", mapper);
         ReflectionTestUtils.setField(service, "oauth2TokenService", oauth2TokenService);
         ReflectionTestUtils.setField(service, "approvalAuthority", approvalAuthority);
+        ReflectionTestUtils.setField(service, "supervisorService", supervisorService);
         LocalDateTime now = LocalDateTime.now().withNano(0);
         when(mapper.selectListByPendingLifecycleDeactivation(now, 20)).thenReturn(List.of(
                 new AdminUserDO().setId(3L), new AdminUserDO().setId(2L), new AdminUserDO().setId(1L)));
@@ -887,6 +889,7 @@ public class AdminUserServiceImplTest extends BaseDbUnitTest {
         order.verify(approvalAuthority).incrementLockedAuthorityRevision(1L, 1L);
         verify(approvalAuthority, times(1)).incrementLockedAuthorityRevision(1L, 1L);
         verify(mapper, times(1)).update(isNull(), any());
+        verify(supervisorService).releaseAssignments(List.of(3L), "离职/转岗定时生效：UM05-DUE");
         verify(oauth2TokenService, never()).removeAccessToken(1L, UserTypeEnum.ADMIN.getValue());
         verify(oauth2TokenService, never()).removeAccessToken(2L, UserTypeEnum.ADMIN.getValue());
     }

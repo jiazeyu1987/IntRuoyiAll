@@ -25,6 +25,7 @@
         @pagination="getList"
       >
         <template #actions>
+          <el-button v-hasPermi="['mes:pro-batch-record-execution:golden-finger']" @click="configRouter.push({ name: 'MesEdhrGlobalConfig' })">eDHR配置</el-button>
           <UserTableColumnSettings
             class="edhr-batch-page__column-settings"
             :columns="edhrBatchExecutionColumns"
@@ -841,6 +842,7 @@
 </template>
 
 <script setup lang="ts">
+const configRouter = useRouter()
 import ReleaseTaskNotificationEntry from '../production-release/components/ReleaseTaskNotificationEntry.vue'
 import {
   EDHR_BATCH_STATUS_ARCHIVED,

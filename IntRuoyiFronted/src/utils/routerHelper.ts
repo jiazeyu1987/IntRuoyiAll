@@ -101,6 +101,16 @@ const applyRouteMetaOverrides = (
 ) => {
   const routePath = normalizeInternalRoutePath(route.path)
   const componentPath = normalizeInternalComponentPath(route.component)
+  const configActiveMenus: Record<string, string> = {
+    'mes/pro/edhr-config/index': '/mes/pro/edhr-config',
+    'erp/sync/config/index': '/erp/sync/config',
+    'dcc/registration-certificate/config/index': '/dcc/registration-certificate/config',
+    'infra/config/basic/index': '/infra/config/basic'
+  }
+  if (configActiveMenus[componentPath]) {
+    meta.activeMenu = configActiveMenus[componentPath]
+    meta.noCache = true
+  }
   if (
     routePath === 'mes/pro/feedback/edhr-nonconformance-review' ||
     routePath === 'pro/feedback/edhr-nonconformance-review' ||

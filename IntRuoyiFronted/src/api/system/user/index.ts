@@ -151,3 +151,10 @@ export const unlockUser = (id: number, reason: string) => {
 export const getSimpleUserList = (): Promise<UserVO[]> => {
   return request.get({ url: '/system/user/simple-list' })
 }
+
+// 用户查询页只读组织元数据，不要求部门管理权限。
+export const getDepartmentTree = (): Promise<import('@/api/system/dept').DeptVO[]> =>
+  request.get({ url: '/system/user/department-tree' })
+
+export const getSupervisorImpact = (ids: number[]): Promise<import('@/api/system/dept').DeptVO[]> =>
+  request.get({ url: '/system/user/supervisor-impact', params: { ids: ids.join(',') } })
