@@ -42,6 +42,8 @@ public class DeptServiceImpl implements DeptService {
     private DeptMapper deptMapper;
     @Resource
     private AdminUserMapper userMapper;
+    @Resource
+    private DeptSupervisorService supervisorService;
 
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
@@ -58,10 +60,13 @@ public class DeptServiceImpl implements DeptService {
         // 校验部门名的唯一性
         validateDeptNameUnique(null, createReqVO.getParentId(), createReqVO.getName());
 
+        supervisorService.validateSupervisor(createReqVO.getLeaderUserId());
         // 插入部门
         DeptDO dept = BeanUtils.toBean(createReqVO, DeptDO.class);
         if (deptMapper.insert(dept) != 1) throw new IllegalStateException("APPROVAL_DEPT_CREATE_ROW_COUNT");
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
+        supervisorService.recordChange(new DeptDO().setId(dept.getId()).setName(dept.getName()),
+                dept.getLeaderUserId(), "创建部门");
         return dept.getId();
     }
 
@@ -82,9 +87,22 @@ public class DeptServiceImpl implements DeptService {
         // 校验部门名的唯一性
         validateDeptNameUnique(updateReqVO.getId(), updateReqVO.getParentId(), updateReqVO.getName());
 
-        // 更新部门
+        DeptDO previous = deptMapper.selectById(updateReqVO.getId());
+        if (updateReqVO.isLeaderUserIdPresent()) {
+            supervisorService.validateSupervisor(updateReqVO.getLeaderUserId());
+        }
+        // 常规字段仍走原有更新；主管只由显式字段触发，null 表示解除。
         DeptDO updateObj = BeanUtils.toBean(updateReqVO, DeptDO.class);
+        updateObj.setLeaderUserId(null);
         if (deptMapper.updateById(updateObj) != 1) throw new IllegalStateException("APPROVAL_DEPT_UPDATE_ROW_COUNT");
+        if (updateReqVO.isLeaderUserIdPresent()) {
+            if (deptMapper.update(null, com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaUpdate(DeptDO.class)
+                    .eq(DeptDO::getId, updateReqVO.getId())
+                    .set(DeptDO::getLeaderUserId, updateReqVO.getLeaderUserId())) != 1) {
+                throw new IllegalStateException("DEPT_SUPERVISOR_UPDATE_ROW_COUNT");
+            }
+            supervisorService.recordChange(previous, updateReqVO.getLeaderUserId(), "修改部门主管");
+        }
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
     }
 
@@ -123,10 +141,13 @@ public class DeptServiceImpl implements DeptService {
         }
         // 校验是否有子部门
         for (Long id : ids) {
-            if (deptMapper.selectCountByParentId(id) > 0) {
-                throw exception(DEPT_EXITS_CHILDREN);
+            validateDeptExists(id);
+            if (cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils.executeIgnore(
+                    () -> deptMapper.selectCountByParentId(id)) > 0) {
+                throw exception(DEPT_DELETE_HAS_CHILDREN, deptMapper.selectById(id).getName());
             }
         }
+        validateDeptTreeHasNoUsers(ids);
 
         // 批量删除部门
         if (deptMapper.deleteByIds(ids) != ids.size()) throw new IllegalStateException("APPROVAL_DEPT_DELETE_ROW_COUNT");
@@ -199,8 +220,15 @@ public class DeptServiceImpl implements DeptService {
         if (CollUtil.isEmpty(deptIds)) {
             return;
         }
-        if (userMapper.selectCountByDeptIds(deptIds) > 0) {
-            throw exception(DEPT_EXITS_USERS);
+        Set<Long> occupied = cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils.executeIgnore(
+                () -> userMapper.selectListByDeptIds(deptIds).stream()
+                        .map(cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO::getDeptId)
+                        .collect(java.util.stream.Collectors.toSet()));
+        if (!occupied.isEmpty()) {
+            String names = cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils.executeIgnore(
+                    () -> deptMapper.selectByIds(occupied).stream().map(DeptDO::getName)
+                            .sorted().collect(java.util.stream.Collectors.joining("、")));
+            throw exception(DEPT_DELETE_HAS_USERS, names);
         }
     }
 

@@ -68,6 +68,28 @@ public class BpmTaskCandidateInvokerTest extends BaseMockitoUnitTest {
         taskCandidateInvoker = new BpmTaskCandidateInvoker(strategyList, adminUserApi);
     }
 
+    @Test
+    void disabledSupervisorCannotEnterEmptyAssigneeAutoHandling() {
+        var leaderStrategy = mock(BpmTaskCandidateStrategy.class);
+        when(leaderStrategy.getStrategy()).thenReturn(BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER);
+        when(leaderStrategy.calculateUsersByActivity(any(), any(), any(), any(), any(), any()))
+                .thenReturn(new HashSet<>(Set.of(9L)));
+        var invoker = new BpmTaskCandidateInvoker(List.of(leaderStrategy, emptyStrategy), adminUserApi);
+        when(adminUserApi.getUserMap(eq(Set.of(9L)))).thenReturn(Map.of(
+                9L, new AdminUserRespDTO().setId(9L).setStatus(CommonStatusEnum.DISABLE.getStatus())));
+        BpmnModel model = new BpmnModel();
+        org.flowable.bpmn.model.Process process = new org.flowable.bpmn.model.Process();
+        process.setId("test");
+        UserTask node = new UserTask();
+        node.setId("supervisor");
+        BpmnModelUtils.addCandidateElements(BpmTaskCandidateStrategyEnum.START_USER_DEPT_LEADER.getStrategy(), "1", node);
+        process.addFlowElement(node);
+        model.addProcess(process);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> invoker.calculateUsersByActivity(model, "supervisor", 1L, "definition", Map.of()));
+        verify(emptyStrategy, never()).calculateUsersByActivity(any(), any(), any(), any(), any(), any());
+    }
+
     /**
      * 场景：成功计算到候选人，但是移除了发起人的用户
      */

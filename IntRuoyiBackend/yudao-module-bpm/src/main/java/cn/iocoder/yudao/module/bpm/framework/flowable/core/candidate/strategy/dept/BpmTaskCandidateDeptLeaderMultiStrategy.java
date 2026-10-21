@@ -16,6 +16,22 @@ import java.util.Set;
  */
 @Component
 public class BpmTaskCandidateDeptLeaderMultiStrategy extends AbstractBpmTaskCandidateDeptLeaderStrategy {
+    @jakarta.annotation.Resource @org.springframework.context.annotation.Lazy
+    private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService processInstanceService;
+
+    @Override
+    public Set<Long> calculateUsersByTask(org.flowable.engine.delegate.DelegateExecution execution, String param) {
+        var process = processInstanceService.getProcessInstance(execution.getProcessInstanceId());
+        Assert.notNull(process, "流程实例不存在");
+        return resolve(param, Long.valueOf(process.getStartUserId()));
+    }
+
+    @Override
+    public Set<Long> calculateUsersByActivity(org.flowable.bpmn.model.BpmnModel model, String activityId,
+            String param, Long startUserId, String definitionId, java.util.Map<String, Object> variables) {
+        return resolve(param, startUserId);
+    }
+
 
     @Override
     public BpmTaskCandidateStrategyEnum getStrategy() {
@@ -36,10 +52,14 @@ public class BpmTaskCandidateDeptLeaderMultiStrategy extends AbstractBpmTaskCand
 
     @Override
     public Set<Long> calculateUsers(String param) {
+        return resolve(param, null);
+    }
+
+    private Set<Long> resolve(String param, Long startUserId) {
         String[] params = param.split("\\|");
         List<Long> deptIds = StrUtils.splitToLong(params[0], ",");
         int level = Integer.parseInt(params[1]);
-        return super.getMultiLevelDeptLeaderIds(deptIds, level);
+        return super.getMultiLevelDeptLeaderIds(deptIds, level, startUserId);
     }
 
 }

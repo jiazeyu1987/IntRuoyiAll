@@ -7,7 +7,7 @@
     <!-- 左侧部门树 -->
     <el-col :span="4" :xs="24">
       <ContentWrap class="h-1/1">
-        <DeptTreeSelect :key="deptTreeRenderKey" @node-click="handleDeptNodeClick" />
+        <DeptTreeSelect :key="deptTreeRenderKey" :departments="departments" show-supervisor @node-click="handleDeptNodeClick" />
       </ContentWrap>
     </el-col>
     <el-col :span="20" :xs="24">
@@ -32,6 +32,7 @@
           @pagination="getList"
         >
           <template #actions>
+            <el-button plain @click="handoverRef.open()" v-hasPermi="['bpm:task:manager-query']">主管待办交接</el-button>
             <el-dropdown
               class="system-user-advanced-actions"
               trigger="click"
@@ -336,16 +337,17 @@
     </el-col>
   </el-row>
 
+  <SupervisorHandoverDialog ref="handoverRef" />
   <!-- 添加或修改用户对话框 -->
   <UserForm ref="formRef" @success="getList" />
   <!-- 用户导入对话框 -->
-  <UserImportForm ref="importFormRef" @success="getList" />
+  <UserImportForm ref="importFormRef" @success="refreshAfterLifecycleChange" />
   <!-- 钉钉导入对话框 -->
-  <UserDingTalkImportForm ref="dingTalkImportFormRef" @success="getList" />
+  <UserDingTalkImportForm ref="dingTalkImportFormRef" @success="refreshAfterLifecycleChange" />
   <!-- 分配角色 -->
   <UserAssignRoleForm ref="assignRoleFormRef" @success="getList" />
   <!-- 离职/转岗联动停用 -->
-  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="getList" />
+  <UserLifecycleDeactivateForm ref="lifecycleDeactivateFormRef" @success="refreshAfterLifecycleChange" />
 </template>
 <script lang="ts" setup>
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
@@ -364,11 +366,9 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import * as DeptApi from '@/api/system/dept'
-import * as PermissionApi from '@/api/system/permission'
-import * as PostApi from '@/api/system/post'
-import * as RoleApi from '@/api/system/role'
 import * as UserApi from '@/api/system/user'
 import UserForm from './UserForm.vue'
+import SupervisorHandoverDialog from './SupervisorHandoverDialog.vue'
 import UserImportForm from './UserImportForm.vue'
 import UserDingTalkImportForm from './UserDingTalkImportForm.vue'
 import UserAssignRoleForm from './UserAssignRoleForm.vue'
@@ -377,23 +377,21 @@ import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
 import { isSystemPasswordStrong, SYSTEM_PASSWORD_MESSAGE } from './systemPasswordPolicy'
 import {
   buildDeptLeaderLookup,
-  buildDisplayNameLookup,
   formatDisplayNames,
   isDeptLeader,
-  resolveDisplayNames,
   sortUsersByDeptLeader
 } from './utils'
 
 defineOptions({ name: 'SystemUser' })
 
+const handoverRef = ref()
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
 const route = useRoute()
 const { push } = useRouter()
 const userStore = useUserStore()
-const lookupPageSize = 200
 
-interface UserTableRow extends UserApi.UserVO {
+interface UserTableRow extends UserApi.UserPageVO {
   postNamesText: string
   roleNamesText: string
 }
@@ -456,8 +454,7 @@ const total = ref(0) // 列表的总页数
 const list = ref<UserTableRow[]>([]) // 列表的数据
 const deptLeaderByDeptId = ref(new Map<number, number>())
 const deptNameById = ref(new Map<number, string>())
-const postNameById = ref(new Map<number, string>())
-const roleNameById = ref(new Map<number, string>())
+const departments = ref<DeptApi.DeptVO[]>([])
 const deptTreeRenderKey = ref(0)
 const highlightedUserId = ref<number>()
 const queryParams = reactive({
@@ -477,54 +474,18 @@ const selectedDeptName = computed(() =>
 )
 
 const loadDeptMetadata = async () => {
-  const deptList = (await DeptApi.getDeptList({})) as DeptApi.DeptVO[]
+  const deptList = await UserApi.getDepartmentTree()
+  departments.value = deptList
   deptLeaderByDeptId.value = buildDeptLeaderLookup(deptList)
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
 }
 
-const loadPagedLookupItems = async <T,>(
-  fetchPage: (params: PageParam) => Promise<{ list: T[]; total: number }>
-) => {
-  const items: T[] = []
-  let pageNo = 1
-  let totalCount = 0
-  do {
-    const page = await fetchPage({ pageNo, pageSize: lookupPageSize })
-    const pageItems = (page.list ?? []) as T[]
-    items.push(...pageItems)
-    totalCount = page.total ?? pageItems.length
-    pageNo += 1
-  } while (items.length < totalCount)
-  return items
-}
-
-const loadUserDisplayMetadata = async () => {
-  const [postList, roleList] = await Promise.all([
-    loadPagedLookupItems<PostApi.PostVO>(PostApi.getPostPage),
-    loadPagedLookupItems<RoleApi.RoleVO>(RoleApi.getRolePage)
-  ])
-  postNameById.value = buildDisplayNameLookup(postList)
-  roleNameById.value = buildDisplayNameLookup(roleList)
-}
-
-const loadRoleNamesByUserId = async (users: UserApi.UserVO[]) => {
-  const roleEntries = await Promise.all(
-    users.map(async (user) => {
-      const roleIds = (await PermissionApi.getUserRoleList(user.id)) as Array<number | string>
-      return [user.id, resolveDisplayNames(roleIds, roleNameById.value)] as const
-    })
-  )
-  return new Map<number, string[]>(roleEntries)
-}
-
-const buildUserTableRows = async (users: UserApi.UserVO[]): Promise<UserTableRow[]> => {
-  const roleNamesByUserId = await loadRoleNamesByUserId(users)
-  return users.map((user) => ({
+const buildUserTableRows = (users: UserApi.UserPageVO[]): UserTableRow[] =>
+  users.map((user) => ({
     ...user,
-    postNamesText: formatDisplayNames(resolveDisplayNames(user.postIds, postNameById.value)),
-    roleNamesText: formatDisplayNames(roleNamesByUserId.get(user.id) ?? [])
+    postNamesText: formatDisplayNames(user.postNames),
+    roleNamesText: formatDisplayNames(user.roleNames)
   }))
-}
 
 const isDeptLeaderUser = (user: UserTableRow) => isDeptLeader(user, deptLeaderByDeptId.value)
 
@@ -551,11 +512,11 @@ const getList = async () => {
   loading.value = true
   try {
     const data = await UserApi.getUserPage(queryParams)
-    const pageList = data.list as UserApi.UserVO[]
+    const pageList = data.list as UserApi.UserPageVO[]
     const orderedList = shouldPrioritizeDeptLeaders.value
       ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, queryParams.deptId)
       : pageList
-    list.value = await buildUserTableRows(orderedList)
+    list.value = buildUserTableRows(orderedList)
     total.value = data.total
   } finally {
     loading.value = false
@@ -606,34 +567,53 @@ const handleDingTalkImport = () => {
   dingTalkImportFormRef.value.open()
 }
 
+const supervisorImpactText = async (ids: number[]) => {
+  const affected = await UserApi.getSupervisorImpact(ids)
+  return affected.length
+    ? '将解除以下部门的主管配置：' + affected.map((dept) => dept.name).join('、') +
+      '。下级部门将重新按上级主管路由；没有上级主管的审批会被阻止。已有待办须显式交接。'
+    : '已有待办不会自动转移，如需调整请办理交接。'
+}
+const refreshAfterLifecycleChange = async () => {
+  await loadDeptMetadata()
+  await getList()
+}
+
 /** 修改用户状态 */
 const handleStatusChange = async (row: UserApi.UserVO) => {
+  let saved = false
   try {
     // 修改状态的二次确认
     const text = row.status === CommonStatusEnum.ENABLE ? '启用' : '停用'
-    await message.confirm('确认要"' + text + '""' + row.username + '"用户吗?')
+    const impact = row.status === CommonStatusEnum.DISABLE ? await supervisorImpactText([row.id]) : ''
+    await message.confirm('确认要“' + text + '”用户“' + row.username + '”吗？' + impact)
     // 发起修改状态
     await UserApi.updateUserStatus(row.id, row.status)
-    // 刷新列表
+    saved = true
+    await loadDeptMetadata()
     await getList()
-  } catch {
-    // 取消后，进行恢复按钮
-    row.status =
+  } catch (error) {
+    // 仅在修改未成功时恢复开关，刷新失败不能伪造账号状态。
+    if (!saved) row.status =
       row.status === CommonStatusEnum.ENABLE ? CommonStatusEnum.DISABLE : CommonStatusEnum.ENABLE
+    if (error !== 'cancel' && error !== 'close') throw error
   }
 }
 
 /** 删除按钮操作 */
 const handleDelete = async (id: number) => {
   try {
-    // 删除的二次确认
-    await message.delConfirm()
+    const impact = await supervisorImpactText([id])
+    await message.delConfirm('确认删除该用户吗？' + impact)
     // 发起删除
     await UserApi.deleteUser(id)
+    await loadDeptMetadata()
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
-  } catch {}
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') throw error
+  }
 }
 
 /** 批量删除按钮操作 */
@@ -649,14 +629,18 @@ const handleDeleteBatch = async () => {
   }
   try {
     // 删除的二次确认
-    await message.delConfirm()
+    const impact = await supervisorImpactText(checkedIds.value)
+    await message.delConfirm('确认删除选中的用户吗？' + impact)
     // 发起批量删除
     await UserApi.deleteUserList(checkedIds.value)
+    await loadDeptMetadata()
     checkedIds.value = []
     message.success(t('common.delSuccess'))
     // 刷新列表
     await getList()
-  } catch {}
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') throw error
+  }
 }
 
 /** 删除当前选中组织 */
@@ -780,7 +764,7 @@ const openLifecycleDeactivate = (row: UserApi.UserVO) => {
 
 /** 初始化 */
 onMounted(async () => {
-  await Promise.all([loadDeptMetadata(), loadUserDisplayMetadata()])
+  await loadDeptMetadata()
   await syncUserQueryFromRoute()
   await getList()
 })

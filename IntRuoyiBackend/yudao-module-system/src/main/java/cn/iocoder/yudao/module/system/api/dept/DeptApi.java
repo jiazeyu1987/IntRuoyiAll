@@ -13,6 +13,9 @@ import java.util.Map;
  * @author 瑛泰源码
  */
 public interface DeptApi {
+    /** 从当前部门逐级向上找有效主管，排除申请人；无主管时明确失败。 */
+    cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO requireSupervisor(Long deptId, Long excludedUserId);
+
 
     /**
      * 获得部门信息

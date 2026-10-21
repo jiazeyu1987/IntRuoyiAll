@@ -1,0 +1,28 @@
+{
+  "changes": [
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/task/BpmSupervisorHandoverController.java",
+      "kind": "permission",
+      "value": "bpm:task:manager-query",
+      "reason": "主管待办查询复用现有审批任务管理查询权限 bpm:task:manager-query，入口位于已有用户管理页面，不新增菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-bpm/src/main/java/cn/iocoder/yudao/module/bpm/controller/admin/task/BpmSupervisorHandoverController.java",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "主管待办交接同时校验已有 bpm:task:manager-query 和 bpm:task:update 权限，复用既有任务操作授权，不新增菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/SupervisorHandoverDialog.vue",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "用户管理内部交接弹窗复用既有 bpm:task:update 权限控制选择接收人操作，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/user/index.vue",
+      "kind": "permission",
+      "value": "bpm:task:manager-query",
+      "reason": "已有用户管理页面的主管待办交接入口复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
+    }
+  ]
+}

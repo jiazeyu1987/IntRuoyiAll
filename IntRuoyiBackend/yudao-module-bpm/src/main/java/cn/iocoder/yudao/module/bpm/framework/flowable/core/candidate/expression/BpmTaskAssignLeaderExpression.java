@@ -15,7 +15,6 @@ import jakarta.annotation.Resource;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
-import static java.util.Collections.emptySet;
 
 /**
  * 分配给发起人的 Leader 审批的 Expression 流程表达式
@@ -47,32 +46,25 @@ public class BpmTaskAssignLeaderExpression {
         // 获得发起人
         ProcessInstance processInstance = processInstanceService.getProcessInstance(execution.getProcessInstanceId());
         Long startUserId = NumberUtils.parseLong(processInstance.getStartUserId());
-        // 获得对应 leve 的部门
-        DeptRespDTO dept = null;
-        for (int i = 0; i < level; i++) {
-            // 获得 level 对应的部门
-            if (dept == null) {
-                dept = getStartUserDept(startUserId);
-                if (dept == null) { // 找不到发起人的部门，所以无法使用该规则
-                    return emptySet();
-                }
-            } else {
-                DeptRespDTO parentDept = deptApi.getDept(dept.getParentId());
-                if (parentDept == null) { // 找不到父级部门，所以只好结束寻找。原因是：例如说，级别比较高的人，所在部门层级比较少
-                    break;
-                }
-                dept = parentDept;
-            }
+        DeptRespDTO dept = getStartUserDept(startUserId);
+        Set<Long> visited = new java.util.HashSet<>();
+        for (int i = 1; i < level; i++) {
+            Assert.isTrue(visited.add(dept.getId()), "部门层级存在循环");
+            Assert.isTrue(dept.getParentId() != null && dept.getParentId() != 0,
+                    "审批配置的部门层级超过组织根部门");
+            dept = deptApi.getDept(dept.getParentId());
+            Assert.notNull(dept, "上级部门不存在，无法确定审批主管");
         }
-        return dept.getLeaderUserId() != null ? asSet(dept.getLeaderUserId()) : emptySet();
+        return asSet(deptApi.requireSupervisor(dept.getId(), startUserId).getUserId());
     }
 
     private DeptRespDTO getStartUserDept(Long startUserId) {
         AdminUserRespDTO startUser = adminUserApi.getUser(startUserId);
-        if (startUser.getDeptId() == null) { // 找不到部门，所以无法使用该规则
-            return null;
-        }
-        return deptApi.getDept(startUser.getDeptId());
+        Assert.notNull(startUser, "申请人不存在，无法确定审批主管");
+        Assert.notNull(startUser.getDeptId(), "申请人未分配部门，无法确定审批主管");
+        DeptRespDTO dept = deptApi.getDept(startUser.getDeptId());
+        Assert.notNull(dept, "申请人的部门不存在，无法确定审批主管");
+        return dept;
     }
 
 }

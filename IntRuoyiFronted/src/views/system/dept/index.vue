@@ -32,6 +32,9 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item label="主管状态">
+        <el-checkbox v-model="onlyInvalidSupervisors" @change="getList">只看失效主管</el-checkbox>
+      </el-form-item>
       <el-form-item>
         <el-button @click="handleQuery"><Icon icon="ep:search" class="mr-5px" /> 搜索</el-button>
         <el-button @click="resetQuery"><Icon icon="ep:refresh" class="mr-5px" /> 重置</el-button>
@@ -72,9 +75,9 @@
     >
       <el-table-column type="selection" width="55" />
       <el-table-column prop="name" label="部门名称" />
-      <el-table-column prop="leader" label="负责人">
+      <el-table-column prop="leader" label="部门主管" min-width="240">
         <template #default="scope">
-          {{ userList.find((user) => user.id === scope.row.leaderUserId)?.nickname }}
+          <DeptSupervisorLabel :supervisor="scope.row.supervisor" />
         </template>
       </el-table-column>
       <el-table-column prop="sort" label="排序" />
@@ -123,7 +126,7 @@ import { dateFormatter } from '@/utils/formatTime'
 import { handleTree } from '@/utils/tree'
 import * as DeptApi from '@/api/system/dept'
 import DeptForm from './DeptForm.vue'
-import * as UserApi from '@/api/system/user'
+import DeptSupervisorLabel from './components/DeptSupervisorLabel.vue'
 
 defineOptions({ name: 'SystemDept' })
 
@@ -142,7 +145,7 @@ const queryParams = reactive({
 const queryFormRef = ref() // 搜索的表单
 const isExpandAll = ref(true) // 是否展开，默认全部展开
 const refreshTable = ref(true) // 重新渲染表格状态
-const userList = ref<UserApi.UserVO[]>([]) // 用户列表
+const onlyInvalidSupervisors = ref(false)
 const highlightedDeptId = ref<number>()
 
 /** 查询部门列表 */
@@ -150,7 +153,10 @@ const getList = async () => {
   loading.value = true
   try {
     const data = await DeptApi.getDeptList(queryParams)
-    list.value = handleTree(data)
+    // 异常清单平铺，避免过滤后的子部门因缺少父节点而不可见。
+    list.value = onlyInvalidSupervisors.value
+      ? data.filter((dept: DeptApi.DeptVO) => dept.supervisor?.configuredUserInvalid)
+      : handleTree(data)
   } finally {
     loading.value = false
   }
@@ -194,6 +200,7 @@ const getDeptRowClassName = ({ row }: { row: DeptApi.DeptVO }) =>
 /** 重置按钮操作 */
 const resetQuery = () => {
   queryParams.pageNo = 1
+  onlyInvalidSupervisors.value = false
   queryFormRef.value.resetFields()
   handleQuery(true)
 }
@@ -240,8 +247,7 @@ const handleDeleteBatch = async () => {
 onMounted(async () => {
   await syncDeptQueryFromRoute()
   await getList()
-  // 获取用户列表
-  userList.value = await UserApi.getSimpleUserList()
+
 })
 
 watch(

@@ -32,8 +32,18 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * @author niudehua
  */
-@Import(DeptServiceImpl.class)
+@Import({DeptServiceImpl.class, org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration.class})
 public class DeptServiceImplTest extends BaseDbUnitTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private DeptSupervisorService supervisorService;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi authority;
+    @org.junit.jupiter.api.BeforeEach void prepareAuthority() {
+        org.mockito.Mockito.when(authority.lockTenantApprovalAuthority(org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(i -> new cn.iocoder.yudao.module.system.api.permission.dto.ApprovalAuthorityRevisionDTO(
+                        i.getArgument(0), 1L));
+    }
+
 
     @Resource
     private DeptServiceImpl deptService;
@@ -74,6 +84,7 @@ public class DeptServiceImplTest extends BaseDbUnitTest {
         });
 
         // 调用
+        reqVO.setLeaderUserId(reqVO.getLeaderUserId());
         deptService.updateDept(reqVO);
         // 校验是否更新正确
         DeptDO deptDO = deptMapper.selectById(reqVO.getId()); // 获取最新的
@@ -140,7 +151,7 @@ public class DeptServiceImplTest extends BaseDbUnitTest {
         userMapper.insert(userDO);
 
         // 调用，并断言异常
-        assertServiceException(() -> deptService.deleteDept(parentDept.getId()), DEPT_EXITS_USERS);
+        assertServiceException(() -> deptService.deleteDept(parentDept.getId()), DEPT_DELETE_HAS_USERS, childrenDeptDO.getName());
 
         // 断言部门树仍保留
         assertNotNull(deptMapper.selectById(parentDept.getId()));
@@ -181,7 +192,7 @@ public class DeptServiceImplTest extends BaseDbUnitTest {
         List<Long> ids = Arrays.asList(parentDept.getId(), anotherDept.getId());
 
         // 调用, 并断言异常
-        assertServiceException(() -> deptService.deleteDeptList(ids), DEPT_EXITS_CHILDREN);
+        assertServiceException(() -> deptService.deleteDeptList(ids), DEPT_DELETE_HAS_CHILDREN, parentDept.getName());
     }
 
     @Test

@@ -17,7 +17,7 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.util.collection.SetUtils.asSet;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomPojo;
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -45,9 +45,7 @@ public class BpmTaskAssignLeaderExpressionTest extends BaseMockitoUnitTest {
         when(deptApi.getDept(eq(10L))).thenReturn(null);
 
         // 调用
-        Set<Long> result = expression.calculateUsers(execution, 1);
-        // 断言
-        assertEquals(0, result.size());
+        assertThrows(IllegalArgumentException.class, () -> expression.calculateUsers(execution, 1));
     }
 
     @Test
@@ -64,9 +62,7 @@ public class BpmTaskAssignLeaderExpressionTest extends BaseMockitoUnitTest {
         when(deptApi.getDept(eq(100L))).thenReturn(null);
 
         // 调用
-        Set<Long> result = expression.calculateUsers(execution, 2);
-        // 断言
-        assertEquals(asSet(20L), result);
+        assertThrows(IllegalArgumentException.class, () -> expression.calculateUsers(execution, 2));
     }
 
     @Test
@@ -84,6 +80,8 @@ public class BpmTaskAssignLeaderExpressionTest extends BaseMockitoUnitTest {
                 .setLeaderUserId(200L));
         when(deptApi.getDept(eq(100L))).thenReturn(parentDept);
 
+        when(deptApi.requireSupervisor(100L, 1L)).thenReturn(
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptSupervisorRespDTO().setUserId(200L));
         // 调用
         Set<Long> result = expression.calculateUsers(execution, 2);
         // 断言

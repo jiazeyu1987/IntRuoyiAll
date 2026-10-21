@@ -1,12 +1,24 @@
 import request from '@/config/axios'
 
+export interface DeptSupervisorVO {
+  configuredUserId?: number
+  configuredUserName?: string
+  configuredUserInvalid: boolean
+  status: 'DIRECT' | 'INHERITED' | 'MISSING' | 'INVALID_HIERARCHY'
+  userId?: number
+  userName?: string
+  deptId?: number
+  deptName?: string
+}
+
 export interface DeptVO {
   id: number
   name: string
   parentId: number
   status: number
   sort: number
-  leaderUserId: number
+  leaderUserId: number | null
+  supervisor?: DeptSupervisorVO
   phone: string
   email: string
   createTime: Date

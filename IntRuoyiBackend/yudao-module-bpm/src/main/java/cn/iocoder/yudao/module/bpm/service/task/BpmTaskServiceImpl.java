@@ -1510,6 +1510,14 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                     log.error("[processTaskAssigned][taskId({}) 没有找到流程定义({})]", task.getId(), task.getProcessDefinitionId());
                     return;
                 }
+                if (Boolean.TRUE.equals(taskService.getVariableLocal(task.getId(),
+                        BpmSupervisorHandoverService.HANDOVER_VARIABLE))) {
+                    FlowableUtils.execute(processInstance.getTenantId(), () -> {
+                        AdminUserRespDTO startUser = adminUserApi.getUser(Long.valueOf(processInstance.getStartUserId()));
+                        messageService.sendMessageWhenTaskAssigned(BpmTaskConvert.INSTANCE.convert(processInstance, startUser, task));
+                    });
+                    return;
+                }
                 if (processDefinitionInfo.getAutoApprovalType() != null) {
                     HistoricTaskInstanceQuery sameAssigneeQuery = historyService.createHistoricTaskInstanceQuery()
                             .processInstanceId(task.getProcessInstanceId())
@@ -1579,21 +1587,11 @@ public class BpmTaskServiceImpl implements BpmTaskService {
                             Assert.notNull(startUser, "提交人({})信息为空", processInstance.getStartUserId());
                             DeptRespDTO dept = startUser.getDeptId() != null ? deptApi.getDept(startUser.getDeptId()) : null;
                             Assert.notNull(dept, "提交人({})部门({})信息为空", processInstance.getStartUserId(), startUser.getDeptId());
-                            // 找不到部门负责人的情况下，自动审批通过
-                            // noinspection DataFlowIssue
-                            if (dept.getLeaderUserId() == null) {
-                                getSelf().approveTask(Long.valueOf(task.getAssignee()), new BpmTaskApproveReqVO().setId(task.getId())
-                                        .setReason(BpmReasonEnum.ASSIGN_START_USER_APPROVE_WHEN_DEPT_LEADER_NOT_FOUND.getReason()));
-                                return;
-                            }
-                            // 找得到部门负责人的情况下，修改负责人
-                            if (ObjectUtil.notEqual(dept.getLeaderUserId(), startUser.getId())) {
-                                getSelf().transferTask(Long.valueOf(task.getAssignee()), new BpmTaskTransferReqVO()
-                                        .setId(task.getId()).setAssigneeUserId(dept.getLeaderUserId())
-                                        .setReason(BpmReasonEnum.ASSIGN_START_USER_TRANSFER_DEPT_LEADER.getReason()));
-                                return;
-                            }
-                            // 如果部门负责人是自己，还是自己审批吧~
+                            Long supervisorId = deptApi.requireSupervisor(dept.getId(), startUser.getId()).getUserId();
+                            getSelf().transferTask(Long.valueOf(task.getAssignee()), new BpmTaskTransferReqVO()
+                                    .setId(task.getId()).setAssigneeUserId(supervisorId)
+                                    .setReason(BpmReasonEnum.ASSIGN_START_USER_TRANSFER_DEPT_LEADER.getReason()));
+                            return;
                         }
                     }
                 }

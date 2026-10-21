@@ -403,7 +403,7 @@ public class AdminUserPostRetentionTransactionTest extends UserPostRetentionTest
     }
 }
 
-@Import({AdminUserServiceImpl.class, PostServiceImpl.class, TransactionAutoConfiguration.class,
+@Import({AdminUserServiceImpl.class, cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService.class, PostServiceImpl.class, TransactionAutoConfiguration.class,
         JacksonAutoConfiguration.class, YudaoJacksonAutoConfiguration.class, UserPostRetentionTestSupport.TenantConfiguration.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 abstract class UserPostRetentionTestSupport extends BaseDbUnitTest {

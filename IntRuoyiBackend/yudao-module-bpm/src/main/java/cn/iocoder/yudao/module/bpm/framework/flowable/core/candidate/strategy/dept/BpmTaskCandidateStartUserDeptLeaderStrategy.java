@@ -61,11 +61,8 @@ public class BpmTaskCandidateStartUserDeptLeaderStrategy extends AbstractBpmTask
     private Set<Long> getStartUserDeptLeader(Long startUserId, String param) {
         int level = Integer.parseInt(param); // 参数是部门的层级
         DeptRespDTO dept = super.getStartUserDept(startUserId);
-        if (dept == null) {
-            return new HashSet<>();
-        }
-        Long deptLeaderId = super.getAssignLevelDeptLeaderId(dept, level);
-        return deptLeaderId != null ? asSet(deptLeaderId) : new HashSet<>();
+        Long deptLeaderId = super.getAssignLevelDeptLeaderId(dept, level, startUserId);
+        return asSet(deptLeaderId);
     }
 
 }

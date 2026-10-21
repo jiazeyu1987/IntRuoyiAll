@@ -50,6 +50,11 @@ public class UserController {
     @Resource
     private DeptService deptService;
     @Resource
+    private cn.iocoder.yudao.module.system.service.user.UserDisplayService userDisplayService;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
+
+    @Resource
     private UserDingTalkImportExcelParser userDingTalkImportExcelParser;
 
     @PostMapping("/create")
@@ -135,10 +140,35 @@ public class UserController {
             return success(new PageResult<>(pageResult.getTotal()));
         }
         // 拼接数据
-        Map<Long, DeptDO> deptMap = deptService.getDeptMap(
-                convertList(pageResult.getList(), AdminUserDO::getDeptId));
-        return success(new PageResult<>(UserConvert.INSTANCE.convertList(pageResult.getList(), deptMap),
-                pageResult.getTotal()));
+        return success(new PageResult<>(userDisplayService.describe(pageResult.getList()), pageResult.getTotal()));
+    }
+
+    @GetMapping("/department-tree")
+    @Operation(summary = "用户查询所需的组织树及主管状态")
+    @PreAuthorize("@ss.hasPermission('system:user:query')")
+    public CommonResult<List<cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSimpleRespVO>> getDepartmentTree() {
+        List<DeptDO> depts = deptService.getSimpleDeptList();
+        var supervisors = supervisorService.describe(depts);
+        var result = cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(depts,
+                cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSimpleRespVO.class);
+        result.forEach(dept -> dept.setSupervisor(supervisors.get(dept.getId())));
+        return success(result);
+    }
+
+    @GetMapping("/supervisor-impact")
+    @Operation(summary = "预览账号停用或删除将解除的主管配置")
+    @PreAuthorize("@ss.hasAnyPermissions('system:user:update', 'system:user:delete')")
+    public CommonResult<List<cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSimpleRespVO>> getSupervisorImpact(
+            @RequestParam("ids") @jakarta.validation.constraints.Size(min = 1, max = 200) List<Long> ids) {
+        for (Long id : ids) {
+            if (id == null || userService.getUser(id) == null) {
+                throw cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception(
+                        cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS);
+            }
+        }
+        return success(cn.iocoder.yudao.framework.common.util.object.BeanUtils.toBean(
+                supervisorService.getAssignments(ids),
+                cn.iocoder.yudao.module.system.controller.admin.dept.vo.dept.DeptSimpleRespVO.class));
     }
 
     @GetMapping("/list")

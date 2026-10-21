@@ -134,6 +134,8 @@ public class AdminUserServiceImpl implements AdminUserService {
     private ConfigApi configApi;
     @Resource
     private DeptMapper deptMapper;
+    @Resource
+    private cn.iocoder.yudao.module.system.service.dept.DeptSupervisorService supervisorService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -550,6 +552,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // 如果是禁用用户，则删除其 Token 信息
         if (CommonStatusEnum.isDisable(status)) {
+            supervisorService.releaseAssignments(List.of(id), "账号停用");
             oauth2TokenService.removeAccessToken(id, UserTypeEnum.ADMIN.getValue());
         }
     }
@@ -579,7 +582,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (due) {
             updateWrapper.set(AdminUserDO::getStatus, CommonStatusEnum.DISABLE.getStatus());
         }
-        userMapper.update(null, updateWrapper);
+        if (userMapper.update(null, updateWrapper) != 1) throw new IllegalStateException("USER_LIFECYCLE_UPDATE_ROW_COUNT");
+        if (due) supervisorService.releaseAssignments(List.of(user.getId()), "离职/转岗生效：" + documentNo);
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
         if (due && !CommonStatusEnum.isDisable(user.getStatus())) {
             oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
@@ -645,6 +649,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (updatedCount <= 0) {
             return false;
         }
+        supervisorService.releaseAssignments(List.of(user.getId()), "离职/转岗定时生效：" + user.getLifecycleDocumentNo());
         if (!CommonStatusEnum.isDisable(user.getStatus())) {
             oauth2TokenService.removeAccessToken(user.getId(), UserTypeEnum.ADMIN.getValue());
         }
@@ -660,6 +665,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO user = lockSignatureIdentity(id);
         var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
 
+        // 与删除账号同一事务解除所有主管配置，不转移已有审批。
+        supervisorService.releaseAssignments(List.of(id), "删除账号");
         // 2.1 删除用户
         userMapper.deleteById(id);
         // 2.2 删除用户关联数据
@@ -680,6 +687,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         ids.stream().distinct().sorted().forEach(this::lockSignatureIdentity);
         var authority = approvalAuthority.lockTenantApprovalAuthority(TenantContextHolder.getRequiredTenantId());
+        supervisorService.releaseAssignments(ids, "批量删除账号");
         // 1. 批量删除用户
         userMapper.deleteByIds(ids);
 
@@ -1115,7 +1123,11 @@ public class AdminUserServiceImpl implements AdminUserService {
             AdminUserDO updateUser = BeanUtils.toBean(importUser, AdminUserDO.class);
             updateUser.setId(existUser.getId());
             updateUser.setCanonicalUsername(canonicalizeUsername(importUser.getUsername()));
-            userMapper.updateById(updateUser);
+            if (userMapper.updateById(updateUser) != 1) throw new IllegalStateException("USER_IMPORT_UPDATE_ROW_COUNT");
+            if (CommonStatusEnum.isDisable(updateUser.getStatus())) {
+                supervisorService.releaseAssignments(List.of(updateUser.getId()), "导入更新停用账号");
+                oauth2TokenService.removeAccessToken(updateUser.getId(), UserTypeEnum.ADMIN.getValue());
+            }
             respVO.getUpdateUsernames().add(importUser.getUsername());
         });
         return respVO;
@@ -1249,7 +1261,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             DeptDO updateObj = new DeptDO();
             updateObj.setId(dept.getId());
             updateObj.setLeaderUserId(leaderUser.getId());
-            deptMapper.updateById(updateObj);
+            supervisorService.validateSupervisor(leaderUser.getId());
+            if (deptMapper.updateById(updateObj) != 1) throw new IllegalStateException("DEPT_IMPORT_SUPERVISOR_ROW_COUNT");
+            supervisorService.recordChange(dept, leaderUser.getId(), "钉钉导入设置主管");
             respVO.getLeaderAssignedDeptPaths().put(deptPath, leaderUser.getUsername());
         }
         return respVO;
