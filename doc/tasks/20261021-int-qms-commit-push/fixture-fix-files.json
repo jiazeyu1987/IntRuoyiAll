@@ -1,0 +1,5 @@
+[
+  "IntRuoyiFronted/tests/unit/dcc-detail-authority-late-response.test.cjs",
+  "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+  "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs"
+]

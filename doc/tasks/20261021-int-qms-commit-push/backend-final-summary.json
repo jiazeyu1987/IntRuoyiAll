@@ -1,0 +1,155 @@
+[
+  {
+    "name": "cn.iocoder.yudao.module.bpm.approval.service.BpmNativeApprovalTaskProviderTest",
+    "report": "IntRuoyiBackend/yudao-module-bpm/target/surefire-reports/TEST-cn.iocoder.yudao.module.bpm.approval.service.BpmNativeApprovalTaskProviderTest.xml",
+    "tests": 36,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571718.8204343
+  },
+  {
+    "name": "cn.iocoder.yudao.module.bpm.service.definition.BpmModelEditorSourceIsolationTest",
+    "report": "IntRuoyiBackend/yudao-module-bpm/target/surefire-reports/TEST-cn.iocoder.yudao.module.bpm.service.definition.BpmModelEditorSourceIsolationTest.xml",
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571723.1711762
+  },
+  {
+    "name": "cn.iocoder.yudao.module.bpm.service.task.BpmTodoExclusionPaginationTest",
+    "report": "IntRuoyiBackend/yudao-module-bpm/target/surefire-reports/TEST-cn.iocoder.yudao.module.bpm.service.task.BpmTodoExclusionPaginationTest.xml",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571723.6366107
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest.xml",
+    "tests": 31,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571727.8659797
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileActivationJobTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileActivationJobTest.xml",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571727.9724975
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccImageTextPdfConverterTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccImageTextPdfConverterTest.xml",
+    "tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571728.4574163
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficeConversionClientImplTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficeConversionClientImplTest.xml",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571728.7321553
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficeDocumentPdfConversionServiceTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccOnlyOfficeDocumentPdfConversionServiceTest.xml",
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571728.941571
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccSelectedDetailReadServiceTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSelectedDetailReadServiceTest.xml",
+    "tests": 20,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571729.0831118
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccTargetedActivationJobTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccTargetedActivationJobTest.xml",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571729.4729805
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571747.4666975
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewReadingSessionServiceTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.filepreview.DccOnlineFilePreviewReadingSessionServiceTest.xml",
+    "tests": 45,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571747.756604
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.filepreview.DccPreviewReadingSchemaContractTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.filepreview.DccPreviewReadingSchemaContractTest.xml",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571747.7636032
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.filepreview.DccPreviewReadingSessionControllerTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.filepreview.DccPreviewReadingSessionControllerTest.xml",
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571748.5031412
+  },
+  {
+    "name": "cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenSourceBoundTest",
+    "report": "IntRuoyiBackend/yudao-module-dcc/target/surefire-reports/TEST-cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenSourceBoundTest.xml",
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571748.5321414
+  },
+  {
+    "name": "cn.iocoder.yudao.module.system.service.user.AdminUserDepartmentClearTest",
+    "report": "IntRuoyiBackend/yudao-module-system/target/surefire-reports/TEST-cn.iocoder.yudao.module.system.service.user.AdminUserDepartmentClearTest.xml",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571714.9545898
+  },
+  {
+    "name": "cn.iocoder.yudao.framework.tenant.core.job.TenantJobAspectTest",
+    "report": "IntRuoyiBackend/yudao-framework/yudao-spring-boot-starter-biz-tenant/target/surefire-reports/TEST-cn.iocoder.yudao.framework.tenant.core.job.TenantJobAspectTest.xml",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mtime": 1792571705.0142944
+  }
+]
