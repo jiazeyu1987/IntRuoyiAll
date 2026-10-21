@@ -62,7 +62,7 @@ assert.match(
 )
 assert.match(
   releaseDetailService,
-  /signatureQueryService\.verifyEvidence\(signatureId\)/,
+  /signatureQueryService\.verifyEvidence\(signature\.id\(\)\)/,
   'PQC 放行详情服务必须校验证据哈希和签名有效性。'
 )
 assert.match(

@@ -137,6 +137,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .regulationId(context.regulation().getId())
                 .draftVersionId(context.version().getId())
                 .versionNo(context.version().getVersionNo())
+                .draftRevision(context.version().getDraftRevision())
                 .lifecycleStatus(context.version().getLifecycleStatus())
                 .immutable(false)
                 .build();
@@ -158,6 +159,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .build();
         }
 
+        regulation = regulationMapper.selectByIdForUpdate(regulation.getId());
+        if (regulation == null) throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, dccProjectCodeId);
         List<Long> versionIds = versionMapper.selectListByRegulationId(regulation.getId()).stream()
                 .map(MesQaInspectionRegulationVersionDO::getId)
                 .filter(Objects::nonNull)
@@ -551,6 +554,8 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             saveReq.setRegulationCode(memberReq.getCommonRegulationCode());
             saveReq.setRegulationName(memberReq.getCommonRegulationName());
             saveReq.setVersionNo(memberReq.getVersionNo());
+            // A set upgrade starts a new member version and supplies its creation baseline.
+            saveReq.setExpectedDraftRevision(0L);
             saveReq.setEffectiveDate(reqVO.getEffectiveDate());
             saveReq.setFinalInspectionApplicable(memberReq.getFinalInspectionApplicable());
             saveReq.setFinalInspectionNotApplicableReason(memberReq.getFinalInspectionNotApplicableReason());
@@ -715,8 +720,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
     private DraftContext saveDraftInternal(MesQaInspectionRegulationSaveReqVO reqVO,
                                            DccProjectCodeDO dccProjectCode) {
         MesQaInspectionRegulationDO regulation = resolveRegulation(reqVO, dccProjectCode);
-        MesQaInspectionRegulationVersionDO version = versionMapper.selectByRegulationIdAndVersionNo(
-                regulation.getId(), StrUtil.trim(reqVO.getVersionNo()));
+        MesQaInspectionRegulationVersionDO version = versionMapper.selectByRegulationIdAndVersionNoForUpdate(regulation.getId(), StrUtil.trim(reqVO.getVersionNo()));
         if (version != null && Objects.equals(version.getLifecycleStatus(), STATUS_PUBLISHED)) {
             throw exception(QA_INSPECTION_REGULATION_VERSION_IMMUTABLE, version.getId());
         }
@@ -724,6 +728,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
             throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, version.getId());
         }
 
+        if (reqVO.getExpectedDraftRevision() == null || reqVO.getExpectedDraftRevision() < 0
+                || !Objects.equals(reqVO.getExpectedDraftRevision(), version == null ? 0L : version.getDraftRevision())) {
+            throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, reqVO.getVersionNo());
+        }
         String inspectionTypeRulesJson = JSON.toJSONString(reqVO.getInspectionTypeRules());
         String snapshotJson = JSON.toJSONString(reqVO);
         if (version == null) {
@@ -731,6 +739,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .regulationId(regulation.getId())
                     .versionNo(StrUtil.trim(reqVO.getVersionNo()))
                     .lifecycleStatus(STATUS_DRAFT)
+                    .draftRevision(1L)
                     .effectiveDate(reqVO.getEffectiveDate())
                     .inspectionTypeRulesJson(inspectionTypeRulesJson)
                     .finalInspectionApplicable(reqVO.getFinalInspectionApplicable())
@@ -739,13 +748,19 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                     .build();
             versionMapper.insert(version);
         } else {
-            versionMapper.updateById(new MesQaInspectionRegulationVersionDO()
-                    .setId(version.getId())
+            int updated = versionMapper.update(new MesQaInspectionRegulationVersionDO()
+                    .setDraftRevision(version.getDraftRevision() + 1)
                     .setEffectiveDate(reqVO.getEffectiveDate())
                     .setInspectionTypeRulesJson(inspectionTypeRulesJson)
                     .setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable())
                     .setFinalInspectionNotApplicableReason(normalizeFinalInspectionReason(reqVO))
-                    .setSnapshotJson(snapshotJson));
+                    .setSnapshotJson(snapshotJson),
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<MesQaInspectionRegulationVersionDO>()
+                            .eq(MesQaInspectionRegulationVersionDO::getId, version.getId())
+                            .eq(MesQaInspectionRegulationVersionDO::getLifecycleStatus, STATUS_DRAFT)
+                            .eq(MesQaInspectionRegulationVersionDO::getDraftRevision, reqVO.getExpectedDraftRevision()));
+            if (updated != 1) throw exception(QA_INSPECTION_REGULATION_VERSION_CONFLICT, version.getId());
+            version.setDraftRevision(version.getDraftRevision() + 1);
             version.setEffectiveDate(reqVO.getEffectiveDate())
                     .setInspectionTypeRulesJson(inspectionTypeRulesJson)
                     .setFinalInspectionApplicable(reqVO.getFinalInspectionApplicable())
@@ -782,6 +797,10 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 : regulationMapper.selectById(reqVO.getRegulationId());
         if (reqVO.getRegulationId() != null && regulation == null) {
             throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, reqVO.getRegulationId());
+        }
+        if (regulation != null) {
+            regulation = regulationMapper.selectByIdForUpdate(regulation.getId());
+            if (regulation == null) throw exception(QA_INSPECTION_REGULATION_NOT_EXISTS, reqVO.getRegulationId());
         }
         if (regulation != null
                 && !Objects.equals(regulation.getDccProjectCodeId(), dccProjectCode.getId())) {
@@ -850,6 +869,7 @@ public class MesQaInspectionRegulationServiceImpl implements MesQaInspectionRegu
                 .regulationId(regulation.getId())
                 .publishedVersionId(version.getId())
                 .versionNo(version.getVersionNo())
+                .draftRevision(version.getDraftRevision())
                 .effectiveDate(version.getEffectiveDate())
                 .publishedAt(version.getPublishedAt())
                 .immutable(!Objects.equals(version.getLifecycleStatus(), STATUS_DRAFT))

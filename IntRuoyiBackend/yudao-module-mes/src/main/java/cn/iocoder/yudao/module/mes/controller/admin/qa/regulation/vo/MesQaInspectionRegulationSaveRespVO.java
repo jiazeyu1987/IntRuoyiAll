@@ -20,6 +20,7 @@ public class MesQaInspectionRegulationSaveRespVO {
 
     @Schema(description = "版本号")
     private String versionNo;
+    private Long draftRevision;
 
     @Schema(description = "生命周期状态")
     private String lifecycleStatus;

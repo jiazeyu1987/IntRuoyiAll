@@ -100,6 +100,7 @@ public class MesFrontlinePqcProcessRespVO {
 
     @Data
     public static class PqcInspectionItem {
+        private Integer plannedInspectionQuantity;
         private Integer itemSort;
         private String itemCode;
         private String itemName;

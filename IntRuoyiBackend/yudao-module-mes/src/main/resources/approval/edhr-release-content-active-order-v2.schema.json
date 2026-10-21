@@ -1,0 +1,407 @@
+{
+  "properties": {
+    "contentPolicyVersion": {
+      "const": "approval-content-active-order-v2"
+    },
+    "scopeCode": {
+      "const": "EDHR_RELEASE"
+    },
+    "identity": {
+      "$ref": "#/$defs/identity"
+    },
+    "workTask": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assignmentBranch": {
+                "const": "MANAGED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "assigneeUserId": {
+                "$ref": "#/$defs/id"
+              },
+              "candidate": {
+                "properties": {
+                  "sourceType": {
+                    "const": "ROLE_GROUP"
+                  }
+                }
+              },
+              "responsibility": {
+                "properties": {
+                  "sourceType": {
+                    "const": "ROLE"
+                  },
+                  "sourceKey": {
+                    "const": "MES_MANAGEMENT_REPRESENTATIVE"
+                  },
+                  "sourceVersion": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "sourceDigest": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "$ref": "#/$defs/workTask"
+    },
+    "release": {
+      "$ref": "#/$defs/release"
+    },
+    "finalization": {
+      "$ref": "#/$defs/finalization"
+    }
+  },
+  "$defs": {
+    "precheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/checkItem"
+          },
+          "minItems": 6,
+          "uniqueItems": true,
+          "maxItems": 6
+        }
+      }
+    },
+    "finalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKind",
+        "authorizationBranch",
+        "applicationId",
+        "origin",
+        "trace",
+        "sourceRelation",
+        "sourceSnapshotHash",
+        "activeOrderVersion",
+        "completionBackfillReceipt",
+        "independentPrerequisiteReceipt",
+        "materialManifest",
+        "activeOrderFormalFacts"
+      ],
+      "properties": {
+        "sourceKind": {
+          "const": "ACTIVE_ORDER"
+        },
+        "authorizationBranch": {
+          "const": "MANAGED"
+        },
+        "applicationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "trace": {
+          "$ref": "#/$defs/trace"
+        },
+        "sourceRelation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSnapshotHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "activeOrderVersion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/version"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completionBackfillReceipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/completionReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "independentPrerequisiteReceipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/independentReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "materialManifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tenantId",
+            "activeOrderId",
+            "applicationId",
+            "batchExecutionId",
+            "revision",
+            "files",
+            "manifestHash"
+          ],
+          "properties": {
+            "tenantId": {
+              "$ref": "#/$defs/id"
+            },
+            "activeOrderId": {
+              "$ref": "#/$defs/id"
+            },
+            "applicationId": {
+              "$ref": "#/$defs/id"
+            },
+            "batchExecutionId": {
+              "$ref": "#/$defs/id"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "attachmentId",
+                  "activeOrderId",
+                  "applicationId",
+                  "categoryKey",
+                  "fileId",
+                  "fileName",
+                  "fileSize",
+                  "contentType",
+                  "sha256"
+                ],
+                "properties": {
+                  "attachmentId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "activeOrderId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "applicationId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/id"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "categoryKey": {
+                    "enum": [
+                      "INCOMING_INSPECTION_FILE",
+                      "STERILIZATION_FILE",
+                      "FINISHED_PRODUCT_FILE",
+                      "OTHER_FILE"
+                    ]
+                  },
+                  "fileId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fileSize": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "contentType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            },
+            "manifestHash": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "activeOrderFormalFacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "applicationId",
+            "batchExecutionId",
+            "formalFactsHash",
+            "sourceSnapshotHash",
+            "completionReceiptId",
+            "completionReceiptHash",
+            "completionCreationEventId",
+            "completionCreationEventHash",
+            "pqcSignatureId",
+            "pqcEvidenceHash",
+            "pqcCreationEventId"
+          ],
+          "properties": {
+            "applicationId": {
+              "$ref": "#/$defs/id"
+            },
+            "batchExecutionId": {
+              "$ref": "#/$defs/id"
+            },
+            "formalFactsHash": {
+              "type": "string",
+              "pattern": "^ACTIVE_ORDER_FACTS:[0-9a-f]{64}$"
+            },
+            "sourceSnapshotHash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "completionReceiptId": {
+              "$ref": "#/$defs/id"
+            },
+            "completionReceiptHash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "completionCreationEventId": {
+              "$ref": "#/$defs/id"
+            },
+            "completionCreationEventHash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "pqcSignatureId": {
+              "$ref": "#/$defs/id"
+            },
+            "pqcEvidenceHash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "pqcCreationEventId": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sourceKind": {
+                "const": "ACTIVE_ORDER"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sourceRelation": {
+                "const": "FLOW4_COMPLETION_BACKFILL_RECEIPT"
+              },
+              "activeOrderVersion": {
+                "$ref": "#/$defs/version"
+              },
+              "completionBackfillReceipt": {
+                "$ref": "#/$defs/completionReceipt"
+              },
+              "independentPrerequisiteReceipt": {
+                "type": "null"
+              },
+              "origin": {
+                "properties": {
+                  "entryType": {
+                    "const": "ACTIVE_ORDER_COMPLETION"
+                  },
+                  "activeOrderId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "completionBackfillReceiptId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "completionVersion": {
+                    "$ref": "#/$defs/version"
+                  },
+                  "completionBackfillReceiptHash": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "activeOrderVersion": {
+                "type": "null"
+              },
+              "completionBackfillReceipt": {
+                "type": "null"
+              },
+              "independentPrerequisiteReceipt": {
+                "$ref": "#/$defs/independentReceipt"
+              },
+              "origin": {
+                "properties": {
+                  "activeOrderId": {
+                    "type": "null"
+                  },
+                  "entryType": {
+                    "enum": [
+                      "MANUAL",
+                      "SCHEDULED",
+                      "PQC_INDEPENDENT"
+                    ]
+                  },
+                  "sourceCredentialId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceCredentialHash": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "authorizationBranch": {
+                "const": "MANAGED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "applicationId": {
+                "$ref": "#/$defs/id"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

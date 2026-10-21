@@ -1,10 +1,9 @@
 # IntRuoyi Local Runtime Rules
 
-## 触发场景
+## 适用场景
 
-- 启动、停止、重启或排查本机前端、后端、Vite、Java 服务时，必须先读取本文件。
-- 排查 `8081`、`48081` 或其他 worktree 登记端口占用时，必须同时读取 `docs/worktree-restrictions.md`。
-- 本文件只约束本机运行态；远端服务器必须读取 `docs/server-access.md`。
+- 本机服务、Vite、Java 或端口问题按需查阅本文件，已读且未变化的规则不重复读取。
+- worktree 端口及远端服务器问题按需查阅对应说明，仍须遵守实际端口和进程归属边界。
 
 ## 固定端口
 

@@ -152,6 +152,9 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
 
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
         var page=centerQuery.todo(context,"DCC_TASK");
+        if (page.getList().isEmpty()) {
+            return new PageResult<>(List.of(), page.getTotal());
+        }
         var processes=processInstanceService.getProcessInstanceMap(toProcessInstanceIds(page.getList(),Task::getProcessInstanceId));
         var rows=page.getList().stream().map(task->Objects.requireNonNull(toSummary(task,
                 requireProcessInstance(processes,task.getProcessInstanceId())),"APPROVAL_DCC_FORMAL_PROJECTION_MISMATCH")).toList();

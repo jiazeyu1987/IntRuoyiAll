@@ -201,9 +201,10 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void closeNormally(Long actorUserId, Long deviationId) {
+    public void closeNormally(Long actorUserId, Long deviationId, Integer expectedContentVersion, String expectedContentHash) {
         requireActor(actorUserId);
         requireAnyPermission("mes:pro-edhr-deviation:qa-close", "mes:pro-edhr-deviation:quality-approve");
+        gxpAuditService.acquireLedgerLock();
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         MesProEdhrDeviationDO deviation = deviationMapper.selectByTenantAndIdForUpdate(tenantId, deviationId);
         if (deviation == null) {
@@ -216,6 +217,11 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
                 .selectByTenantAndDeviationIdForUpdate(tenantId, deviationId);
         if (handling == null) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_NOT_EXISTS, deviationId);
+        }
+        if (expectedContentVersion == null || !hasText(expectedContentHash)
+                || !Objects.equals(handling.getContentVersion(), expectedContentVersion)
+                || !Objects.equals(handling.getContentHash(), expectedContentHash)) {
+            throw exception(PRO_EDHR_DEVIATION_HANDLING_VERSION_CONFLICT, deviationId);
         }
         if (!isComplete(handling)) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_REQUIRED, deviationId);
@@ -232,10 +238,24 @@ public class MesProEdhrDeviationHandlingServiceImpl implements MesProEdhrDeviati
         if (deviation.getInitiatorSignatureId() == null) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_SIGNATURE_REQUIRED, "INITIATOR", deviationId);
         }
-        if (deviationMapper.closeNormally(tenantId, deviationId, "NORMAL_COMPLETED",
-                LocalDateTime.now(MesProEdhrDeviationNumberGenerator.BUSINESS_ZONE)) != 1) {
+        LocalDateTime closedAt = LocalDateTime.now(MesProEdhrDeviationNumberGenerator.BUSINESS_ZONE);
+        signatures.put("INITIATOR", deviation.getInitiatorSignatureId());
+        String closeSignatures = JSON.toJSONString(new TreeMap<>(signatures));
+        if (deviationMapper.closeNormally(tenantId, deviationId, "NORMAL_COMPLETED", closedAt,
+                actorUserId, expectedContentVersion, expectedContentHash, closeSignatures) != 1) {
             throw exception(PRO_EDHR_DEVIATION_HANDLING_CLOSE_FAILED, deviationId);
         }
+        operationAuditService.recordInCallerTransaction(new MesProEdhrOperationAuditCommand()
+                .setRequestId("EDHR_DEVIATION_CLOSE:" + deviationId + ":" + expectedContentVersion)
+                .setObjectType("EDHR_DEVIATION").setObjectId(deviationId.toString())
+                .setBatchExecutionId(deviation.getBatchExecutionId())
+                .setRecordCategory("EDHR_DEVIATION_HANDLING").setOperationType("CLOSE")
+                .setActionName("按已审核版本关闭偏差").setActorUserId(actorUserId)
+                .setPermissionDecision("ALLOW").setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(expectedContentHash).setAfterSummaryHash(expectedContentHash)
+                .setOccurredAt(closedAt).setMetadataJson(JSON.toJSONString(Map.of(
+                        "closedBy", actorUserId, "contentVersion", expectedContentVersion,
+                        "contentHash", expectedContentHash, "signatureIds", signatures))));
     }
 
     String contentHash(MesProEdhrDeviationHandlingDO handling) {

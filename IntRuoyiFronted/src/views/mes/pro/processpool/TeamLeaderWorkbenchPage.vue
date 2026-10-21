@@ -1679,48 +1679,8 @@
           <el-table-column label="加入时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="790" fixed="right">
+          <el-table-column label="操作" width="330" fixed="right">
             <template #default="{ row }">
-              <el-tooltip content="上移" placement="top">
-                <el-button
-                  link
-                  type="primary"
-                  aria-label="上移"
-                  title="上移"
-                  :disabled="
-                    isFirstActiveOrder(row) ||
-                    activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                  "
-                  :loading="
-                    activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'UP'
-                  "
-                  data-team-leader-move-active-order-up
-                  @click="submitMoveActiveOrder(row, 'UP')"
-                >
-                  <Icon icon="ep:arrow-up-bold" />
-                </el-button>
-              </el-tooltip>
-              <el-tooltip content="下移" placement="top">
-                <el-button
-                  link
-                  type="primary"
-                  aria-label="下移"
-                  title="下移"
-                  :disabled="
-                    isLastActiveOrder(row) ||
-                    activeOrderMoveSubmittingId !== undefined ||
-                    activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                  "
-                  :loading="
-                    activeOrderMoveSubmittingId === row.id && activeOrderMoveDirection === 'DOWN'
-                  "
-                  data-team-leader-move-active-order-down
-                  @click="submitMoveActiveOrder(row, 'DOWN')"
-                >
-                  <Icon icon="ep:arrow-down-bold" />
-                </el-button>
-              </el-tooltip>
               <el-button
                 link
                 type="primary"
@@ -1800,96 +1760,98 @@
                 data-team-leader-active-order-version-upgrade
                 @click="handleActiveOrderVersionUpgrade(row)"
               >升级</el-button>
-              <el-button
-                link
-                type="primary"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-copy-latest-simulation-order
-                @click="handleCopyLatestSimulationActiveOrder(row)"
+              <el-dropdown
+                trigger="click"
+                class="team-leader-workbench__active-order-test-menu"
               >
-                <Icon icon="ep:document-copy" />
-                复制测试单
-              </el-button>
-              <el-button
-                v-if="row.simulated && row.simulationStage === 'LATEST_VERSION_COPY'"
-                link
-                type="danger"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-cleanup-latest-simulation-order
-                @click="handleCleanupLatestSimulationActiveOrder(row)"
-              >
-                清理测试单
-              </el-button>
-              <el-button
-                link
-                type="primary"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-simulate-active-order-stage1-p1
-                @click="handleSimulateStage1(row)"
-              >
-                <Icon icon="ep:refresh" />
-                P1双100
-              </el-button>
-              <el-button
-                link
-                type="primary"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
-                  !canGenerateStage1Forms(row)
-                "
-                :title="resolveStage1GenerateFormDisabledReason(row)"
-                data-team-leader-generate-active-order-stage1-p2
-                @click="handleGenerateStage1Forms(row)"
-              >
-                <Icon icon="ep:document" />
-                P2生成
-              </el-button>
-              <el-button
-                v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
-                link
-                type="primary"
-                :loading="releaseApplicationSubmittingId === row.id"
-                :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
-                title="将P2生成的记录推送给PQC生产放行"
-                data-team-leader-push-pqc-stage3
-                @click="handlePushGeneratedPqcRelease(row)"
-              >
-                <Icon icon="ep:promotion" />
-                P3推送放行
-              </el-button>
-              <el-button
-                link
-                type="success"
-                :loading="activeOrderSimulationSubmittingId === row.id"
-                :disabled="
-                  maintenanceSubmitting ||
-                  activeOrderRebuildSubmittingId !== undefined ||
-                  activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
-                "
-                data-team-leader-simulate-active-order-stage2-5
-                title="模拟完工并打开真实批次执行详情"
-                @click="handleSimulateStage2_5(row)"
-              >
-                <Icon icon="ep:finished" />
-                模拟完工
-              </el-button>
+                <el-button
+                  link
+                  type="primary"
+                  :loading="activeOrderSimulationSubmittingId === row.id || releaseApplicationSubmittingId === row.id"
+                  :disabled="maintenanceSubmitting || activeOrderRebuildSubmittingId !== undefined || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined"
+                  data-team-leader-active-order-test-menu
+                >
+                  测试
+                  <Icon icon="ep:arrow-down" class="ml-5px" />
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-copy-latest-simulation-order
+                      @click="handleCopyLatestSimulationActiveOrder(row)"
+                    >
+                      <Icon icon="ep:document-copy" />
+                      复制测试单
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-if="row.simulated && row.simulationStage === 'LATEST_VERSION_COPY'"
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-cleanup-latest-simulation-order
+                      @click="handleCleanupLatestSimulationActiveOrder(row)"
+                    >
+                      清理测试单
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-simulate-active-order-stage1-p1
+                      @click="handleSimulateStage1(row)"
+                    >
+                      <Icon icon="ep:refresh" />
+                      P1双100
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined ||
+                        !canGenerateStage1Forms(row)
+                      "
+                      :title="resolveStage1GenerateFormDisabledReason(row)"
+                      data-team-leader-generate-active-order-stage1-p2
+                      @click="handleGenerateStage1Forms(row)"
+                    >
+                      <Icon icon="ep:document" />
+                      P2生成
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
+                      :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
+                      title="将P2生成的记录推送给PQC生产放行"
+                      data-team-leader-push-pqc-stage3
+                      @click="handlePushGeneratedPqcRelease(row)"
+                    >
+                      <Icon icon="ep:promotion" />
+                      P3推送放行
+                    </el-dropdown-item>
+                    <el-dropdown-item
+                      :disabled="
+                        maintenanceSubmitting ||
+                        activeOrderRebuildSubmittingId !== undefined ||
+                        activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined
+                      "
+                      data-team-leader-simulate-active-order-stage2-5
+                      title="模拟完工并打开真实批次执行详情"
+                      @click="handleSimulateStage2_5(row)"
+                    >
+                      <Icon icon="ep:finished" />
+                      模拟完工
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </el-table-column>
         </el-table>
@@ -3969,6 +3931,7 @@
           <el-form-item label="检验数量">
             <el-input-number
               v-model="correctionForm.pqcActualInspectionQuantity"
+              disabled
               :min="1"
               :precision="0"
               step-strictly
@@ -4118,7 +4081,7 @@ import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCent
 import { createFormalActionGuard } from '@/store/modules/approvalCenterInvalidationState'
 const approvalInvalidation = useApprovalCenterInvalidationStore()
 import { applyWithNoReplenishmentConfirmation } from './activeOrderReplenishmentConfirmation'
-import { watch, toRaw } from 'vue'
+import { h, watch, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { handoffNavigationContext } from '@/api/mes/pro/handoff'
 import { isClosedHandoffCompletion, resolveActiveOrderHandoffTarget } from '@/utils/activeOrderHandoffNavigation'
@@ -4158,7 +4121,6 @@ import {
   linkPqcFormalEmployee,
   linkFormalTeamEmployee,
   markAndReportWorkOrderAbnormal,
-  moveTeamLeaderActiveOrder,
   previewTeamLeaderReportFifoAllocation,
   previewTeamLeaderActiveOrderRebuild,
   previewTeamLeaderActiveOrderVersionUpgrade,
@@ -4441,6 +4403,7 @@ interface PqcInspectionCorrectionItemRow {
   standardPrecision?: number
   resultType?: string
   sampleValuesText: string
+  sampleQuantity: number
 }
 
 interface ProductionReportCorrectionPreviewItem {
@@ -4490,8 +4453,6 @@ const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
 const activeOrderLoading = ref(false)
 const activeOrderConflictSubmitting = ref(false)
-const activeOrderMoveSubmittingId = ref<number | string>()
-const activeOrderMoveDirection = ref<'UP' | 'DOWN'>()
 const activeOrderRebuildSubmittingId = ref<number | string>()
 const activeOrderVersionUpgradeSubmittingId = ref<number | string>()
 const activeOrderSimulationSubmittingId = ref<number | string>()
@@ -4501,7 +4462,6 @@ const activeOrderTestResetBlocked = computed(() =>
   maintenanceSubmitting.value ||
   activeOrderSimulationSubmittingId.value !== undefined ||
   teamLeaderDataCleanupSubmitting.value ||
-  activeOrderMoveSubmittingId.value !== undefined ||
   activeOrderRebuildSubmittingId.value !== undefined ||
   activeOrderVersionUpgradeSubmittingId.value !== undefined ||
   releaseApplicationSubmittingId.value !== undefined ||
@@ -4945,10 +4905,6 @@ const pagedActiveOrderRows = computed(() => {
   const start = (pageNo - 1) * pageSize
   return filteredActiveOrderRows.value.slice(start, start + pageSize)
 })
-const isFirstActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
-  activeOrderOptions.value[0]?.id === row.id
-const isLastActiveOrder = (row: TeamLeaderActiveOrderRespVO) =>
-  activeOrderOptions.value[activeOrderOptions.value.length - 1]?.id === row.id
 const pqcPersonnelTotal = computed(() => pqcPersonnelRows.value.length)
 const pagedPqcPersonnelRows = computed(() => {
   const pageNo = Math.max(1, Number(pqcPersonnelQuery.pageNo) || 1)
@@ -8950,7 +8906,6 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
   resetReviewAllocation()
   reviewForm.reviewRemark = ''
   reviewForm.reviewSignaturePassword = ''
-  reviewVisible.value = true
   const isCurrent = leaderReviewGuard.capture()
   try {
     const [snapshot] = await Promise.all([
@@ -8963,6 +8918,8 @@ const openAllocation = async (event: ProcessPoolTimelineEventVO) => {
     if (!isCurrent()) return
     applyAllocationSnapshot(snapshot)
     prefillSelectedOrderAllocation(event, snapshot)
+    // Do not expose editable rows until the initial snapshot and prefill settle.
+    reviewVisible.value = true
   } catch (error) {
     if (!isCurrent()) return
     ElMessage.error(resolveErrorMessage(error, '报工分配加载失败'))
@@ -9226,7 +9183,8 @@ const openPqcCorrection = (event: ProcessPoolTimelineEventVO, eventId: number) =
       standardUpperLimit: item.standardUpperLimit,
       standardPrecision: item.standardPrecision,
       resultType: item.resultType,
-      sampleValuesText: normalizePqcSampleText(sampleValues)
+      sampleValuesText: normalizePqcSampleText(sampleValues),
+      sampleQuantity: sampleValues.length
     }
   })
   correctionVisible.value = true
@@ -9253,13 +9211,20 @@ const openCorrection = async (event: ProcessPoolTimelineEventVO) => {
       openPqcCorrection(current, eventId)
       return
     }
-    await openProductionCorrection(event, eventId)
+    const current = await getTeamLeaderSubmissionDetail(eventId, resolveCurrentLeaderType())
+    if (Number(current.id) !== eventId || !canCorrectSubmission(current)) throw new Error('记录已变化，请刷新后核对')
+    await openProductionCorrection(current, eventId)
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '修改入口打开失败'))
   }
 }
 
 const requireCorrectionAuditFields = () => {
+  const expectedRevisionId = Number(correctionEvent.value?.displayedRevisionId)
+  const expectedPayloadHash = correctionEvent.value?.displayedPayloadHash
+  if (!Number.isSafeInteger(expectedRevisionId) || expectedRevisionId < 0 || !expectedPayloadHash) {
+    throw new Error('缺少记录版本，请重新打开补正页面')
+  }
   const changeReason = correctionForm.changeReason.trim()
   if (!changeReason) {
     throw new Error('修改原因不能为空')
@@ -9272,6 +9237,8 @@ const requireCorrectionAuditFields = () => {
   }
   return {
     changeReason,
+    expectedRevisionId,
+    expectedPayloadHash,
     signaturePassword: correctionForm.signaturePassword
   }
 }
@@ -9407,8 +9374,8 @@ const buildPqcCorrectionRequest = () => {
       throw new Error('PQC检验项目编码不能为空')
     }
     const sampleValues = parsePqcSampleText(item.sampleValuesText)
-    if (sampleValues.length !== actualInspectionQuantity) {
-      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须等于检验数量`)
+    if (sampleValues.length !== item.sampleQuantity) {
+      throw new Error(`PQC项目 ${item.itemName || itemCode} 的样本数量必须保持为${item.sampleQuantity}`)
     }
     sampleValuesByItem.set(itemCode, sampleValues)
     return {
@@ -9873,7 +9840,13 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
     request = freezeActiveOrderReleaseRequest(row)
     frozenSourceKey = rowSourceKey()
     await ElMessageBox.confirm(
-      '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。',
+      h('div', [
+        h('p', [
+          '工单号：',
+          h('strong', { 'data-team-leader-release-confirm-work-order': '' }, row.workOrderCode)
+        ]),
+        h('p', '系统将先完成生产订单和正式资料回填，再提交生产放行申请并生成一个PQC待办；提交前会执行P2生成批记录、过程检验记录和批次执行。')
+      ]),
       '提交生产放行申请',
       { type: 'warning', confirmButtonText: '申请放行', cancelButtonText: '取消' }
     )
@@ -9969,39 +9942,6 @@ const submitActiveOrderReleaseApplication = async (row: TeamLeaderActiveOrderRes
     ElMessage.error(releaseApplicationUncertainMessage.value)
   } finally {
     if (isCurrent()) releaseApplicationSubmittingId.value = undefined
-  }
-}
-
-const submitMoveActiveOrder = async (
-  row: TeamLeaderActiveOrderRespVO,
-  direction: 'UP' | 'DOWN'
-) => {
-  if (activeOrderTestResetSubmitting.value) return
-  activeOrderMoveSubmittingId.value = row.id
-  activeOrderMoveDirection.value = direction
-  let writeCompleted = false
-  try {
-    await moveTeamLeaderActiveOrder({
-      activeOrderId: requirePositiveNumber(row.id, '活跃订单记录ID不能为空'),
-      direction
-    })
-    writeCompleted = true
-    await loadActiveOrders()
-    ElMessage.success(direction === 'UP' ? '活跃订单已上移' : '活跃订单已下移')
-  } catch (error) {
-    ElMessage.error(
-      resolveErrorMessage(
-        error,
-        writeCompleted
-          ? '活跃订单排序已保存，但列表刷新失败'
-          : direction === 'UP'
-            ? '活跃订单上移失败'
-            : '活跃订单下移失败'
-      )
-    )
-  } finally {
-    activeOrderMoveSubmittingId.value = undefined
-    activeOrderMoveDirection.value = undefined
   }
 }
 
@@ -11626,6 +11566,11 @@ onMounted(() => {
 
 :deep(.team-leader-workbench__active-order-row--quantity-conflict > td) {
   background: var(--el-color-danger-light-9) !important;
+}
+
+.team-leader-workbench__active-order-test-menu {
+  margin-left: 12px;
+  vertical-align: middle;
 }
 
 .team-leader-workbench__active-order-code-cell {

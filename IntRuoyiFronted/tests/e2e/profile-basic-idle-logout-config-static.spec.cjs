@@ -8,7 +8,7 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath))
 
 const profileIndexPath = 'src/views/Profile/Index.vue'
 const componentIndexPath = 'src/views/Profile/components/index.ts'
-const basicConfigPath = 'src/views/Profile/components/ProfileBasicConfig.vue'
+const basicConfigPath = 'src/views/infra/config/basic/components/IdleLogoutSetting.vue'
 
 assert(exists(profileIndexPath), 'Profile index must exist')
 assert(exists(componentIndexPath), 'Profile component barrel must exist')
@@ -18,48 +18,16 @@ const profileIndex = read(profileIndexPath)
 const componentIndex = read(componentIndexPath)
 const basicConfig = read(basicConfigPath)
 
-assert(
-  profileIndex.includes('ProfileBasicConfig'),
-  'Profile config tab must render the basic config component'
-)
-assert(
-  /<el-tab-pane[\s\S]{0,180}label="基础配置"[\s\S]{0,180}name="basicConfig"/.test(profileIndex),
-  'Profile config tab strip must include a 基础配置 sub-tab in the red-box position'
-)
-assert(
-  profileIndex.includes("INFRA_CONFIG_QUERY_PERMISSION = 'infra:config:query'") &&
-    profileIndex.includes("INFRA_CONFIG_UPDATE_PERMISSION = 'infra:config:update'"),
-  'Profile basic config must be permission-gated by infra config query/update permissions'
-)
-assert(
-  profileIndex.includes("import { checkPermi } from '@/utils/permission'"),
-  'Profile basic config permission checks must reuse the shared permission helper'
-)
-assert(
-  /const\s+hasProfilePermission\s*=\s*\(permission:\s*string\)\s*=>[\s\S]{0,160}isAdminUser\.value[\s\S]{0,160}checkPermi\(\[permission\]\)/.test(
-    profileIndex
-  ),
-  'Profile basic config permissions must treat super admin/admin as configurable while preserving normal permission checks'
-)
-assert(
-  !/userStore\.permissions\.has\(INFRA_CONFIG_(QUERY|UPDATE)_PERMISSION\)/.test(profileIndex),
-  'Profile basic config must not bypass shared permission handling for infra config permissions'
-)
-assert(
-  /hasAnyProfileConfigPermission[\s\S]{0,220}hasInfraConfigQueryPermission/.test(profileIndex) ||
-    /hasInfraConfigQueryPermission[\s\S]{0,220}hasAnyProfileConfigPermission/.test(profileIndex),
-  'Profile config tab must be visible for infra config query permission'
-)
-assert(
-  /route\.query\.config\s*===\s*'basicConfig'[\s\S]{0,260}hasInfraConfigQueryPermission/.test(
-    profileIndex
-  ),
-  'Profile must allow direct navigation to the basic config sub-tab'
-)
-assert(
-  componentIndex.includes('ProfileBasicConfig'),
-  'Profile component barrel must export ProfileBasicConfig'
-)
+const basicPage = read('src/views/infra/config/basic/index.vue')
+const access = read('src/utils/businessConfigAccess.ts')
+assert(basicPage.includes('<IdleLogoutSetting v-if="canQuery" :can-update="canUpdate"'), 'infra page mounts only authorized idle configuration')
+assert(basicPage.includes("hasInfraConfigPermission('infra:config:query')"), 'query permission remains independent')
+assert(basicPage.includes("hasInfraConfigPermission('infra:config:update')"), 'update permission remains independent')
+assert(access.includes("checkPermi([permission])"), 'infra policy retains shared permission evaluation')
+assert(access.includes("user.getRoles.includes('super_admin')") && access.includes("user.getUser.username === 'admin'"), 'infra administrator behavior is preserved')
+assert(!profileIndex.includes('ProfileBasicConfig') && !componentIndex.includes('ProfileBasicConfig'), 'Profile no longer imports business configuration')
+assert(read('src/router/modules/businessConfig.ts').includes("name: 'InfraBasicConfig'"), 'basic config has named independent route')
+assert(read('src/views/system/config-migration/BusinessConfigMigrationNotice.vue').includes("name: 'InfraBasicConfig'"), 'old config URL offers explicit migration target')
 
 for (const token of [
   'data-testid="profile-basic-config"',

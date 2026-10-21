@@ -45,6 +45,7 @@ type RequestCustomConfig = InternalAxiosRequestConfig & {
   isRequestContextCurrent?: () => boolean
   isSuccessReceiptContextCurrent?: () => boolean
   returnOriginalResponse?: boolean
+  skipAuthRefreshReplay?: boolean
 }
 
 const assertRequestContextCurrent = (config?: RequestCustomConfig) => {
@@ -152,7 +153,11 @@ service.interceptors.request.use(
   },
   (error: AxiosError) => {
     // Do something with request error
-    console.log(error) // for debug
+    if ((error.config as RequestCustomConfig | undefined)?.skipAuthRefreshReplay) {
+      console.error('工作台请求发送失败', 'WORKBENCH_REQUEST_FAILED')
+    } else {
+      console.log(error) // for debug
+    }
     return Promise.reject(error)
   }
 )
@@ -213,6 +218,9 @@ service.interceptors.response.use(
       // 如果是忽略的错误码，直接返回 msg 异常
       return Promise.reject(msg)
     } else if (code === 401) {
+      if (config.skipAuthRefreshReplay) {
+        return Promise.reject(createApiError(msg, code, data))
+      }
       // 如果未认证，并且未进行刷新令牌，说明可能是访问令牌过期了
       if (!isRefreshToken) {
         // 1. 如果获取不到刷新令牌，则只能执行登出操作
@@ -327,7 +335,11 @@ service.interceptors.response.use(
   },
   (error: AxiosError) => {
     assertRequestContextCurrent(error.config as RequestCustomConfig | undefined)
-    console.log('err' + error) // for debug
+    if ((error.config as RequestCustomConfig | undefined)?.skipAuthRefreshReplay) {
+      console.error('工作台请求响应失败', 'WORKBENCH_REQUEST_FAILED')
+    } else {
+      console.log('err' + error) // for debug
+    }
     let { message } = error
     const { t } = useI18n()
     const ignoreErrorMessage = (error.config as RequestCustomConfig | undefined)?.ignoreErrorMessage === true

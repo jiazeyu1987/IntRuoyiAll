@@ -190,8 +190,26 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return buildDetail(activeOrder, activeOrderId, true, PqcSignaturePurpose.READ_PROJECTION);
     }
 
+    @Override
+    public MesTeamLeaderActiveOrderDetail getArchivedSignatureDetail(Long activeOrderId, Long signatureId) {
+        if (signatureId == null || signatureId <= 0) {
+            throw new IllegalArgumentException("SIGNATURE_DETAIL_ID_REQUIRED");
+        }
+        MesProcessPoolActiveOrderDO activeOrder = activeOrderMapper.selectByIdIgnoreDeleted(activeOrderId);
+        if (activeOrder == null) {
+            throw exception(PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS, activeOrderId);
+        }
+        return buildDetail(activeOrder, activeOrderId, true, PqcSignaturePurpose.READ_PROJECTION, signatureId);
+    }
+
     private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
                                                         boolean archivedFormalSource, PqcSignaturePurpose signaturePurpose) {
+        return buildDetail(activeOrder, activeOrderId, archivedFormalSource, signaturePurpose, null);
+    }
+
+    private MesTeamLeaderActiveOrderDetail buildDetail(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
+                                                        boolean archivedFormalSource, PqcSignaturePurpose signaturePurpose,
+                                                        Long signatureId) {
         List<MesTeamLeaderActiveOrderDetailReadDO> rows = archivedFormalSource && "REWORKED".equals(activeOrder.getBusinessStatus())
                 ? detailReadMapper.selectArchivedReworkByActiveOrderId(activeOrderId, activeOrder.getTenantId())
                 : detailReadMapper.selectByActiveOrderId(activeOrderId);
@@ -202,18 +220,29 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         requireText(first.getWorkOrderCode(), activeOrderId);
         requireText(first.getRouteName(), activeOrderId);
 
+        // A correction is admitted only through the same order's persisted production/PQC event below.
+        MesProProcessPoolEventRevisionDO signatureRevision = signatureId == null ? null
+                : eventRevisionMapper.selectBySignatureId(signatureId);
+        Long revisionEventId = signatureRevision != null
+                && MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE.equals(signatureRevision.getRevisionStatus())
+                ? signatureRevision.getEventId() : null;
+
         Map<ProcessIdentity, ProcessAccumulator> accumulators = new LinkedHashMap<>();
         for (MesTeamLeaderActiveOrderDetailReadDO row : rows) {
             validateProcessRow(row, activeOrderId);
             ProcessIdentity identity = new ProcessIdentity(row.getRouteProcessId(), row.getProcessId());
             ProcessAccumulator accumulator = accumulators.computeIfAbsent(identity,
                     ignored -> new ProcessAccumulator(row));
-            accumulator.addSubmission(row, activeOrderId);
+            if (signatureId == null || Objects.equals(signatureId, row.getSubmitterSignatureId())
+                    || Objects.equals(signatureId, row.getReviewerSignatureId())
+                    || (revisionEventId != null && Objects.equals(revisionEventId, row.getEventId()))) {
+                accumulator.addSubmission(row, activeOrderId);
+            }
         }
         FormalInputSourceSnapshot inputSourceSnapshot = resolveInputSourceSnapshot(activeOrder, activeOrderId);
         attachInputMaterials(activeOrder, activeOrderId, accumulators, inputSourceSnapshot, archivedFormalSource);
         attachSupplementMaterials(first.getWorkOrderCode(), activeOrderId, accumulators);
-        attachPqcSubmissions(activeOrder, activeOrderId, accumulators);
+        var pqcSubmissions = readPqcSubmissions(activeOrder, activeOrderId, signatureId, revisionEventId);
         MesProcessPoolActiveOrderReleaseApplicationDO application =
                 releaseApplicationMapper.selectLatestByActiveOrderId(activeOrderId);
         MesTeamLeaderActiveOrderDetail detail = new MesTeamLeaderActiveOrderDetail()
@@ -234,6 +263,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 .setRouteName(first.getRouteName())
                 .setInputMaterialUsages(resolveInputMaterialUsages(inputSourceSnapshot))
                 .setProcesses(accumulators.values().stream().map(ProcessAccumulator::toDetail).toList())
+                .setPqcSubmissions(pqcSubmissions)
                 .setActiveOrderStatus(resolveActiveOrderStatus(application))
                 .setOperationFacts(resolveOperationFacts(activeOrderId))
                 .setReworkSource(resolveReworkSource(activeOrder));
@@ -307,7 +337,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 || !Objects.equals(signature.subjectVersion(), cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject))
                 || !Objects.equals(signature.reason(), review.getReviewOpinion())
                 || !"VALID".equals(signature.verificationStatus()) || signature.signedAt() == null
-                || signature.actorDisplayName() == null || signature.actorDisplayName().isBlank()
                 || signature.contentHash() == null || signature.contentHash().isBlank()
                 || signature.evidenceHash() == null || signature.evidenceHash().isBlank()) {
             throw new IllegalStateException("REWORK_DETAIL_QA_SIGNATURE_MISMATCH");
@@ -330,7 +359,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         if (actualCanonical.containsKey("signatureIdentity")) {
             JSONObject identity = actualCanonical.getJSONObject("signatureIdentity");
-            if (identity == null || !identity.keySet().equals(Set.of("domain", "signerId", "displayName", "operatorId", "tenantId"))
+            if (identity == null || signature.actorDisplayName() == null || signature.actorDisplayName().isBlank()
+                    || !identity.keySet().equals(Set.of("domain", "signerId", "displayName", "operatorId", "tenantId"))
                     || !"SYSTEM_USER".equals(identity.getString("domain"))
                     || !Objects.equals(identity.getLong("tenantId"), current.getTenantId())
                     || !Objects.equals(identity.getLong("signerId"), review.getQaUserId())
@@ -618,8 +648,9 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         var task = MesActiveOrderSignatureEvidenceService.readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId());
         var batch = MesActiveOrderSignatureEvidenceService.readPqcBatch(batchExecutionMapper, application.getBatchExecutionId());
-        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application, task, batch, signature);
+        MesActiveOrderSignatureEvidenceService.requirePqcPersistedBinding(detail, application, task, batch, signature);
         ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signatureId);
+        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application, task, batch, signature, verification);
         MesActiveOrderSignatureEvidenceService.requireVerification(signature, verification);
         if (purpose == PqcSignaturePurpose.FORMAL_CONSUMPTION) {
             MesActiveOrderSignatureEvidenceService.requirePqcIdentity(detail, application, task, batch, signature);
@@ -921,8 +952,8 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         return byMaterialCode;
     }
 
-    private void attachPqcSubmissions(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
-                                      Map<ProcessIdentity, ProcessAccumulator> accumulators) {
+    private List<MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail> readPqcSubmissions(MesProcessPoolActiveOrderDO activeOrder, Long activeOrderId,
+                                      Long signatureId, Long revisionEventId) {
         List<MesPqcInspectionTaskDO> tasks = pqcTaskMapper.selectListByActiveOrderId(activeOrderId);
         if (tasks == null) {
             throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
@@ -946,23 +977,35 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
         }
+        Map<Long, MesTeamLeaderActiveOrderEventPartyReadDO> eventPartiesById =
+                loadEventParties(activeOrderId, tasks);
+        if (signatureId != null) {
+            tasks = tasks.stream().filter(task -> {
+                var party = eventPartiesById.get(task.getSubmittedEventId());
+                return party != null && (Objects.equals(signatureId, party.getSubmitterSignatureId())
+                        || Objects.equals(signatureId, party.getReviewerSignatureId())
+                        || (revisionEventId != null && Objects.equals(revisionEventId, party.getEventId())));
+            }).toList();
+        }
+        if (tasks.isEmpty()) {
+            return List.of();
+        }
         Map<Long, MesQaInspectionRegulationProcessDO> qaProcessesById = mapById(
                 qaProcessMapper.selectBatchIds(distinctIds(tasks, MesPqcInspectionTaskDO::getQaProcessId)),
                 MesQaInspectionRegulationProcessDO::getId, activeOrderId, "qaProcess");
-        Map<Long, MesTeamLeaderActiveOrderEventPartyReadDO> eventPartiesById =
-                loadEventParties(activeOrderId, tasks);
         Map<Long, PqcSubmittedSnapshot> submittedItemsByEventId =
                 loadPqcSubmittedItemsByEventId(activeOrderId, tasks);
         Map<PqcSubmissionIdentity, PqcSubmissionAccumulator> pqcSubmissionAccumulators = new LinkedHashMap<>();
         boolean collapseStage1Copies = isStage1Simulation(activeOrder);
         Set<PqcStage1SubmissionDisplayIdentity> displayedStage1Identities = new LinkedHashSet<>();
         for (MesPqcInspectionTaskDO task : tasks) {
-            if (task == null || task.getId() == null || task.getRouteProcessId() == null
-                    || task.getProcessId() == null || task.getQaProcessId() == null
-                    || trimToNull(task.getQaItemCode()) == null
+            if (task == null || task.getId() == null || task.getRouteProcessId() != null
+                    || task.getProcessId() != null || task.getQaProcessId() == null
+                    || trimToNull(task.getQaItemCode()) != null
                     || trimToNull(task.getInspectionRuleKey()) == null) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
             }
+            cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
             MesQaInspectionRegulationProcessDO qaProcess = qaProcessesById.get(task.getQaProcessId());
             if (qaProcess == null || !Objects.equals(qaProcess.getRegulationVersionId(), task.getRegulationVersionId())) {
                 throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
@@ -980,11 +1023,6 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
                     && !displayedStage1Identities.add(PqcStage1SubmissionDisplayIdentity.of(task))) {
                 continue;
             }
-            ProcessAccumulator accumulator = accumulators.get(
-                    new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()));
-            if (accumulator == null) {
-                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
-            }
             MesTeamLeaderActiveOrderEventPartyReadDO eventParty = eventPartiesById.get(task.getSubmittedEventId());
             PqcSubmissionIdentity submissionIdentity = new PqcSubmissionIdentity(
                     new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()),
@@ -999,14 +1037,7 @@ public class MesTeamLeaderActiveOrderDetailServiceImpl implements MesTeamLeaderA
         }
         List<PqcSubmissionAccumulator> orderedPqcSubmissions = arrangePqcSubmissionDisplayOrder(
                 activeOrder, activeOrderId, pqcSubmissionAccumulators.values());
-        for (PqcSubmissionAccumulator pqcSubmission : orderedPqcSubmissions) {
-            ProcessAccumulator accumulator = accumulators.get(pqcSubmission.processIdentity());
-            if (accumulator == null) {
-                throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrderId);
-            }
-            accumulator.addPqcSubmission(pqcSubmission.toDetail(
-                    accumulator.productionSubmitterSignaturesByEventId()));
-        }
+        return orderedPqcSubmissions.stream().map(submission -> submission.toDetail(Map.of())).toList();
     }
 
     private static List<PqcSubmissionAccumulator> arrangePqcSubmissionDisplayOrder(

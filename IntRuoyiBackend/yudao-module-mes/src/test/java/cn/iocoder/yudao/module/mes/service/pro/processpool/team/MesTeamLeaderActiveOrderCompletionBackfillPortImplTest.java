@@ -413,7 +413,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     @Test
-    void productionProcessWithoutConfiguredPqcTaskDoesNotBlockInspectionBackfill() {
+    void wholeOrderInspectionBackfillDoesNotRequireProductionProcessAssociation() {
         MesProcessPoolActiveOrderProcessSnapshotDO secondSnapshot = snapshot(102L, 1L);
         when(snapshotMapper.selectListByActiveOrderIdForUpdate(10L))
                 .thenReturn(List.of(snapshot(101L, 1L), secondSnapshot));
@@ -421,8 +421,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 .thenReturn(List.of(allocation(201L, 101L), allocation(202L, 102L)));
         when(completionMapper.selectListByWorkOrderIdsForUpdate(List.of(30L)))
                 .thenReturn(List.of(completion(301L, 101L, 201L), completion(302L, 102L, 202L)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L)));
-        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail(801L, 701L, 101L)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task()));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(detail()));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO,
                 List.of(snapshot(101L, 1L), secondSnapshot)));
 
@@ -447,8 +447,8 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     @Test
     void multipleInspectionDetailsForOneConfirmedTaskMustBeAccepted() {
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
-                .thenReturn(List.of(detail(801L, 701L, 101L, 2), detail(802L, 701L, 101L, 2)));
-        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 101L, 2)));
+                .thenReturn(List.of(detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
         when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
 
         MesTeamLeaderActiveOrderCompletionBackfillDraft draft = port.prepare(20L, order(), command());
@@ -460,7 +460,7 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
 
     @Test
     void inspectionDetailWithoutFormalPieceSourceMustBeRejectedBeforeBackfill() {
-        MesPqcProcessInspectionAggregateDetailDO invalid = detail(801L, 701L, 101L)
+        MesPqcProcessInspectionAggregateDetailDO invalid = detail()
                 .setSourcePieceDetailId(null);
         when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(invalid));
 
@@ -468,6 +468,85 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
                 () -> port.prepare(20L, order(), command()));
 
         assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), ex.getCode());
+    }
+
+    @Test
+    void mixedItemSamplingUsesFrozenItemQuantitiesInsteadOfTotalDetailCount() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+                .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2),
+                detail(803L, 701L, 1, 2).setItemCode("I2")));
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        var draft = port.prepare(20L, order(), command());
+
+        assertEquals(List.of(701L, 801L, 802L, 803L),
+                JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class));
+    }
+
+    @Test
+    void sevenQaProcessesAcrossThreeStagesProduceTwentyOneBackfillTasks() {
+        List<MesPqcInspectionTaskDO> tasks = new ArrayList<>();
+        List<MesPqcProcessInspectionAggregateDetailDO> details = new ArrayList<>();
+        for (long qaProcess = 1; qaProcess <= 7; qaProcess++) {
+            for (String stage : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
+                long index = tasks.size();
+                tasks.add(task(701L + index, 1).setQaProcessId(1700L + qaProcess).setInspectionRuleKey(stage));
+                details.add(detail(801L + index, 701L + index, 1, 1));
+            }
+        }
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(tasks);
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(details);
+        when(lossSourceReader.read(any())).thenReturn(lossSources(BigDecimal.ZERO));
+
+        var draft = port.prepare(20L, order(), command());
+
+        assertEquals(42, JsonUtils.parseArray(draft.getProcessInspectionSourceIdsJson(), Long.class).size());
+    }
+
+    @Test
+    void productionBoundQaTaskCannotBeUsedAsWholeOrderInspectionEvidence() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(task().setRouteProcessId(101L).setProcessId(1L)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void missingInspectionItemCannotBeHiddenByAnotherItemsSampleCount() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)
+                .setInspectionItemPlanJson("{\"I1\":2,\"I2\":1}")));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 2, 2)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void duplicateSampleNumberCannotSatisfyFrozenItemSamplingPlan() {
+        when(taskMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(task(701L, 2)));
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L)).thenReturn(List.of(
+                detail(801L, 701L, 1, 2), detail(802L, 701L, 1, 2)));
+
+        assertMissingInspectionSource();
+    }
+
+    @Test
+    void wrongQaVersionAndOrphanTaskDetailsAreRejected() {
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(detail().setRegulationVersionId(1502L)));
+        assertMissingInspectionSource();
+
+        when(detailMapper.selectListByActiveOrderIdForUpdate(10L))
+                .thenReturn(List.of(detail(), detail(802L, 999L, 1, 1)));
+        assertMissingInspectionSource();
+    }
+
+    private void assertMissingInspectionSource() {
+        var error = assertThrows(ServiceException.class, () -> port.prepare(20L, order(), command()));
+        assertEquals(PRO_PROCESS_POOL_ACTIVE_ORDER_COMPLETION_SOURCE_MISSING.getCode(), error.getCode());
+        verify(backfillMapper, org.mockito.Mockito.never()).insert(any(MesProcessPoolActiveOrderCompletionBackfillDO.class));
     }
 
     private MesTeamLeaderActiveOrderReleaseLossSourceReadResult lossSources(BigDecimal loss) {
@@ -544,33 +623,28 @@ class MesTeamLeaderActiveOrderCompletionBackfillPortImplTest {
     }
 
     private MesPqcInspectionTaskDO task() {
-        return task(701L, 101L);
+        return task(701L, 1);
     }
 
-    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId) {
-        return task(id, routeProcessId, 1);
-    }
-
-    private MesPqcInspectionTaskDO task(Long id, Long routeProcessId, Integer actualInspectionQuantity) {
+    private MesPqcInspectionTaskDO task(Long id, Integer actualInspectionQuantity) {
         return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(10L).workOrderId(30L).routeId(40L)
-                .routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .routeVersionId(41L).qaProcessId(1701L).regulationVersionId(1501L)
+                .inspectionRuleKey("FIRST").inspectionItemPlanJson("{\"I1\":" + actualInspectionQuantity + "}")
+                .plannedInspectionQuantity(actualInspectionQuantity)
                 .actualInspectionQuantity(actualInspectionQuantity).submittedEventId(401L)
                 .taskStatus("CONFIRMED").build();
     }
 
     private MesPqcProcessInspectionAggregateDetailDO detail() {
-        return detail(801L, 701L, 101L);
+        return detail(801L, 701L, 1, 1);
     }
 
-    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId) {
-        return detail(id, taskId, routeProcessId, 1);
-    }
-
-    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Long routeProcessId,
+    private MesPqcProcessInspectionAggregateDetailDO detail(Long id, Long taskId, Integer sampleNo,
                                                             Integer actualInspectionQuantity) {
         return MesPqcProcessInspectionAggregateDetailDO.builder().id(id).activeOrderId(10L)
-                .workOrderId(30L).routeId(40L).routeVersionId(41L).routeProcessId(routeProcessId).processId(1L)
+                .workOrderId(30L).routeId(40L).routeVersionId(41L).regulationVersionId(1501L)
                 .sourcePqcRecordId(901L).sourcePieceDetailId(id + 1000L).eventId(401L).reviewId(601L)
+                .itemCode("I1").sampleNo(sampleNo)
                 .actualInspectionQuantity(actualInspectionQuantity).pqcTaskId(taskId).build();
     }
 

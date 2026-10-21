@@ -17,6 +17,10 @@ public class MesQaInspectionRegulationSaveReqVO {
     @Schema(description = "QA 检验规程 ID")
     private Long regulationId;
 
+    @NotNull(message = "缺少草稿编辑版本，请重新加载")
+    @jakarta.validation.constraints.Min(0)
+    private Long expectedDraftRevision;
+
     @Schema(description = "DCC 项目代码 ID", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "DCC 项目代码不能为空")
     private Long dccProjectCodeId;

@@ -2,6 +2,7 @@
   <doc-alert title="【ERP】金蝶同步运行" url="https://doc.iocoder.cn/erp/" />
 
   <ContentWrap>
+    <el-button v-if="canOpenSyncConfig" @click="configRouter.push({ name: 'ErpTableAutoSyncConfig' })">自动同步配置</el-button>
     <el-form
       ref="queryFormRef"
       class="-mb-15px"
@@ -225,6 +226,11 @@
 </template>
 
 <script setup lang="ts">
+const configRouter = useRouter()
+import { hasErpConfigCapability } from '@/utils/businessConfigAccess'
+const canOpenSyncConfig = computed(() =>
+  hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query'])
+)
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { ErpKingdeeSyncApi } from '@/api/erp/sync'
 import type {

@@ -41,4 +41,21 @@ class MesArchivedReworkDetailMapperTest {
         assertEquals(java.util.List.of("archivedTenantId","activeOrderId"),
                 bound.getParameterMappings().stream().map(org.apache.ibatis.mapping.ParameterMapping::getProperty).toList());
     }
+
+    @Test
+    void productionAndPqcHistoryUseTheOriginalReviewSignatureTimeWithinTheEventTenant() throws Exception {
+        var configuration = configuration();
+        for (var statement : java.util.List.of("selectByActiveOrderId", "selectArchivedReworkByActiveOrderId",
+                "selectEventPartiesByEventIds")) {
+            var sql = configuration.getMappedStatement(MesProcessPoolActiveOrderDetailReadMapper.class.getName()
+                    + "." + statement).getBoundSql(Map.of("activeOrderId", 419L, "archivedTenantId", 1L,
+                    "eventIds", java.util.List.of(701L, 702L))).getSql().replaceAll("\\s+", " ");
+            assertTrue(sql.contains("review_signature.signed_at AS reviewerSignedAt"), statement);
+            assertFalse(sql.contains("latest_review.reviewed_at AS reviewerSignedAt"), statement);
+            assertTrue(sql.contains("review_signature.id = latest_review.review_signature_id"), statement);
+            assertTrue(sql.contains("review_signature.tenant_id = pool_event.tenant_id"), statement);
+            assertTrue(sql.contains("review_signature.deleted = 0"), statement);
+            assertTrue(sql.contains("latest_review.tenant_id = pool_event.tenant_id"), statement);
+        }
+    }
 }

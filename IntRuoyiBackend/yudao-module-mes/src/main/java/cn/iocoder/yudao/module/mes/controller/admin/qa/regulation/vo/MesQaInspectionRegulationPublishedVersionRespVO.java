@@ -22,6 +22,7 @@ public class MesQaInspectionRegulationPublishedVersionRespVO {
     private Long regulationId;
     private Long publishedVersionId;
     private String versionNo;
+    private Long draftRevision;
     private LocalDate effectiveDate;
     private LocalDateTime publishedAt;
     private Boolean immutable;

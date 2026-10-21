@@ -1,27 +1,22 @@
 import { defineStore } from 'pinia'
 import { effectScope, watch } from 'vue'
-import {
-  getProfileWorkbenchTodoCount,
-  type ProfileWorkbenchTodoSourceId
-} from '@/api/system/profileWorkbenchTodo'
-import { usePermissionStoreWithOut } from '@/store/modules/permission'
-import { useUserStoreWithOut } from '@/store/modules/user'
-import { getTenantId, getVisitTenantId } from '@/utils/auth'
-import { checkPermi } from '@/utils/permission'
+import { getProfileWorkbenchTodoCount, initializeWorkbenchContext } from '@/api/system/profileWorkbenchTodo'
+import { authorizedWorkbenchSources, refreshWorkbenchDirectory, workbenchDirectoryRevision, workbenchIdentityKey } from '@/workbench/registry'
+import { beginWorkbenchRead, isWorkbenchReadCurrent, workbenchInvalidationReason, workbenchLifetime, type WorkbenchReadLease } from '@/workbench/queryContext'
 import { store } from '../index'
 
-const TODO_TOTAL_REFRESH_INTERVAL_MS = 30 * 1000
-
+export const hasProfileWorkbenchTodoBadgeRoute = (routes: AppRouteRecordRaw[] = []): boolean =>
+  routes.some(route => Boolean(route.meta?.personalWorkbenchTodoBadge || hasProfileWorkbenchTodoBadgeRoute(route.children || [])))
+export const normalizeProfileWorkbenchSources = (sources: string[]) => [...new Set(sources)].sort()
 export interface ProfileWorkbenchBadgeScope {
-  userId: string
-  tenantId: string
-  badgeSources: ProfileWorkbenchTodoSourceId[]
+  badgeSources: string[]
+  registryRevision: string
+  authorizationKey: string
 }
-
 export interface ProfileWorkbenchBadgeToken extends ProfileWorkbenchBadgeScope {
   epoch: number
+  lease: WorkbenchReadLease
 }
-
 interface BadgePatch {
   todoTotal?: number
   loaded?: boolean
@@ -29,108 +24,61 @@ interface BadgePatch {
   error?: string
   lastLoadedAt?: number
 }
-
-let pendingTodoTotalRequest:
-  | { token: ProfileWorkbenchBadgeToken; promise: Promise<void> }
-  | undefined
-let contextWatchStarted = false
-
-export const hasProfileWorkbenchTodoBadgeRoute = (routes: AppRouteRecordRaw[] = []): boolean =>
-  routes.some((route) =>
-    Boolean(
-      route.meta?.personalWorkbenchTodoBadge ||
-        hasProfileWorkbenchTodoBadgeRoute(route.children || [])
-    )
-  )
-
-const hasRouteName = (routes: AppRouteRecordRaw[] = [], targetName: string): boolean =>
-  routes.some((route) => route.name === targetName || hasRouteName(route.children || [], targetName))
-
-export const normalizeProfileWorkbenchSources = (sources: ProfileWorkbenchTodoSourceId[]) =>
-  [...new Set(sources)].sort()
-
-export const resolveProfileWorkbenchBadgeScope = (): ProfileWorkbenchBadgeScope => {
-  const userStore = useUserStoreWithOut()
-  const permissionStore = usePermissionStoreWithOut()
-  const sources: ProfileWorkbenchTodoSourceId[] = []
-  if (checkPermi(['dcc:controlled-file:query'])) sources.push('DCC_DISTRIBUTION')
-  if (checkPermi(['dcc:controlled-file:training:mine'])) sources.push('DCC_TRAINING')
-  if (
-    checkPermi(['mes:pro-edhr-work-task:query']) ||
-    checkPermi(['mes:pro-edhr-batch-execution:query'])
-  ) sources.push('EDHR_WORK_TASK')
-  if (checkPermi(['mes:pro-work-order:query'])) sources.push('WORK_ORDER')
-  if (
-    userStore.getRoles.includes('super_admin') ||
-    hasRouteName(permissionStore.getRouters, 'ShowroomAdminAssignment')
-  ) sources.push('SHOWROOM_ASSIGNMENT')
-  return {
-    userId: String(userStore.getUser.id),
-    tenantId: JSON.stringify([String(getTenantId() ?? ''), String(getVisitTenantId() ?? '')]),
-    badgeSources: normalizeProfileWorkbenchSources(sources)
-  }
-}
-
+export const resolveProfileWorkbenchBadgeScope = (): ProfileWorkbenchBadgeScope => ({
+  badgeSources: normalizeProfileWorkbenchSources(authorizedWorkbenchSources().map(source => source.sourceId)),
+  registryRevision: workbenchDirectoryRevision(), authorizationKey: workbenchIdentityKey()
+})
 export const profileWorkbenchBadgeScopeKey = (scope: ProfileWorkbenchBadgeScope) =>
-  JSON.stringify([scope.userId, scope.tenantId, normalizeProfileWorkbenchSources(scope.badgeSources)])
-
+  JSON.stringify([scope.badgeSources, scope.registryRevision, scope.authorizationKey])
 export const requireProfileWorkbenchTodoTotal = (total: unknown): number => {
-  if (typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0) {
-    throw new Error(`个人工作台待处理数量异常：${String(total)}`)
-  }
+  if (typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0) throw new Error('工作台待处理数量无效。')
   return total
 }
-
-const resolveTodoBadgeError = (error: unknown) => {
-  if (error instanceof Error && error.message) return error.message
-  if (typeof error === 'string') return error
-  return '个人工作台待处理数量加载失败'
-}
-
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error)
 export const useProfileWorkbenchTodoBadgeStore = defineStore('profileWorkbenchTodoBadge', {
   state: () => ({
-    todoTotal: 0,
-    loaded: false,
-    loading: false,
-    error: '',
-    lastLoadedAt: 0,
-    badgeUpdateEpoch: 0,
-    scopeKey: ''
+    todoTotal: undefined as number | undefined, loaded: false, loading: false, error: '',
+    lastLoadedAt: 0, badgeUpdateEpoch: 0, scopeKey: '', watching: false
   }),
   getters: {
-    getHasVisibleTodoBadge: (state) =>
-      state.loaded && state.todoTotal > 0 &&
+    getHasVisibleTodoBadge: state => state.loaded && state.todoTotal !== undefined && state.todoTotal > 0 &&
       state.scopeKey === profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope()),
-    getTodoBadgeText: (state) =>
-      state.loaded && state.todoTotal > 0 &&
-      state.scopeKey === profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope())
-        ? String(state.todoTotal) : ''
+    getTodoBadgeText: state => state.loaded && state.todoTotal !== undefined && state.todoTotal > 0 &&
+      state.scopeKey === profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope()) ? String(state.todoTotal) : ''
   },
   actions: {
     ensureContextWatch() {
-      if (contextWatchStarted) return
-      contextWatchStarted = true
-      // Epoch survives logout so a previous session's requests cannot become current again.
+      if (this.watching) return
+      this.watching = true
       effectScope(true).run(() => {
-        watch(
-          () => profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope()),
-          () => { this.beginBadgeUpdate() },
-          { flush: 'sync' }
-        )
+        watch(workbenchLifetime, () => {
+          this.beginBadgeUpdate()
+          this.error = workbenchInvalidationReason.value
+        }, { flush: 'sync' })
       })
     },
     beginBadgeUpdate(): ProfileWorkbenchBadgeToken {
       this.ensureContextWatch()
+      const lease = beginWorkbenchRead()
       const scope = resolveProfileWorkbenchBadgeScope()
-      const token = { ...scope, epoch: ++this.badgeUpdateEpoch }
+      const token = { ...scope, lease, epoch: ++this.badgeUpdateEpoch }
       this.scopeKey = profileWorkbenchBadgeScopeKey(scope)
-      this.tryCommit(token, { loaded: false, loading: false, error: '', lastLoadedAt: 0 })
+      this.todoTotal = undefined
+      this.loaded = false
+      this.loading = false
+      this.error = ''
+      this.lastLoadedAt = 0
       return token
     },
     isCurrentToken(token: ProfileWorkbenchBadgeToken) {
-      return token.epoch === this.badgeUpdateEpoch &&
-        profileWorkbenchBadgeScopeKey(token) === this.scopeKey &&
-        this.scopeKey === profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope())
+      return isWorkbenchReadCurrent(token.lease) && token.epoch === this.badgeUpdateEpoch &&
+        profileWorkbenchBadgeScopeKey(token) === this.scopeKey
+    },
+    bindDirectory(token: ProfileWorkbenchBadgeToken) {
+      if (!this.isCurrentToken(token)) return false
+      Object.assign(token, resolveProfileWorkbenchBadgeScope())
+      this.scopeKey = profileWorkbenchBadgeScopeKey(token)
+      return true
     },
     tryCommit(token: ProfileWorkbenchBadgeToken, patch: BadgePatch) {
       if (!this.isCurrentToken(token)) return false
@@ -138,47 +86,35 @@ export const useProfileWorkbenchTodoBadgeStore = defineStore('profileWorkbenchTo
       return true
     },
     applyTodoTotal(token: ProfileWorkbenchBadgeToken, total: unknown) {
-      if (!this.isCurrentToken(token)) return false
-      return this.tryCommit(token, {
-        todoTotal: requireProfileWorkbenchTodoTotal(total),
-        loaded: true,
-        loading: false,
-        error: '',
-        lastLoadedAt: Date.now()
-      })
+      return this.tryCommit(token, { todoTotal: requireProfileWorkbenchTodoTotal(total),
+        loaded: true, loading: false, error: '', lastLoadedAt: Date.now() })
     },
     async refreshTodoTotal() {
-      if (pendingTodoTotalRequest && this.isCurrentToken(pendingTodoTotalRequest.token)) {
-        return pendingTodoTotalRequest.promise
-      }
       const token = this.beginBadgeUpdate()
       this.tryCommit(token, { loading: true })
-      const promise = (async () => {
-        try {
-          const result = await getProfileWorkbenchTodoCount(token.badgeSources)
-          this.applyTodoTotal(token, result.businessTotal)
-        } catch (error) {
-          this.tryCommit(token, { loaded: false, error: resolveTodoBadgeError(error) })
-          throw error
-        } finally {
-          this.tryCommit(token, { loading: false })
-          if (pendingTodoTotalRequest?.token === token) pendingTodoTotalRequest = undefined
-        }
-      })()
-      pendingTodoTotalRequest = { token, promise }
-      return promise
+      try {
+        const directory = await refreshWorkbenchDirectory()
+        if (!this.bindDirectory(token)) return
+        const context = await initializeWorkbenchContext(directory.registryRevision, directory.sources,
+          token.lease.contextEpoch, { visibility: 'visible' })
+        if (!this.isCurrentToken(token)) return
+        const result = await getProfileWorkbenchTodoCount(context)
+        if (!this.isCurrentToken(token)) return
+        this.applyTodoTotal(token, result.businessTotal)
+      } catch (error) {
+        if (!this.isCurrentToken(token)) return
+        this.tryCommit(token, { loaded: false, error: errorMessage(error) })
+        throw error
+      } finally {
+        this.tryCommit(token, { loading: false })
+      }
     },
     async ensureTodoTotalLoaded() {
       this.ensureContextWatch()
-      const scopeKey = profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope())
-      if (
-        this.loaded && this.scopeKey === scopeKey &&
-        Date.now() - this.lastLoadedAt < TODO_TOTAL_REFRESH_INTERVAL_MS
-      ) return
+      if (this.loaded && this.scopeKey === profileWorkbenchBadgeScopeKey(resolveProfileWorkbenchBadgeScope()) &&
+        Date.now() - this.lastLoadedAt < 30 * 1000) return
       await this.refreshTodoTotal()
     }
   }
 })
-
-export const useProfileWorkbenchTodoBadgeStoreWithOut = () =>
-  useProfileWorkbenchTodoBadgeStore(store)
+export const useProfileWorkbenchTodoBadgeStoreWithOut = () => useProfileWorkbenchTodoBadgeStore(store)

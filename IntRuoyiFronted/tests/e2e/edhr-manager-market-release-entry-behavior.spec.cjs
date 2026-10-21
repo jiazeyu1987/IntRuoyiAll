@@ -100,7 +100,7 @@ test('MANAGER-ENTRY01: release-locked owned batch exposes formal market-release 
   const view = renderOperations(row, [approvePermission])
   const release = view.buttons.find(button => button.props['data-edhr-batch-action'] === 'release')
   assert.ok(release, '放行审批中不能因为 releaseActionLocked 隐藏已有正式上市放行入口')
-  assert.match(visibleText(release), /上市放行/)
+  assert.equal(visibleText(release).trim(), '放行')
   release.props.onClick()
   assert.equal(view.clicked.length, 1)
   assert.equal(view.clicked[0][0], 'release')
@@ -114,11 +114,50 @@ test('formal market-release entry remains protected by existing approve permissi
   view.app.unmount()
 })
 
-test('release lock still blocks void and upload actions even when those permissions exist', () => {
+test('release lock blocks void and preserves the authorized formal dossier upload entry', () => {
   const view = renderOperations(ownedBatch(), [approvePermission, 'mes:pro-edhr-change:void', 'mes:pro-edhr-batch-execution:upload'])
-  assert.equal(view.buttons.some(button => button.props['data-edhr-batch-action'] === 'upload'), false)
+  const upload = view.buttons.find(button => button.props['data-edhr-batch-action'] === 'upload')
+  assert.ok(upload, '待上市放行仍须允许已有资料权限上传，实际生命周期由正式上传页面和后端核对')
+  upload.props.onClick()
+  assert.equal(view.clicked[0][0], 'upload')
   assert.equal(view.buttons.some(button => visibleText(button).trim() === '作废'), false)
   view.app.unmount()
+})
+
+test('formal dossier upload entry uses the three existing writer permissions without granting unrelated readers access', () => {
+  const writerPermissions = [
+    'mes:pro-process-pool-team-leader:maintain',
+    'mes:pro-production-release:pqc-approve',
+    'mes:pro-edhr-batch-execution:upload'
+  ]
+  const readerPermissions = [[], ['mes:pro-edhr-batch-execution:query'], [approvePermission],
+    ['mes:pro-edhr-batch-execution:report-upload'], ['mes:pro-production-release:pqc-query']]
+  for (const releaseActionLocked of [false, true]) {
+    for (const permission of writerPermissions) {
+      const row = { ...ownedBatch(), releaseActionLocked }
+      const view = renderOperations(row, [permission])
+      try {
+        const uploads = view.buttons.filter(button => button.props['data-edhr-batch-action'] === 'upload')
+        assert.equal(uploads.length, 1, permission)
+        uploads[0].props.onClick()
+        assert.equal(view.clicked[0][0], 'upload')
+        assert.equal(view.clicked[0][1], row)
+      } finally { view.app.unmount() }
+    }
+    for (const permissions of readerPermissions) {
+      const view = renderOperations({ ...ownedBatch(), releaseActionLocked }, permissions)
+      try {
+        assert.equal(view.buttons.some(button => button.props['data-edhr-batch-action'] === 'upload'), false)
+      } finally { view.app.unmount() }
+    }
+  }
+  for (const state of [{ pendingVoidChangeEventId: '99', canWithdrawVoidRequest: true },
+    { pendingVoidChangeEventId: '99', canWithdrawVoidRequest: false }, { status: 60 }]) {
+    const view = renderOperations({ ...ownedBatch(), ...state }, writerPermissions)
+    try {
+      assert.equal(view.buttons.some(button => button.props['data-edhr-batch-action'] === 'upload'), false)
+    } finally { view.app.unmount() }
+  }
 })
 
 test('pending void and voided batches do not expose market-release entry', () => {
@@ -136,16 +175,24 @@ test('normal batch retains the existing formal market-release entry', () => {
 })
 
 function releaseHarness(rows) {
-  const writes = [], queries = [], navigation = []
+  const writes = [], queries = [], navigation = [], invalidations = []
+  const sessionKey = 'ordinary-test-tenant-session'
   const context = {
     selectedReleaseBatch: vue.ref(), releaseContext: vue.ref(), releaseCompletedReadOnly: vue.ref(false), releaseTransactionMissing: vue.ref(false), releaseError: vue.ref(''),
     releaseForm: vue.reactive({ password: '', idempotencyKey: '' }), releaseDialogVisible: vue.ref(false), releaseContextLoading: vue.ref(false), releaseLoading: vue.ref(false),
-    message: { error() {}, success() {} }, generateUUID: () => 'unique-key',
+    message: { error() {}, success() {}, warning() {} }, generateUUID: () => 'unique-key',
+    route: { fullPath: '/mes/pro/feedback/edhr-batch-execution' },
+    approvalInvalidation: {
+      syncSession: () => ({ key: sessionKey }),
+      isCurrent: key => key === sessionKey,
+      captureEdhrSuccess: source => ({ ...source, session: { key: sessionKey } }),
+      publishEdhrSuccess: event => invalidations.push(event)
+    },
     getEdhrReleasePage: async query => { queries.push(query); return { list: rows } },
     approveEdhrRelease: async request => { writes.push(request) }, router: { push: async route => { navigation.push(route) } },
     resolveErrorMessage: (error, defaultMessage) => error.message || defaultMessage
   }
-  return { ...productionFunctions(['marketReleaseRouteGeneration', 'resetMarketReleaseDialog', 'openReleaseDialog', 'submitRelease'], context), context, writes, queries, navigation }
+  return { ...productionFunctions(['marketReleaseRouteGeneration', 'marketReleaseWrites', 'marketReleaseWriteScope', 'isDefinitiveMarketReleaseFailure', 'resetMarketReleaseDialog', 'openReleaseDialog', 'submitRelease'], context), context, writes, queries, navigation, invalidations }
 }
 const formalContext = () => ({ batchExecutionId: '900000001225', releaseTransactionId: '226', releaseApprovalWorkTaskId: '2735', version: 7, approvalSignoffEvidenceHash: 'formal-signoff-hash' })
 
@@ -158,6 +205,11 @@ test('existing formal dialog selects exact batch and submits full transaction/ta
   await h.submitRelease()
   assert.deepEqual(h.writes, [{ releaseTransactionId: '226', workTaskId: '2735', expectedVersion: 7, idempotencyKey: 'EDHR-MARKET-RELEASE-900000001225-unique-key', signoffEvidenceHash: 'formal-signoff-hash', password: 'test-only-password' }])
   assert.equal(h.navigation[0].query.batchExecutionId, '900000001225')
+  assert.equal(h.invalidations.length, 1)
+  assert.equal(h.invalidations[0].sourceTaskId, '2735', '成功后必须失效同一正式审批待办')
+  assert.equal(h.context.releaseForm.password, '', '成功后清除签名密码')
+  await h.submitRelease()
+  assert.equal(h.writes.length, 1, '已关闭的成功对话框不得重复批准')
 })
 
 test('missing exact formal batch context and missing password cannot submit an approval', async () => {

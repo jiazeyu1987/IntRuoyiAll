@@ -117,7 +117,21 @@ public class MesActiveOrderHandoffService {
         String receivers=owners.productionEmployees(order);
         createDefaultRound(order,"PRODUCTION_HANDOFF","ACTIVE_ORDER",activeOrderId,activeOrderId,receivers,actor,true,
                 "当轮正式人员责任已确认，请接手生产",null,false);
+        dispatchOrderPqc(order, actor);
     }
+    private void dispatchOrderPqc(MesProcessPoolActiveOrderDO order, Long actor) {
+        var pending = pqcTasks.selectListByActiveOrderId(order.getId()).stream()
+                .filter(task -> "PENDING".equals(task.getTaskStatus())).toList();
+        if (pending.isEmpty()) return;
+        var assignment = pqcAssignment.resolve(order.getRouteId());
+        for (var pqc : pending) {
+            pqcRouteProcess(pqc, order);
+            create(order,"PQC_HANDOFF","PQC_INSPECTION_TASK",pqc.getId(),pqc.getId(),
+                    assignment.candidateUserSnapshot(),actor,true,"整单PQC任务已生成，请按QA工序完成检验",
+                    null,false,null,assignment);
+        }
+    }
+
     public void productionSubmitted(Long activeOrderId,Long eventId,Long actor) {
         audit.lock(); var order=order(activeOrderId,true); var event=event(eventId);
         require("PRODUCTION_SUBMIT".equals(event.getEventType())&&Objects.equals(activeOrderId,active(event)),"生产提交与活跃周期不一致");
@@ -183,14 +197,14 @@ public class MesActiveOrderHandoffService {
                         +" AND a.tenant_id=mes_active_order_handoff_task.tenant_id AND a.deleted=FALSE"
                         +" AND (mes_active_order_handoff_task.status='DONE' OR a.active_status='ACTIVE')"));
         require(rows!=null,"PQC本人冻结复核责任查询失败");
-        var result=new LinkedHashSet<Long>();
+        var ownRows=new ArrayList<MesActiveOrderHandoffTaskDO>();
         for(var task:rows) {
             if(!"PQC_REVIEW".equals(task.getTaskType())||!Set.of("TODO","DONE").contains(task.getStatus()))continue;
-            access(task,actor);validate(task);
-            require(owners.frozenPqcReviewers(event(task.getSourceId()),task).contains(actor),"PQC本人复核冻结责任不一致");
-            result.add(task.getSourceId());
+            access(task,actor);validate(task);ownRows.add(task);
         }
-        return Collections.unmodifiableSet(result);
+        if(ownRows.isEmpty())return Set.of();
+        var eventIds=ownRows.stream().map(MesActiveOrderHandoffTaskDO::getSourceId).collect(java.util.stream.Collectors.toSet());
+        return owners.frozenPqcReviewEventIds(ownRows,events.selectBatchIds(eventIds),actor);
     }
     public void reviewed(Long eventId,Long reviewId) {
         audit.lock(); var event=event(eventId); var review=reviews.selectById(reviewId);
@@ -238,14 +252,7 @@ public class MesActiveOrderHandoffService {
         } else {
             require("APPROVED".equals(review.getReviewStatus()),"正式复核结果无效");
             if(production) closeDecisionHandoff(order.getId(),review.getLeaderUserId(),reviewId);
-            MesPqcHandoffAssignmentService.ResolvedAssignment assignment=null;
-            if(production) for(var pqc:pqcTasks.selectListByActiveOrderId(order.getId())) {
-                if(!"PENDING".equals(pqc.getTaskStatus())||!Objects.equals(pqc.getRouteProcessId(),event.getRouteProcessId()))continue;
-                Long pqcRouteProcessId=pqcRouteProcess(pqc,order);
-                if(assignment==null) assignment=pqcAssignment.resolve(order.getRouteId());
-                create(order,"PQC_HANDOFF","PQC_INSPECTION_TASK",pqc.getId(),pqc.getId(),assignment.candidateUserSnapshot(),
-                        review.getLeaderUserId(),true,"生产组长复核已通过，请接手对应PQC任务",pqcRouteProcessId,false,null,assignment);
-            }
+
         }
     }
 
@@ -300,16 +307,7 @@ public class MesActiveOrderHandoffService {
             require(Objects.equals(order.getWorkOrderId(), target.getWorkOrderId()), "分配目标工单与正式周期不一致");
             if (!handled.add(order.getId())) continue;
             closeDecisionHandoff(order.getId(), review.getLeaderUserId(), reviewId);
-            MesPqcHandoffAssignmentService.ResolvedAssignment assignment = null;
-            for (var pqc : pqcTasks.selectListByActiveOrderId(order.getId())) {
-                if (!"PENDING".equals(pqc.getTaskStatus()) || !Objects.equals(pqc.getRouteProcessId(), target.getRouteProcessId())) continue;
-                require(Objects.equals(tenant(), pqc.getTenantId()) && Objects.equals(order.getWorkOrderId(), pqc.getWorkOrderId())
-                        && Objects.equals(target.getProcessId(), pqc.getProcessId()), "目标PQC正式任务身份不一致");
-                Long pqcRouteProcessId = pqcRouteProcess(pqc, order);
-                if (assignment == null) assignment = pqcAssignment.resolve(order.getRouteId());
-                create(order, "PQC_HANDOFF", "PQC_INSPECTION_TASK", pqc.getId(), pqc.getId(), assignment.candidateUserSnapshot(),
-                        review.getLeaderUserId(), true, "生产分配已正式复核，请接手对应PQC任务", pqcRouteProcessId, false, null, assignment);
-            }
+
         }
     }
     public void qaCreated(MesProEdhrNonconformanceReviewDO review,Long activeOrderId,Long actor) {
@@ -419,6 +417,12 @@ public class MesActiveOrderHandoffService {
                     &&Objects.equals(pqcAssignmentSnapshot.routeId(),order.getRouteId())
                     &&Objects.equals(pqcAssignmentSnapshot.candidateUserSnapshot(),receivers)
                     &&pqcAssignmentSnapshot.handlerLeaderUserIds()!=null&&!pqcAssignmentSnapshot.handlerLeaderUserIds().isEmpty(),"PQC接手缺少当前路线正式派发责任规则");
+            var pqc = pqcTasks.selectById(sourceId);
+            pqcRouteProcess(pqc, order);
+            responsibility.put("pqcTaskId",pqc.getId());responsibility.put("qaProcessId",pqc.getQaProcessId());
+            responsibility.put("regulationVersionId",pqc.getRegulationVersionId());
+            responsibility.put("routeVersionId",pqc.getRouteVersionId());
+            responsibility.put("inspectionRuleKey",pqc.getInspectionRuleKey());
             responsibility.put("routeId",order.getRouteId());
             responsibility.put("handlerLeaderUserIds",pqcAssignmentSnapshot.handlerLeaderUserIds());
             responsibility.put("pqcAssignmentRule",pqcAssignmentSnapshot.snapshot());
@@ -436,7 +440,7 @@ public class MesActiveOrderHandoffService {
         String businessState=switch(type) {
             case "PRODUCTION_HANDOFF" -> "人员已确认，待生产接手";
             case "PRODUCTION_REVIEW" -> "LEADER_PROFILE_RETURN".equals(correctionOrigin)?"临时人员报工已退回，待责任组长签名更正":originalSubmission?"生产已提交，待组长复核":"生产已签名补正，待组长再审";
-            case "PQC_HANDOFF" -> "生产复核已通过，待PQC检验";
+            case "PQC_HANDOFF" -> "整单QA检验任务已生成，待PQC检验";
             case "PQC_REVIEW" -> originalSubmission?"PQC已提交，待组长复核":"PQC已签名补正，待组长再审";
             case "PRODUCTION_RETURN","PQC_RETURN" -> "组长已退回，待签名更正";
             case "QA_REVIEW" -> "不合格评审已创建，待QA处置";
@@ -489,11 +493,11 @@ public class MesActiveOrderHandoffService {
         require(task!=null&&task.getId()!=null&&task.getId()>0&&Objects.equals(task.getTenantId(),tenant())
                 &&Objects.equals(task.getActiveOrderId(),order.getId())&&Objects.equals(task.getWorkOrderId(),order.getWorkOrderId())
                 &&Objects.equals(task.getRouteId(),order.getRouteId()),"PQC正式任务不属于当轮工单、路线或活跃周期");
-        var routeProcess=routeProcesses.selectById(task.getRouteProcessId());
-        require(routeProcess!=null&&Objects.equals(routeProcess.getId(),task.getRouteProcessId())
-                &&Objects.equals(routeProcess.getRouteId(),task.getRouteId())&&Objects.equals(routeProcess.getProcessId(),task.getProcessId()),
-                "PQC正式任务的路线工序与MES工序关联不一致");
-        return task.getRouteProcessId();
+        require(task.getRouteProcessId()==null&&task.getProcessId()==null
+                &&task.getQaProcessId()!=null&&task.getRegulationVersionId()!=null,
+                "整单PQC任务必须关联冻结QA工序，不得关联生产工序");
+        cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+        return null;
     }
     private MesProcessPoolActiveOrderDO order(Long id,boolean active) {
         var order=orders.selectByIdForUpdate(id);require(order!=null&&Objects.equals(order.getTenantId(),tenant()),"活跃周期不存在");

@@ -27,6 +27,11 @@ export interface UserVO {
   disabled?: boolean
 }
 
+export interface UserListVO extends UserVO {
+  postNames: string[]
+  roleNames: string[]
+}
+
 export interface UserAssignedPostVO {
   id: number | string
   name: string
@@ -153,8 +158,3 @@ export const getDepartmentTree = (): Promise<import('@/api/system/dept').DeptVO[
 
 export const getSupervisorImpact = (ids: number[]): Promise<import('@/api/system/dept').DeptVO[]> =>
   request.get({ url: '/system/user/supervisor-impact', params: { ids: ids.join(',') } })
-
-export interface UserPageVO extends UserVO {
-  postNames: string[]
-  roleNames: string[]
-}

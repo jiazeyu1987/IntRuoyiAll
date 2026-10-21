@@ -4,7 +4,7 @@ const path = require('node:path')
 
 const componentPath = path.resolve(
   __dirname,
-  '../../src/views/Profile/components/ProfileErpTableAutoSyncSetting.vue'
+  '../../src/views/erp/sync/config/components/TableAutoSyncSetting.vue'
 )
 const source = fs.readFileSync(componentPath, 'utf8')
 const loadJobsStart = source.indexOf('const loadJobs = async')
@@ -27,7 +27,7 @@ assert.match(selectionHandler, /jobLoading\.value/, '加载阶段必须忽略程
 assert.match(selectionHandler, /saving\.value/, '保存阶段必须忽略程序化 selection-change')
 const helperStart = source.indexOf('const updateJobForAutoSync = async')
 assert.notEqual(helperStart, -1, '保存定时同步配置必须抽出 Job 状态与 cron 的更新顺序')
-const helperEnd = source.indexOf('\n\nconst handleSave = async', helperStart)
+const helperEnd = source.indexOf('const handleSave = async', helperStart)
 assert.notEqual(helperEnd, -1, '无法定位 ERP 定时同步保存处理函数')
 const helper = source.slice(helperStart, helperEnd)
 

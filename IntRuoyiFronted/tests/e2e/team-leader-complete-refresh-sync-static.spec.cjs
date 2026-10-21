@@ -8,7 +8,7 @@ const page = fs
   .replace(/\r\n/g, '\n')
 
 const releaseFlowStart = page.indexOf('const releaseApplicationIdempotencyKeys')
-const releaseFlowEnd = page.indexOf('const submitMoveActiveOrder', releaseFlowStart)
+const releaseFlowEnd = page.indexOf('const handleRebuildActiveOrder', releaseFlowStart)
 assert.notStrictEqual(releaseFlowStart, -1, 'missing active-order release flow start')
 assert.notStrictEqual(releaseFlowEnd, -1, 'missing active-order release flow end')
 const releaseFlow = page.slice(releaseFlowStart, releaseFlowEnd)

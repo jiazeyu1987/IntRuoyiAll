@@ -46,6 +46,41 @@ $ShowroomMediaSampleObjects = @(
 )
 $RequiredLocalMySqlMigrations = @(
     [PSCustomObject]@{
+        Name = 'eDHR approval and signature V2 runtime schema'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*) FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (
+    'system_approval_authority_revision', 'system_signature_authentication_event',
+    'mes_employee_signature_password_history', 'bpm_approval_review_prepare',
+    'bpm_approval_review_receipt', 'bpm_approval_process_ownership',
+    'bpm_approval_selected_candidate', 'mes_edhr_source_creation_binding',
+    'mes_edhr_release_submission_material_association', 'mes_edhr_managed_handoff_material_association'
+  )
+) = 10 AND (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND (
+    (TABLE_NAME = 'system_users' AND COLUMN_NAME IN ('signature_credential_generation', 'signature_credential_version') AND IS_NULLABLE = 'NO')
+    OR (TABLE_NAME = 'system_electronic_signature' AND COLUMN_NAME IN ('evidence_format_version', 'command_hash_version'))
+    OR (TABLE_NAME = 'mes_pro_process_pool_team_employee_profile' AND COLUMN_NAME IN (
+      'signature_credential_generation', 'signature_credential_version', 'signature_credential_status',
+      'signature_failure_count', 'signature_failure_window_start_at', 'signature_locked_until'
+    ))
+  )
+) = 10 AND (
+  SELECT COUNT(*) FROM information_schema.TRIGGERS
+  WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME IN (
+    'system_users_signature_identity_insert', 'system_users_signature_identity_update',
+    'system_signature_authentication_event_no_update', 'system_signature_authentication_event_no_delete',
+    'mes_employee_signature_generation_insert', 'mes_employee_signature_generation_update',
+    'trg_approval_owner_no_update', 'trg_approval_owner_no_delete',
+    'trg_approval_candidate_no_update', 'trg_approval_candidate_no_delete'
+  )
+) = 10 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20261011_edhr_approval_runtime_v2.sql'
+    },
+    [PSCustomObject]@{
         Name = 'System NAS management menu titles'
         ProbeSql = @'
 SELECT CASE WHEN (

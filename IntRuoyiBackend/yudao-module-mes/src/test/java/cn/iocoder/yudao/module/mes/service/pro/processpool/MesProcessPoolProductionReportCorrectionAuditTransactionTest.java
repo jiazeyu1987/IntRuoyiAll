@@ -126,7 +126,10 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         signatures = session.getMapper(ElectronicSignatureRecordMapper.class);
         signatureQuery = new ElectronicSignatureQueryServiceImpl();
         ReflectionTestUtils.setField(signatureQuery, "signatureRecordMapper", signatures);
-        ReflectionTestUtils.setField(signatureQuery, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
+        var creation = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService.class);
+        org.mockito.Mockito.lenient().when(creation.verifySignatureCreation(org.mockito.ArgumentMatchers.any())).thenReturn(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerification("CONSISTENT", List.of(), 1L));
+        ReflectionTestUtils.setField(signatureQuery, "signatureCreationVerificationService", creation);
         signer = mock(MesProBatchRecordExecutionSignatureService.class);
         when(signer.recordFieldChangeSignature(any())).thenAnswer(call -> insertSignature(call.getArgument(0)));
         var revisionTarget = new MesProcessPoolEventRevisionServiceImpl(events, revisions, diffs,
@@ -141,6 +144,7 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 session.getMapper(MesProFeedbackMaterialMapper.class), (MesProcessPoolEventRevisionService) tx(revisionTarget, manager),
                 signer, mock(MesFrontlineLossReasonValidator.class), scope, summary);
         org.springframework.test.util.ReflectionTestUtils.setField(target, "nonconformanceReviewService", org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrNonconformanceReviewService.class));
+        ReflectionTestUtils.setField(target,"baselineGuard",new MesCorrectionBaselineGuard(revisions));
         ReflectionTestUtils.setField(target,"submissionReviews",mock(cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolSubmissionReviewMapper.class));
         ReflectionTestUtils.setField(target,"sharedReportGuard",MesSharedProductionReportCorrectionGuardTest.openFixture(20L,30L));
         var fixtureOwners = org.mockito.Mockito.mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.class);
@@ -264,6 +268,9 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         doReturn(new cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffOwnerResolver.SubmissionIdentity(domain,submitter,1L)).when(owners).submissionIdentity(any());
         when(owners.profileProductionLeader(any())).thenReturn(3001L);when(owners.originalActor(any())).thenReturn(3001L);
         var evidence=new MesCorrectionSignatureEvidenceReader(session.getMapper(MesProProcessPoolEventRevisionDiffMapper.class),signatureQuery,session.getMapper(GxpAuditEventMapper.class));
+        ReflectionTestUtils.setField(evidence,"verifiedSignatureFacts",new cn.iocoder.yudao.module.signature.service.ElectronicSignatureVerifiedFactService(
+                signatures,(cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService)
+                        ReflectionTestUtils.getField(signatureQuery,"signatureCreationVerificationService")));
         var resolver=new cn.iocoder.yudao.module.mes.service.pro.handoff.MesSignedReturnCorrectionResolver();
         ReflectionTestUtils.setField(resolver,"revisions",revisions);ReflectionTestUtils.setField(resolver,"tasks",tasks);
         ReflectionTestUtils.setField(resolver,"owners",owners);ReflectionTestUtils.setField(resolver,"correctionEvidence",evidence);
@@ -272,6 +279,9 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
         var opened=roundTimeline().getExpectedReviews().get(0);
         Long rejected=command.rejectProductionSubmission(176L,3001L,"correct the measured report","fixture-password",opened);
         assertEquals("REJECTED",reviews.selectById(rejected).getReviewStatus());
+        // Production reviewed_at is MySQL DATETIME(0); the generic H2 table uses fractional TIMESTAMP.
+        jdbc.update("UPDATE mes_pro_process_pool_submission_review SET reviewed_at=? WHERE id=?",
+                reviews.selectById(rejected).getReviewedAt().withNano(0), rejected);
         var stale=roundTimeline().getExpectedReviews().get(0);
         ReflectionTestUtils.setField(target,"submissionReviews",reviews);
         var handoff=mock(cn.iocoder.yudao.module.mes.service.pro.handoff.MesActiveOrderHandoffService.class);
@@ -432,6 +442,8 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
 
     private MesProcessPoolProductionReportCorrectionCommand command() {
         return new MesProcessPoolProductionReportCorrectionCommand().setEventId(176L).setActorUserId(3001L)
+                .setExpectedRevisionId(0L).setExpectedPayloadHash(MesCorrectionBaselineGuard.payloadHash(
+                        jdbc.queryForObject("SELECT raw_payload FROM " + EVENT + " WHERE id=176",String.class)))
                 .setOutputQuantity(new BigDecimal("6")).setLossDetails(List.of()).setDeviceParameterReadings(List.of())
                 .setMaterialDetails(List.of(new MesProcessPoolProductionReportCorrectionCommand.MaterialDetailCommand()
                         .setMaterialId(3401L).setOutputQuantity(new BigDecimal("6")).setLossQuantity(BigDecimal.ZERO)
@@ -452,13 +464,13 @@ class MesProcessPoolProductionReportCorrectionAuditTransactionTest {
                 "MES_BATCH_RECORD", subject, version, input.getReasonText()));
         String canonical = JsonUtils.toJsonString(sorted(JsonUtils.parseTree(snapshot.canonicalContentJson())));
         var definition = adapter.supportedActions().stream().filter(a -> action.equals(a.actionCode())).findFirst().orElseThrow();
-        var time = roundTrip ? LocalDateTime.now() : LocalDateTime.of(2026, 9, 29, 7, 0);
+        var time = roundTrip ? LocalDateTime.now().withNano(0) : LocalDateTime.of(2026, 9, 29, 7, 0);
         var record = ElectronicSignatureRecordDO.builder().id(9102L).moduleCode("MES").actionCode(action)
                 .subjectType("MES_BATCH_RECORD").subjectId(subject).subjectVersion(version).actorId(actor)
                 .meaningCode(definition.meaningCode()).meaningLabel(definition.meaningLabel()).reason(input.getReasonText())
                 .signedAt(time).timeEvidenceId("SERVER_CLOCK:" + time).authenticationMethod("SESSION_PLUS_PASSWORD")
                 .canonicalContentJson(canonical).contentHash(DigestUtil.sha256Hex(canonical)).algorithm("SHA-256")
-                .keyVersion("system-local-v1").policyVersion(definition.policyVersion()).verificationStatus("VALID").build();
+                .keyVersion("system-local-v1").policyVersion(definition.policyVersion()).verificationStatus("VALID").idempotencyKey("correction-signature-fixture").build();
         record.setTenantId(1L);
         record.setEvidenceHash(DigestUtil.sha256Hex(String.join("|", "1", Long.toString(actor), "MES", action,
                 "MES_BATCH_RECORD", subject, version, record.getMeaningCode(), record.getMeaningLabel(), record.getReason(),

@@ -29,6 +29,7 @@ public class MesProcessPoolActiveOrderDO extends TenantBaseDO {
 
     @TableId
     private Long id;
+    private Long dossierRevision;
 
     private Long leaderUserId;
     private Long workOrderId;

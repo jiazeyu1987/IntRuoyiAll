@@ -160,8 +160,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
                 || task.getQaProcessId() == null || task.getQaProcessId() <= 0
                 || !Objects.equals(task.getQaProcessId(), event.getQaProcessId())
                 || !Objects.equals(task.getSubmittedEventId(), event.getId())
-                || task.getRouteProcessId() == null || task.getRouteProcessId() <= 0
-                || task.getProcessId() == null || task.getProcessId() <= 0) {
+                || task.getRouteProcessId() != null || task.getProcessId() != null
+                || event.getRouteProcessId() != null || event.getProcessId() != null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqcInspectionRevision.taskIdentity");
         }
         return task;

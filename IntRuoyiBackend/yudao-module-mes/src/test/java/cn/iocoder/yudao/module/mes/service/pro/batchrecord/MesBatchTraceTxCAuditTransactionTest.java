@@ -141,7 +141,7 @@ class MesBatchTraceTxCAuditTransactionTest {
                 mapper(MesProcessPoolActiveOrderPickListBindingMapper.class),
                 mapper(MesProcessPoolActiveOrderPickListBindingItemMapper.class),
                 mapper(MesProEdhrBatchTraceOutboxEventMapper.class), (MesProEdhrBatchTraceabilityService) tx(trace),
-                context, transactions, receiptPort, mock(MesIndependentBatchPrerequisiteReceiptPort.class),
+                context, new MesProEdhrBatchTraceTransactionService(transactions), receiptPort, mock(MesIndependentBatchPrerequisiteReceiptPort.class),
                 mapper(MesProEdhrBatchProvisioningRecordMapper.class));
         // Normal Spring resource injection supplies future mandatory audit/mapper fields;
         // the unchanged pre-RED producer has no such fields and still executes its real behavior.

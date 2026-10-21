@@ -168,5 +168,5 @@ export const saveDeviationHandling = (deviationId: number, data: Record<string, 
 export const signDeviationHandling = (data: { deviationId: number; node: string; password: string; comment: string; expectedContentVersion: number; expectedContentHash: string }) =>
   request.post({ url: '/mes/pro/edhr-deviation-handling/sign', data })
 
-export const closeDeviationHandling = (deviationId: number) =>
-  request.post({ url: '/mes/pro/edhr-deviation-handling/close', data: { deviationId } })
+export const closeDeviationHandling = (deviationId: number, expectedContentVersion: number, expectedContentHash: string) =>
+  request.post({ url: '/mes/pro/edhr-deviation-handling/close', data: { deviationId, expectedContentVersion, expectedContentHash } })

@@ -1,4 +1,5 @@
 import { Layout } from '@/utils/routerHelper'
+import businessConfigRoutes from './businessConfig'
 
 const { t } = useI18n()
 const signatureGovernanceView = () => import('@/views/signature-governance/index.vue')
@@ -34,6 +35,7 @@ const signatureGovernanceView = () => import('@/views/signature-governance/index
  }
  **/
 const remainingRouter: AppRouteRecordRaw[] = [
+  ...businessConfigRoutes,
   {
     path: '/ai/codex',
     component: Layout,

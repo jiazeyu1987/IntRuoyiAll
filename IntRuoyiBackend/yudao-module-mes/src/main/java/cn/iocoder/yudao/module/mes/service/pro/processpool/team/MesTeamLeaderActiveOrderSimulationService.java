@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -273,17 +274,16 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 || !Objects.equals(activeOrder.getRouteId(), task.getRouteId())
                 || !Objects.equals(activeOrder.getRouteVersionId(), task.getRouteVersionId())
                 || !Objects.equals(activeOrder.getTenantId(), task.getTenantId())
-                || task.getRouteProcessId() == null
-                || task.getProcessId() == null
+                || task.getRouteProcessId() != null
+                || task.getProcessId() != null
                 || task.getQaProcessId() == null
                 || task.getRegulationVersionId() == null
-                || StrUtil.isBlank(task.getQaItemCode())
+                || StrUtil.isNotBlank(task.getQaItemCode())
                 || StrUtil.isBlank(task.getInspectionType())
                 || StrUtil.isBlank(task.getInspectionRuleKey())
                 || task.getBusinessDate() == null
                 || StrUtil.isBlank(task.getShiftCode())
                 || task.getRoundNo() == null
-                || !formalIdentitySet.contains(new ProcessIdentity(task.getRouteProcessId(), task.getProcessId()))
                 || !(MesPqcInspectionTaskDO.TASK_STATUS_PENDING.equals(task.getTaskStatus())
                 || MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED.equals(task.getTaskStatus())
                 || MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus()))) {
@@ -1128,15 +1128,18 @@ public class MesTeamLeaderActiveOrderSimulationService {
                         .thenComparing(MesQaInspectionRegulationItemDO::getId,
                                 Comparator.nullsLast(Long::compareTo)))
                 .toList();
-        if (matchedItems.size() != 1) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "PQC任务无法唯一匹配正式检验项目，taskId=" + task.getId());
+        Map<String, Integer> itemPlan = MesPqcInspectionItemPlan.require(task);
+        if (!itemPlan.keySet().equals(matchedItems.stream().map(MesQaInspectionRegulationItemDO::getItemCode)
+                .collect(Collectors.toSet()))) {
+            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED, "PQC冻结检验项目与QA不一致");
         }
-        MesQaInspectionRegulationItemDO item = matchedItems.get(0);
-        validateInspectionItemForSimulation(task, item);
-        PqcEquipment selectedEquipment = resolveDefaultPqcEquipment(activeOrder, task, item);
         List<MesPqcInspectionPieceDetailDO> result = new ArrayList<>();
-        for (int sampleNo = 1; sampleNo <= actualInspectionQuantity; sampleNo++) {
+        PqcEquipment eventEquipment = null;
+        for (MesQaInspectionRegulationItemDO item : matchedItems) {
+            validateInspectionItemForSimulation(task, item);
+            PqcEquipment selectedEquipment = resolveDefaultPqcEquipment(activeOrder, task, item);
+            if (eventEquipment == null) eventEquipment = selectedEquipment;
+        for (int sampleNo = 1; sampleNo <= itemPlan.get(item.getItemCode()); sampleNo++) {
             String measuredValue = simulatedMeasuredValue(item);
             result.add(MesPqcInspectionPieceDetailDO.builder()
                     .taskId(task.getId())
@@ -1162,7 +1165,8 @@ public class MesTeamLeaderActiveOrderSimulationService {
                     .simulationRunId(simulationRunId)
                     .build());
         }
-        return new PqcPieceBuildResult(result, selectedEquipment);
+        }
+        return new PqcPieceBuildResult(result, eventEquipment);
     }
 
     private String buildPqcSubmissionGroupId(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task,
@@ -1228,7 +1232,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
         }
         return new PqcEquipment(selected.equipmentId(), selected.equipmentCode().trim(),
                 selected.equipmentName().trim(), selected.equipmentNumber().trim(),
-                requirePqcWorkstation(activeOrder, task));
+                null);
     }
 
     private Long resolvePqcTaskDccProjectCodeId(MesPqcInspectionTaskDO task) {
@@ -1261,26 +1265,13 @@ public class MesTeamLeaderActiveOrderSimulationService {
         return regulation.getDccProjectCodeId();
     }
 
-    private Long requirePqcWorkstation(MesProcessPoolActiveOrderDO activeOrder, MesPqcInspectionTaskDO task) {
-        MesProRouteProcessDO routeProcess = routeProcessMapper.selectByIdIgnoreDeleted(task.getRouteProcessId());
-        if (routeProcess == null || !Objects.equals(activeOrder.getRouteId(), routeProcess.getRouteId())
-                || !Objects.equals(task.getRouteProcessId(), routeProcess.getId())
-                || !Objects.equals(task.getProcessId(), routeProcess.getProcessId())
-                || routeProcess.getWorkstationId() == null || routeProcess.getWorkstationId() <= 0) {
-            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "pqc.routeProcess.workstationId");
-        }
-        return routeProcess.getWorkstationId();
-    }
-
     private boolean inspectionItemBelongsToTask(MesPqcInspectionTaskDO task,
                                                 MesQaInspectionRegulationItemDO item) {
         return item != null
                 && Objects.equals(task.getRegulationVersionId(), item.getRegulationVersionId())
                 && Objects.equals(task.getQaProcessId(), item.getQaProcessId())
                 && Objects.equals(normalizeInspectionType(task.getInspectionType()),
-                normalizeInspectionType(item.getInspectionType()))
-                && Objects.equals(normalizeQaItemCode(task.getQaItemCode()),
-                normalizeQaItemCode(item.getItemCode()));
+                normalizeInspectionType(item.getInspectionType()));
     }
 
     private void validateInspectionItemForSimulation(MesPqcInspectionTaskDO task,
@@ -1328,8 +1319,7 @@ public class MesTeamLeaderActiveOrderSimulationService {
                 "equipmentId", selectedEquipment.equipmentId(),
                 "equipmentCode", selectedEquipment.equipmentCode(),
                 "equipmentName", selectedEquipment.equipmentName(),
-                "equipmentNumber", selectedEquipment.equipmentNumber(),
-                "workstationId", selectedEquipment.workstationId()));
+                "equipmentNumber", selectedEquipment.equipmentNumber()));
         payload.put("pqcItemDetails", buildPqcItemDetailsSnapshot(pieceDetails));
         payload.put("pieceDetailCount", pieceDetails.size());
         payload.put("source", "active-order-simulate-completion");

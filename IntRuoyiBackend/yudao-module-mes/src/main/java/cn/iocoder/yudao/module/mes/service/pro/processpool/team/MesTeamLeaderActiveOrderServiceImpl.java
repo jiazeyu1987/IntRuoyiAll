@@ -7,6 +7,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderVoidedActiveOrderPageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
@@ -776,57 +777,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     private static List<PqcInspectionRule> parseCanonicalInspectionRules(MesQaInspectionRegulationVersionDO version) {
-        if (version == null || version.getInspectionTypeRulesJson() == null
-                || version.getInspectionTypeRulesJson().isBlank()) {
-            throw new IllegalArgumentException("QA规程缺少检验类型规则");
-        }
-        JSONArray rulesJson;
-        try {
-            rulesJson = JSON.parseArray(version.getInspectionTypeRulesJson());
-        } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("QA规程检验类型规则无效");
-        }
-        if (rulesJson == null || rulesJson.isEmpty()) {
-            throw new IllegalArgumentException("QA规程缺少检验类型规则");
-        }
-        List<PqcInspectionRule> rules = new ArrayList<>();
-        Set<String> ruleKeys = new LinkedHashSet<>();
-        for (int index = 0; index < rulesJson.size(); index++) {
-            JSONObject ruleJson = rulesJson.getJSONObject(index);
-            String ruleKey = normalizeRuleKey(ruleJson == null ? null : ruleJson.getString("key"));
-            String inspectionType = normalizeInspectionType(ruleJson == null ? null : ruleJson.getString("inspectionType"));
-            Boolean required = ruleJson == null ? null : ruleJson.getBoolean("required");
-            if (ruleKey == null || inspectionType == null || required == null || !ruleKeys.add(ruleKey)
-                    || !Objects.equals(expectedInspectionType(ruleKey), inspectionType)) {
-                throw new IllegalArgumentException("QA规程检验类型规则无效");
-            }
-            rules.add(new PqcInspectionRule(ruleKey, inspectionType, shiftCodeForRuleKey(ruleKey),
-                    Boolean.TRUE.equals(required)));
-        }
-        Set<String> expectedRuleKeys = Set.of(RULE_KEY_FIRST, RULE_KEY_PATROL_AM, RULE_KEY_PATROL_PM, RULE_KEY_FINAL);
-        if (!ruleKeys.equals(expectedRuleKeys)) {
-            throw new IllegalArgumentException("QA规程检验类型规则无效");
-        }
-        PqcInspectionRule finalRule = rules.stream()
-                .filter(rule -> Objects.equals(INSPECTION_TYPE_FINAL, rule.inspectionType()))
-                .findFirst()
-                .orElse(null);
-        if (version.getFinalInspectionApplicable() == null) {
-            throw new IllegalArgumentException("QA规程末检适用性未配置");
-        }
-        if (Boolean.TRUE.equals(version.getFinalInspectionApplicable())
-                && (finalRule == null || !finalRule.required())) {
-            throw new IllegalArgumentException("QA规程末检适用但 FINAL 检验规则未启用");
-        }
-        if (Boolean.FALSE.equals(version.getFinalInspectionApplicable())
-                && (version.getFinalInspectionNotApplicableReason() == null
-                || version.getFinalInspectionNotApplicableReason().isBlank()
-                || (finalRule != null && finalRule.required()))) {
-            throw new IllegalArgumentException("QA规程末检不适用配置无效");
-        }
-        return rules.stream()
-                .sorted(Comparator.comparingInt(rule -> inspectionRuleOrder(rule.ruleKey())))
-                .toList();
+        return cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan.require(version)
+                .stream().map(stage -> new PqcInspectionRule(stage.ruleKey(), stage.inspectionType(),
+                        stage.shiftCode(), stage.required())).toList();
     }
 
     private static String validateInspectionRuleTruthTable(List<PqcInspectionRule> rules,
@@ -882,14 +835,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private String validateRuleInspectionQuantity(BigDecimal plannedQuantity,
                                                   List<MesQaInspectionRegulationItemDO> items,
                                                   PqcInspectionRule rule) {
-        if (Objects.equals(INSPECTION_TYPE_PATROL, rule.inspectionType())) {
-            return validatePatrolInspectionQuantity(plannedQuantity, items);
+        var matchingItems = items.stream().filter(item -> Objects.equals(rule.inspectionType(),
+                normalizeInspectionType(item.getInspectionType()))).toList();
+        if (matchingItems.isEmpty()) return "缺少检验类型规则";
+        for (var item : matchingItems) {
+            String reason = Objects.equals(INSPECTION_TYPE_PATROL, rule.inspectionType())
+                    ? validatePatrolInspectionQuantity(plannedQuantity, List.of(item))
+                    : validateFixedInspectionQuantity(List.of(item), rule.inspectionType());
+            if (reason != null) return reason;
         }
-        if (Objects.equals(INSPECTION_TYPE_FIRST, rule.inspectionType())
-                || Objects.equals(INSPECTION_TYPE_FINAL, rule.inspectionType())) {
-            return validateFixedInspectionQuantity(items, rule.inspectionType());
-        }
-        return "QA检验类型无效";
+        return null;
     }
 
     private String validateFixedInspectionQuantity(List<MesQaInspectionRegulationItemDO> items,
@@ -1517,13 +1472,14 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private static MesPqcInspectionTaskDO copySimulationPqcTask(MesProcessPoolActiveOrderDO copiedActiveOrder,
                                                                 MesPqcInspectionTaskDO sourceTask,
                                                                 LocalDate businessDate) {
-        if (sourceTask == null || sourceTask.getRouteProcessId() == null || sourceTask.getProcessId() == null
+        if (sourceTask == null || sourceTask.getRouteProcessId() != null || sourceTask.getProcessId() != null
                 || sourceTask.getQaRegulationId() == null || sourceTask.getRegulationVersionId() == null
                 || sourceTask.getQaProcessId() == null || sourceTask.getInspectionType() == null
                 || sourceTask.getInspectionRuleKey() == null || sourceTask.getPlannedInspectionQuantity() == null) {
             throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
                     "测试复制源订单存在不完整PQC任务，activeOrderId=" + copiedActiveOrder.getId());
         }
+        MesPqcInspectionItemPlan.require(sourceTask);
         return MesPqcInspectionTaskDO.builder()
                 .activeOrderId(copiedActiveOrder.getId())
                 .workOrderId(copiedActiveOrder.getWorkOrderId())
@@ -1545,6 +1501,7 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .shiftCode(sourceTask.getShiftCode())
                 .roundNo(sourceTask.getRoundNo())
                 .plannedInspectionQuantity(sourceTask.getPlannedInspectionQuantity())
+                .inspectionItemPlanJson(sourceTask.getInspectionItemPlanJson())
                 .actualInspectionQuantity(0)
                 .taskStatus(PQC_STATUS_PENDING)
                 .simulated(Boolean.TRUE)
@@ -4328,27 +4285,23 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                     normalizeInspectionType(item.getInspectionType())))) {
                         continue;
                     }
-                    if (isItemScopedInspectionType(rule.inspectionType())) {
-                        for (MesQaInspectionRegulationItemDO item : processItems) {
-                            if (!Objects.equals(rule.inspectionType(),
-                                    normalizeInspectionType(item.getInspectionType()))) {
-                                continue;
-                            }
-                            String qaItemCode = requireQaItemCode(activeOrder, qaProcess, item);
-                            Integer plannedQuantity = resolveInspectionQuantity(activeOrder, List.of(item),
-                                    rule.inspectionType());
-                            addPlannedPqcTask(activeOrder, plans,
-                                    new PlannedPqcTask(source.regulation(), source.version(), qaProcess, item,
-                                            qaItemCode, rule,
-                                            plannedQuantity));
+                    Map<String, Integer> itemQuantities = new LinkedHashMap<>();
+                    for (MesQaInspectionRegulationItemDO item : processItems) {
+                        if (!Objects.equals(rule.inspectionType(), normalizeInspectionType(item.getInspectionType()))) {
+                            continue;
                         }
-                        continue;
+                        String itemCode = requireQaItemCode(activeOrder, qaProcess, item);
+                        if (itemQuantities.putIfAbsent(itemCode,
+                                resolveInspectionQuantity(activeOrder, List.of(item), rule.inspectionType())) != null) {
+                            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
+                                    "同一QA工序存在重复检验项目编码：" + itemCode);
+                        }
                     }
-                    Integer plannedQuantity = resolveInspectionQuantity(activeOrder, processItems,
-                            rule.inspectionType());
+                    Integer plannedQuantity = itemQuantities.values().stream()
+                            .mapToInt(Integer::intValue).max().orElseThrow();
                     addPlannedPqcTask(activeOrder, plans,
-                            new PlannedPqcTask(source.regulation(), source.version(), qaProcess, null, "", rule,
-                                    plannedQuantity));
+                            new PlannedPqcTask(source.regulation(), source.version(), qaProcess, "", rule,
+                                    plannedQuantity, MesPqcInspectionItemPlan.encode(itemQuantities)));
                 }
             }
         }
@@ -4384,78 +4337,16 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                           List<PlannedPqcTask> plans,
                                           List<MesProScheduleOrderProcessDO> routeProcesses) {
         LocalDate businessDate = resolvePqcBusinessDate(activeOrder);
-        List<ProcessIdentity> productionIdentities = requireFrozenRouteProcessIdentities(activeOrder, routeProcesses);
         int insertedCount = 0;
         for (PlannedPqcTask plan : plans) {
-            for (ProcessIdentity productionIdentity : resolvePqcTaskProcessIdentities(
-                    activeOrder, plan, productionIdentities)) {
-                MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), plan.regulation(),
-                        plan.version(),
-                        productionIdentity,
-                        plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(), businessDate,
-                        plan.rule().shiftCode(), plan.plannedQuantity());
-                insertPqcInspectionTask(task);
-                insertedCount++;
-            }
+            MesPqcInspectionTaskDO task = buildPqcTask(activeOrder, plan.qaProcess(), plan.regulation(),
+                    plan.version(), plan.qaItemCode(), plan.rule().inspectionType(), plan.rule().ruleKey(),
+                    businessDate, plan.rule().shiftCode(), plan.plannedQuantity());
+            task.setInspectionItemPlanJson(plan.inspectionItemPlanJson());
+            insertPqcInspectionTask(task);
+            insertedCount++;
         }
         return insertedCount;
-    }
-
-    private static List<ProcessIdentity> resolvePqcTaskProcessIdentities(
-            MesProcessPoolActiveOrderDO activeOrder,
-            PlannedPqcTask plan,
-            List<ProcessIdentity> productionIdentities) {
-        Long regulationRouteProcessId = plan.regulation().getRouteProcessId();
-        Long regulationProcessId = plan.regulation().getProcessId();
-        if (regulationRouteProcessId == null && regulationProcessId == null) {
-            return productionIdentities;
-        }
-
-        List<ProcessIdentity> exactMatches = productionIdentities.stream()
-                .filter(identity -> Objects.equals(regulationRouteProcessId, identity.routeProcessId())
-                        && Objects.equals(regulationProcessId, identity.processId()))
-                .toList();
-        if (!exactMatches.isEmpty()) {
-            return singlePqcProcessIdentity(activeOrder, plan, exactMatches);
-        }
-
-        if (regulationProcessId != null) {
-            List<ProcessIdentity> processMatches = productionIdentities.stream()
-                    .filter(identity -> Objects.equals(regulationProcessId, identity.processId()))
-                    .toList();
-            if (!processMatches.isEmpty()) {
-                return singlePqcProcessIdentity(activeOrder, plan, processMatches);
-            }
-        }
-
-        if (regulationRouteProcessId != null) {
-            List<ProcessIdentity> routeProcessMatches = productionIdentities.stream()
-                    .filter(identity -> Objects.equals(regulationRouteProcessId, identity.routeProcessId()))
-                    .toList();
-            if (!routeProcessMatches.isEmpty()) {
-                return singlePqcProcessIdentity(activeOrder, plan, routeProcessMatches);
-            }
-        }
-
-        throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                "QA规程工序无法匹配冻结生产工序，activeOrderId=" + activeOrder.getId()
-                        + "，regulationVersionId=" + plan.version().getId()
-                        + "，qaProcessId=" + plan.qaProcess().getId()
-                        + "，routeProcessId=" + regulationRouteProcessId
-                        + "，processId=" + regulationProcessId);
-    }
-
-    private static List<ProcessIdentity> singlePqcProcessIdentity(
-            MesProcessPoolActiveOrderDO activeOrder,
-            PlannedPqcTask plan,
-            List<ProcessIdentity> matches) {
-        if (matches.size() != 1) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "QA规程工序匹配到多个冻结生产工序，activeOrderId=" + activeOrder.getId()
-                            + "，regulationVersionId=" + plan.version().getId()
-                            + "，qaProcessId=" + plan.qaProcess().getId());
-        }
-        return matches;
     }
 
     private LocalDate resolvePqcBusinessDate(MesProcessPoolActiveOrderDO activeOrder) {
@@ -4470,7 +4361,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                                                 MesQaInspectionRegulationProcessDO qaProcess,
                                                 MesQaInspectionRegulationDO regulation,
                                                 MesQaInspectionRegulationVersionDO version,
-                                                ProcessIdentity qaProductionIdentity,
                                                 String qaItemCode,
                                                 String inspectionType,
                                                 String inspectionRuleKey,
@@ -4482,8 +4372,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .workOrderId(activeOrder.getWorkOrderId())
                 .routeId(activeOrder.getRouteId())
                 .routeVersionId(activeOrder.getRouteVersionId())
-                .routeProcessId(qaProductionIdentity.routeProcessId())
-                .processId(qaProductionIdentity.processId())
                 .dccProjectCodeId(regulation.getDccProjectCodeId())
                 .qaRegulationId(regulation.getId())
                 .qaProcessId(qaProcess.getId())
@@ -4502,36 +4390,6 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .simulationStage(activeOrder.getSimulationStage())
                 .simulationRunId(activeOrder.getSimulationRunId())
                 .build();
-    }
-
-    private static List<ProcessIdentity> requireFrozenRouteProcessIdentities(MesProcessPoolActiveOrderDO activeOrder,
-                                                                             List<MesProScheduleOrderProcessDO>
-                                                                                     routeProcesses) {
-        if (activeOrder == null || routeProcesses == null || routeProcesses.isEmpty()) {
-            throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                    "活跃订单冻结路线缺少可用于PQC任务的生产工序身份，activeOrderId="
-                            + (activeOrder == null ? null : activeOrder.getId()));
-        }
-
-        List<ProcessIdentity> identities = new ArrayList<>(routeProcesses.size());
-        Set<ProcessIdentity> uniqueIdentities = new LinkedHashSet<>();
-        for (MesProScheduleOrderProcessDO process : routeProcesses) {
-            if (process == null || process.getRouteProcessId() == null || process.getProcessId() == null) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "活跃订单冻结路线存在不完整的生产工序身份，activeOrderId=" + activeOrder.getId()
-                                + "，routeId=" + activeOrder.getRouteId()
-                                + "，routeVersionId=" + activeOrder.getRouteVersionId());
-            }
-            ProcessIdentity identity = new ProcessIdentity(process.getRouteProcessId(), process.getProcessId());
-            if (!uniqueIdentities.add(identity)) {
-                throw exception(PRO_PQC_INSPECTION_TASK_GENERATION_BLOCKED,
-                        "活跃订单冻结路线存在重复的生产工序身份，activeOrderId=" + activeOrder.getId()
-                                + "，routeProcessId=" + identity.routeProcessId()
-                                + "，processId=" + identity.processId());
-            }
-            identities.add(identity);
-        }
-        return List.copyOf(identities);
     }
 
     private void insertPqcInspectionTask(MesPqcInspectionTaskDO task) {
@@ -5053,10 +4911,9 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     private record PlannedPqcTask(MesQaInspectionRegulationDO regulation,
                                   MesQaInspectionRegulationVersionDO version,
                                   MesQaInspectionRegulationProcessDO qaProcess,
-                                  MesQaInspectionRegulationItemDO qaItem,
                                   String qaItemCode,
                                   PqcInspectionRule rule,
-                                  Integer plannedQuantity) {
+                                  Integer plannedQuantity, String inspectionItemPlanJson) {
     }
 
     private record PlannedPqcTaskIdentity(Long regulationVersionId,

@@ -148,15 +148,23 @@ public class MesActiveOrderHandoffOwnerResolver {
 
     /** PQC events carry QA identity; their MES stage belongs exclusively to the formal inspection task. */
     public MesPqcInspectionTaskDO pqcTask(MesProProcessPoolEventDO event) {
+        validatePqcEventIdentity(event);
+        return validatePqcTask(event,pqcTasks.selectById(event.getFeedbackSourceId()));
+    }
+
+    private void validatePqcEventIdentity(MesProProcessPoolEventDO event) {
         require(event!=null&&Objects.equals(event.getTenantId(),tenant())&&event.getId()!=null&&event.getId()>0
                 &&"PQC_INSPECTION".equals(event.getEventType())&&event.getRouteProcessId()==null&&event.getProcessId()==null
                 &&"MES_PQC_INSPECTION_TASK".equals(event.getFeedbackSourceType())
                 &&event.getFeedbackSourceId()!=null&&event.getFeedbackSourceId()>0,
                 "PQC交接必须使用保留QA身份的正式检验事件");
-        var task=pqcTasks.selectById(event.getFeedbackSourceId());
+    }
+
+    private MesPqcInspectionTaskDO validatePqcTask(MesProProcessPoolEventDO event,MesPqcInspectionTaskDO task) {
+        validatePqcEventIdentity(event);
         require(task!=null&&Objects.equals(task.getId(),event.getFeedbackSourceId())&&Objects.equals(task.getTenantId(),tenant())
                 &&task.getActiveOrderId()!=null&&task.getActiveOrderId()>0
-                &&task.getRouteProcessId()!=null&&task.getRouteProcessId()>0&&task.getProcessId()!=null&&task.getProcessId()>0
+                &&task.getRouteProcessId()==null&&task.getProcessId()==null&&task.getRegulationVersionId()!=null
                 &&task.getWorkOrderId()!=null&&task.getWorkOrderId()>0&&Objects.equals(task.getWorkOrderId(),event.getWorkOrderId())
                 &&task.getRouteId()!=null&&task.getRouteId()>0&&Objects.equals(task.getRouteId(),event.getRouteId())
                 &&task.getQaProcessId()!=null&&task.getQaProcessId()>0&&Objects.equals(task.getQaProcessId(),event.getQaProcessId())
@@ -177,14 +185,19 @@ public class MesActiveOrderHandoffOwnerResolver {
     public FrozenPqcHandoff frozenPqcHandoff(MesProProcessPoolEventDO event) {
         var pqc=pqcTask(event);
         var order=orders.selectById(pqc.getActiveOrderId());
-        require(order!=null&&Objects.equals(order.getTenantId(),tenant())
-                &&Objects.equals(order.getWorkOrderId(),pqc.getWorkOrderId())
-                &&Objects.equals(order.getRouteId(),pqc.getRouteId()),"PQC冻结责任不属于原正式工单与路线");
         var rows=handoffTasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
                 .eq(MesActiveOrderHandoffTaskDO::getActiveOrderId,pqc.getActiveOrderId())
                 .eq(MesActiveOrderHandoffTaskDO::getTaskType,"PQC_HANDOFF")
                 .eq(MesActiveOrderHandoffTaskDO::getSourceType,"PQC_INSPECTION_TASK")
                 .eq(MesActiveOrderHandoffTaskDO::getSourceId,pqc.getId()));
+        return validateFrozenPqcHandoff(event,pqc,order,rows,id->user(id,"mes:pro-process-pool-team-leader:review"));
+    }
+
+    private FrozenPqcHandoff validateFrozenPqcHandoff(MesProProcessPoolEventDO event,MesPqcInspectionTaskDO pqc,MesProcessPoolActiveOrderDO order,
+            List<MesActiveOrderHandoffTaskDO> rows,java.util.function.Consumer<Long> validateLeader) {
+        require(order!=null&&Objects.equals(order.getTenantId(),tenant())
+                &&Objects.equals(order.getWorkOrderId(),pqc.getWorkOrderId())
+                &&Objects.equals(order.getRouteId(),pqc.getRouteId()),"PQC冻结责任不属于原正式工单与路线");
         require(rows!=null&&rows.size()==1,"PQC正式任务必须具有唯一原交接冻结责任");
         var task=rows.get(0);
         require(task!=null&&Objects.equals(task.getTenantId(),tenant())
@@ -199,8 +212,11 @@ public class MesActiveOrderHandoffOwnerResolver {
         require(snapshot!=null&&snapshot.isObject(),"PQC原交接冻结责任快照缺失");
         require("SYSTEM_USER".equals(snapshot.path("identityDomain").asText())
                 &&sameId(snapshot,"activeOrderId",pqc.getActiveOrderId())&&sameId(snapshot,"workOrderId",pqc.getWorkOrderId())
-                &&sameId(snapshot,"routeId",pqc.getRouteId())&&sameId(snapshot,"routeProcessId",pqc.getRouteProcessId())
-                &&sameId(snapshot,"processId",pqc.getProcessId())&&sameId(snapshot,"sourceId",pqc.getId())
+                &&sameId(snapshot,"routeId",pqc.getRouteId())
+                &&sameId(snapshot,"qaProcessId",pqc.getQaProcessId())
+                &&sameId(snapshot,"regulationVersionId",pqc.getRegulationVersionId())
+                &&!snapshot.hasNonNull("routeProcessId")
+                &&!snapshot.hasNonNull("processId")&&sameId(snapshot,"sourceId",pqc.getId())
                 &&sameId(snapshot,"roundId",pqc.getId())&&"PQC_INSPECTION_TASK".equals(snapshot.path("sourceType").asText())
                 &&frozenIds(snapshot.path("userIds")).equals(candidates(task.getCandidateUserSnapshot())),"PQC原交接冻结身份不一致");
         var handlers=frozenIds(snapshot.path("handlerLeaderUserIds"));
@@ -212,12 +228,17 @@ public class MesActiveOrderHandoffOwnerResolver {
                 &&rule.path("candidateSourceId").isIntegralNumber()&&rule.path("candidateSourceId").longValue()>0
                 &&Objects.equals(rule.path("candidateUserSnapshot").asText(),task.getCandidateUserSnapshot())
                 &&handlers.equals(frozenIds(rule.path("handlerLeaderUserIds"))),"PQC冻结派发规则与办理责任冲突");
-        handlers.forEach(id->user(id,"mes:pro-process-pool-team-leader:review"));
+        handlers.forEach(validateLeader);
         return new FrozenPqcHandoff(task,handlers);
     }
 
     public List<Long> frozenPqcReviewers(MesProProcessPoolEventDO event,MesActiveOrderHandoffTaskDO task) {
         var pqc=pqcTask(event);var original=frozenPqcHandoff(event);
+        return validateFrozenPqcReviewers(event,task,pqc,original,id->user(id,"mes:pro-process-pool-team-leader:review"));
+    }
+
+    private List<Long> validateFrozenPqcReviewers(MesProProcessPoolEventDO event,MesActiveOrderHandoffTaskDO task,
+            MesPqcInspectionTaskDO pqc,FrozenPqcHandoff original,java.util.function.Consumer<Long> validateLeader) {
         require(task!=null&&Objects.equals(task.getTenantId(),tenant())&&"PQC_REVIEW".equals(task.getTaskType())
                 &&Objects.equals(task.getActiveOrderId(),pqc.getActiveOrderId())&&Objects.equals(task.getWorkOrderId(),pqc.getWorkOrderId())
                 &&Objects.equals(task.getRouteProcessId(),pqc.getRouteProcessId())&&Objects.equals(task.getSourceId(),event.getId())
@@ -227,7 +248,7 @@ public class MesActiveOrderHandoffOwnerResolver {
         require(snapshot!=null&&snapshot.isObject(),"PQC复核冻结责任快照缺失");
         require("SYSTEM_USER".equals(snapshot.path("identityDomain").asText())
                 &&sameId(snapshot,"activeOrderId",pqc.getActiveOrderId())&&sameId(snapshot,"workOrderId",pqc.getWorkOrderId())
-                &&sameId(snapshot,"routeProcessId",pqc.getRouteProcessId())&&sameId(snapshot,"processId",pqc.getProcessId())
+                &&!snapshot.hasNonNull("routeProcessId")&&!snapshot.hasNonNull("processId")
                 &&sameId(snapshot,"pqcTaskId",pqc.getId())&&sameId(snapshot,"qaProcessId",pqc.getQaProcessId())
                 &&sameId(snapshot,"routeVersionId",pqc.getRouteVersionId())&&sameId(snapshot,"regulationVersionId",pqc.getRegulationVersionId())
                 &&sameId(snapshot,"sourceId",event.getId())&&sameId(snapshot,"roundId",task.getRoundId())
@@ -237,8 +258,61 @@ public class MesActiveOrderHandoffOwnerResolver {
                 &&(!"PROCESS_POOL_EVENT".equals(task.getSourceType())
                     ||(Objects.equals(task.getRoundId(),event.getId())&&handlers.equals(original.handlerLeaderUserIds()))),
                 "PQC复核冻结办理责任与原任务冲突");
-        handlers.forEach(id->user(id,"mes:pro-process-pool-team-leader:review"));
+        handlers.forEach(validateLeader);
         return handlers;
+    }
+
+    /** Request-local bulk reads retain every member's original frozen responsibility checks. */
+    public Set<Long> frozenPqcReviewEventIds(List<MesActiveOrderHandoffTaskDO> reviewTasks,
+            List<MesProProcessPoolEventDO> eventRows,Long actor) {
+        require(reviewTasks!=null&&eventRows!=null,"PQC冻结复核批量来源缺失");
+        if(reviewTasks.isEmpty())return Set.of();
+        var eventById=new HashMap<Long,MesProProcessPoolEventDO>();
+        for(var event:eventRows) {
+            validatePqcEventIdentity(event);
+            require(eventById.putIfAbsent(event.getId(),event)==null,"PQC冻结复核事件来源重复");
+        }
+        var expectedEventIds=reviewTasks.stream().map(MesActiveOrderHandoffTaskDO::getSourceId).collect(Collectors.toSet());
+        require(eventById.keySet().equals(expectedEventIds),"PQC冻结复核事件来源缺失或不一致");
+        var taskIds=eventRows.stream().map(MesProProcessPoolEventDO::getFeedbackSourceId).collect(Collectors.toSet());
+        var pqcById=new HashMap<Long,MesPqcInspectionTaskDO>();
+        var pqcRows=pqcTasks.selectBatchIds(taskIds);
+        require(pqcRows!=null,"PQC正式任务批量读取失败");
+        for(var task:pqcRows)require(task!=null&&pqcById.putIfAbsent(task.getId(),task)==null,"PQC正式任务来源重复");
+        var orderIds=pqcRows.stream().map(MesPqcInspectionTaskDO::getActiveOrderId).collect(Collectors.toSet());
+        require(!orderIds.isEmpty()&&!orderIds.contains(null),"PQC原活跃工单来源缺失");
+        var orderById=new HashMap<Long,MesProcessPoolActiveOrderDO>();
+        var orderRows=orders.selectBatchIds(orderIds);
+        require(orderRows!=null,"PQC原活跃工单批量读取失败");
+        for(var order:orderRows)require(order!=null&&orderById.putIfAbsent(order.getId(),order)==null,"PQC原活跃工单来源重复");
+        var handoffRows=handoffTasks.selectList(new LambdaQueryWrapperX<MesActiveOrderHandoffTaskDO>()
+                .eq(MesActiveOrderHandoffTaskDO::getTenantId,tenant())
+                .eq(MesActiveOrderHandoffTaskDO::getTaskType,"PQC_HANDOFF")
+                .eq(MesActiveOrderHandoffTaskDO::getSourceType,"PQC_INSPECTION_TASK")
+                .in(MesActiveOrderHandoffTaskDO::getSourceId,taskIds));
+        require(handoffRows!=null,"PQC原交接冻结责任批量读取失败");
+        // Composite identity prevents records from another order from hiding duplicates or matching by task ID alone.
+        record HandoffKey(Long tenantId,Long activeOrderId,Long pqcTaskId) { }
+        var handoffs=new HashMap<HandoffKey,List<MesActiveOrderHandoffTaskDO>>();
+        for(var task:handoffRows) {
+            require(task!=null,"PQC原交接冻结责任包含空来源");
+            handoffs.computeIfAbsent(new HandoffKey(task.getTenantId(),task.getActiveOrderId(),task.getSourceId()),k->new ArrayList<>()).add(task);
+        }
+        var checkedLeaders=new HashSet<Long>();
+        java.util.function.Consumer<Long> validateLeader=id->{
+            if(checkedLeaders.add(id))user(id,"mes:pro-process-pool-team-leader:review");
+        };
+        var result=new LinkedHashSet<Long>();
+        for(var review:reviewTasks) {
+            access(review,actor);validate(review);
+            var event=eventById.get(review.getSourceId());
+            var pqc=validatePqcTask(event,event==null?null:pqcById.get(event.getFeedbackSourceId()));
+            var original=validateFrozenPqcHandoff(event,pqc,orderById.get(pqc.getActiveOrderId()),
+                    handoffs.get(new HandoffKey(tenant(),pqc.getActiveOrderId(),pqc.getId())),validateLeader);
+            require(validateFrozenPqcReviewers(event,review,pqc,original,validateLeader).contains(actor),"PQC本人复核冻结责任不一致");
+            result.add(event.getId());
+        }
+        return Collections.unmodifiableSet(result);
     }
 
     private static boolean sameId(JsonNode node,String field,Long expected) {

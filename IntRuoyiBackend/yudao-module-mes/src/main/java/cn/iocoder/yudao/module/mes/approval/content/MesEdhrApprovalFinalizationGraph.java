@@ -9,6 +9,20 @@ public record MesEdhrApprovalFinalizationGraph(Long tenantId, MesProEdhrWorkTask
         MesProEdhrReleaseTransactionDO transaction, MesProEdhrBatchExecutionDO batch, boolean managed,
         MesProEdhrBatchExecutionOriginDO origin, MesProEdhrBatchTraceSourcePrecheckRespVO sourceContext,
         MesEdhrVerifiedMaterialGateFact materialFact, MesEdhrSourceCreationEvidence sourceCreationEvidence,
-        Long applicationId, Long activeOrderVersion) {
+        Long applicationId, Long activeOrderVersion,
+        cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrVerifiedActiveOrderReleaseFact activeOrderFact) {
+    public MesEdhrApprovalFinalizationGraph(Long tenantId, MesProEdhrWorkTaskDO task,
+            MesProEdhrReleaseTransactionDO transaction, MesProEdhrBatchExecutionDO batch, boolean managed,
+            MesProEdhrBatchExecutionOriginDO origin, MesProEdhrBatchTraceSourcePrecheckRespVO sourceContext,
+            MesEdhrVerifiedMaterialGateFact materialFact, MesEdhrSourceCreationEvidence sourceCreationEvidence,
+            Long applicationId, Long activeOrderVersion) {
+        this(tenantId,task,transaction,batch,managed,origin,sourceContext,materialFact,sourceCreationEvidence,applicationId,activeOrderVersion,null);
+    }
+    public MesEdhrApprovalFinalizationGraph {
+        if((materialFact==null)==(activeOrderFact==null)) throw new IllegalArgumentException("APPROVAL_EXACT_FACT_BRANCH_REQUIRED");
+        if(activeOrderFact!=null && (!managed || !"ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())
+                || !java.util.Objects.equals(applicationId,activeOrderFact.applicationId())))
+            throw new IllegalArgumentException("APPROVAL_ACTIVE_FACT_BINDING_INVALID");
+    }
     public MesProEdhrBatchTraceSourcePrecheckRespVO trace() { return sourceContext; }
 }

@@ -29,7 +29,7 @@ assert.ok(operationEnd > operationStart, '无法定位批次执行列表操作�
 const operationColumn = source.slice(operationStart, operationEnd)
 
 assert.match(operationColumn, />\s*详情\s*</, '操作列必须保留详情按钮')
-assert.match(operationColumn, />\s*上市放行\s*</, '操作列必须显示上市放行按钮')
+assert.match(operationColumn, />\s*放行\s*</, '操作列必须显示放行按钮')
 assert.match(operationColumn, />\s*上传\s*</, '操作列必须显示上传按钮')
 assert.match(operationColumn, />\s*驳回\s*</, '操作列必须显示驳回按钮')
 assert.doesNotMatch(operationColumn, />\s*编辑\s*</, '操作列不得继续显示编辑按钮')
@@ -49,11 +49,22 @@ assert.doesNotMatch(
   /handlePlaceholderBatchAction\('上市放行'\)/,
   '上市放行不得继续调用占位处理器'
 )
-assert.match(
-  operationColumn,
-  /v-hasPermi="\['mes:pro-edhr-batch-execution:upload'\]"/,
-  '上传按钮必须只对批次执行上传权限可见'
-)
+const uploadButtons = [...operationColumn.matchAll(/<el-button\b[^>]*data-edhr-batch-action="upload"[^>]*>/g)]
+assert.equal(uploadButtons.length, 2, '放行锁定及普通分支都必须保留资料上传入口')
+const authorizedDossierPermissions = [
+  'mes:pro-process-pool-team-leader:maintain',
+  'mes:pro-production-release:pqc-approve',
+  'mes:pro-edhr-batch-execution:upload'
+]
+for (const [button] of uploadButtons) {
+  const permissionBinding = button.match(/v-hasPermi="\[([\s\S]*?)\]"/)
+  assert.ok(permissionBinding, '资料上传入口必须保留权限控制')
+  assert.deepEqual([...permissionBinding[1].matchAll(/'([^']+)'/g)].map(match => match[1]),
+    authorizedDossierPermissions, '上传入口必须与正式资料页面已有办理权限一致')
+}
+const dossierUpload = activeOrderPanel.match(/<el-upload\b[\s\S]*?data-active-order-dossier-file-upload[\s\S]*?>/)
+assert.ok(dossierUpload, '正式资料页面必须保留上传入口')
+for (const permission of authorizedDossierPermissions) assert.ok(dossierUpload[0].includes(permission))
 assert.match(
   operationColumn,
   /@click="openActiveOrderOtherUploadTab\(row\)"/,

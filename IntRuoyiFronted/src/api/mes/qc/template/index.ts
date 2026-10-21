@@ -122,6 +122,7 @@ export interface QaInspectionRegulationProcessVO {
 }
 
 export interface QaInspectionRegulationPublishedVersionVO {
+  draftRevision: number
   dccProjectCodeId: number
   regulationId: number
   publishedVersionId: number
@@ -309,6 +310,7 @@ export interface QaCommonRegulationSetVersionOptionVO {
 }
 
 export interface QaInspectionRegulationSaveReqVO {
+  expectedDraftRevision: number
   regulationId?: number
   dccProjectCodeId: number
   ownerModule?: QaInspectionRegulationOwnerModule
@@ -345,6 +347,7 @@ export interface QaCommonRegulationSetItemsUpgradeProcessReqVO
 }
 
 export interface QaInspectionRegulationSaveRespVO {
+  draftRevision: number
   dccProjectCodeId: number
   regulationId: number
   draftVersionId: number

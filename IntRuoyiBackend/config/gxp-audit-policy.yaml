@@ -1,8 +1,40 @@
 schemaVersion: gxp-audit-policy.v2
-policyVersion: 20261005-manual-handoff-02
+policyVersion: 20261012-active-order-handoff-01
 status: APPROVED
 approvalReference: EDHR-20261005-MANUAL-HANDOFF02
 operations:
+- operationId: APPROVAL_CENTER_REVIEW_COMMIT
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.bpm.approval.content.ApprovalCenterReviewExecutor#execute
+  domain: BPM
+  subjectType: APPROVAL_CENTER_REVIEW_RECEIPT
+  actionType: CREATE
+  reasonPolicy: USER_REQUIRED
+  signaturePolicy: REQUIRED
+  statePolicy: ABSENT_TO_PRESENT
+  snapshotProfile: SIGNATURE
+  retentionClass: GXP_ELECTRONIC_SIGNATURE
+  testIds:
+  - ApprovalCenterReviewExecutorTest
+  ownerRole: qa-owner
+  applicability: GXP
+- operationId: mes.market-release.manager-stage.initialize
+  sourceType: SERVICE_METHOD
+  sourceLocators:
+  - cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseManagerStageInitializerImpl#initializeManagerReleaseStage
+  domain: MES
+  subjectType: RELEASE_TRANSACTION
+  actionType: INITIALIZE_MANAGER_STAGE
+  reasonPolicy: SYSTEM
+  signaturePolicy: NONE
+  statePolicy: ABSENT_OR_PRESENT_TO_PRESENT
+  snapshotProfile: MARKET_RELEASE
+  retentionClass: GXP_MES_RELEASE
+  testIds:
+  - MesEdhrMaterialAssociationIdentityTest
+  ownerRole: mes-owner
+  applicability: GXP
 - operationId: mes.work-task.entitlement
   sourceType: SERVICE_METHOD
   sourceLocators:
@@ -115,7 +147,7 @@ operations:
 - operationId: mes.production.submit
   sourceType: SERVICE_METHOD
   sourceLocators:
-  - cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitServiceImpl#submit
+  - cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitServiceImpl#submitAuthenticated
   domain: MES
   subjectType: MES_PRODUCTION_SUBMIT
   actionType: SUBMIT
@@ -438,6 +470,7 @@ operations:
   sourceLocators:
   - cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#sign
   - cn.iocoder.yudao.module.signature.service.ElectronicSignatureServiceImpl#signAuthorized
+  - cn.iocoder.yudao.module.signature.service.ElectronicSignatureTransactionExecutor#executeAuthenticated
   domain: SIGNATURE
   subjectType: SIGNATURE_RECORD
   actionType: CREATE

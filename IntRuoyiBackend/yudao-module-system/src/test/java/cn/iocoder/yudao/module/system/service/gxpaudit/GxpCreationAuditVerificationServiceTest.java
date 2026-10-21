@@ -92,6 +92,42 @@ class GxpCreationAuditVerificationServiceTest {
         row.setTargetVersion(relation.objectVersion()); row.setTargetHash(relation.objectHash()); return row;
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "2026-10-11T12:50:17.252235200,2026-10-11T12:50:17.252",
+            "2026-10-11T12:50:59.330517200,2026-10-11T12:50:59.331",
+            "2026-10-11T23:59:59.999500,2026-10-12T00:00",
+            "2026-10-11T12:50:17.252,2026-10-11T12:50:17.252"
+    })
+    void verifiesImmutableClockAgainstMysqlMillisecondRoundTrip(String original, String persisted) {
+        audit.setServerOccurredAt(LocalDateTime.parse(original));
+        rehash();
+        String canonical = audit.getCanonicalEventJson(), hash = audit.getEventHash();
+        audit.setServerOccurredAt(LocalDateTime.parse(persisted));
+        assertEquals(20L, read().eventId());
+        assertEquals(canonical, audit.getCanonicalEventJson());
+        assertEquals(hash, audit.getEventHash());
+        audit.setServerOccurredAt(audit.getServerOccurredAt().plusNanos(1_000_000));
+        rejected("AUDIT_INTEGRITY_FAILED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid", "null", "number", "hashTampered", "submillisecondColumn"})
+    void millisecondProjectionStillRejectsInvalidAndTamperedTimeEvidence(String mutation) {
+        if ("hashTampered".equals(mutation)) {
+            audit.setCanonicalEventJson(audit.getCanonicalEventJson().replace(".123", ".123400"));
+        } else if ("submillisecondColumn".equals(mutation)) {
+            audit.setServerOccurredAt(audit.getServerOccurredAt().plusNanos(1));
+        } else {
+            ObjectNode changed = canonical();
+            if ("invalid".equals(mutation)) changed.put("serverOccurredAt", "invalid");
+            else if ("null".equals(mutation)) changed.putNull("serverOccurredAt");
+            else changed.put("serverOccurredAt", 1);
+            setCanonical(JsonUtils.toJsonString(changed));
+        }
+        rejected("AUDIT_INTEGRITY_FAILED");
+    }
+
     @Test void candidateReadsKeepAllRolesAndEvents() {
         ArrayList<Long> input = new ArrayList<>(List.of(20L, 21L));
         when(relations.selectEventIdsByTargets(1L, List.of(" TARGET "), " id:1 ")).thenReturn(input);
@@ -303,9 +339,14 @@ class GxpCreationAuditVerificationServiceTest {
         assertNull(GxpCreationAuditVerificationService.originalTree("{"));
         assertEquals(GxpCreationAuditVerificationService.originalTree("{}"), GxpCreationAuditVerificationService.originalTree("{} {}"));
     }
-    @ParameterizedTest(name = "{0}") @ValueSource(strings = {"V2", "UNKNOWN"})
-    void legacyRegistryStillRejectsUnknownAndV2(String protocol) {
+    @ParameterizedTest(name = "{0}") @ValueSource(strings = {"V3", "UNKNOWN"})
+    void registeredProtocolsStillRejectUnknownVersions(String protocol) {
         assertThrows(IllegalArgumentException.class, () -> SignatureCreationProtocolRegistry.require(protocol)); verifyNoInteractions(events, relations);
+    }
+    @Test void registeredV2KeepsItsDistinctCreationSource() {
+        assertEquals("ElectronicSignatureServiceImpl.sign", SignatureCreationProtocolRegistry.require("V1").sourceLocator());
+        assertEquals("ElectronicSignatureTransactionExecutor.executeAuthenticated", SignatureCreationProtocolRegistry.require("V2").sourceLocator());
+        verifyNoInteractions(events, relations);
     }
     @Test void selfConsistentBusinessChangeIsNotCreationCertification() {
         audit.setOperationId("another.domain.update"); audit.setSubjectId("another-source"); audit.setAfterStateJson("uninterpreted domain payload"); rehash();

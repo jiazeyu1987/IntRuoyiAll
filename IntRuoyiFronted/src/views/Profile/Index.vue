@@ -39,36 +39,12 @@
         <el-tab-pane :label="t('profile.info.resetPwd')" name="resetPwd">
           <ResetPwd />
         </el-tab-pane>
-        <el-tab-pane label="配置" name="config" v-if="hasAnyProfileConfigPermission">
-          <div class="profile-config-pane">
-            <el-tabs v-model="activeConfigName" class="profile-config-tabs">
-              <el-tab-pane v-if="hasGoldenFingerPermission" label="eDHR记录本" name="recordbook">
-                <EdhrRecordbookGlobalSetting />
-              </el-tab-pane>
-              <el-tab-pane v-if="hasGoldenFingerPermission" label="放行资料要求" name="releaseDossier">
-                <EdhrReleaseDossierRequirementSetting />
-              </el-tab-pane>
-              <el-tab-pane v-if="hasGoldenFingerPermission" label="ERP表格自动同步" name="erpTableSync">
-                <ProfileErpTableAutoSyncSetting />
-              </el-tab-pane>
-              <el-tab-pane
-                label="注册证配置"
-                name="registrationCertificate"
-                v-if="hasRegistrationCertificateConfigPermission"
-              >
-                <RegistrationCertificateConfig
-                  :can-update="hasRegistrationCertificateConfigUpdatePermission"
-                />
-              </el-tab-pane>
-              <el-tab-pane
-                v-if="hasInfraConfigQueryPermission"
-                label="基础配置"
-                name="basicConfig"
-              >
-                <ProfileBasicConfig :can-update="hasInfraConfigUpdatePermission" />
-              </el-tab-pane>
-            </el-tabs>
-          </div>
+        <el-tab-pane
+          v-if="route.query.tab === 'config'"
+          label="配置入口已迁移"
+          name="configMigration"
+        >
+          <BusinessConfigMigrationNotice />
         </el-tab-pane>
         <el-tab-pane :label="t('profile.info.userSocial')" name="userSocial" v-if="isAdminUser">
           <UserSocial v-model:activeName="activeName" />
@@ -81,19 +57,9 @@
 import * as NotifyMessageApi from '@/api/system/notify/message'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
-import { checkPermi } from '@/utils/permission'
+import BusinessConfigMigrationNotice from '@/views/system/config-migration/BusinessConfigMigrationNotice.vue'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
-import {
-  BasicInfo,
-  EdhrReleaseDossierRequirementSetting,
-  EdhrRecordbookGlobalSetting,
-  ProfileBasicConfig,
-  ProfileErpTableAutoSyncSetting,
-  ProfileWorkbench,
-  RegistrationCertificateConfig,
-  ResetPwd,
-  UserSocial
-} from './components'
+import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -102,39 +68,6 @@ const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
 defineOptions({ name: 'Profile' })
 
 const isAdminUser = computed(() => userStore.getRoles.includes('super_admin'))
-const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
-const REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION =
-  'dcc:registration-certificate:config:query'
-const REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION =
-  'dcc:registration-certificate:config:update'
-const INFRA_CONFIG_QUERY_PERMISSION = 'infra:config:query'
-const INFRA_CONFIG_UPDATE_PERMISSION = 'infra:config:update'
-const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
-const hasProfilePermission = (permission: string) =>
-  isAdminUser.value ||
-  userStore.getUser.username === 'admin' ||
-  userStore.permissions.has('*:*:*') ||
-  userStore.permissions.has(permission) ||
-  checkPermi([permission])
-const hasInfraConfigQueryPermission = computed(() =>
-  hasProfilePermission(INFRA_CONFIG_QUERY_PERMISSION)
-)
-const hasInfraConfigUpdatePermission = computed(() =>
-  hasProfilePermission(INFRA_CONFIG_UPDATE_PERMISSION)
-)
-const hasRegistrationCertificateConfigPermission = computed(() =>
-  userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_QUERY_PERMISSION)
-)
-const hasRegistrationCertificateConfigUpdatePermission = computed(() =>
-  userStore.permissions.has(REGISTRATION_CERTIFICATE_CONFIG_UPDATE_PERMISSION)
-)
-const hasAnyProfileConfigPermission = computed(
-  () =>
-    hasGoldenFingerPermission.value ||
-    hasRegistrationCertificateConfigPermission.value ||
-    hasInfraConfigQueryPermission.value
-)
-
 const isSocialBindingCallback = () =>
   typeof route.query.code === 'string' ||
   typeof route.query.type === 'string' ||
@@ -144,8 +77,8 @@ const resolveProfileActiveTab = () => {
   if (isAdminUser.value && isSocialBindingCallback()) {
     return 'userSocial'
   }
-  if (route.query.tab === 'config' && hasAnyProfileConfigPermission.value) {
-    return 'config'
+  if (route.query.tab === 'config') {
+    return 'configMigration'
   }
   if (route.query.tab === 'notifyMessage') {
     return 'notifyMessage'
@@ -157,25 +90,6 @@ const resolveProfileActiveTab = () => {
 }
 
 const activeName = ref(resolveProfileActiveTab())
-const resolveFirstConfigName = () => {
-  if (hasGoldenFingerPermission.value) return 'erpTableSync'
-  if (hasRegistrationCertificateConfigPermission.value) return 'registrationCertificate'
-  if (hasInfraConfigQueryPermission.value) return 'basicConfig'
-  return ''
-}
-const resolveConfigActiveTab = () => {
-  if (
-    route.query.config === 'registrationCertificate' &&
-    hasRegistrationCertificateConfigPermission.value
-  ) {
-    return 'registrationCertificate'
-  }
-  if (route.query.config === 'basicConfig' && hasInfraConfigQueryPermission.value) {
-    return 'basicConfig'
-  }
-  return resolveFirstConfigName()
-}
-const activeConfigName = ref(resolveConfigActiveTab())
 const unreadNotifyMessageCount = ref(0)
 const hasUnreadNotifyMessage = computed(() => unreadNotifyMessageCount.value > 0)
 
@@ -195,7 +109,8 @@ const handleUnreadNotifyMessageRefresh = () => {
 }
 
 const reportProfileWorkbenchTodoBadgeError = (error: unknown) => {
-  console.error('个人工作台待处理数量加载失败', error)
+  const code = (error as { code?: unknown } | null)?.code
+  console.error('个人工作台待处理数量加载失败', Number.isSafeInteger(code) ? code : 'WORKBENCH_REQUEST_FAILED')
 }
 
 const refreshProfileWorkbenchTodoBadge = () => {
@@ -214,43 +129,12 @@ const ensureSocialTabVisible = () => {
   if (!isAdminUser.value && activeName.value === 'userSocial') {
     activeName.value = 'workbench'
   }
-  if (!hasGoldenFingerPermission.value && activeName.value === 'config') {
-    if (hasAnyProfileConfigPermission.value) {
-      return
-    }
-    activeName.value = 'workbench'
-  }
-  const visibleConfigNames = new Set<string>()
-  if (hasGoldenFingerPermission.value) {
-    visibleConfigNames.add('recordbook')
-    visibleConfigNames.add('releaseDossier')
-    visibleConfigNames.add('erpTableSync')
-  }
-  if (hasRegistrationCertificateConfigPermission.value) {
-    visibleConfigNames.add('registrationCertificate')
-  }
-  if (hasInfraConfigQueryPermission.value) {
-    visibleConfigNames.add('basicConfig')
-  }
-  if (activeName.value === 'config' && !visibleConfigNames.has(activeConfigName.value)) {
-    activeConfigName.value = resolveConfigActiveTab()
-  }
 }
 
-watch(
-  [
-    () => route.fullPath,
-    isAdminUser,
-    hasGoldenFingerPermission,
-    hasInfraConfigQueryPermission,
-    hasRegistrationCertificateConfigPermission
-  ],
-  () => {
-    activeName.value = resolveProfileActiveTab()
-    activeConfigName.value = resolveConfigActiveTab()
-    ensureSocialTabVisible()
-  }
-)
+watch([() => route.fullPath, isAdminUser], () => {
+  activeName.value = resolveProfileActiveTab()
+  ensureSocialTabVisible()
+})
 
 watch(activeName, () => {
   ensureSocialTabVisible()
@@ -292,12 +176,6 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   line-height: 1;
-}
-
-.profile-config-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 
 .personal-workbench-todo-badge {

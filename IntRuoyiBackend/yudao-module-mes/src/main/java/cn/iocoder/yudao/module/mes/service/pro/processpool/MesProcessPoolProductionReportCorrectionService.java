@@ -116,6 +116,9 @@ public class MesProcessPoolProductionReportCorrectionService {
         this.reportManagementSummaryService = reportManagementSummaryService;
     }
 
+    @jakarta.annotation.Resource
+    private MesCorrectionBaselineGuard baselineGuard;
+
     @Transactional(rollbackFor = Exception.class)
     public Long correct(MesProcessPoolProductionReportCorrectionCommand command) {
         return correctInternal(command, null);
@@ -144,6 +147,7 @@ public class MesProcessPoolProductionReportCorrectionService {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "productionSubmitEvent");
         }
         nonconformanceReviewService.ensureWorkOrderNotFrozen(event.getWorkOrderId(), "生产报工更正");
+        if (ownReturn == null) baselineGuard.requireCurrent(event, command.getExpectedRevisionId(), command.getExpectedPayloadHash());
         Long profileRejectedReviewId = null;
         if (ownReturn == null) {
             var identity = handoffOwners.submissionIdentity(event);
@@ -198,9 +202,7 @@ public class MesProcessPoolProductionReportCorrectionService {
         // Freeze current persisted facts before signature/revision and in-place summary mutation.
         CorrectionAuditState before = correctionAuditState(event, outputFragment, null);
         String afterPayloadJson = JsonUtils.toJsonString(afterPayload);
-        String challengeHash = MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                event.getId() + "|" + MesProBatchRecordExecutionFieldAuditHasher.canonicalizeJsonString(afterPayloadJson)
-                        + "|" + command.getChangeReason().trim());
+        String challengeHash = MesCorrectionBaselineGuard.challenge(event.getId(), event.getRawPayload(), afterPayloadJson, command.getChangeReason());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
                 signatureService.recordFieldChangeSignature(
                         new MesProBatchRecordExecutionFieldAuditSignatureCommand()
@@ -371,7 +373,7 @@ public class MesProcessPoolProductionReportCorrectionService {
                         new GxpAuditEvidence("SIGNATURE", signature.getSignatureId().toString(), null,
                                 signatureContentHash, "PRODUCTION_REPORT_CORRECTION"),
                         new GxpAuditEvidence("SIGNATURE_CHALLENGE", signature.getSignatureId().toString(), null,
-                                challenge, "SIGNED_CORRECTION_REQUEST"),
+                                challenge, "SIGNED_CORRECTION_REQUEST_V2"),
                         new GxpAuditEvidence("REVISION", revisionId.toString(), null,
                                 MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(event.getRawPayload()), "CORRECTED_PAYLOAD")))
                 .build());

@@ -129,8 +129,6 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                                                       Integer roundNo) {
         return selectOne(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
                 .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
-                .eq(MesPqcInspectionTaskDO::getRouteProcessId, routeProcessId)
-                .eq(MesPqcInspectionTaskDO::getProcessId, processId)
                 .eq(MesPqcInspectionTaskDO::getRegulationVersionId, regulationVersionId)
                 .eq(MesPqcInspectionTaskDO::getQaProcessId, qaProcessId)
                 .eq(MesPqcInspectionTaskDO::getQaItemCode, qaItemCode)

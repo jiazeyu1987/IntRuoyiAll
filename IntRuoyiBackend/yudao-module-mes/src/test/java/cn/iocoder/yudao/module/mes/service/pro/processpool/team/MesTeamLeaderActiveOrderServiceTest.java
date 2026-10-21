@@ -1475,6 +1475,45 @@ class MesTeamLeaderActiveOrderServiceTest {
     }
 
     @Test
+    void sevenQaProcessesCreateTwentyOneStageTasksRegardlessOfFifteenProductionProcesses() {
+        stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
+        stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(15),
+                publishedRegulation(9902L, null, null));
+        when(inspectionRegulationVersionMapper.selectLatestPublishedByRegulationId(9901L))
+                .thenReturn(publishedRegulationVersion(false, "不适用末检"));
+        List<MesQaInspectionRegulationProcessDO> qaProcesses = new ArrayList<>();
+        List<MesQaInspectionRegulationItemDO> items = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            long qaId = 19902L + i;
+            qaProcesses.add(qaProcess(9902L, qaId, "QA-" + i, "检验工序" + i, i + 1));
+            items.add(pqcItem(9902L, qaId, "FIRST", 2, null).setItemCode("FIRST-A"));
+            items.add(pqcItem(9902L, qaId, "FIRST", 5, null).setItemCode("FIRST-B"));
+            items.add(pqcItem(9902L, qaId, "PATROL", null, new BigDecimal("5.000000")));
+        }
+        when(inspectionRegulationProcessMapper.selectListByVersionIds(List.of(9902L))).thenReturn(qaProcesses);
+        when(inspectionRegulationItemMapper.selectListByVersionId(9902L)).thenReturn(items);
+        stubSuccessfulActiveOrderInsert();
+
+        service.addActiveOrder(activeOrderReq());
+
+        ArgumentCaptor<MesPqcInspectionTaskDO> captor = ArgumentCaptor.forClass(MesPqcInspectionTaskDO.class);
+        verify(pqcInspectionTaskMapper, times(21)).insert(captor.capture());
+        assertEquals(7, captor.getAllValues().stream().map(MesPqcInspectionTaskDO::getQaProcessId).distinct().count());
+        for (var task : captor.getAllValues()) {
+            assertNull(task.getRouteProcessId());
+            assertNull(task.getProcessId());
+            assertEquals("", task.getQaItemCode());
+            var plan = cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+            if ("FIRST".equals(task.getInspectionRuleKey())) {
+                assertEquals(Map.of("FIRST-A", 2, "FIRST-B", 5), plan);
+                assertEquals(5, task.getPlannedInspectionQuantity());
+            } else {
+                assertEquals(Map.of("PATROL-001", 10), plan);
+            }
+        }
+    }
+
+    @Test
     void shouldKeepFirstAndPatrolQuantitiesPerQaProcessWhenProjectFinalInspectionIsDisabled() {
         stubWorkOrderExists(confirmedWorkOrder(new BigDecimal("200")));
         stubFormalRouteQaContext(1001L, 448L, activeRouteSnapshotJson(2),

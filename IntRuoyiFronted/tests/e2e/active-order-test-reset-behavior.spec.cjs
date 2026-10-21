@@ -19,7 +19,7 @@ const createHarness = (overrides = {}) => {
   const context = {
     activeOrderTestResetSubmitting: ref(false), maintenanceSubmitting: ref(false),
     activeOrderSimulationSubmittingId: ref(undefined), teamLeaderDataCleanupSubmitting: ref(false),
-    activeOrderMoveSubmittingId: ref(undefined), activeOrderRebuildSubmittingId: ref(undefined),
+    activeOrderRebuildSubmittingId: ref(undefined),
     activeOrderVersionUpgradeSubmittingId: ref(undefined), releaseApplicationSubmittingId: ref(undefined),
     abnormalSubmitting: ref(false), activeOrderConflictSubmitting: ref(false),
     activeOrderWorkOrderKeyword: ref('OLD-ORDER'), activeOrderQuery: { pageNo: 8, pageSize: 10 },
@@ -70,7 +70,7 @@ test('a completed reset unlocks the same button for the next deliberate reset', 
 })
 
 test('reset cannot overlap maintenance, simulation or another active-order mutation', async () => {
-  for (const [key, value] of Object.entries({ maintenanceSubmitting: true, activeOrderSimulationSubmittingId: 7, teamLeaderDataCleanupSubmitting: true, activeOrderMoveSubmittingId: 7, activeOrderRebuildSubmittingId: 7, activeOrderVersionUpgradeSubmittingId: 7, releaseApplicationSubmittingId: 7, abnormalSubmitting: true, activeOrderConflictSubmitting: true })) {
+  for (const [key, value] of Object.entries({ maintenanceSubmitting: true, activeOrderSimulationSubmittingId: 7, teamLeaderDataCleanupSubmitting: true, activeOrderRebuildSubmittingId: 7, activeOrderVersionUpgradeSubmittingId: 7, releaseApplicationSubmittingId: 7, abnormalSubmitting: true, activeOrderConflictSubmitting: true })) {
     const h = createHarness({ [key]: ref(value) })
     await h.run()
     assert.equal(h.calls.length, 0, key)
@@ -117,13 +117,13 @@ test('visible reset and mutation controls prevent concurrent work and retain ori
   assert.match(resetButton, /清理.*本轮.*测试/)
   for (const marker of ['data-team-leader-simulate-active-order-stage1-p1', 'data-team-leader-active-order-release-apply', 'data-team-leader-data-cleanup']) {
     const index = page.indexOf(marker)
-    const start = page.lastIndexOf('<el-button', index)
+    const start = Math.max(page.lastIndexOf('<el-button', index), page.lastIndexOf('<el-dropdown-item', index))
     assert.match(page.slice(start, index), /activeOrderTestResetSubmitting/, marker)
   }
 })
 
 test('active-order mutation handlers cannot start while reset owns the page', async () => {
-  const handlers = ['submitAddActiveOrder', 'submitActiveOrderReleaseApplication', 'submitMoveActiveOrder', 'handleRebuildActiveOrder', 'handleActiveOrderVersionUpgrade', 'submitActiveOrderVersionUpgrade', 'handleCopyLatestSimulationActiveOrder', 'handleCleanupLatestSimulationActiveOrder', 'handleSimulateStage1', 'handleGenerateStage1Forms', 'handleSimulateStage2_5', 'handlePushGeneratedPqcRelease', 'handleRecommendedActiveOrderConflictResolution', 'handleRemoveActiveOrder', 'handleTeamLeaderDataCleanup', 'openActiveOrderDialog', 'openAbnormalDialog']
+  const handlers = ['submitAddActiveOrder', 'submitActiveOrderReleaseApplication', 'handleRebuildActiveOrder', 'handleActiveOrderVersionUpgrade', 'submitActiveOrderVersionUpgrade', 'handleCopyLatestSimulationActiveOrder', 'handleCleanupLatestSimulationActiveOrder', 'handleSimulateStage1', 'handleGenerateStage1Forms', 'handleSimulateStage2_5', 'handlePushGeneratedPqcRelease', 'handleRecommendedActiveOrderConflictResolution', 'handleRemoveActiveOrder', 'handleTeamLeaderDataCleanup', 'openActiveOrderDialog', 'openAbnormalDialog']
   for (const name of handlers) {
     const context = { activeOrderTestResetSubmitting: ref(true) }
     vm.createContext(context)

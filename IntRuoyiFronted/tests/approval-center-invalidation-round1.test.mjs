@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
+import { h } from 'vue'
 import { createFormalActionGuard, createFormalWriteReceiptState, createApprovalInvalidationState } from '../src/store/modules/approvalCenterInvalidationState.ts'
 
 import { applyWithNoReplenishmentConfirmation } from '../src/views/mes/pro/processpool/activeOrderReplenishmentConfirmation.ts'
@@ -317,7 +318,7 @@ const releaseHarness = () => {
   const receipt = () => ({ applicationId: '11', activeOrderId: row.id, workOrderId: '41', routeId: '42', routeVersionId: '43', batchExecutionId: '12', pqcReleaseWorkTaskId: '13', status: 'PQC_RELEASE_PENDING', sourceSnapshotHash: 'formal-hash', version: 1, appliedAt: '2026-10-07', requestIdempotencyKey: 'current-request' })
   let reads = 0, writes = 0, refreshes = 0
   const runtime = {
-    Object, Date, Number, String, Set, Map,
+    Object, Date, Number, String, Set, Map, h,
     releaseApplicationIdempotencyKeys: new Map([[row.id, 'current-request']]), releaseApplicationLocks: new Map(),
     releaseApplicationSubmittingId: ref(undefined), releaseApplicationBlockers: ref([]), releaseApplicationUncertainMessage: ref(''), activeOrderTestResetSubmitting: ref(false),
     approvalInvalidation: {

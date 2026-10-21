@@ -11,6 +11,8 @@ import java.util.List;
 public class MesProcessPoolProductionReportCorrectionCommand {
 
     private Long eventId;
+    private Long expectedRevisionId;
+    private String expectedPayloadHash;
     private Long actorUserId;
     private BigDecimal outputQuantity;
     private List<MaterialDetailCommand> materialDetails;

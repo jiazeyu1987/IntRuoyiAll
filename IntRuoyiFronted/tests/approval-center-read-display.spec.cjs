@@ -37,6 +37,29 @@ const handler = (name, dependencies = {}) => vm.runInNewContext(
 const facts = extra => ({ moduleCode: 'EDHR', sourceStatus: 'DONE', taskOutcome: 'COMPLETED',
   decisionState: 'UNKNOWN', ...extra })
 
+test('pending EDHR handoff opens its original business handling route, with permission and lifecycle gates', () => {
+  const row = { moduleCode: 'EDHR', sourceTaskType: 'ACTIVE_ORDER_HANDOFF', sourceTaskId: '41',
+    availableActions: ['PROCESS_IN_MODULE'], decisionDetailRoute: '/mes/pro/feedback/edhr-nonconformance-review',
+    decisionDetailQuery: { activeOrderId: '7', reviewId: '71', handoffTaskId: '41', roundId: '71', handoffType: 'QA_REVIEW' } }
+  const allowed = handler('canReviewInModule', { queryParams: { viewType: 'TODO' } })
+  assert.equal(allowed(row), true)
+  assert.equal(allowed({ ...row, availableActions: [] }), false)
+  assert.equal(allowed({ ...row, businessDeleted: true }), false)
+  assert.equal(allowed({ ...row, decisionDetailRoute: undefined }), false)
+  assert.equal(allowed({ ...row, decisionDetailQuery: { ...row.decisionDetailQuery,
+    requiredPermissionsMissing: 'mes:pro-edhr-nonconformance-review:query' } }), false)
+  assert.equal(handler('canReviewInModule', { queryParams: { viewType: 'DONE' } })(row), false)
+  const pushes = []
+  handler('openReviewAction', { canReview: () => false, canReviewInModule: allowed,
+    openDecisionDetail: handler('openDecisionDetail', { queryParams: { viewType: 'TODO' },
+      resolveDecisionDetailRoute: handler('resolveDecisionDetailRoute'),
+      resolveDecisionDetailQuery: handler('resolveDecisionDetailQuery'),
+      resolveDccApprovalDetailLocation: (_row, path, query) => ({ path, query }),
+      router: { push: location => pushes.push(location) }, ElMessage: { error: assert.fail } }),
+    ElMessage: { error: assert.fail } })(row)
+  assert.deepEqual(JSON.parse(JSON.stringify(pushes)), [{ path: row.decisionDetailRoute, query: row.decisionDetailQuery }])
+})
+
 test('direct EDHR mandatory permission matrix disables real view and action handlers with exact reasons', () => {
   const resolveDecisionDetailRoute = handler('resolveDecisionDetailRoute')
   const canOpenView = handler('canOpenView', { resolveDecisionDetailRoute })

@@ -95,7 +95,7 @@ const activeOrderDialogBlock = sliceDialogByMarker('data-team-leader-active-orde
 const activeOrderAddReqBlock = sliceInterfaceBlock(apiSource, 'TeamLeaderActiveOrderAddReqVO')
 assert.match(
   activeOrderBlock,
-  /data-team-leader-simulate-active-order-stage1-p1[\s\S]*@click="handleSimulateStage1\(row\)"[\s\S]*>\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-button>[\s\S]*data-team-leader-generate-active-order-stage1-p2[\s\S]*@click="handleGenerateStage1Forms\(row\)"[\s\S]*>\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-button>/,
+  /data-team-leader-simulate-active-order-stage1-p1[\s\S]*@click="handleSimulateStage1\(row\)"[\s\S]*>\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-dropdown-item>[\s\S]*data-team-leader-generate-active-order-stage1-p2[\s\S]*@click="handleGenerateStage1Forms\(row\)"[\s\S]*>\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-dropdown-item>/,
   'The active-order list must split the Stage1 simulation experience into P1双100 and P2生成.'
 )
 assert.doesNotMatch(

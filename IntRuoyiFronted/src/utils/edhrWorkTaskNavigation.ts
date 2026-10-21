@@ -1,4 +1,5 @@
 import type { Router } from 'vue-router'
+import { requireExactJavaLong } from '@/utils/exactJavaLong'
 import { openEdhrBatchTask } from '@/api/mes/pro/edhr/batchExecution'
 import type { EdhrBatchExecutionTaskOpenRespVO } from '@/api/mes/pro/edhr/batchExecution'
 
@@ -84,14 +85,7 @@ const hasStructuredBatchFillTaskContext = (item: EdhrWorkTaskRouteLike) =>
   isRouteValuePresent(item.batchExecutionId) && isRouteValuePresent(item.batchTaskId)
 
 const requireTaskIdentity = (value: number | string | null | undefined, label: string) => {
-  if (typeof value === 'number' && !Number.isSafeInteger(value)) {
-    throw new Error(`eDHR 工作任务${label}不是精确标识。`)
-  }
-  const identity = value == null ? '' : String(value)
-  if (!/^[1-9]\d*$/.test(identity)) {
-    throw new Error(`eDHR 工作任务缺少有效${label}。`)
-  }
-  return identity
+  return requireExactJavaLong(value, `eDHR 工作任务${label}`)
 }
 
 const resolveMarketReleaseTaskUrl = (item: EdhrWorkTaskRouteLike, url: URL, origin: string) => {
@@ -167,8 +161,8 @@ const resolveWorkTaskId = (item: EdhrWorkTaskRouteLike, url: URL) =>
 
 const toPositiveNumber = (value?: number | string | null) => {
   if (!isRouteValuePresent(value)) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  // The formal wrapper accepts EdhrRouteId (string | number); keep Long identity exact.
+  return requireTaskIdentity(value, '正式打开编号')
 }
 
 const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
@@ -244,8 +238,10 @@ export const normalizeEdhrWorkTaskRoute = (
 export const navigateToEdhrWorkTask = async (
   router: Router,
   item: EdhrWorkTaskRouteLike,
-  origin = window.location.origin
+  origin = window.location.origin,
+  isCurrent: () => boolean = () => true
 ) => {
+  if (!isCurrent()) throw new Error('eDHR 工作任务导航上下文已变化。')
   const url = resolveTaskNavigationUrl(item, origin)
   if (shouldOpenBatchFillTask(item, url)) {
     const batchExecutionId = toPositiveNumber(resolveBatchExecutionId(item, url))
@@ -259,6 +255,15 @@ export const navigateToEdhrWorkTask = async (
       taskId: batchTaskId,
       workTaskId
     })
+    if (!isCurrent()) throw new Error('eDHR 工作任务导航上下文已变化。')
+    // Validate the formal response before any String conversion or route construction.
+    for (const key of ['taskId', 'executionId', 'workTaskId'] as const) {
+      if (opened[key] !== undefined && opened[key] !== null) requireTaskIdentity(opened[key], key)
+    }
+    for (const key of ['id', 'executionId', 'batchExecutionId', 'batchTaskId', 'workTaskId']) {
+      const value = opened.executionPageQuery?.[key]
+      if (value !== undefined && value !== null) requireExactJavaLong(value, `正式打开${key}`)
+    }
     if (shouldOpenRouteFormDrawer(opened)) {
       const query = stringifyEdhrExecutionPageQuery(opened?.executionPageQuery)
       const openedWorkTaskId = opened?.workTaskId || workTaskId

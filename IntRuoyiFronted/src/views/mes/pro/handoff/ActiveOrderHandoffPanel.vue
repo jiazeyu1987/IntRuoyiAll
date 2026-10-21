@@ -3,6 +3,7 @@
     <template #header><span>我的生产交接</span><el-button class="ml-4" :loading="loading" @click="load">刷新交接</el-button></template>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
     <el-table :data="pagedTasks" v-loading="loading" row-key="id">
+      <el-table-column label="交接编号" prop="id" width="120" />
       <el-table-column label="当轮订单" prop="activeOrderId" width="150" />
       <el-table-column label="交接事项"><template #default="{ row }">{{ labels[row.taskType] }}</template></el-table-column>
       <el-table-column label="原因 / 业务意见" prop="reason" min-width="200" />

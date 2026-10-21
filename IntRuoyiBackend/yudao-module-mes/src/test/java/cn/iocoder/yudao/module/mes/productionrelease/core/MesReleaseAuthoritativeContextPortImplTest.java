@@ -56,6 +56,34 @@ class MesReleaseAuthoritativeContextPortImplTest {
     @Mock MesProEdhrBatchTraceabilityService traceabilityService;
     @Mock MesIndependentBatchPrerequisiteReceiptService independentReceiptService;
 
+    @Mock cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper approvalTasks;
+    @Mock cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrReleaseMaterialSelectionRegistry selections;
+    private MesReleaseAuthoritativeContextPortImpl port() {
+        var port=new MesReleaseAuthoritativeContextPortImpl(releaseTransactionMapper,batchExecutionMapper,
+            applicationMapper,originMapper,activeOrderMapper,backfillMapper,pickListBindingMapper,
+            completionReceiptPort,materialGateReceiptPort,traceabilityService,independentReceiptService);
+        org.springframework.test.util.ReflectionTestUtils.setField(port,"approvalTasks",approvalTasks);
+        org.springframework.test.util.ReflectionTestUtils.setField(port,"materialSelections",selections);
+        org.mockito.Mockito.lenient().when(approvalTasks.selectById(50L)).thenReturn(
+            new cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO().setId(50L));
+        org.mockito.Mockito.lenient().when(selections.requireCurrentVerified(org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyBoolean()))
+            .thenAnswer(call -> {
+                var origin=originMapper.selectListByBatchExecutionId(20L).get(0);
+                var gate=completeGate(origin.getActiveOrderId()==null?"independent-gate":"active-gate",20L,"source-snapshot");
+                var proof=new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                    "MATERIAL_GATE_V1",12L,gate.getReceiptId(),"1","b".repeat(64),13L,"c".repeat(64));
+                return new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialSelection(
+                    "MANAGED",10L,50L,"precheck",new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialGateFact(gate,proof),null);
+            });
+        return port;
+    }
+    private cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEdhrVerifiedCompletionReceiptFact verifiedCompletion(MesFlow6CompletionBackfillReceipt receipt) {
+        return new cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesEdhrVerifiedCompletionReceiptFact(receipt,
+            new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrSourceCreationEvidence(
+                "COMPLETION_MAIN_V1",900L,"900","1","b".repeat(64),13L,"c".repeat(64)),"completion-tx");
+    }
+
     @AfterEach
     void clearTenant() {
         TenantContextHolder.clear();
@@ -101,10 +129,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setMaterialGateReceiptId("independent-gate").setActorUserId(100L)
                 .setExpectedVersion(3).setIdempotencyKey("release-idem").setSignoffEvidenceHash("signoff");
 
-        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
-                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort, materialGateReceiptPort,
-                traceabilityService, independentReceiptService).require(command);
+        MesReleaseFinalizationEvidence evidence = port().require(command);
 
         assertSame(gate, evidence.getMaterialGateReceipt());
         assertEquals("independent-1", evidence.getIndependentPrerequisiteReceipt().getReceiptId());
@@ -142,9 +167,9 @@ class MesReleaseAuthoritativeContextPortImplTest {
         when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(origin));
         when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any())).thenReturn(source);
         when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.of(materialGatePort));
-        when(materialGatePort.getLatestVerified(1L, 20L, "source-snapshot")).thenReturn(gate);
+        when(materialGatePort.getVerifiedByReceiptId(1L,20L,"active-gate","source-snapshot")).thenReturn(gate);
         when(activeOrderMapper.selectById(70L)).thenReturn(new MesProcessPoolActiveOrderDO().setId(70L).setVersion(3));
-        when(completionReceiptPort.getByReceiptId(900L, 1L)).thenReturn(completionReceipt);
+        when(completionReceiptPort.requireVerifiedByReceiptId(900L, 1L)).thenReturn(verifiedCompletion(completionReceipt));
         when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
@@ -157,10 +182,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
                 .setWorkTaskId(50L);
 
-        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
-                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort, materialGateReceiptPort,
-                traceabilityService, independentReceiptService).require(command);
+        MesReleaseFinalizationEvidence evidence = port().require(command);
 
         assertSame(gate, evidence.getMaterialGateReceipt());
         assertEquals(MesReleaseOrigin.ACTIVE_ORDER, command.getOrigin());
@@ -190,7 +212,6 @@ class MesReleaseAuthoritativeContextPortImplTest {
         MesProEdhrBatchTraceSourcePrecheckRespVO source = new MesProEdhrBatchTraceSourcePrecheckRespVO()
                 .setBatchExecutionId(20L).setOriginLinkId(61L).setTraceLinkHash("trace-hash")
                 .setSourceSnapshotHash("source-snapshot").setRelationStatus("BOUND");
-        MesReleaseMaterialGateReceipt gate = completeGate("active-gate", 20L, "source-snapshot");
         MesFlow6CompletionBackfillReceipt completionReceipt = activeCompletionReceipt();
 
         when(releaseTransactionMapper.selectById(10L)).thenReturn(transaction);
@@ -198,10 +219,8 @@ class MesReleaseAuthoritativeContextPortImplTest {
         when(batchExecutionMapper.selectById(20L)).thenReturn(batch);
         when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(origin));
         when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any())).thenReturn(source);
-        when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.of(materialGatePort));
-        when(materialGatePort.getLatestVerified(1L, 20L, "source-snapshot")).thenReturn(gate);
         when(activeOrderMapper.selectById(70L)).thenReturn(new MesProcessPoolActiveOrderDO().setId(70L).setVersion(3));
-        when(completionReceiptPort.getByReceiptId(900L, 1L)).thenReturn(completionReceipt);
+        when(completionReceiptPort.requireVerifiedByReceiptId(900L, 1L)).thenReturn(verifiedCompletion(completionReceipt));
         when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
@@ -214,12 +233,18 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
                 .setWorkTaskId(50L);
 
-        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
-                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
-                materialGateReceiptPort, traceabilityService, independentReceiptService).require(command);
+        var actualPort=port();
+        var fact=new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrVerifiedActiveOrderReleaseFact(
+            30L,20L,"ACTIVE_ORDER_FACTS:"+"a".repeat(64),"source-snapshot",verifiedCompletion(completionReceipt).creation(),14L,"b".repeat(64),15L);
+        when(selections.requireCurrentVerified(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyBoolean())).thenReturn(
+            new cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesEdhrVerifiedMaterialSelection("MANAGED_ACTIVE_ORDER",10L,50L,"p",null,fact));
+        assertThrows(MesReleaseFlowBlockerException.class,()->actualPort.require(command));
+        command.setMaterialGateRequired(false);
+        MesReleaseFinalizationEvidence evidence = actualPort.require(command);
 
-        assertSame(gate, evidence.getMaterialGateReceipt());
+        assertNull(evidence.getMaterialGateReceipt());
+        org.mockito.Mockito.verifyNoInteractions(materialGateReceiptPort,materialGatePort);
         assertEquals(70L, command.getActiveOrderId());
     }
 
@@ -256,9 +281,9 @@ class MesReleaseAuthoritativeContextPortImplTest {
         when(originMapper.selectListByBatchExecutionId(20L)).thenReturn(List.of(origin));
         when(traceabilityService.resolveSourcePrecheck(org.mockito.ArgumentMatchers.any())).thenReturn(source);
         when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.of(materialGatePort));
-        when(materialGatePort.getLatestVerified(1L, 20L, "source-snapshot")).thenReturn(gate);
+        when(materialGatePort.getVerifiedByReceiptId(1L,20L,"active-gate","source-snapshot")).thenReturn(gate);
         when(activeOrderMapper.selectById(70L)).thenReturn(new MesProcessPoolActiveOrderDO().setId(70L).setVersion(3));
-        when(completionReceiptPort.getByReceiptId(900L, 1L)).thenReturn(completionReceipt);
+        when(completionReceiptPort.requireVerifiedByReceiptId(900L, 1L)).thenReturn(verifiedCompletion(completionReceipt));
         when(backfillMapper.selectListByActiveOrderIdForUpdate(70L)).thenReturn(List.of(
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_BATCH_RECORD),
                 backfill(MesProcessPoolActiveOrderCompletionBackfillDO.TYPE_PROCESS_INSPECTION)));
@@ -271,10 +296,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
                 .setWorkTaskId(50L).setOrigin(MesReleaseOrigin.ACTIVE_ORDER);
 
-        MesReleaseFinalizationEvidence evidence = new MesReleaseAuthoritativeContextPortImpl(
-                releaseTransactionMapper, batchExecutionMapper, applicationMapper, originMapper,
-                activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
-                materialGateReceiptPort, traceabilityService, independentReceiptService).require(command);
+        MesReleaseFinalizationEvidence evidence = port().require(command);
 
         assertEquals(140L, evidence.getCompletionBackfillReceipt().getBatchRecordId());
         assertEquals(150L, evidence.getCompletionBackfillReceipt().getProcessInspectionId());
@@ -303,7 +325,6 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .thenReturn(new MesProEdhrBatchTraceSourcePrecheckRespVO().setBatchExecutionId(20L)
                         .setOriginLinkId(61L).setTraceLinkHash("trace-hash")
                         .setSourceSnapshotHash("source-snapshot").setRelationStatus("CAPTURED"));
-        when(materialGateReceiptPort.orderedStream()).thenReturn(Stream.empty());
 
         MesReleaseFinalizationCommand command = new MesReleaseFinalizationCommand()
                 .setReleaseTransactionId(10L).setReleaseApplicationId(30L).setBatchExecutionId(20L)
@@ -312,9 +333,7 @@ class MesReleaseAuthoritativeContextPortImplTest {
                 .setMaterialGateReceipt(completeGate("client-fake", 20L, "source-snapshot"));
 
         MesReleaseFlowBlockerException failure = assertThrows(MesReleaseFlowBlockerException.class, () ->
-                new MesReleaseAuthoritativeContextPortImpl(releaseTransactionMapper, batchExecutionMapper,
-                        applicationMapper, originMapper, activeOrderMapper, backfillMapper, pickListBindingMapper, completionReceiptPort,
-                        materialGateReceiptPort, traceabilityService, independentReceiptService).require(command));
+                port().require(command));
 
         assertEquals(MesReleaseFlowBlockerType.AUTHORITATIVE_RECEIPT_CONTEXT_REQUIRED,
                 failure.getFailure().getBlockers().get(0).getBlockerType());

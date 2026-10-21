@@ -1,10 +1,9 @@
 # IntRuoyi Backend Development Rules
 
-## 触发场景
+## 适用场景
 
-- 修改 `IntRuoyiBackend` 下的 Java、Spring Boot、Maven、接口、服务、Mapper、DO、配置、脚本或后端测试前，必须先读取本文件。
-- 涉及 SQL、schema、菜单、权限、租户绑定或数据修复时，还必须读取 `docs/database-rules.md`。
-- 涉及本机服务启动、端口或运行态验证时，还必须读取 `docs/local-runtime.md`。
+- 按当前后端改动需要查阅本文件相关段落，未变化的已读规则不重复读取。
+- SQL、schema、权限、租户或本机服务问题，按需要查阅对应数据库及运行态说明；不要求每次操作前串行读取所有文档。
 
 ## 项目边界
 
@@ -17,7 +16,7 @@
 ## 实施规则
 
 - 先确认变更所属模块、现有 Controller/Service/Mapper/DO 边界和已有测试。
-- 对功能、修复、重构和行为变更，先记录 BDD，再执行 RED -> GREEN -> REGRESSION。
+- 对功能、修复、重构和行为变更，完成与风险匹配的验证；BDD、TDD 及 RED/GREEN 记录按任务需要或用户明确要求选用。
 - 缺少数据库、Redis、依赖、测试数据或运行配置时，必须 fail fast；不得切换数据源、返回 mock 成功或吞掉错误。
 - 接口和服务错误必须通过真实响应、日志或测试暴露；不得用默认成功值掩盖失败。
 
@@ -141,7 +140,7 @@
 
 - Trigger: 生产组长工作台、工序配置、损耗原因、设备映射、设备参数标准、`process-config/list`、`routeStartProductionLeaders`、`mes:pro-process-pool-team-leader:maintain`、admin 工序配置看到其它工艺路线工序。
 - Preflight check: 修改生产组长配置页候选工序、损耗/设备/参数维护授权前，先区分“维护入口权限”和“正式负责路线范围”：`mes:pro-process-pool-team-leader:maintain` 只能说明用户可进入维护入口，不能扩大路线工序范围；后端候选列表和直接维护断言必须只读取当前 active 路线版本 `routeStartProductionLeaders` 中命中的 `USER/USERS/ROLE` 配置。验证职责范围必须读取各路线 active `routeStartProductionLeaders`，并同时计算直接用户配置与当前账号角色命中的 `ROLE` 配置。若通过 SQL 修复 active 路线快照，写入前还必须核对目标路线是否存在 DRAFT/candidate version；已有草稿缺少同一配置时，后续发布会覆盖本次 active 修复，必须阻塞并改走正式草稿保存/发布或取得明确的数据修复范围授权。写入后必须重新只读解析当前 active version；路线发布可能把原目标 version 置为 `SUPERSEDED` 并生成新的 active version，最终验证不得继续把旧 draft/version ID 当作非目标失败条件。
-- Blocker: `process-config/list` 返回未在正式负责路线内的路线工序、拥有维护权限的 admin 可直接维护非负责路线工序、无负责路线时返回全部 active 路线、或用维护权限/admin 身份替代 `routeStartProductionLeaders` 命中结果时必须停止并补后端 RED/GREEN。
+- Blocker: `process-config/list` 返回未在正式负责路线内的路线工序、拥有维护权限的 admin 可直接维护非负责路线工序、无负责路线时返回全部 active 路线、或用维护权限/admin 身份替代 `routeStartProductionLeaders` 命中结果时必须停止相关越权操作并修复、验证后端授权，不强制 RED/GREEN 形式。
 - Verification: 后端回归必须覆盖“拥有维护权限也只能列出正式负责路线工序”“拥有维护权限但不在工序开始快照中直接维护 routeProcess 会被拒绝”“无维护权限仍走 USER/ROLE 快照授权”，并复跑工序配置相邻服务测试和前端新增入口静态合同；真实登录态验证工序配置时必须调用生产组长工序配置数据源 `/mes/pro/process-pool/team-leader/process-config/list`，并断言其路线名称集合等于 `/mes/pro/process-pool/team-leader/responsible-routes` 返回的正式负责路线集合。验证“账号实际配置了哪些路线的生产组长”时必须逐路读取 `/mes/pro/route/flow-config/route-start-production-leaders` 或当前 active JSON 快照，不能用维护入口列表代替。数据修复复验必须以 `tenant_id + route_id + active=1 + lifecycle_status=ACTIVE` 当前命中行为准，同时记录原写入 version 与当前 active version 的差异，并确认目标路线没有会在下一次发布时丢失配置的旧草稿。
 - RouteProcess identity check: 路线重新发布后排查一线“不良/设备参数为空”时，必须同时列出 QA 发布规程绑定的 `routeVersionId + routeProcessId`、当前唯一 ACTIVE 路线版本的 `routeProcessId`，以及损耗原因和设备参数规则实际绑定的 `routeProcessId`。不得按相同 `processId`、工序名称或历史页面仍有数据显示来推断配置已继承；若配置仍落在 `deleted=1` 的旧路线工序而当前 active 路线工序计数为 0，应明确判定为当前正式配置缺失，并通过正式配置维护/迁移方案处理，不能让运行态回读旧 ID 作为 fallback。恢复旧版本配置前必须冻结目标当前配置的业务键和内容 hash；若目标已有经授权保留的当前配置且业务编码不同，按用户确认的去重边界保留目标配置并只迁移缺失工序，禁止覆盖成旧编码或把旧新两套参数同时插入。
 - Active order parameter snapshot check: 已存在活跃订单的一线 runtime-config 会优先读取 `mes_pro_process_pool_active_order_process_snapshot.parameter_snapshot_json`，不会自动回读最新生产组长设备参数配置；排查“并行设备可选但参数为空”时，必须同时比对当前正式规则和该 `active_order_id` 的冻结快照。若当前正式配置已正确而快照缺项，数据修复必须限定精确活跃订单、备份原快照、按 `route_process_id + process_id + device_id + parameter_code` 重算 JSON 与 sha256，并确认无参数工序为 `[]`、无空设备占位、无孤儿快照设备。Evidence: `doc/tasks/20260902-active-order-396-parameter-snapshot-backfill/verification-report.md`。
@@ -1023,7 +1022,7 @@
 - Trigger: 生产人员档案、班组员工、一线生产员工弹窗、`getFrontlineRuntimeConfig().employees`、正式工搜索关联、全量用户下拉、跨部门正式工、临时工/正式工统一候选、`getUserListBySubordinate`、`getUserListByNickname`、`mes_pro_process_pool_team_employee_profile`、`system_user_id`、`employee_code=USER-<id>`、DuplicateKeyException、重复关联返回 500。
 - Preflight check: 先明确正式工候选范围是“组长下属”还是“全量系统用户”；候选查询与提交关联校验必须使用同一范围，不能只放开下拉。一线生产员工弹窗、运行配置员工和切换员工校验必须同源于当前负责生产组长启用的生产人员档案。生产员工账号请求一线工序时，必须先按启用人员档案 `systemUserId -> 唯一 leaderUserId` 解析负责生产组长，再读取该组长在正式“工序开始”配置中负责路线下的全部工序；禁用档案、多组长归属或组长无正式负责工序必须显式失败，不得回退本人岗位、设备账号路线或历史工序员工绑定。即使设备/工序 scope leader 与当前负责组长不同，员工弹窗也不得切到设备 scope leader，不得用工序员工绑定或设备账号候选替代人员管理列表。新增正式工关联前还必须按当前 `leaderUserId + systemUserId` 查询现有未删除生产人员档案，并区分“已禁用可启用既有档案”和“从未关联可新增”；显示名唯一校验不能替代正式用户唯一关联校验。新增正式工/临时工档案只建立当前组长名下档案，不得要求该员工已在负责员工范围内。生产组长员工 scope 必须同步写入与正式提交一致的 `actualEmployeeId`：正式工使用 `systemUserId`，临时工使用人员档案 `id`，测试不得只断言其中一种身份。
 - Historical data gate: 当运行时代码已保证新增/启停人员同步 `PRODUCTION/EMPLOYEE` scope，但旧人员档案仍缺范围时，必须用正式幂等数据迁移按 `tenant_id + leader_user_id + COALESCE(system_user_id, profile.id)` 补齐；迁移前应阻塞重复派生身份、重复有效范围和档案/范围启用状态错位，迁移后验证全量覆盖并复跑幂等。组长报工读取仍只消费正式 scope，禁止改成读取人员档案推断、管理员全量可见或查询时自愈写入。
-- Blocker: 全量候选可见但提交仍按 `getUserListBySubordinate` 拒绝、候选只靠前端过滤、生产员工仍需逐工序绑定才能看到工序、员工档案存在却进入设备/岗位路线来源、一线生产弹窗和生产组长人员管理列表不一致、弹窗能选但 `switchActualEmployee` 按另一来源拒绝、重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、创建人员阶段触发 `assertCanAccessEmployee` / `assertCanMaintainProcess`、范围拒绝仍返回“员工或工序”混合文案，或只靠前端禁用按钮阻止重复时必须停止并补后端 RED/GREEN。
+- Blocker: 全量候选可见但提交仍按 `getUserListBySubordinate` 拒绝、候选只靠前端过滤、生产员工仍需逐工序绑定才能看到工序、员工档案存在却进入设备/岗位路线来源、一线生产弹窗和生产组长人员管理列表不一致、弹窗能选但 `switchActualEmployee` 按另一来源拒绝、重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、创建人员阶段触发 `assertCanAccessEmployee` / `assertCanMaintainProcess`、范围拒绝仍返回“员工或工序”混合文案，或只靠前端禁用按钮阻止重复时必须停止相关越权操作并修复、验证后端授权，不强制 RED/GREEN 形式。
 - Verification: 后端回归必须覆盖生产员工继承唯一负责组长的全部正式路线工序、禁用/多组长/无负责工序失败且不触发设备路线来源、候选数据源、运行配置员工来源、切换员工校验同源、空关键字不触发无条件全量扫描、重复正式工在 `employeeProfileMapper.insert` 前抛业务错误，且成功正式工路径仍不保存签名密码；前后端合同必须断言员工工序绑定写入口和运行时读取均已移除。新增人员成功路径必须断言不调用负责范围校验；跨模块新增 `AdminUserApi` 方法时必须用 `-am` 编译所有上游测试手写实现。真实 E2E 重跑时使用新的任务自有正式工候选或先明确启用既有档案。
 - Forbidden action: 禁止只改候选接口不改关联校验，禁止让前端加载全系统用户后本地过滤，禁止保留员工工序绑定入口或用工序员工绑定冒充人员管理列表和工序授权，禁止生产员工归属异常时回退岗位/设备路线，禁止为接口扩展增加默认空列表兼容 fallback，禁止 catch DuplicateKeyException 后返回默认成功，禁止创建重复正式工档案，禁止把正式工重复关联伪装成显示名重名，禁止用“员工或工序”混合错误掩盖实际越权目标。
 - Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`、`doc/tasks/20260805-production-personnel-full-user-dropdown/verification-report.md`、`doc/tasks/20260806-production-employee-create-scope-fix/verification-report.md`、`doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/verification-report.md`、`doc/tasks/20260807-production-employee-inherits-leader-processes/verification-report.md`；目标测试 `MesTeamLeaderRuntimeConfigServiceTest#shouldRejectDuplicateFormalUserBeforeDatabaseInsert`、`MesTeamLeaderRuntimeConfigServiceTest#shouldSearchFormalCandidatesFromAllSystemUsers`、`MesTeamLeaderRuntimeConfigServiceTest#shouldLinkFormalUserWithoutStoringSignaturePassword`、`MesTeamLeaderRuntimeConfigServiceTest#shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit`、`MesTeamLeaderScopeServiceTest#shouldRejectOutOfScopeEmployeeAccess`、`MesFrontlineRuntimeConfigServiceTest#getRuntimeConfig_returnsEnabledLeaderPersonnelProfilesInsteadOfOnlyProcessBindings`、`MesFrontlineProductionEmployeeLeaderProcessScopeTest`。
@@ -1350,7 +1349,13 @@
 
 - Read authorization: 新增资料或预览查询前，核对被复用详情方法是否会恢复配置、生成任务、同步状态或写审计。`readOnly=true`不能替代禁止这些副作用的调用边界；详情方法在授权前捕获配置异常并返回blocked对象时，该对象不能证明可见权限。使用正式持久身份与现有纯可见性守卫，缺失来源明确拒绝；回归须执行实际授权守卫，覆盖合法冻结候选、非候选、旧事务、跨租户及来源冲突，并断言未调用修复写入。
 
+- Transaction review: 查询恢复链捕获配置异常时，逐项核对异常产生前的写集及实际事务代理边界。同类私有方法抛错后被捕获，不保证自动回滚；跨服务 REQUIRED/MANDATORY 方法已标记 rollback-only 时，外层捕获也不能恢复可提交状态。分别记录独立 REQUIRES_NEW 操作审计、同事务辅助审计、缓存及外部资源，不能以 ALLOW/SUCCESS 审计或本地 SQL 回滚推断全链提交一致。静态推导须标明代理与资源参与前提，真实提交、回滚及并发结论仍需对应运行证据。
+
 - Workflow-audit boundary: 复审长链路必须从实际按钮和路由核对当前调用链，区分并存的新旧入口；同时检查预检是否写入并抢占正式状态、多人保存是否错误扩大权限范围、重建是否遗留按同一业务ID占用的不可变回执。结论应写清触发条件和恢复路径，不能把局部更正失败或非必经入口故障表述为所有订单永久阻塞。
+
+- Asynchronous result: 页面提交后台任务时，分别核对提交权限、调度归属、任务执行、领域事务和运行记录提交。submitted 回执只证明提交，不证明领域已更新；默认 REQUIRED 注解也不表示独立提交。以实际外层调用及资源参与判断事务边界，真实故障窗口另留运行证据。
+
+- Projection impact: 评审来源字段变化时，分开核对资格谓词、摘要、筛选排序及个人受众，再追关联表的条件写入。同名完成/冻结方法、handoff与业务任务表、报工总量与合格量不能互相替代；字段不在直接投影中不能证明整个下游无影响。
 
 - Regression maintenance: 旧测试失败须先比较正式写入端、业务合同及相邻回归；mock重载过时应精确同步参数并保留业务身份断言，不能以放宽matcher或删除断言换取GREEN。否定调用断言与现行流程冲突时须记录依据，再验证实际调用的次数、对象及数量。Maven按模式选类须核对本次Surefire类名/时间/计数，未匹配类不得算通过。
 
@@ -1360,6 +1365,7 @@
 - Source check: 从生产写入端追到正式存储与读取端，核对实例 ID 的表归属、模板/规程版本及记录行身份；名称相同、数值 ID 相同或最终放行签名存在都不能替代正式关联。此规则不代表任何当前功能已通过验证。
 - Fixture contract: JSON来源测试必须对照正式writer和冻结定义生成器，核对根数组/对象、字段路径、类型枚举及显式空值；不能按reader假设自造夹具。重复行没有稳定业务键时按正式来源、修订及位置隔离，内容摘要不能冒充修订号。必须覆盖真实保存成功、空集合及结构冲突拒绝，不以新增兼容分支保留错误夹具。
 - Serialization contract: 冻结JSON身份测试须使用生产ObjectMapper注册及真实大Long边界；NumberSerializer输出的十进制字符串属于正式协议，身份精确比较不得经浮点转换。覆盖安全整数边界、雪花ID、溢出及非规范字符串；测试临时替换JsonUtils全局mapper须在finally恢复原引用，不能用默认mapper的小ID夹具替代生产协议验证。
+- HTTP projection extension: 新增响应日期、排序时间及计数字段时，用生产 Jackson 模块和 customizer 构造实际 MVC 响应；项目全局 LocalDateTime 可能输出毫秒数字，局部 ISO 契约须显式序列化并覆盖 null、微秒与读取时间。声明为 JSON number 的计数还须核对实际 NumberSerializer 的严格边界：边界值本身可能已输出字符串，不能只按 JavaScript 安全整数常量推断协议；应拒绝超出已声明数字合同的值，不改成默认计数。
 - Source-role contract: 冻结前对照真实producer的可空字段及共享分配规则；来源工单/路线工序与目标分配身份分别校验，不从目标补来源。审核按精确关联ID读取，原审核人与后续分配操作者不能因字段名称相近而强制等同。幂等来源摘要应排除本动作自身的回填输出及更新审计，但保留业务来源字段；须用真实writer到receipt到reader及同键重放证明，不靠手造快照单测替代。
 
 ## 反查正式快照身份门禁
@@ -1429,6 +1435,10 @@
 
 ## 后续处置、历史责任与公共写门禁
 
+- 派生索引的writer审查须从真实表与读谓词反追CRUD、导入、callback/job、父对象级联和SQL生成/执行渠道，逐项区分资格、摘要与无关字段。ORM删除须核对DO继承、逻辑删除字段及Mapper覆盖，不能凭delete方法名宣称物理删除。脚本名称不证明生产禁用，生成器只写文件也不排除其输出SQL；有限词法搜索须说明表集合、动态SQL/多表DML限制及实际发布集合，不能以零命中宣布闭包。
+- Mapper具备写入能力不代表当前入口可以执行该写入；须核对前置拒绝、传入ID集合及空集合分支。预览与执行分别追踪实际helper和锁，不能把执行端的历史证据检查归到预览端。变量名、操作者参数或页面范围文案不能替代实际tenant/owner谓词；还须核对共享池、关联订单及其它受众的查询范围。
+- 条件回填须分别核对来源集合、数据库谓词及影响行数；上游trim空白判断不能替代字符列比较语义，void返回不能证明目标行已更新，正常业务回执也不能证明派生摘要已改变。遇同类调用时追到外层代理事务，不把被绕过的内层注解当作独立事务证据；回滚结论限定实际实读的本地写集，编码、条码、签名或外部资源须另核。
+- 名称为查询或context的HTTP入口仍可能包含权限USE审计、个人版本初始化和Redis token写入。核对真实授权、事务及存储前置后再确定验证权限；裸Mapper的只读执行计划不能代替完整用户请求的容量或一致性证据。
 - 后续质量处置改变生命周期时，原业务决定、决定人、时间和签名回执仍为历史事实。新处置须有独立状态和正式评审关联；读端沿正式关联验证租户、归属、处置和签名，不能覆盖原决定或以操作者字段推断签名证据。
 - 验证处置合同应覆盖待处理与已批准两种原状态，并贯穿实际 Mapper 更新、完成 actor 解析、已办 SQL 过滤和最终 Adapter。原已批准记录与处置代办关闭记录分别断言真实责任，不能只用 mock 核心链证明。
 - 历史签名身份校验与当前办理资格分开：历史读取核对正式来源、签名、账号启用及租户；新提交和实际办理仍查当前有效权限。权限到期不能改写历史责任，历史身份有效也不能授予新办理权限。
@@ -1442,6 +1452,12 @@
 - 页面显示状态与正式审查状态可能不同；所见上下文应分别保存正文、修订、正式复核身份和分配版本，并在业务锁内、签名之前核验。回归应串联正式退回、签名补正、实际时间线投影及下一次确认/退回，不能只验证私有状态函数。
 - 终态详情沿实际关闭生产者核验每类来源的身份关系，并走正式归档入口验证；独立批次作废与 QA 处置可能收口不同申请状态，测试应按实际 writer 合同保留原决定和签名，不能为统一状态标签改写已批准事实。
 - 新增嵌套审计收口时须追到外层事务的首次业务锁：统一账本先于业务行，UPDATE/INSERT/DELETE 取得的锁也计入，不能只观察显式 FOR UPDATE。验证外层先更新其它对象再收口的路径，绑定实际更新对象 ID，并检查外层失败时先前更新一并回滚；内层先取账本不能证明外层锁序正确。
+
+- 审批终态回调须沿实际流程完成动作、引擎事件、publisher及listener核对调用时点，不能拿相邻通知的afterCommit推断业务effect时点。先完成业务任务再触发流程终态时，应核对回调是否仍要求该任务处于活动状态；事务注解不能消除状态前置冲突。
+- 审批请求终态、业务对象终态和任务/权益收口须分别追到实际writer。拒绝回到指定节点与拒绝结束流程、普通任务办理与专用签名入口均需区分；通用入口的定义/归属守卫不能直接推广到流程取消入口。
+- 事件操作者变量与当前登录身份分别验证：自动事件可能没有登录上下文，历史lastActor不能默认替代当前责任人。同eventKey顺序重放检查不能证明并发只生效一次，须另核真实锁、CAS、唯一约束和失败提交边界。
+
+- 专用初始化器、批量Mapper写入与通用Service的创建/完成路径须逐项对照事务、权益同步/撤销、通知和审计；不能因实体和taskType相同推断副作用一致。bean注入和测试调用也不证明生产入口已调用；未发现当前caller时保留潜在writer边界，先确认生命周期归属再决定启用或删除。
 
 ## 新增 H2 合同测试的上下文隔离
 

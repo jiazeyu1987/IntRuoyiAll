@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class MesProEdhrReleaseRespVO {
 
     private Long releaseTransactionId;
+    private String signedDossierManifestJson;
 
     private String releaseCode;
 

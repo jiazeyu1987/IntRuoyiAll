@@ -34,8 +34,10 @@ public final class MesActiveOrderHandoffContract {
         require(task!=null&&task.getActiveOrderId()!=null&&task.getActiveOrderId()>0&&task.getSourceId()!=null
                 &&task.getSourceId()>0&&task.getRoundId()!=null&&task.getRoundId()>0&&TYPES.contains(task.getTaskType()),"交接正式来源或周期身份缺失");
         candidates(task.getCandidateUserSnapshot());
-        if(Set.of("PRODUCTION_REVIEW","PQC_HANDOFF","PQC_REVIEW","PRODUCTION_RETURN","PQC_RETURN").contains(task.getTaskType()))
+        if(Set.of("PRODUCTION_REVIEW","PRODUCTION_RETURN").contains(task.getTaskType()))
             require(task.getRouteProcessId()!=null&&task.getRouteProcessId()>0,"逐工序交接缺少正式工序绑定");
+        if (Set.of("PQC_HANDOFF", "PQC_REVIEW", "PQC_RETURN").contains(task.getTaskType()))
+            require(task.getRouteProcessId() == null, "PQC交接必须按整单QA任务执行");
         URI uri;
         try { uri=URI.create(Objects.requireNonNull(task.getActionUrl())); }
         catch(RuntimeException invalid) { throw failure("交接真实页面入口无效"); }

@@ -81,6 +81,20 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
     }
 
+    @ParameterizedTest @ValueSource(strings = {"VALID", "MISMATCH", "INCOMPLETE"})
+    void v2PqcSummaryKeepsVerifiedProtocolAndReadDiagnosticStatus(String status) throws Exception {
+        var evidence = MesActiveOrderSignatureEvidenceServiceTest.v2PqcEvidence(pqcEvidence("正式放行意见", false));
+        stubPqc(evidence);
+        when(signatureQueryService.verifyEvidence(7701L)).thenReturn(MesActiveOrderSignatureEvidenceServiceTest.v2PqcVerification(evidence, status));
+        var purposeType = Class.forName(MesTeamLeaderActiveOrderDetailServiceImpl.class.getName()+"$PqcSignaturePurpose");
+        Object purpose = java.util.Arrays.stream(purposeType.getEnumConstants()).filter(v->v.toString().equals("READ_PROJECTION")).findFirst().orElseThrow();
+        var detail = pqcDetail();
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "attachPqcProductionRelease", detail, pqcApplication(), purpose);
+        var projection = detail.getPqcProductionRelease().getSignature();
+        assertEquals(status, projection.getVerification().verificationStatus());
+        assertEquals("VALID".equals(status) ? "签署时正式姓名" : "签时姓名未核验", projection.getSignerName());
+    }
+
     @ParameterizedTest @NullSource
     @ValueSource(strings = {"PQC_RELEASE", "APPROVE", "首行\n次行\r\n制表\t引号\"路径\\"})
     void pqcSummaryAcceptsExplicitSourceAndKeepsExactSignedContent(String opinion) {
@@ -430,6 +444,80 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
 
         assertEquals(8101L, detail.getActiveOrderId());
         assertEquals("881MO090889", detail.getWorkOrderCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {17001L, 27001L, 37001L})
+    void signatureProjectionVerifiesOnlyItsFormalProductionSource(Long signatureId) {
+        stubSignatureProjection();
+        var first = row(9101L, 5001L, 6001L, "粗洗", "100", 7001L, "10", "员工甲", "组长甲", "2026-08-13T08:10:00")
+                .setReviewerSignatureId(27001L);
+        var unrelated = row(9101L, 5001L, 6001L, "粗洗", "100", 7002L, "10", "员工乙", "组长甲", "2026-08-13T09:10:00");
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(first, unrelated));
+        if (signatureId == 37001L) when(eventRevisionMapper.selectBySignatureId(signatureId)).thenReturn(
+                new MesProProcessPoolEventRevisionDO().setEventId(7001L).setRevisionStatus(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE));
+        var detail = service.getArchivedSignatureDetail(8101L, signatureId);
+        assertEquals(List.of(7001L), detail.getProcesses().get(0).getSubmissions().stream()
+                .map(MesTeamLeaderActiveOrderDetail.SubmissionDetail::getEventId).toList());
+        org.mockito.Mockito.verify(submissionSignatureIdentityReader).read(17001L, 7001L, 8101L, "PRODUCTION_SUBMIT");
+        org.mockito.Mockito.verify(submissionSignatureIdentityReader, org.mockito.Mockito.never())
+                .read(17002L, 7002L, 8101L, "PRODUCTION_SUBMIT");
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {18869L, 28869L, 38869L})
+    void signatureProjectionKeepsExactPqcTaskEventAndCorrectionMembership(Long signatureId) {
+        stubSignatureProjection();
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(
+                row(9101L, 5001L, 6001L, "粗洗", "100", null, null, null, null, null)));
+        when(pqcTaskMapper.selectListByActiveOrderId(8101L)).thenReturn(List.of(signaturePqcTask(4101L, 8869L), signaturePqcTask(4102L, 8872L)));
+        when(detailReadMapper.selectEventPartiesByEventIds(List.of(8869L, 8872L))).thenReturn(List.of(
+                new MesTeamLeaderActiveOrderEventPartyReadDO().setEventId(8869L).setSubmitterName("PQC甲")
+                        .setSubmitterSignatureId(18869L).setReviewerSignatureId(28869L).setReviewerName("PQC组长"),
+                new MesTeamLeaderActiveOrderEventPartyReadDO().setEventId(8872L).setSubmitterName("PQC乙")
+                        .setSubmitterSignatureId(18872L).setReviewerSignatureId(28872L).setReviewerName("PQC组长")));
+        when(qaProcessMapper.selectBatchIds(List.of(5101L))).thenReturn(List.of(MesQaInspectionRegulationProcessDO.builder()
+                .id(5101L).regulationVersionId(5201L).processName("粗洗检验").processCode("QA1").sort(1).build()));
+        if (signatureId == 38869L) when(eventRevisionMapper.selectBySignatureId(signatureId)).thenReturn(
+                new MesProProcessPoolEventRevisionDO().setEventId(8869L).setRevisionStatus(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE));
+        var detail = service.getArchivedSignatureDetail(8101L, signatureId);
+        var submissions = detail.getPqcSubmissions();
+        assertEquals(1, submissions.size());
+        assertEquals(List.of(4101L), submissions.get(0).getPqcTaskIds());
+        assertEquals(List.of(8869L), submissions.get(0).getSubmittedEventIds());
+        org.mockito.Mockito.verify(eventMapper).selectBatchIds(List.of(8869L));
+        org.mockito.Mockito.verify(eventRevisionMapper).selectListByEventId(8869L);
+        org.mockito.Mockito.verify(eventRevisionMapper, org.mockito.Mockito.never()).selectListByEventId(8872L);
+        org.mockito.Mockito.verify(submissionSignatureIdentityReader).read(18869L, 8869L, 8101L, "PQC_SUBMIT");
+        org.mockito.Mockito.verify(submissionSignatureIdentityReader, org.mockito.Mockito.never())
+                .read(18872L, 8872L, 8101L, "PQC_SUBMIT");
+    }
+
+    @Test
+    void foreignCorrectionCannotCreateOrderMembershipAndTargetValidationIsNotSkipped() {
+        stubSignatureProjection();
+        var row = row(9101L, 5001L, 6001L, "粗洗", "100", 7001L, "10", "员工甲", null, "2026-08-13T08:10:00");
+        when(detailReadMapper.selectByActiveOrderId(8101L)).thenReturn(List.of(row));
+        when(eventRevisionMapper.selectBySignatureId(37001L)).thenReturn(new MesProProcessPoolEventRevisionDO()
+                .setEventId(99999L).setRevisionStatus(MesProProcessPoolEventRevisionDO.STATUS_EFFECTIVE));
+        assertEquals(0, service.getArchivedSignatureDetail(8101L, 37001L).getProcesses().get(0).getSubmissions().size());
+        org.mockito.Mockito.verifyNoInteractions(submissionSignatureIdentityReader);
+        when(submissionSignatureIdentityReader.read(17001L, 7001L, 8101L, "PRODUCTION_SUBMIT"))
+                .thenThrow(new IllegalStateException("target signature invalid"));
+        assertThrows(IllegalStateException.class, () -> service.getArchivedSignatureDetail(8101L, 17001L));
+    }
+
+    private void stubSignatureProjection() {
+        when(activeOrderMapper.selectByIdIgnoreDeleted(8101L)).thenReturn(MesProcessPoolActiveOrderDO.builder()
+                .id(8101L).leaderUserId(3001L).workOrderId(9001L).routeId(9201L).qaRegulationVersionId(5201L).activeStatus("CLOSED").build());
+    }
+
+    private static MesPqcInspectionTaskDO signaturePqcTask(Long id, Long eventId) {
+        return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(8101L)
+                .inspectionType("FINAL").qaItemCode("").inspectionItemPlanJson("{\"APPEARANCE\":1}")
+                .plannedInspectionQuantity(1).inspectionRuleKey("FINAL").roundNo(1)
+                .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_SUBMITTED).actualInspectionQuantity(1)
+                .qaProcessId(5101L).regulationVersionId(5201L).submittedEventId(eventId).build();
     }
 
     @Test
@@ -1649,6 +1737,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         assertEquals(90L, source.getReviewId()); assertEquals(9908090345L, source.getQaUserId());
         assertEquals(29026L, source.getQaSignature().getSignatureId());
         assertEquals("VALID", source.getQaSignatureVerification().verificationStatus());
+        assertNull(source.getQaSignature().getSignerName(), "A verified account signature without a name snapshot must retain its actual absence");
         org.mockito.Mockito.verify(activeOrderMapper).selectByIdIgnoreDeleted(419L);
         org.mockito.Mockito.verify(nonconformanceReviewMapper).selectById(90L);
     }
@@ -1766,7 +1855,8 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
                 actor,s.meaningCode(),s.meaningLabel(),s.reason(),s.signedAt(),s.timeEvidenceId(),s.authenticationMethod(),
                 s.contentHash(),s.evidenceHash(),s.algorithm(),s.keyVersion(),s.policyVersion(),s.verificationStatus(),
                 s.processInstanceId(),s.taskId(),s.nodeCode(),s.nodeOrder(),canonical,s.beforeContentJson(),s.afterContentJson(),
-                s.fieldDiffJson(),s.actorDisplayName(),s.timeZone());
+                s.fieldDiffJson(),JSON.parseObject(canonical).containsKey("signatureIdentity")
+                        ? JSON.parseObject(canonical).getJSONObject("signatureIdentity").getString("displayName") : null,s.timeZone());
     }
 
     private MesProcessPoolActiveOrderDO reworkFixture() {
@@ -1797,7 +1887,7 @@ class MesTeamLeaderActiveOrderDetailServiceImplTest {
         lenient().when(signatureQueryService.getById(29026L)).thenReturn(new ElectronicSignatureEvidenceDTO(
                 29026L, "MES", action, "MES_BATCH_RECORD", subject, cn.hutool.crypto.digest.DigestUtil.sha256Hex(subject),
                 9908090345L, action, "QA处置", "确认返工", at, "time", "PASSWORD", "content", "evidence",
-                "SHA256", "v1", "v1", "VALID", null, null, null, null, canonical, null, null, null, "QA测试人员"));
+                "SHA256", "v1", "v1", "VALID", null, null, null, null, canonical, null, null, null, null));
         lenient().when(signatureQueryService.verifyEvidence(29026L)).thenReturn(new ElectronicSignatureVerificationDTO(
                 29026L, "VALID", "content", "content", "evidence", "evidence", "SHA256", "v1",
                 "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND", "CONSISTENT",

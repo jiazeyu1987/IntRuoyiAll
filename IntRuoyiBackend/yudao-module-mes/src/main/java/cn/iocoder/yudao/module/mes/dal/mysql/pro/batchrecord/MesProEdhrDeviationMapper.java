@@ -83,6 +83,11 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
             SET status = 'CLOSED',
                 close_reason = #{closeReason},
                 closed_at = #{closedAt},
+                closed_by = #{closedBy},
+                closed_content_version = #{contentVersion},
+                closed_content_hash = #{contentHash},
+                closed_signature_ids_json = #{signatureIdsJson},
+                updater = #{closedBy},
                 version = version + 1
             WHERE tenant_id = #{tenantId}
               AND id = #{id}
@@ -92,7 +97,11 @@ public interface MesProEdhrDeviationMapper extends BaseMapperX<MesProEdhrDeviati
     int closeNormally(@Param("tenantId") Long tenantId,
                       @Param("id") Long id,
                       @Param("closeReason") String closeReason,
-                      @Param("closedAt") java.time.LocalDateTime closedAt);
+                      @Param("closedAt") java.time.LocalDateTime closedAt,
+                      @Param("closedBy") Long closedBy,
+                      @Param("contentVersion") Integer contentVersion,
+                      @Param("contentHash") String contentHash,
+                      @Param("signatureIdsJson") String signatureIdsJson);
 
     @Select("""
             SELECT id

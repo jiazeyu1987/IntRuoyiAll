@@ -1,9 +1,9 @@
 # IntRuoyi Database And SQL Rules
 
-## 触发场景
+## 适用场景
 
-- 写 SQL、迁移、菜单、权限、租户绑定、schema 相关代码或数据修复脚本前，必须先读取本文件。
-- 涉及真实数据库连接、远端数据库或发布数据变更时，还必须读取 `docs/server-access.md` 和 `docs/release-backup-restore.md`。
+- SQL、迁移、schema、权限或租户问题按需查阅相关段落，已读且未变化的规则不重复读取。
+- 涉及真实数据库操作时按需核对服务器及备份说明，仍须执行必要的目标库、结构、授权和数据保护检查。
 
 ## Schema 核对
 
@@ -17,6 +17,17 @@
 - MySQL 幂等新增列必须使用 `information_schema.COLUMNS` 守护过程；不得使用 MySQL 运行库不接受的 `ADD COLUMN IF NOT EXISTS`。测试 H2 对 generated column 的语法可不同，必须同时保留 H2 夹具合同和 MySQL migration 合同。
 - 迁移验证至少包含：完整 `dependsOn` 闭包的 policy gate、首次/重复执行静态合同、历史数据零写入证据，以及运行后端实际连接库的 schema 复核。运行 Jar 未包含新接口或 schema 未执行时，禁止用 API/页面假设已部署。
 - `dependsOn` 引用正式 `migrationId`（SQL 文件名不含 `.sql` 后缀）；修正元数据后用实际目标文件的完整依赖闭包做回归，不能只用临时示例证明解析器通过。已有前置结构满足时，只执行缺失的必需正式迁移，不重复改写无关结构。
+
+### 迁移收集与失败恢复静态核对
+
+- Trigger: 新增菜单/schema SQL、只读盘点脚本或使用存储过程的迁移。
+- Preflight check: 分别核对实际 publisher、manifest builder 与 policy 的扫描根、递归规则和 metadata；文件名或 READ ONLY 注释不能使脚本自动成为 evidence-only。盘点资产放在不会被实际发布入口执行的证据位置，并更新引用。所有实际读取的增量表须在正式 dependsOn 闭包中；bootstrap 表须单独列为基线前置，不伪造 migrationId。
+- Verification: 用目标真实文件的完整依赖闭包运行正式 policy，并直接验证实际发布收集函数的候选归属；仅提取无副作用函数，禁止执行 publisher 顶层来做静态检查。目标闭包通过与全库收集/门禁失败分别记录，不能互相替代。
+- Failure recovery: 事务回滚不能证明 CREATE PROCEDURE 或连接临时表已清理。恢复前核对准确 schema、routine definition、任务归属和并发调用；身份标记按精确值比较，不能依赖大小写不敏感 collation。缺归属或清理授权时停止，不盲目 DROP 同名对象或自动重试。
+- 实际初始化前置：按 SQL 执行顺序核对种子谓词与后置守卫。页面和按钮可能复用权限码，前面的页面 INSERT 会抑制后续按 permission 判断的按钮 INSERT；不能仅凭所有 INSERT 文本存在断言固定菜单 ID 齐全。同连接用户变量须在实际执行 CALL 的连接显式设置，不能依赖前一个 CLI 会话。
+- 元数据守卫：从目标 MySQL 的正式原始 DDL 实际读取 COLUMN_DEFAULT/EXTRA，并核对时间精度及自动更新时间语义。CURRENT_TIMESTAMP 的有无括号可能只是元数据呈现差异；仅允许经核实的精确等价表达，未知属性继续拒绝。结构合同或 H2 不能代替原表首次 MySQL 执行。
+- 残留例程比对：SHOW CREATE 可用于恢复原始字符串引号，INFORMATION_SCHEMA.ROUTINE_DEFINITION 不保证与源码文本等同。通过 XML 等结构化输出保留文本，记录客户端精确移除的已知独立注释和换行规范化；不得泛化替换 SQL token、引号或业务表达式使指纹通过。失败后保留已提交 DDL 与日志，经备份和明确恢复范围审查后才执行未完成部分。
+- Evidence: `doc/tasks/20261008-profile-architecture-implementation/verification-report.md`。上述静态证据不替代 MySQL 首次/重复执行、反例、数据快照或真实恢复验证。
 
 ### MySQL 被索引字符列扩容顺序门禁
 

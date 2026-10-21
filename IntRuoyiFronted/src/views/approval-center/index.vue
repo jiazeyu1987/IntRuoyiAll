@@ -1210,6 +1210,8 @@ const canReviewInModule = (row: ApprovalTaskSummaryVO) => {
     && !row.businessDeleted
     && !bpmMissingPermissionReason(row)
     && (actions.includes('REVIEW_IN_MODULE') || actions.includes('APPROVE_IN_MODULE')
+      || (row.moduleCode === 'EDHR' && row.sourceTaskType === 'ACTIVE_ORDER_HANDOFF'
+        && actions.includes('PROCESS_IN_MODULE') && canOpenView(row))
       || canProcessBpmInModule(row, queryParams.viewType))
 }
 

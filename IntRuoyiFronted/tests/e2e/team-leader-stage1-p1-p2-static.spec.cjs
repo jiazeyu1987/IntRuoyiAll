@@ -21,19 +21,19 @@ assert.match(
 )
 
 const p1Button = activeOrderBlock.match(
-  /<el-button[\s\S]*?data-team-leader-simulate-active-order-stage1-p1[\s\S]*?<\/el-button>/
+  /<el-dropdown-item[\s\S]*?data-team-leader-simulate-active-order-stage1-p1[\s\S]*?<\/el-dropdown-item>/
 )
 assert.ok(p1Button, 'P1 must be exposed as a separate Stage1 simulation button.')
 assert.match(p1Button[0], /@click="handleSimulateStage1\(row\)"/, 'P1 must keep the Stage1 simulation handler.')
-assert.match(p1Button[0], />\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-button>/, 'P1 label must be P1双100.')
+assert.match(p1Button[0], />\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-dropdown-item>/, 'P1 label must be P1双100.')
 
 const p2Button = activeOrderBlock.match(
-  /<el-button[\s\S]*?data-team-leader-generate-active-order-stage1-p2[\s\S]*?<\/el-button>/
+  /<el-dropdown-item[\s\S]*?data-team-leader-generate-active-order-stage1-p2[\s\S]*?<\/el-dropdown-item>/
 )
 assert.ok(p2Button, 'P2 must be exposed as a separate generated form button.')
 assert.match(p2Button[0], /@click="handleGenerateStage1Forms\(row\)"/, 'P2 must use its own generate handler.')
 assert.match(p2Button[0], /!canGenerateStage1Forms\(row\)/, 'P2 must be gated by Stage1 double-100 readiness.')
-assert.match(p2Button[0], />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-button>/, 'P2 label must be P2生成.')
+assert.match(p2Button[0], />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-dropdown-item>/, 'P2 label must be P2生成.')
 
 const p1Handler = page.match(/const\s+handleSimulateStage1\s*=\s*async\s*\(row:[\s\S]*?\r?\n}\r?\n\r?\nconst\s+handleGenerateStage1Forms/)
 assert.ok(p1Handler, 'Expected P1 handler before P2 handler.')

@@ -391,7 +391,7 @@ const route = useRoute()
 const { push } = useRouter()
 const userStore = useUserStore()
 
-interface UserTableRow extends UserApi.UserPageVO {
+interface UserTableRow extends UserApi.UserListVO {
   postNamesText: string
   roleNamesText: string
 }
@@ -480,7 +480,7 @@ const loadDeptMetadata = async () => {
   deptNameById.value = new Map(deptList.map((dept) => [dept.id, dept.name]))
 }
 
-const buildUserTableRows = (users: UserApi.UserPageVO[]): UserTableRow[] =>
+const buildUserTableRows = (users: UserApi.UserListVO[]): UserTableRow[] =>
   users.map((user) => ({
     ...user,
     postNamesText: formatDisplayNames(user.postNames),
@@ -512,7 +512,7 @@ const getList = async () => {
   loading.value = true
   try {
     const data = await UserApi.getUserPage(queryParams)
-    const pageList = data.list as UserApi.UserPageVO[]
+    const pageList = data.list as UserApi.UserListVO[]
     const orderedList = shouldPrioritizeDeptLeaders.value
       ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, queryParams.deptId)
       : pageList

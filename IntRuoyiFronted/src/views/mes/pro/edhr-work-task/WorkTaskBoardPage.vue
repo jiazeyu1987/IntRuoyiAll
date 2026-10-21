@@ -1412,8 +1412,14 @@ const assertPqcDecisionResult = (
 }
 
 const openPqcProductionReleasePage = (row: EdhrWorkTaskRespVO) => {
-  requirePqcDecisionTaskContext(row)
-  router.push({ name: 'MesPqcProductionRelease' })
+  const context = requirePqcDecisionTaskContext(row)
+  router.push({
+    name: 'MesPqcProductionRelease',
+    query: {
+      applicationId: context.applicationId,
+      workTaskId: context.workTaskId
+    }
+  })
 }
 
 // The persisted decision contract uses signed big-endian lengths and UTF-8, null=-1.

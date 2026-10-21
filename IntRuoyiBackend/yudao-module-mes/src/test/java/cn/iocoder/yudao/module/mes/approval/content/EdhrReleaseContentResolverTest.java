@@ -19,6 +19,47 @@ import static org.mockito.Mockito.*;
 
 /** Real projection/validators/precheck reader. Owner provenance and file APIs are explicit boundary doubles. */
 class EdhrReleaseContentResolverTest {
+    @Test void activeOrderFactsBindDossierFilesRevisionAndHashWithoutMaterialGate() throws Exception {
+        var f=new Fixture(true,true);
+        var old=f.releases.readForApproval(10L,2L,false);
+        f.checks.removeIf(row -> row.getCheckCode().startsWith("DOSSIER_"));
+        f.release.setRequiredCheckCount(6);
+        var raw=(ObjectNode)ApprovalContentJson.parse(f.release.getPrecheckSnapshotJson());
+        var items=a();
+        for(var row:f.checks) items.add(o("checkCode",row.getCheckCode(),"checkResult",row.getCheckResult(),
+                "severity",row.getSeverity(),"responsibilityModule",row.getResponsibilityModule(),"sourceObjectCode",row.getSourceObjectCode()));
+        String factsHash="ACTIVE_ORDER_FACTS:"+H;
+        raw.set("items",items);raw.putNull("materialGateManifestHash");raw.put("evidencePolicy","ACTIVE_ORDER_FORMAL_FACTS_V1").put("formalFactsHash",factsHash);
+        f.release.setPrecheckSnapshotJson(raw.toString());
+        var proof=new MesEdhrSourceCreationEvidence("COMPLETION_MAIN_V1",80L,"80","1",H,81L,H);
+        var fact=new cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrVerifiedActiveOrderReleaseFact(
+                95L,30L,factsHash,H,proof,96L,H,97L);
+        var graph=new MesEdhrApprovalFinalizationGraph(old.tenantId(),old.task(),old.transaction(),old.batch(),true,
+                old.origin(),old.sourceContext(),null,old.sourceCreationEvidence(),95L,1L,fact);
+        when(f.releases.readForApproval(10L,2L,false)).thenReturn(graph);
+        var manifest=o("tenantId","1","activeOrderId","60","applicationId","95","batchExecutionId","30","revision","0","files",a(o("attachmentId","501","activeOrderId","60","applicationId","95",
+                "categoryKey","STERILIZATION_FILE","fileId","601","fileName","灭菌报告.pdf","fileSize","12","contentType","application/pdf","sha256",H)));
+        manifest.put("manifestHash",ApprovalContentJson.hash(manifest));
+        var dossiers=mock(EdhrActiveOrderDossierManifest.class);
+        when(dossiers.read(1L,60L,95L,30L,false)).thenReturn(new EdhrActiveOrderDossierManifest.Snapshot(manifest,List.of(new PreviewAttachment("601","灭菌报告.pdf","501",H,"12","application/pdf","https://test.invalid/601"))));
+        org.springframework.test.util.ReflectionTestUtils.setField(f.resolver,"dossierManifest",dossiers);
+        clearInvocations(f.materials,f.files);
+        var prepared=f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null);
+        assertEquals("approval-content-active-order-v2",prepared.contentPolicyVersion());
+        assertEquals(1,prepared.attachments().size());
+        var content=ApprovalContentJson.parse(prepared.canonicalBusinessContentJson());
+        assertTrue(content.at("/finalization/materialManifest/files").isArray());
+        assertEquals(6,content.at("/release/precheckSnapshot/items").size());
+        verifyNoInteractions(f.materials,f.files);
+        String beforeVersion = f.semantic.subjectVersion(content, guard());
+        manifest.put("revision","1");manifest.remove("manifestHash");manifest.put("manifestHash",ApprovalContentJson.hash(manifest));
+        ((ObjectNode)content.get("finalization")).set("materialManifest",manifest.deepCopy());
+        assertNotEquals(beforeVersion,f.semantic.subjectVersion(content,guard()));
+        ((ObjectNode)content.at("/finalization/materialManifest/files/0")).put("sha256","b".repeat(64));
+        assertThrows(IllegalArgumentException.class,()->f.semantic.validate(content));
+        ((ObjectNode)content).put("contentPolicyVersion","approval-content-v1");
+        assertThrows(IllegalArgumentException.class,()->f.semantic.validate(content));
+    }
     @Test void fourQuadrantsProjectExactOwnerReceiptAndFourVerifiedFileContents() throws Exception {
         for(boolean active:new boolean[]{true,false})for(boolean managed:new boolean[]{true,false}){
             var f=new Fixture(active,managed);var result=f.resolver.prepare(2L,"EDHR_WORK_TASK","10",null);

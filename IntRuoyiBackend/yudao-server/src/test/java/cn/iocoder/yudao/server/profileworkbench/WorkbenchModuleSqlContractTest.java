@@ -1,0 +1,43 @@
+package cn.iocoder.yudao.server.profileworkbench;
+import cn.iocoder.yudao.module.system.api.workbench.*;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.session.Configuration;
+import org.junit.jupiter.api.*;
+import java.nio.file.*;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+class WorkbenchModuleSqlContractTest {
+ Configuration configuration;
+ static final String DCC="cn.iocoder.yudao.module.dcc.dal.mysql.file.DccWorkbenchTodoMapper.";
+ static final String MES="cn.iocoder.yudao.module.mes.dal.mysql.pro.MesWorkbenchTodoMapper.";
+ static final String SHOW="cn.iocoder.yudao.module.showroom.dal.mysql.workflow.ShowroomWorkbenchTodoMapper.";
+ @BeforeEach void parseCurrentSourceXml()throws Exception{
+  configuration=new Configuration();configuration.setMapUnderscoreToCamelCase(true);
+  for(String file:List.of("yudao-module-system/src/main/resources/mapper/profileworkbench/WorkbenchQuerySql.xml","yudao-module-dcc/src/main/resources/mapper/profileworkbench/DccWorkbenchTodoMapper.xml","yudao-module-mes/src/main/resources/mapper/profileworkbench/MesWorkbenchTodoMapper.xml","yudao-module-showroom/src/main/resources/mapper/profileworkbench/ShowroomWorkbenchTodoMapper.xml")){
+   Path path=Path.of("..").resolve(file);try(var in=Files.newInputStream(path)){new XMLMapperBuilder(in,configuration,file,configuration.getSqlFragments()).parse();}
+  }
+ }
+ QueryContext query(){return new WorkbenchQuerySpec("visible",null,new WorkbenchQuerySpec.QuickFilter("detail","contains","é"),new WorkbenchQuerySpec.Sort("detail","desc")).context(2,3,1);}
+ String sql(String statement,Map<String,Object> parameters){return configuration.getMappedStatement(statement).getBoundSql(parameters).getSql().replaceAll("\\s+"," ");}
+ @Test void allFiveCountsRejectBinaryDuplicateBaseBeforeFiltersAndChunksShareFixedOrder(){
+  var count=List.of(DCC+"countDistribution",DCC+"countTraining",MES+"countEdhr",MES+"countWorkOrder",SHOW+"countAssignment");
+  var chunk=List.of(DCC+"chunkDistribution",DCC+"chunkTraining",MES+"chunkEdhr",MES+"chunkWorkOrder",SHOW+"chunkAssignment");
+  for(int i=0;i<5;i++){
+   var q=query();String c=sql(count.get(i),Map.of("q",q));assertTrue(c.contains("COUNT(DISTINCT CAST(CONVERT(u.task_key USING utf8mb4) AS BINARY))"));assertTrue(c.contains("THEN COUNT(*) ELSE NULL END"));assertTrue(c.indexOf("COUNT(DISTINCT")<c.indexOf("system_profile_workbench_task_visibility"));assertFalse(c.contains(" IN (?)"));
+   var args=new HashMap<String,Object>();args.put("q",q);args.put("fetchLimit",101);args.put("after",new ChunkCursor("FIXTURE","类别","来源","é","待处理",null,null,"row-😀"));String s=sql(chunk.get(i),args);
+   assertTrue(s.contains("AS DATETIME(6)"));assertTrue(s.contains("CONVERT(r.row_order_key USING utf8mb4) AS BINARY) DESC"));assertTrue(s.contains("r.due_group ASC,r.due_sort ASC,r.created_sort DESC"));assertTrue(s.contains("NOT EXISTS"));assertTrue(s.contains("CONVERT(v.task_key USING utf8mb4)"));assertTrue(s.contains("LIMIT ?"));
+   args.put("fetchLimit",1000);assertThrows(RuntimeException.class,()->sql(chunk.get(0),args));
+  }
+ }
+ @Test void directModuleInvalidQueryCannotUseSilentOtherwise(){
+  var badSort=query();badSort.setSortKey("invalid");assertThrows(RuntimeException.class,()->sql(DCC+"countTraining",Map.of("q",badSort)));
+  var q=query();q.setVisibilityFilter(new VisibilityFilter(9,3,1,"visible"));var invalid=q;assertThrows(RuntimeException.class,()->sql(MES+"countWorkOrder",Map.of("q",invalid)));
+ }
+ @Test void currentQualificationUsesLockedMesStatusAndWorkOrderSingleTableAndTrainingNowait(){
+  var args=new HashMap<String,Object>();args.put("q",query().partition(null));args.put("id",7L);args.put("lockedBatchStatus",30L);
+  String mes=sql(MES+"identityEdhr",args);assertTrue(mes.contains("NOT IN (40,50,60)"));assertTrue(mes.matches(".*task_type\\s*=\\s*'ARCHIVE'.*"));assertFalse(mes.contains("NOT EXISTS"));assertTrue(mes.contains("FOR UPDATE"));assertTrue(mes.contains("LOCATE(CONCAT(',',"));
+  String wo=sql(MES+"identityWorkOrder",args);assertFalse(wo.contains("md_item"));assertFalse(wo.contains("user_id"));assertTrue(wo.contains("temporary_frozen=0"));
+  assertTrue(sql(DCC+"identityTraining",args).endsWith("FOR UPDATE NOWAIT"));
+  String invalid=sql(SHOW+"countInvalidNotifications",args);assertTrue(invalid.contains("n.id IS NULL"));assertTrue(invalid.contains("a.status = 'OPEN'"));
+ }
+}

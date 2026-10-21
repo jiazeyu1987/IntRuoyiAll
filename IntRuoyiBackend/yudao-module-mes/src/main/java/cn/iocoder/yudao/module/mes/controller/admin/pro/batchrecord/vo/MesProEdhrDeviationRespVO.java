@@ -34,6 +34,10 @@ public class MesProEdhrDeviationRespVO {
     private String levelBasis;
     private String closeReason;
     private LocalDateTime closedAt;
+    private Long closedBy;
+    private Integer closedContentVersion;
+    private String closedContentHash;
+    private String closedSignatureIdsJson;
     private Long nonconformanceReviewId;
     private String nonconformanceReviewCode;
     private String nonconformanceReviewStatus;
