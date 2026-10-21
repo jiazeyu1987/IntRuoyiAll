@@ -33,6 +33,9 @@ class MesProRouteVersionBusinessApprovalEffectExecutorTest {
     private MesProRouteVersionBusinessApprovalEffectExecutor executor;
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
+    @Mock
     private MesProRouteVersionLifecycleService lifecycleService;
     @Mock
     private MesProRouteVersionMapper routeVersionMapper;
@@ -42,6 +45,7 @@ class MesProRouteVersionBusinessApprovalEffectExecutorTest {
     @BeforeEach
     void setUp() {
         executor = new MesProRouteVersionBusinessApprovalEffectExecutor();
+        ReflectionTestUtils.setField(executor, "craftService", craftService);
         ReflectionTestUtils.setField(executor, "lifecycleService", lifecycleService);
         ReflectionTestUtils.setField(executor, "routeVersionMapper", routeVersionMapper);
         ReflectionTestUtils.setField(executor, "platformAdapter", platformAdapter);

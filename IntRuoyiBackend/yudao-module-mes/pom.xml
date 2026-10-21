@@ -553,6 +553,56 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>mes-craft-library-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</testInclude>
+                                <testInclude>**/MesProCraft*Test.java</testInclude>
+                                <testInclude>**/MesProRouteCandidateConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionWorkflowServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionLifecycleServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionBusinessApprovalEffectExecutorTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionApprovalServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteVersionPublishProjectionServiceTest.java</testInclude>
+                                <testInclude>**/MesFrontlineParameterAuditServiceTest.java</testInclude>
+                                <testInclude>**/MesReportAllocationFrontlineSnapshotGuardTest.java</testInclude>
+                                <testInclude>**/MesFrontlineRuntimeConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesFrontlineDeviceSelectionValidationTest.java</testInclude>
+                                <testInclude>**/MesFrontlinePqcContextServiceTest.java</testInclude>
+                            </testIncludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesProBatchRecordRecognitionDeviceSyncServiceTest.java</include>
+                                <include>**/MesProCraft*Test.java</include>
+                                <include>**/MesProRouteCandidateConfigServiceTest.java</include>
+                                <include>**/MesProRouteVersionWorkflowServiceTest.java</include>
+                                <include>**/MesProRouteVersionLifecycleServiceTest.java</include>
+                                <include>**/MesProRouteVersionBusinessApprovalEffectExecutorTest.java</include>
+                                <include>**/MesProRouteVersionApprovalServiceTest.java</include>
+                                <include>**/MesProRouteVersionPublishProjectionServiceTest.java</include>
+                                <include>**/MesFrontlineParameterAuditServiceTest.java</include>
+                                <include>**/MesReportAllocationFrontlineSnapshotGuardTest.java</include>
+                                <include>**/MesFrontlineRuntimeConfigServiceTest.java</include>
+                                <include>**/MesFrontlineDeviceSelectionValidationTest.java</include>
+                                <include>**/MesFrontlinePqcContextServiceTest.java</include>
+                            </includes>
+                            <failIfNoTests>false</failIfNoTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
 </project>

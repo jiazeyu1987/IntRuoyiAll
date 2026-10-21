@@ -37,6 +37,8 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
     private static final Set<String> PUBLISHABLE_STATUSES = Set.of(STATUS_READY_TO_PUBLISH);
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+    @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteVersionPublishProjectionServiceImpl publishProjectionService;
@@ -54,6 +56,7 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO publishCandidate(Long candidateRouteVersionId, Long publisherUserId) {
+        craftService.lockCatalog();
         Long publisherId = requirePublisherUserId(publisherUserId);
         MesProRouteVersionDO candidate = routeVersionMapper.selectById(candidateRouteVersionId);
         if (candidate == null) {
@@ -71,6 +74,10 @@ public class MesProRouteVersionLifecycleServiceImpl implements MesProRouteVersio
                 || !MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(candidate.getRouteSnapshotJson())) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
         }
+        if (craftService.onRouteReady(candidate, publisherId)) {
+            return routeVersionMapper.selectById(candidate.getId());
+        }
+        craftService.validateBindings(JSON.parseObject(candidate.getRouteSnapshotJson()).getJSONObject("configSnapshots"));
         MesProRouteVersionDO active = routeVersionMapper.selectActiveByRouteId(candidate.getRouteId());
         if (active == null) {
             throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, candidate.getRouteId());

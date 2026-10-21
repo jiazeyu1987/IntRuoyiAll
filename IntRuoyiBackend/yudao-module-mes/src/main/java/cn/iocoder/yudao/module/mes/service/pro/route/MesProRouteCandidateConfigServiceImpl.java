@@ -43,6 +43,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             MesProcessPoolDeviceParameterRuleDO.VALUE_TYPE_DECIMAL);
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+    @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProcessPoolTeamDeviceMapper teamDeviceMapper;
@@ -74,6 +76,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
 
     private void saveConfigSnapshotsInternal(Long candidateRouteVersionId, String expectedRouteSnapshotSha256,
                                              Map<String, Object> incomingConfigSnapshots) {
+        craftService.lockCatalog();
         MesProRouteVersionDO candidate = routeVersionMapper.selectById(candidateRouteVersionId);
         if (candidate == null) {
             throw exception(PRO_ROUTE_VERSION_NOT_EXISTS, candidateRouteVersionId);
@@ -83,6 +86,7 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
                     candidate.getId(), candidate.getLifecycleStatus());
         }
+        craftService.assertEditable(candidate);
         validateSourceActiveVersionStillCurrent(candidate);
         if (expectedRouteSnapshotSha256 != null
                 && !Objects.equals(expectedRouteSnapshotSha256, candidate.getRouteSnapshotSha256())) {
@@ -103,6 +107,10 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             configSnapshots = new JSONObject(true);
             snapshot.put(SNAPSHOT_CONFIGS_KEY, configSnapshots);
         }
+        JSONObject previousConfigs = JSON.parseObject(configSnapshots.toJSONString());
+        if (incomingConfigSnapshots.containsKey("craftChangeId")) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("工艺整批升级标识不可直接编辑");
+        }
         for (Map.Entry<String, Object> entry : incomingConfigSnapshots.entrySet()) {
             if (StrUtil.isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidate.getId());
@@ -113,6 +121,8 @@ public class MesProRouteCandidateConfigServiceImpl implements MesProRouteCandida
             }
             configSnapshots.put(entry.getKey(), jsonSnapshot);
         }
+        craftService.validateBindingTransitions(previousConfigs, configSnapshots);
+        craftService.validateBindings(configSnapshots);
         validateProductionProcessConfigs(candidate.getId(), configSnapshots);
         validateProductionDevicesExist(candidate.getId(), configSnapshots);
 

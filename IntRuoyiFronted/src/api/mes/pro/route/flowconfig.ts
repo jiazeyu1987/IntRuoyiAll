@@ -239,6 +239,8 @@ export interface ProRouteProcessDeviceParameterDeviceVO {
 }
 
 export interface ProRouteProcessDeviceParameterConfigVO {
+  craftId?: number
+  craftCode?: string
   routeVersionId: MesRouteId
   routeSnapshotSha256: string
   routeProcessId: number

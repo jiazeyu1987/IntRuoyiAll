@@ -19,6 +19,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -35,6 +36,9 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBa
 /** Synchronizes an explicitly imported recognition JSON into the candidate route version production configuration. */
 @Service
 public class MesProBatchRecordRecognitionDeviceSyncService {
+
+    @jakarta.annotation.Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
 
     private static final String PRODUCTION_PROCESS_CONFIG_SCHEMA_VERSION_KEY = "productionProcessConfigSchemaVersion";
     private static final String PRODUCTION_PROCESS_CONFIGS_KEY = "productionProcessConfigs";
@@ -58,12 +62,22 @@ public class MesProBatchRecordRecognitionDeviceSyncService {
         this.candidateConfigService = candidateConfigService;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void initializeActiveVersionProductionConfigs(Long dccProjectCodeId, String totalRecognitionJson) {
+        craftService.lockCatalog();
         JSONObject root = parseRecognitionRoot(totalRecognitionJson);
         Long routeId = requireSingleRoute(dccProjectCodeId);
         MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
         if (activeVersion == null || !Boolean.TRUE.equals(activeVersion.getActive())) {
             throw new IllegalArgumentException("批记录识别设备参数初始化需要当前工艺路线存在正式版本：routeId=" + routeId);
+        }
+        if (routeVersionMapper.selectOpenCandidateByRouteId(routeId) != null) {
+            throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("流程已有未完成候选版本，不能覆盖正式设备参数");
+        }
+        for (Object raw : readExistingProductionConfigs(activeVersion)) {
+            if (((JSONObject) raw).getLong("craftId") != null) {
+                throw cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftParameters.invalid("正式流程已绑定工艺，请通过工艺库修改，不能用识别结果覆盖");
+            }
         }
         JSONObject routeSnapshot = parseVersionSnapshot(activeVersion);
         JSONObject configSnapshots = routeSnapshot.getJSONObject("configSnapshots");

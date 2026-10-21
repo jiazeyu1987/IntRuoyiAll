@@ -25,6 +25,8 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     private static final String ACTION_CODE = "PUBLISH";
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+    @Resource
     private MesProRouteVersionLifecycleService lifecycleService;
     @Resource
     private MesProRouteVersionMapper routeVersionMapper;
@@ -42,12 +44,14 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
 
     @Override
     public void precheck(BusinessApprovalContext context) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
     }
 
     @Override
     public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context,
                                                       BusinessApprovalRequest request) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
@@ -73,6 +77,7 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     @Override
     public BusinessApprovalEffectResult markPending(BusinessApprovalContext context,
                                                     BusinessApprovalRequest request) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
@@ -97,7 +102,11 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
     public BusinessApprovalEffectResult executeApproved(BusinessApprovalContext context,
                                                         BusinessApprovalRequest request,
                                                         Long actorUserId) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
+            return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
+        }
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         Long publisherUserId = requireActorUserId(actorUserId, "actorUserId");
@@ -117,7 +126,11 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                BusinessApprovalRequest request,
                                                Long actorUserId,
                                                String reason) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
+            return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
+        }
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         Long rejectUserId = requireActorUserId(actorUserId, "actorUserId");
@@ -130,6 +143,7 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED);
         candidate.setRemark(rejectReason);
         platformAdapter.recordRejected(candidate, rejectUserId, rejectReason, terminalEventKey(request, "REJECTED"));
+        craftService.abortRoute(candidate, rejectUserId);
         return BusinessApprovalEffectResult.rejected(MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED);
     }
 
@@ -138,12 +152,17 @@ public class MesProRouteVersionBusinessApprovalEffectExecutor implements Busines
                                                BusinessApprovalRequest request,
                                                Long actorUserId,
                                                String reason) {
+        craftService.lockCatalog();
         requireRouteVersionPublishContext(context);
+        if (craftService.cancelledBatch(routeVersionMapper.selectById(parseRouteVersionId(context)))) {
+            return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
+        }
         MesProRouteVersionDO candidate = requireVersionWithStatus(context,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         Long cancelUserId = requireActorUserId(actorUserId, "actorUserId");
         requireUpdated(routeVersionMapper.updateApprovalFieldsToDraft(candidate.getId()), "cancel route version");
         platformAdapter.recordWithdrawn(candidate, cancelUserId);
+        craftService.abortRoute(candidate, cancelUserId);
         return BusinessApprovalEffectResult.cancelled(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);
     }
 

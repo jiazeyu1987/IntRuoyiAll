@@ -1,0 +1,102 @@
+{
+  "changes": [
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:initialize",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:query",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-craft:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-query",
+      "reason": "复用既有工艺流程版本查询及编辑权限，不新增授权；工艺库绑定操作仍受 mes:pro-route:version-update 控制"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:create",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:initialize",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "permission",
+      "value": "mes:pro-craft:update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/craft/index.vue",
+      "kind": "page",
+      "value": "mes/pro/craft/index",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/route/components/RouteCraftBinding.vue",
+      "kind": "permission",
+      "value": "mes:pro-route:version-update",
+      "migrations": [
+        "IntRuoyiBackend/sql/mysql/20261021_mes_craft_library.sql"
+      ]
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-create",
+      "reason": "整批工艺升级同时校验既有工艺流程版本新建、编辑、提交权限，复用既有授权，不新增权限"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
+      "kind": "permission",
+      "value": "mes:pro-route:version-submit",
+      "reason": "整批工艺升级同时校验既有工艺流程版本新建、编辑、提交权限，复用既有授权，不新增权限"
+    }
+  ]
+}

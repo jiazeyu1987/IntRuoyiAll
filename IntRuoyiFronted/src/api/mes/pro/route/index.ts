@@ -154,6 +154,10 @@ export interface ProRouteVersionBlockerVO {
 }
 
 export interface ProRouteProductionProcessConfigVO {
+  craftId?: number
+  craftCode?: string
+  craftFingerprint?: string
+  craftDeviceIds?: number[]
   routeProcessId: number
   processId: number
   processCode?: string | null

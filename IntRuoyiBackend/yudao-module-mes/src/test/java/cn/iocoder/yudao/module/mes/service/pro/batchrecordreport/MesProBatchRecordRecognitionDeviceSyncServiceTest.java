@@ -30,6 +30,9 @@ import static org.mockito.Mockito.when;
 class MesProBatchRecordRecognitionDeviceSyncServiceTest {
 
     @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
+    @Mock
     private MesRouteDccProjectBindingMapper routeDccProjectBindingMapper;
     @Mock
     private MesProProcessMapper processMapper;
@@ -45,6 +48,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -90,6 +94,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -147,6 +152,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -176,6 +182,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -215,6 +222,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -262,6 +270,7 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         MesProBatchRecordRecognitionDeviceSyncService service =
                 new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
                         processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
         when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
                 .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
         MesProProcessDO process = new MesProProcessDO();
@@ -297,4 +306,21 @@ class MesProBatchRecordRecognitionDeviceSyncServiceTest {
         assertEquals(2001L, productionConfigs.getJSONObject(0).getLongValue("routeProcessId"));
         assertEquals(5, productionConfigs.getJSONObject(0).getIntValue("overagePercent"));
     }
+    @Test
+    void activeInitializationCannotOverwriteBoundCraft() {
+        MesProBatchRecordRecognitionDeviceSyncService service =
+                new MesProBatchRecordRecognitionDeviceSyncService(routeDccProjectBindingMapper,
+                        processMapper, deviceMapper, routeVersionMapper, candidateConfigService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "craftService", craftService);
+        when(routeDccProjectBindingMapper.selectCurrentListByDccProjectCodeId(9001L))
+                .thenReturn(List.of(MesRouteDccProjectBindingDO.builder().routeId(1001L).build()));
+        when(routeVersionMapper.selectActiveByRouteId(1001L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(4001L).routeId(1001L).active(true).routeSnapshotJson("""
+                {"configSnapshots":{"productionProcessConfigs":[{"routeProcessId":2001,"craftId":1}]}}
+                """).build());
+        org.junit.jupiter.api.Assertions.assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> service.initializeActiveVersionProductionConfigs(9001L,"{\"schemaVersion\":3,\"processes\":[]} "));
+        org.mockito.Mockito.verify(routeVersionMapper, org.mockito.Mockito.never()).updateById(any(MesProRouteVersionDO.class));
+    }
+
 }

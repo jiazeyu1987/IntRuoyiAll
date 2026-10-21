@@ -20,6 +20,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class MesProRouteVersionApprovalServiceTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+
     @InjectMocks
     private MesProRouteVersionApprovalServiceImpl approvalService;
 

@@ -1527,6 +1527,17 @@
                           刷新
                         </el-button>
                       </div>
+                      <RouteCraftBinding
+                        v-if="routeProcessDeviceParameterConfig?.processId && props.routeVersionEditContext?.routeVersionId && selectedRouteProcessId"
+                        :key="selectedRouteProcessId"
+                        :process-id="routeProcessDeviceParameterConfig.processId"
+                        :route-process-id="selectedRouteProcessId"
+                        :route-version-id="props.routeVersionEditContext.routeVersionId"
+                        :snapshot-sha256="routeProcessDeviceParameterConfig.routeSnapshotSha256"
+                        :craft-id="routeProcessDeviceParameterConfig.craftId"
+                        :disabled="recordBindingEditorDisabled || hasProductionProcessConfigJsonDraftChanges(selectedRouteProcessId)"
+                        @saved="refreshSelectedCraftBinding"
+                      />
                       <el-skeleton
                         v-if="routeProcessDeviceParameterLoading"
                         animated
@@ -1553,6 +1564,7 @@
                             {{ formatRouteProcessDeviceParameterDeviceLabel(device) }}
                           </span>
                           <el-button
+                            v-if="!routeProcessDeviceParameterConfig?.craftId"
                             data-flow-action="add-route-process-device-parameter-rule"
                             :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
                             link
@@ -1576,6 +1588,7 @@
                             {{ formatRouteProcessDeviceParameterValue(parameter) }}
                           </strong>
                           <el-button
+                            v-if="!routeProcessDeviceParameterConfig?.craftId"
                             data-flow-action="edit-route-process-device-parameter-rule"
                             :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
                             link
@@ -1586,6 +1599,7 @@
                             编辑
                           </el-button>
                           <el-button
+                            v-if="!routeProcessDeviceParameterConfig?.craftId"
                             data-flow-action="delete-route-process-device-parameter-rule"
                             :disabled="recordBindingEditorDisabled || routeProcessDeviceParameterSaving"
                             link
@@ -1976,6 +1990,7 @@
 </template>
 
 <script setup lang="ts">
+import RouteCraftBinding from './components/RouteCraftBinding.vue'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import {
@@ -5438,6 +5453,15 @@ const loadSelectedRouteProcessDeviceParameterConfig = async () => {
       routeProcessDeviceParameterLoading.value = false
     }
   }
+}
+
+const refreshSelectedCraftBinding = async () => {
+  const routeVersionId = requireRouteProcessDeviceParameterVersionId()
+  await refreshProductionProcessConfigSnapshot(routeVersionId)
+  if (selectedRouteProcessId.value) {
+    syncProductionProcessConfigJsonDraftFromCache(selectedRouteProcessId.value)
+  }
+  await loadSelectedRouteProcessDeviceParameterConfig()
 }
 
 const refreshProductionProcessConfigSnapshot = async (routeVersionId: MesRouteId) => {

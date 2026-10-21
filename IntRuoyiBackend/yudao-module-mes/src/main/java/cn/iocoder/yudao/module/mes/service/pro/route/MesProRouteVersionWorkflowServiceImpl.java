@@ -51,6 +51,8 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     public static final String ROUTE_VERSION_APPROVAL_PROCESS_DEFINITION_KEY = "mes-route-version-approval-v1";
 
     @Resource
+    private cn.iocoder.yudao.module.mes.service.pro.craft.MesProCraftService craftService;
+    @Resource
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private BpmProcessInstanceApi bpmProcessInstanceApi;
@@ -86,6 +88,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO createCandidate(MesProRouteVersionCreateReqVO reqVO) {
+        craftService.lockCatalog();
         MesProRouteVersionDO active = routeVersionMapper.selectActiveByRouteIdForUpdate(reqVO.getRouteId());
         if (active == null) {
             throw exception(PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS, reqVO.getRouteId());
@@ -124,6 +127,11 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
                 .changeSummaryJson(buildChangeSummary(reqVO.getChangeReason()))
                 .remark("工艺路线候选版本，发布后生效")
                 .build();
+        JSONObject candidateRoot = JSON.parseObject(routeSnapshotJson);
+        if (candidateRoot.getJSONObject("configSnapshots").containsKey("craftChangeId")) {
+            candidateRoot.getJSONObject("configSnapshots").remove("craftChangeId");
+            routeSnapshotJson = candidateRoot.toJSONString();
+        }
         MesProRouteVersionSnapshotIdentityWriter.apply(candidate, routeSnapshotJson);
         routeVersionMapper.insert(candidate);
         platformAdapter.recordCandidateCreated(active, candidate, SecurityFrameworkUtils.getLoginUserId(),
@@ -371,7 +379,9 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO withdrawCandidate(Long id) {
+        craftService.lockCatalog();
         MesProRouteVersionDO candidate = getVersionForUpdate(id);
+        craftService.assertEditable(candidate);
         if (Boolean.TRUE.equals(candidate.getActive())
                 || !MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL.equals(candidate.getLifecycleStatus())) {
             throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -399,7 +409,9 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO reopenRejectedCandidate(Long id) {
+        craftService.lockCatalog();
         MesProRouteVersionDO candidate = getVersionForUpdate(id);
+        craftService.assertEditable(candidate);
         if (Boolean.TRUE.equals(candidate.getActive())
                 || !MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED.equals(candidate.getLifecycleStatus())) {
             throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -421,7 +433,9 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteVersionDO cancelCandidate(Long id) {
+        craftService.lockCatalog();
         MesProRouteVersionDO candidate = getVersionForUpdate(id);
+        craftService.assertEditable(candidate);
         if (Boolean.TRUE.equals(candidate.getActive())
                 || !(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(candidate.getLifecycleStatus())
                 || MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH.equals(candidate.getLifecycleStatus())
