@@ -10,10 +10,12 @@ const ast = ts.createSourceFile('detail.ts', source, ts.ScriptTarget.Latest, tru
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => {resolve=a;reject=b}); return {promise,resolve,reject} }
 function host() {
   const reads=[],messages=[], c={exports:{}, Error,String,BigInt,Number,Array,Object,Promise,JSON,
+    currentUserId:vue.ref('99'),getTenantId:()=> '1',getVisitTenantId:()=>null,
+    resolveDetailReadSelection: require('./dcc-detail-read-test-loader.cjs').resolveDetailReadSelection,
     route:{path:'/dcc/controlled-file/detail/10',fullPath:'/dcc/controlled-file/detail/10',params:{id:'10'}},
     controlledFileId:vue.ref('10'),detailLoadSequence:0,dccSignatureEvidenceRequestSequence:0,
     workingBrowserLoadedContext:vue.ref(),applicationApprovalRead:vue.ref(),fileDetail:vue.ref({id:'old'}),
-    approvalProgressScope:vue.ref(),approvalProgressError:vue.ref(''),
+    approvalProgressScope:vue.ref(),approvalProgressError:vue.ref(''),approvalProgressNotice:vue.ref(''),
     fileAccessExplanation:vue.ref(null),accessExplanationError:vue.ref(''),paperDistributionRecords:vue.ref(['old']),
     approvalTodoTask:vue.ref(),approvalTaskList:vue.ref([]),stageProgressList:vue.ref([]),approvalLoading:vue.ref(false),
     dccSignatureEvidenceList:vue.ref([]),dccSignatureEvidenceTotal:vue.ref(0),dccSignatureEvidenceLoading:vue.ref(false),dccSignatureEvidenceError:vue.ref(''),
@@ -27,7 +29,7 @@ function host() {
     loadDccSignatureEvidenceList:async()=>reads.push(['signatures']),loadApprovalDetail:async()=>reads.push(['tasks']),openControlledPrintDialogFromRoute:async()=>{},
     flattenTree:()=>[],buildDetailUserDisplayName:()=>'',resolveReadSideErrorMessage:e=>e.message,message:{error:value=>messages.push(value)}
   }
-  const names=['isActiveControlledFileDetailRoute','isCurrentDetailLoad','loadData','loadAccessExplanationOnly','reloadAll']
+  const names=['readDetailAuthority','detailLoadAuthority','isActiveControlledFileDetailRoute','isCurrentDetailLoad','loadData','loadAccessExplanationOnly','reloadAll']
   const declarations=names.flatMap(name=>{
     const st=ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>ts.isIdentifier(d.name)&&d.name.text===name))
     if(!st){assert.equal(name,'isActiveControlledFileDetailRoute');return[]}
@@ -63,4 +65,31 @@ test('late old success cannot replace another valid selected file and current re
   assert.equal(h.c.fileDetail.value.id,'11');assert.equal(h.reads.filter(r=>r[0]==='tasks').length,1)
   h.c.getControlledFile=async()=>{throw new Error('当前文件读取拒绝')};await h.reload()
   assert.equal(h.reads.at(-1)[0],'access');assert.equal(h.reads.at(-1)[1],'11');assert.equal(h.messages[0],'当前文件读取拒绝')
+  assert.equal(h.c.fileDetail.value,undefined)
+  assert.equal(h.c.workingBrowserLoadedContext.value,undefined)
+})
+
+test('direct historical denial remains visible after toast disposal and clears on a new successful read',async()=>{
+  const h=host();h.c.viewerMode.value=true
+  h.c.getControlledFile=async()=>{throw new Error('Current user cannot access this controlled file')}
+  await h.reload()
+  assert.equal(h.c.accessExplanationError.value,'Current user cannot access this controlled file')
+  assert.equal(h.c.fileDetail.value,undefined)
+  h.messages.length=0
+  assert.equal(h.c.accessExplanationError.value,'Current user cannot access this controlled file','Toast lifetime must not erase the page denial')
+  h.c.getControlledFile=async id=>({id});await h.reload()
+  assert.equal(h.c.accessExplanationError.value,'')
+})
+
+test('late print-record response cannot overwrite the records of a different selected version',async()=>{
+  const pending=deferred(),c={exports:{},detailLoadSequence:1,controlledFileId:vue.ref('10'),route:{fullPath:'/detail/10'},
+    controlledPrintRecordsError:vue.ref(''),controlledPrintRecordsLoading:vue.ref(false),controlledPrintRecords:vue.ref([]),
+    shouldLoadControlledPrintRecords:()=>true,getControlledFilePrintRecords:()=>pending.promise,resolveReadSideErrorMessage:e=>e.message}
+  c.isCurrentDetailLoad=(sequence,id,route)=>sequence===c.detailLoadSequence&&id===c.controlledFileId.value&&route===c.route.fullPath
+  const declaration=ast.statements.find(s=>ts.isVariableStatement(s)&&s.declarationList.declarations.some(d=>d.name.text==='loadControlledPrintRecords'))
+  vm.runInNewContext(ts.transpileModule(declaration.getText(ast)+'\nexports.load=loadControlledPrintRecords',{
+    compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c)
+  const loading=c.exports.load();c.detailLoadSequence++;c.controlledFileId.value='11';c.route.fullPath='/detail/11'
+  c.controlledPrintRecords.value=[{id:'new-print'}];pending.resolve([{id:'old-print'}]);await loading
+  assert.equal(c.controlledPrintRecords.value[0].id,'new-print')
 })

@@ -33,7 +33,9 @@ function mount(name, props, dependencies) {
   const compiled = compileScript(descriptor, { id: name })
   const template = compileTemplate({ source: descriptor.template.content, filename: file, id: name, compilerOptions: { bindingMetadata: compiled.bindings } })
   assert.equal(template.errors.length, 0, template.errors.join('\n'))
-  const component = moduleFrom(compiled.content, id => id === 'vue' ? vue : dependencies[id] || (id.endsWith('.vue') ? {} : (() => { throw new Error(id) })())).default
+  const component = moduleFrom(compiled.content, id => id === 'vue' ? vue : id === '../shared/version-display'
+    ? moduleFrom(read('src/views/dcc/controlled-file/shared/version-display.ts'))
+    : dependencies[id] || (id.endsWith('.vue') ? {} : (() => { throw new Error(id) })())).default
   component.render = () => vue.h('section')
   const renderer = vue.createRenderer({ createElement: type => ({ type, children: [] }), createText: text => ({ text }), createComment: text => ({ text }), insert: (child, parent) => parent.children.push(child), remove() {}, setText() {}, setElementText() {}, parentNode: () => null, nextSibling: () => null, patchProp() {} })
   const reactive = vue.reactive(props), events = []
@@ -42,7 +44,8 @@ function mount(name, props, dependencies) {
   return { state: host.$.subTree.component.setupState, props: reactive, events, app }
 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
-const baseline = { id: 10, masterId: 100, dccProjectCodeId: 20, categoryId: 30, fileTypeTaxonomyId: 40, status: 'ACTIVE', versionNo: 'A/1', title: '说明.pdf' }
+const baseline = { id: 10, masterId: 100, dccProjectCodeId: 20, categoryId: 30, fileTypeTaxonomyId: 40, status: 'ACTIVE', versionNo: 'A/1', title: '说明.pdf',
+  attachments: [], ordinaryAttachmentManifestHash: 'a'.repeat(64) }
 const draft = { controlledFileId: '12', projectId: '20', applicationType: 'UPLOAD', defaultSource: attrs('CE'), actual: attrs('FDA'), canSubmit: true,
   unavailableReason: null, effectiveMode: 'PRESET_DATE', effectiveDate: '2026-11-01', selectedDistributionDepartmentIds: ['50'], needTraining: false, selectedSignoffDepartmentIds: null, changeDescription: '初始申请', draftApprovalMatrix: matrixHelper.matrixFixture({ categoryId: '30', taxonomyId: '40', approvalIds: ['60'] }) }
 const options = { controlledBaselineId: '10', baselineVersionNo: 'A/1', masterId: '100', sourceOriginalFileName: '说明.pdf', partialTarget: { versionNo: 'A/2', unavailableReason: null }, replacementTarget: { versionNo: 'B/1', unavailableReason: null }, checkedOutBy: null, checkedOutByName: null, checkedOutTime: null, lockedReason: null, iterations: [
@@ -77,6 +80,9 @@ function application({ file = baseline, confirm = async () => true, readDraft = 
     '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => undefined },
     '@/api/system/dept': { getSimpleDeptList: async () => [{ id: 50, name: '质量部' }] },
     '@/api/system/user': { getSimpleUserList: async () => [{ id: 60, nickname: '批准人' }] },
+    '@/api/dcc/controlledFile/fileTypeTaxonomies': { getFileTypeTaxonomyUploadOptions: async () => [] },
+    '@/api/common/filePreview': { buildDccControlledFilePreviewSource: () => { throw new Error('Preview is outside this application submission fixture') } },
+    './presentation': { formatControlledFileDateTime: () => { throw new Error('Date rendering is outside this application submission fixture') } },
     '@/api/dcc/controlledFile/projectAttributes': { getProjectDefaults: async () => { defaultsReads++; return attrs('NMPA') } },
     '@/api/dcc/controlledFile/applicationRead': { getWorkingApplicationAttributes: async id => file.status === 'WORKING' ? readDraft(id) : { ...clone(draft), controlledFileId: String(id), applicationType: 'REVISION', selectedSignoffDepartmentIds: ['50'] }, getControlledFileReplacementAttributes: async id => ({ ...clone(draft), controlledFileId: String(id), applicationType: 'REVISION', selectedSignoffDepartmentIds: ['50'] }), getControlledFileRevisionOptions: async () => clone(options) },
     '@/api/dcc/controlledFile/workflow': {
