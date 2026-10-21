@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261009_system_workbench_visibility_context,20260513_dcc_base_schema,20260512_mes_base_schema,20260611_mes_edhr_work_task_flow; type=data; riskLevel=high
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20261009_system_workbench_visibility_context,20260513_dcc_base_schema,20260512_mes_base_schema,20260611_mes_edhr_work_task_flow; type=data; riskLevel=high; requiresTargetPreflight=true; sessionProfile=workbench-s3-maintenance
 -- Candidate only. Bootstrap NOT auto-published: sql/showroom/20260519_showroom_v1_schema.sql
 -- and sql/mysql/ruoyi-vue-pro.sql (system_notify_message). Full historical rows, not pending projection.
 -- Direct rerun allowed only before activation and with immutable ledger exact reconciliation.

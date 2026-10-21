@@ -235,6 +235,18 @@
       "reason": "已有用户管理页面的主管待办交接入口复用既有 bpm:task:manager-query 权限，不新增页面路由、菜单、权限标识、角色授权或租户套餐授权。"
     },
     {
+      "source": "IntRuoyiFronted/src/views/infra/config/ConfigForm.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "密码有效期复用已有 infra/config/index 配置管理菜单和 infra:config:query/update 权限；仅增加参数编辑提示与校验，无新增菜单、权限或角色/租户套餐授权。配置数据由 20261021_system_password_max_age_config.sql 初始化。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/components/IdleLogoutSetting.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "密码有效期组件由个人中心基础配置迁至 infra/config/basic/index；沿用父页面已有 infra:config:query/update 权限及 canUpdate 属性，不新增权限或扩大角色/租户套餐授权。配置数据仍由 20261021_system_password_max_age_config.sql 初始化。"
+    },
+    {
       "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/craft/MesProCraftController.java",
       "kind": "permission",
       "value": "mes:pro-craft:create",

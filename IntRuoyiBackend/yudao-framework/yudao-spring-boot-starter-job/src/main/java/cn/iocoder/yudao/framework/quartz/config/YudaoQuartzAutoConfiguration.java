@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.quartz.Scheduler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.quartz.SchedulerFactoryBeanCustomizer;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.Optional;
@@ -13,9 +16,20 @@ import java.util.Optional;
  * 定时任务 Configuration
  */
 @AutoConfiguration
-@EnableScheduling // 开启 Spring 自带的定时任务
 @Slf4j
 public class YudaoQuartzAutoConfiguration {
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableScheduling
+    @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "false", matchIfMissing = true)
+    static class SchedulingConfiguration {
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "intruoyi.release.maintenance", havingValue = "true")
+    public SchedulerFactoryBeanCustomizer releaseMaintenanceQuartzCustomizer() {
+        return factory -> factory.setAutoStartup(false);
+    }
 
     @Bean
     public SchedulerManager schedulerManager(Optional<Scheduler> scheduler) {

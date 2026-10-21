@@ -1,3 +1,4 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=high; requiresTargetPreflight=true
 -- eDHR edit generations and attributable deviation closure. Apply once before new binaries.
 ALTER TABLE mes_qa_inspection_regulation_version
   ADD COLUMN draft_revision BIGINT NOT NULL DEFAULT 0 COMMENT '草稿编辑修订号，独立于业务版本号';
