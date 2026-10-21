@@ -15,6 +15,7 @@ import cn.iocoder.yudao.framework.common.util.validation.ValidationUtils;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.controller.admin.auth.vo.AuthRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -464,7 +465,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 || Objects.equals(user.getPasswordCredentialStatus(), "RESET_REQUIRED")) {
             throw exception(ESIGN_CREDENTIAL_CHANGE_REQUIRED);
         }
-        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now())) {
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), LocalDateTime.now(),
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY))) {
             throw exception(ESIGN_CREDENTIAL_EXPIRED);
         }
         resetUserLoginFailure(id);

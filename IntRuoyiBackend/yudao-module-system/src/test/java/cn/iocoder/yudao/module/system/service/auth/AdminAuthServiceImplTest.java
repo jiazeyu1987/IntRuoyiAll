@@ -4,6 +4,8 @@ import cn.hutool.core.util.ReflectUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
 import cn.iocoder.yudao.module.system.api.sms.SmsCodeApi;
 import cn.iocoder.yudao.module.system.api.social.dto.SocialUserBindReqDTO;
 import cn.iocoder.yudao.module.system.api.social.dto.SocialUserRespDTO;
@@ -53,6 +55,8 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserService userService;
     @MockitoBean
+    private ConfigApi configApi;
+    @MockitoBean
     private CaptchaService captchaService;
     @MockitoBean
     private LoginLogService loginLogService;
@@ -69,6 +73,7 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
 
     @BeforeEach
     public void setUp() {
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("90");
         authService.setCaptchaEnable(true);
         // 注入一个 Validator 对象
         ReflectUtil.setFieldValue(authService, "validator",
@@ -92,6 +97,24 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
         AdminUserDO loginUser = authService.authenticate(username, password);
         // 校验
         assertPojoEquals(user, loginUser);
+    }
+
+    @Test
+    public void testAuthenticate_readsChangedPasswordWindowOnEachAttempt() {
+        AdminUserDO user = new AdminUserDO().setId(101L).setUsername("expiry-user")
+                .setPassword("encoded").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(100));
+        when(userService.getUserByUsername("expiry-user")).thenReturn(user);
+        when(userService.isPasswordMatch("provided", "encoded")).thenReturn(true);
+
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"), AUTH_LOGIN_PASSWORD_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("180");
+        assertSame(user, authService.authenticate("expiry-user", "provided"));
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn("30");
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"), AUTH_LOGIN_PASSWORD_EXPIRED);
+        when(configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY)).thenReturn(null);
+        assertServiceException(() -> authService.authenticate("expiry-user", "provided"),
+                cn.iocoder.yudao.module.infra.enums.ErrorCodeConstants.CONFIG_PASSWORD_MAX_AGE_MISSING);
     }
 
     @Test

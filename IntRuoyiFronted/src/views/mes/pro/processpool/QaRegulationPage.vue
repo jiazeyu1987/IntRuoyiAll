@@ -186,6 +186,7 @@
             解析
           </el-button>
           <el-button
+          v-if="testModeEnabled"
             type="danger"
             plain
             data-qa-regulation-test-reset
@@ -2331,6 +2332,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { useClipboard, useMediaQuery } from '@vueuse/core'
@@ -2386,6 +2389,8 @@ import {
   type QaItemDisplayInspectionType,
   type QaItemInspectionState
 } from './qaRegulationItemInspection'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProProcessPoolQaRegulation' })
 

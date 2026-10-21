@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <ContentWrap>
     <div class="edhr-batch-record-test-page" data-edhr-batch-record-test-page>
       <el-tabs v-model="activeInnerTab" class="edhr-batch-record-test-page__inner-tabs">
@@ -995,9 +996,12 @@
       </el-dialog>
     </div>
   </ContentWrap>
+  </template>
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { VideoPlay } from '@element-plus/icons-vue'
 import {
@@ -1012,6 +1016,8 @@ import {
 import { getTenantId } from '@/utils/auth'
 import * as CodexTestApi from '@/api/system/codexTestManagement'
 import * as TenantApi from '@/api/system/tenant'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProEdhrBatchRecordTest' })
 

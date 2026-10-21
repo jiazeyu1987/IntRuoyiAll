@@ -3,6 +3,9 @@ package cn.iocoder.yudao.module.system.service.signature;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.module.infra.api.config.ConfigApi;
+import cn.iocoder.yudao.module.infra.enums.config.PasswordMaxAgeConfig;
+import cn.iocoder.yudao.module.system.service.user.AdminUserPasswordPolicy;
 import cn.iocoder.yudao.module.system.api.signature.SignatureAuthenticationApi;
 import cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner;
 import cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationOutcome;
@@ -29,9 +32,11 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
     private final SignatureAuthenticationEventMapper events;
     private final PasswordEncoder encoder;
     private final Clock clock;
+    private final ConfigApi configApi;
     public SystemSignatureAuthenticationService(AdminUserMapper users, SignatureAuthenticationEventMapper events,
-            PasswordEncoder encoder, Clock clock) {
+            PasswordEncoder encoder, Clock clock, ConfigApi configApi) {
         this.users = users; this.events = events; this.encoder = encoder; this.clock = clock;
+        this.configApi = configApi;
     }
     @Override public String identityDomain() { return "SYSTEM_USER"; }
 
@@ -90,7 +95,7 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
         new AuthenticatedSigner(tenant, "SYSTEM_USER", actor, actor, user.getSignatureCredentialGeneration(),
                 user.getSignatureCredentialVersion(), "credential-metadata-check");
     }
-    private static String eligibility(AdminUserDO user, LocalDateTime now) {
+    private String eligibility(AdminUserDO user, LocalDateTime now) {
         if (!CommonStatusEnum.isEnable(user.getStatus()) || user.getLifecycleDeactivatedTime() != null
                 || user.getLifecycleEffectiveTime() != null && !user.getLifecycleEffectiveTime().isAfter(now))
             return "IDENTITY_DISABLED";
@@ -100,7 +105,8 @@ public class SystemSignatureAuthenticationService implements SignatureAuthentica
                 && user.getLoginLockedTime().plusMinutes(SignatureCredentialPolicy.LOCK_MINUTES).isAfter(now))
             return "IDENTITY_LOCKED";
         if (!"ACTIVE".equals(user.getPasswordCredentialStatus())) return "CREDENTIAL_CHANGE_REQUIRED";
-        if (SignatureCredentialPolicy.isExpired(user.getPasswordUpdateTime(), now)) return "CREDENTIAL_EXPIRED";
+        if (AdminUserPasswordPolicy.isExpired(user.getPasswordUpdateTime(), now,
+                configApi.getConfigValueByKey(PasswordMaxAgeConfig.KEY))) return "CREDENTIAL_EXPIRED";
         if (user.getPassword() == null || user.getPassword().isBlank())
             throw new IllegalStateException("SIGNATURE_CREDENTIAL_HASH_MISSING");
         return null;

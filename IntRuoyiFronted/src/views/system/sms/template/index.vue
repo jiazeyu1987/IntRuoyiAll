@@ -189,6 +189,7 @@
             修改
           </el-button>
           <el-button
+          v-if="testModeEnabled"
             link
             type="primary"
             @click="openSendForm(scope.row.id)"
@@ -219,9 +220,11 @@
   <!-- 表单弹窗：添加/修改 -->
   <SmsTemplateForm ref="formRef" @success="getList" />
   <!-- 表单弹窗：测试发送 -->
-  <SmsTemplateSendForm ref="sendFormRef" />
+  <SmsTemplateSendForm v-if="testModeEnabled" ref="sendFormRef" />
 </template>
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions, getDictLabel } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -230,6 +233,8 @@ import * as SmsChannelApi from '@/api/system/sms/smsChannel'
 import download from '@/utils/download'
 import SmsTemplateForm from './SmsTemplateForm.vue'
 import SmsTemplateSendForm from './SmsTemplateSendForm.vue'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemSmsTemplate' })
 

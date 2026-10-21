@@ -36,7 +36,7 @@
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">保存配置</el-button>
-        <el-button :loading="testing" @click="handleTestNasWrite">测试NAS写入</el-button>
+        <el-button v-if="testModeEnabled" :loading="testing" @click="handleTestNasWrite">测试NAS写入</el-button>
         <el-button type="success" :loading="running" @click="handleRunOnce">立即执行一次</el-button>
       </el-form-item>
     </el-form>
@@ -61,6 +61,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessage } from 'element-plus'
 import {
   ErpNasTableSyncApi,
@@ -68,6 +70,8 @@ import {
   type ErpNasTableSyncRunVO,
   type ErpNasTableSyncTypeVO
 } from '@/api/erp/nasTableSync'
+
+const testModeEnabled = useTestMode()
 
 const loading = ref(false)
 const saving = ref(false)

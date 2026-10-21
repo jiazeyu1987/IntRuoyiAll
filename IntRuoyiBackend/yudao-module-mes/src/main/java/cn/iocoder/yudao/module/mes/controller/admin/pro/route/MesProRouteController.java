@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePage
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCopyReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import cn.iocoder.yudao.module.mes.service.pro.route.importer.IntGyRouteMarkdownImportResult;
@@ -65,8 +66,8 @@ public class MesProRouteController {
     @PostMapping("/create")
     @Operation(summary = "创建工艺路线")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:create')")
-    public CommonResult<Long> createRoute(@Valid @RequestBody MesProRouteSaveReqVO createReqVO) {
-        return success(routeService.createRoute(createReqVO));
+    public CommonResult<Long> createRoute(@Valid @RequestBody MesProRouteCreateReqVO createReqVO) {
+        return success(routeService.createRouteWithProcesses(createReqVO));
     }
 
     @PostMapping("/copy")

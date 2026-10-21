@@ -17,11 +17,11 @@
         </el-col>
         <el-col :span="8">
           <el-form-item label="工序编码" prop="code">
-            <el-input v-model="formData.code" placeholder="请输入工序编码">
-              <template #append>
-                <el-button @click="generateCode"> 生成 </el-button>
-              </template>
-            </el-input>
+            <el-input
+              v-model="formData.code"
+              :disabled="formType === 'create'"
+              :placeholder="formType === 'create' ? '保存后自动生成 GX- 编号' : '请输入工序编码'"
+            />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -146,8 +146,6 @@
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { ProProcessApi, ProProcessRouteVO, ProProcessVO } from '@/api/mes/pro/process'
 import { ProRouteProcessApi } from '@/api/mes/pro/route/process'
-import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
-import { MesAutoCodeRuleCode } from '@/views/mes/utils/constants'
 import ProProcessContentList from './ProProcessContentList.vue'
 
 defineOptions({ name: 'ProProcessForm' })
@@ -181,11 +179,11 @@ const formData = ref<ProProcessVO>({
   manualShiftCapacity: undefined,
   remark: ''
 })
-const formRules = reactive({
-  code: [{ required: true, message: '工序编码不能为空', trigger: 'blur' }],
+const formRules = computed(() => ({
+  code: [{ required: formType.value !== 'create', message: '工序编码不能为空', trigger: 'blur' }],
   name: [{ required: true, message: '工序名称不能为空', trigger: 'blur' }],
   status: [{ required: true, message: '状态不能为空', trigger: 'change' }]
-})
+}))
 const formRef = ref() // 表单 Ref
 const canShowAssociatedConfig = computed(() =>
   Boolean(formData.value.id && selectedRouteId.value && selectedRouteProcessId.value && !routeContextError.value)
@@ -200,14 +198,6 @@ const routeSelectionTip = computed(() => {
   }
   return ''
 })
-
-/** 生成工序编码 */
-const generateCode = async () => {
-  formData.value.code = await AutoCodeRecordApi.generateAutoCode(
-    MesAutoCodeRuleCode.PRO_PROCESS_CODE,
-    'ER'
-  )
-}
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number, context: ProProcessFormOpenContext = {}) => {

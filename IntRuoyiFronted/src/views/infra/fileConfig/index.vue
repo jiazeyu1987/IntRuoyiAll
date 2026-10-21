@@ -129,7 +129,7 @@
           >
             主配置
           </el-button>
-          <el-button link type="primary" @click="handleTest(scope.row.id)"> 测试 </el-button>
+          <el-button v-if="testModeEnabled" link type="primary" @click="handleTest(scope.row.id)"> 测试 </el-button>
           <el-button
             link
             type="danger"
@@ -156,11 +156,15 @@
   <FileConfigForm ref="formRef" @success="getList" />
 </template>
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import * as FileConfigApi from '@/api/infra/fileConfig'
 import FileConfigForm from './FileConfigForm.vue'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'InfraFileConfig' })
 

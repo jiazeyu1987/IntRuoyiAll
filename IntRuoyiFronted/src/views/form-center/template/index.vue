@@ -181,7 +181,7 @@
               编辑
             </el-button>
             <el-button
-              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              v-if="testModeEnabled && (canUseTemplateInteractiveAction(selectedTemplate))"
               link
               class="scheme-d-row-action scheme-d-row-action--primary"
               type="primary"
@@ -414,7 +414,7 @@
     </template>
   </Dialog>
   <ContentWrap
-    v-if="isTemplateSimulationMode"
+    v-if="testModeEnabled && (isTemplateSimulationMode)"
     :body-style="{ padding: '0px' }"
     class="!mb-0 form-template-route-workspace scheme-d-basic-data-page scheme-d-basic-data-page--form-template"
   >
@@ -524,6 +524,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import download from '@/utils/download'
 import * as TemplateApi from '@/api/form-center/template'
 import type {
@@ -559,6 +561,8 @@ import {
   type TemplateEditableCellContext,
   type TemplateSimulationValueMap
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'FormCenterTemplate' })
 

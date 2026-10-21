@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <div class="flex gap-20px w-full">
     <!-- 左侧输入区域 -->
     <ContentWrap class="flex-1 min-w-300px">
@@ -83,12 +84,17 @@
       </div>
     </ContentWrap>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { useMessage } from '@/hooks/web/useMessage'
 import { KnowledgeSegmentApi } from '@/api/ai/knowledge/segment'
 import { KnowledgeApi } from '@/api/ai/knowledge/knowledge'
+
+const testModeEnabled = useTestMode()
 /** 文档召回测试 */
 defineOptions({ name: 'KnowledgeDocumentRetrieval' })
 

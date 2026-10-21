@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessMachineryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 
@@ -28,7 +29,7 @@ public interface MesProProcessService {
      * @param createReqVO 创建信息
      * @return 编号
      */
-    Long createProcess(@Valid MesProProcessSaveReqVO createReqVO);
+    Long createProcess(@Valid MesProProcessCreateReqVO createReqVO);
 
     /**
      * 更新生产工序

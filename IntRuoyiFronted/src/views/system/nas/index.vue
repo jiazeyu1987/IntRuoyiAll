@@ -13,6 +13,7 @@
             <CardTitle title="NAS 管理" />
             <div class="flex items-center gap-12px">
               <el-button
+          v-if="testModeEnabled"
                 @click="handleTest"
                 v-hasPermi="['infra:nas:test']"
                 :loading="testLoading"
@@ -639,6 +640,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessageBox, type ElTree } from 'element-plus'
 import { CardTitle } from '@/components/Card'
 import { downloadByData } from '@/utils/filt'
@@ -684,6 +687,8 @@ import {
   type DccNasOriginalPathSyncReqVO
 } from '@/api/system/nas'
 import { checkPermi } from '@/utils/permission'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemNasManagement' })
 

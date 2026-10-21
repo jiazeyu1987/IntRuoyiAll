@@ -159,6 +159,7 @@
             修改
           </el-button>
           <el-button
+          v-if="testModeEnabled"
             link
             type="primary"
             @click="openSendForm(scope.row.id)"
@@ -189,9 +190,11 @@
   <!-- 表单弹窗：添加/修改 -->
   <MailTemplateForm ref="formRef" @success="getList" />
   <!-- 表单弹窗：测试发送 -->
-  <MailTemplateSendForm ref="sendFormRef" />
+  <MailTemplateSendForm v-if="testModeEnabled" ref="sendFormRef" />
 </template>
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import { isSearchFormInputEmpty } from '@/utils/search'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import { dateFormatter } from '@/utils/formatTime'
@@ -199,6 +202,8 @@ import * as MailTemplateApi from '@/api/system/mail/template'
 import * as MailAccountApi from '@/api/system/mail/account'
 import MailTemplateForm from './MailTemplateForm.vue'
 import MailTemplateSendForm from './MailTemplateSendForm.vue'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemMailTemplate' })
 

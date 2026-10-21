@@ -3558,6 +3558,30 @@ function Write-FrontendReleaseInfo {
     [System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Assert-FrontendImageReleaseInfo {
+    param(
+        [Parameter(Mandatory = $true)][string]$ImageReference,
+        [Parameter(Mandatory = $true)][string]$PackageTag
+    )
+
+    $result = Invoke-ProcessCapture -FilePath 'docker' -ArgumentList @(
+        'run', '--rm', '--pull=never', '--network', 'none', '--entrypoint', 'cat',
+        $ImageReference, '/usr/share/nginx/html/release-info.json'
+    )
+    if ($result.ExitCode -ne 0) {
+        Fail "FRONTEND_RELEASE_INFO_UNREADABLE: $ImageReference $($result.StdErr)"
+    }
+    try {
+        $releaseInfo = $result.StdOut | ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        Fail "FRONTEND_RELEASE_INFO_INVALID_JSON: $ImageReference $($_.Exception.Message)"
+    }
+    if ([string]$releaseInfo.releaseTag -cne $PackageTag) {
+        Fail "FRONTEND_RELEASE_INFO_TAG_MISMATCH: expected=$PackageTag actual=$($releaseInfo.releaseTag)"
+    }
+    Info "Frontend image release-info.json verified: $ImageReference releaseTag=$PackageTag"
+}
+
 function Get-ReleaseDependencyHash {
     param(
         [Parameter(Mandatory = $true)]
@@ -3679,6 +3703,37 @@ function New-ReleaseRequiredSqlManifestEntries {
         }
     }
     return @($entries)
+}
+
+function Invoke-MenuMigrationDevelopmentGate {
+    $sourceRoot = (Resolve-Path (Join-Path $backendRepo '..')).Path
+    $gateScript = Join-Path $sourceRoot 'scripts\preflight\check-menu-migrations.py'
+    if (-not (Test-Path -LiteralPath $gateScript -PathType Leaf)) {
+        Fail "Menu migration development gate missing; merge the gate into the release source first: $gateScript"
+    }
+    $expectedFrontend = Join-Path $sourceRoot 'IntRuoyiFronted'
+    if ([IO.Path]::GetFullPath($frontendDir) -ne [IO.Path]::GetFullPath($expectedFrontend)) {
+        Fail 'Menu migration gate requires backend and frontend from the same application source worktree.'
+    }
+    $packageInput = [IO.Path]::GetTempFileName()
+    try {
+        $packagePaths = @()
+        if ($publishBackend) {
+            $packagePaths = @($requiredDatabaseSqlScripts | ForEach-Object { [string]$_.Path })
+        }
+        $json = ConvertTo-Json -InputObject @($packagePaths)
+        [IO.File]::WriteAllText($packageInput, $json, [Text.UTF8Encoding]::new($false))
+        $result = Invoke-ProcessCapture -FilePath 'python' -ArgumentList @(
+            '-X', 'utf8', $gateScript, '--repo', $sourceRoot, '--packaged-sql', $packageInput
+        ) -WorkingDirectory $sourceRoot
+        $output = (($result.StdOut + "`n" + $result.StdErr).Trim())
+        if ($output) { Info "Menu migration development gate output: $output" }
+        if ($result.ExitCode -ne 0) {
+            Fail 'Menu migration development gate failed; package build is blocked.'
+        }
+    } finally {
+        Remove-Item -LiteralPath $packageInput -Force
+    }
 }
 
 function Invoke-ReleaseMigrationPolicyGate {
@@ -4127,7 +4182,7 @@ if ($ReleaseTag.Contains('..') -or $ReleaseTag.Contains('/') -or $ReleaseTag.Con
     Fail "Invalid ReleaseTag: $ReleaseTag"
 }
 if ([string]::IsNullOrWhiteSpace($ReleaseTag) -and [string]::IsNullOrWhiteSpace($Tag)) {
-    $Tag = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $Tag = [DateTime]::UtcNow.AddHours(8).ToString('yyyy-MM-dd-HH-mm-ss', [Globalization.CultureInfo]::InvariantCulture)
     $ReleaseTag = $Tag
 } elseif ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
     Assert-ReleasePackageDirectoryNameSafe -DirectoryName $Tag
@@ -4294,6 +4349,9 @@ function Get-ReleaseDatabaseSqlScripts {
 
 $backendRuntimeBaseConfig = Resolve-BackendRuntimeBaseConfig
 $requiredDatabaseSqlScripts = Get-ReleaseDatabaseSqlScripts
+if ($Mode -eq 'build-release') {
+    Invoke-MenuMigrationDevelopmentGate
+}
 $requiredSqlLocalDir = Join-Path $releaseDir 'required-sql'
 $opsRuntimeLocalDir = Join-Path $releaseDir 'ops-runtime'
 $websiteRuntimeLocal = Join-Path $releaseDir 'website'
@@ -5329,6 +5387,7 @@ Invoke-CheckedCommand -FilePath 'docker' -ArgumentList @(
     '-f', $frontendDockerfile,
     $dockerBuildContextRoot
 )
+Assert-FrontendImageReleaseInfo -ImageReference "intruoyi-frontend:$packageDirectoryName" -PackageTag $ReleaseTag
 }
 
 if ($publishBackend -and $IncludeOnlyOffice) {

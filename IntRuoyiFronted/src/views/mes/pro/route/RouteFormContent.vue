@@ -16,13 +16,9 @@
       >
         <el-tab-pane label="基础信息" name="basic">
           <el-row :gutter="20">
-            <el-col :span="12">
+            <el-col v-if="formType !== 'create'" :span="12">
               <el-form-item label="编码" prop="code">
-                <el-input v-model="formData.code" placeholder="请输入编码" :disabled="isHeaderReadonly">
-                  <template #append>
-                    <el-button :disabled="isHeaderReadonly" @click="generateCode"> 生成 </el-button>
-                  </template>
-                </el-input>
+                <el-input v-model="formData.code" placeholder="请输入编码" :disabled="isHeaderReadonly" />
               </el-form-item>
             </el-col>
             <el-col :span="12">
@@ -55,14 +51,34 @@
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item label="说明" prop="description">
-            <el-input
-              v-model="formData.description"
-              type="textarea"
-              :rows="3"
-              placeholder="请输入工艺路线说明"
-              :disabled="isHeaderReadonly"
-            />
+          <el-form-item v-if="formType === 'create'" label="工序" prop="processIds" required>
+            <div class="route-create-processes" data-route-create-processes>
+              <el-select
+                v-model="formData.processIds"
+                multiple
+                filterable
+                :loading="processOptionsLoading"
+                :disabled="processOptionsLoading || Boolean(processOptionsError)"
+                placeholder="请选择工序，按选择先后排列"
+                data-route-create-process-select
+              >
+                <el-option
+                  v-for="process in processOptions"
+                  :key="process.id"
+                  :value="process.id!"
+                  :label="`${process.name}（${process.code}）`"
+                  :data-process-id="process.id"
+                  :data-process-name="process.name"
+                  :data-process-code="process.code"
+                />
+              </el-select>
+              <el-alert v-if="processOptionsError" :title="processOptionsError" type="error" :closable="false" data-route-create-process-error />
+              <ol v-if="selectedProcesses.length" data-route-create-process-order>
+                <li v-for="process in selectedProcesses" :key="process.id" :data-process-id="process.id">
+                  {{ process.name }}（{{ process.code }}）
+                </li>
+              </ol>
+            </div>
           </el-form-item>
           <el-form-item label="备注" prop="remark">
             <el-input
@@ -179,10 +195,9 @@ import {
   getProjectCodePage,
   type DccProjectCodeRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
-import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
+import { ProProcessApi, type ProProcessVO } from '@/api/mes/pro/process'
 import * as DeptApi from '@/api/system/dept'
 import * as UserApi from '@/api/system/user'
-import { MesAutoCodeRuleCode } from '@/views/mes/utils/constants'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 
 defineOptions({ name: 'RouteFormContent' })
@@ -243,17 +258,29 @@ type RouteFormInitialTab =
   | 'dcc'
 
 const activeTab = ref<RouteFormInitialTab>('basic')
-const formData = ref<ProRouteVO>({
+const formData = ref<ProRouteVO & { processIds: number[] }>({
   id: undefined,
   code: '',
   name: '',
   ownerName: '',
   description: '',
-  remark: ''
+  remark: '',
+  processIds: []
 })
+const processOptions = ref<ProProcessVO[]>([])
+const processOptionsLoading = ref(false)
+const processOptionsError = ref('')
+const selectedProcesses = computed(() => formData.value.processIds.map((id) =>
+  processOptions.value.find((process) => process.id === id)!
+))
 const formRules = reactive({
-  code: [{ required: true, message: '编码不能为空', trigger: 'blur' }],
-  name: [{ required: true, message: '名称不能为空', trigger: 'blur' }]
+  code: [{ validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+    callback(formType.value !== 'create' && !value?.trim() ? new Error('编码不能为空') : undefined)
+  }, trigger: 'blur' }],
+  name: [{ required: true, whitespace: true, message: '名称不能为空', trigger: 'blur' }],
+  processIds: [{ validator: (_rule: unknown, value: number[], callback: (error?: Error) => void) => {
+    callback(formType.value === 'create' && !value?.length ? new Error('请至少选择一个工序') : undefined)
+  }, trigger: 'change' }]
 })
 const formRef = ref()
 const routeFlowGraphDesignerRef =
@@ -289,10 +316,6 @@ type RouteOwnerCandidate = {
   deptPathText: string
 }
 
-const generateCode = async () => {
-  formData.value.code = await AutoCodeRecordApi.generateAutoCode(MesAutoCodeRuleCode.PRO_ROUTE_CODE)
-}
-
 const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialTab = 'basic') => {
   formType.value = type
   activeTab.value = id ? initialTab : 'basic'
@@ -302,7 +325,20 @@ const open = async (type: string, id?: MesRouteId, initialTab: RouteFormInitialT
   const shouldLoadDccProjectData = activeTab.value === 'dcc'
   try {
     if (id) {
-      formData.value = await ProRouteApi.getRoute(id)
+      formData.value = { ...await ProRouteApi.getRoute(id), processIds: [] }
+    } else if (type === 'create') {
+      processOptionsLoading.value = true
+      try {
+        processOptions.value = await ProProcessApi.getProcessSimpleList()
+        if (!processOptions.value.length) {
+          processOptionsError.value = '没有可选工序，请先维护工序'
+        }
+      } catch (error) {
+        processOptionsError.value = resolveRouteOperationErrorMessage(error, '加载工序失败')
+        throw error
+      } finally {
+        processOptionsLoading.value = false
+      }
     }
     if (id && initialTab === 'basic' && !isHeaderReadonly.value) {
       await ensureOwnerLeaderCandidatesLoaded()
@@ -331,15 +367,19 @@ const submitForm = async () => {
   assertRouteCandidateVersionWritable()
   await formRef.value.validate()
   const shouldSaveFlowGraph = shouldSaveFlowGraphOnSubmit()
+  const creating = formType.value === 'create'
   formLoading.value = true
   try {
     await validateFlowGraphBeforeSubmit(shouldSaveFlowGraph)
     const successMessage = formType.value === 'create' ? '新增成功' : '保存成功'
     const data = { ...formData.value }
     if (formType.value === 'create') {
-      const res = await ProRouteApi.createRoute(data, { ignoreErrorMessage: true })
+      const res = await ProRouteApi.createRoute({
+        name: data.name.trim(), remark: data.remark, processIds: [...data.processIds]
+      }, { ignoreErrorMessage: true })
       formData.value.id = res
       formType.value = 'update'
+      formData.value = { ...await ProRouteApi.getRoute(res), processIds: [] }
     } else if (shouldPersistRouteHeaderOnSubmit()) {
       await ProRouteApi.updateRoute(data)
     }
@@ -347,11 +387,12 @@ const submitForm = async () => {
     message.success(successMessage)
     emit('success')
   } catch (error) {
-    if (formType.value === 'create' && isDuplicateRouteNameError(error)) {
-      if (await confirmDuplicateRouteVersionUpgrade(formData.value.name)) {
-        emit('request-upgrade', { routeName: formData.value.name })
-      }
+    if (creating && isDuplicateRouteNameError(error)) {
+      message.error('工艺流程名称已存在')
       return
+    }
+    if (creating) {
+      message.error(resolveRouteOperationErrorMessage(error, '新增工艺流程失败'))
     }
     throw error
   } finally {
@@ -365,19 +406,6 @@ const handleSubmitRequest = async () => {
   } catch (error) {
     if (isRouteConfirmCancel(error)) return
     message.error(resolveRouteOperationErrorMessage(error, '保存工艺路线失败'))
-  }
-}
-
-const confirmDuplicateRouteVersionUpgrade = async (routeName: string) => {
-  const normalizedName = String(routeName || '').trim()
-  try {
-    await message.confirm(
-      `同一个路线名称只能有一个工艺路线，已存在“${normalizedName}”。是否升版本？`,
-      '升版本确认'
-    )
-    return true
-  } catch (_cancel) {
-    return false
   }
 }
 
@@ -477,8 +505,11 @@ const resetForm = () => {
     name: '',
     ownerName: '',
     description: '',
-    remark: ''
+    remark: '',
+    processIds: []
   }
+  processOptions.value = []
+  processOptionsError.value = ''
   formRef.value?.resetFields()
   dccProjectBinding.value = {
     routeId: 0,
@@ -768,6 +799,11 @@ defineExpose({
 <style scoped lang="scss">
 .route-form-content {
   width: 100%;
+}
+
+.route-create-processes {
+  width: 100%;
+  ol { margin: 8px 0 0; padding-left: 24px; list-style: decimal; }
 }
 
 .route-form-content.is-page {

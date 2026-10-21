@@ -9,6 +9,7 @@ import cn.iocoder.yudao.framework.excel.core.util.ExcelUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessMachineryRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.process.vo.MesProProcessSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
@@ -42,7 +43,7 @@ public class MesProProcessController {
     @PostMapping("/create")
     @Operation(summary = "创建生产工序")
     @PreAuthorize("@ss.hasPermission('mes:pro-process:create')")
-    public CommonResult<Long> createProcess(@Valid @RequestBody MesProProcessSaveReqVO createReqVO) {
+    public CommonResult<Long> createProcess(@Valid @RequestBody MesProProcessCreateReqVO createReqVO) {
         return success(processService.createProcess(createReqVO));
     }
 

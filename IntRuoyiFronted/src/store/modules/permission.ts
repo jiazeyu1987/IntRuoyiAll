@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { filterTestModeMenus, useTestModeStore } from './testMode'
 import { store } from '@/store'
 import { cloneDeep } from 'lodash-es'
 import remainingRouter from '@/router/modules/remaining'
@@ -667,13 +668,15 @@ export const usePermissionStore = defineStore('permission', {
   }),
   getters: {
     getRouters(): AppRouteRecordRaw[] {
-      return this.routers
+      return useTestModeStore().enabled === true ? this.routers : filterTestModeMenus(this.routers)
     },
     getAddRouters(): AppRouteRecordRaw[] {
       return flatMultiLevelRoutes(cloneDeep(this.addRouters))
     },
     getMenuTabRouters(): AppRouteRecordRaw[] {
-      return this.menuTabRouters
+      return useTestModeStore().enabled === true
+        ? this.menuTabRouters
+        : filterTestModeMenus(this.menuTabRouters)
     }
   },
   actions: {

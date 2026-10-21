@@ -1,4 +1,5 @@
 <template>
+  <template v-if="testModeEnabled">
   <el-tabs v-model="activeTab" class="codex-test-tabs" @tab-change="handleTabChange">
     <el-tab-pane label="测试项" name="cases">
       <ContentWrap>
@@ -515,9 +516,12 @@
     </el-descriptions>
   </el-dialog>
 
+  </template>
 </template>
 
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 import type { FormInstance, FormRules } from 'element-plus'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import {
@@ -531,6 +535,8 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import * as CodexTestApi from '@/api/system/codexTestManagement'
 import * as TenantApi from '@/api/system/tenant'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'SystemCodexTestManagement' })
 

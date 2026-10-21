@@ -55,7 +55,7 @@
           ><Icon icon="ep:refresh" class="mr-5px" /> 增量同步</el-button
         >
         <el-button
-          v-if="isAdminUser"
+          v-if="testModeEnabled && (isAdminUser)"
           type="primary"
           plain
           @click="openAiE2eDialog"
@@ -230,6 +230,7 @@
       >
         <template #default="scope">
           <el-button
+          v-if="testModeEnabled"
             link
             type="primary"
             :loading="erpCreateLoadingId === scope.row.id"
@@ -239,6 +240,7 @@
             <Icon icon="ep:plus" class="mr-5px" /> 测试添加
           </el-button>
           <el-button
+          v-if="testModeEnabled"
             link
             type="primary"
             @click="openAiE2eDialog(scope.row)"
@@ -262,7 +264,7 @@
 
   <WorkOrderForm ref="formRef" @success="getList" />
 
-  <el-dialog v-model="aiE2eDialog.visible" title="创建 AI E2E 测试生产订单" width="520px">
+  <el-dialog v-if="testModeEnabled" v-model="aiE2eDialog.visible" title="创建 AI E2E 测试生产订单" width="520px">
     <el-form label-width="110px">
       <el-form-item label="运行编号">
         <el-input data-edhr-ai-e2e-run-id v-model="aiE2eDialog.runId" placeholder="AI-EDHR-20260915T120000-A1B2" />
@@ -288,6 +290,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { dateFormatter, dateFormatter2 } from '@/utils/formatTime'
 import { DICT_TYPE } from '@/utils/dict'
@@ -310,6 +314,8 @@ import {
   type TableQuickFilterDefinition,
   type TableQuickFilterSuggestion
 } from '@/hooks/web/useTableQuickFilter'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProWorkOrder' })
 const message = useMessage()

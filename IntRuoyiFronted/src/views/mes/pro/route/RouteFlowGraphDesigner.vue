@@ -435,6 +435,8 @@
               }"
               data-flow-node="route-process"
               :data-route-process-id="data.routeNode.routeProcessId"
+              :data-process-id="data.routeNode.processId"
+              :data-process-sort="data.routeNode.sort"
               type="button"
               @click="handleRouteProcessNodeClick(data.routeNode)"
               @keydown="handleRouteProcessNodeKeydown($event, data.routeNode)"

@@ -31,7 +31,7 @@
         :closable="false"
         show-icon
       />
-      <div class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
+      <div v-if="testModeEnabled" class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
         <el-button
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="warning"
@@ -1527,6 +1527,8 @@
 </template>
 
 <script setup lang="ts">
+import { useTestMode } from '@/store/modules/testMode'
+
 import { ElMessageBox, type UploadInstance, type UploadRequestOptions } from 'element-plus'
 import {
   EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF,
@@ -1641,6 +1643,8 @@ import { generateUUID } from '@/utils'
 import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
+
+const testModeEnabled = useTestMode()
 
 defineOptions({ name: 'MesProEdhrBatchExecutionDetail' })
 

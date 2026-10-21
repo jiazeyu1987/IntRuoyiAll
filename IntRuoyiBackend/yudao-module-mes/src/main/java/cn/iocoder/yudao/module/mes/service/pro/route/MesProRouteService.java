@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRoutePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteCreateReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import jakarta.validation.Valid;
 
@@ -20,8 +21,11 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
  */
 public interface MesProRouteService {
 
+    /** 新增流程并原子初始化有序工序、关系图及完整 V1。 */
+    Long createRouteWithProcesses(@Valid MesProRouteCreateReqVO createReqVO);
+
     /**
-     * 创建工艺路线
+     * 工作簿导入使用其明确提供的编码创建路线，工序由导入器维护。
      */
     Long createRoute(@Valid MesProRouteSaveReqVO createReqVO);
 

@@ -310,6 +310,36 @@
     </sql>
 
     <sql id="LatestSubmissionReviewRows">
+        <include refid="ScopedSubmissionReviewRows">
+            <property name="reviewScope" value="SubmissionReviewFilterScope"/>
+        </include>
+    </sql>
+
+    <!-- Restrict ranking before the window function, rather than ranking unrelated reports. -->
+    <sql id="SubmissionReviewFilterScope">
+        <if test="_parameter.containsKey('reqVO') and reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            AND review_log.event_id IN (
+                SELECT scope_event.id FROM mes_pro_process_pool_event scope_event
+                WHERE scope_event.deleted = 0 AND scope_event.event_type = 'PRODUCTION_SUBMIT'
+                <if test="reqVO.processIds != null and reqVO.processIds.size() > 0">
+                    AND scope_event.process_id IN
+                    <foreach collection="reqVO.processIds" item="scopeProcessId" open="(" separator="," close=")">
+                        #{scopeProcessId}
+                    </foreach>
+                </if>
+                <if test="reqVO.submittedAtStart != null and reqVO.submittedAtEnd != null">
+                    AND scope_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
+                    AND scope_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+                </if>
+            )
+        </if>
+    </sql>
+
+    <sql id="SubmissionReviewPageScope">
+        AND (review_log.tenant_id, review_log.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+    </sql>
+
+    <sql id="ScopedSubmissionReviewRows">
             SELECT ranked_review.tenant_id,
                    ranked_review.event_id,
                    ranked_review.leader_user_id,
@@ -421,6 +451,7 @@
                        ) AS review_rank
                 FROM mes_pro_process_pool_submission_review review_log
                 WHERE review_log.deleted = 0
+                <include refid="${reviewScope}"/>
             ) ranked_review
             LEFT JOIN mes_pro_process_pool_event review_event
               ON review_event.id = ranked_review.event_id
@@ -477,7 +508,7 @@
              AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
              AND pqc_task.id = pool_event.pqc_task_id
         </if>
-        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH' or reqVO.allocationView == 'HISTORY'">
+        <if test="reqVO.submissionReviewStatus != null or reqVO.pqcFormView != null or reqVO.allocationView == 'WORKBENCH'">
             <include refid="LatestSubmissionReviewJoin"/>
         </if>
         WHERE <include refid="TimelineFilters"/>
@@ -485,8 +516,38 @@
 
     <select id="selectTimelinePage" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
         <bind name="offset" value="(reqVO.pageNo - 1) * reqVO.pageSize"/>
+        <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            WITH production_page AS (
+                SELECT pool_event.id, pool_event.tenant_id
+                FROM mes_pro_process_pool_event pool_event
+                LEFT JOIN mes_pro_work_order work_order
+                  ON work_order.id = pool_event.work_order_id
+                 AND work_order.tenant_id = pool_event.tenant_id AND work_order.deleted = 0
+                <if test="reqVO.productKeyword != null and reqVO.productKeyword != ''">
+                    LEFT JOIN mes_md_item product_item
+                      ON product_item.id = work_order.product_id
+                     AND product_item.tenant_id = pool_event.tenant_id AND product_item.deleted = 0
+                </if>
+                <if test="reqVO.inspectionType != null or reqVO.roundNo != null or reqVO.pqcFormView != null">
+                    LEFT JOIN mes_pqc_inspection_task pqc_task
+                      ON pqc_task.id = pool_event.pqc_task_id
+                     AND pqc_task.tenant_id = pool_event.tenant_id AND pqc_task.deleted = 0
+                     AND pool_event.feedback_source_type = 'MES_PQC_INSPECTION_TASK'
+                </if>
+                <if test="reqVO.submissionReviewStatus != null or reqVO.allocationView == 'WORKBENCH'">
+                    <include refid="LatestSubmissionReviewJoin"/>
+                </if>
+                WHERE <include refid="TimelineFilters"/>
+                ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
+                LIMIT #{offset}, #{reqVO.pageSize}
+            )
+        </if>
         SELECT <include refid="TimelineColumns"/>
         FROM mes_pro_process_pool_event pool_event
+        <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+            INNER JOIN production_page page_head
+              ON page_head.id = pool_event.id AND page_head.tenant_id = pool_event.tenant_id
+        </if>
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
          AND work_order.tenant_id = pool_event.tenant_id
@@ -516,34 +577,61 @@
                    COALESCE(SUM(review_copy_field_stat.field_count), 0) AS field_count
             FROM mes_pro_process_pool_review_copy review_copy
             LEFT JOIN (
-                SELECT tenant_id, review_copy_id, COUNT(1) AS field_count
-                FROM mes_pro_process_pool_review_copy_field
-                WHERE deleted = 0
-                GROUP BY tenant_id, review_copy_id
+                SELECT copy_field.tenant_id, copy_field.review_copy_id, COUNT(1) AS field_count
+                FROM mes_pro_process_pool_review_copy_field copy_field
+                WHERE copy_field.deleted = 0
+                <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                    AND (copy_field.tenant_id, copy_field.review_copy_id) IN (
+                        SELECT scoped_copy.tenant_id, scoped_copy.id FROM mes_pro_process_pool_review_copy scoped_copy
+                        WHERE scoped_copy.deleted = 0 AND (scoped_copy.tenant_id, scoped_copy.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+                    )
+                </if>
+                GROUP BY copy_field.tenant_id, copy_field.review_copy_id
             ) review_copy_field_stat
               ON review_copy_field_stat.review_copy_id = review_copy.id
              AND review_copy_field_stat.tenant_id = review_copy.tenant_id
             WHERE review_copy.deleted = 0
+            <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                AND (review_copy.tenant_id, review_copy.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+            </if>
             GROUP BY review_copy.tenant_id, review_copy.event_id
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
-        <include refid="LatestSubmissionReviewJoin"/>
+        <choose>
+            <when test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                LEFT JOIN (
+                    <include refid="ScopedSubmissionReviewRows">
+                        <property name="reviewScope" value="SubmissionReviewPageScope"/>
+                    </include>
+                ) latest_submission_review
+                  ON latest_submission_review.event_id = pool_event.id
+                 AND latest_submission_review.tenant_id = pool_event.tenant_id
+            </when>
+            <otherwise><include refid="LatestSubmissionReviewJoin"/></otherwise>
+        </choose>
         <include refid="SubmissionReviewLeaderJoin"/>
         LEFT JOIN (
-            SELECT tenant_id,
-                   event_id,
+            SELECT revision.tenant_id,
+                   revision.event_id,
                    CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
-            FROM mes_pro_process_pool_event_revision
-            WHERE deleted = 0
-              AND revision_status = 'EFFECTIVE'
-            GROUP BY tenant_id, event_id
+            FROM mes_pro_process_pool_event_revision revision
+            WHERE revision.deleted = 0
+              AND revision.revision_status = 'EFFECTIVE'
+            <if test="reqVO.eventType == 'PRODUCTION_SUBMIT'">
+                AND (revision.tenant_id, revision.event_id) IN (SELECT page_scope.tenant_id, page_scope.id FROM production_page page_scope)
+            </if>
+            GROUP BY revision.tenant_id, revision.event_id
         ) revision_summary
           ON revision_summary.event_id = pool_event.id
          AND revision_summary.tenant_id = pool_event.tenant_id
-        WHERE <include refid="TimelineFilters"/>
+        <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">
+            WHERE <include refid="TimelineFilters"/>
+        </if>
         ORDER BY pool_event.server_submit_time DESC, pool_event.id DESC
-        LIMIT #{offset}, #{reqVO.pageSize}
+        <if test="reqVO.eventType != 'PRODUCTION_SUBMIT'">
+            LIMIT #{offset}, #{reqVO.pageSize}
+        </if>
     </select>
 
     <select id="selectTimelineDetailById" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
@@ -678,6 +766,14 @@
             FROM mes_pro_process_pool_report_allocation
             WHERE deleted = 0
               AND lifecycle_status = 'CURRENT'
+              AND (tenant_id, active_order_id, route_process_id, process_id) IN (
+                  SELECT tenant_id, active_order_id, route_process_id, process_id
+                  FROM mes_pro_process_pool_report_allocation
+                  WHERE deleted = 0 AND lifecycle_status = 'CURRENT' AND event_id IN
+                  <foreach collection="eventIds" item="eventId" open="(" separator="," close=")">
+                      #{eventId}
+                  </foreach>
+              )
             GROUP BY tenant_id, active_order_id, route_process_id, process_id
         ) order_process_allocation
           ON order_process_allocation.active_order_id = allocation.active_order_id

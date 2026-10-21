@@ -16,6 +16,10 @@ public interface ErrorCodeConstants {
     ErrorCode CONFIG_GET_VALUE_ERROR_IF_VISIBLE = new ErrorCode(1_001_000_004, "获取参数配置失败，原因：不允许获取不可见配置");
     ErrorCode CONFIG_IDLE_LOGOUT_MINUTES_INVALID = new ErrorCode(1_001_000_005,
             "登录空闲退出分钟数必须是 1 到 1440 之间的整数");
+    ErrorCode CONFIG_TEST_MODE_INVALID = new ErrorCode(1_001_000_006, "测试模式必须为 true 或 false");
+    ErrorCode CONFIG_PASSWORD_MAX_AGE_INVALID = new ErrorCode(1_001_000_007, "密码有效期必须为正整数天数，且不能超过 2147483647 天");
+    ErrorCode CONFIG_PASSWORD_MAX_AGE_MISSING = new ErrorCode(1_001_000_008, "缺少系统账号密码有效期配置，请联系管理员初始化参数配置");
+    ErrorCode CONFIG_PASSWORD_MAX_AGE_KEY_IMMUTABLE = new ErrorCode(1_001_000_009, "密码有效期的参数键名不能修改");
 
     // ========== 定时任务 1-001-001-000 ==========
     ErrorCode JOB_NOT_EXISTS = new ErrorCode(1_001_001_000, "定时任务不存在");

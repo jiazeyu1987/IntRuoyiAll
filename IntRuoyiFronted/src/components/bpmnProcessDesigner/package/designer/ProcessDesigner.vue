@@ -33,7 +33,7 @@
             </template>
           </el-tooltip>
           <el-tooltip
-            v-if="props.simulation"
+            v-if="testModeEnabled && (props.simulation)"
             effect="light"
             :content="simulationStatus ? '退出模拟' : '开启模拟'"
           >
@@ -196,6 +196,8 @@
 </template>
 
 <script lang="ts" setup>
+import { useTestMode } from '@/store/modules/testMode'
+
 // import 'bpmn-js/dist/assets/diagram-js.css' // 左边工具栏以及编辑节点的样式
 // import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 // import 'bpmn-js/dist/assets/bpmn-font/css/bpmn-codes.css'
@@ -234,7 +236,9 @@ import { XmlNode, XmlNodeType, parseXmlString } from 'steady-xml'
 //   name: ''
 // })
 import hljs from 'highlight.js' // 导入代码高亮文件
-import 'highlight.js/styles/github.css' // 导入代码高亮样式
+import 'highlight.js/styles/github.css'
+
+const testModeEnabled = useTestMode() // 导入代码高亮样式
 
 defineOptions({ name: 'MyProcessDesigner' })
 
