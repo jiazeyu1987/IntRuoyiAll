@@ -37,7 +37,7 @@
             effect="light"
             :content="simulationStatus ? '退出模拟' : '开启模拟'"
           >
-            <XButton preIcon="ep:cpu" title="模拟" @click="processSimulation" />
+            <XButton class="app-test-button" preIcon="ep:cpu" title="模拟" @click="processSimulation" />
           </el-tooltip>
         </ElButtonGroup>
         <ElButtonGroup key="align-control">

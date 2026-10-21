@@ -9,7 +9,7 @@
       :provider="provider"
     />
     <div class="absolute top-30px right-30px">
-      <el-button v-if="testModeEnabled" @click="testWorkflowModel" type="primary" v-hasPermi="['ai:workflow:test']">
+      <el-button class="app-test-button" v-if="testModeEnabled" @click="testWorkflowModel" type="primary" v-hasPermi="['ai:workflow:test']">
         测试
       </el-button>
     </div>
@@ -53,7 +53,7 @@
           <div v-else> <el-text type="info">点击运行查看结果</el-text> </div>
         </div>
       </fieldset>
-      <el-button class="mt-20px w-100%" size="large" type="success" @click="goRun">
+      <el-button class="mt-20px w-100% app-test-button" size="large" type="success" @click="goRun">
         运行流程
       </el-button>
     </el-drawer>

@@ -36,7 +36,7 @@
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="saving" @click="handleSave">保存配置</el-button>
-        <el-button v-if="testModeEnabled" :loading="testing" @click="handleTestNasWrite">测试NAS写入</el-button>
+        <el-button class="app-test-button" v-if="testModeEnabled" :loading="testing" @click="handleTestNasWrite">测试NAS写入</el-button>
         <el-button type="success" :loading="running" @click="handleRunOnce">立即执行一次</el-button>
       </el-form-item>
     </el-form>

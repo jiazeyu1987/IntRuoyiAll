@@ -12,7 +12,7 @@
           <div class="flex items-center justify-between gap-12px">
             <CardTitle title="NAS 管理" />
             <div class="flex items-center gap-12px">
-              <el-button
+              <el-button class="app-test-button"
           v-if="testModeEnabled"
                 @click="handleTest"
                 v-hasPermi="['infra:nas:test']"

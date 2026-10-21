@@ -1,6 +1,24 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "基础配置快捷导航复用自动同步配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "基础配置快捷导航复用自动同步配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "基础配置快捷导航复用注册证配置既有查看权限，仅控制跳转按钮可见性，不新增权限、菜单或角色/租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
       "kind": "permission",
       "value": "dcc:controlled-file:query",

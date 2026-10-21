@@ -58,11 +58,11 @@ public final class MesProCraftParameters {
         return CANONICAL.sha256(canonical(Map.of("name", name, "parameters", fingerprint(processId, parameters))));
     }
 
-    /** 按设备拆分并比较；不同设备有不同参数时拒绝迁移，而不取并集。 */
-    public static Extracted extract(JSONObject config) {
+    /** 每种设备参数方案独立提取；相同方案复用，绝不合并不同标准。 */
+    public static List<Extracted> extractSchemes(JSONObject config) {
         JSONArray rules = config.getJSONArray("parameterRules");
         if (rules == null) throw invalid("现有工序缺少正式参数配置");
-        if (rules.isEmpty()) return new Extracted(new JSONArray(), List.of());
+        if (rules.isEmpty()) return List.of();
         Map<Long, JSONArray> byDevice = new TreeMap<>();
         for (Object raw : rules) {
             if (!(raw instanceof JSONObject rule) || rule.getLong("deviceId") == null)
@@ -71,17 +71,25 @@ public final class MesProCraftParameters {
             for (String key : FIELDS) definition.put(key, rule.get(key));
             byDevice.computeIfAbsent(rule.getLong("deviceId"), ignored -> new JSONArray()).add(definition);
         }
-        JSONArray parameters = null;
-        String expected = null;
+        Map<String, JSONArray> parameters = new LinkedHashMap<>();
+        Map<String, List<Long>> devices = new LinkedHashMap<>();
         for (Map.Entry<Long, JSONArray> entry : byDevice.entrySet()) {
             JSONArray normalized = normalize(entry.getValue());
             String current = fingerprint(config.getLong("processId"), normalized);
-            if (expected != null && !expected.equals(current))
-                throw invalid("同一工序节点各设备的参数配置不同，不能无损合并为一个工艺");
-            expected = current;
-            parameters = normalized;
+            parameters.putIfAbsent(current, normalized);
+            devices.computeIfAbsent(current, ignored -> new ArrayList<>()).add(entry.getKey());
         }
-        return new Extracted(parameters, List.copyOf(byDevice.keySet()));
+        return parameters.entrySet().stream()
+                .map(entry -> new Extracted(entry.getValue(), List.copyOf(devices.get(entry.getKey())))).toList();
+    }
+
+    /** 绑定单个工艺时仍要求原设备参数一致，不扩大已有填写范围。 */
+    public static Extracted extract(JSONObject config) {
+        List<Extracted> schemes = extractSchemes(config);
+        if (schemes.isEmpty()) return new Extracted(new JSONArray(), List.of());
+        if (schemes.size() != 1)
+            throw invalid("同一工序节点各设备的参数配置不同，不能无损合并为一个工艺");
+        return schemes.get(0);
     }
 
     public static List<Long> devices(JSONObject config) {
@@ -117,12 +125,63 @@ public final class MesProCraftParameters {
     }
     public static void bind(JSONObject config, Long craftId, String craftCode, JSONArray parameters,
                             Collection<Long> deviceIds) {
-        config.put("craftId", craftId);
-        config.put("craftCode", craftCode);
-        config.put("craftFingerprint", fingerprint(config.getLong("processId"), parameters));
-        config.put("craftDeviceIds", new JSONArray(new ArrayList<>(deviceIds)));
-        config.put("parameterRules", expand(config, parameters, deviceIds));
+        bindAll(config, List.of(new Binding(craftId, craftCode, parameters, List.copyOf(deviceIds))));
     }
+    /** 原主工艺字段继续表示第一项，附加工艺逐项保存自己的执行设备；工艺库仍无设备信息。 */
+    public static List<JSONObject> bindings(JSONObject config) {
+        List<JSONObject> result = new ArrayList<>();
+        if (config.getLong("craftId") != null) result.add(config);
+        JSONArray additional = config.getJSONArray("additionalCraftBindings");
+        if (additional != null && !additional.isEmpty()) {
+            if (result.isEmpty()) throw invalid("附加工艺缺少主工艺关联");
+            for (Object raw : additional) {
+                if (!(raw instanceof JSONObject binding) || binding.getLong("craftId") == null)
+                    throw invalid("附加工艺关联格式无效");
+                result.add(binding);
+            }
+        }
+        return result;
+    }
+    public static boolean usesCraft(JSONObject config, Long id) {
+        return bindings(config).stream().anyMatch(b -> Objects.equals(id, b.getLong("craftId")));
+    }
+    public static void bindAll(JSONObject config, List<Binding> values) {
+        if (values == null || values.isEmpty()) throw invalid("至少选择一个工艺");
+        Set<Long> craftIds = new HashSet<>(), deviceIds = new HashSet<>();
+        JSONArray rules = new JSONArray(), metadata = new JSONArray();
+        for (Binding binding : values) {
+            if (binding.craftId() == null || !craftIds.add(binding.craftId())) throw invalid("工艺不能重复选择");
+            for (Long deviceId : binding.deviceIds()) {
+                if (!deviceIds.add(deviceId)) throw invalid("同一设备不能重复分配到多个工艺");
+            }
+            rules.addAll(expand(config, binding.parameters(), binding.deviceIds()));
+            JSONObject item = new JSONObject(true);
+            item.put("craftId", binding.craftId()); item.put("craftCode", binding.craftCode());
+            item.put("craftFingerprint", fingerprint(config.getLong("processId"), binding.parameters()));
+            item.put("craftDeviceIds", new JSONArray(new ArrayList<>(binding.deviceIds())));
+            metadata.add(item);
+        }
+        config.putAll(metadata.getJSONObject(0));
+        metadata.remove(0);
+        if (metadata.isEmpty()) config.remove("additionalCraftBindings");
+        else config.put("additionalCraftBindings", metadata);
+        config.put("parameterRules", rules);
+    }
+    /** 升级某一工艺时只重展该工艺原设备的参数，其他工艺及设备保持原样。 */
+    public static void replaceCraft(JSONObject config, Long craftId, String code, JSONArray parameters) {
+        JSONObject binding = bindings(config).stream().filter(b -> Objects.equals(craftId, b.getLong("craftId")))
+                .findFirst().orElseThrow(() -> invalid("流程未关联目标工艺"));
+        List<Long> ids = binding.getJSONArray("craftDeviceIds").toJavaList(Long.class);
+        JSONArray rules = new JSONArray();
+        for (Object raw : config.getJSONArray("parameterRules")) {
+            if (!ids.contains(((JSONObject) raw).getLong("deviceId"))) rules.add(raw);
+        }
+        rules.addAll(expand(config, parameters, ids));
+        binding.put("craftCode", code);
+        binding.put("craftFingerprint", fingerprint(config.getLong("processId"), parameters));
+        config.put("parameterRules", rules);
+    }
+    public record Binding(Long craftId, String craftCode, JSONArray parameters, List<Long> deviceIds) {}
     public static String canonical(Object value) { return CANONICAL.canonicalize(JSON.toJSONString(value)); }
     public record Extracted(JSONArray parameters, List<Long> deviceIds) {}
 }

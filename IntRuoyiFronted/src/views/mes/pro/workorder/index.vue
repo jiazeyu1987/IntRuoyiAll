@@ -54,7 +54,7 @@
           v-hasPermi="['mes:pro-work-order:create']"
           ><Icon icon="ep:refresh" class="mr-5px" /> 增量同步</el-button
         >
-        <el-button
+        <el-button class="app-test-button"
           v-if="testModeEnabled && (isAdminUser)"
           type="primary"
           plain
@@ -229,7 +229,7 @@
         fixed="right"
       >
         <template #default="scope">
-          <el-button
+          <el-button class="app-test-button"
           v-if="testModeEnabled"
             link
             type="primary"
@@ -239,7 +239,7 @@
           >
             <Icon icon="ep:plus" class="mr-5px" /> 测试添加
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
           v-if="testModeEnabled"
             link
             type="primary"
@@ -284,7 +284,7 @@
     </el-form>
     <template #footer>
       <el-button @click="aiE2eDialog.visible = false">取消</el-button>
-      <el-button data-edhr-ai-e2e-submit type="primary" :loading="aiE2eDialog.loading" @click="submitAiE2eOrder">创建</el-button>
+      <el-button class="app-test-button" data-edhr-ai-e2e-submit type="primary" :loading="aiE2eDialog.loading" @click="submitAiE2eOrder">创建</el-button>
     </template>
   </el-dialog>
 </template>

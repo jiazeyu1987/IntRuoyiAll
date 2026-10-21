@@ -2,6 +2,7 @@
 @use './FormCreate/index.scss';
 @use './theme.scss';
 @use './scheme-d-controls.scss';
+@use './test-buttons.scss';
 
 .reset-margin [class*='el-icon'] + span {
   margin-left: 2px !important;

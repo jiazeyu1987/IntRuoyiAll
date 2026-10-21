@@ -34,7 +34,7 @@
           />
         </div>
         <div class="flex justify-end">
-          <el-button type="primary" @click="getRetrievalResult" :loading="loading">测试</el-button>
+          <el-button class="app-test-button" type="primary" @click="getRetrievalResult" :loading="loading">测试</el-button>
         </div>
       </div>
     </ContentWrap>

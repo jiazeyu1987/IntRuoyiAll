@@ -51,6 +51,7 @@
       <div
         class="box"
         v-for="channel in visibleOtherChannels"
+        :class="{ 'app-test-button': channel.code === 'mock' }"
         :key="channel.code"
         @click="submit(channel.code)"
       >

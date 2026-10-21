@@ -185,7 +185,7 @@
             <Icon icon="ep:document" class="mr-4px" />
             解析
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
           v-if="testModeEnabled"
             type="danger"
             plain

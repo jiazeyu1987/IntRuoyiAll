@@ -39,7 +39,7 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__e2e-button"
+                class="edhr-batch-record-test-page__e2e-button app-test-button"
                 data-edhr-batch-record-test-e2e-button
                 :disabled="
                   !selectedTenantId ||
@@ -57,7 +57,7 @@
               </el-button>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__run-all-button"
+                class="edhr-batch-record-test-page__run-all-button app-test-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
@@ -126,7 +126,7 @@
                   :width="getProductionLeaderColumnWidthString('actions', 180)"
                 >
                   <template #default="{ row }">
-                    <el-button
+                    <el-button class="app-test-button"
                       v-hasPermi="['system:codex-test:execute']"
                       :disabled="
                         !selectedTenantId ||
@@ -202,7 +202,7 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__e2e-button"
+                class="edhr-batch-record-test-page__e2e-button app-test-button"
                 data-edhr-batch-record-test-e2e-button
                 :disabled="
                   !selectedTenantId ||
@@ -220,7 +220,7 @@
               </el-button>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__run-all-button"
+                class="edhr-batch-record-test-page__run-all-button app-test-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
@@ -289,7 +289,7 @@
                   :width="getFrontlinePqcColumnWidthString('actions', 180)"
                 >
                   <template #default="{ row }">
-                    <el-button
+                    <el-button class="app-test-button"
                       v-hasPermi="['system:codex-test:execute']"
                       :disabled="
                         !selectedTenantId ||
@@ -365,7 +365,7 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__e2e-button"
+                class="edhr-batch-record-test-page__e2e-button app-test-button"
                 data-edhr-batch-record-test-e2e-button
                 :disabled="
                   !selectedTenantId ||
@@ -383,7 +383,7 @@
               </el-button>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__run-all-button"
+                class="edhr-batch-record-test-page__run-all-button app-test-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
@@ -452,7 +452,7 @@
                   :width="getFrontlineProductionColumnWidthString('actions', 180)"
                 >
                   <template #default="{ row }">
-                    <el-button
+                    <el-button class="app-test-button"
                       v-hasPermi="['system:codex-test:execute']"
                       :disabled="
                         !selectedTenantId ||
@@ -532,7 +532,7 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__e2e-button"
+                class="edhr-batch-record-test-page__e2e-button app-test-button"
                 data-edhr-batch-record-test-e2e-button
                 :disabled="
                   !selectedTenantId ||
@@ -550,7 +550,7 @@
               </el-button>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__run-all-button"
+                class="edhr-batch-record-test-page__run-all-button app-test-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
@@ -619,7 +619,7 @@
                   :width="getOrderAllocationColumnWidthString('actions', 180)"
                 >
                   <template #default="{ row }">
-                    <el-button
+                    <el-button class="app-test-button"
                       v-hasPermi="['system:codex-test:execute']"
                       :disabled="
                         !selectedTenantId ||
@@ -695,7 +695,7 @@
               </el-form-item>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__e2e-button"
+                class="edhr-batch-record-test-page__e2e-button app-test-button"
                 data-edhr-batch-record-test-e2e-button
                 :disabled="
                   !selectedTenantId ||
@@ -713,7 +713,7 @@
               </el-button>
               <el-button
                 v-hasPermi="['system:codex-test:execute']"
-                class="edhr-batch-record-test-page__run-all-button"
+                class="edhr-batch-record-test-page__run-all-button app-test-button"
                 data-edhr-batch-record-test-run-all-button
                 :disabled="
                   !selectedTenantId ||
@@ -783,7 +783,7 @@
                   :width="getBatchRecordMappingColumnWidthString('actions', 220)"
                 >
                   <template #default="{ row }">
-                    <el-button
+                    <el-button class="app-test-button"
                       v-hasPermi="['system:codex-test:execute']"
                       :disabled="
                         !selectedTenantId ||

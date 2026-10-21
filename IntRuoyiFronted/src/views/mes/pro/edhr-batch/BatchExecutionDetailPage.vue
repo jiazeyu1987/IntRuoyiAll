@@ -32,7 +32,7 @@
         show-icon
       />
       <div v-if="testModeEnabled" class="edhr-batch-detail__simulation-toolbar" aria-label="模拟操作">
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="warning"
           :loading="stage4SimulationLoading"
@@ -41,7 +41,7 @@
         >
           批次执行四份材料上传模拟
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="danger"
           :loading="stage5SimulationLoading"
@@ -50,7 +50,7 @@
         >
           最终放行模拟准备
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-hasPermi="['mes:pro-edhr-batch-execution:update']"
           type="success"
           :loading="stage6SimulationLoading"

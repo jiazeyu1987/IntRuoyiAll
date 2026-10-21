@@ -97,7 +97,7 @@
           >
             文档
           </el-button>
-          <el-button
+          <el-button class="app-test-button"
           v-if="testModeEnabled"
             link
             type="primary"

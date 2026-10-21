@@ -51,7 +51,7 @@
         >
           <Icon icon="ep:upload-filled" class="mr-5px" /> 第三方导入
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-if="testModeEnabled"
           type="warning"
           plain

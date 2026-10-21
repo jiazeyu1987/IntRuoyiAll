@@ -129,7 +129,7 @@
           >
             主配置
           </el-button>
-          <el-button v-if="testModeEnabled" link type="primary" @click="handleTest(scope.row.id)"> 测试 </el-button>
+          <el-button class="app-test-button" v-if="testModeEnabled" link type="primary" @click="handleTest(scope.row.id)"> 测试 </el-button>
           <el-button
             link
             type="danger"

@@ -164,6 +164,12 @@ export interface ProRouteProductionProcessConfigVO {
   craftCode?: string
   craftFingerprint?: string
   craftDeviceIds?: number[]
+  additionalCraftBindings?: Array<{
+    craftId: number
+    craftCode: string
+    craftFingerprint: string
+    craftDeviceIds: number[]
+  }>
   routeProcessId: number
   processId: number
   processCode?: string | null

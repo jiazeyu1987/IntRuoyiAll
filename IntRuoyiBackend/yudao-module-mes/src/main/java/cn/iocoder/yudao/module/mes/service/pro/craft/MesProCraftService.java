@@ -147,9 +147,8 @@ public class MesProCraftService {
             MesProRouteVersionDO candidate = newCandidate(active, "工艺 " + before.getCode() + " 全量升级：" + request.getReason());
             JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
             for (JSONObject config : configs(snapshot)) {
-                if (Objects.equals(before.getId(), config.getLong("craftId"))) {
-                    List<Long> ids = config.getJSONArray("craftDeviceIds").toJavaList(Long.class);
-                    bind(config, after.getId(), after.getCode(), JSON.parseArray(after.getParametersJson()), ids);
+                if (usesCraft(config, before.getId())) {
+                    replaceCraft(config, after.getId(), after.getCode(), JSON.parseArray(after.getParametersJson()));
                 }
             }
             saveGroupedCandidate(change, candidate, snapshot);
@@ -162,10 +161,10 @@ public class MesProCraftService {
         List<MesProRouteVersionDO> result = new ArrayList<>();
         for (MesProRouteVersionDO active : versionMapper.selectActiveListWithExistingRoutes()) {
             boolean used = bindingConfigs(JSON.parseObject(active.getRouteSnapshotJson())).stream()
-                    .anyMatch(config -> Objects.equals(craftId, config.getLong("craftId")));
+                    .anyMatch(config -> usesCraft(config, craftId));
             MesProRouteVersionDO open = versionMapper.selectOpenCandidateByRouteId(active.getRouteId());
             boolean draftUsed = open != null && bindingConfigs(JSON.parseObject(open.getRouteSnapshotJson())).stream()
-                    .anyMatch(config -> Objects.equals(craftId, config.getLong("craftId")));
+                    .anyMatch(config -> usesCraft(config, craftId));
             if (used) result.add(active);
             if ((used || draftUsed) && open != null)
                 blockers.add(routeLabel(active) + " 已有未完成的候选版本，请先处理");
@@ -181,104 +180,97 @@ public class MesProCraftService {
             impact.put("routeId", version.getRouteId()); impact.put("routeCode", row.getString("routeCode"));
             impact.put("routeName", row.getString("routeName")); impact.put("routeVersionId", version.getId());
             impact.put("versionNo", version.getVersionNo()); impact.put("snapshotSha256", version.getRouteSnapshotSha256());
-            impact.put("nodes", configs(row).stream().filter(c -> Objects.equals(craftId, c.getLong("craftId")))
+            impact.put("nodes", configs(row).stream().filter(c -> usesCraft(c, craftId))
                     .map(c -> Map.of("routeProcessId", c.getLong("routeProcessId"), "processId", c.getLong("processId"))).toList());
             result.add(impact);
         }
         return result;
     }
 
+    /** 初始化只提取正式参数，不绑定、创建候选版本或升级任何流程。 */
     public Map<String, Object> initializationPreview() {
         lockCatalog();
         List<String> blockers = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
         JSONArray sources = new JSONArray();
         int empty = 0;
         for (MesProRouteVersionDO active : versionMapper.selectActiveListWithExistingRoutes()) {
             JSONObject snapshot = JSON.parseObject(active.getRouteSnapshotJson());
             JSONObject data = snapshot == null ? null : snapshot.getJSONObject("configSnapshots");
             if (data == null || data.getJSONArray("productionProcessConfigs") == null) {
-                blockers.add(routeLabel(active) + " 缺少正式生产配置，请先完成现有配置迁移");
+                warnings.add(routeLabel(active) + " 缺少正式生产配置，本次不提取；完成现有配置迁移后可再次导入");
                 continue;
             }
-            boolean eligible = false;
             for (JSONObject config : configs(snapshot)) {
-                if (config.getLong("craftId") != null) continue;
-                if (config.getJSONArray("parameterRules") != null && config.getJSONArray("parameterRules").isEmpty()) { empty++; continue; }
-                eligible = true;
+                if (config.getJSONArray("parameterRules") == null) {
+                    warnings.add(routeLabel(active) + "，工序 " + config.getLong("routeProcessId")
+                            + " 缺少正式参数配置，本次不提取");
+                    continue;
+                }
+                if (config.getJSONArray("parameterRules").isEmpty()) { empty++; continue; }
                 try {
                     requireProcess(config.getLong("processId"));
-                    Extracted extracted = extract(config);
-                    validateDefinitions(config.getLong("processId"), extracted.parameters());
-                    // 按现有设备身份重新展开后必须与原参数语义完全一致。
-                    JSONArray expanded = expand(config, extracted.parameters(), extracted.deviceIds());
-                    if (!sameRules(config.getJSONArray("parameterRules"), expanded)) throw invalid("参数展开结果与原配置不一致");
-                    JSONObject source = new JSONObject(true);
-                    source.put("routeId", active.getRouteId()); source.put("routeVersionId", active.getId());
-                    source.put("routeName", snapshot.getString("routeName"));
-                    source.put("snapshotSha256", active.getRouteSnapshotSha256());
-                    source.put("routeProcessId", config.getLong("routeProcessId"));
-                    source.put("processId", config.getLong("processId")); source.put("processName", config.getString("processName"));
-                    source.put("parameters", extracted.parameters()); source.put("deviceIds", extracted.deviceIds());
-                    sources.add(source);
+                    int schemeNo = 0;
+                    for (Extracted extracted : extractSchemes(config)) {
+                        validateDefinitions(config.getLong("processId"), extracted.parameters());
+                        JSONObject source = new JSONObject(true);
+                        source.put("routeId", active.getRouteId()); source.put("routeVersionId", active.getId());
+                        source.put("routeName", snapshot.getString("routeName"));
+                        source.put("snapshotSha256", active.getRouteSnapshotSha256());
+                        source.put("routeProcessId", config.getLong("routeProcessId"));
+                        source.put("processId", config.getLong("processId")); source.put("processName", config.getString("processName"));
+                        source.put("schemeNo", ++schemeNo); source.put("parameters", extracted.parameters());
+                        source.put("parameterCount", extracted.parameters().size());
+                        sources.add(source);
+                    }
                 } catch (cn.iocoder.yudao.framework.common.exception.ServiceException
                          | com.alibaba.fastjson.JSONException | IllegalArgumentException ex) {
                     blockers.add(routeLabel(active) + "，工序 " + config.getLong("routeProcessId") + "：" + ex.getMessage());
                 }
             }
-            if (eligible && versionMapper.selectOpenCandidateByRouteId(active.getRouteId()) != null)
-                blockers.add(routeLabel(active) + " 已有未完成候选版本");
         }
+        Set<String> existing = new TreeSet<>();
+        list(null).forEach(c -> existing.add(fingerprint(c.getProcessId(), JSON.parseArray(c.getParametersJson()))));
+        Set<String> distinct = new HashSet<>();
+        for (Object raw : sources) {
+            JSONObject source = (JSONObject) raw;
+            distinct.add(fingerprint(source.getLong("processId"), source.getJSONArray("parameters")));
+        }
+        long newCraftCount = distinct.stream().filter(key -> !existing.contains(key)).count();
         JSONObject signature = new JSONObject(true);
         signature.put("sources", sources); signature.put("blockers", blockers);
-        return Map.of("sources", sources, "blockers", blockers, "emptyNodeCount", empty,
+        signature.put("warnings", warnings); signature.put("existing", existing);
+        return Map.of("sources", sources, "blockers", blockers, "warnings", warnings, "emptyNodeCount", empty,
+                "newCraftCount", newCraftCount, "existingCraftCount", distinct.size() - newCraftCount,
                 "impactToken", new MesProRouteSnapshotCanonicalizer().sha256(signature.toJSONString()));
     }
 
     public MesProCraftChangeDO initialize(String impactToken) {
         lockCatalog();
         Map<String, Object> preview = initializationPreview();
-        if (!Objects.equals(impactToken, preview.get("impactToken"))) throw invalid("初始化来源已变化，请重新预览");
+        if (!Objects.equals(impactToken, preview.get("impactToken"))) throw invalid("初始化来源或工艺库已变化，请重新预览");
         List<?> blockers = (List<?>) preview.get("blockers");
         if (!blockers.isEmpty()) throw invalid("初始化存在冲突：" + blockers);
+        if (((Number) preview.get("newCraftCount")).longValue() == 0) throw invalid("没有需要新增的工艺参数");
         JSONArray sources = (JSONArray) preview.get("sources");
-        if (sources.isEmpty()) throw invalid("没有需要初始化的工序参数");
-        MesProCraftChangeDO change = newChange(null, "INITIALIZE", sources.toJSONString(), "[]", "从现有工艺流程无损初始化");
-        if (changeMapper.insert(change) != 1) throw invalid("工艺变更记录保存失败");
         Map<String, MesProCraftDO> byFingerprint = new LinkedHashMap<>();
         list(null).forEach(c -> byFingerprint.putIfAbsent(fingerprint(c.getProcessId(), JSON.parseArray(c.getParametersJson())), c));
-        Map<Long, List<JSONObject>> byRoute = new TreeMap<>();
+        JSONArray importedCraftIds = new JSONArray();
         for (Object raw : sources) {
             JSONObject source = (JSONObject) raw;
-            byRoute.computeIfAbsent(source.getLong("routeId"), ignored -> new ArrayList<>()).add(source);
-        }
-        JSONArray importedCraftIds = new JSONArray();
-        for (Map.Entry<Long, List<JSONObject>> entry : byRoute.entrySet()) {
-            MesProRouteVersionDO active = versionMapper.selectActiveByRouteId(entry.getKey());
-            MesProRouteVersionDO candidate = newCandidate(active, change.getReason());
-            JSONObject snapshot = JSON.parseObject(candidate.getRouteSnapshotJson());
-            for (JSONObject source : entry.getValue()) {
-                JSONObject config = configs(snapshot).stream().filter(c -> Objects.equals(c.getLong("routeProcessId"),
-                        source.getLong("routeProcessId"))).findFirst().orElseThrow(() -> invalid("初始化工序身份已变化"));
-                if (!sameRules(config.getJSONArray("parameterRules"), expand(config,
-                        source.getJSONArray("parameters"), source.getJSONArray("deviceIds").toJavaList(Long.class))))
-                    throw invalid("候选版本参数与初始化预览不一致");
-                String fingerprint = fingerprint(source.getLong("processId"), source.getJSONArray("parameters"));
-                MesProCraftDO craft = byFingerprint.get(fingerprint);
-                if (craft == null) {
-                    craft = insertCraft(source.getString("processName") + "工艺",
-                            source.getLong("processId"), source.getJSONArray("parameters"));
-                    byFingerprint.put(fingerprint, craft);
-                    importedCraftIds.add(craft.getId());
-                }
-                bind(config, craft.getId(), craft.getCode(), JSON.parseArray(craft.getParametersJson()),
-                        source.getJSONArray("deviceIds").toJavaList(Long.class));
+            String fingerprint = fingerprint(source.getLong("processId"), source.getJSONArray("parameters"));
+            if (!byFingerprint.containsKey(fingerprint)) {
+                MesProCraftDO craft = insertCraft(source.getString("processName") + "工艺",
+                        source.getLong("processId"), source.getJSONArray("parameters"));
+                byFingerprint.put(fingerprint, craft);
+                importedCraftIds.add(craft.getId());
             }
-            saveGroupedCandidate(change, candidate, snapshot);
         }
-        change.setAfterJson(importedCraftIds.toJSONString());
-        saveChange(change);
-        submitGroup(change);
-        return changeMapper.selectById(change.getId());
+        MesProCraftChangeDO change = newChange(null, "INITIALIZE", sources.toJSONString(),
+                importedCraftIds.toJSONString(), "从现有正式流程提取参数入库，不绑定或升级流程");
+        change.setStatus("APPLIED");
+        if (changeMapper.insert(change) != 1) throw invalid("工艺初始化记录保存失败");
+        return change;
     }
 
     private MesProRouteVersionDO newCandidate(MesProRouteVersionDO active, String reason) {
@@ -431,19 +423,60 @@ public class MesProCraftService {
 
     public void bindCandidate(MesProCraftBindReqVO request) {
         lockCatalog();
-        MesProCraftDO craft = require(request.getCraftId());
-        assertNoPending(craft.getId());
+        MesProRouteVersionDO version = requireBindingVersion(request);
+        JSONObject root = JSON.parseObject(version.getRouteSnapshotJson());
+        JSONObject config = requireBindingConfig(root, request.getRouteProcessId());
+        List<Binding> values = new ArrayList<>();
+        for (MesProCraftBindReqVO.Binding item : request.getBindings()) {
+            MesProCraftDO craft = require(item.getCraftId());
+            assertNoPending(craft.getId());
+            if (!Objects.equals(craft.getProcessId(), config.getLong("processId")))
+                throw invalid("只能选择当前工序所属的工艺");
+            values.add(new Binding(craft.getId(), craft.getCode(), JSON.parseArray(craft.getParametersJson()), item.getDeviceIds()));
+        }
+        bindAll(config, values);
+        saveBinding(version, request, root);
+    }
+
+    /** 仅建立完全匹配的工艺引用，原参数数组原样保存；任一方案无匹配或有歧义则整次不写入。 */
+    public void bindExistingCandidate(MesProCraftBindingTargetReqVO request) {
+        lockCatalog();
+        MesProRouteVersionDO version = requireBindingVersion(request);
+        JSONObject root = JSON.parseObject(version.getRouteSnapshotJson());
+        JSONObject config = requireBindingConfig(root, request.getRouteProcessId());
+        JSONArray originalRules = config.getJSONArray("parameterRules");
+        List<Extracted> schemes = extractSchemes(config);
+        if (schemes.isEmpty()) throw invalid("当前工序没有现有参数可关联");
+        List<MesProCraftDO> catalog = list(config.getLong("processId"));
+        List<Binding> values = new ArrayList<>();
+        for (Extracted scheme : schemes) {
+            String identity = fingerprint(config.getLong("processId"), scheme.parameters());
+            List<MesProCraftDO> matches = catalog.stream().filter(c -> Objects.equals(identity,
+                    fingerprint(c.getProcessId(), JSON.parseArray(c.getParametersJson())))).toList();
+            if (matches.size() != 1) throw invalid(matches.isEmpty()
+                    ? "现有参数在工艺库中没有完全匹配的工艺，请先完成参数提取"
+                    : "现有参数对应多个相同工艺，请明确选择工艺与执行设备");
+            MesProCraftDO craft = matches.get(0);
+            assertNoPending(craft.getId());
+            values.add(new Binding(craft.getId(), craft.getCode(), scheme.parameters(), scheme.deviceIds()));
+        }
+        bindAll(config, values);
+        if (!sameRules(originalRules, config.getJSONArray("parameterRules"))) throw invalid("关联结果改变了原参数，已停止保存");
+        config.put("parameterRules", originalRules);
+        saveBinding(version, request, root);
+    }
+    private MesProRouteVersionDO requireBindingVersion(MesProCraftBindingTargetReqVO request) {
         MesProRouteVersionDO version = versionMapper.selectById(request.getRouteVersionId());
         if (version == null) throw invalid("流程版本不存在");
         assertEditable(version);
-        JSONObject root = JSON.parseObject(version.getRouteSnapshotJson());
-        JSONObject config = configs(root).stream().filter(c -> Objects.equals(request.getRouteProcessId(),
-                c.getLong("routeProcessId"))).findFirst().orElseThrow(() -> invalid("流程工序不存在"));
-        if (!Objects.equals(craft.getProcessId(), config.getLong("processId"))) throw invalid("只能选择当前工序所属的工艺");
-        List<Long> deviceIds = devices(config);
-        // 已有逐设备参数时保留原参数设备集合，绝不给原本无参数的设备增加填写项。
-        if (!config.getJSONArray("parameterRules").isEmpty()) deviceIds = extract(config).deviceIds();
-        bind(config, craft.getId(), craft.getCode(), JSON.parseArray(craft.getParametersJson()), deviceIds);
+        if (!STATUS_DRAFT.equals(version.getLifecycleStatus())) throw invalid("只有草稿候选版本可以关联工艺");
+        return version;
+    }
+    private JSONObject requireBindingConfig(JSONObject root, Long routeProcessId) {
+        return configs(root).stream().filter(c -> Objects.equals(routeProcessId, c.getLong("routeProcessId")))
+                .findFirst().orElseThrow(() -> invalid("流程工序不存在"));
+    }
+    private void saveBinding(MesProRouteVersionDO version, MesProCraftBindingTargetReqVO request, JSONObject root) {
         candidateConfig.getObject().saveConfigSnapshots(version.getId(), request.getExpectedRouteSnapshotSha256(),
                 Map.of("productionProcessConfigSchemaVersion", 1,
                         "productionProcessConfigs", root.getJSONObject("configSnapshots").getJSONArray("productionProcessConfigs")));
@@ -455,22 +488,33 @@ public class MesProCraftService {
         if (values == null) return;
         for (Object raw : values) {
             JSONObject config = (JSONObject) raw;
-            Long id = config.getLong("craftId");
-            if (id == null) continue; // 未迁移的既有配置仍按既有规则处理，不改变生产链路。
-            MesProCraftDO craft = require(id);
-            JSONArray parameters = JSON.parseArray(craft.getParametersJson());
-            // 整批构建期间采用待确认内容，正式工艺直到全部发布完成才更新。
-            for (MesProCraftChangeDO change : changes()) {
-                if (Objects.equals(id, change.getCraftId()) && Set.of("PREPARING", "APPLYING").contains(change.getStatus())) {
-                    parameters = JSON.parseArray(JSON.parseObject(change.getAfterJson()).getString("parametersJson"));
+            List<JSONObject> bound = bindings(config);
+            if (bound.isEmpty()) continue; // 原来没有引用的参数不受本次关联修改。
+            JSONArray expanded = new JSONArray();
+            Set<Long> seenCrafts = new HashSet<>(), seenDevices = new HashSet<>();
+            for (JSONObject binding : bound) {
+                Long id = binding.getLong("craftId");
+                if (!seenCrafts.add(id)) throw invalid("工艺不能重复选择");
+                MesProCraftDO craft = require(id);
+                JSONArray parameters = JSON.parseArray(craft.getParametersJson());
+                // 整批发布事务内校验待确认内容，正式工艺仍在全部成功后更新。
+                for (MesProCraftChangeDO change : changes()) {
+                    if (Objects.equals(id, change.getCraftId()) && Set.of("PREPARING", "APPLYING").contains(change.getStatus()))
+                        parameters = JSON.parseArray(JSON.parseObject(change.getAfterJson()).getString("parametersJson"));
                 }
+                if (!Objects.equals(craft.getProcessId(), config.getLong("processId")))
+                    throw invalid("工艺归属或参数内容已变化，请重新选择工艺");
+                if (!Objects.equals(fingerprint(craft.getProcessId(), parameters), binding.getString("craftFingerprint")))
+                    throw invalid("工艺归属或参数内容已变化，请重新选择工艺");
+                JSONArray ids = binding.getJSONArray("craftDeviceIds");
+                if (ids == null) throw invalid("工艺缺少执行设备关联");
+                List<Long> deviceIds = ids.toJavaList(Long.class);
+                for (Long deviceId : deviceIds) {
+                    if (!seenDevices.add(deviceId)) throw invalid("同一设备不能重复分配到多个工艺");
+                }
+                expanded.addAll(expand(config, parameters, deviceIds));
             }
-            if (!Objects.equals(craft.getProcessId(), config.getLong("processId"))
-                    || !Objects.equals(fingerprint(craft.getProcessId(), parameters), config.getString("craftFingerprint")))
-                throw invalid("工艺归属或参数内容已变化，请重新选择工艺");
-            JSONArray deviceIds = config.getJSONArray("craftDeviceIds");
-            if (deviceIds == null || !sameRules(config.getJSONArray("parameterRules"),
-                    expand(config, parameters, deviceIds.toJavaList(Long.class))))
+            if (!sameRules(config.getJSONArray("parameterRules"), expanded))
                 throw invalid("流程参数必须与所选工艺及设备关联一致");
         }
     }

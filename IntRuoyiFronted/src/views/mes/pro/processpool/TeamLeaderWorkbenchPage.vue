@@ -1583,7 +1583,7 @@
           @input="handleActiveOrderWorkOrderKeywordChange"
           @clear="handleActiveOrderWorkOrderKeywordChange"
         />
-        <el-button
+        <el-button class="app-test-button"
           v-if="testModeEnabled"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="warning"
@@ -1605,7 +1605,7 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增活跃订单
         </el-button>
-        <el-button
+        <el-button class="app-test-button"
           v-if="testModeEnabled && (isProductionLeader)"
           v-hasPermi="['mes:pro-process-pool-team-leader:maintain']"
           type="danger"
@@ -1789,7 +1789,7 @@
                       <Icon v-if="activeOrderVersionUpgradeSubmittingId === row.id" icon="ep:loading" class="is-loading" />
                       升级
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
           v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
@@ -1802,7 +1802,7 @@
                       <Icon icon="ep:document-copy" />
                       复制测试单
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
                       v-if="testModeEnabled && (row.simulated && row.simulationStage === 'LATEST_VERSION_COPY')"
                       :disabled="
                         maintenanceSubmitting ||
@@ -1814,7 +1814,7 @@
                     >
                       清理测试单
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
           v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
@@ -1827,7 +1827,7 @@
                       <Icon icon="ep:refresh" />
                       P1双100
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
           v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||
@@ -1842,7 +1842,7 @@
                       <Icon icon="ep:document" />
                       P2生成
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
           v-if="testModeEnabled"
                       v-hasPermi="['mes:pro-process-pool-team-leader:release-apply']"
                       :disabled="maintenanceSubmitting || activeOrderTestResetSubmitting || activeOrderSimulationSubmittingId !== undefined || releaseApplicationSubmittingId !== undefined || !canApplyActiveOrderRelease(row)"
@@ -1853,7 +1853,7 @@
                       <Icon icon="ep:promotion" />
                       P3推送放行
                     </el-dropdown-item>
-                    <el-dropdown-item
+                    <el-dropdown-item class="app-test-button"
           v-if="testModeEnabled"
                       :disabled="
                         maintenanceSubmitting ||

@@ -74,7 +74,7 @@
               <Icon class="mr-5px" icon="ep:plus" />
               新增测试项
             </el-button>
-            <el-button
+            <el-button class="app-test-button"
               v-hasPermi="['system:codex-test:execute']"
               :disabled="selectedCaseIds.length === 0 || !selectedTenantId"
               :loading="executeLoading"
@@ -84,7 +84,7 @@
             >
               顺序执行
             </el-button>
-            <el-button
+            <el-button class="app-test-button"
               v-hasPermi="['system:codex-test:execute']"
               :disabled="
                 selectedCaseIds.length === 0 || !selectedTenantId || selectedCasesContainNodeChain
@@ -237,6 +237,7 @@
                 :loading="executeLoading"
                 link
                 type="success"
+                class="app-test-button"
                 @click="startSingleCaseExecution(row)"
               >
                 执行

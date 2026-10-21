@@ -30,6 +30,41 @@ const scheduleFile = 'src/views/dcc/registration-certificate/config/components/R
 const erpFile = 'src/views/erp/sync/config/components/TableAutoSyncSetting.vue'
 const golden = 'mes:pro-batch-record-execution:golden-finger'
 
+test('published config menus replace registered static shells and resolve to their page components', async () => {
+  const staticRoutes = evaluate(read('src/router/modules/businessConfig.ts'), { '@/utils/routerHelper': { Layout: { render() {} } } }).default
+  const dynamicRoutes = staticRoutes.map((route, index) => ({
+    path: `/module-${index}`,
+    name: `Module${index}`,
+    component: { render() {} },
+    children: [{ ...route.children[0], path: route.path, component: { render() {} }, meta: {} }]
+  }))
+  const options = evaluate(read('src/store/modules/permission.ts'), {
+    pinia: { defineStore: (_name, options) => options },
+    './testMode': {},
+    '@/store': { store: {} },
+    'lodash-es': await import('lodash-es'),
+    '@/router/modules/remaining': { default: staticRoutes },
+    '@/router/modules/showroom': { default: [] },
+    '@/utils/routerHelper': { generateRoute: routes => routes, flatMultiLevelRoutes: routes => routes },
+    '@/hooks/web/useCache': { CACHE_KEY: { ROLE_ROUTERS: 'routes' }, useCache: () => ({ wsCache: { get: () => dynamicRoutes } }) },
+    '@/utils/is': { isUrl: value => /^https?:/.test(value) }
+  }).usePermissionStore
+  const state = options.state()
+  await options.actions.generateRoutes.call(state)
+  const router = createRouter({ history: createMemoryHistory(), routes: staticRoutes })
+  // Exercise the actual login registration order, including removal from Vue Router.
+  const guard = read('src/permission.ts')
+  const registration = guard.slice(guard.indexOf('permissionStore.staticRouteNamesToRemove.forEach'), guard.indexOf('        const redirectPath ='))
+  Function('router', 'permissionStore', compile(registration))(router, { ...state, getAddRouters: state.addRouters })
+  for (const route of staticRoutes) {
+    const resolved = router.resolve(route.path)
+    assert.equal(router.hasRoute(route.name), false)
+    assert.equal(resolved.name, route.children[0].name)
+    assert.equal(resolved.matched.length, 2)
+    assert.ok(resolved.matched.at(-1).components.default)
+  }
+})
+
 test('access policies retain explicit MES/DCC and existing infra administrator semantics; ERP requires every capability', () => {
   const user = { permissions: new Set(), getRoles: [], getUser: { username: 'ordinary' } }
   const access = evaluate(read('src/utils/businessConfigAccess.ts'), { '@/store/modules/user': { useUserStore: () => user }, '@/utils/permission': { checkPermi: permissions => user.permissions.has('*:*:*') || permissions.some(p => user.permissions.has(p)) } })
@@ -50,7 +85,7 @@ test('access policies retain explicit MES/DCC and existing infra administrator s
 test('idle editor rejects duplicates, invisible values and out-of-range data, then preserves full global row on save', async () => {
   const row = { id: 8, key: 'system.login.idle-timeout-minutes', visible: true, value: '15', name: 'global', type: 1 }
   let rows = [row], writes = []
-  const h = component(idleFile, { ConfigApi: { getConfigPage: async () => ({ list: rows }), updateConfig: async value => writes.push(value) } }, 'loadConfig, handleSave, form, loaded')
+  const h = component(idleFile, { useTestModeStore: () => ({ apply() {} }), ConfigApi: { getConfigPage: async () => ({ list: rows }), updateConfig: async value => writes.push(value) } }, 'loadConfig, handleSave, form, loaded')
   for (const invalid of [[row, row], [{ ...row, visible: false }], [{ ...row, value: '1441' }]]) {
     rows = invalid
     await h.instance.loadConfig()
@@ -63,7 +98,7 @@ test('idle editor rejects duplicates, invisible values and out-of-range data, th
   h.instance.form.idleLogoutMinutes = 60
   await h.instance.handleSave()
   assert.deepEqual(writes, [{ ...row, value: '60' }])
-  const denied = component(idleFile, { defineProps: () => ({ canUpdate: false }), ConfigApi: { getConfigPage: async () => ({ list: [row] }), updateConfig: async () => assert.fail('unauthorized write') } }, 'loadConfig, handleSave')
+  const denied = component(idleFile, { useTestModeStore: () => ({ apply() {} }), defineProps: () => ({ canUpdate: false }), ConfigApi: { getConfigPage: async () => ({ list: [row] }), updateConfig: async () => assert.fail('unauthorized write') } }, 'loadConfig, handleSave')
   await denied.instance.loadConfig()
   await denied.instance.handleSave()
   assert.match(denied.errors[0], /无权/)

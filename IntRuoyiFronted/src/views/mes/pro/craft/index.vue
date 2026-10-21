@@ -1,38 +1,5 @@
 <template>
-  <ContentWrap>
-    <el-form inline @submit.prevent>
-      <el-form-item label="工序">
-        <el-select
-          v-model="filterProcessId"
-          filterable
-          clearable
-          class="!w-240px"
-          placeholder="全部工序"
-        >
-          <el-option
-            v-for="p in processes"
-            :key="p.id"
-            :label="p.code + ' ' + p.name"
-            :value="p.id!"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="工艺"
-        ><el-input v-model="keyword" clearable placeholder="工艺编号或名称"
-      /></el-form-item>
-      <el-form-item>
-        <el-button v-hasPermi="['mes:pro-craft:create']" type="primary" @click="openEditor()"
-          >新增工艺</el-button
-        >
-        <el-button
-          v-hasPermi="['mes:pro-craft:initialize']"
-          :loading="loading"
-          @click="previewInitialization"
-          >从现有流程初始化</el-button
-        >
-        <el-button :loading="loading" @click="load">刷新</el-button>
-      </el-form-item>
-    </el-form>
+  <ContentWrap class="craft-library">
     <el-alert
       v-if="error"
       :title="error"
@@ -41,57 +8,180 @@
       show-icon
       class="mb-12px"
     />
-    <el-table v-loading="loading" :data="filteredCrafts">
-      <el-table-column label="工艺编号" prop="code" width="140" />
-      <el-table-column label="工艺名称" prop="name" min-width="180" />
-      <el-table-column label="所属工序" min-width="180"
-        ><template #default="{ row }">{{ processLabel(row.processId) }}</template></el-table-column
-      >
-      <el-table-column label="参数数量" width="100"
-        ><template #default="{ row }">{{
-          JSON.parse(row.parametersJson).length
-        }}</template></el-table-column
-      >
-      <el-table-column label="操作" width="150"
-        ><template #default="{ row }">
-          <el-button link type="primary" @click="openEditor(row, true)">查看</el-button>
-          <el-button
-            v-hasPermi="['mes:pro-craft:update']"
-            link
-            type="primary"
-            @click="openEditor(row)"
-            >修改</el-button
-          >
-        </template></el-table-column
-      >
-    </el-table>
-  </ContentWrap>
-  <ContentWrap title="工艺修改记录">
-    <el-table :data="changes">
-      <el-table-column label="时间" prop="createTime" :formatter="dateFormatter" min-width="180" />
-      <el-table-column label="操作人" prop="creator" width="100" />
-      <el-table-column label="操作" width="110"
-        ><template #default="{ row }">{{ typeLabel(row.changeType) }}</template></el-table-column
-      >
-      <el-table-column label="状态" width="160"
-        ><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column
-      >
-      <el-table-column label="原因" prop="reason" min-width="220" />
-      <el-table-column label="操作" width="160"
-        ><template #default="{ row }">
-          <el-button link @click="showHistory(row)">查看变更</el-button>
-          <el-button
-            v-if="row.status === 'PENDING'"
-            v-hasPermi="['mes:pro-craft:update']"
-            link
-            type="danger"
-            :disabled="loading"
-            @click="cancelChange(row)"
-            >作废整次修改</el-button
-          >
-        </template></el-table-column
-      >
-    </el-table>
+    <el-tabs v-model="activeTab" class="craft-library__tabs">
+      <el-tab-pane label="工艺库" name="crafts">
+        <UnifiedListTemplate
+          :table-key="CRAFT_TABLE_KEY"
+          class="craft-library__list"
+          :query-model="craftQuery"
+          :filter-definitions="[]"
+          :quick-filter-state="{}"
+          :operator-options="[]"
+          :show-quick-filter="false"
+          show-multi-filter
+          :multi-filter-definitions="craftFilterDefinitions"
+          :multi-filter-state="craftFilter.state"
+          :columns="craftColumnControl.columns.value"
+          :column-saving="craftColumnControl.saving.value"
+          v-model:sort-state="craftSort"
+          :total="filteredCrafts.length"
+          v-model:page="craftQuery.pageNo"
+          v-model:limit="craftQuery.pageSize"
+          @update:multi-filter-state="craftFilter.updateState"
+          @multi-filter-query="craftFilter.applyMultiFilter"
+          @multi-filter-reset="craftFilter.resetMultiFilter"
+          @multi-filter-remove="craftFilter.removeConditionAndApply"
+          @column-change="craftColumnControl.saveConfig"
+          @sort-change="craftQuery.pageNo = 1"
+        >
+          <template #actions>
+            <el-button
+              v-hasPermi="['mes:pro-craft:create']"
+              type="primary"
+              plain
+              @click="openEditor()"
+            >
+              <Icon icon="ep:plus" class="mr-5px" />新增工艺
+            </el-button>
+            <el-button
+              v-hasPermi="['mes:pro-craft:initialize']"
+              :loading="loading"
+              @click="previewInitialization"
+            >
+              从现有流程初始化
+            </el-button>
+            <el-button :loading="loading" @click="load"
+              ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
+            >
+          </template>
+          <template #table="{ sortColumnAttrs, handleSortChange }">
+            <el-table
+              v-loading="loading"
+              :data="pagedCrafts"
+              height="100%"
+              scrollbar-always-on
+              border
+              stripe
+              show-overflow-tooltip
+              row-key="id"
+              data-user-table-column-explicit
+              :data-user-table-key="CRAFT_TABLE_KEY"
+              @header-dragend="craftColumnControl.handleHeaderDragend"
+              @sort-change="handleSortChange"
+            >
+              <el-table-column
+                v-for="column in visibleCraftDataColumns"
+                :key="column.key"
+                :prop="column.key"
+                :label="column.label"
+                :width="column.width"
+                :min-width="column.minWidth"
+                align="center"
+                v-bind="sortColumnAttrs(column.key)"
+              />
+              <el-table-column
+                label="操作"
+                prop="operation"
+                :width="craftColumnControl.getColumnWidthString('operation')"
+                align="center"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openEditor(row, true)">查看</el-button>
+                  <el-button
+                    v-hasPermi="['mes:pro-craft:update']"
+                    link
+                    type="primary"
+                    @click="openEditor(row)"
+                    >修改</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+      </el-tab-pane>
+      <el-tab-pane label="工艺修改记录" name="changes" lazy>
+        <UnifiedListTemplate
+          :table-key="CHANGE_TABLE_KEY"
+          class="craft-library__list"
+          :query-model="changeQuery"
+          :filter-definitions="[]"
+          :quick-filter-state="{}"
+          :operator-options="[]"
+          :show-quick-filter="false"
+          show-multi-filter
+          :multi-filter-definitions="changeFilterDefinitions"
+          :multi-filter-state="changeFilter.state"
+          :columns="changeColumnControl.columns.value"
+          :column-saving="changeColumnControl.saving.value"
+          v-model:sort-state="changeSort"
+          :total="filteredChanges.length"
+          v-model:page="changeQuery.pageNo"
+          v-model:limit="changeQuery.pageSize"
+          @update:multi-filter-state="changeFilter.updateState"
+          @multi-filter-query="changeFilter.applyMultiFilter"
+          @multi-filter-reset="changeFilter.resetMultiFilter"
+          @multi-filter-remove="changeFilter.removeConditionAndApply"
+          @column-change="changeColumnControl.saveConfig"
+          @sort-change="changeQuery.pageNo = 1"
+        >
+          <template #actions>
+            <el-button :loading="loading" @click="load"
+              ><Icon icon="ep:refresh" class="mr-5px" />刷新</el-button
+            >
+          </template>
+          <template #table="{ sortColumnAttrs, handleSortChange }">
+            <el-table
+              v-loading="loading"
+              :data="pagedChanges"
+              height="100%"
+              scrollbar-always-on
+              border
+              stripe
+              show-overflow-tooltip
+              row-key="id"
+              data-user-table-column-explicit
+              :data-user-table-key="CHANGE_TABLE_KEY"
+              @header-dragend="changeColumnControl.handleHeaderDragend"
+              @sort-change="handleSortChange"
+            >
+              <el-table-column
+                v-for="column in visibleChangeDataColumns"
+                :key="column.key"
+                :prop="column.key"
+                :label="column.label"
+                :width="column.width"
+                :min-width="column.minWidth"
+                :formatter="column.key === 'createTime' ? dateFormatter : undefined"
+                align="center"
+                v-bind="sortColumnAttrs(column.key)"
+              />
+              <el-table-column
+                label="操作"
+                prop="operation"
+                :width="changeColumnControl.getColumnWidthString('operation')"
+                align="center"
+                fixed="right"
+              >
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="showHistory(row)">查看变更</el-button>
+                  <el-button
+                    v-if="row.status === 'PENDING'"
+                    v-hasPermi="['mes:pro-craft:update']"
+                    link
+                    type="danger"
+                    :disabled="loading"
+                    @click="cancelChange(row)"
+                    >作废整次修改</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+        </UnifiedListTemplate>
+      </el-tab-pane>
+    </el-tabs>
   </ContentWrap>
   <Dialog
     v-model="editorVisible"
@@ -237,7 +327,11 @@
     :close-on-click-modal="false"
   >
     <el-alert
-      title="确认后全部关联流程统一升级；已有生产订单继续使用原参数快照。"
+      :title="
+        initializing
+          ? '仅将现有正式流程的参数提取到工艺库，不自动绑定或升级流程，不改变一线参数填写。不同参数方案分别入库，相同工序及参数自动去重。'
+          : '确认后全部关联流程统一升级；已有生产订单继续使用原参数快照。'
+      "
       type="info"
       :closable="false"
       show-icon
@@ -252,14 +346,25 @@
         class="mt-8px"
       />
       <template v-if="initializing">
+        <el-alert
+          v-for="(warning, index) in impact.warnings"
+          :key="index"
+          :title="warning"
+          type="warning"
+          :closable="false"
+          class="mt-8px"
+        />
         <p
-          >可提取 {{ impact.sources?.length || 0 }} 个工序节点；无参数节点
+          >参数方案来源 {{ impact.sources?.length || 0 }} 条；去重后可新增
+          {{ impact.newCraftCount }} 项工艺，已有 {{ impact.existingCraftCount }} 项；无参数节点
           {{ impact.emptyNodeCount || 0 }} 个。</p
         >
         <el-table :data="impact.sources" max-height="380"
           ><el-table-column label="工艺流程" prop="routeName" /><el-table-column
             label="工序"
-            prop="processName" /><el-table-column label="节点编号" prop="routeProcessId"
+            prop="processName" /><el-table-column label="节点编号" prop="routeProcessId" />
+          <el-table-column label="节点内方案" prop="schemeNo" width="100" />
+          <el-table-column label="参数数量" prop="parameterCount" width="100"
         /></el-table>
       </template>
       <template v-else>
@@ -290,9 +395,9 @@
       <el-button
         type="primary"
         :loading="saving"
-        :disabled="!impact || !!impact.blockers.length || (initializing && !impact.sources?.length)"
+        :disabled="!impact || !!impact.blockers.length || (initializing && !impact.newCraftCount)"
         @click="confirmAll"
-        >{{ initializing ? '确认初始化并全部关联' : '确认修改并全部升级' }}</el-button
+        >{{ initializing ? '确认提取入库' : '确认修改并全部升级' }}</el-button
       >
     </template>
   </Dialog>
@@ -338,14 +443,22 @@ import {
 } from '@/api/mes/pro/craft'
 import { ProProcessApi, type ProProcessVO } from '@/api/mes/pro/process'
 import { dateFormatter } from '@/utils/formatTime'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
+import {
+  useTableMultiFilter,
+  type ListMultiFilterDefinition,
+  type ListMultiFilterCondition
+} from '@/hooks/web/useTableMultiFilter'
 defineOptions({ name: 'MesProCraft' })
 const message = useMessage()
 const crafts = ref<Craft[]>([]),
   processes = ref<ProProcessVO[]>([]),
   changes = ref<CraftChange[]>([])
-const filterProcessId = ref<number>(),
-  keyword = ref(''),
-  loading = ref(false),
+const loading = ref(false),
   saving = ref(false)
 const error = ref(''),
   editorError = ref(''),
@@ -359,17 +472,149 @@ const editorCode = ref(''),
   historyVisible = ref(false),
   history = ref<CraftChange>()
 const form = reactive<CraftSave>({ name: '', processId: undefined, parameters: [], reason: '' })
-const filteredCrafts = computed(() =>
-  crafts.value.filter(
-    (c) =>
-      (!filterProcessId.value || c.processId === filterProcessId.value) &&
-      (!keyword.value || (c.code + c.name).includes(keyword.value))
+const CRAFT_TABLE_KEY = 'mes.pro.craft.main'
+const CHANGE_TABLE_KEY = 'mes.pro.craft.changes'
+const activeTab = ref('crafts')
+const craftDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'code', label: '工艺编号', width: 140, sortable: 'custom' },
+  { key: 'name', label: '工艺名称', minWidth: 220, sortable: 'custom' },
+  { key: 'processCode', label: '工序编码', width: 150, sortable: 'custom' },
+  { key: 'processName', label: '工序名称', minWidth: 180, sortable: 'custom' },
+  { key: 'parameterCount', label: '参数数量', width: 110, sortable: 'custom' },
+  { key: 'operation', label: '操作', width: 150, hideable: false, business: false }
+]
+const changeDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'createTime', label: '时间', width: 180, sortable: 'custom' },
+  { key: 'creator', label: '操作人', width: 110, sortable: 'custom' },
+  { key: 'changeTypeLabel', label: '变更类型', width: 110, sortable: 'custom' },
+  { key: 'statusLabel', label: '状态', minWidth: 180, sortable: 'custom' },
+  { key: 'reason', label: '原因', minWidth: 240, sortable: 'custom' },
+  { key: 'operation', label: '操作', width: 220, hideable: false, business: false }
+]
+const craftColumnControl = useUserTableColumns(CRAFT_TABLE_KEY, craftDefaultColumns)
+const changeColumnControl = useUserTableColumns(CHANGE_TABLE_KEY, changeDefaultColumns)
+const visibleCraftDataColumns = computed(() =>
+  craftColumnControl.visibleColumns.value.filter((column) => column.business !== false)
+)
+const visibleChangeDataColumns = computed(() =>
+  changeColumnControl.visibleColumns.value.filter((column) => column.business !== false)
+)
+const craftFilterDefinitions: ListMultiFilterDefinition[] = [
+  { key: 'code', label: '工艺编号', type: 'text' },
+  { key: 'name', label: '工艺名称', type: 'text' },
+  { key: 'processCode', label: '工序编码', type: 'text' },
+  { key: 'processName', label: '工序名称', type: 'text' }
+]
+const changeFilterDefinitions: ListMultiFilterDefinition[] = [
+  { key: 'creator', label: '操作人', type: 'text' },
+  {
+    key: 'changeTypeLabel',
+    label: '变更类型',
+    type: 'select',
+    options: [
+      { label: '新增', value: '新增' },
+      { label: '修改', value: '修改' },
+      { label: '初始化', value: '初始化' }
+    ]
+  },
+  {
+    key: 'statusLabel',
+    label: '状态',
+    type: 'select',
+    options: [
+      { label: '准备中', value: '准备中' },
+      { label: '等待全部流程审批', value: '等待全部流程审批' },
+      { label: '统一生效中', value: '统一生效中' },
+      { label: '已生效', value: '已生效' },
+      { label: '已作废', value: '已作废' }
+    ]
+  },
+  { key: 'reason', label: '原因', type: 'text' }
+]
+type LocalListQuery = {
+  pageNo: number
+  pageSize: number
+  multiFilters?: ListMultiFilterCondition[]
+}
+type LocalListSort = { prop?: string; key?: string; order?: 'ascending' | 'descending' | null }
+const craftQuery = reactive<LocalListQuery>({ pageNo: 1, pageSize: 20 })
+const changeQuery = reactive<LocalListQuery>({ pageNo: 1, pageSize: 20 })
+const craftSort = ref<LocalListSort>({})
+const changeSort = ref<LocalListSort>({})
+const craftFilter = useTableMultiFilter(CRAFT_TABLE_KEY, craftFilterDefinitions, craftQuery, () =>
+  nextTick()
+)
+const changeFilter = useTableMultiFilter(
+  CHANGE_TABLE_KEY,
+  changeFilterDefinitions,
+  changeQuery,
+  () => nextTick()
+)
+// 两个接口均返回完整集合：先按已应用的条件筛选、全量排序，再分页。
+const queryRows = <T extends object>(
+  rows: T[],
+  query: LocalListQuery,
+  sort: LocalListSort
+): T[] => {
+  const result = rows.filter((row) =>
+    (query.multiFilters || []).every((condition) => {
+      const value = row[condition.key as keyof T]
+      if (condition.operator === 'eq') return String(value ?? '') === String(condition.value)
+      if (condition.operator === 'contains')
+        return String(value ?? '')
+          .toLocaleLowerCase()
+          .includes(String(condition.value).toLocaleLowerCase())
+      throw new Error(`不支持的筛选运算符：${condition.operator}`)
+    })
+  )
+  if (sort.prop && sort.order) {
+    const prop = sort.prop as keyof T
+    const direction = sort.order === 'ascending' ? 1 : -1
+    result.sort((a, b) => {
+      const left = a[prop],
+        right = b[prop]
+      const compared =
+        typeof left === 'number' && typeof right === 'number'
+          ? left - right
+          : String(left ?? '').localeCompare(String(right ?? ''), 'zh-CN', { numeric: true })
+      return direction * compared
+    })
+  }
+  return result
+}
+const processMap = computed(() => new Map(processes.value.map((process) => [process.id, process])))
+const craftRows = computed(() =>
+  crafts.value.map((craft) => ({
+    ...craft,
+    processCode: processMap.value.get(craft.processId)?.code,
+    processName: processMap.value.get(craft.processId)?.name,
+    parameterCount: (JSON.parse(craft.parametersJson) as CraftParameter[]).length
+  }))
+)
+const filteredCrafts = computed(() => queryRows(craftRows.value, craftQuery, craftSort.value))
+const pagedCrafts = computed(() =>
+  filteredCrafts.value.slice(
+    (craftQuery.pageNo - 1) * craftQuery.pageSize,
+    craftQuery.pageNo * craftQuery.pageSize
   )
 )
-const processLabel = (id: number) => {
-  const p = processes.value.find((p) => p.id === id)
-  return p ? p.code + ' ' + p.name : String(id)
-}
+const filteredChanges = computed(() =>
+  queryRows(
+    changes.value.map((change) => ({
+      ...change,
+      changeTypeLabel: typeLabel(change.changeType),
+      statusLabel: statusLabel(change.status)
+    })),
+    changeQuery,
+    changeSort.value
+  )
+)
+const pagedChanges = computed(() =>
+  filteredChanges.value.slice(
+    (changeQuery.pageNo - 1) * changeQuery.pageSize,
+    changeQuery.pageNo * changeQuery.pageSize
+  )
+)
 const parameterTypes = [
   { value: 'INTEGER', label: '整数' },
   { value: 'DECIMAL', label: '小数' },
@@ -576,9 +821,11 @@ async function confirmAll() {
     impactVisible.value = false
     editorVisible.value = false
     message.success(
-      result.status === 'APPLIED'
-        ? '工艺及全部关联流程已统一生效'
-        : '已提交，全部关联流程审批完成后统一生效'
+      initializing.value
+        ? '参数已提取到工艺库，现有流程和一线填写未改变'
+        : result.status === 'APPLIED'
+          ? '工艺及全部关联流程已统一生效'
+          : '已提交，全部关联流程审批完成后统一生效'
     )
     await load()
   } catch (e) {
@@ -607,6 +854,41 @@ function showHistory(change: CraftChange) {
 onMounted(load)
 </script>
 <style scoped>
+.craft-library :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  height: max(440px, calc(100vh - 190px));
+  overflow: hidden;
+}
+.craft-library__tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.craft-library__tabs :deep(.el-tabs__content),
+.craft-library__tabs :deep(.el-tab-pane) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.craft-library__list {
+  height: 100%;
+  overflow: hidden;
+}
+.craft-library__list :deep(.unified-list-template__table-shell) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.craft-library__list :deep(.unified-list-template__multi-filter) {
+  min-width: 0;
+}
+.craft-library__list :deep(.unified-list-template__toolbar-actions) {
+  max-width: 100%;
+}
+
 .craft-history {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

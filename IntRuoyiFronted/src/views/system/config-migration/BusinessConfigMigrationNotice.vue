@@ -28,16 +28,18 @@
 </template>
 <script setup lang="ts">
 const configRouter = useRouter()
+import { useTestMode } from '@/store/modules/testMode'
 import {
   GOLDEN_FINGER_PERMISSION,
   hasExplicitConfigPermission,
   hasInfraConfigPermission,
   hasErpConfigCapability
 } from '@/utils/businessConfigAccess'
-const canMes = computed(() => hasExplicitConfigPermission(GOLDEN_FINGER_PERMISSION))
-const canErp = computed(() => hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']))
+const testMode = useTestMode()
+const canMes = computed(() => testMode.value && hasExplicitConfigPermission(GOLDEN_FINGER_PERMISSION))
+const canErp = computed(() => testMode.value && hasErpConfigCapability(['infra:job:query', 'erp:kingdee-sync:query']))
 const canDcc = computed(() =>
-  hasExplicitConfigPermission('dcc:registration-certificate:config:query')
+  testMode.value && hasExplicitConfigPermission('dcc:registration-certificate:config:query')
 )
 const canInfra = computed(() => hasInfraConfigPermission('infra:config:query'))
 </script>

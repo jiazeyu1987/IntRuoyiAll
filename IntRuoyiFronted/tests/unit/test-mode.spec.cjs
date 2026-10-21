@@ -88,6 +88,25 @@ test('test menus are filtered recursively without removing normal business route
   assert.equal(JSON.stringify(routes), original)
 })
 
+test('business config menus follow test mode while basic config stays available', () => {
+  const api = loadModule()
+  const store = api.useTestModeStore()
+  const routes = [
+    { path: '/mes', children: [{ path: 'pro/edhr-config', name: 'MesEdhrGlobalConfig' }] },
+    { path: '/erp', children: [{ path: 'sync/config', name: 'ErpTableAutoSyncConfig' }] },
+    { path: '/dcc', children: [{ path: 'registration-certificate/config', name: 'DccRegistrationCertificateConfig' }] },
+    { path: '/infra', children: [{ path: 'config/basic', name: 'InfraBasicConfig' }, { path: 'config', name: 'InfraConfig' }] }
+  ]
+  const original = JSON.stringify(routes)
+  const visible = vue.computed(() => store.enabled === true ? routes : api.filterTestModeMenus(routes))
+  for (const enabled of [null, false, true, false]) {
+    store.apply(enabled)
+    assert.deepEqual(Array.from(visible.value, route => route.children.length), enabled === true ? [1, 1, 1, 2] : [0, 0, 0, 2])
+    assert.equal(visible.value[3].children[0].name, 'InfraBasicConfig')
+  }
+  assert.equal(JSON.stringify(routes), original)
+})
+
 test('a slow initialization read cannot overwrite a configuration saved in the meantime', async () => {
   let completeRead
   const api = loadModule(() => new Promise((resolve) => { completeRead = resolve }))

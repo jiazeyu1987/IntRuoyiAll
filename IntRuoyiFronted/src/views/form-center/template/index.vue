@@ -183,7 +183,7 @@
             <el-button
               v-if="testModeEnabled && (canUseTemplateInteractiveAction(selectedTemplate))"
               link
-              class="scheme-d-row-action scheme-d-row-action--primary"
+              class="scheme-d-row-action scheme-d-row-action--primary app-test-button"
               type="primary"
               @click="openSelectedTemplateFill"
             >

@@ -67,6 +67,22 @@ class MesProCraftParametersTest {
         c.put("parameterRules",rules);
         assertThrows(ServiceException.class,()->extract(c));
     }
+    @Test void seedExtractionKeepsDifferentSchemesSeparateAndNeverChangesSource() {
+        JSONObject c = config();
+        JSONArray rules = expand(c, definitions(), List.of(31L, 32L, 33L));
+        rules.getJSONObject(5).put("standardText", "不同设备标准");
+        c.put("parameterRules", rules);
+        String before = c.toJSONString();
+        List<Extracted> schemes = extractSchemes(c);
+        assertEquals(2, schemes.size());
+        assertEquals(List.of(31L, 33L), schemes.get(0).deviceIds());
+        assertEquals(List.of(32L), schemes.get(1).deviceIds());
+        assertEquals(5, schemes.get(0).parameters().size());
+        assertEquals(5, schemes.get(1).parameters().size());
+        assertNotEquals(fingerprint(22L, schemes.get(0).parameters()), fingerprint(22L, schemes.get(1).parameters()));
+        assertEquals(before, c.toJSONString());
+        assertFalse(schemes.get(0).parameters().toJSONString().contains("deviceId"));
+    }
     @Test void sameParametersOnDifferentProcessesHaveDifferentIdentity() {
         assertNotEquals(fingerprint(1L,definitions()),fingerprint(2L,definitions()));
     }

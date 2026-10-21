@@ -42,9 +42,18 @@ const testPageSegments = new Set([
   'template-simulate'
 ])
 
+const testConfigRouteNames = new Set([
+  'MesEdhrGlobalConfig',
+  'ErpTableAutoSyncConfig',
+  'DccRegistrationCertificateConfig'
+])
+
 export const filterTestModeMenus = (routes: AppRouteRecordRaw[]): AppRouteRecordRaw[] =>
   routes
-    .filter((route) => !route.path.split('/').some((segment) => testPageSegments.has(segment)))
+    .filter((route) =>
+      !testConfigRouteNames.has(String(route.name)) &&
+      !route.path.split('/').some((segment) => testPageSegments.has(segment))
+    )
     .map((route) => ({
       ...route,
       ...(route.children ? { children: filterTestModeMenus(route.children) } : {})

@@ -32,7 +32,7 @@
                   size="small"
                   link
                   type="primary"
-                  class="edhr-batch-template__simulate-action"
+                  class="edhr-batch-template__simulate-action app-test-button"
                   @click.stop="openSimulate(task)"
                 >
                   模拟填写
