@@ -144,7 +144,8 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void previewControlledFile_delegatesToQueryService() {
-        when(queryService.readPreviewFile(99L, 900L,
+        var bodyContext = DccControlledFileBodyReadContext.daily(900L);
+        when(queryService.readPreviewFile(99L, 900L, bodyContext,
                 "viewer-token", "AE-20260528-0001", "WM-20260528-0001", "VT-1", "VN-1",
                 auditContext("AE-20260528-0001")))
                 .thenReturn(new DccControlledFileBinary(
@@ -182,9 +183,10 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
             assertEquals(
                     PREVIEW_WATERMARK_HEADER + "," + ACCESS_EVENT_CODE_HEADER,
                     response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS));
-            verify(queryService).readPreviewFile(99L, 900L,
+            verify(queryService).readPreviewFile(99L, 900L, bodyContext,
                     "viewer-token", "AE-20260528-0001", "WM-20260528-0001", "VT-1", "VN-1",
                     auditContext("AE-20260528-0001"));
+            verify(queryService, never()).readPreviewFile(any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 

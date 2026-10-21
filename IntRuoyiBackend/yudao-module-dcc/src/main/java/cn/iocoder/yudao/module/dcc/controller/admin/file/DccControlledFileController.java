@@ -177,6 +177,8 @@ public class DccControlledFileController {
     @Resource
     private DccControlledFileQueryService queryService;
     @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.DccSelectedDetailReadService selectedDetailReader;
+    @Resource
     private DccControlledFileSourceMigrationService sourceMigrationService;
     @Resource
     private DccControlledFileSourceGovernanceBatchService sourceGovernanceBatchService;
@@ -188,6 +190,8 @@ public class DccControlledFileController {
     private DccControlledFileBrowserSettingsService browserSettingsService;
     @Resource
     private DccControlledFileMetadataUpdateService metadataUpdateService;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.file.DccWorkingApplicationTypeChangeService workingTypeChanges;
     @Resource
     private DccControlledFileMetadataImportExportService metadataImportExportService;
     @Resource
@@ -481,6 +485,29 @@ public class DccControlledFileController {
     @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get controlled file detail")
     @PreAuthorize("isAuthenticated()")
+    public CommonResult<DccControlledFileRespVO> readControlledFileDetail(@PathVariable("id") Long id, HttpServletRequest request) {
+        if (request.getParameterValues("bodyReadContext") != null) {
+            if (request.getParameterValues("processInstanceId") != null || request.getParameterValues("taskId") != null
+                    || request.getParameterValues("applicationType") != null)
+                throw new IllegalArgumentException("详情申请身份与正文上下文不能混用");
+            return success(selectedDetailReader.read(getLoginUserId(),id,bodyReadRequest(id,request,false)));
+        }
+        if (request.getHeader(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.HEADER)!=null)
+            throw new IllegalArgumentException("详情上下文必须使用唯一正式查询参数");
+        String bpm=detailParameter(request,"processInstanceId"),task=detailParameter(request,"taskId"),type=detailParameter(request,"applicationType");
+        if (bpm!=null || task!=null || type!=null)
+            return success(selectedDetailReader.readApplication(getLoginUserId(),id,bpm,task,type));
+        return getControlledFile(id);
+    }
+
+    private String detailParameter(HttpServletRequest request,String name) {
+        var values=request.getParameterValues(name);
+        if (values==null) return null;
+        if (values.length!=1 || values[0]==null || values[0].isBlank() || !values[0].equals(values[0].strip()))
+            throw new IllegalArgumentException("详情来源必须指定唯一精确申请或任务身份");
+        return values[0];
+    }
+
     public CommonResult<DccControlledFileRespVO> getControlledFile(@PathVariable("id") Long id) {
         return success(queryService.getControlledFile(getLoginUserId(), id));
     }
@@ -520,6 +547,34 @@ public class DccControlledFileController {
     public CommonResult<cn.iocoder.yudao.module.dcc.service.file.DccFileRelationPermissions> getRelationPermissions(
             @PathVariable("id") Long id) {
         return success(queryService.getRelationPermissions(getLoginUserId(), id));
+    }
+
+    @PostMapping("/{id:\\d+}/working-type-change/preview")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangePreviewVO> previewWorkingTypeChange(
+            @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangeReqVO request) {
+        return success(workingTypeChanges.preview(getLoginUserId(),id,request));
+    }
+
+    @PostMapping("/{id:\\d+}/working-type-change")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangePreviewVO> confirmWorkingTypeChange(
+            @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationTypeChangeReqVO request) {
+        return success(workingTypeChanges.confirm(getLoginUserId(),id,request));
+    }
+
+    @GetMapping("/{id:\\d+}/working-type-storage-recovery/preview")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryPreviewVO> previewWorkingTypeStorageRecovery(
+            @PathVariable("id") Long id) {
+        return success(workingTypeChanges.previewStorageRecovery(getLoginUserId(),id));
+    }
+
+    @PostMapping("/{id:\\d+}/working-type-storage-recovery")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryPreviewVO> confirmWorkingTypeStorageRecovery(
+            @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccWorkingApplicationStorageRecoveryReqVO request) {
+        return success(workingTypeChanges.confirmStorageRecovery(getLoginUserId(),id,request));
     }
 
     @GetMapping("/{id:\\d+}/working-attributes")

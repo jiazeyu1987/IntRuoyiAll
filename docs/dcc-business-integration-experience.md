@@ -98,6 +98,24 @@ BPM拒绝回调的状态CAS必须匹配经过核验的真实流程key，不能�
 - Forbidden action: 禁止删除父断言、补默认schema、把未执行目标记PASS、累计重叠测试为独立业务覆盖，或用后续命令退出码覆盖失败命令。
 - Evidence: `doc/tasks/20261014-dcc-gap-fix-coordination/final-verification.json`；M12/M14/M15有效47份报告共1008项。
 
+## 预览页面切换和卸载
+
+- Trigger: 文控正文、附件下载、引用详情或Office在异步请求期间发生账号、租户、版本切换或页面卸载。
+- Preflight check: 每个请求保留原文件、申请和实际账号/基础租户/访问租户身份，成功与失败回包写状态前实时复核；缓存租户getter不等于响应式状态。附件确认和二进制回包都受卸载失效门禁。阅读pagehide持续暂停直到pageshow，已结束会话重放不安装心跳；Office SDK必须有真实同服务来源，销毁异常保留真实失败并进入既有错误通道。
+- Blocker: 只靠props/watch或路由sequence判断旧回包、卸载后仍下载、旧申请wire回跳被native BPM覆盖、已结束会话当成活跃，或未知/其他服务SDK被当作当前服务成功。
+- Verification: 用实际SFC、Vue生命周期和生产handler复现旧确认、旧字节、非响应式租户缓存、旧申请、pagehide/迟到ready、结束会话和SDK异常；保留合法当前操作、取消和权限拒绝对照，再按最终源码指纹运行受影响测试、类型和构建。
+- Forbidden action: 禁止以历史PASS覆盖新增RED、隐藏真实错误、猜SDK来源、自动续签或换当前版本；不得为没有文档页码/正文的格式添加伪工具来宣称全格式验收通过。
+- Evidence: `doc/tasks/20261015-dcc-six-thread-followup-review/verification-report.md`；各原线程的本轮BDD、RED/GREEN及交还指纹。
+
+## 正文预览来源
+
+- Trigger: 正文metadata与binary分次请求、同一受控版本的源件/发布件指针或infra文件事实可能变化。
+- Preflight check: 普通正文令牌签名绑定服务端实际infraFileId、configId、path、name、contentType及size；binary及阅读会话复核同一来源，验证后使用不可变快照读取。name/type的nullable语义取正式schema，不增加无依据必填，不填显示默认值冒充原事实。
+- Blocker: 只比文件版本/用户/事件却重新读取当前新指针；无来源旧token进入普通正文，或source-bound失败后降级到原通用校验。
+- Verification: 真实Query/Guard/PreviewAccess/Audit/HMAC组合验证DAILY及审批任务的PDF/图片来源更换、位置/描述变化、合法nullable、同源正常读取/阅读、撤权、篡改及过期；原通用用途保留独立合同与回归。
+- Forbidden action: 禁止用metadata临时读取bytes冒充已保存hash、用sourceSha256冒充发布件hash，或把同FileDO身份未变等同对象存储bytes不可篡改。新增签发入口保留事务及错误传播。
+- Evidence: `doc/tasks/20261015-dcc-six-thread-followup-review/verification-report.md`；原R3实际33项中24业务断言失败，来源绑定核心67+17项正式GREEN，最终相邻回归见该主任务记录。
+
 ## 复验遗漏路径修复（2026-10-07）
 
 独立作废经表单中心启动，与上传/升版的BPM启动路径不同。通知名称须由锁定文件的正式编号/版本在createInstance时冻结，再由表单runtime校验对象身份后设置；只给上传/升版fileCode不能修作废。签名动作也有ASSIGN和ASSIGNED两种正式投影，完整表、签名目的和时间线须统一中文及用户意见展示，保持原机器证据不变。

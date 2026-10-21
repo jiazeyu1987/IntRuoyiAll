@@ -27,16 +27,19 @@ vm.runInNewContext(ts.transpileModule(read('shared/version-display.ts'), {
 function navigation(query = {}, id = '9007199254740993') {
   const calls = [], messages = []
   const c = { exports: {}, String, Object, Error, decodeURIComponent, encodeURIComponent, URLSearchParams,
+    detailBodyPreviewState: vue.ref({error:'',source:{controlledFileId:id}}),
     computed: vue.computed, route: { path: `/dcc/controlled-file/detail/${id}`,
       fullPath: `/dcc/controlled-file/detail/${id}?viewer=1&from=${query.from || 'browser'}`, query: { viewer: '1', ...query } },
     controlledFileId: vue.ref(id), fileDetail: vue.ref({ id, fileName: '完整文件名称.pdf', currentActiveControlledFileId: '9007199254740999' }),
     isWorkingBrowserDetailCurrent: vue.ref(true), ...helpers,
-    message: { error: value => messages.push(value) },
+    detailLoadSequence: 1,
+    message: { error: value => messages.push(value), warning: value => messages.push(value) },
     router: { push: async value => calls.push(value), back: () => calls.push('back'),
       resolve: value => ({ matched: String(value).startsWith('/unknown') ? [] : [{ path: '/registered' }] }) }
   }
+  c.isCurrentDetailLoad = () => c.isWorkingBrowserDetailCurrent.value
   vm.runInNewContext(ts.transpileModule([
-    declaration('openViewerTraceability'), declaration('closeViewerMode'), declaration('isBrowserTraceabilityPage'),
+    declaration('ensureCurrentDetailContext'), declaration('openViewerTraceability'), declaration('closeViewerMode'), declaration('isBrowserTraceabilityPage'),
     declaration('viewerIdentityError'),
     'exports.open=openViewerTraceability;exports.close=closeViewerMode;exports.readonly=isBrowserTraceabilityPage;'
   ].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, c)
@@ -68,6 +71,9 @@ function renderBranch(condition, detail, fresh = true) {
     const closeViewerMode=()=>{};const openViewerTraceability=()=>{};
     const getDetailStatusLabel=value=>value;const getDetailStatusTagType=()=> 'info';
     const getDccVersionDisplayText=__version;
+    const currentUserId={value:'99'};const getTenantId=()=> '1';const getVisitTenantId=()=>null;
+    ${declaration('readDetailAuthority')}
+    const detailBodyPreviewState=computed(()=>({error:'',source:{controlledFileId}}));
     ${declaration('viewerIdentityError')}
   </script>`).descriptor, { id: 'g10-real-branch', inlineTemplate: true })
   const c = { exports: {}, require: () => vue, __detail: detail, __fresh: fresh, __version: display.getDccVersionDisplayText }
@@ -158,17 +164,23 @@ test('stale, missing or wrong selected detail cannot navigate even when a differ
 test('actual records select and lock the requested historical round instead of the file latest round', () => {
   const records = parse(read('detail/ControlledFileBrowseRecords.vue')).descriptor
   const recordsAst = ts.createSourceFile('records.ts', records.scriptSetup.content, ts.ScriptTarget.Latest, true)
-  const statements = ['hasRequestedBpmRound', 'selectedBpmRound'].map(name => recordsAst.statements.find(n =>
+  const statements = ['readBrowseAuthority', 'readSelectionState', 'hasRequestedBpmRound', 'selectedBpmRound'].map(name => recordsAst.statements.find(n =>
     ts.isVariableStatement(n) && n.declarationList.declarations.some(d => d.name.text === name))?.getText(recordsAst) || '')
   const find = n => n.type === 1 && n.tag === 'DetailApplicationHistory' ? n : (n.children || []).map(find).find(Boolean)
   const history = find(records.template.ast)
-  for (const query of [{ processInstanceId: 'exact-old-round' }, {}]) {
+  const { body, resolveDetailReadSelection } = require('./dcc-detail-read-test-loader.cjs')
+  const wireQuery = body.buildDccBodyReadQuery('9007199254740993', { intent:'APPROVAL_HISTORY',
+    controlledFileId:'9007199254740993', expectedVersionNo:'A/1', applicationType:'REVISION', bpmRound:'exact-old-round', taskId:'old-task' })
+  for (const query of [{ processInstanceId: 'exact-old-round' }, wireQuery, {}]) {
     const compiled = compileScript(parse(`<template>${history.loc.source}</template><script setup>
       import {computed} from 'vue';const route=__route;const props=__fixture;const file=props.file;const contextKey='exact-view';
       const hasRelationApplicationContext=true;const relationApplicationContextKey=contextKey;const onApplicationSelectionChange=()=>{};
+      const resolveDetailReadSelection=__resolve;
+      const tenant=()=> '1';
       ${statements.join('\n')}
     </script>`).descriptor, { id: 'actual-history-round', inlineTemplate: true })
     const c = { exports: {}, require: () => vue, __route: { query },
+      __resolve: resolveDetailReadSelection,
       __fixture: { file: { id: '9007199254740993', processInstanceId: 'newer-round' } } }
     vm.runInNewContext(ts.transpileModule(compiled.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, c)
     let seen
@@ -178,8 +190,9 @@ test('actual records select and lock the requested historical round instead of t
     app.mount(node('root'))
     try {
       assert.equal(seen.fileId, '9007199254740993')
-      assert.equal(seen.primaryBpmRound, query.processInstanceId || 'newer-round')
-      assert.equal(Boolean(seen.lockPrimaryRound), Boolean(query.processInstanceId))
+      const selected = resolveDetailReadSelection('9007199254740993', query)
+      assert.equal(seen.primaryBpmRound, selected.bpmRound || 'newer-round')
+      assert.equal(Boolean(seen.lockPrimaryRound), selected.lockRound)
       assert.equal(seen.contextKey, 'exact-view')
     } finally { app.unmount() }
   }

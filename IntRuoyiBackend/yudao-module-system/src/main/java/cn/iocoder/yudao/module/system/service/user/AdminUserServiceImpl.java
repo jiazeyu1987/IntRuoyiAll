@@ -188,11 +188,18 @@ public class AdminUserServiceImpl implements AdminUserService {
         // 2.1 更新用户
         AdminUserDO updateObj = BeanUtils.toBean(updateReqVO, AdminUserDO.class);
         updateObj.setCanonicalUsername(canonicalizeUsername(updateReqVO.getUsername()));
-        userMapper.updateById(updateObj);
+        userMapper.update(updateObj, Wrappers.<AdminUserDO>lambdaUpdate()
+                .eq(AdminUserDO::getId, updateReqVO.getId())
+                .set(updateReqVO.isDeptIdSpecified() && updateReqVO.getDeptId() == null,
+                        AdminUserDO::getDeptId, null));
         // 2.2 更新岗位
         updateUserPost(updateReqVO, updateObj);
 
         // 3. 记录操作日志上下文
+        // 省略部门表示保留；持久化后补齐实际值，避免审计将省略误记为清空。
+        if (!updateReqVO.isDeptIdSpecified()) {
+            updateReqVO.setDeptId(oldUser.getDeptId());
+        }
         LogRecordContext.putVariable(DiffParseFunction.OLD_OBJECT, BeanUtils.toBean(oldUser, UserSaveReqVO.class));
         LogRecordContext.putVariable("user", oldUser);
     }

@@ -34,6 +34,14 @@ public class DccViewerTokenService {
     private Clock clock = Clock.systemUTC();
 
     public DccIssuedViewerToken issue(DccViewerTokenIssueCommand command) {
+        return issueInternal(command, null);
+    }
+
+    public DccIssuedViewerToken issueSourceBound(DccViewerTokenIssueCommand command, DccPreviewSourceIdentity source) {
+        return issueInternal(command, Objects.requireNonNull(source, "preview source identity"));
+    }
+
+    private DccIssuedViewerToken issueInternal(DccViewerTokenIssueCommand command, DccPreviewSourceIdentity source) {
         requireConfigured();
         requireIssueCommand(command);
         Instant issuedAt = Instant.now(clock);
@@ -49,6 +57,7 @@ public class DccViewerTokenService {
                 .ttlSeconds(command.ttlSeconds())
                 .issuedAtEpochSecond(issuedAt.getEpochSecond())
                 .expiresAtEpochSecond(issuedAt.plusSeconds(command.ttlSeconds()).getEpochSecond())
+                .previewSource(source)
                 .build();
         String encodedPayload = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(JsonUtils.toJsonString(payload).getBytes(StandardCharsets.UTF_8));
@@ -56,6 +65,27 @@ public class DccViewerTokenService {
     }
 
     public DccViewerTokenPayload verify(String token, DccViewerTokenExpectedContext expectedContext) {
+        var payload = verifySignedContext(token, expectedContext);
+        // A source-bound capability cannot be consumed through an entry that skips the source comparison.
+        if (payload.getPreviewSource() != null) throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        return payload;
+    }
+
+    public DccViewerTokenPayload verifySourceBound(String token, DccViewerTokenExpectedContext expectedContext,
+                                                  DccPreviewSourceIdentity source) {
+        Objects.requireNonNull(source, "preview source identity");
+        var payload = verifySignedContext(token, expectedContext);
+        if (!source.equals(payload.getPreviewSource())) throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        return payload;
+    }
+
+    /** Ends an already owned reading session; grants no source read or new session capability. */
+    public void verifyReadingSessionClose(String token, DccViewerTokenExpectedContext expectedContext) {
+        var payload = verifySignedContext(token, expectedContext);
+        if (payload.getPreviewSource() == null) throw exception(CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+    }
+
+    private DccViewerTokenPayload verifySignedContext(String token, DccViewerTokenExpectedContext expectedContext) {
         requireConfigured();
         requireExpectedContext(expectedContext);
         if (StrUtil.isBlank(token)) {

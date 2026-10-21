@@ -22,5 +22,6 @@ public class DccViewerTokenPayload {
     private Long ttlSeconds;
     private Long issuedAtEpochSecond;
     private Long expiresAtEpochSecond;
+    private DccPreviewSourceIdentity previewSource;
 
 }

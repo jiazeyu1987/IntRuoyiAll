@@ -43,9 +43,74 @@ class DccNativeUploadCompletionDatabaseTest extends DccNativeUploadSupervisorWor
     cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent finalEvent;
     DccControlledFileFinalizationServiceImpl finalization;
     boolean completedEndScenario;
-    @BeforeEach void completionScope(TestInfo info)throws Exception{completedEndScenario=info.getTestMethod().orElseThrow().getDeclaringClass()==DccNativeUploadCompletionDatabaseTest.class;formalRosterReady=false;for(String sql:new org.springframework.core.io.ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);jdbc.update("DELETE FROM system_notify_message");jdbc.update("DELETE FROM dcc_controlled_file_signature_binding");}
-    @Override DccControlledFileSubmitIterationReqVO nativeSubmitRequest(DccControlledFileRouteReadinessRespVO p){var request=super.nativeSubmitRequest(p);if(completedEndScenario){request.setEffectiveMode("AFTER_STANDARDIZATION_SIGNATURE");request.setEffectiveDate(null);request.setSelectedDistributionDepartmentIds(List.of(51L));}return request;}
-    @AfterEach void clearOwnCompletionListener(){if(engine!=null&&listener!=null)engine.getRuntimeService().removeEventListener(listener);if(events!=null)events.close();jdbc.update("DELETE FROM infra_file WHERE path LIKE 'ic31-native-completion/%'");}
+    @Override @BeforeEach void nativeSources(TestInfo info)throws Exception{
+        // Preserve the original setup order after overriding the suite-local category seed.
+        configureActualWorkingResources();
+        super.nativeSources(info);
+        if(DccNativeUploadSupervisorWorkflowTest.class.isAssignableFrom(info.getTestMethod().orElseThrow().getDeclaringClass())){
+            // Explicit empty ordinary-attachment facts; real service computes the same tenant/file manifest as submission.
+            var rows=mock(DccControlledFileAttachmentMapper.class);
+            when(rows.selectListByControlledFileId(anyLong())).thenReturn(List.of());
+            var attachments=new DccControlledFileAttachmentServiceImpl();
+            wire(attachments,"attachmentMapper",rows,"controlledFileMapper",files,
+                    "users",ReflectionTestUtils.getField(workflow,"adminUserApi"),"permissionSupport",permissions,
+                    "projectAccessService",access,"assignmentScopeService",ReflectionTestUtils.getField(workflow,"assignmentScopeService"));
+            wire(workflow,"attachmentService",attachments);
+        }
+    }
+    @Override DccControlledFileRoutePreviewReqVO nativePreview(){
+        var request=super.nativePreview();
+        request.setControlledFileId(20L); // This helper prepares the existing native working draft, not an uncreated V2 upload.
+        return request;
+    }
+    // Suite-local copy: seed the explicitly public category without changing any superclass fixture.
+    @Override void configureActualWorkingResources()throws Exception{
+        dates=new DccWorkflowDatePolicy();dates.setZoneId("Asia/Shanghai");
+        var category=cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().id(2L).code("IC21").name("新升版测试")
+                .active(true).approvalSourceMode("PUBLIC_MATRIX").source("LOCAL").lifecycleStage("DEVELOPMENT").fileTypeTaxonomyId(6L).build();categories.insert(category);
+        jdbc.update("UPDATE dcc_file_category SET tenant_id=1 WHERE id=2");
+        matrixSources=new DccApprovalMatrixSourceService();wire(matrixSources,"categories",categories,"routes",rawRoutes,"nodes",rawNodes,"datePolicy",dates);
+        var key=new DccApprovalMatrixTokenProperties();key.setSigningSecret("ic21-isolated-technical-baseline-key-at-least-32-bytes");
+        tokens=new DccApprovalMatrixTokenService();wire(tokens,"properties",key);
+        baselines=new DccApprovalMatrixBaselineService();wire(baselines,"sources",matrixSources,"tokens",tokens,"files",files);
+        if(Arrays.stream(baselines.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("executionContracts")))wire(baselines,"executionContracts",contracts);
+        workflow=new DccControlledFileWorkflowServiceImpl();defaults(workflow);
+        var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);
+        wire(workflow,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"projectCodeMapper",projects,
+                "projectAccessService",access,"categoryPermissionSupport",permissions,"categoryMapper",categories,"workflowDatePolicy",dates,
+                "projectApplicationSnapshots",snapshots,"projectAttributesService",attributes,"applicationRoundService",rounds,
+                "workingApplicationDraftInitializer",initializer,"approvalMatrixBaselines",baselines,"executionContracts",contracts,
+                "approvalMatrixSources",matrixSources,"assignmentScopeService",scope,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy());
+        var resolver=mock(DccControlledFileApprovalRouteAssigneeResolver.class);
+        // Baseline tests have no organizational provider. They keep an explicit not-ready
+        // dependency, while IC31's dedicated Workflow test wires the real native source resolver.
+        doThrow(new DccControlledFileApprovalRouteAssigneeResolver.NativeSupervisorNotReadyException()).when(resolver)
+                .resolvePublicNative(any(),any(),any(),any(),any(),any(),any(),any(),any());
+        when(resolver.resolvePublicMatrix(any(),eq(99L),eq("REVISION"),any())).thenAnswer(c->{var source=c.<DccApprovalMatrixSourceService.Source>getArgument(0);
+            return new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(source.route(),List.of(
+                    new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(1,"MATRIX_REVIEW","会签",1,"DEPT",51L,List.of(51L),"ALL",100,true,List.of(99L))),
+                    source.baseline(),cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.VERSION,List.of());});
+        var readiness=mock(DccControlledFileRouteReadinessService.class);
+        when(readiness.evaluateFrozenRoute(any())).thenAnswer(c->new DccControlledFileRouteReadinessService.RouteReadinessEvaluation(c.getArgument(0),
+                DccControlledFileRouteReadinessRespVO.builder().ready(false).nodes(List.of()).blockers(List.of()).build()));
+        wire(workflow,"approvalRouteAssigneeResolver",resolver,"routeReadinessService",readiness);
+        var departments=mock(cn.iocoder.yudao.module.system.api.dept.DeptApi.class);
+        when(departments.getDeptList(any())).thenAnswer(c->c.<Collection<Long>>getArgument(0).stream().map(id->
+                new cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO().setId(id).setStatus(0).setName("明确部门"+id)).toList());
+        wire(workflow,"deptApi",departments);
+        currentMatrix(1);
+    }
+    @BeforeEach void completionScope(TestInfo info)throws Exception{completedEndScenario=info.getTestMethod().orElseThrow().getDeclaringClass()==DccNativeUploadCompletionDatabaseTest.class;if(!completedEndScenario)return;formalRosterReady=false;for(String sql:new org.springframework.core.io.ClassPathResource("sql/dcc_d_platform_message_fixture.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8).split(";"))if(!sql.isBlank())jdbc.execute(sql);jdbc.update("DELETE FROM system_notify_message");jdbc.update("DELETE FROM dcc_controlled_file_signature_binding");}
+    @Override DccControlledFileSubmitIterationReqVO nativeSubmitRequest(DccControlledFileRouteReadinessRespVO p){
+        var request=super.nativeSubmitRequest(p);
+        var attachments=(DccControlledFileAttachmentService)ReflectionTestUtils.getField(workflow,"attachmentService");
+        var manifest=tx().execute(status->attachments.readOrdinaryAttachmentManifest(99L,20L));
+        assertNotNull(manifest);request.setExpectedOrdinaryAttachmentIds(manifest.attachmentIds());
+        request.setExpectedOrdinaryAttachmentManifestHash(manifest.payloadHash());
+        if(completedEndScenario){request.setEffectiveMode("AFTER_STANDARDIZATION_SIGNATURE");request.setEffectiveDate(null);request.setSelectedDistributionDepartmentIds(List.of(51L));}
+        return request;
+    }
+    @AfterEach void clearOwnCompletionListener(){if(!completedEndScenario)return;if(engine!=null&&listener!=null)engine.getRuntimeService().removeEventListener(listener);if(events!=null)events.close();jdbc.update("DELETE FROM infra_file WHERE path LIKE 'ic31-native-completion/%'");}
     @Test void realOrdinaryUploadFiveSignaturesOfficialEndControlActivateAndUnavailableRosterRemainTruthful()throws Exception{
         beforeDocumentApproval=()->{try{actualFinalizationPorts();assertNativeDocumentSignatureRead(false);}catch(Exception error){throw new IllegalStateException(error);}};
         realPreviewSubmissionSupervisorAndLaterNativeStagesEachRequireIndependentHmac();var file=files.selectById(20L);assertEquals("ACTIVE",file.getStatus());assertNotNull(file.getPublishedFileId());assertNotNull(file.getControlledTime());assertNotNull(file.getEffectiveTime());assertNotNull(file.getActivatedTime());assertNotNull(file.getApprovedTime());assertEquals(file.getId(),masters.selectById(10L).getLatestControlledFileId());assertEquals(file.getId(),masters.selectById(10L).getCurrentActiveControlledFileId());assertEquals(5,sqlMapper(DccControlledFileSignatureBindingMapper.class).selectList().size());assertNotNull(finalEvent);assertEquals(99L,finalEvent.getActorUserId());assertEquals(2,finalEvent.getStatus());assertEquals(0,engine.getRuntimeService().createProcessInstanceQuery().count());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_relation_controlled_event WHERE controlled_file_id=20",Integer.class));var batches=sqlMapper(DccDistributionBatchMapper.class).selectList();assertEquals(1,batches.size());assertEquals("FAILED",batches.get(0).getStatus());assertEquals("ROSTER_POLICY_UNDECIDED",batches.get(0).getErrorCode());assertEquals(0,sqlMapper(DccControlledFileDistributionRecipientMapper.class).selectList().size());var derived=sqlMapper(cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper.class).selectById(file.getPublishedFileId());try(var pdf=org.apache.pdfbox.pdmodel.PDDocument.load(physicalContent.get(derived.getPath()))){assertEquals(1,pdf.getNumberOfPages());assertTrue(pdf.getPage(0).getResources().getXObjectNames().iterator().hasNext());}assertNotEquals(java.util.HexFormat.of().formatHex(nativeSourceContent),java.util.HexFormat.of().formatHex(physicalContent.get(derived.getPath())));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM gxp_audit_event WHERE operation_id='dcc.controlled-file.control'",Integer.class));var signatures=jdbc.queryForList("SELECT * FROM dcc_controlled_file_signature ORDER BY id");finalization.handleProcessInstanceStatusChanged(finalEvent);assertEquals(signatures,jdbc.queryForList("SELECT * FROM dcc_controlled_file_signature ORDER BY id"));

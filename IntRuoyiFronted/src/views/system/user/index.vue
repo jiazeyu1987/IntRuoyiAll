@@ -84,6 +84,7 @@
               data-user-table-column-explicit
               data-user-table-key="system.user.main"
               :data="list"
+              row-key="id"
               border
               :allow-drag-last-column="true"
               :row-class-name="getUserRowClassName"
@@ -477,7 +478,6 @@ const queryParams = reactive({
   createTime: [] as string[]
 })
 
-const shouldPrioritizeDeptLeaders = computed(() => queryParams.deptId !== undefined)
 const selectedDeptId = computed(() => queryParams.deptId)
 const selectedDeptName = computed(() =>
   selectedDeptId.value === undefined ? '' : (deptNameById.value.get(selectedDeptId.value) ?? '')
@@ -554,18 +554,24 @@ const getUserRowClassName = ({ row }: { row: UserTableRow }) =>
   row.id === highlightedUserId.value ? 'system-user-table__row--target' : ''
 
 /** 查询列表 */
+let listRequestId = 0
 const getList = async () => {
+  const requestId = ++listRequestId
+  const params = { ...queryParams }
   loading.value = true
   try {
-    const data = await UserApi.getUserPage(queryParams)
+    const data = await UserApi.getUserPage(params)
+    if (requestId !== listRequestId) return
     const pageList = data.list as UserApi.UserVO[]
-    const orderedList = shouldPrioritizeDeptLeaders.value
-      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, queryParams.deptId)
+    const orderedList = params.deptId !== undefined
+      ? sortUsersByDeptLeader(pageList, deptLeaderByDeptId.value, params.deptId)
       : pageList
-    list.value = await buildUserTableRows(orderedList)
+    const rows = await buildUserTableRows(orderedList)
+    if (requestId !== listRequestId) return
+    list.value = rows
     total.value = data.total
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 

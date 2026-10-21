@@ -18,16 +18,6 @@
         file.fileNumber || '未记录'
       }}</el-descriptions-item>
       <el-descriptions-item label="查看版本">{{ getDccVersionDisplayText(file.versionNo) }}</el-descriptions-item>
-      <el-descriptions-item label="最新受控版本">
-        <span v-if="metadata?.latest"
-          >{{ getDccVersionDisplayText(metadata.latest.versionNo) }} ·
-          {{ getDetailStatusLabel(metadata.latest.status) }}</span
-        >
-        <span v-else>{{ metadata ? '无可用受控版本' : '尚未读取' }}</span>
-      </el-descriptions-item>
-      <el-descriptions-item label="当前执行受控版本">{{
-        file.currentActiveVersionNo ? getDccVersionDisplayText(file.currentActiveVersionNo) : '无当前执行版本'
-      }}</el-descriptions-item>
       <el-descriptions-item label="文件负责人">{{
         file.fileOwnerNicknameSnapshot || file.fileOwnerUsernameSnapshot || '未记录'
       }}</el-descriptions-item>
@@ -64,6 +54,9 @@
             : formatControlledFileDateTime(file.checkedOutTime)
           : '未检出'
       }}</el-descriptions-item>
+      <el-descriptions-item label="检出原因">{{
+        file.checkedOutBy ? file.checkedOutReason || '未记录' : '未检出'
+      }}</el-descriptions-item>
       <el-descriptions-item label="实际变更类型">{{
         revisionChangeLabel(file.revisionChangeType)
       }}</el-descriptions-item>
@@ -77,19 +70,33 @@
         file.changeDescription || '未记录'
       }}</el-descriptions-item>
     </el-descriptions>
+    <section data-testid="dcc-detail-current-version-reference">
+      <h4>当前版本信息（独立参考）</h4>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="最新受控版本">
+          <span v-if="metadata?.latest">{{ getDccVersionDisplayText(metadata.latest.versionNo) }} · {{ getDetailStatusLabel(metadata.latest.status) }}</span>
+          <span v-else>{{ metadata ? '无可用受控版本' : '尚未读取' }}</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="当前执行受控版本">{{ file.currentActiveVersionNo ? getDccVersionDisplayText(file.currentActiveVersionNo) : '无当前执行版本' }}</el-descriptions-item>
+      </el-descriptions>
+    </section>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-button :loading="loading" @click="emit('refresh')">刷新版本与引用信息</el-button>
-    <p v-if="metadata">
-      引用项目：{{ metadata.referenceProjectCount }}
+    <p v-if="metadata" data-testid="dcc-detail-selected-version-references">
+      所选版本的引用项目：{{ metadata.referenceProjectCount }}
       <el-button link @click="usageVisible = true">查看引用项目和所用版本</el-button>
     </p>
     <DetailApplicationHistory
       v-if="hasRelationApplicationContext"
       :key="relationApplicationContextKey"
       :file-id="file.id"
+      :expected-version-no="file.versionNo"
+      :read-authority="readBrowseAuthority"
+      :primary-application-type="readSelectionState.selection?.applicationType"
       :primary-bpm-round="selectedBpmRound"
       :lock-primary-round="hasRequestedBpmRound"
       :context-key="contextKey" show-node-records
+      :context-error="readSelectionState.error"
       @selection-change="onApplicationSelectionChange"
     />
     <el-alert
@@ -100,6 +107,7 @@
       :key="`relations-${file.id}`"
       :file="file"
       :application-selection="relationApplicationSelection"
+      :read-authority="readBrowseAuthority"
       :allow-edit="false"
     />
     <ControlledFileAttachments :file="file" />
@@ -126,7 +134,7 @@
       >
     </el-table>
     <h4>会签、批准及文控审核签名</h4>
-    <el-table :data="file.signatureSummaries || []" empty-text="本版本暂无签名记录">
+    <el-table :data="selectedSignatures" empty-text="所选版本或申请暂无签名记录">
       <el-table-column label="签名人"
         ><template #default="{ row }">{{
           row.actorNicknameSnapshot || row.actorUsernameSnapshot || '未记录'
@@ -238,11 +246,13 @@ import {
 } from './presentation'
 import { loadBrowseMetadata, type BrowseMetadata } from './browse-records'
 import { assertRelationApplicationSelection, type DetailRelationApplicationSelection } from './relation-contract'
+import { resolveDetailReadSelection } from './detail-read-context'
 const props = defineProps<{
   file: ControlledFileVO
   categoryName: string
   userNames: Map<number, string>
   departmentNames: Map<number, string>
+  readAuthority?: () => string
 }>()
 const emit = defineEmits<{ refresh: [] }>()
 const effectiveness = computed(() => effectiveFacts(props.file))
@@ -253,14 +263,21 @@ const metadata = ref<BrowseMetadata>(),
   loading = ref(false),
   usageVisible = ref(false)
 const tenant = () => String(getVisitTenantId() ?? getTenantId())
-const contextKey = computed(() => JSON.stringify([tenant(), props.file.id, route.fullPath]))
-const hasRequestedBpmRound = computed(() => route.query.processInstanceId != null && route.query.processInstanceId !== '')
+const readBrowseAuthority = () => JSON.stringify([tenant(), props.readAuthority?.()])
+const contextKey = computed(() => JSON.stringify([readBrowseAuthority(), props.file.id, route.fullPath]))
+const readSelectionState = computed(() => {
+  try { return { selection: resolveDetailReadSelection(props.file.id, route.query), error: '' } }
+  catch (error) { return { selection: undefined, error: error instanceof Error ? error.message : String(error) } }
+})
+const hasRequestedBpmRound = computed(() => readSelectionState.value.selection?.lockRound === true)
 const selectedBpmRound = computed(() => hasRequestedBpmRound.value
-  ? String(route.query.processInstanceId) : props.file.processInstanceId)
+  ? readSelectionState.value.selection?.bpmRound : readSelectionState.value.error ? undefined : props.file.processInstanceId)
+const selectedSignatures = computed(() => readSelectionState.value.error ? [] : (props.file.signatureSummaries || [])
+  .filter(row => !hasRequestedBpmRound.value || row.processInstanceId === selectedBpmRound.value))
 const selectedRelationApplication = ref<DetailRelationApplicationSelection | null>(null)
 const relationApplicationSelectionError = ref('')
 const relationApplicationGeneration = ref(0)
-const hasRelationApplicationContext = computed(() => Boolean(selectedBpmRound.value || route.query.taskId))
+const hasRelationApplicationContext = computed(() => Boolean(selectedBpmRound.value || readSelectionState.value.error))
 const relationApplicationContextKey = computed(() => JSON.stringify([contextKey.value, relationApplicationGeneration.value]))
 const relationApplicationSelection = computed(() => hasRelationApplicationContext.value
   ? selectedRelationApplication.value : undefined)
@@ -273,7 +290,8 @@ const onApplicationSelectionChange = computed(() => {
     if (!selection) return
     try {
       assertRelationApplicationSelection(file, selection)
-      if (hasRequestedBpmRound.value && selection.bpmRound !== selectedBpmRound.value)
+      if (readSelectionState.value.error || (hasRequestedBpmRound.value && (selection.bpmRound !== selectedBpmRound.value
+        || readSelectionState.value.selection?.applicationType && selection.applicationType !== readSelectionState.value.selection.applicationType)))
         throw new Error('所选关联申请不属于当前查看的正式流程轮次')
       selectedRelationApplication.value = { ...selection }
     } catch (error) {
@@ -302,7 +320,9 @@ let generation = 0
 const load = async () => {
   const token = ++generation,
     context = contextKey.value,
+    authority = readBrowseAuthority(),
     file = props.file
+  const isCurrent = () => token === generation && context === contextKey.value && authority === readBrowseAuthority()
   metadata.value = undefined
   usageVisible.value = false
   error.value = ''
@@ -314,12 +334,12 @@ const load = async () => {
       getPermissions: getControlledFileRelationPermissions,
       getUsage: getProjectReferenceUsage
     })
-    if (token === generation && context === contextKey.value) metadata.value = result
+    if (isCurrent()) metadata.value = result
   } catch (cause) {
-    if (token === generation && context === contextKey.value)
+    if (isCurrent())
       error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (token === generation && context === contextKey.value) loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 const openVersion = (id: number | string) =>

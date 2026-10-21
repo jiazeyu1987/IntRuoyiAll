@@ -50,7 +50,7 @@ export class ProjectBrowserState {
   folderError = ''
   actorEnabled = false
   actorError = ''
-  scope: 'global' | 'directory' = 'global'
+  scope: 'global' | 'project' | 'directory' = 'global'
   versionView: ProjectBrowserVersionView = 'LATEST_CONTROLLED'
   keyword = ''
   appliedKeyword = ''
@@ -112,7 +112,7 @@ export class ProjectBrowserState {
     this.folder = node; this.scope = 'directory'; this.pageNo = 1
     await this.loadFiles()
   }
-  async search(scope: 'global' | 'directory', keyword = this.keyword) {
+  async search(scope: 'global' | 'project' | 'directory', keyword = this.keyword) {
     this.scope = scope; this.keyword = keyword; this.pageNo = 1
     await this.loadFiles()
   }
@@ -126,9 +126,11 @@ export class ProjectBrowserState {
     this.loading = true; this.error = ''; this.rows = []; this.total = 0; this.usage = {}
     const queryKeyword = this.keyword
     try {
+      if (this.scope === 'project' && !this.project) throw new Error('请先选择项目')
       if (this.scope === 'directory' && (!this.project || !this.folder?.folderId)) throw new Error('请先选择项目逻辑文件夹')
       const page = await loadDccProjectBrowserPage(this.tenantId, { keyword: queryKeyword, pageNo: this.pageNo, pageSize: this.pageSize,
-        ...(this.scope === 'directory' ? { projectId: this.project!.id, folderId: this.folder!.folderId } : {}) }, browserVersionOptions(this.versionView))
+        ...(this.scope === 'project' || this.scope === 'directory' ? { projectId: this.project!.id } : {}),
+        ...(this.scope === 'directory' ? { folderId: this.folder!.folderId } : {}) }, browserVersionOptions(this.versionView))
       if (token !== this.filesSequence) return
       this.rows = page.list; this.total = page.total; this.appliedKeyword = queryKeyword
       // Counts are the formal server distinct-project usage, never the number of visible folders.

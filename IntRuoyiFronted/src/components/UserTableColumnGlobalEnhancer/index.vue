@@ -266,7 +266,10 @@ const loadPanel = async (table: EnhancedTable) => {
 const updatePanelPosition = (table: EnhancedTable) => {
   const rect = table.tableEl.getBoundingClientRect()
   if (!rect.width || !rect.height) return
+  const overlay = table.tableEl.closest<HTMLElement>('.el-overlay')
   table.style = {
+    // Body-teleported controls must stay in their table's modal layer.
+    zIndex: overlay ? getComputedStyle(overlay).zIndex : '1',
     top: `${Math.max(rect.top + window.scrollY + 8, 8)}px`,
     left: `${Math.max(rect.right + window.scrollX - 284, 8)}px`
   }

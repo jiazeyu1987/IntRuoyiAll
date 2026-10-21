@@ -121,6 +121,8 @@ class BpmNativeApprovalTaskProviderTest {
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(taskService).getTaskTodoPage(eq(100L), captor.capture());
         assertEquals("通用", captor.getValue().getName());
+        assertEquals(Set.of("dcc-controlled-file-upload", "dcc-controlled-file-revision", "dcc-controlled-file-obsolete"),
+                Set.copyOf(captor.getValue().getExcludedProcessDefinitionKeys()));
     }
 
     @Test

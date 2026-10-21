@@ -95,7 +95,8 @@ import { getControlledFileRelationPermissions } from '@/api/dcc/controlledFile/a
 import { buildDccControlledFilePreviewSource } from '@/api/common/filePreview'
 import type {
   RelationRoundEvidence,
-  DccApplicationType
+  DccApplicationType,
+  ControlledFileApplicationNodeRecord
 } from '@/api/dcc/controlledFile/applicationRead'
 import ProtectedPdfViewer from '../view/index.vue'
 export interface RelationStageSelectionView {
@@ -168,6 +169,7 @@ const props = defineProps<{
   attributeRound: number
   contextKey: string
   signatureFacts?: RelationSignatureFact[]
+  nodeRecords?: ControlledFileApplicationNodeRecord[]
 }>()
 const projection = ref<RelationRoundEvidenceView | null>(null),
   error = ref(''),
@@ -202,8 +204,14 @@ const factIdentity = (value: string | number | undefined): string => {
 }
 const signatureFact = (id: string): RelationSignatureFact | undefined =>
   props.signatureFacts?.find((row) => row.id != null && factIdentity(row.id) === id)
-const obligationDepartmentName = (header: RelationStageHeaderView): string =>
-  header.departmentName?.trim() || '未记录'
+const obligationDepartmentName = (header: RelationStageHeaderView): string => {
+  if (header.departmentName?.trim()) return header.departmentName.trim()
+  const rows = (props.nodeRecords || []).filter(row => header.actionType === 'ASSIGN' && row.actionType === 'ASSIGN'
+    && String(row.controlledFileId) === header.sourceFileId && row.bpmRound === header.processInstanceId
+    && row.taskId === header.taskId && String(row.signatureId) === header.signatureId
+    && String(row.actorId) === header.actorId && row.stageCode === header.stageCode)
+  return rows.length === 1 ? rows[0].assignmentTarget?.obligationDepartmentName?.trim() || '未记录' : '未记录'
+}
 const instant = (value: unknown): string => {
   const valueText = text(value),
     parts = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(valueText)

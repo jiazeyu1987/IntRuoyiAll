@@ -82,6 +82,9 @@ import static cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModel
 public class BpmTaskServiceImpl implements BpmTaskService {
 
     @Resource
+    private org.flowable.engine.RepositoryService repositoryService;
+
+    @Resource
     private TaskService taskService;
     @Resource
     private HistoryService historyService;
@@ -128,6 +131,15 @@ public class BpmTaskServiceImpl implements BpmTaskService {
         }
         if (StrUtil.isNotEmpty(pageVO.getProcessDefinitionKey())) {
             taskQuery.processDefinitionKey(pageVO.getProcessDefinitionKey());
+        }
+        if (CollUtil.isNotEmpty(pageVO.getExcludedProcessDefinitionKeys())) {
+            var includedKeys = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionTenantId(FlowableUtils.getTenantId()).list().stream()
+                    .map(org.flowable.engine.repository.ProcessDefinition::getKey)
+                    .filter(key -> !pageVO.getExcludedProcessDefinitionKeys().contains(key))
+                    .distinct().toList();
+            if (includedKeys.isEmpty()) return PageResult.empty();
+            taskQuery.processDefinitionKeyIn(includedKeys);
         }
         if (ArrayUtil.isNotEmpty(pageVO.getCreateTime())) {
             taskQuery.taskCreatedAfter(DateUtils.of(pageVO.getCreateTime()[0]));

@@ -30,7 +30,7 @@ const renderer = vue.createRenderer({
 function mount(file, versionOnly = false) {
   const descriptor = parse(read(file)).descriptor
   const ast = ts.createSourceFile(file, descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true)
-  const names = ['selectedRelationApplication', 'relationApplicationSelectionError', 'relationApplicationGeneration', 'hasRelationApplicationContext',
+  const names = ['readDetailAuthority', 'readBrowseAuthority', 'selectedRelationApplication', 'relationApplicationSelectionError', 'relationApplicationGeneration', 'hasRelationApplicationContext',
     'relationApplicationContextKey', 'relationApplicationSelection', 'onApplicationSelectionChange', 'stopRelationApplicationContext']
   const declarations = names.map(name => ast.statements.find(s => ts.isVariableStatement(s)
     && s.declarationList.declarations.some(d => d.name.text === name))?.getText(ast) || '')
@@ -43,9 +43,13 @@ function mount(file, versionOnly = false) {
   const compiled = compileScript(parse(`<template>${history.loc.source}${findError(templateRoot)?.loc.source || ''}${relations.loc.source}</template><script setup lang="ts">
     import {ref,computed,watch} from 'vue';
     const props=__data;const route=props.route;const file=computed(()=>props.file);const fileDetail=file;
+    const currentUserId=computed(()=>props.actor||'99');const getTenantId=()=> '1';const getVisitTenantId=()=>null;const tenant=()=> '1';
     const controlledFileId=computed(()=>String(props.file.id));const isWorkingBrowserDetailCurrent=computed(()=>props.fresh);
     const workingBrowserLoadedContext=computed(()=>({sequence:props.sequence}));
     const contextKey=computed(()=>props.context);const applicationRoundContextKey=contextKey;
+    const resolveDetailReadSelection=__resolve;
+    const readSelectionState=computed(()=>({selection:resolveDetailReadSelection(props.file.id,route.query),error:''}));
+    const detailReadSelectionState=readSelectionState;
     const selectedBpmRound=computed(()=>props.route.query.processInstanceId||props.file.processInstanceId);
     const hasRequestedBpmRound=computed(()=>!!props.route.query.processInstanceId);
     const applicationRoundSelection=computed(()=>({primaryBpmRound:selectedBpmRound.value,blockedReason:'',lockPrimaryRound:hasRequestedBpmRound.value}));
@@ -53,7 +57,8 @@ function mount(file, versionOnly = false) {
     const assertRelationApplicationSelection=__assert;const message={error:v=>props.errors.push(v)};
     ${declarations.join('\n')}
   </script>`).descriptor, { id: `real-${file}`, inlineTemplate: true })
-  const c = { exports: {}, require: () => vue, __data: data, __assert: contract.assertRelationApplicationSelection }
+  const c = { exports: {}, require: () => vue, __data: data, __assert: contract.assertRelationApplicationSelection,
+    __resolve: require('./dcc-detail-read-test-loader.cjs').resolveDetailReadSelection }
   vm.runInNewContext(ts.transpileModule(compiled.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, c)
   let emit, callback, historyProps, relationProps
   const app = renderer.createApp(c.exports.default)

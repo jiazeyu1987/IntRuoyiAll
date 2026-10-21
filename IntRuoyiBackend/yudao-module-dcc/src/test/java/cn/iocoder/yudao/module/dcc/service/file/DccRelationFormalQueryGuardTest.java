@@ -34,6 +34,7 @@ class DccRelationFormalQueryGuardTest extends BaseMockitoUnitTest {
     @Test void realQueryNameDiscoverabilityDoesNotGrantPreviewOrEditAndDoesNotCallEnrichedDetails(){
         var file=file();when(controlledFileMapper.selectById(20L)).thenReturn(file);
         when(assignmentScopeService.isWithinAssignedFileScope(7L,20L)).thenReturn(true);
+        when(projectAccessService.listReadableProjectIds(7L)).thenReturn(java.util.List.of(5L));
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(7L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(99L));
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(7L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
         assertDoesNotThrow(()->bridge.assertNameVisible(7L,20L));
@@ -45,6 +46,7 @@ class DccRelationFormalQueryGuardTest extends BaseMockitoUnitTest {
     @Test void previewRequiresBothAssignedFileScopeAndExactAuthorizedDirectory(){
         when(controlledFileMapper.selectById(20L)).thenReturn(file());
         when(assignmentScopeService.isWithinAssignedFileScope(7L,20L)).thenReturn(true);
+        when(projectAccessService.listReadableProjectIds(7L)).thenReturn(java.util.List.of(5L));
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(7L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of(99L));
         assertDoesNotThrow(()->bridge.assertContentReadable(7L,20L));
         when(assignmentScopeService.isWithinAssignedFileScope(7L,20L)).thenReturn(false);

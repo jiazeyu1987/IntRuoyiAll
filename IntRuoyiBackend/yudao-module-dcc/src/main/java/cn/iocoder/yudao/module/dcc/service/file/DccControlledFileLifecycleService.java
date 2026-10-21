@@ -252,7 +252,7 @@ public class DccControlledFileLifecycleService {
             throw new IllegalStateException("受控文件未生成，不能完成受控");
         var beforeControl = fileStateAudit.capture(file, master);
         closeLowerWorkingIterations(file,master,tenant);
-        LocalDateTime controlledAt=confirmation==null ? now : confirmation.signedAt();
+        LocalDateTime controlledAt=confirmation==null ? now.truncatedTo(java.time.temporal.ChronoUnit.MICROS) : confirmation.signedAt();
         DccControlledFileDO update = DccControlledFileDO.builder().id(file.getId())
                 .controlledTime(controlledAt).publishedTime(now).status("CONTROLLED_PENDING_EFFECTIVE")
                 .publishedFileId(file.getPublishedFileId()).stampedFileId(file.getStampedFileId())
@@ -267,7 +267,7 @@ public class DccControlledFileLifecycleService {
         master.setStatus("ACTIVE_CHAIN");
         platformAdapter.recordNativeControl(file,actorId,lifecycleEventKey("CONTROLLED",file));
         fileStateAudit.recordControl(beforeControl, file.getProcessInstanceId());
-        emit("CONTROLLED", file, master.getCurrentActiveControlledFileId(), now);
+        emit("CONTROLLED", file, master.getCurrentActiveControlledFileId(), controlledAt);
         if (DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())
                 || (confirmation!=null ? !confirmation.selectedEffectiveTime().isAfter(now)
                     : !file.getEffectiveDate().isAfter(now.toLocalDate()))) activateLocked(file, master, now);
@@ -381,15 +381,16 @@ public class DccControlledFileLifecycleService {
         if(file.getEffectiveMode()!=null && (file.getEffectiveTime()==null || !Objects.equals(file.getEffectiveProcessInstanceId(),file.getProcessInstanceId())))
             throw new IllegalStateException("日常启用必须同时持有正式受控及本轮生效事实");
         var beforeObsolete=obsoleteLowerControlled(file,master,chain,now);
+        LocalDateTime activatedAt=now.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         requireOne(controlledFileMapper.updateById(DccControlledFileDO.builder().id(file.getId())
-                .activatedTime(now).status("ACTIVE").build()));
+                .activatedTime(activatedAt).status("ACTIVE").build()));
         requireOne(masterMapper.updateById(DccControlledFileMasterDO.builder().id(master.getId())
                 .currentActiveControlledFileId(file.getId()).status("ACTIVE_CHAIN").build()));
-        file.setActivatedTime(now);file.setStatus("ACTIVE");master.setCurrentActiveControlledFileId(file.getId());master.setStatus("ACTIVE_CHAIN");
+        file.setActivatedTime(activatedAt);file.setStatus("ACTIVE");master.setCurrentActiveControlledFileId(file.getId());master.setStatus("ACTIVE_CHAIN");
         platformAdapter.recordNativeActivation(file,SYSTEM_ACTOR_ID,lifecycleEventKey("ACTIVATED",file));
         for(var before:beforeObsolete)fileStateAudit.recordAutomaticObsolete(before,file.getProcessInstanceId());
         fileStateAudit.recordActivation(beforeActivation,file.getProcessInstanceId());
-        emit("ACTIVATED",file,oldId,now);
+        emit("ACTIVATED",file,oldId,activatedAt);
         return true;
     }
 

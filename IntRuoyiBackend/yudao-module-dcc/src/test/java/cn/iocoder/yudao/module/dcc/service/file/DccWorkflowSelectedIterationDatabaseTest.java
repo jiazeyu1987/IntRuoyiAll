@@ -466,7 +466,7 @@ class DccWorkflowSelectedIterationDatabaseTest extends BaseDbUnitTest {
         return port;
     }
 
-    private DccControlledFileSubmitIterationReqVO a29ExpectedServerManifest(Long selected,DccControlledFileSubmitIterationReqVO input) {
+    protected DccControlledFileSubmitIterationReqVO a29ExpectedServerManifest(Long selected,DccControlledFileSubmitIterationReqVO input) {
         var attachmentPort=(DccControlledFileAttachmentService)ReflectionTestUtils.getField(query,"attachmentService");
         var manifest=tx().execute(status->attachmentPort.readOrdinaryAttachmentManifest(99L,selected));
         input.setExpectedOrdinaryAttachmentIds(manifest.attachmentIds());input.setExpectedOrdinaryAttachmentManifestHash(manifest.payloadHash());

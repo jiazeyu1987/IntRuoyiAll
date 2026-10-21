@@ -24,8 +24,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
-import cn.iocoder.yudao.module.system.api.permission.RoleApi;
-import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApiImpl;
@@ -59,14 +57,15 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     private String processId;
     private DccOfflineTrainingRecordService training;
     private PermissionApi permissions;
-    private RoleApi roles;
     private AdminUserApi users;
     private DccControlledFileAssignmentScopeService scope;
     private DccControlledFileCategoryPermissionSupport category;
     private BpmProcessDefinitionService definitions;
 
     @BeforeEach
-    void receivingTrainingFixture() {
+    void receivingTrainingFixture(org.junit.jupiter.api.TestInfo info) {
+        // Inherited attribute tests keep their original fixture; they do not exercise training.
+        if (info.getTestMethod().orElseThrow().getDeclaringClass() != DccOfflineTrainingEntryDatabaseTest.class) return;
         SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
         config.setDataSource(dataSource);
         config.setTransactionManager(manager);
@@ -96,11 +95,12 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         engine.getTaskService().complete(engine.getTaskService().createTaskQuery()
                 .processInstanceId(processId).taskDefinitionKey("MATRIX_APPROVAL").singleResult().getId());
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_APPLICANT_TRAINING_RECORD',need_training=1,"
-                + "approved_time=CURRENT_TIMESTAMP,process_instance_id=?,process_definition_key='dcc-controlled-file-upload' WHERE id=20", processId);
+                + "approved_time=CURRENT_TIMESTAMP,process_instance_id=?,process_definition_key='dcc-controlled-file-upload',file_owner_user_id=88,file_owner_signature_id=860,"
+                + "file_owner_approval_task_id='owner-approval',file_owner_process_instance_id=?,file_owner_selected_time=CURRENT_TIMESTAMP WHERE id=20", processId,processId);
         tasks = mock(BpmTaskService.class);
-        when(tasks.getTaskTodoPage(eq(88L), any())).thenAnswer(call -> {
+        when(tasks.getTaskTodoPage(eq(99L), any())).thenAnswer(call -> {
             var request = call.getArgument(1, cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO.class);
-            var actual = engine.getTaskService().createTaskQuery().taskAssignee("88")
+            var actual = engine.getTaskService().createTaskQuery().taskAssignee("99")
                     .processDefinitionKey(request.getProcessDefinitionKey()).list();
             return new PageResult<>(actual, (long) actual.size());
         });
@@ -109,7 +109,6 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
                 .createProcessInstanceQuery().processInstanceId(call.getArgument(0)).includeProcessVariables().singleResult());
         training = new DccOfflineTrainingRecordService();
         permissions = mock(PermissionApi.class);
-        roles = mock(RoleApi.class);
         users = mock(AdminUserApi.class);
         scope = mock(DccControlledFileAssignmentScopeService.class);
         category = mock(DccControlledFileCategoryPermissionSupport.class);
@@ -118,22 +117,29 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
                 .createProcessDefinitionQuery().processDefinitionId(call.getArgument(0)).singleResult());
         when(definitions.getProcessDefinitionBpmnModel(anyString())).thenAnswer(call ->
                 engine.getRepositoryService().getBpmnModel(call.getArgument(0)));
-        var role = new RoleRespDTO(); role.setId(8L); role.setCode("doc_control"); role.setStatus(0);
-        when(roles.getRoleByCode("doc_control")).thenReturn(role);
-        when(users.getUser(88L)).thenReturn(new AdminUserRespDTO().setId(88L).setTenantId(1L)
-                .setUsername("doc-control-88").setNickname("独立文控").setStatus(0));
         when(users.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(1L)
-                .setUsername("applicant-99").setNickname("原申请人").setStatus(0));
-        when(permissions.getUserRoleIdListByUserId(88L)).thenReturn(Set.of(8L));
-        when(permissions.getUserRoleIdListByRoleIds(List.of(8L))).thenReturn(Set.of(88L));
-        when(permissions.hasAnyPermissions(88L,"dcc:controlled-file:approve")).thenReturn(true);
+                .setUsername("applicant-99").setNickname("原上传人").setStatus(0));
+        when(users.getUser(88L)).thenReturn(new AdminUserRespDTO().setId(88L).setTenantId(1L)
+                .setUsername("training-owner-88").setNickname("确认负责人").setStatus(0));
+        when(permissions.hasAnyPermissions(99L,"dcc:controlled-file:approve")).thenReturn(true);
+        when(permissions.hasAnyPermissions(99L,"dcc:controlled-file:query")).thenReturn(true);
         when(permissions.hasAnyPermissions(88L,"dcc:controlled-file:query")).thenReturn(true);
-        when(category.hasCategoryPermission(eq(2L),eq(88L),any())).thenReturn(true);
-        when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(true);
+        when(category.hasCategoryPermission(eq(2L),eq(99L),any())).thenReturn(true);
+        when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(true);
         wire(training,"files",files,"masters",masters,"projects",projects,
                 "projectAssignments",mock(DccProjectCodeAssignmentMapper.class),"fileScope",scope,"categories",category,
-                "versions",DccControlledFileVersionPolicy.defaultPolicy(),"users",users,"roles",roles,"permissions",permissions,
+                "versions",DccControlledFileVersionPolicy.defaultPolicy(),"users",users,"permissions",permissions,
                 "processes",processes,"definitions",definitions,"runtime",engine.getRuntimeService(),"messages",messageApi);
+        var bound = mock(DccBoundWorkflowContractResolver.class);
+        // Contract resolution is an external port here; File/Master/Project and receive execution are real H2/Flowable.
+        when(bound.resolve(any())).thenAnswer(call -> {
+            var selected = call.getArgument(0,cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.class);
+            var live = processes.getProcessInstance(selected.getProcessInstanceId());
+            return new DccBoundWorkflowContractResolver.BoundExecution(1L,selected.getId(),selected.getProcessInstanceId(),null,
+                    selected.getProcessDefinitionKey(),live.getProcessDefinitionId(),"fixture-deployment","a".repeat(64),"LEGACY_V4_ACTION",
+                    DccWorkflowDefinitionCatalog.FlowRule.LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL,true);
+        });
+        wire(training,"boundContracts",bound);
         wire(workflow,"offlineTraining",training,"bpmProcessInstanceService",processes);
         var template = new NotifyTemplateDO(); template.setId(6806L); template.setCode("dcc_task_assigned");
         template.setType(2); template.setNickname("DCC"); template.setStatus(0);
@@ -154,16 +160,16 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     }
 
     @Test
-    void independentDocControlReceivesNativeTodoWhileActualTrainingHasNoUserTask() {
+    void originalUploaderReceivesNativeTodoWhileActualTrainingHasNoUserTask() {
         assertEquals(0, engine.getTaskService().createTaskQuery().processInstanceId(processId).count());
         assertEquals(1, engine.getRuntimeService().createExecutionQuery()
                 .processInstanceId(processId).activityId("TRAINING").count());
         var adapter = new DccApprovalTaskAdapter(tasks, processes, workflow, files,
                 mock(DccFileCategoryMapper.class), mock(DccControlledFileRouteSnapshotMapper.class),
                 mock(DccProjectProductTaskDelegate.class), new DccOfflineTrainingTaskDelegate(training));
-        var page = adapter.page(ApprovalTaskQueryContext.of(88L, ApprovalTaskViewType.TODO,
+        var page = adapter.page(ApprovalTaskQueryContext.of(99L, ApprovalTaskViewType.TODO,
                 ApprovalModuleCode.DCC, null, 1, 20, false));
-        assertEquals(1L, page.getTotal(), "A legitimate independent doc control account must discover offline training upload");
+        assertEquals(1L, page.getTotal(), "The original uploader must discover offline training upload without a doc-control role");
         assertEquals("DCC_OFFLINE_TRAINING_RECORD", page.getList().get(0).getSourceTaskType());
         var row = page.getList().get(0);
         assertEquals("20",row.getBusinessKey());assertEquals(processId,row.getProcessInstanceId());
@@ -173,28 +179,26 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings={"DISABLED","FOREIGN_TENANT","NO_ROLE","CATEGORY","FILE_SCOPE","PROJECT_SCOPE","NO_APPROVE","NO_QUERY"})
-    void everyEntryUsesTheSameEnabledRoleCategoryAndHardScopes(String missing) {
+    @org.junit.jupiter.params.provider.ValueSource(strings={"DISABLED","FOREIGN_TENANT","CATEGORY","FILE_SCOPE","PROJECT_SCOPE","NO_QUERY"})
+    void everyUploadEntryUsesTheSameEnabledApplicantCategoryAndHardScopes(String missing) {
         switch (missing) {
-            case "DISABLED" -> when(users.getUser(88L)).thenReturn(new AdminUserRespDTO().setId(88L).setTenantId(1L).setStatus(1));
-            case "FOREIGN_TENANT" -> when(users.getUser(88L)).thenReturn(new AdminUserRespDTO().setId(88L).setTenantId(2L).setStatus(0));
-            case "NO_ROLE" -> when(permissions.getUserRoleIdListByUserId(88L)).thenReturn(Set.of(1L));
-            case "CATEGORY" -> when(category.hasCategoryPermission(eq(2L),eq(88L),any())).thenReturn(false);
-            case "FILE_SCOPE" -> when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(false);
+            case "DISABLED" -> when(users.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(1L).setStatus(1));
+            case "FOREIGN_TENANT" -> when(users.getUser(99L)).thenReturn(new AdminUserRespDTO().setId(99L).setTenantId(2L).setStatus(0));
+            case "CATEGORY" -> when(category.hasCategoryPermission(eq(2L),eq(99L),any())).thenReturn(false);
+            case "FILE_SCOPE" -> when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(false);
             case "PROJECT_SCOPE" -> {
-                when(permissions.hasAnyPermissions(88L,"dcc:project-code-assignment:execute")).thenReturn(true);
+                when(permissions.hasAnyPermissions(99L,"dcc:project-code-assignment:execute")).thenReturn(true);
                 var assignments=mock(DccProjectCodeAssignmentMapper.class);
-                when(assignments.selectActiveProjectCodeIdsByAssigneeUserId(eq(1L),eq(88L),any())).thenReturn(List.of(777L));
+                when(assignments.selectActiveProjectCodeIdsByAssigneeUserId(eq(1L),eq(99L),any())).thenReturn(List.of(777L));
                 wire(training,"projectAssignments",assignments);
             }
-            case "NO_APPROVE" -> when(permissions.hasAnyPermissions(88L,"dcc:controlled-file:approve")).thenReturn(false);
-            case "NO_QUERY" -> when(permissions.hasAnyPermissions(88L,"dcc:controlled-file:query")).thenReturn(false);
+            case "NO_QUERY" -> when(permissions.hasAnyPermissions(99L,"dcc:controlled-file:query")).thenReturn(false);
             default -> fail("Unknown explicit scenario");
         }
-        assertTrue(training.listForActor(88L).isEmpty());
-        assertFalse(training.canUpload(88L,files.selectById(20L)));
+        assertTrue(training.listForActor(99L).isEmpty());
+        assertFalse(training.canUpload(99L,files.selectById(20L)));
         assertEquals("DCC_OFFLINE_TRAINING_ACTOR_FORBIDDEN",assertThrows(IllegalStateException.class,
-                ()->training.requireUpload(88L,files.selectById(20L))).getMessage());
+                ()->training.requireUpload(99L,files.selectById(20L))).getMessage());
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
     }
 
@@ -203,19 +207,19 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         var file=files.selectById(20L);
         var guard=new DccControlledFileDetailAuthorizationGuard();
         wire(guard,"assignmentScopeService",scope,"offlineTraining",training,"bpmTaskService",tasks);
-        assertTrue(guard.isAllowed(88L,file,false,null));
+        assertTrue(guard.isAllowed(99L,file,false,null));
         var query=new DccControlledFileQueryServiceImpl();
         var directories=mock(cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService.class);
-        when(directories.getAuthorizedDirectoryIds(eq(88L),any())).thenReturn(Set.of());
+        when(directories.getAuthorizedDirectoryIds(eq(99L),any())).thenReturn(Set.of());
         wire(query,"assignmentScopeService",scope,"directoryAccessPermissionService",directories,
                 "permissionSupport",category,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),
-                "controlledFileMapper",files);
-        Boolean binary=ReflectionTestUtils.invokeMethod(query,"canReadBinary",88L,file,
+                "controlledFileMapper",files,"offlineTraining",training);
+        Boolean binary=ReflectionTestUtils.invokeMethod(query,"canReadBinary",99L,file,
                 cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum.PREVIEW,false);
         assertEquals(false,binary);
         int before=jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class);
-        assertEquals(1,training.listForActor(88L).size());
-        assertEquals(1,training.listForActor(88L).size());
+        assertEquals(1,training.listForActor(99L).size());
+        assertEquals(1,training.listForActor(99L).size());
         assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
         assertEquals(0,engine.getTaskService().createTaskQuery().processInstanceId(processId).count());
@@ -223,36 +227,37 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
 
     @Test
     void staleWaitAndWrongProcessBusinessIdentityAreErrorsRatherThanEmptySuccess() {
-        engine.getRuntimeService().trigger(training.requireUpload(88L,files.selectById(20L)).executionId());
+        engine.getRuntimeService().trigger(training.requireUpload(99L,files.selectById(20L)).executionId());
         assertEquals("DCC_OFFLINE_TRAINING_EXECUTION_REQUIRED",assertThrows(IllegalStateException.class,
-                ()->training.listForActor(88L)).getMessage());
+                ()->training.listForActor(99L)).getMessage());
         var wrong=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-upload",
                 "404",Map.of("controlledFileId","20"),"1");
         jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=? WHERE id=20",wrong.getId());
         assertEquals("DCC_OFFLINE_TRAINING_PROCESS_INVALID",assertThrows(IllegalStateException.class,
-                ()->training.listForActor(88L)).getMessage());
+                ()->training.listForActor(99L)).getMessage());
     }
 
     @Test
     void nativeKeywordAndAdvancementUseOnlyTheCurrentPersistedTrainingState() {
         var delegate=new DccOfflineTrainingTaskDelegate(training);
-        assertTrue(training.canReadProgress(88L,files.selectById(20L)));
-        assertEquals(1,delegate.list(ApprovalTaskQueryContext.of(88L,ApprovalTaskViewType.TODO,
+        assertTrue(training.canReadProgress(99L,files.selectById(20L)));
+        assertEquals(1,delegate.list(ApprovalTaskQueryContext.of(99L,ApprovalTaskViewType.TODO,
                 ApprovalModuleCode.DCC,"N-1",1,20)).size());
-        assertTrue(delegate.list(ApprovalTaskQueryContext.of(88L,ApprovalTaskViewType.TODO,
+        assertTrue(delegate.list(ApprovalTaskQueryContext.of(99L,ApprovalTaskViewType.TODO,
                 ApprovalModuleCode.DCC,"different file",1,20)).isEmpty());
         jdbc.update("UPDATE dcc_controlled_file SET training_record_file_id=101,status='PENDING_DOC_CONTROL_REVIEW' WHERE id=20");
         engine.getRuntimeService().trigger(engine.getRuntimeService().createExecutionQuery()
                 .processInstanceId(processId).activityId("TRAINING").singleResult().getId());
-        assertTrue(training.listForActor(88L).isEmpty());
-        assertFalse(training.canUpload(88L,files.selectById(20L)));
-        assertTrue(training.canReadProgress(88L,files.selectById(20L)),"Formal progress remains readable after upload");
-        assertFalse(training.canReadProgress(99L,files.selectById(20L)),"Applicant status alone cannot grant training metadata access");
-        when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(false);
-        assertFalse(training.canReadProgress(88L,files.selectById(20L)));
-        when(scope.isWithinAssignedFileScope(88L,20L)).thenReturn(true);
-        when(category.hasCategoryPermission(eq(2L),eq(88L),any())).thenReturn(false);
-        assertFalse(training.canReadProgress(88L,files.selectById(20L)));
+        assertTrue(training.listForActor(99L).isEmpty());
+        assertFalse(training.canUpload(99L,files.selectById(20L)));
+        assertTrue(training.canReadProgress(99L,files.selectById(20L)),"Formal progress remains readable after upload");
+        assertTrue(training.canReadProgress(88L,files.selectById(20L)),"The same-round confirmed owner retains progress metadata after upload");
+        assertFalse(training.canUpload(88L,files.selectById(20L)),"Owner never replaces original uploader");
+        when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(false);
+        assertFalse(training.canReadProgress(99L,files.selectById(20L)));
+        when(scope.isWithinAssignedFileScope(99L,20L)).thenReturn(true);
+        when(category.hasCategoryPermission(eq(2L),eq(99L),any())).thenReturn(false);
+        assertFalse(training.canReadProgress(99L,files.selectById(20L)));
         assertEquals(1,engine.getTaskService().createTaskQuery().processInstanceId(processId)
                 .taskDefinitionKey("DOC_CONTROL_REVIEW").count());
     }
@@ -260,25 +265,40 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     @Test
     void officialStationMessageReplayIsExactAndDoesNotAlterSignedPeople() {
         new TransactionTemplate(manager).executeWithoutResult(s->training.notifyWaiting(files.selectById(20L)));
-        var message=jdbc.queryForMap("SELECT user_id,template_params,business_key FROM system_notify_message WHERE tenant_id=1");
-        assertEquals(88L,((Number)message.get("user_id")).longValue());
+        var message=jdbc.queryForMap("SELECT user_id,template_params,business_key FROM system_notify_message WHERE tenant_id=1 AND user_id=99");
+        assertEquals(99L,((Number)message.get("user_id")).longValue());
         assertTrue(message.get("template_params").toString().contains("DCC_OFFLINE_TRAINING_RECORD"));
         assertTrue(message.get("template_params").toString().contains("management=1"));
         new TransactionTemplate(manager).executeWithoutResult(s->training.notifyWaiting(files.selectById(20L)));
-        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+        assertEquals(Set.of(99L,88L),new java.util.HashSet<>(jdbc.queryForList("SELECT user_id FROM system_notify_message",Long.class)));
         assertEquals(99L,files.selectById(20L).getRequesterId());
+        assertEquals(88L,files.selectById(20L).getFileOwnerUserId());
+        assertEquals(860L,files.selectById(20L).getFileOwnerSignatureId());
     }
     @Test void trainingRecipientReadinessIsReadOnlyAndUsesTheSameCategoryAndFileScopeRules() {
         var file=files.selectById(20L);
         @SuppressWarnings("unchecked")
         var recipients=(List<Long>)ReflectionTestUtils.invokeMethod(training,"requireConfiguredRecipients",file);
-        assertEquals(List.of(88L),recipients);
-        when(category.hasCategoryPermission(2L,88L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.TRAINING_RECORD)).thenReturn(false);
+        assertEquals(List.of(99L),recipients);
+        when(category.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.TRAINING_RECORD)).thenReturn(false);
         var failure=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
                 ()->ReflectionTestUtils.invokeMethod(training,"requireConfiguredRecipients",file));
         assertEquals(1_080_000_360,failure.getCode());
-        assertTrue(failure.getMessage().contains("TRAINING_RECORD"));
+        assertTrue(failure.getMessage().contains("本次上传人缺少线下培训记录办理资格"));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM system_notify_message",Integer.class));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"NO_ROLE","NO_APPROVE"})
+    void originalUploaderDoesNotRequireDocControlRoleOrApprovePermission(String unrelated) {
+        when(permissions.getUserRoleIdListByUserId(99L)).thenReturn(Set.of());
+        when(permissions.hasAnyPermissions(99L,"dcc:controlled-file:approve")).thenReturn(false);
+        assertTrue(training.canUpload(99L,files.selectById(20L)));
+        assertEquals(1,training.listForActor(99L).size());
+        assertEquals(processId,training.requireUpload(99L,files.selectById(20L)).processInstanceId());
+        verify(permissions,never()).getUserRoleIdListByUserId(anyLong());
+        verify(permissions,never()).hasAnyPermissions(99L,"dcc:controlled-file:approve");
     }
 
     private static void wire(Object target,Object... fields) {
@@ -289,7 +309,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
     void revisionReceiveWaitUsesItsOwnDefinitionAndLegacyNullKeyIsNormallyOutsideThisLane() {
         var legacy=files.selectById(20L);legacy.setProcessDefinitionKey(null);
         assertFalse(DccOfflineTrainingRecordService.isNativeWaitingFile(legacy));
-        assertFalse(training.canUpload(88L,legacy));
+        assertFalse(training.canUpload(99L,legacy));
         String revision="""
                 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" targetNamespace="g57-revision">
                 <process id="dcc-controlled-file-revision" isExecutable="true"><startEvent id="start"/>
@@ -307,7 +327,7 @@ class DccOfflineTrainingEntryDatabaseTest extends DccWorkflowAttributesIntegrati
         String round=engine.getRuntimeService().startProcessInstanceByKeyAndTenantId("dcc-controlled-file-revision",
                 "20",Map.of("controlledFileId","20"),"1").getId();
         jdbc.update("UPDATE dcc_controlled_file SET process_instance_id=?,process_definition_key='dcc-controlled-file-revision' WHERE id=20",round);
-        assertEquals(round,training.requireUpload(88L,files.selectById(20L)).processInstanceId());
-        assertEquals(1,training.listForActor(88L).size());
+        assertEquals(round,training.requireUpload(99L,files.selectById(20L)).processInstanceId());
+        assertEquals(1,training.listForActor(99L).size());
     }
 }

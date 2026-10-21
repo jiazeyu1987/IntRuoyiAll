@@ -21,7 +21,7 @@ import java.util.*;
 /** Sole formal delayed command. All write ports join the same Spring transaction; no generic approve bypass. */
 @Service
 public class DccDelayedEffectiveConfirmationService {
-    @Resource private DccControlledFileMapper fileMapper;
+    @Resource(name = "dccControlledFileMapper") private DccControlledFileMapper fileMapper;
     @Resource private DccControlledFileMasterMapper masterMapper;
     @Resource private DccBoundWorkflowContractResolver boundContracts;
     @Resource private DccDelayedEffectiveConfirmationEvidence confirmationEvidence;

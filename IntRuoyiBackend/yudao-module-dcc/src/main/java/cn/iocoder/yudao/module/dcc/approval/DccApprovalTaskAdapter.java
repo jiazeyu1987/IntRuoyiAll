@@ -31,6 +31,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshot
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.engine.runtime.ProcessInstance;
@@ -360,6 +361,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
             return toDeletedHistoricalSummary(task, processInstance, businessKey);
         }
         ApprovalTaskReviewResult approvalResult = resolveApprovalResult(task, "DCC done ");
+        Map<String, String> detailQuery = Boolean.TRUE.equals(file.getDeleted())
+                ? approvalCenterViewerDetailQuery() : approvalCenterHistoryDetailQuery(file, task, processInstance);
         return ApprovalTaskSummary.builder()
                 .id("DCC:" + SOURCE_TASK_TYPE + ":" + task.getId())
                 .moduleCode(ApprovalModuleCode.DCC)
@@ -381,8 +384,8 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .approvalRemark(ApprovalTaskResultSupport.rejectRemark(approvalResult,
                         FlowableUtils.getTaskReason(task)))
                 .requiresSignature(Boolean.TRUE)
-                .detailRoute("/dcc/controlled-file/detail/" + businessKey)
-                .detailQuery(approvalCenterViewerDetailQuery())
+                .detailRoute(detailQuery == null ? null : "/dcc/controlled-file/detail/" + businessKey)
+                .detailQuery(detailQuery == null ? Map.of() : detailQuery)
                 .availableActions(PROCESS_IN_MODULE_ACTIONS)
                 .capabilities(CAPABILITIES)
                 .build();
@@ -485,6 +488,37 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         return processInstance != null
                 && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS
                 .contains(processInstance.getProcessDefinitionKey());
+    }
+
+    private static Map<String, String> approvalCenterHistoryDetailQuery(DccControlledFileDO file,
+            HistoricTaskInstance task, HistoricProcessInstance process) {
+        String definition = process.getProcessDefinitionKey();
+        String applicationType;
+        if (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(definition)) applicationType = "UPLOAD";
+        else if (DccControlledFileProcessDefinitionKeys.REVISION.equals(definition)) applicationType = "REVISION";
+        else if (DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL.equals(definition)
+                && task.getProcessInstanceId() != null
+                && task.getProcessInstanceId().equals(file.getProcessInstanceId())) {
+            applicationType = "NEW".equals(file.getChangeType()) ? "UPLOAD"
+                    : "REVISION".equals(file.getChangeType()) ? "REVISION" : null;
+            if (applicationType == null) return null;
+        }
+        else if (definition != null && DccControlledFileProcessDefinitionKeys.FORM_CENTER_OBSOLETE_KEYS.contains(definition)) applicationType = "OBSOLETE";
+        else return null;
+        if (file.getId() == null || file.getId() <= 0 || task.getEndTime() == null
+                || !isExactHistoryLinkText(file.getVersionNo(), 128)
+                || !isExactHistoryLinkText(task.getProcessInstanceId(), 64)
+                || !isExactHistoryLinkText(task.getId(), 64)) return null;
+        var context = new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
+                file.getId().toString(), file.getVersionNo(), applicationType, task.getProcessInstanceId(), task.getId());
+        Map<String, String> query = approvalCenterViewerDetailQuery();
+        query.put("bodyReadContext", context.wire());
+        return query;
+    }
+
+    private static boolean isExactHistoryLinkText(String value, int limit) {
+        return value != null && !value.isBlank() && value.equals(value.strip()) && value.length() <= limit
+                && value.chars().noneMatch(c -> c < 32 || c == 127);
     }
 
     private static Map<String, String> approvalCenterViewerDetailQuery() {

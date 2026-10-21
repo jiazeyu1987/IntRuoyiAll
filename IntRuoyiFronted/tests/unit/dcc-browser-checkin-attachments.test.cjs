@@ -44,3 +44,11 @@ test('saved source response that omits ordinary attachments must never be announ
  await h.state.exports.submit();assert.equal(h.calls.writes.length,1);assert.equal(h.calls.successes.length,0);assert.equal(h.marked,undefined)
  assert.ok(h.calls.errors.some(x=>/附件/.test(x)))
 })
+test('two ready ordinary attachments cannot bypass a rejected or rework source requiring a fresh body',async()=>{
+ for(const status of ['REJECTED','PENDING_APPLICANT_REWORK']){
+  const h=host();h.state.checkinTarget.value.status=status;h.state.checkinUpload.value=undefined;h.state.checkinSourceState.value='idle'
+  await h.state.exports.submit();assert.equal(h.calls.writes.length,0);assert.equal(h.calls.successes.length,0)
+  assert.ok(h.calls.errors.some(text=>/重新上传源文件/.test(text)))
+  assert.equal(h.state.checkinAttachmentsRef.value.readReadyManifest().length,2);assert.equal(h.marked,undefined)
+ }
+})

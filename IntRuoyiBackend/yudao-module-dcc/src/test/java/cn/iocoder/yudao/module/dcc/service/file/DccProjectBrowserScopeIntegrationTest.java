@@ -37,6 +37,9 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
     @Resource DccControlledFileMapper files;
     @Resource DccControlledFileMasterMapper masters;
     JdbcTemplate jdbc;MockMvc mvc;com.fasterxml.jackson.databind.ObjectMapper json;
+    DccControlledFileQueryServiceImpl query;
+    DccControlledFileAssignmentScopeService scope;
+    cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projects;
     @BeforeEach void fixture() throws Exception {
         jdbc=new JdbcTemplate(dataSource);try(var connection=dataSource.getConnection()){assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));}
         TenantContextHolder.setTenantId(1L);var login=new LoginUser();login.setId(99L);login.setTenantId(1L);
@@ -50,7 +53,7 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         master(12,5,9007199254740993L,9007199254740993L);file(9007199254740993L,12,5,5,"A/1","ACTIVE");
         master(13,6,25L,25L);file(25,13,6,6,"A/1","ACTIVE");
         jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(1,1,5,500,21,5),(2,1,6,501,22,5)");
-        var query=new DccControlledFileQueryServiceImpl();
+        query=new DccControlledFileQueryServiceImpl();
         // Isolate only external policy/storage ports; the Query implementation and SQL are real.
         for(var field:DccControlledFileQueryServiceImpl.class.getDeclaredFields())if(!Modifier.isStatic(field.getModifiers()) && field.getAnnotation(Resource.class)!=null)
             ReflectionTestUtils.setField(query,field.getName(),mock(field.getType()));
@@ -60,9 +63,10 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.QUERY)).thenReturn(Set.of(5L));
         when(permissions.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
         ReflectionTestUtils.setField(query,"directoryAccessPermissionService",permissions);
-        var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(eq(99L),anyLong())).thenReturn(true);
+        scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(eq(99L),anyLong())).thenReturn(true);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(null);
         ReflectionTestUtils.setField(query,"assignmentScopeService",scope);
-        var projects=mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);
+        projects=mock(cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService.class);
         when(projects.listReadableProjectIds(99L)).thenReturn(List.of(5L,6L));
         ReflectionTestUtils.setField(query,"projectAccessService",projects);
         var storage=mock(FileMapper.class);when(storage.selectById(501L)).thenReturn(FileDO.builder().id(501L).name("controlled.pdf").type("application/pdf").build());
@@ -75,6 +79,26 @@ class DccProjectBrowserScopeIntegrationTest extends BaseDbUnitTest {
         mvc=MockMvcBuilders.standaloneSetup(controller).setMessageConverters(new MappingJackson2HttpMessageConverter(json)).build();
     }
     @AfterEach void clear(){jdbc.update("DELETE FROM dcc_project_file_placement");SecurityContextHolder.clearContext();TenantContextHolder.clear();}
+    @Test void projectBrowserReadsAssignmentAndProjectScopeOncePerRequestAndRechecksRevocation() throws Exception {
+        var assigned=Set.of(20L,21L,24L,22L,9007199254740993L);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(assigned);
+        var first=page("GLOBAL",null,null,1,20);
+        assertEquals(5,first.get("total").intValue());
+        assertEquals(Set.of("20","21","24","22","9007199254740993"),new HashSet<>(first.get("list").findValuesAsText("id")));
+        for(var row:first.get("list")){assertFalse(row.get("canPreview").booleanValue());assertFalse(row.get("canDownload").booleanValue());}
+        verify(scope,times(1)).resolveActiveAssignedControlledFileIds(99L);
+        verify(scope,never()).isWithinAssignedFileScope(eq(99L),anyLong());
+        verify(projects,times(1)).listReadableProjectIds(99L);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(Set.of());
+        assertEquals(0,page("GLOBAL",null,null,1,20).get("total").intValue());
+        verify(scope,times(2)).resolveActiveAssignedControlledFileIds(99L);
+        verify(projects,times(2)).listReadableProjectIds(99L);
+        when(scope.resolveActiveAssignedControlledFileIds(99L)).thenReturn(assigned);
+        when(projects.listReadableProjectIds(99L)).thenReturn(List.of());
+        assertEquals(0,page("GLOBAL",null,null,1,20).get("total").intValue());
+        verify(scope,times(3)).resolveActiveAssignedControlledFileIds(99L);
+        verify(projects,times(3)).listReadableProjectIds(99L);
+    }
     @Test void fullProjectBrowserPreservesWorkingAndInflightAlongsideControlledWithExactCountAndBodyGuard() throws Exception {
         jdbc.update("INSERT INTO dcc_project_file_placement(id,tenant_id,project_code_id,project_folder_id,controlled_file_id,storage_directory_id) VALUES(3,1,5,500,20,5),(4,1,5,500,24,5)");
         file(26,10,5,5,"A/3","PENDING_MATRIX_REVIEW");

@@ -1,0 +1,1051 @@
+# E2E-02 提交前完整性拦截
+
+## Goal
+
+独立验证E2E-02，作为24例之一交Root review；业务定义来自doc/tasks/20261015-dcc-six-thread-followup-review/e2e-test-cases.md。
+
+## Current Status
+
+blocked — R4 business remainder PASS; 14 PASS/4 UI invariants combined; Root review pending, Git forbidden.
+
+## BDD
+
+### 2026-10-20 R3第1轮完整重跑
+
+- Given Root R3 ledger第1轮E02 gate=execute，int_qms 8061/PID20976、48061/PID41508、Jar709e78bd…aaa147及2095项新源码快照匹配，原本例受保护凭据可用。
+- When 全新正常输入进入确认并取消，再按原18参数真实页面分别清空/验证UI不变量，恢复会签，S/L/A/D本人待办及Config默认值补充核验；每次重新登录核对本人可见身份，使用本轮独立编号和逐参数唯一源件basename。
+- Then 具体阻止信息、无正式提交/待办、恢复可继续及延迟日期合同分别留证；不能正常构造的非法空值单列不变量而非PASS。每次新件仅删一次，等自然HTTP/传输完成和页面清理终态，未知即停止后续业务；保留首次失败及未跑槽位，不重播提交/签名、不覆盖历史。只记录自然method/path/status/finished/failed和可见DOM，不读取响应JSON/载荷/本地存储。原session标识未在页面展示时不提取请求体或headers。
+- 本轮只校准本目录独立执行器R3门禁、证据隔离、身份和源件标识；不修产品。默认计划不启浏览器，实际执行本轮已授权无需再等待Root。
+
+### 2026-10-20 原R2临时件清理UNKNOWN只读追查
+
+- Given 旧missing-department-owner业务拦截PASS，但删除后5秒未见成功反馈且自然清理POST状态null；原browser/context已关闭，新三项PASS不能替代原件终态。
+- When 原编制人通过真实正式页面只读定位原临时件和删除反馈；无正式历史状态入口时，仅检查直接相关前后端清理源码、原trace与服务日志，不重放原删除、不造替代数据。
+- Then 仅唯一关联原会话/请求的终态证据能证明已清理或未清理。缺少原session/requestId或服务器终态须明确UNKNOWN与证据缺口，不能用新页空行、文件浏览无申请或新清理PASS冒充；给Root最小取证/修复方案，生产文件不自行改。
+
+### 2026-10-20 接受E08/E12目标修改后的独立运行
+
+- Given Root明确接受上传877479ff…69530、详情67a10e26…176d7，限定同一Vite20976/后端41508/Jar709e…，旧baseline保留历史原样。
+- When 建独立当前运行证明，逐项比对六项磁盘SHA与8061实际服务模块inline source map的sourcesContent；仅两项采用Root新确切指纹，其余沿用原accepted指纹。
+- Then 全部匹配才打开新run门禁；只执行缺批准人、会签为空及恢复和四本人只读待办。任何FAIL/BLOCKED或清理未知即关闭浏览器，不开展下一项业务；每个新源件仅删一次并等待自然请求完成及页面清理确认。旧阻塞gate、证明、结果不覆盖。
+- runner停止门禁以离线控制器测试RED/GREEN验证，测试不作为真实业务PASS。
+
+### 2026-10-20 获准执行后的运行门禁复核
+
+- Given Root已确认E12浏览器关闭并授权仅缺批准人、会签为空及恢复，既有正常基线引用仍要求同一r2运行身份。
+- When 复核实际分支、监听PID、后端进程Jar来源、Jar SHA及六项冻结前端源码SHA。
+- Then 全部匹配才打开本例执行门禁并启动定向runner；任何新增漂移须记录路径、预期/实际SHA并阻止启动，不更新冻结证明来掩盖版本变化。不得重试旧删除、重跑11PASS/4不变量或改共享资产。
+- 本次实际：后端及分支匹配，上传/详情源码两项漂移；未运行任何新业务，未声称产品失败或E2E通过。
+
+### 2026-10-20 剩余项 PREPARE_ONLY 与清理等待校准
+
+- Given 原缺部门负责人业务拦截PASS，清理只等5秒提示且请求结果未知，Root允许为独立剩余项准备新会话，但E12当前独占业务执行。
+- When 只读原trace/请求/源码，校准本例自然清理请求等待并离线验证，准备仅missing-approver、signoff-empty及恢复的独立runner，默认execute门禁关闭。
+- Then 不开浏览器、不请求API/DB、不重复删除旧件；新清理只点击一次，等待自然响应/传输终态并记录成功提示和行/预览消失，失败保留证据并停止同一新链路。旧未知不作为永久阻挡独立新会话的门禁；不扩大角色或持久配置。
+- 精确范围：缺批准人仅清空本申请批准人；会签为空仅移除本申请会签，再恢复DCC241016C02Dept进入确认并取消。两项均用新独立context和新编号，不复验其他15项；正常基线只作为原本轮已验证前置引用。
+
+### rerun-20261020-r2-round1 EXECUTE
+
+- Given Root已明确放行第一批E2E02，rerun-r2-runtime-proof.json和archiveProof证明新包，实际分支、监听PID、Jar SHA与前端源码均须一致；原七账号仅离线确认可读，仍须本人重新登录。
+- When 使用本轮独立目录执行新正常基线、全部18项记录、会签恢复及S/L/A/D真实待办，补充Config默认属性校验；不执行最终受控提交，不用API/DB承担业务。
+- Then 每项按本轮实际页面记录PASS/FAIL/BLOCKED或UI不变量，首次失败保留不覆盖；新源件逐次页面清理，未知即停止后续上传并逐项BLOCKED。结束脱敏、关闭所有本例browser/context/runner并交handoff.json后hold，不启动第二轮。
+
+### rerun-20261020-r2-round1 PREPARE_ONLY
+
+- Given Root要求新四轮按顺序每批6例，本例为第一批E2E02；新包及执行放行尚未到达，原真实账号与业务合同可离线核对。
+- When 仅核对规则、原账号DPAPI凭据可读性、基线及全部18项参数和四审批人待办计划，建立独立本轮证据目录与可执行入口。
+- Then 记录PREPARED_WAITING_RUNTIME_READY，全部业务结果NOT_RUN，不开browser/context、不登录、不调用业务API/DB、不改权限；收到Root新包证明后另核对运行身份并重新真实验证，不复用旧PASS。
+- 新执行必须新正常基线、14个适用负例、4项真实UI不变量检查、会签恢复及S/L/A/D待办；UI未变时不变量不声称执行非法空值提交。首次真实失败留证，新上传清理未知立即停止并将后续逐项BLOCKED。旧生产方临时件未知继续独立保留。
+
+### 2026-10-20 编号空值根因复验
+
+- Given 第一轮确认提示中的文件编号仍为变体原值，但执行器没有在清空后断言真实可见输入值；生产确认使用已校验的冻结草稿。
+- When 仅在真实页面清空“文件编号”，立即断言输入为空并经 Tab 触发 blur，再尝试提交；支持单分支隔离运行。
+- Then 只有输入实际为空且页面阻止提交、显示编号必填提示，才接受该分支；保留第一轮FAIL原件，不改确认生产逻辑。新增源件逐次取得页面清理确认后才能继续。
+- 旧生产方临时源件保留UNCONFIRMED：原浏览器已关闭，新页面仅有新内存会话，没有可恢复旧行；不得以新页无行或新上传清理成功声称旧件已删除。Root本轮继续七分支指令仅适用于独立新上传，逐次清理门禁保留。
+- 单分支首次复验业务PASS，但runner的待办辅助步骤要求18项导致exit2（RED）；将待办证据限制为本次所选分支后复验（GREEN），不降低未运行分支状态。
+
+### 2026-10-20 剩余七分支定向验收
+
+- Given 当前运行身份与已验证正常基线不变，旧FAIL/BLOCKED和旧临时件未知记录保持，Root允许本例独立浏览器。
+- When 仅运行文件转移单选不变量、其他市场说明空值、转移至空值、缺主管、缺部门负责人、缺批准人、会签空值，所有动作来自真实页面并使用本例真实账号。
+- Then 适用负例显示准确阻止信息且自然submit请求0；会签恢复后能重新进入确认并取消。各新上传逐次取得可见清理提示、行及预览消失、自然清理HTTP200，任何未知清理立刻停止；四审批人仅只读核验所选分支之后的真实待办。
+
+### 2026-10-20 第一轮真实前端重跑
+
+- Given int_qms 8061/PID20976、48061/PID27908与runtime-proof.json一致，本例真实账号和DCC241016C02夹具仍可用；每人仅属一个部门，音视频仅附件。
+- When 使用新独立context本人登录，按正常基线、18项记录（14个适用空值/缺配置负例与4项UI不变量）、4名审批人待办顺序完成真实页面动作。
+- Then 每项记录本次新编号DCC261020C02R1、页面断言、trace/截图、临时源件页面清理及PASS/FAIL/BLOCKED；4项不可清空不变量不计空值提交。基线只进入确认并取消，不创建终态申请。旧终态、旧PASS不得充当本次结果。
+- 仅校准本例脚本的输出隔离与当前运行身份，不改业务预期；旧结果/夹具/trace不覆盖。服务、权限或本人登录失败如实BLOCKED，结束前关闭浏览器/runner，不进入下一轮。
+
+### 2026-10-19 R2 报告口径纠正
+
+- Given 原 parameter-results.json 与 Root 回执记录 14 个已执行负例、4 项 UI 不变量，且原结果 SHA256 已绑定。
+- When 仅整理本例验收报告并核对原证据引用，不运行浏览器、构建或修改生产代码。
+- Then 报告必须分别列出 14 个可操作空值/缺配置拦截 PASS 与 4 项 NOT_APPLICABLE_UI_INVARIANT；后者 executed=false，不能算实际空值提交。14 个负例也不等于 14 次后端提交请求，原记录均为 0。
+- 本轮门禁仅为文档结构、原结果 SHA、逐项截图/trace 引用核验；不重跑已通过 E2E。原始结果、夹具和历史失败保留，工程收尾仍 blocked（禁止提交/推送）。
+
+- Given 有一份可正常提交的任务自有申请
+- When 分别清空项目、文件夹、类型、名称、编号、初始版本、生效方式、规定必填属性；分别使用缺主管/部门负责人/批准人的自有配置；会签全部删除
+- Then 每种变体均具体提示并阻止提交，无审批待办；会签为空明确提示“请至少选择一个会签部门”，恢复有效选择后可继续。延迟模式在上传阶段不要求具体日期。
+
+## Milestones
+
+1. [x] 用例参数拆分、精确页面入口及角色数据前置。
+2. [x] 可复跑Playwright脚本、语法与结构检查、prepared.json。
+3. [x] 正常基线PASS；18项记录分为14个可操作空值/缺配置拦截PASS、4项UI只读/不可清空不变量（NOT_APPLICABLE_UI_INVARIANT，未执行空值提交）；源件清理及4名审批人待办核对完成。
+4. [x] Root已审核最终参数、基线/原失败复验/四独立待办及文件trace一致性，接受UI需求覆盖；工程收口待整体Root审查。
+5. [ ] 2026-10-20本轮完整覆盖：实际执行11参数；清理未确认导致7项未执行，已逐项BLOCKED。本轮问题及关闭证据已交Root，不能用历史PASS补齐。
+6. [x] 2026-10-20 REPAIR_ONLY定向：编号复验及原七项完成，7PASS/1不变量；四人待办为空、新件逐次清理、关闭与隐私验证通过。该结果不混入新四轮，旧临时件未知保留，按Root指令hold。
+
+## Expected Verification
+
+- 当前R3全合同18槽位重新真实执行，旧PASS全部不复用；新baseline PASS、会签恢复和4本人待办均须本轮取证。原4不可独立清空UI槽位按实际NOT_APPLICABLE_UI_INVARIANT单列；所有新上传唯一basename/编号、自然事件及可见清理终态/残留、trace隐私CRC、关闭回执齐全。唯一交接rerun-20261020-r3-round1/handoff.json；禁止生产/服务/Git与API/DB业务替代。
+
+- 最新仅旧R2临时件只读定位：真实页面入口/可见范围、原trace点击及反馈、原服务日志与清理代码链关联；只记录证据支持的服务器终态。无上传/删除/配置、API/DB业务动作、回归、Maven、服务、Git或子Agent。旧结果不覆盖，剩余项PASS不重跑。
+
+- 当前授权：独立remaining-current运行签名（6项磁盘及Vite源映射、固定PID/Jar）与缺批准人、会签为空及恢复；不重跑11PASS/4UI不变量。原baseline只作历史前置引用，Root接受E08/E12修改的当前运行身份另证。失败立即停止；新源件单次页面删除及自然传输终态、trace隐私/CRC、关闭证据必须记录。
+
+- 历史剩余项PREPARE_ONLY：只验证只读根因时间线、定向两参数及恢复计划、单次自然清理传输观察器离线RED/GREEN、node语法及旧证据不变；当时没有真实UI验收授权窗口。旧全量不再重跑，原BLOCKED不改写。
+
+- 历史 rerun-20261020-r2-round1：新包全量原合同；当时实际16参数UI检查，缺批准人、会签为空及恢复因清理未知BLOCKED，原结果保持。正常基线/四本人待办/Config补充核验使用该轮独立证据。
+
+- 只操作真实页面，不使用API/DB写入、mock或默认成功；每个参数化分支单独记录。
+- 运行命令、实际退出码、环境/账号标签、版本/申请、页面断言、trace/截图、清理残留齐全。
+- 静态检查与准备状态不得记E2E PASS；缺前置具体BLOCKED，业务失败具体FAIL。
+- 2026-10-19 R2 仅核对报告结构与原证据：14/4分类、四不变量executed=false、截图/trace存在、Root回执SHA一致及交接字段齐全；本轮无E2E/构建窗口需求。
+- 上条为R2历史范围；2026-10-20新门禁为本次真实基线、18参数全量尝试与4审批人待办。实际未跑7项明确BLOCKED，清理未知不能继续新增上传；不将停止后的遗漏写PASS，不启动下一轮。
+- 最新REPAIR_ONLY范围按Root新指派覆盖原编号失败与七未执行分支，不全量重跑旧PASS；只用所选8项关联本次四人待办。原第一轮原件保持，不将本轮计入尚未放行的新四轮。
+
+## 设计约束检查
+
+- 本轮新运行身份：int_qms，8061/PID20976、48061/PID41508，Jar SHA709e78bd665da04cc0fde3ddffffb401a028a8835139646fa4754ec753aaa147；未改源码、重启、构建、Git写或启用子Agent。
+
+- 只改本目录测试资产，保护现有源码；不重启服务、不跑共享Maven/构建、不改生产源码/共享.env、不切分支、不操作远端、不提交推送。
+- 当前分支int_qms，端口8061/48061；浏览器启动前读取Root dispatch.json中本例gate和环境身份。
+- 账号与凭据仅用已授权来源，不记录密码/token/cookie、不猜密码；缺独立角色就报告，不用admin替代。
+- 自有数据前缀DCC241016C02，不改其它用例对象或公共矩阵；更广泛数据准备先交Root排期。
+- 本目录由本例线程维护，Root独占协调目录。准备完成结束当前turn，不循环等待。
+
+## Preparation Details
+
+- 正式入口：DCC 工作台（`/dcc/controlled-file/workbench`）→“上传文件”→受控文件提交（`/dcc/controlled-file/upload`）；审批待办只读核对入口为 `/approval-center/todo`。
+- 基准可提交申请字段：DCC项目、项目文件夹、文件类型、文件编号、初始版本号、生效方式、申请属性、会签部门、批准人和真实受控文件；延迟生效在上传页不要求具体日期。
+- 参数分支共 18 项：`project-empty`、`folder-empty`、`type-empty`、`name-empty`、`source-empty-not-name`（补充源件缺失，不覆盖独立名称）、`number-empty`、`version-empty`、`effective-mode-empty`、四项申请属性空值、两项条件属性空值、`missing-supervisor`、`missing-department-owner`、`missing-approver`、`signoff-empty`，详见 `prepared.json`。
+- 页面限制的最终结论：名称由真实源件生成且只读；注册人、生产方、文件转移三项有效默认单选不可清空，按NOT_APPLICABLE_UI_INVARIANT另列。生效方式使用新页面初始未选择状态完成空值拦截PASS，不再沿用准备阶段“无clear即BLOCKED”的假设。均不注入非法状态。
+- 角色与数据：申请人 U 必须拥有真实 DCC 提交菜单/按钮；缺直属主管、部门负责人、批准人三类负例必须使用任务自有配置，不能用 admin 冒充或修改公共矩阵。审批待办需由真实申请人页面确认无待办。
+
+## Root Review Revision 2
+
+- trace 在登录完成后启动，`snapshots:false` 避免 Playwright 自动保存网络请求头、查询值或认证数据；自然请求证据仅保留 `method/pathname/status`。
+- 去掉文件夹点击处的吞异常；文件夹只能点正式清空按钮，并断言真实选中标签消失、占位符恢复，不能以清空搜索框代替。没有清空能力时 BLOCKED。
+- `name-empty` 明确为只读页面未覆盖；`source-empty-not-name` 仅是源件缺失的补充验证，不抵扣独立名称必填。
+- 人员负例切项目前通过页面清理基线源件；切项目后显式重选负例文件夹/类型并重填编号/版本/延迟模式、重新上传源件，复核属性、会签及其它输入后才断言对应人员具体提示。缺主管还需独立真实账号，换项目不会改变组织直属主管。
+- 每次临时上传均累计计数；清理必须点源件行正式删除图标，取得页面“已清理本次上传临时文件”、源件行与预览消失及自然清理请求 HTTP 200。逐次记录 cleanup，失败残留为 unknown 并停止后续变体；关闭 context 不算清理。
+- 未覆盖验收项如审批待办零新增、会签恢复后继续提交，在 `prepared.json` 和报告明确保留，未记为已通过。
+
+## Execute Authorization / BDD
+
+- Given 用户已授权本例真实前端账号/角色/菜单及任务自有 fixture 准备，Root 已确认 int_qms 8061/48061 当前 Jar 运行态。
+- When 配置操作者通过真实页面创建本例 DCC241016C02 账号/角色/组织/项目/类型，并用独立 context 登录核对业务身份、菜单和数据。
+- Then 仅有真实页面验证证据的 fixture 可进入 fixture-manifest.json 的 verified 部分；不改共享 dispatch/角色/矩阵；逐分支执行后记录真实业务结果与清理残留。
+- 新建账号凭据只保存在运行进程内存/环境，配置密码输入期间不启用 trace 或截图。现有 admin 凭据只在运行时读取根 AGENTS 授权段，不写入任务文件默认值。
+
+## Evidence Preservation
+
+- 当前为 blocked，所有本例公开证据保留供 Root review，未执行 cleanup apply。下列清单不表示 Git 已提交或 E2E 已通过。
+- 本机加密凭据 *.dpapi 由本例 .gitignore 排除，保留用于原账号续跑，不属于公开证据包。
+
+## Cleanup Keep
+
+- doc/tasks/20261016-dcc-e2e-02/repair-20261019-r2-handoff.json
+- doc/tasks/20261016-dcc-e2e-02/.gitignore
+- doc/tasks/20261016-dcc-e2e-02/actors-created.json
+- doc/tasks/20261016-dcc-e2e-02/asset-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02-source.docx
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02A-signature.png
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02D-signature.png
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02L-signature.png
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02NoSupervisor-signature.png
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02S-signature.png
+- doc/tasks/20261016-dcc-e2e-02/assets/DCC241016C02U-signature.png
+- doc/tasks/20261016-dcc-e2e-02/audit-evidence.ps1
+- doc/tasks/20261016-dcc-e2e-02/case02-real-ui.cjs
+- doc/tasks/20261016-dcc-e2e-02/category-upload-rule-created.json
+- doc/tasks/20261016-dcc-e2e-02/e2e-02-submit-integrity-real.e2e.cjs
+- doc/tasks/20261016-dcc-e2e-02/evidence-privacy-audit.json
+- doc/tasks/20261016-dcc-e2e-02/execution-log.md
+- doc/tasks/20261016-dcc-e2e-02/final-asset-validation.json
+- doc/tasks/20261016-dcc-e2e-02/final-gate-check.log
+- doc/tasks/20261016-dcc-e2e-02/final-static-validation.log
+- doc/tasks/20261016-dcc-e2e-02/final-structure-result.json
+- doc/tasks/20261016-dcc-e2e-02/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/maintenance-safe-point.json
+- doc/tasks/20261016-dcc-e2e-02/maintenance-stop.json
+- doc/tasks/20261016-dcc-e2e-02/make-test-assets.ps1
+- doc/tasks/20261016-dcc-e2e-02/organization-created.json
+- doc/tasks/20261016-dcc-e2e-02/parameter-results.json
+- doc/tasks/20261016-dcc-e2e-02/prepare-review.log
+- doc/tasks/20261016-dcc-e2e-02/prepared-phase-one.json
+- doc/tasks/20261016-dcc-e2e-02/prepared.json
+- doc/tasks/20261016-dcc-e2e-02/product-blocker-bdd.md
+- doc/tasks/20261016-dcc-e2e-02/project-rules-created.json
+- doc/tasks/20261016-dcc-e2e-02/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/real-replay-1792163675052.log
+- doc/tasks/20261016-dcc-e2e-02/real-replay-1792171006078.log
+- doc/tasks/20261016-dcc-e2e-02/real-ui/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792124466574/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792124466574/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792151585303/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792151585303/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792151585303/setup-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152377310/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152377310/config-created-and-assigned.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152377310/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152377310/setup-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152377310/setup-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/config-directory-query-permission-missing.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/config-independent-login.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/DCC241016C02Config-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/DCC241016C02Config-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/own-directory-created-visible.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/own-directory-query-completed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/own-directory-search-before-create.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/own-folder-template-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/project-application-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/project-application-pending.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792152805449/setup-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02Config-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02Reviewer-first-login-error.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02Reviewer-first-login-visible-error.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02U-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02U-first-login-error.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/DCC241016C02U-first-login-visible-error.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/first-login-error.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/first-login-visible-error.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/own-project-reviewer-assigned.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/setup-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/setup-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792154402362/setup-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155176127/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155176127/DCC241016C02U-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155176127/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155545127/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155545127/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155874413/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155874413/DCC241016C02U-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155874413/DCC241016C02U-first-login-error.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155874413/DCC241016C02U-first-login-visible-error.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792155874413/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/approval-permission-name-search.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/author-independent-login.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/author-supervisor-configured.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/current-supervisor-reopened-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-15.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-22.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-signature-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Config-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Config-18.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Config-19.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-16.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-23.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-signature-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Dept-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-14.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-21.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-signature-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02NoLeaderDept-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02NoSupervisor-17.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02NoSupervisor-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02NoSupervisor-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Reviewer-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02Reviewer-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-13.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-20.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/DCC241016C02U-credential-entry-checks.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/existing-approval-permission-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/normal-baseline-1792160532887-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/normal-baseline-1792161119570-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/normal-baseline-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-category-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-category-upload-rule.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-project-completed.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-project-completed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-project-rules-verified.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/own-signer-authorizations-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/participant-role-created.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/setup-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/supervisor-reopened-verified.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792156209781/supervisor-signature-upload-observed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02A-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02A-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02A-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02A-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02A-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Config-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Config-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Config-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02D-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02D-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02D-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02D-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02D-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02L-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02L-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02L-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02L-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02L-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02NoSupervisor-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02NoSupervisor-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02NoSupervisor-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Reviewer-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Reviewer-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02Reviewer-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02S-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02S-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02S-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02S-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02S-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02U-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/DCC241016C02U-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792161858830/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792163675327/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792163675327/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792163675327/normal-baseline-1792163678934-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792163675327/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/author-self-signature-menu.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02NoSupervisor-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02NoSupervisor-signature-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02NoSupervisor-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-signature-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/DCC241016C02U-signature.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/own-signer-authorizations-enabled.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/setup-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/workflow-resume-preview-1792164335690-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/workflow-resume-preview-1792164729115-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/workflow-resume-preview-1792165338888-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792164268060/workflow-resume-preview-1792165338888-selected-people.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02A-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02D-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02L-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02NoSupervisor-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02NoSupervisor-native-post-before.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02S-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02S-native-post-before.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02U-native-post-after.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/DCC241016C02U-native-post-before.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/native-account-posts-after.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/native-account-posts-before.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/normal-baseline-1792169172743-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/normal-baseline-1792169594216-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/normal-baseline-1792170942345-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/normal-baseline-1792170942345-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/review-qualification.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/review-qualification.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792169005830/setup-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-license-holder-empty-1792171153268-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-manufacturer-empty-1792171168236-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-other-market-empty-1792171195910-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-target-market-empty-1792171137273-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-transfer-empty-1792171182420-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/attribute-transfer-to-empty-1792171210022-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02NoSupervisor-16.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-13.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-14.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-15.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-17.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-18.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-19.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/effective-mode-empty-1792171123191-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/folder-empty-1792171037739-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/missing-approver-1792171266292-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/missing-department-owner-1792171239958-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/missing-supervisor-1792171223749-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/name-empty-1792171065718-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/normal-baseline-1792171010212-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/normal-baseline-1792171010212-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/number-empty-1792171092190-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/project-empty-1792171023534-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/signoff-empty-1792171286287-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/source-empty-not-name-1792171078746-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/type-empty-1792171051353-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171006361/version-empty-1792171108284-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/attribute-license-holder-empty-1792171539963-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/attribute-manufacturer-empty-1792171554346-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/attribute-transfer-empty-1792171567665-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02A-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02D-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02L-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02S-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/folder-empty-1792171342163-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/folder-empty-1792171419076-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/folder-empty-1792171503567-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/missing-department-owner-1792171600913-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/name-empty-1792171522393-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792171312942/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/attribute-license-holder-empty-1792172738294-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/attribute-manufacturer-empty-1792172753244-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/attribute-transfer-empty-1792172768177-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02A-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02Config-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02D-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02L-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02S-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/name-empty-1792172723384-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/project-defaults-ui-invariant.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/project-defaults-valid.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/project-defaults-validation-error.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792172260653/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/actions.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02A-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02D-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02L-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02S-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/missing-department-owner-1792176379992-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/normal-baseline-1792176486353-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/normal-baseline-1792176486353-result.png
+- doc/tasks/20261016-dcc-e2e-02/real-ui/run-1792176324492/requests.json
+- doc/tasks/20261016-dcc-e2e-02/real-ui/setup-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/replay-plan-v6.json
+- doc/tasks/20261016-dcc-e2e-02/replay-plan.json
+- doc/tasks/20261016-dcc-e2e-02/report-assembly.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-case.cjs
+- doc/tasks/20261016-dcc-e2e-02/review-structure-check.cjs
+- doc/tasks/20261016-dcc-e2e-02/review-structure-result.json
+- doc/tasks/20261016-dcc-e2e-02/role-minimum-scope.json
+- doc/tasks/20261016-dcc-e2e-02/root-workflow-resume-result.json
+- doc/tasks/20261016-dcc-e2e-02/run-summary.json
+- doc/tasks/20261016-dcc-e2e-02/signature-authorizations-created.json
+- doc/tasks/20261016-dcc-e2e-02/summarize-real-run.cjs
+- doc/tasks/20261016-dcc-e2e-02/task.md
+- doc/tasks/20261016-dcc-e2e-02/ui-session.cjs
+- doc/tasks/20261016-dcc-e2e-02/ui-steps.cjs
+- doc/tasks/20261016-dcc-e2e-02/v6-asset-validation.json
+- doc/tasks/20261016-dcc-e2e-02/v6-static-validation.log
+- doc/tasks/20261016-dcc-e2e-02/v6-structure-result.json
+- doc/tasks/20261016-dcc-e2e-02/validate-task-assets.cjs
+- doc/tasks/20261016-dcc-e2e-02/verification-report.md
+
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/document-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/preflight.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/preservation-and-close-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/result-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/result.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/runner.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/attribute-license-holder-empty-1792460369768-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/attribute-manufacturer-empty-1792460392461-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/attribute-target-market-empty-1792460354836-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/effective-mode-empty-1792460339833-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/folder-empty-1792460237820-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/manufacturer-cleanup-last-from-trace.jpeg
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/name-empty-1792460265587-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/normal-baseline-1792460207271-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/normal-baseline-1792460207271-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/number-empty-1792460294698-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/number-empty-after-clear-from-trace.jpeg
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/number-empty-after-submit-from-trace.jpeg
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/project-empty-1792460222658-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/source-empty-not-name-1792460278922-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/type-empty-1792460251656-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-1792460169400/evidence/version-empty-1792460319368-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02A-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02Config-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02Config-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02Config-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02D-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02L-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02S-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/project-defaults-ui-invariant.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/project-defaults-valid.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/project-defaults-validation-error.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-round1-readonly-1792460169400/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/result-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/result.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/runner.log
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/attribute-other-market-empty-1792471507021-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/attribute-transfer-empty-1792471490732-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/attribute-transfer-to-empty-1792471523539-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02A-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02D-13.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02L-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02NoSupervisor-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02S-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/fresh-upload-session.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/fresh-upload-session.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/missing-approver-1792471577994-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/missing-department-owner-1792471559465-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/missing-supervisor-1792471538202-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/number-empty-1792471473549-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/evidence/signoff-empty-1792471594068-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/runner.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/DCC241016C02S-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/number-empty-1792471173703-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-number-empty-20261020-123909/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-handoff.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/closeout-preview.log
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/closeout-blocked-preview.log
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-targeted-20261020-124424/seal-manifest.json
+
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/credential-source-check.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/execution-plan.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/prepare-handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/prepare-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/prepared.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/README.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/supplemental-plan.json
+
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/archive-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-license-holder-empty-1792473086981-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-manufacturer-empty-1792473108230-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-other-market-empty-1792473147625-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-target-market-empty-1792473063307-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-transfer-empty-1792473130073-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/attribute-transfer-to-empty-1792473169885-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02NoSupervisor-16.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-13.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-14.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-15.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-17.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/effective-mode-empty-1792473043931-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/folder-empty-1792472948325-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/missing-department-owner-1792473207354-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/missing-supervisor-1792473187297-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/name-empty-1792472979625-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/normal-baseline-1792472914147-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/normal-baseline-1792472914147-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/number-empty-1792473011562-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/project-empty-1792472930337-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/source-empty-not-name-1792472995791-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/type-empty-1792472961338-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/evidence/version-empty-1792473025935-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/gate.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/result-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/result.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/root-runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/runner.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-signature.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02Config-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02Config-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02Config-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-signature.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-signature.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-identity-and-data.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-identity-and-data.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-signature-refreshed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-signature.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/project-defaults-ui-invariant.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/project-defaults-valid.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/project-defaults-validation-error.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-defaults/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/closeout-preview.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/closeout-preview-summary.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/closure-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1/seal-manifest.json
+
+- doc/tasks/20261016-dcc-e2e-02/cleanup-observation.cjs
+- doc/tasks/20261016-dcc-e2e-02/cleanup-observation.test.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/baseline-reference.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/cleanup-before-close-last-frame.jpeg
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/cleanup-timeline.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/cleanup-wait-green.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/cleanup-wait-red.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/cleanup-wait-timer-red.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/execution-plan.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/gate.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/prepare-handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/prepare-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/root-cause-and-plan.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/runner.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/preparation-seal.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/preflight-drift.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/preflight-handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/preflight-privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining/preflight-validation.json
+
+- doc/tasks/20261016-dcc-e2e-02/rerun-stop.test.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/baseline-reference.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/closure-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02A-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02D-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02L-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02S-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/fresh-upload-session.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/fresh-upload-session.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/missing-approver-1792491518744-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/evidence/signoff-empty-1792491534922-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/gate.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/result.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runner-stop-green.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runner-stop-red.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runner.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runner.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/trace-crc-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/verification-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r2-round1-remaining-current/seal-manifest.json
+
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/evidence/fresh-upload-session.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/evidence/fresh-upload-session.png
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/findings.md
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/handoff.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/readonly-plan.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/readonly-ui-result.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/readonly-ui.cjs
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/result.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/runner.log
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/trace-crc-validation.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/verification-validation.json
+- doc/tasks/20261016-dcc-e2e-02/old-r2-cleanup-investigation-20261020/seal-manifest.json
+
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-license-holder-empty-1792507041856.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-manufacturer-empty-1792507059944.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-other-market-empty-1792507104475.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-target-market-empty-1792507022344.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-transfer-empty-1792507080372.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-attribute-transfer-to-empty-1792507128534.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-effective-mode-empty-1792507001981.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-folder-empty-1792506901536.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-name-empty-1792506931282.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-normal-baseline-1792506869908.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-number-empty-1792506964130.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-project-empty-1792506886554.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-source-empty-not-name-1792506945784.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-type-empty-1792506915164.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/assets/DCC261020C02R3-version-empty-1792506985214.docx
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/case02-real-ui.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/cleanup-observation.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/closure-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/e2e-02-submit-integrity-real.e2e.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-license-holder-empty-1792507041859-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-license-holder-empty-1792507041859-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-manufacturer-empty-1792507059961-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-manufacturer-empty-1792507059961-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-other-market-empty-1792507104477-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-other-market-empty-1792507104477-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-target-market-empty-1792507022347-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-target-market-empty-1792507022347-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-transfer-empty-1792507080374-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-transfer-empty-1792507080374-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/attribute-transfer-to-empty-1792507128633-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-11.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-12.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-13.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-14.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-15.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/DCC241016C02U-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/effective-mode-empty-1792507001985-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/effective-mode-empty-1792507001985-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/folder-empty-1792506901538-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/folder-empty-1792506901538-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-1.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-10.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-11.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-12.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-13.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-14.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-15.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-2.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-3.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-4.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-5.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-6.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-7.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-8.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/identity-9.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/name-empty-1792506931285-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/name-empty-1792506931285-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/normal-baseline-1792506870059-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/normal-baseline-1792506870059-confirmation.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/normal-baseline-1792506870059-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/number-empty-1792506964134-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/number-empty-1792506964134-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/project-empty-1792506886556-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/project-empty-1792506886556-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/source-empty-not-name-1792506945787-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/source-empty-not-name-1792506945787-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/type-empty-1792506915185-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/type-empty-1792506915185-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/version-empty-1792506985216-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/evidence/version-empty-1792506985216-result.png
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/execution-log.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/execution-plan.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/first-stop-trace-events.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/first-stop.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/gate.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/handoff.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/handoff.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/post-run-source-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/preflight.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/rerun-case.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/result.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/runner.log
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/task.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/trace-crc-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/ui-session.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/ui-steps.cjs
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/verification-report.md
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/verification-validation.json
+- doc/tasks/20261016-dcc-e2e-02/rerun-20261020-r3-round1/seal-manifest.json
+
+## R4 Targeted Verification
+
+Given R3 baseline and 9 PASS/4 UI invariants, when remaining five invalid parameters are checked through formal UI, then all block final submit; valid signoff restoration reaches cancelled confirmation. Four own todos and Config default validation PASS. No old UNKNOWN replay.
+
+## Cleanup Keep
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/case02-real-ui.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/cleanup-observation.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/closure-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/e2e-02-submit-integrity-real.e2e.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/execution-log.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/execution-plan.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/first-error.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/handoff.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/old-r3-preservation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/post-run-source-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/privacy-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/real-case-results.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/rerun-case.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/result.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/runner.log
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/task.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/trace-crc-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/ui-session.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/ui-steps.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/verification-report.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/assets/DCC261020C02R4-attribute-transfer-to-empty-1792516468985.docx
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/assets/DCC261020C02R4-missing-approver-1792516513058.docx
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/assets/DCC261020C02R4-missing-department-owner-1792516497951.docx
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/assets/DCC261020C02R4-missing-supervisor-1792516482688.docx
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/assets/DCC261020C02R4-signoff-empty-1792516528262.docx
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/attribute-transfer-to-empty-1792516469005-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/attribute-transfer-to-empty-1792516469005-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02A-8.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02A-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02A-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02Config-10.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02D-9.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02D-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02D-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02L-7.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02L-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02L-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02NoSupervisor-2.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02S-6.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02S-todo-empty.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02S-todo-empty.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02U-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02U-3.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02U-4.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/DCC241016C02U-5.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-1.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-10.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-2.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-3.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-4.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-5.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-6.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-7.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-8.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/identity-9.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-approver-1792516513086-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-approver-1792516513086-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-department-owner-1792516497953-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-department-owner-1792516497953-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-supervisor-1792516482703-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/missing-supervisor-1792516482703-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/signoff-empty-1792516528264-cleanup-confirmed.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/evidence/signoff-empty-1792516528264-result.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/browser-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/case02-real-ui.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/cleanup-observation.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/closure-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/e2e-02-submit-integrity-real.e2e.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/execution-log.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/fixture-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/rerun-case.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/runner-close.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/runner.log
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/runtime-proof.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/task.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/ui-session.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/ui-steps.cjs
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/verification-report.md
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/actions.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/DCC241016C02Config-1.trace.zip
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/identity-1.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/project-defaults-ui-invariant.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/project-defaults-valid.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/project-defaults-validation-error.png
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/evidence/requests.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/seal-manifest.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/verification-validation.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4-defaults/seal-manifest.json
+
+## R4 runtime metadata correction / HOLD
+
+Root accepted cumulative PASS after independent CRC of 11 traces. Five parameter environment records erroneously inherited R3 fixture backendPid41508 and R3 proof name. Corrected to actual R4 backendPid38176/frontendPid20976 and local runtime-proof.json, using existing runtime proof and Root-confirmed before/after listener evidence. No new business/browser/runtime probe. Raw runner log intentionally retains original emitted template values; metadata-correction.json preserves before/after values. Business assertions, original errors, cross-run limitation and old R2 UNKNOWN unchanged. Root review accepted; HOLD.
+
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/metadata-correction.json
+- doc/tasks/20261016-dcc-e2e-02/repair-20261020-r4/metadata-correction-validation.json

@@ -10,7 +10,7 @@
     <p v-else-if="automaticResult?.status === 'PENDING'">自动下发事件已接收，等待准备。</p>
     <p v-else-if="automaticResult?.status === 'DISPATCH_READY'">下发义务已准备，通知尚未全部送达。</p>
     <p v-else-if="automaticResult?.status === 'SENT'">本批通知已全部送达；电子签收另行记录。</p>
-    <p v-if="!automaticProjectionError && automaticResult?.failureAt">实际失败时间：{{ formatDateTimeValue(automaticResult.failureAt, '尚未记录') }}</p>
+    <p v-if="!automaticProjectionError && automaticResult?.status === 'FAILED' && automaticResult.failureAt">实际失败时间：{{ formatDateTimeValue(automaticResult.failureAt, '尚未记录') }}</p>
     <el-button v-if="retryEligible" type="primary" :loading="retryBusy" :disabled="retryBusy || automaticResultLoading" @click="retryDistribution">重试自动下发</el-button>
     <p v-if="retryError" role="alert">{{ retryError }}</p>
     <p v-if="retryOutcome?.status === 'FAILED'" role="alert">重试后仍未完成下发：{{ retryOutcome.errorMessage || retryOutcome.errorCode || '失败原因尚未记录' }}</p>

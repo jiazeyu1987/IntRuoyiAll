@@ -12,6 +12,7 @@
       <el-alert v-if="snapshot && applicationSelectionError" :title="applicationSelectionError" type="warning" :closable="false" />
       <el-alert v-if="preparationBlockers.length" :title="'默认审批路线有待处理项；提交时将按本次会签部门重新校验：' + preparationBlockers.join('；')" type="warning" :closable="false" />
       <template v-if="snapshot">
+        <el-button v-if="canChangeWorkingType" data-testid="dcc-working-type-change-open" :disabled="busy || submitted || loading" @click="beginTypeChange">主动变更文件类型</el-button>
         <el-button v-if="newActionPreparationEligible && !preparedNewActionBaseline" :disabled="busy || submitted" @click="prepareNewActionBaseline">为本次升版准备审批配置</el-button>
         <el-alert v-if="preparedNewActionBaseline" title="本次新升版配置仅已预览，尚未保存；请明确保存本次申请草稿。" type="info" :closable="false" />
         <p
@@ -124,14 +125,49 @@
           :submit-revision="submitRevision"
         >
           <template #selected-body="{ selectedIterationId: bodyIterationId }">
-            <el-button link type="primary" @click="previewId = String(bodyIterationId)"
+            <el-button link type="primary" :disabled="selectionLoading" @click="openSelectedBodyPreview(bodyIterationId)"
               >预览所选正文</el-button
             >
           </template>
         </DccRevisionPanel>
     </section>
+    <el-dialog v-model="typeChangeVisible" title="主动变更文件类型" width="760px" :close-on-click-modal="false" :close-on-press-escape="!typeChangeConfirming" :show-close="!typeChangeConfirming" @closed="cancelTypeChange">
+      <el-alert v-if="typeChangeError" data-testid="dcc-working-type-change-error" :title="typeChangeError" type="error" :closable="false" />
+      <p>仅变更本工作稿的已维护文件类型。原驳回记录保留；取消不改变草稿或其他已填内容。</p>
+      <el-form label-width="120px" :disabled="typeChangeBusy">
+        <el-form-item label="目标文件类型">
+          <el-select v-model="typeChangeTarget" data-testid="dcc-working-type-change-target" filterable class="w-full" @change="invalidateTypeChangePreview">
+            <el-option v-for="option in typeChangeOptions" :key="option.id" :value="option.id" :label="option.label" />
+          </el-select>
+        </el-form-item>
+        <el-button data-testid="dcc-working-type-change-preview" :disabled="!typeChangeTarget" @click="loadTypeChangePreview">核对目标配置</el-button>
+        <template v-if="typeChangePreview">
+          <p>原执行配置（版本 {{ typeChangePreview.beforeMatrix.routeVersionNo }}）：{{ typeChangeRules(typeChangePreview.beforeMatrix) }}</p>
+          <p data-testid="dcc-working-type-change-target-summary">目标：{{ typeChangePreview.targetTypePath }}；公共配置版本 {{ typeChangePreview.targetMatrix.routeVersionNo }}。{{ typeChangeRules(typeChangePreview.targetMatrix) }}</p>
+          <el-form-item label="目标会签部门">
+            <el-select v-model="typeChangeSignoff" multiple filterable class="w-full">
+              <el-option v-for="department in departments" :key="department.id" :value="department.id" :label="department.name" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="本次下发部门">
+            <el-select v-model="typeChangeDistribution" multiple filterable class="w-full">
+              <el-option v-for="department in departments" :key="department.id" :value="department.id" :label="department.name" />
+            </el-select>
+          </el-form-item>
+          <p v-if="typeChangeRosterDirty">名单已修改，请再次点击“核对目标配置”。</p>
+        </template>
+        <el-form-item label="变更原因" required>
+          <el-input v-model="typeChangeReason" data-testid="dcc-working-type-change-reason" type="textarea" maxlength="512" />
+        </el-form-item>
+      </el-form>
+      <p>确认前请先保存其他修改；成功后重新核对目标矩阵及两份独立部门名单。</p>
+      <template #footer>
+        <el-button data-testid="dcc-working-type-change-cancel" :disabled="typeChangeConfirming" @click="cancelTypeChange">取消</el-button>
+        <el-button data-testid="dcc-working-type-change-confirm" type="primary" :loading="typeChangeBusy" :disabled="!typeChangePreview || typeChangeRosterDirty || !typeChangeReason.trim()" @click="confirmTypeChange">明确确认类型及配置</el-button>
+      </template>
+    </el-dialog>
     <el-dialog v-model="previewVisible" title="本次送审正文" width="88vw" destroy-on-close>
-      <ProtectedPdfViewer v-if="previewId" :controlled-file-id="previewId" title="本次送审正文" />
+      <ProtectedPdfViewer v-if="previewSource" :preview-source="previewSource" title="本次送审正文" />
     </el-dialog>
   </ContentWrap>
 </template>
@@ -142,6 +178,8 @@ import { generateUUID } from '@/utils'
 import { getSimpleDeptList } from '@/api/system/dept'
 import { getSimpleUserList } from '@/api/system/user'
 import { checkControlledFileRouteReadiness } from '@/api/dcc/controlledFile/workflow'
+import { previewWorkingApplicationTypeChange, confirmWorkingApplicationTypeChange, type WorkingApplicationTypeChangePreview, type WorkingApplicationTypeChangeCommand, type ApprovalMatrixBaselineVO } from '@/api/dcc/controlledFile/workflow'
+import { getFileTypeTaxonomyUploadOptions, type DccFileTypeTaxonomyUploadOption } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import { getProjectDefaults } from '@/api/dcc/controlledFile/projectAttributes'
 import {
   getWorkingApplicationAttributes,
@@ -167,7 +205,7 @@ import { getDccVersionDisplayText } from '../shared/version-display'
 import CustomApplicationMatrixEditor from '../upload/CustomApplicationMatrixEditor.vue'
 import type { ApplicationCustomMatrix } from '@/api/dcc/controlledFile/workflow'
 import { readApplicationOrdinaryAttachmentExpectation } from '../revision/revision-model'
-import { normalizeSignoffDepartments, normalizeDraftSignoffDepartments, normalizeDistributionDepartments, initialUploadDepartmentSelection,
+import { signoffIdentity, normalizeSignoffDepartments, normalizeDraftSignoffDepartments, normalizeDistributionDepartments, initialUploadDepartmentSelection,
   signoffDepartmentOptions, approvalUserOptions, resolvedUploadApprovers } from '../upload/signoff-departments'
 import type { UploadApprovalAccount, UploadApprovalGroup } from '../upload/signoff-departments'
 import ProjectAttributesFields from '../project-attributes/ProjectAttributesFields.vue'
@@ -180,6 +218,7 @@ import DccRevisionPanel from '../revision/DccRevisionPanel.vue'
 import { buildInitialCommand, type RevisionCommand, type RevisionIntent } from '../revision/revision-model'
 import { isWorkflowId } from '../workflow/workflow-actions'
 import ProtectedPdfViewer from '../view/index.vue'
+import { buildDccControlledFilePreviewSource, type OnlineFilePreviewSource } from '@/api/common/filePreview'
 import { formatControlledFileDateTime } from './presentation'
 
 const props = defineProps<{ file: ControlledFileVO }>()
@@ -214,7 +253,7 @@ const departments = ref<Array<{ id: string; name: string }>>([]),
   canSubmit = ref(false)
 const approvalGroups = ref<UploadApprovalGroup[]>([]), approvalCapabilityLimitations = ref<string[]>([])
 const idempotencyKey = ref(''),
-  previewId = ref('')
+  previewSource = ref<OnlineFilePreviewSource>()
 const selectedIterationId = ref(''), selectionLoading = ref(false)
 const selectedIntent = ref<RevisionIntent>()
 const snapshotIntent = ref<RevisionIntent>()
@@ -239,11 +278,25 @@ const checkoutTime = computed(() =>
     : undefined
 )
 const previewVisible = computed({
-  get: () => Boolean(previewId.value),
+  get: () => Boolean(previewSource.value),
   set: (value) => {
-    if (!value) previewId.value = ''
+    if (!value) previewSource.value = undefined
   }
 })
+const openSelectedBodyPreview = (id: string) => {
+  previewSource.value = undefined
+  try {
+    const file = selectedApplicationFile.value
+    if (selectionLoading.value || !file || String(file.id) !== String(id)
+      || selectedIterationId.value !== String(id) || typeof file.versionNo !== 'string')
+      throw new Error('所选正文详情尚未核验，请重新选择本次工作正文')
+    previewSource.value = buildDccControlledFilePreviewSource(String(file.id), {
+      intent: 'AUTHORING', controlledFileId: String(file.id), expectedVersionNo: file.versionNo
+    })
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
 const applicationProjection = computed(() => {
   if (!snapshot.value || typeof needTraining.value !== 'boolean' || !Array.isArray(selectedDepartments.value)
     || !Array.isArray(selectedDistributionDepartments.value)) return { facts: undefined, error: '请完成本次属性、会签部门、下发部门和培训选择；未记录值不会使用默认值补齐' }
@@ -260,6 +313,102 @@ const applicationProjection = computed(() => {
 })
 const applicationFacts = computed(() => applicationProjection.value.facts)
 const applicationSelectionError = computed(() => applicationProjection.value.error)
+const typeChangeVisible = ref(false), typeChangeBusy = ref(false), typeChangeError = ref(''), typeChangeTarget = ref(''), typeChangeReason = ref('')
+const typeChangeConfirming = ref(false)
+const typeChangeOptions = ref<Array<{ id: string; label: string }>>([]), typeChangePreview = ref<WorkingApplicationTypeChangePreview>()
+const typeChangeSignoff = ref<string[]>([]), typeChangeDistribution = ref<string[]>([]), typeChangeRequestId = ref(''), savedTypeChangeFormKey = ref('')
+let typeChangeSequence = 0
+const canChangeWorkingType = computed(() => working.value && initial.value && props.file.changeType === 'NEW' && Boolean(props.file.predecessorControlledFileId)
+  && snapshot.value?.approvalSourceMode !== 'APPLICATION_CUSTOM')
+const typeChangeRosterDirty = computed(() => !typeChangePreview.value || departmentSelectionKey(typeChangeSignoff.value) !== departmentSelectionKey(typeChangePreview.value.selectedSignoffDepartmentIds)
+  || departmentSelectionKey(typeChangeDistribution.value) !== departmentSelectionKey(typeChangePreview.value.selectedDistributionDepartmentIds))
+const typeChangeFormKey = () => JSON.stringify([snapshot.value?.actual, effectiveMode.value, effectiveDate.value, needTraining.value,
+  departmentSelectionKey(selectedDepartments.value), departmentSelectionKey(selectedDistributionDepartments.value), description.value])
+const typeChangeRules = (matrix: ApprovalMatrixBaselineVO) => matrix.nodes.map(node =>
+  `${node.stageType === 'SIGNOFF' ? '会签' : node.stageType === 'APPROVAL' ? '批准' : '文控'}：${node.subjectName || node.subjectLabel || '主体未记录'}`).join('；')
+const cancelTypeChange = () => { if (typeChangeConfirming.value) return; typeChangeSequence++; typeChangeVisible.value = false; typeChangeBusy.value = false }
+const invalidateTypeChangePreview = () => { typeChangeSequence++; typeChangePreview.value = undefined; typeChangeError.value = ''; typeChangeSignoff.value = []; typeChangeDistribution.value = []; typeChangeRequestId.value = '' }
+const beginTypeChange = async () => {
+  if (!canChangeWorkingType.value || busy.value || submitted.value) return
+  const token = ++typeChangeSequence, context = generation, fileId = String(props.file.id)
+  typeChangeVisible.value = true; typeChangeBusy.value = true; typeChangeError.value = ''; typeChangeTarget.value = ''; typeChangeReason.value = ''; typeChangePreview.value = undefined
+  typeChangeSignoff.value = []; typeChangeDistribution.value = []
+  try {
+    const [rows, saved] = await Promise.all([getFileTypeTaxonomyUploadOptions(), getWorkingApplicationAttributes(props.file.id)])
+    if (token !== typeChangeSequence || context !== generation || fileId !== String(props.file.id)) return
+    if (String(saved.controlledFileId) !== fileId || saved.applicationType !== 'UPLOAD') throw new Error('原工作稿属性身份不一致，请重新读取')
+    savedTypeChangeFormKey.value = JSON.stringify([saved.actual, saved.effectiveMode, saved.effectiveDate, saved.needTraining,
+      departmentSelectionKey(saved.selectedSignoffDepartmentIds), departmentSelectionKey(saved.selectedDistributionDepartmentIds), saved.changeDescription || ''])
+    const all: DccFileTypeTaxonomyUploadOption[] = []
+    const collect = (items: DccFileTypeTaxonomyUploadOption[]) => { for (const row of items) { all.push(row); if (row.children) collect(row.children) } }
+    collect(rows)
+    const byId = new Map(all.map(row => [String(row.id), row]))
+    typeChangeOptions.value = all.filter(row => row.levelNo === 5 && row.active && row.approvalSourceMode === 'PUBLIC_MATRIX' && row.uploadBlocker === null && String(row.id) !== String(props.file.fileTypeTaxonomyId))
+      .map(row => {
+        const names = [row.name], seen = new Set([String(row.id)]); let parentId = row.parentId
+        while (parentId != null && String(parentId) !== '0') {
+          const parent = byId.get(String(parentId)); if (!parent || seen.has(String(parentId))) throw new Error('目标类型路径缺失或循环')
+          seen.add(String(parentId)); names.unshift(parent.name); parentId = parent.parentId
+        }
+        return { id: String(row.id), label: names.join(' / ') }
+      })
+    if (!typeChangeOptions.value.length) throw new Error('没有可用的目标公共类型')
+  } catch (cause) { if (token === typeChangeSequence && context === generation) typeChangeError.value = cause instanceof Error ? cause.message : String(cause) }
+  finally { if (token === typeChangeSequence && context === generation) typeChangeBusy.value = false }
+}
+const loadTypeChangePreview = async () => {
+  if (!typeChangeTarget.value || typeChangeBusy.value) return
+  const token = ++typeChangeSequence, context = generation, fileId = String(props.file.id), reviewLists = Boolean(typeChangePreview.value)
+  typeChangeBusy.value = true; typeChangeError.value = ''
+  try {
+    let response = await previewWorkingApplicationTypeChange(props.file.id, { targetFileTypeTaxonomyId: typeChangeTarget.value,
+      ...(reviewLists ? { selectedSignoffDepartmentIds: [...typeChangeSignoff.value], selectedDistributionDepartmentIds: [...typeChangeDistribution.value] }
+        : {}) })
+    if (token !== typeChangeSequence || context !== generation || fileId !== String(props.file.id)) return
+    if (!reviewLists) {
+      if (String(response.controlledFileId) !== fileId || String(response.targetTaxonomyId) !== typeChangeTarget.value || !response.readiness.ready)
+        throw new Error('目标类型或审批路线未核对通过')
+      const first = response, defaults = [...first.selectedSignoffDepartmentIds]
+      response = await previewWorkingApplicationTypeChange(props.file.id, { targetFileTypeTaxonomyId: typeChangeTarget.value,
+        selectedSignoffDepartmentIds: defaults, selectedDistributionDepartmentIds: [...defaults] })
+      if (response.targetMatrix.matrixDigest !== first.targetMatrix.matrixDigest || response.sourceSha256 !== first.sourceSha256
+        || response.sourceAttributeRound !== first.sourceAttributeRound) throw new Error('核对期间工作稿或目标配置已变化，请重新核对')
+    }
+    if (token !== typeChangeSequence || context !== generation || fileId !== String(props.file.id)) return
+    if (String(response.controlledFileId) !== fileId || String(response.targetTaxonomyId) !== typeChangeTarget.value || !response.readiness.ready)
+      throw new Error('目标类型或审批路线未核对通过')
+    if (!response.beforeMatrix?.nodes?.length || !response.targetMatrix?.nodes?.length || !Number.isInteger(response.sourceAttributeRound)
+      || response.sourceAttributeRound <= 0 || !/^[a-f0-9]{64}$/.test(response.sourceSha256) || !/^[a-f0-9]{64}$/.test(response.targetMatrix.matrixDigest)
+      || String(response.beforeMatrix.categoryId) !== String(response.sourceCategoryId) || String(response.beforeMatrix.fileTypeTaxonomyId) !== String(response.sourceTaxonomyId)
+      || String(response.targetMatrix.categoryId) !== String(response.targetCategoryId) || String(response.targetMatrix.fileTypeTaxonomyId) !== String(response.targetTaxonomyId))
+      throw new Error('目标类型配置或原工作稿正式数据不完整，请重新核对')
+    typeChangePreview.value = response; typeChangeSignoff.value = [...response.selectedSignoffDepartmentIds]; typeChangeDistribution.value = [...response.selectedDistributionDepartmentIds]
+    typeChangeRequestId.value = generateUUID()
+  } catch (cause) { if (token === typeChangeSequence && context === generation) typeChangeError.value = cause instanceof Error ? cause.message : String(cause) }
+  finally { if (token === typeChangeSequence && context === generation) typeChangeBusy.value = false }
+}
+const confirmTypeChange = async () => {
+  const preview = typeChangePreview.value
+  if (!preview || typeChangeBusy.value) return
+  if (typeChangeRosterDirty.value || !typeChangeReason.value.trim()) { typeChangeError.value = '请核对名单并填写变更原因'; return }
+  if (typeChangeFormKey() !== savedTypeChangeFormKey.value) { typeChangeError.value = '请先保存其他修改，再确认文件类型变更；取消会保留当前已填内容'; return }
+  const token = typeChangeSequence, context = generation, fileId = String(props.file.id)
+  const command: WorkingApplicationTypeChangeCommand = { targetFileTypeTaxonomyId: preview.targetTaxonomyId, confirmed: true, requestId: typeChangeRequestId.value,
+    expectedSourceAttributeRound: preview.sourceAttributeRound, expectedSourceCategoryId: preview.sourceCategoryId, expectedSourceTaxonomyId: preview.sourceTaxonomyId,
+    expectedSourceSha256: preview.sourceSha256, expectedSourceMatrixDigest: preview.sourceMatrixDigest,
+    expectedApprovalRouteId: preview.targetMatrix.routeId, expectedApprovalRouteVersionNo: preview.targetMatrix.routeVersionNo, expectedApprovalMatrixDigest: preview.targetMatrix.matrixDigest,
+    selectedSignoffDepartmentIds: [...preview.selectedSignoffDepartmentIds], selectedDistributionDepartmentIds: [...preview.selectedDistributionDepartmentIds], changeReason: typeChangeReason.value.trim() }
+  typeChangeBusy.value = true; typeChangeConfirming.value = true; typeChangeError.value = ''
+  try {
+    const response = await confirmWorkingApplicationTypeChange(props.file.id, command)
+    if (context !== generation || fileId !== String(props.file.id)) { message.warning('文件类型变更已保存，请重新打开原工作稿核对'); return }
+    if (String(response.controlledFileId) !== fileId || String(response.targetTaxonomyId) !== command.targetFileTypeTaxonomyId
+      || response.targetMatrix.matrixDigest !== command.expectedApprovalMatrixDigest) throw new Error('变更已提交，但正式回显身份不一致，请重新读取原工作稿')
+    message.success('文件类型已变更，请核对目标矩阵和部门名单')
+    window.location.reload()
+  } catch (cause) { if (token === typeChangeSequence && context === generation) typeChangeError.value = cause instanceof Error ? cause.message : String(cause) }
+  finally { if (token === typeChangeSequence && context === generation) { typeChangeBusy.value = false; typeChangeConfirming.value = false } }
+}
 const handleEffectiveModeChange = () => {
   if (effectiveMode.value === 'AFTER_STANDARDIZATION_SIGNATURE' || effectiveMode.value === 'DELAYED') effectiveDate.value = null
 }
@@ -267,6 +416,7 @@ watch(
   () => [String(props.file.id), props.file.status, props.file.processInstanceId],
   () => {
     generation++
+    typeChangeSequence++; typeChangeVisible.value = false; typeChangeBusy.value = false; typeChangeConfirming.value = false; typeChangePreview.value = undefined
     opened.value = false
     loading.value = false
     busy.value = false
@@ -282,7 +432,7 @@ watch(
     selectedApplicationFile.value = undefined
     revisionOptions.value = undefined
     selectedIterationId.value = ''; selectedIntent.value = undefined; snapshotIntent.value = undefined; selectionGeneration++; selectionLoading.value = false
-    previewId.value = ''
+    previewSource.value = undefined
   },
   { flush: 'sync' }
 )
@@ -503,7 +653,7 @@ const selectIteration = async (id: string) => {
   const intent = selectedIntent.value === 'REPLACEMENT' ? 'REPLACEMENT' : 'PARTIAL'
   selectedIterationId.value = id
   newActionPreparationEligible.value = false; preparedNewActionBaseline.value = false; newActionPreparationFacts.value = undefined
-  snapshot.value = undefined; selectedApplicationFile.value = undefined; canSubmit.value = false; error.value = ''; selectionLoading.value = true; previewId.value = ''
+  snapshot.value = undefined; selectedApplicationFile.value = undefined; canSubmit.value = false; error.value = ''; selectionLoading.value = true; previewSource.value = undefined
   try {
     const body = revisionOptions.value?.iterations.find(row => String(row.id) === id)
     if (!body || !(body.canPartial || body.canReplacement)) throw new Error('请选择合法的本次工作正文')
@@ -518,7 +668,7 @@ const selectIteration = async (id: string) => {
     if (String(selectedFile.id) !== id || String(selectedFile.masterId) !== String(props.file.masterId)
       || String(selectedFile.dccProjectCodeId) !== saved.projectId) throw new Error('所选正文详情与本次申请身份不一致')
     selectedApplicationFile.value = selectedFile
-    if (saved.approvalSourceMode === 'APPLICATION_CUSTOM') { await displaySavedCustom(saved, selectedFile, context, token); return }
+    if (saved.approvalSourceMode === 'APPLICATION_CUSTOM') { snapshotIntent.value = intent; await displaySavedCustom(saved, selectedFile, context, token); return }
     if (saved.draftApprovalMatrix == null) {
       const scope = applicationMatrixScope(selectedFile, 'REVISION')
       if (!isNewActionBaselinePreparationAllowed(saved, scope)) throw new Error('所选工作稿原审批矩阵基线未记录，请核对正式保存来源')
@@ -557,6 +707,8 @@ const selectIteration = async (id: string) => {
 const updateActual = (value: ProjectAttributes) => {
   if (snapshot.value && !busy.value) snapshot.value.actual = value
 }
+const departmentSelectionKey = (ids: Array<string | number> | null | undefined) =>
+  JSON.stringify(ids == null ? ids : ids.map(signoffIdentity).sort())
 const saveAttributes = async () => {
   if (selectedIntent.value === 'REPLACEMENT' || snapshotIntent.value === 'REPLACEMENT') { error.value = '独立换版申请不能保存或恢复原工作草稿'; return }
   if (!snapshot.value || busy.value || submitted.value) return
@@ -582,8 +734,8 @@ const saveAttributes = async () => {
     if (String(response.controlledFileId) !== String(sourceId) || response.projectId !== snapshot.value.projectId
       || JSON.stringify(response.actual) !== JSON.stringify(actual)
       || response.effectiveMode !== selection.effectiveMode || response.effectiveDate !== selection.effectiveDate
-      || JSON.stringify(response.selectedSignoffDepartmentIds) !== JSON.stringify(selection.selectedSignoffDepartmentIds)
-      || JSON.stringify(response.selectedDistributionDepartmentIds) !== JSON.stringify(selection.selectedDistributionDepartmentIds)
+      || departmentSelectionKey(response.selectedSignoffDepartmentIds) !== departmentSelectionKey(selection.selectedSignoffDepartmentIds)
+      || departmentSelectionKey(response.selectedDistributionDepartmentIds) !== departmentSelectionKey(selection.selectedDistributionDepartmentIds)
       || response.needTraining !== selection.needTraining || response.changeDescription !== selection.changeDescription)
       throw new Error('草稿已保存，但正式回显与本次选择不一致，请核对后继续')
     if (preparedNewActionBaseline.value) {

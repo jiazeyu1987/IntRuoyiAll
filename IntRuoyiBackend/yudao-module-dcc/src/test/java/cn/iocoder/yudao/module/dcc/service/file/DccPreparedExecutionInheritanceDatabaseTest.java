@@ -47,6 +47,9 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
     @Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper masters;
     @Resource cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectApplicationAttributesMapper attributeRows;
     @Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper routeSnapshots;
+    @Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeMapper typeChangeProofRows;
+    @Resource cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper typeChangePlacementRows;
+    @Resource cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper typeChangeMappingRows;
     @Resource JdbcTemplate jdbc;
     @Resource PlatformTransactionManager transactions;
     @MockitoBean DccProjectAccessService access;
@@ -81,11 +84,12 @@ class DccPreparedExecutionInheritanceDatabaseTest extends BaseDbUnitTest {
         var effective=new DccLifecycleEffectiveContractResolver();wire(effective,"boundContracts",boundContracts);
         contracts=new DccApplicationExecutionContractService();wire(contracts,"definitions",definitions,"files",files);
         // Reflection keeps the behavioral RED compilable before the new official method and dependencies exist.
-        for(String field:List.of("rounds","effectiveContractResolver","sourceAttributes","projectAccess","categoryPermissions","transitions","masters","processes","routeSnapshots","routeResolver"))
+        for(String field:List.of("rounds","effectiveContractResolver","sourceAttributes","projectAccess","categoryPermissions","transitions","masters","processes","routeSnapshots","routeResolver","typeChanges","typeChangePlacements","typeChangeMappings"))
             if(Arrays.stream(contracts.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals(field)))
                 wire(contracts,field,switch(field){case "rounds"->rounds;case "effectiveContractResolver"->effective;case "sourceAttributes"->attributeRows;
                     case "projectAccess"->access;case "categoryPermissions"->permissions;case "transitions"->transitions;case "masters"->masters;case "processes"->processes;
-                    case "routeSnapshots"->routeSnapshots;case "routeResolver"->new DccControlledFileApprovalRouteAssigneeResolver();default->throw new AssertionError(field);});
+                    case "routeSnapshots"->routeSnapshots;case "routeResolver"->new DccControlledFileApprovalRouteAssigneeResolver();case "typeChanges"->typeChangeProofRows;
+                    case "typeChangePlacements"->typeChangePlacementRows;case "typeChangeMappings"->typeChangeMappingRows;default->throw new AssertionError(field);});
         add(20L,null);tx().executeWithoutResult(s->initializer.initialize(99L,null,20L,actual));
     }
     @AfterEach void close(){if(engine!=null)engine.close();TenantContextHolder.clear();}

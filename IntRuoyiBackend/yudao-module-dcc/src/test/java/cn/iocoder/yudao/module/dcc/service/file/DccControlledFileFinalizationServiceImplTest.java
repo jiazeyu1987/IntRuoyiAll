@@ -98,6 +98,115 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileFinalizationServiceImplTest extends BaseMockitoUnitTest {
 
+    @Mock
+    private cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessService r06ConversionAccess;
+    @InjectMocks
+    private DccOnlyOfficeDocumentPdfConversionService r06RealConversionService;
+
+    @Test
+    void r06PngFinalizationStoresAndBindsActualStampedPdfWithoutChangingOriginal() throws Exception {
+        var image = new java.awt.image.BufferedImage(8, 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 4; y++) for (int x = 0; x < 8; x++) image.setRGB(x, y, x < 4 ? 0xFF0000 : 0x0000FF);
+        var bytes = new java.io.ByteArrayOutputStream();
+        assertTrue(javax.imageio.ImageIO.write(image, "png", bytes));
+        r06AssertActualStampedPublication("R06.png", "image/png", bytes.toByteArray());
+    }
+
+    @Test
+    void r06TxtFinalizationStoresCompleteChineseTextWithActualStampAndBinding() throws Exception {
+        String fontPath = System.getProperty("dcc.r06.test-font");
+        org.junit.jupiter.api.Assertions.assertNotNull(fontPath, "Explicit CJK test font is required");
+        var properties = new DccImageTextPdfProperties();
+        properties.setTextFont(new org.springframework.core.io.FileSystemResource(fontPath));
+        ReflectionTestUtils.setField(r06RealConversionService, "imageTextPdfProperties", properties);
+        r06AssertActualStampedPublication("R06.txt", "text/plain",
+                ("R06 中文完整正文\n".repeat(100) + "最终标记 END").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private void r06AssertActualStampedPublication(String sourceName, String contentType, byte[] original) throws Exception {
+        byte[] unchanged = original.clone();
+        var source = FileDO.builder().id(190L).configId(1L).path("dcc/original/" + sourceName)
+                .name(sourceName).type(contentType).build();
+        DccControlledFileDO candidate = r06WireFinalizingSource(source, original);
+        var actualStamp = org.mockito.Mockito.spy(new DccPdfStampService());
+        ReflectionTestUtils.setField(finalizationService, "pdfStampService", actualStamp);
+        String publishedUrl = "https://example.com/dcc/stamped/R06.pdf";
+        java.util.concurrent.atomic.AtomicReference<byte[]> savedPdf = new java.util.concurrent.atomic.AtomicReference<>();
+        lenient().when(fileService.createFile(any(byte[].class), eq("R06.pdf"), eq("dcc/stamped"), eq("application/pdf")))
+                .thenAnswer(call -> { savedPdf.set(((byte[]) call.getArgument(0)).clone()); return publishedUrl; });
+        lenient().when(fileMapper.selectFirstOne(any(), eq(publishedUrl))).thenReturn(FileDO.builder()
+                .id(690L).configId(1L).path("dcc/stamped/R06.pdf").name("R06.pdf")
+                .type("application/pdf").url(publishedUrl).build());
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> finalizationService.handleProcessInstanceStatusChanged(approveEvent(990L)),
+                "Real PNG/TXT must reach the actual PDF stamp, storage and signature binding chain");
+        org.junit.jupiter.api.Assertions.assertNotNull(savedPdf.get());
+        try (var pdf = org.apache.pdfbox.pdmodel.PDDocument.load(savedPdf.get())) {
+            if ("image/png".equals(contentType)) assertEquals(1, pdf.getNumberOfPages());
+            else {
+                assertTrue(pdf.getNumberOfPages() > 1);
+                String extracted = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+                assertEquals(new String(unchanged, java.nio.charset.StandardCharsets.UTF_8).replaceAll("\\s", ""),
+                        extracted.replaceAll("\\s", ""));
+            }
+            int images = 0;
+            for (var name : pdf.getPage(0).getResources().getXObjectNames()) {
+                if (pdf.getPage(0).getResources().getXObject(name)
+                        instanceof org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject) images++;
+            }
+            assertTrue(images >= ("image/png".equals(contentType) ? 2 : 1), "Stored PDF must contain the real controlled stamp");
+        }
+        ArgumentCaptor<DccControlledFileDO> updates = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper, atLeastOnce()).updateById(updates.capture());
+        assertTrue(updates.getAllValues().stream().anyMatch(update -> "ACTIVE".equals(update.getStatus())
+                && Long.valueOf(690L).equals(update.getPublishedFileId()) && Long.valueOf(690L).equals(update.getStampedFileId())));
+        verify(signatureBindingService).bindPublishedCopy(candidate, 690L, 99L, "process-990");
+        verify(actualStamp).stamp(any(byte[].class));
+        org.junit.jupiter.api.Assertions.assertArrayEquals(unchanged, original);
+        assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(unchanged), candidate.getSourceSha256());
+        assertEquals(190L, candidate.getSourceFileId());
+        assertEquals(190L, candidate.getOriginalFileId());
+        assertEquals(sourceName, source.getName());
+        verify(fileService, never()).deleteFile(190L);
+    }
+
+    @Test
+    void r06TxtMissingFontFailsBeforePublishedCopyBindingOrActivation() throws Exception {
+        var source = FileDO.builder().id(190L).configId(1L).path("dcc/original/R06.txt")
+                .name("R06.txt").type("text/plain").build();
+        r06WireFinalizingSource(source, "R06 中文全文\n不得丢失".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        ServiceException failure = assertThrows(ServiceException.class,
+                () -> finalizationService.handleProcessInstanceStatusChanged(approveEvent(990L)));
+        assertTrue(failure.getMessage().contains("yudao.dcc.conversion.text-font"),
+                "Finalization must expose the missing TXT font, not require the Office server");
+        verify(fileService, never()).createFile(any(), any(), any(), any());
+        verify(signatureBindingService, never()).bindPublishedCopy(any(), any(), any(), any());
+        verify(controlledFileMasterMapper, never()).updateById(any(DccControlledFileMasterDO.class));
+        verify(controlledFileMapper, never()).updateById(org.mockito.ArgumentMatchers.<DccControlledFileDO>argThat(
+                update -> "ACTIVE".equals(update.getStatus())));
+    }
+
+    private DccControlledFileDO r06WireFinalizingSource(FileDO source, byte[] content) throws Exception {
+        DccControlledFileDO candidate = buildFinalizingFile(990L, 790L, 19L, 190L);
+        candidate.setSourceSha256(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content));
+        when(controlledFileMapper.selectById(990L)).thenReturn(candidate);
+        lenient().when(controlledFileMasterMapper.selectById(790L)).thenReturn(DccControlledFileMasterDO.builder()
+                .id(790L).tenantId(1L).categoryId(19L).fileName(source.getName()).fileNumber("R06")
+                .status(DccControlledFileMasterStatusEnum.ACTIVE_CHAIN.getCode()).build());
+        lenient().when(categoryMapper.selectById(19L)).thenReturn(category(19L, false, false));
+        lenient().when(fileMapper.selectById(190L)).thenReturn(source);
+        lenient().when(fileService.getFileContent(1L, source.getPath())).thenReturn(content);
+        lenient().when(r06ConversionAccess.assertAllowed(any(
+                cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessRequest.class)))
+                .thenReturn(java.util.Optional.of(new cn.iocoder.yudao.module.infra.service.file.access.BusinessFileAccessReference(
+                        "dcc", "DCC_CONTROLLED_FILE", 990L, "1.0", 1L, null)));
+        ReflectionTestUtils.setField(r06RealConversionService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
+        ReflectionTestUtils.setField(finalizationService, "pdfConversionService", r06RealConversionService);
+        return candidate;
+    }
+
     @Test
     void ic1FutureControlledRevisionPreservesExecutingOldVersion() throws Exception {
         DccControlledFileDO file = buildRevisionApprovalCandidate(9914L, 7714L, 18L, 114L);

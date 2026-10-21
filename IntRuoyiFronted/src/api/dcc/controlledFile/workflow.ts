@@ -56,6 +56,50 @@ export interface ApprovalMatrixBaselineVO {
   }>
 }
 
+export interface WorkingApplicationTypeChangeCommand {
+  targetFileTypeTaxonomyId: string
+  expectedSourceAttributeRound: number
+  expectedSourceCategoryId: string
+  expectedSourceTaxonomyId: string
+  expectedSourceSha256: string
+  expectedSourceMatrixDigest: string
+  expectedApprovalRouteId: string
+  expectedApprovalRouteVersionNo: number
+  expectedApprovalMatrixDigest: string
+  selectedSignoffDepartmentIds: string[]
+  selectedDistributionDepartmentIds: string[]
+  requestId: string
+  changeReason: string
+  confirmed: true
+}
+export interface WorkingApplicationTypeChangePreview {
+  controlledFileId: string
+  sourceAttributeRound: number
+  sourceCategoryId: string
+  sourceTaxonomyId: string
+  sourceSha256: string
+  sourceMatrixDigest: string
+  targetCategoryId: string
+  targetTaxonomyId: string
+  targetTypePath: string
+  beforeMatrix: ApprovalMatrixBaselineVO
+  targetMatrix: ApprovalMatrixBaselineVO
+  selectedSignoffDepartmentIds: string[]
+  selectedDistributionDepartmentIds: string[]
+  readiness: ControlledFileRouteReadinessVO
+}
+const workingTypeChangeUrl = (fileId: number | string) => {
+  if (!/^[1-9]\d*$/.test(String(fileId)) || (typeof fileId === 'number' && !Number.isSafeInteger(fileId)))
+    throw new Error('工作稿身份无效，请重新读取')
+  return `/dcc/controlled-files/${fileId}/working-type-change`
+}
+export const previewWorkingApplicationTypeChange = (fileId: number | string,
+  data: Pick<WorkingApplicationTypeChangeCommand, 'targetFileTypeTaxonomyId'> & Partial<Pick<WorkingApplicationTypeChangeCommand, 'selectedSignoffDepartmentIds' | 'selectedDistributionDepartmentIds'>>
+): Promise<WorkingApplicationTypeChangePreview> => request.post({ url: `${workingTypeChangeUrl(fileId)}/preview`, data, ignoreErrorMessage: true })
+export const confirmWorkingApplicationTypeChange = (fileId: number | string,
+  data: WorkingApplicationTypeChangeCommand
+): Promise<WorkingApplicationTypeChangePreview> => request.post({ url: workingTypeChangeUrl(fileId), data, ignoreErrorMessage: true })
+
 export interface ControlledFileProjectProduct {
   projectCodeId: string
   productMasterId: string | null
@@ -684,6 +728,7 @@ export interface DccAdminFullConfigPackageImportRespVO {
 }
 
 export interface ControlledFileSignatureSummaryVO {
+  processInstanceId?: string | null
   id: number
   taskId?: string
   taskActionResult?: string
@@ -945,6 +990,7 @@ export interface ControlledFileRelatedFileVO {
 export interface ControlledFileAttachmentVO {
   attachmentId: number | string
   controlledFileId: number | string
+  canDownload?: boolean
   storageFileId?: number | string
   fileName: string
   contentType?: string | null
@@ -2297,8 +2343,28 @@ export const saveControlledFileBrowserExtensionBlacklist = async (
   return await request.put({ url: '/dcc/controlled-files/browser-extension-blacklist', data })
 }
 
-export const getControlledFile = async (id: number | string): Promise<ControlledFileVO> => {
-  return await request.get({ url: `/dcc/controlled-files/${id}` })
+export const getControlledFile = async (id: number | string, selection?: {
+  bodyReadContext?: DccBodyReadContext; bpmRound?: string; taskId?: string; applicationType?: string
+}): Promise<ControlledFileVO> => {
+  if (selection === undefined) return await request.get({ url: `/dcc/controlled-files/${id}` })
+  if (!selection || typeof selection !== 'object' || Array.isArray(selection))
+    throw new Error('详情读取上下文必须是明确的版本或申请身份')
+  normalizeDccBodyReadContext(id)
+  if (selection.bodyReadContext !== undefined) {
+    if (selection.bpmRound !== undefined || selection.taskId !== undefined || selection.applicationType !== undefined)
+      throw new Error('详情申请身份与正文上下文不能混用')
+    return await request.get({ url: `/dcc/controlled-files/${id}`, params: buildDccBodyReadQuery(id, selection.bodyReadContext) })
+  }
+  for (const value of [selection.bpmRound, selection.taskId]) {
+    if (value !== undefined && (typeof value !== 'string' || !value || value !== value.trim()
+      || value.length > 64 || /[\u0000-\u001f\u007f]/.test(value))) throw new Error('详情申请或任务身份无效')
+  }
+  if (selection.applicationType !== undefined && !['UPLOAD', 'REVISION', 'OBSOLETE'].includes(selection.applicationType))
+    throw new Error('详情申请类型无效')
+  if ((selection.taskId !== undefined || selection.applicationType !== undefined) && selection.bpmRound === undefined)
+    throw new Error('指定详情申请或任务缺少精确申请轮次')
+  return await request.get({ url: `/dcc/controlled-files/${id}`,
+    params: { processInstanceId: selection.bpmRound, taskId: selection.taskId, applicationType: selection.applicationType } })
 }
 
 export const updateControlledFileMetadata = async (

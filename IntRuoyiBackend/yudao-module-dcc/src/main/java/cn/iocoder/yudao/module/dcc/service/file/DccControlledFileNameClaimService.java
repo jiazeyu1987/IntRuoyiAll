@@ -110,6 +110,33 @@ public class DccControlledFileNameClaimService {
         claimIdentity(tenantId,name,projectId,leafId,number,masterId,DccNameReservationContext.existingVersion(selectedId));
     }
 
+    /** Caller already proved the NEW rejected action and holds Project -> Master -> File locks. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void rebindNewWorkingType(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file,Long targetLeaf){
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                ||file==null||!"NEW".equals(file.getChangeType())||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)
+            throw new IllegalArgumentException("WORKING_TYPE_CHANGE_IDENTITY_INVALID");
+        Long tenant=TenantContextHolder.getRequiredTenantId();var master=lockMaster(tenant,file.getMasterId());
+        if(master.getLatestControlledFileId()!=null||master.getCurrentActiveControlledFileId()!=null
+                ||!Objects.equals(master.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId()))throw new IllegalArgumentException("WORKING_TYPE_CHANGE_IDENTITY_INVALID");
+        String name=requireSourceName(file);var claim=claimMapper.selectActiveByName(tenant,name);
+        var reservation=reservationMapper.lockName(tenant,name.getBytes(StandardCharsets.UTF_8));
+        if(claim==null||!Objects.equals(claim.getMasterId(),master.getId())||!Objects.equals(claim.getDccProjectCodeId(),file.getDccProjectCodeId())
+                ||!Objects.equals(claim.getFileTypeTaxonomyLeafId(),file.getFileTypeTaxonomyId())||!Objects.equals(claim.getNormalizedFileNumber(),file.getFileNumber())
+                ||reservation==null||!Integer.valueOf(1).equals(reservation.getActive())||!"MODERN".equals(reservation.getReservationKind())
+                ||!Objects.equals(reservation.getModernMasterId(),master.getId())||!Objects.equals(reservation.getModernClaimId(),claim.getId()))
+            throw new IllegalArgumentException("WORKING_TYPE_CHANGE_IDENTITY_INVALID");
+        var occupied=claimMapper.selectActiveByNumber(tenant,file.getDccProjectCodeId(),targetLeaf,file.getFileNumber().getBytes(StandardCharsets.UTF_8));
+        if(occupied!=null&&!Objects.equals(occupied.getMasterId(),master.getId())
+                ||!claimMapper.lockRetainedNumberOwners(tenant,file.getFileNumber().getBytes(StandardCharsets.UTF_8),master.getId()).isEmpty()
+                ||!reservationMapper.lockRetainedLegacyNumberOwners(tenant,java.util.HexFormat.of().withUpperCase().formatHex(file.getFileNumber().getBytes(StandardCharsets.UTF_8)),master.getId()).isEmpty()
+                ||reservationMapper.activeLegacyNumberOwners(tenant,file.getDccProjectCodeId(),targetLeaf,java.util.HexFormat.of().withUpperCase().formatHex(file.getFileNumber().getBytes(StandardCharsets.UTF_8)),master.getId())>0)
+            throw new IllegalArgumentException("WORKING_TYPE_CHANGE_IDENTITY_CONFLICT");
+        if(claimMapper.rebindNewWorkingType(tenant,claim.getId(),master.getId(),file.getDccProjectCodeId(),file.getFileTypeTaxonomyId(),targetLeaf,file.getFileNumber())!=1)
+            throw new IllegalStateException("WORKING_TYPE_CHANGE_CLAIM_CAS_CONFLICT");
+        // The active MODERN reservation retains these exact claim/master IDs; its resolved current type changes atomically with the claim.
+    }
+
     /** Actual persisted unsent NEW identity is required for replay. */
     @Transactional(rollbackFor=Exception.class)
     public void claimNewSubmission(Long tenantId,String name,Long projectId,Long leafId,String number,Long masterId,Long actorId,Long sourceFileId) {

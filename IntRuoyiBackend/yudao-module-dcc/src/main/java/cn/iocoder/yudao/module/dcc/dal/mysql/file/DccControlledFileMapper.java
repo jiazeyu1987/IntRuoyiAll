@@ -195,7 +195,7 @@ public interface DccControlledFileMapper extends BaseMapperX<DccControlledFileDO
               AND id = #{controlledFileId}
               AND deleted = 0
               AND checked_out_by IS NULL
-              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'SUPERSEDED', 'PENDING_APPLICANT_REWORK')
+              AND status IN ('WORKING', 'REJECTED', 'ACTIVE', 'SUPERSEDED', 'CONTROLLED_PENDING_EFFECTIVE', 'PENDING_APPLICANT_REWORK')
             """)
     int checkoutByIdAndTenantWhenAvailable(@Param("tenantId") Long tenantId,
                                            @Param("controlledFileId") Long controlledFileId,

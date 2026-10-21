@@ -524,6 +524,7 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   PENDING_DOC_CONTROL_REVIEW: '待文控审核',
   PENDING_APPLICANT_REWORK: '待申请人返工',
   PENDING_APPLICANT_TRAINING_RECORD: '待文控上传培训记录',
+  PENDING_DELAYED_EFFECTIVE_CONFIRM: '待延迟生效确认',
   CONTROLLED_PENDING_EFFECTIVE: '受控（待生效）',
   WORKING: '工作小版本',
   DRAFT: '草稿',
@@ -696,28 +697,35 @@ const syncApprovalQuickFilterStateFromQuery = async () => {
   quickFilter.updateState({ operator: 'eq', value: undefined })
 }
 
+let approvalListRequestSequence = 0
 const getList = async () => {
+  const requestSequence = ++approvalListRequestSequence
   const requestRouteStateKey = buildApprovalCenterRouteStateKey()
+  const requestIsUnfilteredTodo = isUnfilteredTodoQuery()
   loading.value = true
   loadError.value = ''
   try {
     const data = await getApprovalTaskPage(queryParams)
+    if (requestSequence !== approvalListRequestSequence) return
     list.value = data.list || []
     total.value = data.total || 0
-    if (isUnfilteredTodoQuery()) {
+    if (requestIsUnfilteredTodo) {
       approvalTodoBadgeStore.applyTodoTotal(data.total || 0)
     }
     if (requestRouteStateKey) {
       approvalLastLoadedRouteStateKey = requestRouteStateKey
     }
   } catch (error) {
+    if (requestSequence !== approvalListRequestSequence) return
     const message = resolveErrorMessage(error)
     list.value = []
     total.value = 0
     loadError.value = message
     ElMessage.error(message)
   } finally {
-    loading.value = false
+    if (requestSequence === approvalListRequestSequence) {
+      loading.value = false
+    }
   }
 }
 

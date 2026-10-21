@@ -6,12 +6,14 @@ import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /** Leaf read port: BPM reads + exact numeric round + immutable catalog. Never depends on prepare or lifecycle resolver. */
 @Service
+@Slf4j
 public class DccBoundWorkflowContractResolver {
     @Resource private BpmProcessDefinitionService definitions;
     @Resource private BpmProcessInstanceService processes;
@@ -199,7 +201,16 @@ public class DccBoundWorkflowContractResolver {
         String contract=anyPrepared?file.getPreparedWorkflowContract():"LEGACY_V4_ACTION";
         if(anyPrepared&&(!definitionId.equals(file.getPreparedProcessDefinitionId())||!digest.equals(file.getPreparedDefinitionDigest())||contract==null))
             throw new IllegalStateException("EXECUTION_CONTRACT_BOUND_PREPARED_DEFINITION_MISMATCH");
-        var graph=DccWorkflowDefinitionCatalog.require(contract,key,digest);
+        DccWorkflowDefinitionCatalog.Graph graph;
+        try {
+            graph=DccWorkflowDefinitionCatalog.require(contract,key,digest);
+        } catch (IllegalStateException failure) {
+            if ("EXECUTION_CONTRACT_UNREGISTERED_DEFINITION".equals(failure.getMessage())) {
+                log.error("DCC_EXECUTION_CONTRACT_MISMATCH fileId={} processDefinitionId={} contract={} processKey={} digest={}",
+                        file.getId(), definitionId, contract, key, digest);
+            }
+            throw failure;
+        }
         Integer round=null;
         if(graph.flowRule()==DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V5_TRAINING_AFTER_DOCUMENT_CONTROL
                 || graph.flowRule()==DccWorkflowDefinitionCatalog.FlowRule.PUBLIC_V6_DELAYED_EFFECTIVE_CONFIRM){

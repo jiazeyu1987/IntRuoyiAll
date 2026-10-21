@@ -37,6 +37,9 @@ public interface DccControlledFileQueryService {
 
     DccControlledFileRespVO getControlledFile(Long userId, Long id);
 
+    /** Explicit read intent; DAILY keeps metadata while restricting body actions on every returned version. */
+    DccControlledFileRespVO getControlledFile(Long userId, Long id, DccControlledFileBodyReadContext context);
+
     boolean canViewFileName(Long userId, DccControlledFileDO file);
 
     DccControlledFileRespVO checkoutControlledFile(Long userId, Long id);
@@ -102,6 +105,11 @@ public interface DccControlledFileQueryService {
                                                       DccRequestAuditContext auditContext) throws Exception;
 
     DccControlledFileScope identifyControlledFileScope(Long infraFileId);
+
+    /** Recheck exact body authorization and preview capability without reading bytes or issuing a new event. */
+    void assertPreviewReadingAccess(Long userId, Long id, DccControlledFileBodyReadContext context,
+            String viewerToken, String accessEventCode, String watermarkTraceCode,
+            String viewerTokenId, String viewerTokenNonce, DccRequestAuditContext auditContext);
 
     void assertBusinessFileAccess(Long userId, Long controlledFileId, BusinessFileAccessOperation operation,
                                   DccRequestAuditContext auditContext);

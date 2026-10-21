@@ -9,7 +9,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mzt.logapi.starter.annotation.DiffLogField;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.Setter;
 
 import java.util.Set;
 
@@ -36,9 +38,21 @@ public class UserSaveReqVO {
     @DiffLogField(name = "备注")
     private String remark;
 
-    @Schema(description = "部门编号", example = "我是一个用户")
+    @Schema(description = "部门编号；修改时省略表示保留，显式 null 表示清空", example = "102")
     @DiffLogField(name = "部门", function = DeptParseFunction.NAME)
     private Long deptId;
+
+    /** Request presence only; never accept or expose this internal flag as a JSON property. */
+    @JsonIgnore
+    @Schema(hidden = true)
+    @Setter(AccessLevel.NONE)
+    private boolean deptIdSpecified;
+
+    public UserSaveReqVO setDeptId(Long deptId) {
+        this.deptId = deptId;
+        this.deptIdSpecified = true;
+        return this;
+    }
 
     @Schema(description = "岗位编号数组", example = "1")
     @DiffLogField(name = "岗位", function = PostParseFunction.NAME)

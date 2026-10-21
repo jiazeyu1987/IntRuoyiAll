@@ -139,3 +139,19 @@ export const resolveSignatureDuty = (signature: { taskId?: string; actionType?: 
   if (!['APPROVE', 'REJECT'].includes(signature.actionType || '')) return '签名职责未记录'
   return ({ SUPERVISOR_REVIEW: '直属主管', MATRIX_APPROVAL: '批准人', DOC_CONTROL_REVIEW: '文控审核人', APPLICANT_TRAINING_RECORD: '本次上传人培训记录', DELAYED_EFFECTIVE_CONFIRM: '原编制人延迟生效确认' } as Record<string, string>)[key || ''] || '签名职责未记录'
 }
+
+export const resolveRecordedSignatureDuty = (
+  signature: { taskId?: string; actionType?: string; meaningCode?: string; processInstanceId?: string | null; versionNo?: string },
+  selected?: { processInstanceId?: string | null; versionNo?: string } | null
+): string => {
+  if (!signature.taskId || !selected?.processInstanceId || !selected.versionNo
+    || signature.processInstanceId !== selected.processInstanceId || signature.versionNo !== selected.versionNo)
+    return '签名职责未记录'
+  const action = signature.actionType
+  if (action === 'ASSIGN') return signature.meaningCode === 'MATRIX_REVIEW_ASSIGN' ? '部门负责人指派' : '签名职责未记录'
+  if (!['APPROVE', 'REJECT'].includes(action || '')) return '签名职责未记录'
+  const stage = ['SUPERVISOR_REVIEW', 'MATRIX_REVIEW', 'MATRIX_APPROVAL', 'DOC_CONTROL_REVIEW', 'DOC_CONTROL_APPROVAL', 'DELAYED_EFFECTIVE_CONFIRM']
+    .find(key => signature.meaningCode === `${key}_${action}`)
+  return ({ SUPERVISOR_REVIEW: '直属主管', MATRIX_REVIEW: '会签人', MATRIX_APPROVAL: '批准人',
+    DOC_CONTROL_REVIEW: '文控审核人', DOC_CONTROL_APPROVAL: '文控批准人', DELAYED_EFFECTIVE_CONFIRM: '原编制人延迟生效确认' } as Record<string, string>)[stage || ''] || '签名职责未记录'
+}

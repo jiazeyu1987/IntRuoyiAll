@@ -24,6 +24,88 @@ public class DccProjectFilePlacementService {
     @Resource private JdbcTemplate jdbc;
     @Resource private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectConfigurationAuditService audit;
     @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService ledger;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMetadataChangeMapper typeChanges;
+    @Resource private DccProjectFolderStorageMappingMapper storageMappings;
+
+    /** PRESENT -> PRESENT is audited by the enclosing exact TYPE_CHANGE proof, never by CREATE bind policy. */
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void rebindDerivedWorkingType(Long actor,Long fileId,Long oldDirectory,
+            cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage target,Long proofId){
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        if(target==null||proofId==null||!Objects.equals(target.tenantId,tenant)||!Objects.equals(target.actorId,actor))throw fail(FOLDER_INVALID);
+        access.assertProjectEditorOrOwner(actor,target.projectId);folders.requireProjectFolderForUpdate(target.projectId,target.folderId);
+        var file=files.selectById(fileId);var current=placements.findFile(fileId);var proof=typeChanges.selectById(proofId);
+        if(file==null||current==null||proof==null||!Objects.equals(file.getTenantId(),tenant)||!Objects.equals(file.getRequesterId(),actor)
+                ||!"NEW".equals(file.getChangeType())||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null
+                ||!Objects.equals(file.getDccProjectCodeId(),target.projectId)||!Objects.equals(file.getCategoryId(),target.categoryId)
+                ||!Objects.equals(file.getDirectoryId(),target.storageDirectoryId)||!Objects.equals(current.getProjectCodeId(),target.projectId)
+                ||!Objects.equals(current.getProjectFolderId(),target.folderId)||!Objects.equals(current.getStorageDirectoryId(),oldDirectory)
+                ||!Objects.equals(proof.getTenantId(),tenant)||!Objects.equals(proof.getControlledFileId(),fileId)||!Objects.equals(proof.getMasterId(),file.getMasterId())
+                ||!Objects.equals(proof.getProjectCodeId(),target.projectId)||!Objects.equals(proof.getOperatorUserId(),actor)
+                ||!cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TYPE_CHANGE_SOURCE.equals(proof.getSource())
+                ||proof.getRequestId()==null||proof.getRequestId().isBlank()||proof.getChangeReason()==null||proof.getChangeReason().isBlank())throw fail(FOLDER_INVALID);
+        var before=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(proof.getBeforeSnapshotJson(),cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TypeChangeState.class);
+        var after=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(proof.getAfterSnapshotJson(),cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TypeChangeState.class);
+        var sourceMapping=storageMappings.findLeaf(tenant,oldDirectory);var destination=storageMappings.findLeaf(tenant,target.storageDirectoryId);
+        if(before==null||after==null||!before.sameSourceAs(after)
+                ||!cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TYPE_CHANGE_FORMAT.equals(after.formatVersion())
+                ||!Objects.equals(before.requestId(),proof.getRequestId())||!Objects.equals(after.requestId(),proof.getRequestId())
+                ||!Objects.equals(after.tenantId(),tenant)||!Objects.equals(after.actorId(),actor)||!"NEW".equals(after.changeType())
+                ||!Objects.equals(before.controlledFileId(),fileId)||!Objects.equals(after.controlledFileId(),fileId)
+                ||!Objects.equals(before.masterId(),file.getMasterId())||!Objects.equals(after.masterId(),file.getMasterId())
+                ||!Objects.equals(before.projectId(),target.projectId)||!Objects.equals(after.projectId(),target.projectId)
+                ||!Objects.equals(before.projectFolderId(),target.folderId)||!Objects.equals(after.projectFolderId(),target.folderId)
+                ||!Objects.equals(before.directoryId(),oldDirectory)||!Objects.equals(after.directoryId(),target.storageDirectoryId)
+                ||!Objects.equals(after.categoryId(),target.categoryId)||!Objects.equals(before.sourceFileId(),after.sourceFileId())
+                ||!Objects.equals(after.taxonomyId(),file.getFileTypeTaxonomyId())||!Objects.equals(after.approvalMatrixCanonical(),file.getDraftApprovalMatrixJson())
+                ||!Objects.equals(after.fileNumber(),file.getFileNumber())||!Objects.equals(after.sourceOriginalFileName(),file.getSourceOriginalFileName())
+                ||!Objects.equals(after.sourceFileId(),file.getSourceFileId())||!Objects.equals(before.sourceSha256(),after.sourceSha256())
+                ||!Objects.equals(after.sourceSha256(),file.getSourceSha256())||sourceMapping==null||destination==null
+                ||Boolean.TRUE.equals(sourceMapping.getDeleted())||Boolean.TRUE.equals(destination.getDeleted())
+                ||!Objects.equals(sourceMapping.getCategoryId(),before.categoryId())||!Objects.equals(sourceMapping.getProjectCodeId(),target.projectId)
+                ||!Objects.equals(sourceMapping.getProjectFolderId(),target.folderId)||!Objects.equals(destination.getId(),target.mappingId)
+                ||!Objects.equals(destination.getCategoryId(),target.categoryId)||!Objects.equals(destination.getProjectCodeId(),target.projectId)
+                ||!Objects.equals(destination.getProjectFolderId(),target.folderId)||!Objects.equals(destination.getBaseDirectoryId(),target.baseDirectoryId))throw fail(FOLDER_INVALID);
+        if(placements.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DccProjectFilePlacementDO>()
+                .eq(DccProjectFilePlacementDO::getId,current.getId()).eq(DccProjectFilePlacementDO::getTenantId,tenant)
+                .eq(DccProjectFilePlacementDO::getControlledFileId,fileId).eq(DccProjectFilePlacementDO::getProjectCodeId,target.projectId)
+                .eq(DccProjectFilePlacementDO::getProjectFolderId,target.folderId).eq(DccProjectFilePlacementDO::getStorageDirectoryId,oldDirectory)
+                .set(DccProjectFilePlacementDO::getStorageDirectoryId,target.storageDirectoryId))!=1)throw fail(FOLDER_INVALID);
+    }
+
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void rebindRecoveredDerivedWorkingType(Long actor,Long fileId,Long oldDirectory,
+            cn.iocoder.yudao.module.dcc.service.file.DccDerivedUploadStorage target,Long originalProofId,Long recoveryEvidenceId){
+        Long tenant=TenantContextHolder.getRequiredTenantId();var file=files.selectById(fileId);var current=placements.findFile(fileId);
+        var original=typeChanges.selectById(originalProofId);var recovery=typeChanges.selectById(recoveryEvidenceId);
+        var originalBefore=original==null?null:cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(original.getBeforeSnapshotJson(),
+                cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TypeChangeState.class);
+        var rows=typeChanges.selectListBySource(cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.STORAGE_RECOVERY_SOURCE);
+        var envelope=recovery==null?null:cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(recovery.getAfterSnapshotJson(),
+                cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.StorageRecoveryEnvelope.class);
+        var oldMapping=storageMappings.findLeaf(tenant,oldDirectory);var newMapping=target==null?null:storageMappings.findLeaf(tenant,target.storageDirectoryId);
+        if(target==null||file==null||current==null||original==null||recovery==null||envelope==null||envelope.observed()==null
+                ||!Objects.equals(target.tenantId,tenant)||!Objects.equals(target.actorId,actor)||!Objects.equals(file.getRequesterId(),actor)
+                ||!Objects.equals(file.getDirectoryId(),target.storageDirectoryId)||!Objects.equals(current.getProjectCodeId(),target.projectId)
+                ||!Objects.equals(current.getProjectFolderId(),target.folderId)||!Objects.equals(current.getStorageDirectoryId(),oldDirectory)
+                ||!Objects.equals(original.getSource(),cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.TYPE_CHANGE_SOURCE)
+                ||!Objects.equals(recovery.getSource(),cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.STORAGE_RECOVERY_SOURCE)
+                ||!Objects.equals(recovery.getTenantId(),tenant)||!Objects.equals(recovery.getControlledFileId(),fileId)
+                ||!Objects.equals(recovery.getOperatorUserId(),actor)||!Objects.equals(envelope.originalProofId(),originalProofId)
+                ||!Objects.equals(envelope.originalProofSha256(),cn.iocoder.yudao.module.dcc.service.file.DccApplicationExecutionContractService.storageRecoveryDigest(original))
+                ||!Objects.equals(envelope.observed().directoryId(),target.storageDirectoryId)
+                ||!Objects.equals(envelope.observed().projectFolderId(),target.folderId)
+                ||rows.stream().filter(r->Objects.equals(r.getTenantId(),tenant)&&Objects.equals(r.getControlledFileId(),fileId)).count()!=1
+                ||oldMapping==null||newMapping==null||Boolean.TRUE.equals(oldMapping.getDeleted())||Boolean.TRUE.equals(newMapping.getDeleted())
+                ||originalBefore==null||!Objects.equals(oldMapping.getCategoryId(),originalBefore.categoryId())
+                ||!Objects.equals(oldMapping.getProjectFolderId(),target.folderId)||!Objects.equals(newMapping.getId(),target.mappingId)
+                ||!Objects.equals(newMapping.getCategoryId(),target.categoryId)||!Objects.equals(newMapping.getProjectFolderId(),target.folderId))throw fail(FOLDER_INVALID);
+        if(placements.update(null,new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<DccProjectFilePlacementDO>()
+                .eq(DccProjectFilePlacementDO::getId,current.getId()).eq(DccProjectFilePlacementDO::getTenantId,tenant)
+                .eq(DccProjectFilePlacementDO::getControlledFileId,fileId).eq(DccProjectFilePlacementDO::getProjectCodeId,target.projectId)
+                .eq(DccProjectFilePlacementDO::getProjectFolderId,target.folderId).eq(DccProjectFilePlacementDO::getStorageDirectoryId,oldDirectory)
+                .set(DccProjectFilePlacementDO::getStorageDirectoryId,target.storageDirectoryId))!=1)throw fail(FOLDER_INVALID);
+    }
 
     @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
     public DccProjectFilePlacementDO bindDerived(Long userId,Long projectId,Long folderId,Long fileId,Long directoryId,String reason,

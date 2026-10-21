@@ -693,6 +693,174 @@ class DccApprovalTaskAdapterTest {
     }
 
     @Test
+    void pageDoneCarriesExactApprovalHistoryBodyContextForRetainedOldVersion() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("historic-upload-task-A1");
+        when(task.getName()).thenReturn("批准并确认文件负责人");
+        when(task.getTaskDefinitionKey()).thenReturn("MATRIX_APPROVAL");
+        when(task.getProcessInstanceId()).thenReturn("historic-upload-round-A1");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
+        when(bpmTaskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class))).thenAnswer(call -> {
+            BpmTaskPageReqVO request = call.getArgument(1);
+            return DccControlledFileProcessDefinitionKeys.UPLOAD.equals(request.getProcessDefinitionKey())
+                    ? new PageResult<>(List.of(task), 1L) : new PageResult<HistoricTaskInstance>(List.of(), 0L);
+        });
+        HistoricProcessInstance process = mock(HistoricProcessInstance.class);
+        when(process.getBusinessKey()).thenReturn("4230");
+        when(process.getStartUserId()).thenReturn("501");
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        when(processInstanceService.getHistoricProcessInstanceMap(Set.of("historic-upload-round-A1")))
+                .thenReturn(Map.of("historic-upload-round-A1", process));
+        DccControlledFileDO file = DccControlledFileDO.builder()
+                .id(4230L).masterId(9202L).dccProjectCodeId(305L).fileTypeTaxonomyId(113L)
+                .title("保留的旧A1").fileNumber("DCC-OLD-A1").versionNo("A/1")
+                .categoryId(7002L).status("OBSOLETE").changeType("NEW")
+                .publishedFileId(9002L).supersededByFileId(4244L)
+                .processInstanceId("historic-upload-round-A1").build();
+        file.setTenantId(1L);
+        file.setDeleted(Boolean.FALSE);
+        when(controlledFileMapper.selectByIdIncludingDeleted(4230L)).thenReturn(file);
+        when(fileCategoryMapper.selectById(7002L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7002L).name("历史文件类别").distributionRequired(Boolean.FALSE).build());
+
+        PageResult<ApprovalTaskSummary> page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
+        assertEquals(1L, page.getTotal());
+        assertEquals(1, page.getList().size());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals(Boolean.FALSE, summary.getBusinessDeleted());
+        assertEquals("/dcc/controlled-file/detail/4230", summary.getDetailRoute());
+        assertEquals("historic-upload-task-A1", summary.getSourceTaskId());
+        assertEquals("historic-upload-round-A1", summary.getProcessInstanceId());
+        verify(controlledFileMapper).selectByIdIncludingDeleted(4230L);
+        try {
+            String wire = summary.getDetailQuery().get("bodyReadContext");
+            org.junit.jupiter.api.Assertions.assertNotNull(wire,
+                    "retained A1 history must supply its exact bodyReadContext instead of a DAILY viewer link");
+            var context = cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.fromWire(4230L, wire);
+            assertEquals(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY, context.intent());
+            assertEquals("4230", context.controlledFileId());
+            assertEquals("A/1", context.expectedVersionNo());
+            assertEquals("UPLOAD", context.applicationType());
+            assertEquals("historic-upload-round-A1", context.bpmRound());
+            assertEquals("historic-upload-task-A1", context.taskId());
+            assertEquals(Map.of("viewer", "1", "from", "approval-center", "bodyReadContext", wire), summary.getDetailQuery());
+        } finally {
+            org.mockito.Mockito.verifyNoMoreInteractions(controlledFileMapper);
+            org.mockito.Mockito.verifyNoInteractions(workflowService);
+        }
+    }
+
+    @Test
+    void historyBodyLinkUsesHistoricDefinitionRatherThanFilesOriginalChangeType() {
+        var file = DccControlledFileDO.builder().id(4230L).versionNo("A/1").changeType("NEW").build();
+        var task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("completed-task");
+        when(task.getProcessInstanceId()).thenReturn("selected-history-round");
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        for (var entry : Map.of(DccControlledFileProcessDefinitionKeys.REVISION, "REVISION",
+                DccControlledFileProcessDefinitionKeys.OBSOLETE, "OBSOLETE",
+                DccControlledFileProcessDefinitionKeys.LEGACY_OBSOLETE_FORM_CENTER, "OBSOLETE").entrySet()) {
+            var process = mock(HistoricProcessInstance.class);
+            when(process.getProcessDefinitionKey()).thenReturn(entry.getKey());
+            Map<String, String> query = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    DccApprovalTaskAdapter.class, "approvalCenterHistoryDetailQuery", file, task, process);
+            org.junit.jupiter.api.Assertions.assertNotNull(query);
+            var context = cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.fromWire(4230L, query.get("bodyReadContext"));
+            assertEquals(entry.getValue(), context.applicationType());
+            assertEquals("A/1", context.expectedVersionNo());
+            assertEquals("selected-history-round", context.bpmRound());
+            assertEquals("completed-task", context.taskId());
+        }
+    }
+
+    @Test
+    void historyBodyLinkIsUnavailableForUnknownDefinitionOrIncompleteIdentity() {
+        var file = DccControlledFileDO.builder().id(4230L).versionNo("A/1").changeType("NEW").build();
+        var task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("completed-task");
+        when(task.getProcessInstanceId()).thenReturn("selected-history-round");
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        var process = mock(HistoricProcessInstance.class);
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        java.util.function.Supplier<Map<String, String>> link = () -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                DccApprovalTaskAdapter.class, "approvalCenterHistoryDetailQuery", file, task, process);
+        org.junit.jupiter.api.Assertions.assertNotNull(link.get());
+        for (String definition : new String[]{null, DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL, "dcc-external-file-review"}) {
+            when(process.getProcessDefinitionKey()).thenReturn(definition);
+            org.junit.jupiter.api.Assertions.assertNull(link.get());
+        }
+        when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.UPLOAD);
+        file.setVersionNo(null);
+        org.junit.jupiter.api.Assertions.assertNull(link.get());
+        file.setVersionNo("A/1");
+        when(task.getId()).thenReturn(null);
+        org.junit.jupiter.api.Assertions.assertNull(link.get());
+        when(task.getProcessInstanceId()).thenReturn(" ");
+        org.junit.jupiter.api.Assertions.assertNull(link.get());
+    }
+
+    @Test
+    void pageDoneCarriesExactLegacyApprovalHistoryBodyContextForItsBoundFile() {
+        when(fileCategoryMapper.selectById(7002L)).thenReturn(DccFileCategoryDO.builder()
+                .id(7002L).name("保留历史类别").distributionRequired(Boolean.FALSE).build());
+        int reads = 0;
+        for (String changeType : List.of("NEW", "REVISION")) {
+            String round = "bound-legacy-round-" + changeType;
+            String taskId = "completed-legacy-task-" + changeType;
+            var task = mock(HistoricTaskInstance.class);
+            when(task.getId()).thenReturn(taskId);
+            when(task.getName()).thenReturn("历史批准");
+            when(task.getTaskDefinitionKey()).thenReturn("MATRIX_APPROVAL");
+            when(task.getProcessInstanceId()).thenReturn(round);
+            when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+            when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+            when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 2));
+            when(bpmTaskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class))).thenAnswer(call -> {
+                BpmTaskPageReqVO request = call.getArgument(1);
+                return DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL.equals(request.getProcessDefinitionKey())
+                        ? new PageResult<>(List.of(task), 1L) : new PageResult<HistoricTaskInstance>(List.of(), 0L);
+            });
+            var process = mock(HistoricProcessInstance.class);
+            when(process.getBusinessKey()).thenReturn("4230");
+            when(process.getStartUserId()).thenReturn("501");
+            when(process.getProcessDefinitionKey()).thenReturn(DccControlledFileProcessDefinitionKeys.LEGACY_APPROVAL);
+            when(processInstanceService.getHistoricProcessInstanceMap(Set.of(round))).thenReturn(Map.of(round, process));
+            var file = DccControlledFileDO.builder().id(4230L).title("合法已绑定旧A1")
+                    .fileNumber("DCC-LEGACY-A1").versionNo("A/1").categoryId(7002L)
+                    .status("OBSOLETE").publishedFileId(9002L).supersededByFileId(4244L)
+                    .requesterId(501L).processInstanceId(round).changeType(changeType).build();
+            file.setDeleted(Boolean.FALSE);
+            when(controlledFileMapper.selectByIdIncludingDeleted(4230L)).thenReturn(file);
+
+            var page = adapter.page(ApprovalTaskQueryContext.of(100L,
+                    ApprovalTaskViewType.DONE, ApprovalModuleCode.DCC, null, 1, 10));
+            assertEquals(1L, page.getTotal());
+            assertEquals(1, page.getList().size());
+            var summary = page.getList().get(0);
+            verify(controlledFileMapper, org.mockito.Mockito.times(++reads)).selectByIdIncludingDeleted(4230L);
+            try {
+                String wire = summary.getDetailQuery().get("bodyReadContext");
+                org.junit.jupiter.api.Assertions.assertNotNull(wire,
+                        "the explicitly bound LEGACY_APPROVAL family must retain its historical body link");
+                var context = cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.fromWire(4230L, wire);
+                assertEquals(cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY, context.intent());
+                assertEquals("4230", context.controlledFileId());
+                assertEquals("A/1", context.expectedVersionNo());
+                assertEquals("NEW".equals(changeType) ? "UPLOAD" : "REVISION", context.applicationType());
+                assertEquals(round, context.bpmRound());
+                assertEquals(taskId, context.taskId());
+                assertEquals("/dcc/controlled-file/detail/4230", summary.getDetailRoute());
+            } finally {
+                org.mockito.Mockito.verifyNoMoreInteractions(controlledFileMapper);
+                org.mockito.Mockito.verifyNoInteractions(workflowService);
+            }
+        }
+    }
+
+    @Test
     void pageDoneUsesDeletedControlledFileSnapshotForHistoricalSummary() {
         HistoricTaskInstance task = mock(HistoricTaskInstance.class);
         when(task.getId()).thenReturn("historic-task-1");

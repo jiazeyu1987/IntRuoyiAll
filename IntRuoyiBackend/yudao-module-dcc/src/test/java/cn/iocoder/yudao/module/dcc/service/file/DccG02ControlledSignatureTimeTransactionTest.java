@@ -60,7 +60,7 @@ class DccG02ControlledSignatureTimeTransactionTest {
         var saved = f.files.selectById(20L);
         assertEquals(f.signedAt, saved.getControlledTime());
         assertEquals(f.now.get(), saved.getPublishedTime());
-        assertEquals(f.now.get(), f.jdbc.queryForObject(
+        assertEquals(f.signedAt, f.jdbc.queryForObject(
                 "SELECT occurred_at FROM dcc_workflow_lifecycle_event WHERE event_type='CONTROLLED'", LocalDateTime.class));
         assertEquals("CONTROLLED_PENDING_EFFECTIVE", saved.getStatus());
         assertNull(saved.getActivatedTime());

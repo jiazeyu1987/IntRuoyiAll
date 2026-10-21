@@ -292,6 +292,30 @@ class DccCheckinDraftInitializationDatabaseTest extends BaseDbUnitTest {
         assertEquals(latestBefore,JsonUtils.toJsonString(files.selectById(latest)));
         assertNotNull(engine.getRuntimeService().createProcessInstanceQuery().processInstanceId(saved.getProcessInstanceId()).singleResult());
     }
+    @Test void pendingEffectiveControlledBaselineCompletesActualCheckinTransaction(){
+        controlled("A/2");
+        jdbc.update("UPDATE dcc_controlled_file SET status='CONTROLLED_PENDING_EFFECTIVE',activated_time=NULL WHERE id=20");
+        jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=NULL WHERE id=10");
+        jdbc.execute("CREATE TABLE dcc_controlled_file_attachment(id BIGINT AUTO_INCREMENT PRIMARY KEY,tenant_id BIGINT,controlled_file_id BIGINT,storage_file_id BIGINT,original_file_name VARCHAR(512),content_type VARCHAR(255),file_size BIGINT,file_sha256 VARCHAR(64),sort_no INT,attachment_purpose VARCHAR(32),application_process_instance_id VARCHAR(128),uploaded_by BIGINT,uploaded_username_snapshot VARCHAR(128),uploaded_nickname_snapshot VARCHAR(128),uploaded_at TIMESTAMP,creator VARCHAR(64),create_time TIMESTAMP,updater VARCHAR(64),update_time TIMESTAMP,deleted BOOLEAN DEFAULT FALSE)");
+        // This case must exercise the binding guard, not this suite's legacy empty-attachment port.
+        var actualAttachments=new DccControlledFileAttachmentServiceImpl();defaults(actualAttachments);
+        var actualActor=mock(cn.iocoder.yudao.module.system.api.user.AdminUserApi.class);
+        when(actualActor.getUser(99L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(99L).setTenantId(1L).setStatus(0));
+        when(permissions.hasCategoryPermission(2L,99L,cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
+        wire(actualAttachments,"controlledFileMapper",files,"checkoutMapper",sql.getMapper(cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileCheckoutMapper.class),
+                "attachmentMapper",sql.getMapper(cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAttachmentMapper.class),
+                "users",actualActor,"permissionSupport",permissions,"projectAccessService",access,"assignmentScopeService",scope,
+                "versionPolicy",policy,"publicUploadPlacementService",ReflectionTestUtils.getField(query,"publicUploadPlacementService"));
+        wire(query,"attachmentService",actualAttachments);
+        long target=checkin(20L,"pending controlled baseline edit");
+        var saved=files.selectById(target);
+        assertEquals("A/2-1",saved.getVersionNo());assertEquals("WORKING",saved.getStatus());
+        assertEquals(20L,saved.getPredecessorControlledFileId());assertEquals(99L,saved.getRequesterId());
+        assertEquals("CONTROLLED_PENDING_EFFECTIVE",files.selectById(20L).getStatus());
+        assertNull(jdbc.queryForObject("SELECT current_active_controlled_file_id FROM dcc_controlled_file_master WHERE id=10",Long.class));
+        assertEquals(target,snapshots.readReservedDraft(99L,5L,"REVISION",target).getApplicationId());
+    }
     @Test void controlledBaselineDifferentRequesterStartsNewApplicationWithActualOwner(){
         controlled("A/1");jdbc.update("UPDATE dcc_controlled_file SET requester_id=88 WHERE id=20");
         when(access.hasProjectOwner(99L,5L)).thenReturn(true);changeDefault();long target=checkin(20L,"actual owner");

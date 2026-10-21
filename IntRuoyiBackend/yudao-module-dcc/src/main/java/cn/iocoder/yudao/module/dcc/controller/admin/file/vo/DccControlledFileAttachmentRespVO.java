@@ -11,6 +11,7 @@ public class DccControlledFileAttachmentRespVO {
     private Long attachmentId;
     @JsonFormat(shape=JsonFormat.Shape.STRING)
     private Long controlledFileId;
+    private Boolean canDownload;
     private String fileName;
     private String contentType;
     private String previewKind;

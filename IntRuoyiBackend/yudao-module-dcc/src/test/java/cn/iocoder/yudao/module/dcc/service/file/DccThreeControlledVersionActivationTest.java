@@ -64,6 +64,14 @@ class DccThreeControlledVersionActivationTest extends BaseDbUnitTest {
             "platformAdapter",org.mockito.Mockito.mock(DccControlledContentAdapter.class),
             "datePolicy",clock,"versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),"jdbcTemplate",jdbc,"obsoleteRetentionService",retention,"fileStateAudit",stateAudit,
             "eventPublisher",(org.springframework.context.ApplicationEventPublisher)event->{});
+        var contractResolver=mock(DccLifecycleEffectiveContractResolver.class);
+        when(contractResolver.resolve(any())).thenAnswer(call->{var file=call.getArgument(0,DccControlledFileDO.class);
+            return new DccLifecycleEffectiveContract(file.getTenantId(),file.getId(),file.getProcessInstanceId(),"fixture-definition",
+                    "fixture-deployment",DccControlledFileProcessDefinitionKeys.REVISION,"a".repeat(64),DccLifecycleEffectiveContract.Rule.LEGACY_V4_PRESET_DATE);});
+        var distributionBatch=mock(DccDistributionBatchService.class);
+        when(distributionBatch.acceptActivatedEvent(any())).thenReturn(900L);
+        when(distributionBatch.processAutomaticBatch(900L)).thenReturn(new DccDistributionBatchResult(900L,"FAILED","FIXTURE","isolated test port"));
+        wire(service,"effectiveContractResolver",contractResolver,"distributionBatchService",distributionBatch);
         var factory=new ProxyFactory(service);factory.setProxyTargetClass(true);factory.addAdvice(new TransactionInterceptor(manager,new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));lifecycle=(DccControlledFileLifecycleService)factory.getProxy();job=new DccControlledFileActivationJob(lifecycle);
         for(String operation:List.of("control","activate","auto-obsolete"))jdbc.update("INSERT INTO gxp_audit_policy_operation(tenant_id,policy_version,operation_id,source_type,source_locator,domain,subject_type,action_type,reason_policy,signature_policy,state_policy,retention_class,test_ids,owner,applicability,active) VALUES(1,'P16','dcc.controlled-file.' || ?,'SERVICE_METHOD','DCC.TEST','DCC','CONTROLLED_FILE','UPDATE','REQUIRED','NOT_REQUIRED','BEFORE_AFTER','GXP_CONTROLLED_DOCUMENT','P16','backend','GXP',TRUE)",operation);
         jdbc.update("INSERT INTO dcc_controlled_file_master(id,tenant_id,category_id,directory_id,file_name,file_number,dcc_project_code_id,file_type_taxonomy_leaf_id,normalized_file_number,status,current_active_controlled_file_id,latest_controlled_file_id) VALUES(10,1,2,3,'SOP','N-1',5,6,'N-1','ACTIVE_CHAIN',1,1)");
@@ -92,6 +100,25 @@ class DccThreeControlledVersionActivationTest extends BaseDbUnitTest {
         jdbc.update("UPDATE dcc_controlled_file SET status='OBSOLETE',obsoleted_time=?,superseded_by_file_id=3 WHERE id=1",day.plusDays(10).atTime(9,0));
         jdbc.update("UPDATE dcc_controlled_file_master SET current_active_controlled_file_id=3 WHERE id=10");
         clock.current=day.plusDays(20).atTime(9,0);assertFalse(lifecycle.activateDue(2L));assertEquals("OBSOLETE",state(2));assertEquals(3L,active());
+    }
+    @Test void jobContinuesAfterBadDueRowsAndCommitsLaterGoodRow() {
+        add(4,"A/4","CONTROLLED_PENDING_EFFECTIVE",day.minusDays(1));
+        jdbc.update("UPDATE dcc_controlled_file SET master_id=404 WHERE id=4");
+        add(5,"A/5","CONTROLLED_PENDING_EFFECTIVE",day.minusDays(1));
+        jdbc.update("UPDATE dcc_controlled_file SET master_id=505 WHERE id=5");
+        var before4=facts("SELECT * FROM dcc_controlled_file WHERE id=4");
+        var before5=facts("SELECT * FROM dcc_controlled_file WHERE id=5");
+        add(6,"A/6","READY_TO_PUBLISH",day.plusDays(1));control(6);
+        clock.current=day.plusDays(1).atTime(9,0);
+
+        var failure=assertThrows(RuntimeException.class,()->job.execute(null));
+
+        assertEquals("ACTIVE",state(6),"A later valid due row must commit even when earlier rows fail");
+        assertTrue(failure.getMessage().contains("4"));assertTrue(failure.getMessage().contains("5"));
+        assertTrue(failure.getMessage().contains("1"));assertEquals(2,failure.getSuppressed().length);
+        assertEquals(before4,facts("SELECT * FROM dcc_controlled_file WHERE id=4"));
+        assertEquals(before5,facts("SELECT * FROM dcc_controlled_file WHERE id=5"));
+        assertEquals(6L,active());
     }
     @ParameterizedTest @ValueSource(ints={-5,0,5})
     void threeControlledDatesPreserveHigherFutureAndEventuallyRetireEveryLowerControl(int order) {

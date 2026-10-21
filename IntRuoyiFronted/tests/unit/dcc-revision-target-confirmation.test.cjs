@@ -71,3 +71,15 @@ test('saved ordinary manifest drift during confirmation rejects the original cli
  assert.deepEqual(Array.from(h.c.selectedApplicationFile.value.attachments, row => row.attachmentId), ORDINARY_IDS)
  assert.equal(h.c.selectedApplicationFile.value.ordinaryAttachmentManifestHash, CHANGED_SERVER_MANIFEST_HASH)
 })
+
+test('cancel or close of the actual revision confirmation retains both saved attachments and sends no submission',async()=>{
+ for(const cancellation of ['cancel','close']){
+  const h=host(async()=>{throw cancellation})
+  await assert.rejects(h.c.submit(h.command),/已取消提交/)
+  assert.equal(h.calls.dialogs.length,1);assert.match(h.calls.dialogs[0].text,/One\.pdf（普通附件）.*Two\.docx（普通附件）/)
+  assert.equal(h.calls.writes.length,0);assert.equal(h.calls.submitted.length,0);assert.equal(h.c.busy.value,false)
+  assert.deepEqual(Array.from(h.c.selectedApplicationFile.value.attachments,row=>row.attachmentId),ORDINARY_IDS)
+  assert.equal(h.c.selectedApplicationFile.value.ordinaryAttachmentManifestHash,SERVER_MANIFEST_HASH)
+  assert.equal(h.c.selectedIterationId.value,'11')
+ }
+})

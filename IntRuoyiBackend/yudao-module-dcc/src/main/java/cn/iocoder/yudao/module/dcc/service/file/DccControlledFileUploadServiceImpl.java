@@ -134,7 +134,7 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
             uploadSizePolicyService.validateUploadSize(reqVO.getCategoryId(),
                     purpose, file.getSize(), null);
             byte[] content = IoUtil.readBytes(file.getInputStream());
-            validatePreviewPurposeContent(purpose, file.getOriginalFilename(), content);
+            validatePreviewPurposeContent(purpose, file.getOriginalFilename(), file.getContentType(), content);
             String requestId = auditContext.requireRequestId("upload preview");
             DccUploadTicketCreated uploadTicket = "NEW_UPLOAD".equals(reqVO.getUploadContext()) && "SOURCE".equals(purpose)
                     ? nameClaimService.preflightNewSourceName(userId,reqVO.getCategoryId(),reqVO.getDccProjectCodeId(),reqVO.getFileTypeTaxonomyId(),
@@ -249,7 +249,14 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         return normalizedPurpose;
     }
 
-    private void validatePreviewPurposeContent(String purpose, String fileName, byte[] content) {
+    private void validatePreviewPurposeContent(String purpose, String fileName, String contentType, byte[] content) {
+        if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
+                && (DccControlledFileUploadTypePolicy.isPngName(fileName) || DccControlledFileUploadTypePolicy.isTextName(fileName))) {
+            try { DccImageTextPdfConverter.validateSource(fileName, contentType, content); }
+            catch (java.io.IOException invalid) {
+                throw new ServiceException(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID.getCode(), invalid.getMessage());
+            }
+        }
         if (DccControlledFileUploadTypePolicy.isSourcePurpose(purpose)
                 && DccControlledFileUploadTypePolicy.isPdfName(fileName)
                 && !DccControlledFileUploadTypePolicy.isRealPdfFile(fileName, content)) {
@@ -276,7 +283,7 @@ public class DccControlledFileUploadServiceImpl implements DccControlledFileUplo
         }
         if (requireUploadPermission && !permissionSupport.hasCategoryPermission(categoryId, userId,
                 DccFileCategoryPermissionActionEnum.UPLOAD)) {
-            throw exception(DCC_PROJECT_ACCESS_DENIED);
+            throw new ServiceException(DCC_PROJECT_ACCESS_DENIED.getCode(), "当前用户没有该文件类别的上传权限");
         }
     }
 

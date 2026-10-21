@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.service.preview.DccControlledPreviewAccessSer
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessRequest;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
+import cn.iocoder.yudao.module.dcc.service.token.DccPreviewSourceIdentity;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
@@ -147,7 +148,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         when(exactTask.getProcessInstanceId()).thenReturn("round-delayed"); when(exactTask.getProcessDefinitionId()).thenReturn("definition-v6");
         when(exactTask.getTaskDefinitionKey()).thenReturn("DELAYED_EFFECTIVE_CONFIRM"); when(exactTask.getAssignee()).thenReturn("99");
 
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.pdf","application/pdf"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.pdf","application/pdf",utf8Size("approved-source")));
         when(businessFiles.assertAllowed(any(BusinessFileAccessRequest.class))).thenAnswer(call -> {
             var request = call.getArgument(0, BusinessFileAccessRequest.class);
             provider.assertAllowed(request,reference);
@@ -156,6 +157,8 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         when(watermarks.build(eq(99L),eq("preview"),anyString())).thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         var now = LocalDateTime.of(2026,10,15,2,30,10);
         when(previews.prepareAccess(any(DccPreviewAccessRequest.class))).thenReturn(new DccPreviewAccessResult(
+                800L,"event-source",801L,"trace-source","viewer","viewer-id","viewer-nonce",now,now.plusMinutes(15),"{}"));
+        when(previews.prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class))).thenReturn(new DccPreviewAccessResult(
                 800L,"event-source",801L,"trace-source","viewer","viewer-id","viewer-nonce",now,now.plusMinutes(15),"{}"));
         var event = DccControlledFileAccessEventDO.builder().id(800L).tenantId(31L).controlledFileId(910L).fileVersionNo("A/2")
                 .userId(99L).accessEventCode("event-source").accessType("PREVIEW").purpose(context.purpose())
@@ -174,8 +177,38 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(query,"onlyOfficePreviewProperties",properties);
     }
     @AfterEach void clearSubject() { SecurityContextHolder.clearContext(); TenantContextHolder.clear(); }
-    private FileDO binary(Long id,String name,String type) { return FileDO.builder().id(id).configId(1L).name(name).type(type).path("g07-source/"+name).build(); }
+    private FileDO binary(Long id,String name,String type,long size) { return FileDO.builder().id(id).configId(1L).name(name).type(type).path("g07-source/"+name).size(size).build(); }
+    private long utf8Size(String content) { return content.getBytes(StandardCharsets.UTF_8).length; }
+    private DccPreviewSourceIdentity approvedSource() { return DccPreviewSourceIdentity.fromFile(binary(100L,"exact-source.pdf","application/pdf",utf8Size("approved-source"))); }
     private DccControlledFileBinary readBinary() { return query.readPreviewFile(99L,910L,context,"viewer","event-source","trace-source","viewer-id","viewer-nonce",audit); }
+
+    @Test void readingLifecycleRechecksExactTaskWithoutReadingBytesOrIssuingNewEvent() throws Exception {
+        assertReadingAccess();
+        verify(viewerTokens).verifySourceBound("viewer",new DccViewerTokenExpectedContext(31L,99L,910L,"A/2",800L,
+                context.purpose(),900L,"viewer-nonce","viewer-id"),approvedSource());
+        verify(storage,never()).getFileContent(any(),any());
+        verify(previews,never()).prepareAccess(any());
+        verify(previews,never()).prepareSourceBoundAccess(any(),any());
+        verify(logs,never()).insert(any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAccessLogDO.class));
+    }
+    @Test void readingLifecycleRejectsReassignedTaskBeforeTokenOrBodyRead() throws Exception {
+        when(exactTask.getAssignee()).thenReturn("101");
+        assertServiceException(this::assertReadingAccess,CONTROLLED_FILE_ACCESS_DENIED);
+        verify(viewerTokens,never()).verify(any(),any()); verify(viewerTokens,never()).verifySourceBound(any(),any(),any()); verify(storage,never()).getFileContent(any(),any());
+    }
+    @Test void readingLifecycleRejectsDisabledAccountBeforeTokenOrBodyRead() throws Exception {
+        users.getUser(99L).setStatus(1);
+        assertServiceException(this::assertReadingAccess,CONTROLLED_FILE_ACCESS_DENIED);
+        verify(viewerTokens,never()).verify(any(),any()); verify(viewerTokens,never()).verifySourceBound(any(),any(),any()); verify(storage,never()).getFileContent(any(),any());
+    }
+    @Test void readingLifecycleRejectsWrongEventRoundBeforeTokenOrBodyRead() throws Exception {
+        events.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>()).setProcessInstanceId("round-other");
+        assertServiceException(this::assertReadingAccess,CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
+        verify(viewerTokens,never()).verify(any(),any()); verify(viewerTokens,never()).verifySourceBound(any(),any(),any()); verify(storage,never()).getFileContent(any(),any());
+    }
+    private void assertReadingAccess() {
+        query.assertPreviewReadingAccess(99L,910L,context,"viewer","event-source","trace-source","viewer-id","viewer-nonce",audit);
+    }
 
     @Test void delayedTaskReadsOnlyTheExactApprovedSourceWithTheSameMetadataAndBinaryProof() throws Exception {
         var metadata = query.getPreviewMetadata(99L,910L,context,audit);
@@ -183,10 +216,10 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         assertEquals("2026-10-15T02:30:10Z",metadata.getPreviewRegisteredAt());
         when(storage.getFileContent(1L,"g07-source/exact-source.pdf")).thenReturn("approved-source".getBytes(StandardCharsets.UTF_8));
         assertArrayEquals("approved-source".getBytes(StandardCharsets.UTF_8),readBinary().bytes());
-        verify(previews).prepareAccess(argThat(request -> context.purpose().equals(request.purpose())
-                && "round-delayed".equals(request.processInstanceId()) && "A/2".equals(request.versionId())));
-        verify(viewerTokens).verify(eq("viewer"),argThat((DccViewerTokenExpectedContext expected) ->
-                context.purpose().equals(expected.purpose()) && expected.fileId().equals(910L) && "A/2".equals(expected.versionId())));
+        verify(previews).prepareSourceBoundAccess(argThat(request -> context.purpose().equals(request.purpose())
+                && "round-delayed".equals(request.processInstanceId()) && "A/2".equals(request.versionId())),eq(approvedSource()));
+        verify(viewerTokens).verifySourceBound(eq("viewer"),argThat((DccViewerTokenExpectedContext expected) ->
+                context.purpose().equals(expected.purpose()) && expected.fileId().equals(910L) && "A/2".equals(expected.versionId())),eq(approvedSource()));
         verify(binaries,never()).selectById(200L); verify(binaries,never()).selectById(300L); verify(binaries,never()).selectById(400L);
     }
 
@@ -206,8 +239,8 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
 
     @Test void currentDrawingUsesItsOwnCompanionPdfForDelayedTask() throws Exception {
         selected.setDrawingPdfFileId(101L);
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.dwg","application/acad"));
-        when(binaries.selectById(101L)).thenReturn(binary(101L,"exact-companion.pdf","application/pdf"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.dwg","application/acad",utf8Size("declared-drawing")));
+        when(binaries.selectById(101L)).thenReturn(binary(101L,"exact-companion.pdf","application/pdf",utf8Size("current-companion")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         assertEquals("PDF",metadata.getPreviewKind());assertEquals("exact-companion.pdf",metadata.getFileName());
         when(storage.getFileContent(1L,"g07-source/exact-companion.pdf")).thenReturn("current-companion".getBytes(StandardCharsets.UTF_8));
@@ -216,7 +249,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     }
 
     @Test void delayedOfficeMetadataMustUseTheSelectedSourceTypeAndIssueItsRealSignedOfficeUrl() {
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"approved-confirmation.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"approved-confirmation.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("declared-office-preview")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         assertEquals("OFFICE",metadata.getPreviewKind());
         assertEquals("approved-confirmation.docx",metadata.getFileName());
@@ -232,7 +265,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     @Test void actualSignedOfficeCallbackReadsOriginalSourceThenRejectsChangedSourceBeforeAuthorizationOrStorage() throws Exception {
         selected.setStatus("PENDING_MATRIX_REVIEW");
         when(exactTask.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("signed-source")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         assertEquals("OFFICE",metadata.getPreviewKind());
         assertNotNull(metadata.getOnlyofficeDocumentUrl());
@@ -246,7 +279,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         assertNull(SecurityFrameworkUtils.getLoginUser());
         clearInvocations(storage,businessFiles);
         selected.setSourceFileId(102L);
-        when(binaries.selectById(102L)).thenReturn(binary(102L,"changed.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(102L)).thenReturn(binary(102L,"changed.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("changed-source")));
         assertServiceException(() -> query.readOnlyOfficePreviewFile(910L,token,audit),CONTROLLED_FILE_VIEWER_TOKEN_CONTEXT_MISMATCH);
         verifyNoInteractions(storage,businessFiles);assertNull(SecurityFrameworkUtils.getLoginUser());
         assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"bodyReadContext")).get());
@@ -255,7 +288,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     @Test void officeCallbackCannotBorrowAnotherRoundEventEvenWhenItsSignedContextAndSourceRemainUnchanged() throws Exception {
         selected.setStatus("PENDING_MATRIX_REVIEW");
         when(exactTask.getTaskDefinitionKey()).thenReturn("MATRIX_REVIEW");
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("signed-source")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         assertEquals("OFFICE",metadata.getPreviewKind());
         assertNotNull(metadata.getOnlyofficeDocumentUrl());
@@ -289,6 +322,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
             "binary,disabled", "binary,ignored", "binary,reassigned",
             "infra,disabled", "infra,ignored", "infra,outsideScope"})
     void currentExitRechecksIdentityBeforeIssuingTokenOrReadingAnyBytes(String exit, String failure) throws Exception {
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.pdf","application/pdf",utf8Size("allowed-source")));
         when(storage.getFileContent(1L,"g07-source/exact-source.pdf")).thenReturn("allowed-source".getBytes(StandardCharsets.UTF_8));
         if ("infra".equals(exit)) {
             selected.setStatus("ACTIVE");selected.setActivatedTime(LocalDateTime.of(2026,10,15,0,0));
@@ -321,7 +355,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     @ParameterizedTest
     @ValueSource(strings={"disabled", "reassigned", "foreignTenant"})
     void signedOfficeCallbackRechecksCurrentAccountTaskAndTenantBeforeAnyBytes(String failure) throws Exception {
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("signed-source")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         String token=metadata.getOnlyofficeDocumentUrl().split("token=",2)[1];
         SecurityContextHolder.clearContext();
@@ -344,7 +378,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     }
 
     @Test void officeTenantIgnoredCallbackUsesOnlyTheVerifiedSignedTenantAndRestoresItsOuterContext() throws Exception {
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("signed-tenant-body")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         String token=metadata.getOnlyofficeDocumentUrl().split("token=",2)[1];
         when(storage.getFileContent(1L,"g07-source/exact-source.docx")).thenReturn("signed-tenant-body".getBytes(StandardCharsets.UTF_8));
@@ -368,7 +402,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
         context=new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_HISTORY,
                 "910","A/2","REVISION","round-delayed","task-delayed");
         events.selectById(800L).setPurpose(context.purpose());
-        when(binaries.selectById(400L)).thenReturn(binary(400L,"retained-A2.pdf","application/pdf"));
+        when(binaries.selectById(400L)).thenReturn(binary(400L,"retained-A2.pdf","application/pdf",utf8Size("retained-selected-version")));
         var metadata=query.getPreviewMetadata(99L,910L,context,audit);
         assertEquals("retained-A2.pdf",metadata.getFileName());
         when(storage.getFileContent(1L,"g07-source/retained-A2.pdf")).thenReturn("retained-selected-version".getBytes(StandardCharsets.UTF_8));
@@ -382,7 +416,7 @@ class DccControlledFileBodyReadCurrentSourceTest extends BaseMockitoUnitTest {
     }
 
     @Test void signedOfficeTokenCannotReadAnotherSelectedFileEvenForTheSameAuthenticatedActor() {
-        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+        when(binaries.selectById(100L)).thenReturn(binary(100L,"exact-source.docx","application/vnd.openxmlformats-officedocument.wordprocessingml.document",utf8Size("signed-source")));
         String token=query.getPreviewMetadata(99L,910L,context,audit).getOnlyofficeDocumentUrl().split("token=",2)[1];
         SecurityContextHolder.clearContext();clearInvocations(storage,businessFiles,files);
         var denied=assertThrows(IllegalArgumentException.class,() -> query.readOnlyOfficePreviewFile(911L,token,audit));

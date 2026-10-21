@@ -7,6 +7,8 @@ const vue = require('vue')
 const { parse, compileScript } = require('vue/compiler-sfc')
 const versionDisplay = { exports: {} }
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/version-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, versionDisplay)
+const workingNavigation = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/working-browser-navigation.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, workingNavigation)
 const source = fs.readFileSync('src/views/dcc/controlled-file/browser/index.vue', 'utf8')
 const block = (name, next) => {
   const from = source.indexOf(`const ${name} =`), end = source.indexOf(`const ${next} =`, from)
@@ -15,9 +17,9 @@ const block = (name, next) => {
 const ref = value => ({ value })
 const FILE = '9223372036854775701', NEXT = '9223372036854775702', MASTER = '9223372036854775700', USER = '9223372036854775707'
 const stateFor = () => {
-  const calls = { writes: [], errors: [], successes: [], merges: [], refreshes: 0 }
+  const calls = { writes: [], errors: [], successes: [], merges: [], refreshes: 0, routes: [] }
   const target = { id: FILE, masterId: MASTER, checkedOutBy: USER, checkedOut: true, versionNo: 'A/1', fileNumber: 'F1', status: 'ACTIVE', remark: 'old' }
-  const state = { Error, JSON, Number, String, Promise, ...versionDisplay.exports,
+  const state = { Error, JSON, Number, String, Promise, ...versionDisplay.exports, ...workingNavigation.exports,
     userStore: { getUser: { id: USER } }, checkinTarget: ref(target), checkinUpload: ref({ sessionId: 'dcc-checkin:ticket-session', uploadTicket: 'SOURCE', fileName: 'updated.docx' }),
     checkinUploadSessionId: ref('client-session'), checkinSourceState: ref('ready'), checkinDrawingPdfUpload: ref(undefined),
     checkinUploadLoading: ref(false), checkinDrawingPdfLoading: ref(false), checkinCleanupLoading: ref(false), checkinSubmitting: ref(false),
@@ -36,7 +38,9 @@ const stateFor = () => {
     checkinSourceRequestSequence: 0, checkinDrawingPdfRequestSequence: 0, clearCheckinDrawingPdf: () => {},
     checkinDialogGeneration: 0, exports: {} }
   state.checkinUploadContext=ref({fileId:FILE,clientSessionId:'client-session',scopedSessionId:'dcc-checkin:ticket-session',ticket:'SOURCE'})
-  state.route = { fullPath: '/dcc/controlled-file/browser' }
+  state.route = { path: '/dcc/controlled-file/browser', fullPath: '/dcc/controlled-file/browser', query: {} }
+  state.router = { replace: async value => { calls.routes.push(value);state.route.query=value.query;state.route.fullPath=value.path+'?updated-working-context' } }
+  state.withBrowserRouteSyncGuard = action => action()
   state.browserMode = ref('storage')
   state.buildBrowserRouteStateKey = () => 'current-filter'
   state.getBrowserCacheContext = () => 'tenant1-user'
@@ -52,6 +56,19 @@ test('actual submit always sends MINOR even if old form state carries MAJOR and 
   const payload = calls.writes[0][1]
   assert.equal(payload.versionChangeType, 'MINOR'); assert.equal(payload.sessionId, 'dcc-checkin:ticket-session'); assert.equal(payload.uploadTicket, 'SOURCE')
   for (const forbidden of ['projectFolderId', 'directoryId', 'revisionChangeType', 'relatedControlledFileIds']) assert.equal(payload[forbidden], undefined)
+})
+
+test('successful exact authoring checkin follows the returned working identity and preserves browser filters', async()=>{
+  const {state,calls}=stateFor()
+  state.route.query={browserMode:'storage',scope:'global',keyword:'F1',workingFileId:FILE,workingMasterId:MASTER}
+  await state.exports.submit()
+  assert.equal(calls.writes.length,1)
+  assert.equal(calls.routes.length,1)
+  assert.equal(calls.routes[0].query.workingFileId,NEXT)
+  assert.equal(calls.routes[0].query.workingMasterId,MASTER)
+  assert.equal(calls.routes[0].query.keyword,'F1')
+  assert.equal(calls.routes[0].query.scope,'global')
+  assert.equal(state.checkinDialogVisible.value,false)
 })
 
 test('a training selection explicitly checked in the current dialog is sent as true', async () => {

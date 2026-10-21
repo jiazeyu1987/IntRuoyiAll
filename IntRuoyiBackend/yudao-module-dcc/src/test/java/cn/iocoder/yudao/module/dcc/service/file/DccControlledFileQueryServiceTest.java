@@ -81,6 +81,7 @@ import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessRequest;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenExpectedContext;
+import cn.iocoder.yudao.module.dcc.service.token.DccPreviewSourceIdentity;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenPayload;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketBoundFile;
@@ -173,6 +174,9 @@ import static org.mockito.Mockito.when;
 
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
+
+    private static final byte[] METADATA_ONLY_PREVIEW_BYTES = "declared metadata-only preview fixture".getBytes(StandardCharsets.UTF_8);
+
     @org.junit.jupiter.api.BeforeEach void g25DeclaredSourceProjectionPort() {
         org.mockito.Mockito.lenient().when(nameClaimService.requireSourceName(org.mockito.ArgumentMatchers.any(cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO.class)))
             .thenAnswer(call -> call.<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO>getArgument(0).getSourceOriginalFileName());
@@ -387,6 +391,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .thenAnswer(invocation -> controlledFileMapper.selectById(invocation.<Long>getArgument(1)));
         lenient().when(previewAccessService.prepareAccess(any(DccPreviewAccessRequest.class)))
                 .thenReturn(previewAccessResult());
+        lenient().when(previewAccessService.prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class)))
+                .thenReturn(previewAccessResult());
         lenient().when(accessEventMapper.selectOne(any())).thenAnswer(invocation -> accessEvent(900L, "1.0"));
         lenient().when(watermarkTraceMapper.selectOne(any())).thenAnswer(invocation -> watermarkTrace(900L, "1.0"));
         lenient().when(downloadRecordMapper.updateById(any(DccControlledFileDownloadRecordDO.class))).thenReturn(1);
@@ -402,6 +408,20 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(attachmentService.listAttachments(anyLong())).thenReturn(List.of());
         lenient().when(attachmentService.listControlledFileIdsByStorageFileId(anyLong())).thenReturn(List.of());
         lenient().when(viewerTokenService.verify(eq(VIEWER_TOKEN), any(DccViewerTokenExpectedContext.class)))
+                .thenReturn(DccViewerTokenPayload.builder()
+                        .tokenId(VIEWER_TOKEN_ID)
+                        .nonce(VIEWER_TOKEN_NONCE)
+                        .tenantId(31L)
+                        .userId(99L)
+                        .fileId(900L)
+                        .versionId("1.0")
+                        .accessEventId(88001L)
+                        .purpose("CONTROLLED_PREVIEW")
+                        .ttlSeconds(900L)
+                        .issuedAtEpochSecond(1L)
+                        .expiresAtEpochSecond(901L)
+                        .build());
+        lenient().when(viewerTokenService.verifySourceBound(eq(VIEWER_TOKEN), any(DccViewerTokenExpectedContext.class), any(DccPreviewSourceIdentity.class)))
                 .thenReturn(DccViewerTokenPayload.builder()
                         .tokenId(VIEWER_TOKEN_ID)
                         .nonce(VIEWER_TOKEN_NONCE)
@@ -486,16 +506,22 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         lenient().when(adminUserApi.getUser(88L)).thenReturn(actor);
         DccControlledFileRespVO response = ReflectionTestUtils.invokeMethod(queryService, "toBrowserRespVO", 99L, active, false);
         assertTrue(Boolean.TRUE.equals(response.getCheckedOut()));
-        assertEquals(88L, response.getCheckedOutBy()); assertEquals(time, response.getCheckedOutTime());
-        assertEquals("actual actor", response.getCheckedOutByName());
+        assertNull(response.getCheckedOutBy()); assertNull(response.getCheckedOutTime());
+        assertNull(response.getCheckedOutByName());
         assertNull(response.getCheckedOutReason()); assertNull(response.getSourceSha256());
         assertNull(response.getChangeDescription()); assertFalse(Boolean.TRUE.equals(response.getCanPreview()));
         assertTrue(response.getActionProjection().getAllowedActions().isEmpty());
         assertEquals(2, response.getVersionHistory().size());
         for (var history : response.getVersionHistory()) {
             assertTrue(Boolean.TRUE.equals(history.getCheckedOut()));
-            assertEquals(88L, history.getCheckedOutBy()); assertEquals(time, history.getCheckedOutTime());
-            assertEquals("actual actor", history.getCheckedOutByName());
+            if (history.getId().equals(901L)) {
+                assertEquals(88L, history.getCheckedOutBy()); assertEquals(time, history.getCheckedOutTime());
+                assertEquals("actual actor", history.getCheckedOutByName());
+            } else {
+                assertEquals(900L, history.getId());
+                assertNull(history.getCheckedOutBy()); assertNull(history.getCheckedOutTime());
+                assertNull(history.getCheckedOutByName());
+            }
             assertNull(history.getCheckedOutReason()); assertNull(history.getSourceSha256());
             assertNull(history.getChangeDescription()); assertFalse(Boolean.TRUE.equals(history.getCanPreview()));
             assertTrue(history.getActionProjection().getAllowedActions().isEmpty());
@@ -597,6 +623,25 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertNotNull(actions);
         assertEquals(901L, rows.get(0).getId());
         assertEquals(List.of("VIEW"), ReflectionTestUtils.getField(actions, "allowedActions"));
+    }
+
+    @Test
+    void historicalBrowserPreviewProjectionFollowsAuthorizationAndArtifactAvailability() {
+        var response = new DccControlledFileRespVO();
+        var actions = new DccControlledFileActionProjectionRespVO();
+        actions.setAllowedActions(new java.util.ArrayList<>(List.of("DETAIL", "PREVIEW")));
+        response.setActionProjection(actions);
+
+        DccControlledFileQueryServiceImpl.projectHistoricalBrowserPreview(response, true);
+
+        assertEquals(Boolean.TRUE, response.getCanPreview());
+        assertTrue(response.getActionProjection().getAllowedActions().contains("PREVIEW"));
+
+        DccControlledFileQueryServiceImpl.projectHistoricalBrowserPreview(response, false);
+
+        assertEquals(Boolean.FALSE, response.getCanPreview());
+        assertFalse(response.getActionProjection().getAllowedActions().contains("PREVIEW"));
+        assertTrue(response.getActionProjection().getAllowedActions().contains("DETAIL"));
     }
     @Test void historyUnsentIterationExposesItsRealCreationTimeWithoutInventingSubmission() {
         var parent=lifecycleFile(900L,"A/1","ACTIVE");var history=lifecycleFile(901L,"A/1-1","WORKING");
@@ -851,9 +896,9 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         drawing.setProcessInstanceId("drawing-review");
         when(controlledFileMapper.selectById(1041L)).thenReturn(drawing);
         when(fileMapper.selectById(7041L)).thenReturn(FileDO.builder()
-                .id(7041L).name("current-drawing.dwg").type("application/acad").build());
+                .id(7041L).configId(1L).path("dcc/source/current-drawing.dwg").name("current-drawing.dwg").type("application/acad").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(fileMapper.selectById(8041L)).thenReturn(FileDO.builder()
-                .id(8041L).name("current-drawing.pdf").type("application/pdf").build());
+                .id(8041L).configId(1L).path("dcc/drawing/current-drawing.pdf").name("current-drawing.pdf").type("application/pdf").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L, "preview", "current-drawing.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
@@ -1976,7 +2021,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertServiceException(() -> access.assertContentReadable(99L,900L),CONTROLLED_FILE_ACCESS_DENIED);
         assertTrue(queryService.canViewFileName(99L,file));
     }
-    @Test void logicalCheckoutIsVisibleFromFormalAndOtherHistoryVersions() {
+    @Test void logicalCheckoutKeepsMasterMutexButOnlyExactVersionShowsCheckoutFacts() {
         var active=lifecycleFile(900L,"A/1","ACTIVE");
         var selected=lifecycleFile(901L,"A/1-1","WORKING");
         var timestamp=LocalDateTime.of(2026,10,1,10,12,30);
@@ -1991,10 +2036,58 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(active,selected));
         when(directoryMapper.selectEnabledList()).thenReturn(List.of());
         var response=queryService.getControlledFile(99L,900L);
-        assertTrue(response.getCheckedOut()); assertEquals(88L,response.getCheckedOutBy());
-        assertEquals("甲",response.getCheckedOutByName()); assertEquals(timestamp,response.getCheckedOutTime());
+        assertTrue(response.getCheckedOut(), "Master edit mutex remains visible across versions");
+        assertNull(response.getCheckedOutBy(), "A/1 must not borrow the working version's checkout actor");
+        assertNull(response.getCheckedOutByName()); assertNull(response.getCheckedOutTime());
+        assertNull(response.getCheckedOutReason());
         assertTrue(response.getVersionHistory().stream().allMatch(h -> Boolean.TRUE.equals(h.getCheckedOut())));
-        assertTrue(response.getVersionHistory().stream().allMatch(h -> timestamp.equals(h.getCheckedOutTime())));
+        var old = response.getVersionHistory().stream().filter(h -> h.getId().equals(900L)).findFirst().orElseThrow();
+        assertNull(old.getCheckedOutBy()); assertNull(old.getCheckedOutByName());
+        assertNull(old.getCheckedOutTime()); assertNull(old.getCheckedOutReason());
+        var exact = response.getVersionHistory().stream().filter(h -> h.getId().equals(901L)).findFirst().orElseThrow();
+        assertEquals(88L, exact.getCheckedOutBy()); assertEquals("甲", exact.getCheckedOutByName());
+        assertEquals(timestamp, exact.getCheckedOutTime()); assertEquals("甲编辑小版", exact.getCheckedOutReason());
+        verify(checkoutMapper, never()).markCancelled(anyLong(), anyLong(), anyLong(), anyString());
+        verify(checkoutMapper, never()).markCheckedIn(anyLong(), anyLong(), anyLong(), any(), anyLong(), anyLong(), anyString(), anyString());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"EXACT", "OTHER_VERSION", "NO_LOCK"})
+    void checkoutProjectionClearsBorrowedFactsAndKeepsExactLongIdentity(String scope) {
+        long oldId = 9007199254740993L, exactId = 9007199254740995L;
+        var file = lifecycleFile("OTHER_VERSION".equals(scope) ? oldId : exactId, "A/2", "ACTIVE");
+        var timestamp = LocalDateTime.of(2026, 10, 19, 12, 39, 25);
+        var lock = DccControlledFileCheckoutDO.builder().id(1001L).masterId(700L).baseIterationId(exactId)
+                .actorId(88L).reason("仅所选A2版本的检出").status("ACTIVE").build();
+        lock.setTenantId(31L); lock.setCreateTime(timestamp);
+        when(checkoutMapper.selectActiveByMasterIdForRead(31L, 700L)).thenReturn("NO_LOCK".equals(scope) ? null : lock);
+        var actor = new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO();
+        actor.setId(88L); actor.setNickname("甲"); when(adminUserApi.getUser(88L)).thenReturn(actor);
+        var detail = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRespVO();
+        detail.setId(file.getId()); detail.setCheckedOut(true); detail.setCheckedOutBy(77L);
+        detail.setCheckedOutByName("旧残留"); detail.setCheckedOutTime(timestamp.minusDays(1)); detail.setCheckedOutReason("旧原因");
+        ReflectionTestUtils.invokeMethod(queryService, "fillCheckoutProjection", detail, file);
+        assertEquals(!"NO_LOCK".equals(scope), detail.getCheckedOut());
+        if ("EXACT".equals(scope)) {
+            assertEquals(88L, detail.getCheckedOutBy()); assertEquals("甲", detail.getCheckedOutByName());
+            assertEquals(timestamp, detail.getCheckedOutTime()); assertEquals("仅所选A2版本的检出", detail.getCheckedOutReason());
+        } else {
+            assertNull(detail.getCheckedOutBy()); assertNull(detail.getCheckedOutByName());
+            assertNull(detail.getCheckedOutTime()); assertNull(detail.getCheckedOutReason());
+            verify(adminUserApi, never()).getUser(88L);
+        }
+        var history = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileVersionHistoryRespVO();
+        history.setId(file.getId()); history.setCheckedOut(true); history.setCheckedOutBy(77L);
+        history.setCheckedOutByName("旧残留"); history.setCheckedOutTime(timestamp.minusDays(1)); history.setCheckedOutReason("旧原因");
+        ReflectionTestUtils.invokeMethod(queryService, "fillCheckoutProjection", history, "NO_LOCK".equals(scope) ? null : lock);
+        assertEquals(!"NO_LOCK".equals(scope), history.getCheckedOut());
+        if ("EXACT".equals(scope)) {
+            assertEquals(88L, history.getCheckedOutBy()); assertEquals("甲", history.getCheckedOutByName());
+            assertEquals(timestamp, history.getCheckedOutTime()); assertEquals("仅所选A2版本的检出", history.getCheckedOutReason());
+        } else {
+            assertNull(history.getCheckedOutBy()); assertNull(history.getCheckedOutByName());
+            assertNull(history.getCheckedOutTime()); assertNull(history.getCheckedOutReason());
+        }
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -2442,7 +2535,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/spec.docx")
                 .name("Spec.docx")
                 .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                .build());
+                .size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         DccOnlyOfficePreviewTokenService.PreviewTokenPayload officeTokenPayload =
                 new DccOnlyOfficePreviewTokenService.PreviewTokenPayload();
         officeTokenPayload.setTokenId("OT-20260528-0001");
@@ -2509,7 +2602,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/b1-995.docx")
                 .name("b1-995.docx")
                 .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                .build();
+                .size((long)METADATA_ONLY_PREVIEW_BYTES.length).build();
         when(fileMapper.selectById(7001L)).thenReturn(source);
         BusinessFileAccessReference reference = new BusinessFileAccessReference(
                 "dcc", "DCC_CONTROLLED_FILE", 995L, "B/1", 31L, null);
@@ -2550,7 +2643,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/published/audit.pdf")
                 .name("audit.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L, "preview", "audit.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
@@ -2558,7 +2651,8 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
 
         ArgumentCaptor<DccPreviewAccessRequest> requestCaptor =
                 ArgumentCaptor.forClass(DccPreviewAccessRequest.class);
-        verify(previewAccessService).prepareAccess(requestCaptor.capture());
+        verify(previewAccessService).prepareSourceBoundAccess(requestCaptor.capture(),
+                eq(new DccPreviewSourceIdentity(7003L,1L,"dcc/published/audit.pdf","audit.pdf","application/pdf",(long)METADATA_ONLY_PREVIEW_BYTES.length)));
         DccPreviewAccessRequest request = requestCaptor.getValue();
         assertEquals(SOURCE_IP, request.sourceIp());
         assertEquals(USER_AGENT, request.userAgent());
@@ -2584,7 +2678,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/spec.docx")
                 .name("Spec.docx")
                 .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                .build());
+                .size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L, "preview", "Spec.docx"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
@@ -2640,6 +2734,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertNull(result.getOnlyofficeBaseUrl());
         assertNull(result.getOnlyofficeDocumentUrl());
         verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
         verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
                 anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
     }
@@ -2777,7 +2872,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/training.mp4")
                 .name("training.mp4")
                 .type("video/mp4")
-                .build());
+                .size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L, "preview", "training.mp4"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
@@ -2801,7 +2896,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/published/sample.pdf")
                 .name("sample.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"pdf".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/published/sample.pdf")).thenReturn("pdf".getBytes());
         when(watermarkService.build(99L, "preview", "sample.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder()
@@ -2849,13 +2944,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         file.setPublishedFileId(501L); file.setSourceFileId(502L); file.setOriginalFileId(503L);
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         when(fileMapper.selectById(501L)).thenReturn(FileDO.builder().id(501L).configId(1L)
-                .path("dcc/controlled/selected-future.pdf").name("selected-future.pdf").type("application/pdf").build());
+                .path("dcc/controlled/selected-future.pdf").name("selected-future.pdf").type("application/pdf").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L,DccAccessTypeEnum.PREVIEW)).thenReturn(Set.of());
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(true);
         when(watermarkService.build(99L,"preview","selected-future.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
         verify(previewAccessService,never()).prepareAccess(any());
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
         verify(fileMapper,never()).selectById(502L); verify(fileMapper,never()).selectById(503L);
     }
     @Test void futureControlledMissingBodyDisablesPreviewWithoutFallingBackToSource() {
@@ -2894,6 +2990,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
         verify(fileService,never()).getFileContent(anyLong(),anyString());
         verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
     }
     @Test void futureControlledDetailAllowsCurrentMatrixWithoutBorrowingExecutionPointer() {
         stubReadMaster(700L,899L,900L);
@@ -2949,6 +3046,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(900L)).thenReturn(file);
         assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
         verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
     }
     @Test void obsoleteVisibilityDoesNotReplaceContentPermission() {
         var file=lifecycleFile(900L,"B/1","OBSOLETE"); file.setRequesterId(88L); file.setPublishedFileId(501L);
@@ -2958,6 +3056,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(viewMatrixAccessService.canAccessCurrentViewMatrix(99L,file)).thenReturn(false);
         assertServiceException(() -> queryService.getPreviewMetadata(99L,900L,auditContext(PREVIEW_REQUEST_ID)),CONTROLLED_FILE_ACCESS_DENIED);
         verify(previewAccessService,never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
     }
 
     @Test
@@ -2968,7 +3067,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/pending.pdf")
                 .name("pending.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"pending".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/original/pending.pdf")).thenReturn("pending".getBytes());
         when(watermarkService.build(99L, "preview", "pending.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder()
@@ -3018,14 +3117,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/a1-original.pdf")
                 .name("a1-original.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"old A/1 original".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileMapper.selectById(603L)).thenReturn(FileDO.builder()
                 .id(603L)
                 .configId(1L)
                 .path("dcc/source/a2-checked-in.pdf")
                 .name("a2-checked-in.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"checked-in A/2 source".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/original/a1-original.pdf"))
                 .thenReturn("old A/1 original".getBytes(StandardCharsets.UTF_8));
         when(fileService.getFileContent(1L, "dcc/source/a2-checked-in.pdf")).thenReturn(sourceBytes);
@@ -3068,13 +3167,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(71007L)).thenReturn(selected);
         when(fileMapper.selectById(72007L)).thenReturn(FileDO.builder()
                 .id(72007L).configId(1L).path("g07/selected-body.pdf")
-                .name("selected-body.pdf").type("application/pdf").build());
+                .name("selected-body.pdf").type("application/pdf").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L, "preview", "selected-body.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
         assertServiceException(() -> queryService.getPreviewMetadata(99L, 71007L,
                 auditContext("G07-DAILY-" + status)), CONTROLLED_FILE_ACCESS_DENIED);
         verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
         verify(businessFileAccessService, never()).assertAllowed(any(BusinessFileAccessRequest.class));
     }
 
@@ -3087,7 +3187,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMapper.selectById(71008L)).thenReturn(working);
         when(fileMapper.selectById(72008L)).thenReturn(FileDO.builder()
                 .id(72008L).configId(1L).path("g07/working-body.pdf")
-                .name("working-body.pdf").type("application/pdf").build());
+                .name("working-body.pdf").type("application/pdf").size((long)"working-body".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "g07/working-body.pdf")).thenReturn("working-body".getBytes());
         when(watermarkService.build(99L, "preview", "working-body.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
@@ -3099,6 +3199,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 auditContext("G07-DAILY-BINARY")), CONTROLLED_FILE_ACCESS_DENIED);
         verify(fileService, never()).getFileContent(anyLong(), anyString());
         verify(viewerTokenService, never()).verify(anyString(), any(DccViewerTokenExpectedContext.class));
+        verify(viewerTokenService, never()).verifySourceBound(anyString(), any(DccViewerTokenExpectedContext.class), any(DccPreviewSourceIdentity.class));
     }
 
     private void g07DeclaredSignedTask(String round, String taskId) {
@@ -3132,7 +3233,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         properties.setPublicFileBaseUrl("http://preview.local");properties.setJwtSecret("task-owned-secret");
         ReflectionTestUtils.setField(queryService,"onlyOfficePreviewProperties",properties);
         when(fileMapper.selectById(72200L)).thenReturn(FileDO.builder().id(72200L).configId(1L)
-                .path("g07/office-exact.docx").name("office-exact.docx").type("application/docx").build());
+                .path("g07/office-exact.docx").name("office-exact.docx").type("application/docx").size((long)"selected-office".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L,"g07/office-exact.docx")).thenReturn("selected-office".getBytes());
         var event=accessEvent(71200L,"A/1-2");event.setTenantId(31L);event.setPurpose(context.purpose());
         when(accessEventMapper.selectById(88001L)).thenReturn(event);
@@ -3244,14 +3345,15 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(controlledFileMasterMapper.selectById(700L)).thenReturn(master);
         when(controlledFileMapper.selectById(71009L)).thenReturn(file);
         when(fileMapper.selectById(72009L)).thenReturn(FileDO.builder().id(72009L).configId(1L)
-                .path("g07/exact-authoring.pdf").name("exact-authoring.pdf").type("application/pdf").build());
+                .path("g07/exact-authoring.pdf").name("exact-authoring.pdf").type("application/pdf").size((long)"exact-authoring".getBytes(StandardCharsets.UTF_8).length).build());
         when(watermarkService.build(99L, "preview", "exact-authoring.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(fileService.getFileContent(1L, "g07/exact-authoring.pdf")).thenReturn("exact-authoring".getBytes());
         var metadata=queryService.getPreviewMetadata(99L, 71009L, context, auditContext("G07-AUTHORING-META"));
         assertEquals(previewAccessResult().issuedAt().atOffset(java.time.ZoneOffset.UTC).format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME),metadata.getPreviewRegisteredAt());
-        verify(previewAccessService).prepareAccess(argThat(request -> context.purpose().equals(request.purpose())
-                && request.processInstanceId() == null && "A/1-2".equals(request.versionId())));
+        verify(previewAccessService).prepareSourceBoundAccess(argThat(request -> context.purpose().equals(request.purpose())
+                && request.processInstanceId() == null && "A/1-2".equals(request.versionId())),
+                eq(new DccPreviewSourceIdentity(72009L,1L,"g07/exact-authoring.pdf","exact-authoring.pdf","application/pdf",(long)"exact-authoring".getBytes(StandardCharsets.UTF_8).length)));
         var event = accessEvent(71009L, "A/1-2"); event.setTenantId(31L); event.setPurpose(context.purpose());
         when(accessEventMapper.selectOne(any())).thenReturn(event);
         when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(71009L, "A/1-2"));
@@ -3297,11 +3399,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(task.getProcessInstanceId()).thenReturn("task-round-exact");when(task.getProcessDefinitionId()).thenReturn("task-definition-exact");
         when(task.getAssignee()).thenReturn("99");when(bpmTaskService.getTask("task-exact")).thenReturn(task);
         when(fileMapper.selectById(72201L)).thenReturn(FileDO.builder().id(72201L).configId(1L)
-                .path("g07/task-exact.pdf").name("task-exact.pdf").type("application/pdf").build());
+                .path("g07/task-exact.pdf").name("task-exact.pdf").type("application/pdf").size((long)"exact-task-version".getBytes(StandardCharsets.UTF_8).length).build());
         when(watermarkService.build(99L,"preview","task-exact.pdf")).thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         queryService.getPreviewMetadata(99L,71201L,context,auditContext("G07-TASK-META"));
-        verify(previewAccessService).prepareAccess(argThat(request->context.purpose().equals(request.purpose())
-                && "task-round-exact".equals(request.processInstanceId()) && "A/2".equals(request.versionId())));
+        verify(previewAccessService).prepareSourceBoundAccess(argThat(request->context.purpose().equals(request.purpose())
+                && "task-round-exact".equals(request.processInstanceId()) && "A/2".equals(request.versionId())),
+                eq(new DccPreviewSourceIdentity(72201L,1L,"g07/task-exact.pdf","task-exact.pdf","application/pdf",(long)"exact-task-version".getBytes(StandardCharsets.UTF_8).length)));
         var event=accessEvent(71201L,"A/2");event.setTenantId(31L);event.setProcessInstanceId("task-round-exact");event.setPurpose(context.purpose());
         when(accessEventMapper.selectOne(any())).thenReturn(event);when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(71201L,"A/2"));
         when(fileService.getFileContent(1L,"g07/task-exact.pdf")).thenReturn("exact-task-version".getBytes());
@@ -3345,11 +3448,12 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(task.getProcessInstanceId()).thenReturn("task-round-exact");when(task.getProcessDefinitionId()).thenReturn("task-definition-exact");
         when(task.getAssignee()).thenReturn("99");when(bpmTaskService.getTask("task-exact")).thenReturn(task);
         when(fileMapper.selectById(72201L)).thenReturn(FileDO.builder().id(72201L).configId(1L)
-                .path("g07/task-exact.pdf").name("task-exact.pdf").type("application/pdf").build());
+                .path("g07/task-exact.pdf").name("task-exact.pdf").type("application/pdf").size((long)"exact-task-version".getBytes(StandardCharsets.UTF_8).length).build());
         when(watermarkService.build(99L,"preview","task-exact.pdf")).thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         queryService.getPreviewMetadata(99L,71201L,context,auditContext("G07-TASK-META"));
-        verify(previewAccessService).prepareAccess(argThat(request->context.purpose().equals(request.purpose())
-                && "task-round-exact".equals(request.processInstanceId()) && "A/2".equals(request.versionId())));
+        verify(previewAccessService).prepareSourceBoundAccess(argThat(request->context.purpose().equals(request.purpose())
+                && "task-round-exact".equals(request.processInstanceId()) && "A/2".equals(request.versionId())),
+                eq(new DccPreviewSourceIdentity(72201L,1L,"g07/task-exact.pdf","task-exact.pdf","application/pdf",(long)"exact-task-version".getBytes(StandardCharsets.UTF_8).length)));
         var event=accessEvent(71201L,"A/2");event.setTenantId(31L);event.setProcessInstanceId("task-round-exact");event.setPurpose(context.purpose());
         when(accessEventMapper.selectOne(any())).thenReturn(event);when(watermarkTraceMapper.selectOne(any())).thenReturn(watermarkTrace(71201L,"A/2"));
         when(fileService.getFileContent(1L,"g07/task-exact.pdf")).thenReturn("exact-task-version".getBytes());
@@ -3367,10 +3471,10 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         g07LoginRequester();
         var file=lifecycleFile(71202L,"A/1","ACTIVE");file.setPublishedFileId(72202L);
         when(controlledFileMapper.selectById(71202L)).thenReturn(file);
-        when(fileMapper.selectById(72202L)).thenReturn(FileDO.builder().id(72202L).name("exact.pdf").type("application/pdf").build());
+        when(fileMapper.selectById(72202L)).thenReturn(FileDO.builder().id(72202L).configId(1L).path("g07/exact.pdf").name("exact.pdf").type("application/pdf").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(99L,"preview","exact.pdf")).thenReturn(DccControlledPreviewWatermarkRespVO.builder().build());
         var normal=previewAccessResult();
-        when(previewAccessService.prepareAccess(any())).thenReturn(new DccPreviewAccessResult(normal.accessEventId(),normal.accessEventCode(),
+        when(previewAccessService.prepareSourceBoundAccess(any(),any(DccPreviewSourceIdentity.class))).thenReturn(new DccPreviewAccessResult(normal.accessEventId(),normal.accessEventCode(),
                 normal.watermarkTraceId(),normal.watermarkTraceCode(),normal.viewerToken(),normal.viewerTokenId(),normal.viewerTokenNonce(),
                 null,normal.expiresAt(),normal.watermarkPayloadJson()));
         assertServiceException(()->queryService.getPreviewMetadata(99L,71202L,auditContext("G07-NO-FORMAL-REGISTRATION")),
@@ -3413,7 +3517,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/source/working-source.pdf")
                 .name("working-source.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"working-source".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/source/working-source.pdf"))
                 .thenReturn("working-source".getBytes());
         when(watermarkService.build(99L, "preview", "working-source.pdf"))
@@ -3452,7 +3556,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/drawing/a2-drawing.pdf")
                 .name("a2-drawing.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"%PDF-current-drawing".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/drawing/a2-drawing.pdf")).thenReturn(pdfBytes);
         when(watermarkService.build(99L, "preview", "a2-drawing.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
@@ -3496,6 +3600,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         verify(businessFileAccessService, never()).assertAllowed(argThat(request ->
                 Long.valueOf(7046L).equals(request.fileId())));
         verify(previewAccessService, never()).prepareAccess(any(DccPreviewAccessRequest.class));
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
     }
 
     @Test
@@ -3554,7 +3659,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/stamped/ready-stamped.pdf")
                 .name("ready-stamped.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"ready-stamped".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/stamped/ready-stamped.pdf"))
                 .thenReturn("ready-stamped".getBytes());
         when(watermarkService.build(99L, "preview", "ready-stamped.pdf"))
@@ -3597,7 +3702,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/original/pending-snapshot.pdf")
                 .name("pending-snapshot.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"pending-snapshot".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/original/pending-snapshot.pdf"))
                 .thenReturn("pending-snapshot".getBytes());
         when(watermarkService.build(99L, "preview", "pending-snapshot.pdf"))
@@ -3719,6 +3824,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         verify(fileMapper, never()).selectById(any());
         verify(watermarkService, never()).build(any(), any(), any());
         verify(previewAccessService, never()).prepareAccess(any());
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
         verify(onlyOfficePreviewTokenService, never()).issueControlledFile(anyLong(), anyLong(), anyLong(),
                 anyString(), anyLong(), anyString(), anyLong(), anyLong(), any(BusinessFileAccessReference.class));
     }
@@ -4214,13 +4320,14 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 961L, 120L)).thenReturn(1L);
         when(fileMapper.selectById(521L)).thenReturn(FileDO.builder()
                 .id(521L).configId(1L).path("dcc/published/recipient-preview.pdf")
-                .name("recipient-preview.pdf").type("application/pdf").build());
+                .name("recipient-preview.pdf").type("application/pdf").size((long)METADATA_ONLY_PREVIEW_BYTES.length).build());
         when(watermarkService.build(120L, "preview", "recipient-preview.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
 
         assertServiceException(() -> queryService.getPreviewMetadata(120L, 961L,
                 auditContext(PREVIEW_REQUEST_ID)), CONTROLLED_FILE_ACCESS_DENIED);
         verify(previewAccessService, never()).prepareAccess(any());
+        verify(previewAccessService, never()).prepareSourceBoundAccess(any(DccPreviewAccessRequest.class), any(DccPreviewSourceIdentity.class));
     }
 
     @Test
@@ -4285,7 +4392,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/published/directory-denied-preview.pdf")
                 .name("directory-denied-preview.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"preview".getBytes(StandardCharsets.UTF_8).length).build());
         lenient().when(fileService.getFileContent(1L, "dcc/published/directory-denied-preview.pdf"))
                 .thenReturn("preview".getBytes());
         lenient().when(watermarkService.build(99L, "preview", "directory-denied-preview.pdf"))
@@ -4602,7 +4709,7 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
                 .path("dcc/published/review-matrix-preview.pdf")
                 .name("review-matrix-preview.pdf")
                 .type("application/pdf")
-                .build());
+                .size((long)"preview".getBytes(StandardCharsets.UTF_8).length).build());
         when(fileService.getFileContent(1L, "dcc/published/review-matrix-preview.pdf"))
                 .thenReturn("preview".getBytes());
         when(watermarkService.build(99L, "preview", "review-matrix-preview.pdf"))
@@ -5571,6 +5678,141 @@ class DccControlledFileQueryServiceTest extends BaseMockitoUnitTest {
         assertEquals(List.of(973L, 974L), result.getList().stream().map(DccControlledFileRespVO::getId).toList());
         verify(viewMatrixAccessService, times(1))
                 .canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class));
+    }
+
+    @Test
+    void getControlledFileBrowserPage_readsDirectoryGrantsOncePerRequestAndRechecksRevocation() {
+        DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(10);
+        request.setLatestVersionOnly(Boolean.TRUE);
+        List<DccControlledFileDO> candidates = new java.util.ArrayList<>();
+        // Two QUERY matches must share one read; PREVIEW-only and denied rows exercise its lazy read.
+        for (int index = 0; index < 4; index++) {
+            long fileId = 9900L + index;
+            long masterId = 8900L + index;
+            long directoryId = index < 2 ? 20L : index == 2 ? 21L : 22L;
+            stubReadMaster(masterId, fileId, fileId);
+            when(controlledFileMapper.selectListByMasterId(masterId)).thenReturn(List.of());
+            candidates.add(DccControlledFileDO.builder().tenantId(31L).dccProjectCodeId(300L)
+                    .id(fileId).masterId(masterId).categoryId(10L).directoryId(directoryId)
+                    .requesterId(11L).publishedFileId(5900L + index)
+                    .fileName("directory-grants-" + index + ".pdf").fileNumber("DIR-GRANTS-" + index)
+                    .versionNo("A/1").status(DccControlledFileStatusEnum.ACTIVE.getStatus())
+                    .controlledTime(LocalDateTime.of(2026, 10, 1, 10, 0))
+                    .activatedTime(LocalDateTime.of(2026, 10, 1, 10, 1)).build());
+        }
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
+                .thenReturn(candidates);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        // Detail/binary authorization is a separate port: test actual browser filtering and name-only rows.
+        ReflectionTestUtils.setField(queryService, "detailAuthorizationGuard",
+                mock(DccControlledFileDetailAuthorizationGuard.class));
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
+                .thenReturn(Set.of(20L));
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
+                .thenReturn(Set.of(21L));
+
+        PageResult<DccControlledFileRespVO> first = queryService.getControlledFileBrowserPage(99L, request);
+
+        assertEquals(3L, first.getTotal());
+        assertEquals(List.of(9900L, 9901L, 9902L),
+                first.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertTrue(first.getList().stream().allMatch(row -> Boolean.FALSE.equals(row.getCanPreview())
+                && Boolean.FALSE.equals(row.getCanDownload())));
+        verify(permissionApi, times(1)).hasAnyPermissions(99L, "dcc:controlled-file:scope:all");
+        verify(permissionApi, times(1)).hasAnyPermissions(99L, "dcc:project-code-assignment:execute");
+        verify(directoryAccessPermissionService, times(1))
+                .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
+        verify(directoryAccessPermissionService, times(1))
+                .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW);
+
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
+                .thenReturn(Set.of());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
+                .thenReturn(Set.of());
+        PageResult<DccControlledFileRespVO> second = queryService.getControlledFileBrowserPage(99L, request);
+
+        assertEquals(0L, second.getTotal());
+        assertTrue(second.getList().isEmpty(), "An independent request must observe revoked grants");
+        verify(permissionApi, times(2)).hasAnyPermissions(99L, "dcc:controlled-file:scope:all");
+        verify(permissionApi, times(2)).hasAnyPermissions(99L, "dcc:project-code-assignment:execute");
+        verify(directoryAccessPermissionService, times(2))
+                .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY);
+        verify(directoryAccessPermissionService, times(2))
+                .getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW);
+    }
+
+    @Test
+    void getControlledFileBrowserPage_readsElectronicRecipientsOncePerRequestAndRechecksRevocation() {
+        DccControlledFilePageReqVO request = new DccControlledFilePageReqVO();
+        request.setPageNo(1);
+        request.setPageSize(10);
+        // Include pending candidates so authorization, rather than the current-version filter, must reject them.
+        request.setLatestVersionOnly(Boolean.FALSE);
+        List<DccControlledFileDO> candidates = new java.util.ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            long fileId = 9960L + index;
+            long masterId = 8960L + index;
+            long tenantId = index == 4 ? 32L : 31L;
+            when(controlledFileMasterMapper.selectById(masterId)).thenReturn(
+                    DccControlledFileMasterDO.builder().id(masterId).tenantId(tenantId).dccProjectCodeId(300L)
+                            .currentActiveControlledFileId(fileId).latestControlledFileId(fileId).build());
+            when(controlledFileMapper.selectListByMasterId(masterId)).thenReturn(List.of());
+            candidates.add(DccControlledFileDO.builder().tenantId(tenantId).dccProjectCodeId(300L)
+                    .id(fileId).masterId(masterId).categoryId(10L).directoryId(20L).requesterId(11L)
+                    .publishedFileId(index == 3 ? null : 5960L + index)
+                    .fileName("electronic-recipients-" + index + ".pdf").fileNumber("RECEIPIENTS-" + index)
+                    .versionNo("A/1").status(index == 3
+                            ? DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW.getStatus()
+                            : DccControlledFileStatusEnum.ACTIVE.getStatus())
+                    .controlledTime(index == 3 ? null : LocalDateTime.of(2026, 10, 1, 10, 0))
+                    .activatedTime(index == 3 ? null : LocalDateTime.of(2026, 10, 1, 10, 1)).build());
+        }
+        when(controlledFileMapper.selectBrowserSummaryList(any(DccControlledFilePageReqVO.class)))
+                .thenReturn(candidates);
+        when(directoryAccessPermissionService.hasDirectoryManagementPermission(99L)).thenReturn(false);
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.QUERY))
+                .thenReturn(Set.of());
+        when(directoryAccessPermissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW))
+                .thenReturn(Set.of());
+        when(viewMatrixAccessService.canAccessCurrentViewMatrix(eq(99L), any(DccControlledFileDO.class)))
+                .thenReturn(false);
+        ReflectionTestUtils.setField(queryService, "detailAuthorizationGuard",
+                mock(DccControlledFileDetailAuthorizationGuard.class));
+        // Both existing mapper ports describe the same grants; the pending row still must not be admitted.
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 99L))
+                .thenReturn(List.of(9960L, 9961L, 9963L));
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(32L, 99L))
+                .thenReturn(List.of(9964L));
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9960L, 99L)).thenReturn(1L);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9961L, 99L)).thenReturn(1L);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9963L, 99L)).thenReturn(1L);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(32L, 9964L, 99L)).thenReturn(1L);
+
+        PageResult<DccControlledFileRespVO> first = queryService.getControlledFileBrowserPage(99L, request);
+
+        assertEquals(2L, first.getTotal());
+        assertEquals(List.of(9960L, 9961L), first.getList().stream().map(DccControlledFileRespVO::getId).toList());
+        assertTrue(first.getList().stream().allMatch(row -> Boolean.FALSE.equals(row.getCanPreview())
+                && Boolean.FALSE.equals(row.getCanDownload())));
+        verify(distributionRecipientMapper, times(1)).selectActiveElectronicControlledFileIdsByUserId(31L, 99L);
+        verify(distributionRecipientMapper, never()).selectActiveElectronicControlledFileIdsByUserId(32L, 99L);
+        verify(distributionRecipientMapper, never()).countActiveElectronicRecipientAccess(anyLong(), anyLong(), anyLong());
+
+        when(distributionRecipientMapper.selectActiveElectronicControlledFileIdsByUserId(31L, 99L))
+                .thenReturn(List.of());
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9960L, 99L)).thenReturn(0L);
+        when(distributionRecipientMapper.countActiveElectronicRecipientAccess(31L, 9961L, 99L)).thenReturn(0L);
+        PageResult<DccControlledFileRespVO> second = queryService.getControlledFileBrowserPage(99L, request);
+
+        assertEquals(0L, second.getTotal());
+        assertTrue(second.getList().isEmpty(), "A new request must observe electronic-recipient revocation");
+        verify(distributionRecipientMapper, times(2)).selectActiveElectronicControlledFileIdsByUserId(31L, 99L);
+        verify(distributionRecipientMapper, never()).selectActiveElectronicControlledFileIdsByUserId(32L, 99L);
+        verify(distributionRecipientMapper, never()).countActiveElectronicRecipientAccess(anyLong(), anyLong(), anyLong());
     }
 
     @Test

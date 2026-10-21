@@ -48,6 +48,7 @@ function loadViewer({ pages = ['first needle', 'second NEEDLE needle', 'last'], 
   let api
   const host = { exports: {}, ...vue, Uint8Array, Blob, TextDecoder, URL, Error, HTMLCanvasElement: Canvas,
     HTMLElement: Element, window: { devicePixelRatio: 1, addEventListener() {}, removeEventListener() {} },
+    document: { visibilityState: 'hidden', hasFocus: () => false, addEventListener() {}, removeEventListener() {} },
     defineOptions() {}, defineProps: () => props, defineEmits: () => (...args) => events.push(args),
     watch: (read, callback, options) => { watched.push(callback); if (vue.isRef(read)) return vue.watch(read, callback, options) }, onMounted: callback => { lifecycle.mount = callback },
     onBeforeUnmount: callback => { lifecycle.unmount = callback },
@@ -60,9 +61,13 @@ function loadViewer({ pages = ['first needle', 'second NEEDLE needle', 'last'], 
       }
     },
     require: id => {
+      if (id === '@/utils/auth') return { getAccessToken: () => 'viewer-fixture-auth', getTenantId: () => '31', getVisitTenantId: () => undefined }
+      if (id === '@/hooks/web/useCache') return { CACHE_KEY: { USER: 'USER' }, useCache: () => ({ wsCache: { get: () => ({ user: { id: '99' } }) } }) }
       if (id === './vendor/pdf.min.mjs') return { getDocument, GlobalWorkerOptions: {} }
       if (id === './presentation') return loadTs('presentation')
       if (id === './pdf-tools') return loadTs('pdf-tools')
+      if (id === './reading-lifecycle') return loadTs('reading-lifecycle')
+      if (id === '@/api/dcc/controlledFile/readingSession') return { createPreviewReadingApi: () => { throw new Error('local PDF fixture must not request reading capability') } }
       if (id.endsWith('.vue')) return {}
       if (id === '@/api/common/filePreview') return {
         buildDccControlledFilePreviewSource: id => ({ type: 'DCC_CONTROLLED_FILE', controlledFileId: id }),
@@ -81,7 +86,8 @@ function loadViewer({ pages = ['first needle', 'second NEEDLE needle', 'last'], 
     'resolvedPreviewKind', 'resolvedWatermarkText', 'resolvedWatermarkLabel', 'watermarkDetail',
     'watermarkBackground', 'canTransformPreview', 'pdfPreviewTransformStyle', 'pdfCanSearch',
     'MIN_VIEWER_ZOOM_PERCENT', 'MAX_VIEWER_ZOOM_PERCENT', 'DEFAULT_VIEWER_ZOOM_PERCENT',
-    'handleResetViewerTransform', 'blockPreviewInteraction', 'handleWindowKeydown', 'renderVersion']
+    'handleResetViewerTransform', 'blockPreviewInteraction', 'handleWindowKeydown', 'renderVersion', 'registeredPreviewVisible', 'registeredPreviewLabel',
+    'readingSupported', 'readingSummary', 'readingError', 'readingCloseError', 'formatReadingOpenedAt']
   const expose = names.map(name => `${name}: typeof ${name} === 'undefined' ? undefined : ${name}`).join(',')
   const code = descriptor.scriptSetup.content.replaceAll('import.meta.env.BASE_URL', "'/'") + '\nexports.api = {' + expose + '}'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, host)
@@ -229,7 +235,8 @@ test('scrolling tracks current page; invalidation clears search when the query c
   assert.equal(r.api.pdfCurrentPage.value, 2)
   r.api.pdfSearchQuery.value = 'needle'
   r.api.handlePdfSearch()
-  r.watched[0]()
+  assert.equal(r.api.pdfSearchMatches.value.length, 3)
+  r.api.pdfSearchQuery.value = 'another query'
   assert.equal(r.api.pdfSearchMatches.value.length, 0)
 })
 

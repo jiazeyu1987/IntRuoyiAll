@@ -31,6 +31,7 @@ export interface DccApprovalActionValidationErrors {
 
 export interface DccApprovalActionSubmitResult {
   success: boolean
+  resultUnconfirmed?: boolean
   field?: keyof DccApprovalActionValidationErrors
   inlineError?: string
   response?: DccSignatureActionRespVO
@@ -205,6 +206,7 @@ export const submitDccApprovalAction = async ({
     if (error instanceof DccTaskActionError) {
       return {
         success: false,
+        resultUnconfirmed: error.code === undefined,
         field: isControlledFileTaskPasswordInvalidError(error) ? 'password' : undefined,
         inlineError: resolveDccApprovalSignatureErrorMessage(error)
       }

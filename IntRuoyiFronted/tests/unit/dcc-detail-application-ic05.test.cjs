@@ -43,7 +43,7 @@ function host(overrides = {}) {
     newActionPreparationEligible: vue.ref(false), preparedNewActionBaseline: vue.ref(false), newActionPreparationFacts: vue.ref(),
     generation: 0, selectionGeneration: 0, working: vue.ref(true), initial: vue.ref(true), opened: vue.ref(false), loading: vue.ref(false), busy: vue.ref(false), error: vue.ref(''), snapshot: vue.ref(), selectedApplicationFile: vue.ref(), revisionOptions: vue.ref(), preparationBlockers: vue.ref([]),
     effectiveMode: vue.ref(null), effectiveDate: vue.ref(null), selectedDepartments: vue.ref([]), selectedDistributionDepartments: vue.ref(null), needTraining: vue.ref(false), description: vue.ref(''), departmentChoiceMissing: vue.ref(false), distributionChoiceMissing: vue.ref(false),
-    departments: vue.ref([]), approvalAccounts: vue.ref([]), approvalGroups: vue.ref([]), approvalCapabilityLimitations: vue.ref([]), approverNames: vue.ref(''), approvalRule: vue.ref(''), canSubmit: vue.ref(false), idempotencyKey: vue.ref('K'), previewId: vue.ref(''), selectedIterationId: vue.ref(''), selectedIntent: vue.ref(), snapshotIntent: vue.ref(), selectionLoading: vue.ref(false), submitted: vue.ref(false),
+    departments: vue.ref([]), approvalAccounts: vue.ref([]), approvalGroups: vue.ref([]), approvalCapabilityLimitations: vue.ref([]), approverNames: vue.ref(''), approvalRule: vue.ref(''), canSubmit: vue.ref(false), idempotencyKey: vue.ref('K'), previewSource: vue.ref(), selectedIterationId: vue.ref(''), selectedIntent: vue.ref(), snapshotIntent: vue.ref(), selectionLoading: vue.ref(false), submitted: vue.ref(false),
     getWorkingApplicationAttributes: async () => structuredClone(saved), getProjectDefaults: async () => { calls.defaults++; return { ...actual, targetMarkets: ['NMPA'] } },
     getControlledFileRevisionOptions: async id => ({ controlledBaselineId: id, masterId: '1', baselineVersionNo: 'A/1', iterations: [{id:'11',versionNo:'A/1-1',canPartial:true,canReplacement:true,canPreview:true}] }),
     getSimpleDeptList: async () => [{ id: 7, name: '会签甲', status: 0 }, { id: 8, name: '下发乙', status: 0 }], getSimpleUserList: async () => [{ id: 9, nickname: '批准丙', status: 0 }],
@@ -53,7 +53,7 @@ function host(overrides = {}) {
     submitControlledFileWorkingIteration: async (id, payload) => { calls.writes.push({ id, payload }); return '11' }, emit: (...args) => calls.events.push(args), message: { success() {} }, ElMessageBox: { confirm: async content => calls.confirmations.push(content) }, ...overrides
   }
   c.props.file = { ...savedAttachmentFacts(), ...c.props.file }
-  const code = ['isPublicMatrixExecution', 'applicationProjection', 'applicationFacts', 'applicationSelectionError', 'applicationMatrixScope', 'displaySavedNewAction', 'prepareNewActionBaseline', 'open', 'refreshPanelMatrix', 'preparePanelMatrix', 'confirmation', 'saveAttributes', 'submitInitial'].map(declaration).join('\n') + '\nexports={open,prepareNewActionBaseline,saveAttributes,submitInitial,applicationFacts};'
+  const code = ['isPublicMatrixExecution', 'applicationProjection', 'applicationFacts', 'applicationSelectionError', 'applicationMatrixScope', 'displaySavedNewAction', 'prepareNewActionBaseline', 'open', 'refreshPanelMatrix', 'preparePanelMatrix', 'confirmation', 'departmentSelectionKey', 'saveAttributes', 'submitInitial'].map(declaration).join('\n') + '\nexports={open,prepareNewActionBaseline,saveAttributes,submitInitial,applicationFacts};'
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, c)
   return { c, calls }
 }
@@ -123,6 +123,59 @@ test('IC08 save sends complete current selections and verifies the formal saved 
   assert.deepEqual(Array.from(writes[0].selection.selectedDistributionDepartmentIds), [])
   assert.equal(writes[0].selection.changeDescription, '新说明')
   assert.match(success[0], /本次申请草稿已保存/)
+})
+
+test('IC08 department readback accepts canonical ordering of the same independently saved members', async () => {
+  let current = structuredClone(saved); const success = []
+  const { c } = host({
+    getWorkingApplicationAttributes: async () => structuredClone(current),
+    saveWorkingApplicationAttributes: async (_id, actual, selection) => {
+      current = { ...current, ...selection, actual,
+        selectedSignoffDepartmentIds: [...selection.selectedSignoffDepartmentIds].sort(),
+        selectedDistributionDepartmentIds: [...selection.selectedDistributionDepartmentIds].sort() }
+    }, message: { success: text => success.push(text) }
+  })
+  await c.exports.open()
+  c.selectedDepartments.value = ['9', '7']; c.selectedDistributionDepartments.value = ['8', '10']
+  await c.exports.saveAttributes()
+  assert.equal(c.error.value, '')
+  assert.equal(success.length, 1)
+  assert.deepEqual(JSON.parse(JSON.stringify(c.snapshot.value.selectedSignoffDepartmentIds)), ['7', '9'])
+  assert.deepEqual(JSON.parse(JSON.stringify(c.snapshot.value.selectedDistributionDepartmentIds)), ['10', '8'])
+  assert.deepEqual(JSON.parse(JSON.stringify(c.selectedDepartments.value)), ['9', '7'], 'do not reorder the user selection in place')
+})
+
+test('IC08 saved department members accept safe numeric transport without changing either selection', async () => {
+  let current = structuredClone(saved); const success = []
+  const { c } = host({
+    getWorkingApplicationAttributes: async () => structuredClone(current),
+    saveWorkingApplicationAttributes: async (_id, actual, selection) => {
+      current = { ...current, ...selection, actual,
+        selectedSignoffDepartmentIds: [...selection.selectedSignoffDepartmentIds].reverse().map(Number),
+        selectedDistributionDepartmentIds: [...selection.selectedDistributionDepartmentIds].reverse().map(Number) }
+    }, message: { success: text => success.push(text) }
+  })
+  await c.exports.open()
+  c.selectedDepartments.value = ['9', '7']; c.selectedDistributionDepartments.value = ['8', '10']
+  await c.exports.saveAttributes()
+  assert.equal(c.error.value, '')
+  assert.equal(success.length, 1)
+  assert.deepEqual(Array.from(c.selectedDepartments.value), ['9', '7'])
+  assert.deepEqual(Array.from(c.selectedDistributionDepartments.value), ['8', '10'])
+})
+
+test('IC08 unsafe numeric saved department identity cannot be accepted as its rounded string', async () => {
+  let current = structuredClone(saved); const success = []
+  const { c } = host({
+    getWorkingApplicationAttributes: async () => structuredClone(current),
+    saveWorkingApplicationAttributes: async (_id, actual, selection) => {
+      current = { ...current, ...selection, actual, selectedDistributionDepartmentIds: [9007199254740992] }
+    }, message: { success: text => success.push(text) }
+  })
+  await c.exports.open(); c.selectedDistributionDepartments.value = ['9007199254740992']
+  await c.exports.saveAttributes()
+  assert.equal(success.length, 0)
+  assert.ok(c.error.value)
 })
 
 test('IC08 a mismatching formal readback never claims all selections were persisted', async () => {

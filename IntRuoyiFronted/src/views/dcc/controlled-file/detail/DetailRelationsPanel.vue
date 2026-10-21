@@ -1,6 +1,7 @@
 <template>
   <ContentWrap v-loading="loading" data-testid="dcc-detail-relations">
     <p class="font-600">所选版本关联</p>
+    <p data-testid="dcc-detail-frozen-relation-scope">历史关联按所选版本或申请冻结记录展示。</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="selectedSource"
       >关联来源：{{ selectedSource.fileName }} ·
@@ -54,6 +55,7 @@
       :attribute-round="applicationSelection.attributeRound"
       :context-key="selectedSource.contextKey"
       :signature-facts="applicationEvidence.signatures"
+      :node-records="applicationEvidence.nodeRecords"
     />
     <el-dialog v-model="previewVisible" title="固定关联版本正文" width="88vw" destroy-on-close>
       <ProtectedPdfViewer
@@ -104,6 +106,7 @@ const props = defineProps<{
   allowEdit: boolean
   autoOpenEditor?: boolean
   applicationSelection?: DetailRelationApplicationSelection | null
+  readAuthority?: () => string
 }>()
 const loading = ref(false),
   error = ref(''),
@@ -115,6 +118,7 @@ const applicationEvidence = ref<ControlledFileApplicationEvidence>(),
 const previewId = ref(''),
   readingId = ref('')
 const previewSource = ref<ReturnType<typeof buildDccControlledFilePreviewSource>>()
+const loadedAuthority = ref('')
 let generation = 0,
   readSequence = 0
 const previewVisible = computed({
@@ -129,6 +133,7 @@ const previewVisible = computed({
   }
 })
 const tenant = () => detailIdentity(getVisitTenantId() ?? getTenantId())
+const readRelationAuthority = () => JSON.stringify([tenant(), props.readAuthority?.()])
 const assertMetadata = (metadata: ControlledFileRelationPermissions, tenantId: string) => {
   if (metadata.tenantId !== tenantId) throw new Error('关联名称投影租户不一致')
   return metadata
@@ -190,6 +195,9 @@ const navigation = async (
 }
 const load = async () => {
   const token = ++generation
+  const authority = readRelationAuthority()
+  const isCurrent = () => token === generation && authority === readRelationAuthority()
+  loadedAuthority.value = ''
   readSequence++
   loading.value = true
   error.value = ''
@@ -212,7 +220,7 @@ const load = async () => {
       await getControlledFileRelationPermissions(selectedId),
       tenantId
     )
-    if (token !== generation) return
+    if (!isCurrent()) return
     assertRelationSource(file, identityFile(selected), selectedId)
     const context: SelectorSource = {
       contextKey: JSON.stringify([tenantId, file.masterId, selectedId, selection, token]),
@@ -234,10 +242,11 @@ const load = async () => {
         selection.applicationType,
         selection.bpmRound
       )
-      if (token !== generation) return
+      if (!isCurrent()) return
       const relations = assertRelationApplicationEvidence(file, selection, tenantId, evidence)
       if (relations === null) {
         selectedSource.value = context
+        loadedAuthority.value = authority
         applicationEvidence.value = evidence
         unavailableReason.value = '所选申请关联阶段证据未记录'
         return
@@ -264,12 +273,12 @@ const load = async () => {
           )
         )
       )
-      if (token !== generation) return
+      if (!isCurrent()) return
       applicationEvidence.value = evidence
       relationEvidence.value = relations
     } else {
       const snapshots = (await listHistoricalRelations(selectedId)) as HistoricalRelationSnapshot[]
-      if (token !== generation) return
+      if (!isCurrent()) return
       if (!Array.isArray(snapshots)) throw new Error('所选版本关联冻结响应缺失')
       assertMembers(
         file,
@@ -294,21 +303,33 @@ const load = async () => {
         )
       )
     }
-    if (token !== generation) return
+    if (!isCurrent()) return
     selectedSource.value = context
+    loadedAuthority.value = authority
     files.value = rows
   } catch (cause) {
-    if (token === generation) error.value = cause instanceof Error ? cause.message : String(cause)
+    if (isCurrent()) error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (token === generation) loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 const openPreview = async (row: DetailRelationRow) => {
   const token = generation,
-    sequence = ++readSequence
+    sequence = ++readSequence,
+    authority = readRelationAuthority()
+  const isCurrent = () => token === generation && sequence === readSequence && authority === readRelationAuthority()
   previewId.value = ''
   previewSource.value = undefined
   error.value = ''
+  if (loadedAuthority.value !== authority) {
+    files.value = []
+    selectedSource.value = undefined
+    applicationEvidence.value = undefined
+    relationEvidence.value = undefined
+    loadedAuthority.value = ''
+    error.value = '关联权限上下文已变化，请刷新当前详情后重试'
+    return
+  }
   try {
     const saved = files.value.find(
       (file) => file.controlledFileId === row.controlledFileId && file.masterId === row.masterId
@@ -320,7 +341,7 @@ const openPreview = async (row: DetailRelationRow) => {
       await getControlledFileRelationPermissions(id),
       selectedSource.value.tenantId
     )
-    if (token !== generation || sequence !== readSequence) return
+    if (!isCurrent()) return
     if (
       permission.controlledFileId !== id ||
       permission.masterId !== saved.masterId ||
@@ -341,18 +362,19 @@ const openPreview = async (row: DetailRelationRow) => {
     })
     previewId.value = id
   } catch (cause) {
-    if (token === generation && sequence === readSequence)
+    if (isCurrent())
       error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (token === generation && sequence === readSequence) readingId.value = ''
+    if (isCurrent()) readingId.value = ''
   }
 }
-watch(() => [props.file, props.applicationSelection, tenant()], load, {
+watch(() => [props.file, props.applicationSelection, readRelationAuthority()], load, {
   immediate: true,
   deep: true,
   flush: 'sync'
 })
 onBeforeUnmount(() => {
+  loadedAuthority.value = ''
   generation++
   readSequence++
   previewId.value = ''

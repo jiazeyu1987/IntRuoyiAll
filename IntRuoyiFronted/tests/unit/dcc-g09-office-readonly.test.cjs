@@ -12,13 +12,14 @@ function office(onEvent) {
   const props = vue.reactive({ baseUrl: 'https://office.example.test', documentUrl: 'https://doc.example.test/exact-1.docx?ticket=a', documentTitle: '正式.docx' })
   const configs = [], emitted = [], lifecycle = {}, destroyed = []
   const host = { exports: {}, ...vue, Error, props, window: {
+    __dccOnlyOfficeScriptBaseUrl: props.baseUrl,
     DocsAPI: { DocEditor: class { constructor(id, config) { configs.push(config); this.id = configs.length } destroyEditor() { destroyed.push(this.id) } } },
     addEventListener() {}, removeEventListener() {}
   }, document: { createElement() { throw new Error('unexpected script load') } },
     defineProps: () => props, defineEmits: () => (...args) => { emitted.push(args); onEvent?.(...args) },
     watch() {}, onMounted() {}, onBeforeUnmount: callback => { lifecycle.unmount = callback }
   }
-  const names=['mountEditor','increaseZoom','previewZoomValue','handleWheelZoom','isPointerInsideStage','isZoomModifierPressed','errorMessage','previewRotationDegrees','rotatePreview','resetView','scalerStyle','mountRef','stageRef']
+  const names=['mountEditor','increaseZoom','previewZoomValue','handleWheelZoom','isPointerInsideStage','isZoomModifierPressed','errorMessage','previewRotationDegrees','rotatePreview','resetView','scalerStyle','viewportStyle','mountRef','stageRef']
   vm.runInNewContext(ts.transpileModule(descriptor.scriptSetup.content + '\nexports.api={'+names.map(name=>`${name}:typeof ${name} === "undefined" ? undefined : ${name}`).join(',')+'}', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, host)
@@ -70,8 +71,10 @@ test('Office visible rotation and reset only change viewport geometry and preser
   r.api.increaseZoom()
   assert.equal(r.api.previewRotationDegrees.value,90)
   assert.match(r.api.scalerStyle.value.transform,/rotate\(90deg\)/)
-  assert.equal(r.api.scalerStyle.value.width,`${720/1.1}px`)
-  assert.equal(r.api.scalerStyle.value.height,`${1000/1.1}px`)
+  assert.equal(r.api.scalerStyle.value.width,'1000px','native document keeps its logical viewport width')
+  assert.equal(r.api.scalerStyle.value.height,'720px','native document keeps its logical viewport height')
+  assert.equal(r.api.viewportStyle.value.width,'792px','scrollable width contains the rotated height at 110%')
+  assert.equal(r.api.viewportStyle.value.height,'1100px','scrollable height contains the rotated width at 110%')
   assert.equal(r.configs.length,1,'visual tools must not recreate editor or request another file')
   assert.equal(before.document.url,r.props.documentUrl)
   for(const name of ['edit','comment','review','download','print','copy']) assert.equal(before.document.permissions[name],false)

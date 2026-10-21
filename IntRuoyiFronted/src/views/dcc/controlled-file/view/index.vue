@@ -18,7 +18,7 @@
       </div>
       <div class="protected-viewer-toolbar__actions">
         <span v-if="registeredPreviewVisible" class="protected-preview-registered-at" data-testid="preview-registered-at" aria-live="polite">
-          本次浏览登记时间：{{ registeredPreviewLabel }}
+          本次预览登记时间：{{ registeredPreviewLabel }}
         </span>
         <div
           v-if="resolvedWatermarkText"
@@ -31,6 +31,28 @@
         <slot name="actions"></slot>
       </div>
     </div>
+
+    <div v-if="readingSupported" class="protected-viewer-reading-summary" data-testid="preview-reading-summary" role="status" aria-live="polite">
+      <template v-if="readingSummary">
+        <span>累计有效阅读时间：{{ readingSummary.accumulatedSeconds }} 秒</span>
+        <span>首次打开：{{ formatReadingOpenedAt(readingSummary.firstOpenedAt) }}</span>
+        <span>最近打开：{{ formatReadingOpenedAt(readingSummary.lastOpenedAt) }}</span>
+      </template>
+      <span v-else>{{ readingError ? '阅读统计未取得，请查看错误提示' : '正在读取服务端阅读统计…' }}</span>
+    </div>
+    <div v-if="readingError" class="protected-viewer-reading-error" data-testid="preview-reading-error">
+      <el-alert :closable="false" show-icon type="error" :title="'阅读计时或统计失败：' + readingError" />
+      <el-button size="small" @click="loadPreview">重新加载正文后重试计时</el-button>
+    </div>
+    <el-alert
+      v-if="readingCloseError"
+      :closable="false"
+      class="mb-16px"
+      show-icon
+      type="error"
+      data-testid="preview-reading-close-error"
+      :title="'上一正文阅读会话结束未确认：' + readingCloseError"
+    />
 
     <el-alert
       v-if="errorMessage"
@@ -194,17 +216,19 @@
             {{ watermarkDetail }}
           </div>
         </div>
-        <div class="protected-viewer-image-wrap">
-          <div class="protected-viewer-transform-stage" :style="imagePreviewTransformStyle">
-            <img
-              :key="renderVersion" :data-preview-generation="renderVersion" @load="handleMediaLoaded" @error="handleMediaError"
-              class="protected-viewer-image" :src="mediaObjectUrl" :alt="resolvedFileName || '受控图片预览'" />
-            <div
-              v-if="watermarkBackground"
-              class="protected-viewer-page__overlay"
-              data-testid="protected-preview-watermark-overlay"
-              :style="{ backgroundImage: watermarkBackground }"
-            ></div>
+        <div ref="flatPreviewContainerRef" class="protected-viewer-image-wrap protected-viewer-flat-container">
+          <div class="protected-viewer-flat-viewport" :style="flatPreviewViewportStyle">
+            <div ref="flatPreviewStageRef" class="protected-viewer-transform-stage protected-viewer-flat-stage" :style="flatPreviewTransformStyle">
+              <img
+                :key="renderVersion" :data-preview-generation="renderVersion" @load="handleMediaLoaded" @error="handleMediaError"
+                class="protected-viewer-image" :src="mediaObjectUrl" :alt="resolvedFileName || '受控图片预览'" />
+              <div
+                v-if="watermarkBackground"
+                class="protected-viewer-page__overlay"
+                data-testid="protected-preview-watermark-overlay"
+                :style="{ backgroundImage: watermarkBackground }"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -212,7 +236,22 @@
     </template>
 
     <template v-else-if="resolvedPreviewKind === 'VIDEO'">
-      <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media">
+      <div v-if="mediaObjectUrl" class="protected-viewer-frame protected-viewer-frame--media protected-viewer-frame--transformable">
+        <div
+          v-if="canTransformPreview"
+          class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky"
+          data-testid="protected-viewer-transform-controls"
+        >
+          <span class="protected-viewer-transform-controls__status">
+            {{ viewerZoomPercent }}% / {{ viewerRotationDegrees }}°
+          </span>
+          <div class="protected-viewer-transform-controls__grid">
+            <el-button size="small" :disabled="viewerZoomPercent >= MAX_VIEWER_ZOOM_PERCENT" aria-label="放大" @click="handleZoomIn">放大</el-button>
+            <el-button size="small" :disabled="viewerZoomPercent <= MIN_VIEWER_ZOOM_PERCENT" aria-label="缩小" @click="handleZoomOut">缩小</el-button>
+            <el-button size="small" aria-label="旋转" @click="handleRotateRight">旋转</el-button>
+            <el-button size="small" :disabled="viewerZoomPercent === DEFAULT_VIEWER_ZOOM_PERCENT && viewerRotationDegrees === 0" aria-label="复原" @click="handleResetViewerTransform">复原</el-button>
+          </div>
+        </div>
         <div
           v-if="resolvedWatermarkText"
           class="protected-viewer-corner-watermark"
@@ -226,21 +265,26 @@
             {{ watermarkDetail }}
           </div>
         </div>
-        <div class="protected-viewer-media-wrap">
-          <video
-            :key="renderVersion" :data-preview-generation="renderVersion" @loadeddata="handleMediaLoaded" @error="handleMediaError"
-            class="protected-viewer-video"
-            :src="mediaObjectUrl"
-            controls
-            controlslist="nodownload noplaybackrate"
-            disablepictureinpicture
-          ></video>
-          <div
-            v-if="watermarkBackground"
-            class="protected-viewer-page__overlay"
-            data-testid="protected-preview-watermark-overlay"
-            :style="{ backgroundImage: watermarkBackground }"
-          ></div>
+        <div ref="flatPreviewContainerRef" class="protected-viewer-media-wrap protected-viewer-flat-container">
+          <div class="protected-viewer-flat-viewport" :style="flatPreviewViewportStyle">
+            <div ref="flatPreviewStageRef" class="protected-viewer-transform-stage protected-viewer-flat-stage" :style="flatPreviewTransformStyle">
+              <video
+                :key="renderVersion" :data-preview-generation="renderVersion" @loadeddata="handleMediaLoaded" @error="handleMediaError"
+                class="protected-viewer-video"
+                :src="mediaObjectUrl"
+                controls
+                controlslist="nodownload noplaybackrate nofullscreen noremoteplayback"
+                disableremoteplayback
+                disablepictureinpicture
+              ></video>
+              <div
+                v-if="watermarkBackground"
+                class="protected-viewer-page__overlay"
+                data-testid="protected-preview-watermark-overlay"
+                :style="{ backgroundImage: watermarkBackground }"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
       <el-empty v-else-if="!loading && !errorMessage" description="暂无可预览的视频内容" />
@@ -282,7 +326,33 @@
     </template>
 
     <template v-else-if="resolvedPreviewKind === 'TEXT'">
-      <div v-if="textPreviewContent" class="protected-viewer-frame protected-viewer-frame--text">
+      <div v-if="textPreviewContent" class="protected-viewer-frame protected-viewer-frame--text protected-viewer-frame--transformable">
+        <div class="protected-viewer-text-tools" data-testid="protected-viewer-text-tools">
+          <div class="protected-viewer-text-tools__row">
+            <el-button size="small" aria-label="上一页" :disabled="textCurrentPage <= 1" @click="goToTextPage(textCurrentPage - 1)">上一页</el-button>
+            <span aria-live="polite">第 {{ textCurrentPage }} / {{ textPageEntries.length }} 页（每 {{ TEXT_LINES_PER_PAGE }} 行）</span>
+            <el-button size="small" aria-label="下一页" :disabled="textCurrentPage >= textPageEntries.length" @click="goToTextPage(textCurrentPage + 1)">下一页</el-button>
+            <el-input v-model="textPageInput" class="protected-viewer-text-tools__page" size="small" aria-label="文本页码" inputmode="numeric" @keyup.enter="handleTextPageJump" />
+            <el-button size="small" aria-label="跳转页码" @click="handleTextPageJump">跳转</el-button>
+            <span v-if="textNavigationError" role="alert">{{ textNavigationError }}</span>
+          </div>
+          <div class="protected-viewer-text-tools__row">
+            <el-input v-model="textSearchQuery" class="protected-viewer-text-tools__query" size="small" aria-label="文本正文关键字" placeholder="搜索文本正文" @keyup.enter="handleTextSearch" />
+            <el-button size="small" aria-label="搜索文本正文" :disabled="!textSearchQuery.trim()" @click="handleTextSearch">搜索</el-button>
+            <el-button size="small" aria-label="上一处匹配" :disabled="!textSearchMatches.length" @click="moveTextSearchMatch(-1)">上一处</el-button>
+            <el-button size="small" aria-label="下一处匹配" :disabled="!textSearchMatches.length" @click="moveTextSearchMatch(1)">下一处</el-button>
+            <span role="status" aria-live="polite">{{ textSearchMessage }}</span>
+          </div>
+        </div>
+        <div v-if="canTransformPreview" class="protected-viewer-transform-controls protected-viewer-transform-controls--sticky" data-testid="protected-viewer-transform-controls">
+          <span class="protected-viewer-transform-controls__status">{{ viewerZoomPercent }}% / {{ viewerRotationDegrees }}°</span>
+          <div class="protected-viewer-transform-controls__grid">
+            <el-button size="small" :disabled="viewerZoomPercent >= MAX_VIEWER_ZOOM_PERCENT" aria-label="放大" @click="handleZoomIn">放大</el-button>
+            <el-button size="small" :disabled="viewerZoomPercent <= MIN_VIEWER_ZOOM_PERCENT" aria-label="缩小" @click="handleZoomOut">缩小</el-button>
+            <el-button size="small" aria-label="旋转" @click="handleRotateRight">旋转</el-button>
+            <el-button size="small" :disabled="viewerZoomPercent === DEFAULT_VIEWER_ZOOM_PERCENT && viewerRotationDegrees === 0" aria-label="复原" @click="handleResetViewerTransform">复原</el-button>
+          </div>
+        </div>
         <div
           v-if="resolvedWatermarkText"
           class="protected-viewer-corner-watermark"
@@ -296,14 +366,18 @@
             {{ watermarkDetail }}
           </div>
         </div>
-        <div class="protected-viewer-text-wrap">
-          <pre class="protected-viewer-text">{{ textPreviewContent }}</pre>
-          <div
-            v-if="watermarkBackground"
-            class="protected-viewer-page__overlay"
-            data-testid="protected-preview-watermark-overlay"
-            :style="{ backgroundImage: watermarkBackground }"
-          ></div>
+        <div ref="flatPreviewContainerRef" class="protected-viewer-text-wrap protected-viewer-flat-container">
+          <div class="protected-viewer-flat-viewport" :style="flatPreviewViewportStyle">
+            <div ref="flatPreviewStageRef" class="protected-viewer-transform-stage protected-viewer-flat-stage" :style="flatPreviewTransformStyle">
+              <pre class="protected-viewer-text"><template v-for="segment in textPageSegments" :key="segment.startIndex"><mark v-if="segment.match" :ref="bindTextSearchMatchRef" :data-active-match="segment.active ? 'true' : undefined" :class="{ 'protected-viewer-text-match--active': segment.active }">{{ segment.text }}</mark><template v-else>{{ segment.text }}</template></template></pre>
+              <div
+                v-if="watermarkBackground"
+                class="protected-viewer-page__overlay"
+                data-testid="protected-preview-watermark-overlay"
+                :style="{ backgroundImage: watermarkBackground }"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
       <el-empty v-else-if="!loading && !errorMessage" description="暂无可预览的文本内容" />
@@ -359,6 +433,10 @@ import {
 } from './presentation'
 import OnlyOfficeReadOnlyViewer from './OnlyOfficeReadOnlyViewer.vue'
 import { extractPdfTextPages, findPdfTextMatches, type PdfTextMatch, type PdfTextPage } from './pdf-tools'
+import { createPreviewReadingApi, type PreviewReadingScope, type PreviewReadingSummary } from '@/api/dcc/controlledFile/readingSession'
+import { createPreviewReadingLifecycle } from './reading-lifecycle'
+import { getAccessToken, getTenantId, getVisitTenantId } from '@/utils/auth'
+import { useCache, CACHE_KEY } from '@/hooks/web/useCache'
 
 defineOptions({ name: 'ProtectedPdfViewer' })
 
@@ -431,11 +509,46 @@ const pdfSearchMessage = computed(() => {
 })
 const renderVersion = ref(0)
 let previewUnmounted = false
+interface PreviewIdentitySnapshot {
+  actorId: string
+  baseTenantId: string
+  visitTenantId: string | null
+}
+const { wsCache: previewIdentityCache } = useCache()
+let previewIdentitySnapshot: PreviewIdentitySnapshot | null = null
+let previewIdentityInvalidated = false
+const identityId = (value: unknown): string => {
+  if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new Error('正文身份缓存不合法')
+  if ((typeof value !== 'number' && typeof value !== 'string') || !/^[1-9][0-9]*$/.test(String(value))) throw new Error('正文身份缓存尚未就绪')
+  return String(value)
+}
+const readPreviewIdentity = (): PreviewIdentitySnapshot => {
+  if (!getAccessToken()) throw new Error('当前登录身份已失效，请重新登录后加载正文')
+  const visit = getVisitTenantId()
+  return {
+    actorId: identityId(previewIdentityCache.get(CACHE_KEY.USER)?.user?.id),
+    baseTenantId: identityId(getTenantId()),
+    visitTenantId: visit === undefined || visit === null ? null : identityId(visit)
+  }
+}
+const matchesPreviewIdentity = (snapshot: PreviewIdentitySnapshot) => {
+  try {
+    const current = readPreviewIdentity()
+    return current.actorId === snapshot.actorId && current.baseTenantId === snapshot.baseTenantId
+      && current.visitTenantId === snapshot.visitTenantId
+  } catch {
+    // An absent/invalid authenticated cache is an identity loss, handled explicitly below.
+    return false
+  }
+}
 const pdfLoadingTask = shallowRef<ViewerLoadingTask | null>(null)
 const pdfDocument = shallowRef<ViewerCanvasDocumentProxy | null>(null)
 const resolvedPreviewMetadata = shallowRef<ControlledFilePreviewMetadataVO | null>(null)
 const registeredPreviewVisible = ref(false)
-const clearRegisteredPreview = () => { registeredPreviewVisible.value = false }
+const clearRegisteredPreview = () => {
+  registeredPreviewVisible.value = false
+  closePreviewReading()
+}
 const registeredPreviewLabel = computed(() => {
   if (!registeredPreviewVisible.value) return ''
   const value = resolvedPreviewMetadata.value?.previewRegisteredAt
@@ -448,6 +561,12 @@ const registeredPreviewLabel = computed(() => {
 const markRegisteredPreviewVisible = (generation: number) => {
   if (!isCurrentRenderVersion(generation) || errorMessage.value || resolvedPreviewUnavailableReason.value) return
   registeredPreviewVisible.value = true
+  void startPreviewReading(generation).catch(error => {
+    if (!isCurrentRenderVersion(generation)) return
+    const owner = previewReadingOwner
+    if (owner?.generation === generation) reportReadingFailure(owner, error)
+    else readingError.value = resolveViewerErrorMessage(error, '正文阅读会话启动失败')
+  })
 }
 const handleMediaLoaded = (event: Event) => {
   const element = event.currentTarget as (HTMLElement & { currentSrc?: string }) | null
@@ -469,6 +588,19 @@ const resolvedPreviewUnavailableReason = ref('')
 const resolvedFileName = ref('')
 const mediaObjectUrl = ref('')
 const textPreviewContent = ref('')
+const flatPreviewContainerRef = ref<HTMLDivElement>()
+const flatPreviewStageRef = ref<HTMLDivElement>()
+const flatPreviewSize = ref({ width: 0, height: 0 })
+const flatPreviewContainerWidth = ref(0)
+let flatPreviewResizeObserver: ResizeObserver | null = null
+const TEXT_LINES_PER_PAGE = 80
+const textCurrentPage = ref(1)
+const textPageInput = ref('1')
+const textNavigationError = ref('')
+const textSearchQuery = ref('')
+const textSubmittedSearchQuery = ref('')
+const textSearchMatches = ref<Array<{ pageNumber: number; startIndex: number; endIndex: number }>>([])
+const textSearchMatchIndex = ref(-1)
 const currentPdfBytes = shallowRef<Uint8Array | null>(null)
 const MIN_VIEWER_ZOOM_PERCENT = 50
 const MAX_VIEWER_ZOOM_PERCENT = 250
@@ -477,14 +609,39 @@ const DEFAULT_VIEWER_ZOOM_PERCENT = 100
 const viewerZoomPercent = ref(DEFAULT_VIEWER_ZOOM_PERCENT)
 const viewerRotationDegrees = ref(0)
 
-const isCurrentRenderVersion = (currentRenderVersion: number) =>
-  !previewUnmounted && currentRenderVersion === renderVersion.value
+const invalidatePreviewIdentity = () => {
+  if (previewIdentityInvalidated || previewUnmounted) return
+  previewIdentityInvalidated = true
+  renderVersion.value += 1
+  clearRegisteredPreview()
+  resolvedPreviewMetadata.value = null
+  resolvedOnlyOfficeDocumentUrl.value = ''
+  resolvedOnlyOfficeBaseUrl.value = ''
+  resolvedPreviewKind.value = ''
+  resolvedWatermark.value = null
+  loading.value = false
+  errorMessage.value = '当前用户或租户已变化，旧正文与阅读会话已失效，请重新加载正文'
+  void resetPreviewState().catch(error => {
+    console.error('旧身份正文清理失败：' + resolveViewerErrorMessage(error, '正文资源清理失败'))
+  })
+}
+const isCurrentRenderVersion = (currentRenderVersion: number) => {
+  if (previewUnmounted || currentRenderVersion !== renderVersion.value || previewIdentityInvalidated) return false
+  if (previewIdentitySnapshot && !matchesPreviewIdentity(previewIdentitySnapshot)) {
+    invalidatePreviewIdentity()
+    return false
+  }
+  return true
+}
+const handlePreviewIdentityChange = () => {
+  if (previewIdentitySnapshot) isCurrentRenderVersion(renderVersion.value)
+}
 
 const resolvedWatermarkText = computed(() => String(resolvedWatermark.value?.text || '').trim())
 const resolvedWatermarkLabel = computed(() => getPreviewWatermarkBadgeLabel(resolvedWatermark.value))
 const watermarkDetail = computed(() => buildPreviewWatermarkDetail(resolvedWatermark.value))
 const watermarkBackground = computed(() => buildPreviewWatermarkBackground(resolvedWatermark.value))
-const canTransformPreview = computed(() => ['PDF', 'IMAGE'].includes(resolvedPreviewKind.value))
+const canTransformPreview = computed(() => ['PDF', 'IMAGE', 'VIDEO', 'TEXT'].includes(resolvedPreviewKind.value))
 const viewerScale = computed(() => viewerZoomPercent.value / 100)
 const previewTransform = computed(
   () => `scale(${viewerScale.value}) rotate(${viewerRotationDegrees.value}deg)`
@@ -493,10 +650,45 @@ const pdfPreviewTransformStyle = computed(() => ({
   transform: previewTransform.value,
   transformOrigin: 'center center'
 }))
-const imagePreviewTransformStyle = computed(() => ({
-  transform: previewTransform.value,
+const flatPreviewViewportStyle = computed(() => getPdfPageViewportStyle(flatPreviewSize.value))
+const flatPreviewTransformStyle = computed(() => ({
+  width: `${flatPreviewContainerWidth.value}px`,
+  transform: `translate(-50%, -50%) ${previewTransform.value}`,
   transformOrigin: 'center center'
 }))
+const normalizedTextContent = computed(() => textPreviewContent.value.replace(/\r\n?/g, '\n'))
+const textPageEntries = computed(() => {
+  const lines = normalizedTextContent.value.split('\n')
+  const pages: Array<{ text: string; startIndex: number; endIndex: number }> = []
+  let startIndex = 0
+  for (let index = 0; index < lines.length; index += TEXT_LINES_PER_PAGE) {
+    const text = lines.slice(index, index + TEXT_LINES_PER_PAGE).join('\n')
+    pages.push({ text, startIndex, endIndex: startIndex + text.length })
+    startIndex += text.length + 1
+  }
+  return pages
+})
+const textPageSegments = computed(() => {
+  const page = textPageEntries.value[textCurrentPage.value - 1]
+  if (!page) return []
+  const segments: Array<{ text: string; startIndex: number; match: boolean; active: boolean }> = []
+  let offset = page.startIndex
+  textSearchMatches.value.forEach((match, index) => {
+    if (match.endIndex <= page.startIndex || match.startIndex >= page.endIndex) return
+    const start = Math.max(page.startIndex, match.startIndex)
+    const end = Math.min(page.endIndex, match.endIndex)
+    if (start > offset) segments.push({ text: normalizedTextContent.value.slice(offset, start), startIndex: offset, match: false, active: false })
+    segments.push({ text: normalizedTextContent.value.slice(start, end), startIndex: start, match: true, active: index === textSearchMatchIndex.value })
+    offset = end
+  })
+  if (offset < page.endIndex) segments.push({ text: normalizedTextContent.value.slice(offset, page.endIndex), startIndex: offset, match: false, active: false })
+  return segments
+})
+const textSearchMessage = computed(() => {
+  if (!textSubmittedSearchQuery.value) return '可搜索文本正文'
+  if (!textSearchMatches.value.length) return '未找到匹配的正文文本'
+  return `第 ${textSearchMatchIndex.value + 1} / ${textSearchMatches.value.length} 处匹配`
+})
 const resolvedOnlinePreviewSource = computed<OnlineFilePreviewSource | null>(() => {
   if (props.previewSource) {
     const source = props.previewSource
@@ -513,6 +705,187 @@ const resolvedOnlinePreviewSource = computed<OnlineFilePreviewSource | null>(() 
   }
   return null
 })
+
+
+interface ViewerReadingOwner {
+  generation: number
+  api: ReturnType<typeof createPreviewReadingApi>
+  lifecycle: ReturnType<typeof createPreviewReadingLifecycle>
+  summarySequence: number
+  failed: boolean
+  reportedErrors: Set<string>
+  identity: PreviewIdentitySnapshot
+}
+const readingSummary = shallowRef<PreviewReadingSummary | null>(null)
+const readingError = ref('')
+const readingCloseError = ref('')
+const readingSupported = ref(false)
+const readingSourceSnapshot = shallowRef<OnlineFilePreviewSource | null>(null)
+let previewReadingOwner: ViewerReadingOwner | null = null
+let readingClosePending: Promise<void> = Promise.resolve()
+let readingPausedForSignature = false
+const readingSummaryPending = new Set<Promise<void>>()
+let readingPageActive = true
+const isReadingOwner = (owner: ViewerReadingOwner) =>
+  isCurrentRenderVersion(owner.generation) && previewReadingOwner === owner
+const assertReadingIdentity = (owner: ViewerReadingOwner) => {
+  if (matchesPreviewIdentity(owner.identity)) return
+  if (owner.generation === renderVersion.value) invalidatePreviewIdentity()
+  throw new Error('当前用户或租户已变化，不能使用旧身份的阅读凭证')
+}
+const reportReadingFailure = (owner: ViewerReadingOwner, error: unknown) => {
+  owner.failed = true
+  const message = resolveViewerErrorMessage(error, '正文阅读计时或统计请求失败')
+  if (owner.reportedErrors.has(message)) return
+  owner.reportedErrors.add(message)
+  if (isReadingOwner(owner)) {
+    readingError.value = message
+  } else {
+    // Old cleanup failures must be observable without exposing token-bearing request objects.
+    console.error('旧正文阅读会话结束未确认：' + message)
+  }
+}
+const refreshReadingSummary = (owner: ViewerReadingOwner): Promise<void> => {
+  if (readingPausedForSignature) return Promise.resolve()
+  const pending = (async () => {
+    const sequence = ++owner.summarySequence
+    try {
+      assertReadingIdentity(owner)
+      const summary = await owner.api.summary()
+      if (isReadingOwner(owner) && sequence === owner.summarySequence && !owner.failed) readingSummary.value = summary
+    } catch (error) {
+      if (!isReadingOwner(owner) || sequence !== owner.summarySequence) return
+      reportReadingFailure(owner, error)
+      // Summary failure must not lose a session that was already accepted by the server.
+      void owner.lifecycle.pause().catch(closeError => reportReadingFailure(owner, closeError))
+    }
+  })()
+  readingSummaryPending.add(pending)
+  void pending.then(() => readingSummaryPending.delete(pending))
+  return pending
+}
+const closePreviewReading = () => {
+  const owner = previewReadingOwner
+  previewReadingOwner = null
+  readingSummary.value = null
+  readingError.value = ''
+  readingSupported.value = false
+  readingSourceSnapshot.value = null
+  if (!owner) return
+  readingClosePending = Promise.all([readingClosePending, owner.lifecycle.dispose()])
+    .then(() => undefined)
+    .catch(error => {
+      reportReadingFailure(owner, error)
+      readingCloseError.value = resolveViewerErrorMessage(error, '旧正文阅读会话停止失败')
+    })
+}
+const startPreviewReading = async (generation: number) => {
+  await readingClosePending
+  if (readingPausedForSignature || !isCurrentRenderVersion(generation) || !registeredPreviewVisible.value || props.previewBlob || props.previewKind
+    || errorMessage.value || resolvedPreviewUnavailableReason.value) return
+  if (previewReadingOwner?.generation === generation) return
+  const source = readingSourceSnapshot.value
+  const metadata = resolvedPreviewMetadata.value
+  if (!source || !metadata || !['PDF', 'TEXT', 'OFFICE', 'IMAGE', 'AUDIO', 'VIDEO'].includes(resolvedPreviewKind.value)) return
+  let scope: PreviewReadingScope
+  if (source.type === 'DCC_CONTROLLED_FILE' && !source.distribution) {
+    // The captured formal source carries its normalized exact context; never infer distribution/attachment identity.
+    if (!source.bodyReadContext) throw new Error('正文阅读计时缺少正规版本上下文')
+    scope = { kind: 'CONTROLLED_FILE', fileId: String(source.controlledFileId), bodyReadContext: source.bodyReadContext }
+  } else if (source.type === 'EDHR_SPECIAL_NODE_ATTACHMENT') {
+    if (typeof source.fileId === 'number' && !Number.isSafeInteger(source.fileId)) throw new Error('正文阅读文件身份超出安全整数范围')
+    scope = { kind: 'ONLINE_FILE', fileId: String(source.fileId) }
+  } else {
+    return
+  }
+  readingSupported.value = true
+  if (!previewIdentitySnapshot) throw new Error('正文阅读缺少已验证的用户与租户身份')
+  const api = createPreviewReadingApi(scope, metadata)
+  const owner: ViewerReadingOwner = {
+    generation, api, summarySequence: 0, failed: false, reportedErrors: new Set(), identity: previewIdentitySnapshot,
+    lifecycle: createPreviewReadingLifecycle({
+      api: {
+        start: async clientId => {
+          assertReadingIdentity(owner)
+          const session = await api.start(clientId)
+          if (isReadingOwner(owner) && !owner.failed) void refreshReadingSummary(owner)
+          return session
+        },
+        heartbeat: async sessionId => {
+          assertReadingIdentity(owner)
+          const session = await api.heartbeat(sessionId)
+          if (isReadingOwner(owner) && !owner.failed) void refreshReadingSummary(owner)
+          return session
+        },
+        stop: async sessionId => {
+          assertReadingIdentity(owner)
+          const session = await api.stop(sessionId)
+          if (isReadingOwner(owner) && !owner.failed) void refreshReadingSummary(owner)
+          return session
+        }
+      },
+      visible: () => !readingPausedForSignature && isReadingOwner(owner) && !owner.failed && registeredPreviewVisible.value
+        && !errorMessage.value && !resolvedPreviewUnavailableReason.value
+        && readingPageActive && document.visibilityState === 'visible' && document.hasFocus(),
+      newClientId: () => crypto.randomUUID(),
+      schedule: (tick, intervalMs) => {
+        const timer = window.setInterval(() => {
+          void tick().catch(error => reportReadingFailure(owner, error))
+        }, intervalMs)
+        return () => window.clearInterval(timer)
+      },
+      onError: error => reportReadingFailure(owner, error)
+    })
+  }
+  previewReadingOwner = owner
+  if (readingPageActive && document.visibilityState === 'visible' && document.hasFocus()) {
+    await owner.lifecycle.resume()
+  } else {
+    void refreshReadingSummary(owner)
+  }
+}
+const handleReadingActivityChange = () => {
+  if (readingPausedForSignature || !isCurrentRenderVersion(renderVersion.value)) return
+  const owner = previewReadingOwner
+  if (!owner || owner.failed) return
+  const action = readingPageActive && document.visibilityState === 'visible' && document.hasFocus()
+    ? owner.lifecycle.resume() : owner.lifecycle.pause()
+  void action.catch(error => reportReadingFailure(owner, error))
+}
+const handleReadingPageHide = () => {
+  readingPageActive = false
+  const owner = previewReadingOwner
+  if (owner) void owner.lifecycle.pause().catch(error => reportReadingFailure(owner, error))
+}
+const handleReadingPageShow = () => {
+  readingPageActive = true
+  handleReadingActivityChange()
+}
+const pauseReading = async () => {
+  readingPausedForSignature = true
+  await readingClosePending
+  if (readingCloseError.value) throw new Error(readingCloseError.value)
+  try {
+    await previewReadingOwner?.lifecycle.pause()
+  } catch (error) {
+    readingCloseError.value = resolveViewerErrorMessage(error, '正文阅读会话停止失败')
+    throw error
+  }
+  await Promise.all([...readingSummaryPending])
+}
+const resumeReading = async () => {
+  if (readingCloseError.value) throw new Error(readingCloseError.value)
+  readingPausedForSignature = false
+  if (previewReadingOwner) {
+    if (!previewReadingOwner.failed) await previewReadingOwner.lifecycle.resume()
+  } else {
+    await startPreviewReading(renderVersion.value)
+  }
+}
+defineExpose({ pauseReading, resumeReading })
+const formatReadingOpenedAt = (value: string | null) => value === null ? '未记录'
+  : new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(value)) + '（Asia/Shanghai）'
 
 const bindCanvasRef = (pageNumber: number, element: unknown) => {
   if (element instanceof HTMLCanvasElement) {
@@ -542,6 +915,59 @@ const resetPdfTools = () => {
   pdfSearchMatches.value = []
   pdfSearchMatchIndex.value = -1
   pdfPageRefMap.clear()
+}
+
+const resetTextTools = () => {
+  textCurrentPage.value = 1
+  textPageInput.value = '1'
+  textNavigationError.value = ''
+  textSearchQuery.value = ''
+  textSubmittedSearchQuery.value = ''
+  textSearchMatches.value = []
+  textSearchMatchIndex.value = -1
+}
+
+const goToTextPage = (pageNumber: number) => {
+  if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > textPageEntries.value.length) {
+    textNavigationError.value = `请输入 1 至 ${textPageEntries.value.length} 之间的整数页码`
+    return
+  }
+  textNavigationError.value = ''
+  textCurrentPage.value = pageNumber
+  textPageInput.value = String(pageNumber)
+}
+
+const handleTextPageJump = () => {
+  const input = textPageInput.value.trim()
+  if (!/^[1-9]\d*$/.test(input)) {
+    textNavigationError.value = `请输入 1 至 ${textPageEntries.value.length} 之间的整数页码`
+    return
+  }
+  goToTextPage(Number(input))
+}
+
+const handleTextSearch = () => {
+  const query = textSearchQuery.value.trim()
+  textSubmittedSearchQuery.value = query
+  textSearchMatches.value = []
+  if (query) {
+    const literalPattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu')
+    let pageIndex = 0
+    for (const match of normalizedTextContent.value.matchAll(literalPattern)) {
+      const startIndex = match.index!
+      while (pageIndex + 1 < textPageEntries.value.length && textPageEntries.value[pageIndex + 1].startIndex <= startIndex) pageIndex++
+      textSearchMatches.value.push({ pageNumber: pageIndex + 1, startIndex, endIndex: startIndex + match[0].length })
+    }
+  }
+  textSearchMatchIndex.value = textSearchMatches.value.length ? 0 : -1
+  if (textSearchMatches.value.length) goToTextPage(textSearchMatches.value[0].pageNumber)
+}
+
+const moveTextSearchMatch = (step: number) => {
+  const count = textSearchMatches.value.length
+  if (!count) return
+  textSearchMatchIndex.value = (textSearchMatchIndex.value + step + count) % count
+  goToTextPage(textSearchMatches.value[textSearchMatchIndex.value].pageNumber)
 }
 
 const goToPdfPage = (pageNumber: number) => {
@@ -604,6 +1030,33 @@ watch(pdfSearchQuery, () => {
   pdfSubmittedSearchQuery.value = ''
   pdfSearchMatches.value = []
   pdfSearchMatchIndex.value = -1
+}, { flush: 'sync' })
+
+const bindTextSearchMatchRef = (element: unknown) => {
+  if (element instanceof HTMLElement && element.dataset.activeMatch === 'true') {
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }
+}
+
+watch([flatPreviewContainerRef, flatPreviewStageRef], ([container, stage]) => {
+  flatPreviewResizeObserver?.disconnect()
+  if (!container || !stage || previewUnmounted) return
+  const generation = renderVersion.value
+  const measure = () => {
+    if (!isCurrentRenderVersion(generation) || container !== flatPreviewContainerRef.value || stage !== flatPreviewStageRef.value) return
+    flatPreviewContainerWidth.value = container.clientWidth
+    flatPreviewSize.value = { width: stage.offsetWidth, height: stage.offsetHeight }
+  }
+  flatPreviewResizeObserver = new ResizeObserver(measure)
+  flatPreviewResizeObserver.observe(container)
+  flatPreviewResizeObserver.observe(stage)
+  measure()
+}, { flush: 'post' })
+
+watch(textSearchQuery, () => {
+  textSubmittedSearchQuery.value = ''
+  textSearchMatches.value = []
+  textSearchMatchIndex.value = -1
 }, { flush: 'sync' })
 
 const blockPreviewInteraction = (event: Event) => {
@@ -716,8 +1169,12 @@ const resetPreviewState = async (currentRenderVersion?: number) => {
       return
     }
   clearRegisteredPreview()
+  flatPreviewResizeObserver?.disconnect()
+  flatPreviewSize.value = { width: 0, height: 0 }
+  flatPreviewContainerWidth.value = 0
   revokeMediaObjectUrl()
   textPreviewContent.value = ''
+  resetTextTools()
   currentPdfBytes.value = null
   await destroyPdfArtifacts(currentRenderVersion)
   if (currentRenderVersion !== undefined && !isCurrentRenderVersion(currentRenderVersion)) {
@@ -863,6 +1320,8 @@ const loadPdfTextIndex = async (document: ViewerCanvasDocumentProxy, currentRend
 const loadPreview = async () => {
   const currentRenderVersion = renderVersion.value + 1
   renderVersion.value = currentRenderVersion
+  previewIdentityInvalidated = false
+  previewIdentitySnapshot = null
   loading.value = true
   clearRegisteredPreview()
   errorMessage.value = ''
@@ -875,14 +1334,17 @@ const loadPreview = async () => {
   resolvedPreviewUnavailableReason.value = props.previewUnavailableReason || ''
   resolvedFileName.value = props.title || ''
   try {
+    previewIdentitySnapshot = resolvedOnlinePreviewSource.value ? readPreviewIdentity() : null
     await resetPreviewState(currentRenderVersion)
     if (!isCurrentRenderVersion(currentRenderVersion)) return
     if (resolvedOnlinePreviewSource.value && !props.previewKind) {
-      const metadata = await getOnlineFilePreviewMetadata(resolvedOnlinePreviewSource.value)
+      const sourceSnapshot = JSON.parse(JSON.stringify(resolvedOnlinePreviewSource.value)) as OnlineFilePreviewSource
+      const metadata = await getOnlineFilePreviewMetadata(sourceSnapshot)
       if (!isCurrentRenderVersion(currentRenderVersion)) {
         return
       }
       resolvedPreviewMetadata.value = metadata
+      readingSourceSnapshot.value = sourceSnapshot
       resolvedPreviewKind.value = metadata.previewKind
       resolvedOnlyOfficeBaseUrl.value = metadata.onlyofficeBaseUrl || ''
       resolvedOnlyOfficeDocumentUrl.value = metadata.onlyofficeDocumentUrl || ''
@@ -960,9 +1422,16 @@ const handleWindowKeydown = (event: KeyboardEvent) => {
 onMounted(() => {
   previewUnmounted = false
   window.addEventListener('keydown', handleWindowKeydown, true)
+  window.addEventListener('focus', handleReadingActivityChange)
+  window.addEventListener('blur', handleReadingActivityChange)
+  window.addEventListener('pagehide', handleReadingPageHide)
+  window.addEventListener('pageshow', handleReadingPageShow)
+  window.addEventListener('storage', handlePreviewIdentityChange)
+  document.addEventListener('visibilitychange', handleReadingActivityChange)
 })
 
 const handleOfficeOpened = (event: { documentUrl: string }) => {
+  if (!isCurrentRenderVersion(renderVersion.value)) return
   const source = resolvedOnlinePreviewSource.value
   const metadata = resolvedPreviewMetadata.value
   if (previewUnmounted || resolvedPreviewKind.value !== 'OFFICE' || resolvedPreviewUnavailableReason.value
@@ -986,6 +1455,12 @@ onBeforeUnmount(() => {
   void resetPreviewState()
   clearRegisteredPreview()
   window.removeEventListener('keydown', handleWindowKeydown, true)
+  window.removeEventListener('focus', handleReadingActivityChange)
+  window.removeEventListener('blur', handleReadingActivityChange)
+  window.removeEventListener('pagehide', handleReadingPageHide)
+  window.removeEventListener('pageshow', handleReadingPageShow)
+  window.removeEventListener('storage', handlePreviewIdentityChange)
+  document.removeEventListener('visibilitychange', handleReadingActivityChange)
 })
 
 watch(
@@ -1003,7 +1478,7 @@ watch(
   () => {
     loadPreview()
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 )
 </script>
 
@@ -1012,6 +1487,23 @@ watch(
   min-height: 560px;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.protected-viewer-reading-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.protected-viewer-reading-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .protected-viewer-pdf-tools {
@@ -1167,6 +1659,32 @@ watch(
   justify-content: center;
 }
 
+.protected-viewer-text-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.protected-viewer-text-tools__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.protected-viewer-text-tools__page {
+  width: 80px;
+}
+
+.protected-viewer-text-tools__query {
+  width: min(100%, 280px);
+}
+
 .protected-viewer-page {
   display: flex;
   flex-direction: column;
@@ -1213,6 +1731,24 @@ watch(
   transition: transform 0.16s ease;
 }
 
+.protected-viewer-flat-container {
+  display: block;
+  min-width: 0;
+  padding: 0;
+}
+
+.protected-viewer-flat-viewport {
+  position: relative;
+  margin: 24px auto;
+}
+
+.protected-viewer-flat-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  align-items: flex-start;
+}
+
 .protected-viewer-canvas,
 .protected-viewer-image,
 .protected-viewer-video,
@@ -1255,6 +1791,7 @@ watch(
 }
 
 .protected-viewer-text {
+  box-sizing: border-box;
   width: 100%;
   min-height: 420px;
   margin: 0;
@@ -1268,6 +1805,16 @@ watch(
   color: #172033;
   font-size: 13px;
   line-height: 20px;
+}
+
+.protected-viewer-text mark {
+  background: #fff1a8;
+  color: inherit;
+}
+
+.protected-viewer-text mark.protected-viewer-text-match--active {
+  background: #ffcc80;
+  box-shadow: inset 0 0 0 1px #a85a00;
 }
 
 .protected-viewer-page__overlay {

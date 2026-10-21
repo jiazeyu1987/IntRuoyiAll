@@ -105,9 +105,10 @@ function approvalReader(transport) {
   assert.ok(declaration)
   const helper = moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
   const env = { exports: {}, Error, String, Promise, route: { fullPath: '/detail/10?processInstanceId=obsolete-O&taskId=task-O', query: { processInstanceId: 'obsolete-O', taskId: 'task-O' } },
+    resolveDetailReadSelection: require('./dcc-detail-read-test-loader.cjs').resolveDetailReadSelection,
     detailLoadSequence: 1, controlledFileId: vue.ref('10'), fileDetail: vue.ref({ id: '10', processInstanceId: 'native-U' }),
     applicationApprovalRead: vue.ref({ contextKey: 'previous', processInstanceId: 'native-U', taskId: '' }),
-    approvalProgressScope: vue.ref(), approvalProgressError: vue.ref(''), stageProgressList: vue.ref([]),
+    approvalProgressScope: vue.ref(), approvalProgressError: vue.ref(''), approvalProgressNotice: vue.ref(''), stageProgressList: vue.ref([]),
     viewerMode: vue.ref(false), isBrowserTraceabilityPage: vue.ref(false), canUploadApplicantTrainingRecord: vue.ref(false), approvalLoading: vue.ref(false), approvalTodoTask: vue.ref(null), approvalTaskList: vue.ref([]),
     checkPermi: () => false, TaskApi: { getTaskListByProcessInstanceId: transport }, ProcessInstanceApi: { getApprovalDetail: async () => { throw Error('generic BPM read should be permission-gated') } },
     findCurrentUserTodoTask: rows => rows[0], syncStageProgress() {}, validateApplicationApprovalRead: helper.validateApplicationApprovalRead,
@@ -153,4 +154,54 @@ test('ordinary native detail auto-selects its actual mapping without locking exp
     await flush(); assert.equal(p.state.evidence.bpmRound, 'native-U')
     await p.state.selectRound(p.state.roundKey(rows[1])); assert.equal(p.state.evidence.bpmRound, 'obsolete-O')
   } finally { p.app.unmount() }
+})
+
+test('applicant scope notice preserves native or explicit DCC round, version, node and signature evidence', async () => {
+  const helper = moduleFrom(read('src/views/dcc/controlled-file/detail/application-round-context.ts'))
+  for (const explicit of [false, true]) {
+    let privateReads = 0
+    const reader = approvalReader(async () => { privateReads++; throw Error('BPM private access denied') }), { env } = reader
+    env.route.query = explicit ? { processInstanceId: 'native-U' } : {}
+    env.route.fullPath = '/detail/10' + (explicit ? '?processInstanceId=native-U' : '')
+    env.fileDetail.value.status = 'PENDING_SUPERVISOR_REVIEW'
+    await reader.load()
+    assert.equal(privateReads, 0); assert.match(env.approvalProgressNotice.value, /权限范围/)
+    const selection = helper.resolveApplicationRoundSelection({ fileId: '10', requestedFileId: '10', nativeBpmRound: 'native-U',
+      requestedBpmRound: explicit ? 'native-U' : undefined, contextKey: env.applicationRoundContextKey.value, readContext: env.applicationApprovalRead.value })
+    assert.equal(selection.blockedReason, ''); assert.equal(selection.primaryBpmRound, 'native-U')
+    const evidence = { ...frozen('10', 'UPLOAD', 'native-U'), versionNo: 'A/2',
+      signatures: [{ id: '41', taskId: 'task-completed', processInstanceId: 'native-U' }],
+      nodeRecords: [{ recordId: 'record-41', controlledFileId: '10', bpmRound: 'native-U', taskId: 'task-completed',
+        stageCode: 'SUPERVISOR_REVIEW', signatureId: '41', confirmedFields: [] }] }
+    const p = mount({ fileId: '10', primaryBpmRound: selection.primaryBpmRound, lockPrimaryRound: selection.lockPrimaryRound,
+      contextKey: env.applicationRoundContextKey.value, contextError: selection.blockedReason, showNodeRecords: true, expectedVersionNo: 'A/2' }, { evidence: async () => clone(evidence) })
+    try {
+      await flush(); assert.equal(p.state.error, ''); assert.deepEqual(clone(p.state.evidence), evidence)
+      assert.deepEqual(p.calls, [['rounds', '10'], ['evidence', '10', 'UPLOAD', 'native-U']])
+      assert.equal(env.approvalProgressScope.value, undefined); assert.equal(env.stageProgressList.value.length, 0)
+    } finally { p.app.unmount() }
+  }
+})
+
+test('training eligibility retains dedicated progress reads and exposes their real failures', async () => {
+  for (const eligibility of ['upload', 'read']) {
+    const calls = [], reader = approvalReader(async () => { throw Error('private BPM must not be queried') }), { env } = reader
+    env.route.query = {}; env.route.fullPath = '/detail/10'
+    env.fileDetail.value.status = 'PENDING_APPLICANT_TRAINING_RECORD'
+    env.canUploadApplicantTrainingRecord.value = eligibility === 'upload'
+    env.fileDetail.value.canReadTrainingApplicationProgress = eligibility === 'read'
+    env.approvalProgressNotice.value = 'previous scope notice'
+    env.getControlledFileApplicationProgress = async (...args) => {
+      calls.push(args)
+      return { ...rows[0], tasks: [{ id: 'training-task', processInstanceId: 'native-U', status: 1 }] }
+    }
+    await reader.load()
+    assert.deepEqual(calls, [['10', 'native-U']]); assert.equal(env.approvalProgressNotice.value, '')
+    assert.equal(env.approvalTaskList.value[0].id, 'training-task'); assert.equal(env.approvalProgressScope.value.bpmRound, 'native-U')
+    assert.equal(env.approvalTodoTask.value, null); assert.equal(env.applicationApprovalRead.value.processInstanceId, 'native-U')
+    env.getControlledFileApplicationProgress = async () => { throw Error('training progress access denied') }
+    await assert.rejects(reader.load(), /training progress access denied/)
+    assert.match(env.applicationApprovalRead.value.error, /training progress access denied/)
+    assert.equal(env.approvalProgressNotice.value, '')
+  }
 })

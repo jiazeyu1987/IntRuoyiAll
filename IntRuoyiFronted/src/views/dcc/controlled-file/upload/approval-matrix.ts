@@ -100,8 +100,11 @@ const customValue = (value: unknown): ApplicationCustomMatrix | null => {
     || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(['approverUserId', 'documentControlUserId']))
     throw new Error('本次自定义配置字段缺失或无效')
   const result = value as ApplicationCustomMatrix
-  for (const id of [result.approverUserId, result.documentControlUserId]) if (id !== null) identity(id)
-  return { approverUserId: result.approverUserId, documentControlUserId: result.documentControlUserId }
+  // The formal Long serializer sends safe IDs as numbers and large IDs as strings.
+  // Canonical application data always uses strings; never stringify an unsafe number.
+  const actorId = (id: unknown): string | null => id === null ? null
+    : identity(typeof id === 'number' && Number.isSafeInteger(id) ? String(id) : id)
+  return { approverUserId: actorId(result.approverUserId), documentControlUserId: actorId(result.documentControlUserId) }
 }
 const customDepartments = (value: unknown): string[] | null => {
   if (value === null) return null
@@ -144,7 +147,7 @@ export const requireApprovalMatrixSelection = (selection: ApprovalMatrixConfirma
       throw new Error('本次自定义账号或会签部门已变化，请重新读取正式预检')
     if (intent.phase === 'SUBMIT' && (!value?.approverUserId || !value.documentControlUserId)) throw new Error('请选择本次批准人和文控审核人')
     supervisorSourcePair(selection.expectedSupervisorSourceDigest, selection.supervisorSourceToken, intent.phase === 'SUBMIT')
-    return copy(selection)
+    return { ...copy(selection), applicationCustomMatrix: value }
   }
   if (!selection || !selection.expectedApprovalRouteId || !Number.isSafeInteger(selection.expectedApprovalRouteVersionNo)
     || (selection.expectedApprovalRouteVersionNo ?? 0) < 1 || typeof selection.applicationContextKey !== 'string'

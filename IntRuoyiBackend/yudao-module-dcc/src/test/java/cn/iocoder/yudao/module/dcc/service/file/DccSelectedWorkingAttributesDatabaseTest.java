@@ -33,7 +33,9 @@ class DccSelectedWorkingAttributesDatabaseTest extends DccWorkflowSelectedIterat
             assertEquals("CE",body.get("data").get("actual").get("targetMarkets").get(0).asText());
         }
         var read=workflow.readWorkingApplicationAttributes(99L,earlier);assertEquals(nmpa,read.defaultSource());assertEquals(ce,read.actual());
-        var request=request("PARTIAL");request.setProjectAttributes(read.actual());long candidate=workflow.submitWorkingIteration(99L,earlier,request);
+        var request=request("PARTIAL");request.setProjectAttributes(read.actual());
+        a29ExpectedServerManifest(earlier,request);
+        long candidate=workflow.submitWorkingIteration(99L,earlier,request);
         var saved=attributeRows.find("REVISION",candidate,rounds.require("REVISION",candidate,files.selectById(candidate).getProcessInstanceId()));
         assertEquals(read.defaultSource(),attributes.readValue(saved.getDefaultSourceJson()));assertEquals(read.actual(),attributes.readValue(saved.getActualAttributesJson()));
     }
@@ -62,6 +64,7 @@ class DccSelectedWorkingAttributesDatabaseTest extends DccWorkflowSelectedIterat
         assertThrows(RuntimeException.class,()->workflow.readWorkingApplicationAttributes(99L,earlier));
         when(access.hasProjectOwner(99L,5L)).thenReturn(true);
         var req=request("REPLACEMENT");req.setProjectAttributes(ce);
+        a29ExpectedServerManifest(earlier,req);
         long candidate=workflow.submitWorkingIteration(99L,earlier,req);
         assertEquals("B/1",files.selectById(candidate).getVersionNo());assertEquals(99L,files.selectById(candidate).getRequesterId());
         assertEquals(88L,files.selectById(earlier).getRequesterId());assertEquals("WORKING",files.selectById(earlier).getStatus());assertNull(files.selectById(earlier).getProcessInstanceId());

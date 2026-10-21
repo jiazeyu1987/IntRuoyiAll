@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectFolderDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFilePlacementService;
@@ -27,6 +28,60 @@ public class DccPublicUploadPlacementService {
     @Resource private DccProjectAccessService access;
     @Resource private DccProjectFilePlacementService placements;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFilePlacementMapper placementRows;
+    @Resource private DccProjectFolderStorageMappingMapper storageMappings;
+
+    /** Resolve the target only from the source version's registered logical folder; never infer one. */
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public DccDerivedUploadStorage resolveWorkingTypeChange(Long actor,Long sourceId,Long targetCategory,Long targetType){
+        Long tenant=TenantContextHolder.getRequiredTenantId();var source=files.selectById(sourceId);
+        if(source==null||!Objects.equals(source.getTenantId(),tenant)||!Objects.equals(source.getRequesterId(),actor)
+                ||!"NEW".equals(source.getChangeType())||!"WORKING".equals(source.getStatus())||source.getProcessInstanceId()!=null)throw fail(FOLDER_INVALID);
+        var location=placementRows.findFile(sourceId);var oldMapping=storageMappings.findLeaf(tenant,source.getDirectoryId());
+        if(location==null){if(oldMapping!=null)throw fail(FOLDER_INVALID);return null;} // Explicit physical history has no logical-folder fact to migrate.
+        if(oldMapping==null||Boolean.TRUE.equals(oldMapping.getDeleted())||!Objects.equals(location.getProjectCodeId(),source.getDccProjectCodeId())
+                ||!Objects.equals(location.getStorageDirectoryId(),source.getDirectoryId())||!Objects.equals(oldMapping.getCategoryId(),source.getCategoryId())
+                ||!Objects.equals(oldMapping.getProjectCodeId(),location.getProjectCodeId())||!Objects.equals(oldMapping.getProjectFolderId(),location.getProjectFolderId()))throw fail(FOLDER_INVALID);
+        access.assertProjectEditorOrOwner(actor,source.getDccProjectCodeId());var project=projects.selectByIdForUpdate(source.getDccProjectCodeId());
+        var folder=folders.selectOne(new LambdaQueryWrapperX<DccProjectFolderDO>().eq(DccProjectFolderDO::getId,location.getProjectFolderId())
+                .eq(DccProjectFolderDO::getProjectCodeId,source.getDccProjectCodeId()).eq(DccProjectFolderDO::getTenantId,tenant).last("FOR UPDATE"));
+        if(project==null||folder==null)throw fail(FOLDER_INVALID);
+        return storage.resolve(actor,project,folder,targetCategory,targetType);
+    }
+
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public DccDerivedUploadStorage resolveWorkingStorageRecovery(Long actor,Long currentFileId,Long sourceFileId,
+            Long sourceCategory,Long targetCategory,Long targetType,Long expectedFolder){
+        Long tenant=TenantContextHolder.getRequiredTenantId();var current=files.selectById(currentFileId);var source=files.selectById(sourceFileId);
+        var location=placementRows.findFile(currentFileId);var sourceLocation=placementRows.findFile(sourceFileId);
+        var oldMapping=current==null?null:storageMappings.findLeaf(tenant,current.getDirectoryId());
+        if(current==null||source==null||location==null||sourceLocation==null||oldMapping==null||Boolean.TRUE.equals(oldMapping.getDeleted())
+                ||!Objects.equals(current.getTenantId(),tenant)||!Objects.equals(current.getRequesterId(),actor)
+                ||!Objects.equals(source.getTenantId(),tenant)||!Objects.equals(source.getDccProjectCodeId(),current.getDccProjectCodeId())
+                ||!Objects.equals(location.getProjectCodeId(),current.getDccProjectCodeId())||!Objects.equals(location.getProjectFolderId(),expectedFolder)
+                ||!Objects.equals(location.getStorageDirectoryId(),current.getDirectoryId())
+                ||!Objects.equals(sourceLocation.getProjectCodeId(),current.getDccProjectCodeId())
+                ||!Objects.equals(sourceLocation.getProjectFolderId(),expectedFolder)||!Objects.equals(sourceLocation.getStorageDirectoryId(),source.getDirectoryId())
+                ||!Objects.equals(source.getCategoryId(),sourceCategory)||!Objects.equals(oldMapping.getCategoryId(),sourceCategory)
+                ||!Objects.equals(oldMapping.getProjectCodeId(),current.getDccProjectCodeId())
+                ||!Objects.equals(oldMapping.getProjectFolderId(),expectedFolder))throw fail(FOLDER_INVALID);
+        access.assertProjectEditorOrOwner(actor,current.getDccProjectCodeId());var project=projects.selectByIdForUpdate(current.getDccProjectCodeId());
+        var folder=folders.selectOne(new LambdaQueryWrapperX<DccProjectFolderDO>().eq(DccProjectFolderDO::getId,expectedFolder)
+                .eq(DccProjectFolderDO::getProjectCodeId,current.getDccProjectCodeId()).eq(DccProjectFolderDO::getTenantId,tenant).last("FOR UPDATE"));
+        if(project==null||folder==null||!Boolean.TRUE.equals(folder.getActive()))throw fail(FOLDER_INVALID);
+        return storage.resolve(actor,project,folder,targetCategory,targetType);
+    }
+
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void rebindWorkingTypeChange(Long actor,Long fileId,Long beforeDirectory,DccDerivedUploadStorage target,Long typeChangeProofId){
+        if(target==null)throw fail(FOLDER_INVALID);
+        placements.rebindDerivedWorkingType(actor,fileId,beforeDirectory,target,typeChangeProofId);
+    }
+
+    @Transactional(propagation=Propagation.MANDATORY,rollbackFor=Exception.class)
+    public void rebindWorkingStorageRecovery(Long actor,Long fileId,Long beforeDirectory,DccDerivedUploadStorage target,
+            Long originalProofId,Long recoveryEvidenceId){
+        placements.rebindRecoveredDerivedWorkingType(actor,fileId,beforeDirectory,target,originalProofId,recoveryEvidenceId);
+    }
 
     /** Acquire project and exact registered folder before callers acquire Master/File locks. */
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)

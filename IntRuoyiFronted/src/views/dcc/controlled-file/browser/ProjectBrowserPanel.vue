@@ -18,7 +18,8 @@
       <el-empty v-if="state.project && !state.folderLoading && !state.folderError && !state.directories.length" description="项目尚无文件夹" />
     </aside>
     <main>
-      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane label="全局文件" name="global" /><el-tab-pane label="项目文件夹" name="directory" /></el-tabs>
+      <el-tabs :model-value="state.scope" @tab-change="changeScope"><el-tab-pane label="全局文件" name="global" /><el-tab-pane label="当前项目" name="project" :disabled="!state.project" /><el-tab-pane label="项目文件夹" name="directory" /></el-tabs>
+      <p v-if="state.scope === 'project'">{{ state.project?.projectName }} / 全部文件夹</p>
       <p v-if="state.scope === 'directory'">{{ state.project?.projectName }} / {{ state.folder?.name || '请选择文件夹' }}</p>
       <div class="version-view">
         <span>版本浏览范围</span>
@@ -34,7 +35,7 @@
         </el-select>
         <span>默认最新受控版本；工作、审批中及历史版本按所选阶段查询。</span>
       </div>
-      <div class="search"><el-input v-model="state.keyword" placeholder="文件名称、编号或项目名称" clearable @keyup.enter="state.search(state.scope)" /><el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button><el-button v-if="state.folder" @click="operationVisible = true">选择文件操作</el-button></div>
+      <div class="search"><el-input v-model="state.keyword" placeholder="文件名称、编号或项目名称" clearable @keyup.enter="state.search(state.scope)" /><el-button :loading="state.loading" @click="state.search(state.scope)">搜索</el-button><el-button v-if="state.scope === 'directory' && state.folder" @click="operationVisible = true">选择文件操作</el-button></div>
       <el-alert v-if="state.error" :title="state.error" type="error" :closable="false" />
       <el-alert v-if="state.actorError" :title="state.actorError" type="error" :closable="false" />
       <DccProjectReferences v-if="state.scope === 'directory' && state.project && state.folder"
@@ -77,6 +78,7 @@ import type { DirectoryNode, SelectorSource } from '../relations/DccFileSelector
 import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
 import { referenceIdentity, type ReferenceRow } from '../relations/project-reference-contract'
 import { buildControlledFileViewerPath, buildControlledFileTraceabilityPath } from '../view/presentation'
+import { serializeDccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 import { ProjectBrowserState, PROJECT_BROWSER_VERSION_VIEWS } from './project-browser'
 const route = useRoute(), router = useRouter(), user = useUserStore()
 const state = reactive(new ProjectBrowserState(referenceIdentity(getVisitTenantId() || getTenantId()), referenceIdentity(user.getUser.id)))
@@ -119,7 +121,10 @@ const selectorSource = computed<SelectorSource>(() => ({
 const searchProjects = () => { state.projectPage = 1; return state.loadProjects() }
 const selectProject = (project: { id: string }) => { operationVisible.value = false; return state.selectProject(project.id) }
 const selectFolder = (node: DirectoryNode) => { operationVisible.value = false; return state.selectFolder(node) }
-const changeScope = (scope: string | number) => state.search(scope === 'directory' ? 'directory' : 'global')
+const changeScope = (scope: string | number) => {
+  if (scope !== 'global' && scope !== 'project' && scope !== 'directory') throw new Error('请选择正式项目浏览范围')
+  return state.search(scope)
+}
 const loadPage = (query: SelectorQuery) => state.loadPage(query)
 const loadReferences = (project: string, folder: string) => state.loadReferences(project, folder)
 const createReferences = (project: string, folder: string, ids: string[], reason: string) => state.createReferences(project, folder, ids, reason)
@@ -127,7 +132,10 @@ const cancelReference = (project: string, folder: string, master: string, id: st
 const previewReference = async (row: ReferenceRow, isCurrent: () => boolean) => {
   const selected = await state.readReferenceForAction(row)
   if (!isCurrent()) return
-  await preview(selected.selectedVersion)
+  await preview(selected.selectedVersion, serializeDccBodyReadContext(selected.reference.selectedControlledFileId, {
+    intent: 'VERSION_HISTORY', controlledFileId: selected.reference.selectedControlledFileId,
+    expectedVersionNo: selected.selectedVersion.versionNo
+  }))
 }
 const traceReference = async (row: ReferenceRow, isCurrent: () => boolean) => {
   const selected = await state.readReferenceTrace(row)
@@ -135,9 +143,9 @@ const traceReference = async (row: ReferenceRow, isCurrent: () => boolean) => {
   await router.push(buildControlledFileTraceabilityPath(selected.reference.selectedControlledFileId,
     'browser', route.fullPath, 'trace'))
 }
-const preview = async (row: FileCandidate) => {
+const preview = async (row: FileCandidate, bodyReadContext?: string) => {
   if (!row.canPreview) throw new Error('没有该文件正文查看权限')
-  const opened = window.open(buildControlledFileViewerPath(row.controlledFileId, 'project-browser', route.fullPath), '_blank')
+  const opened = window.open(buildControlledFileViewerPath(row.controlledFileId, 'project-browser', route.fullPath, bodyReadContext), '_blank')
   if (!opened) throw new Error('预览窗口未能打开，请允许此站点打开新窗口')
   opened.opener = null
 }
@@ -146,7 +154,15 @@ const openOperation = async (rows: FileCandidate[]) => {
   await router.push({ path: `/dcc/controlled-file/detail/${referenceIdentity(rows[0].controlledFileId)}`, query: { management: '1', from: 'project-browser', returnTo: route.fullPath } })
 }
 const previewRow = async (row: FileCandidate) => {
-  try { await preview(row) } catch (error) { state.error = error instanceof Error ? error.message : String(error) }
+  try {
+    const bodyReadContext = row.status === 'SUPERSEDED' || row.status === 'OBSOLETE'
+      ? serializeDccBodyReadContext(row.controlledFileId, {
+        intent: 'VERSION_HISTORY', controlledFileId: row.controlledFileId,
+        expectedVersionNo: row.versionNo
+      })
+      : undefined
+    await preview(row, bodyReadContext)
+  } catch (error) { state.error = error instanceof Error ? error.message : String(error) }
 }
 const openOperationRow = async (row: FileCandidate) => {
   try { await openOperation([row]) } catch (error) { state.error = error instanceof Error ? error.message : String(error) }

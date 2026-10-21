@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
 import cn.iocoder.yudao.module.dcc.service.preview.DccControlledPreviewAccessService;
+import cn.iocoder.yudao.module.dcc.service.token.DccPreviewSourceIdentity;
 import cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
@@ -43,6 +44,7 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
     private BpmTaskService tasks;
     private String publicId,bpm,taskId;
     private Long officeEventId;
+    private DccControlledFileBodyReadContext issuedBodyContext;
     private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO issuedMetadata;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileAccessEventMapper officeEvents;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper officeTraces;
@@ -73,7 +75,8 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_SUPERVISOR_REVIEW',process_instance_id=?,process_definition_key=?,submitted_time=? WHERE id=20",bpm,DccControlledFileProcessDefinitionKeys.UPLOAD,LocalDateTime.now());
         var task=engine.getTaskService().createTaskQuery().processInstanceId(bpm).singleResult();
         assertEquals("SUPERVISOR_REVIEW",task.getTaskDefinitionKey());taskId=task.getId();engine.getTaskService().setAssignee(taskId,"77");
-        bound=new DccBoundWorkflowContractResolver();wire(bound,"definitions",definitions,"processes",processes,"rounds",rounds,"attributes",attributeRows);
+        freezeActualSupervisorRoute();
+        bound=new DccBoundWorkflowContractResolver();wire(bound,"definitions",definitions,"processes",processes,"rounds",rounds,"attributes",attributeRows,"routes",routeSnapshots);
         var actualTasks=new BpmTaskServiceImpl();wire(actualTasks,"taskService",engine.getTaskService());tasks=spy(actualTasks);
         actors=mock(AdminUserApi.class);
         when(actors.getUser(77L)).thenReturn(new AdminUserRespDTO().setId(77L).setTenantId(1L).setStatus(0));
@@ -82,14 +85,18 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         wire(query,"controlledFileMapper",files,"controlledFileMasterMapper",masters,"bpmTaskService",tasks,"adminUserApi",actors,
                 "versionPolicy",DccControlledFileVersionPolicy.defaultPolicy(),"detailAuthorizationGuard",detail,
                 "downloadPolicyService",new cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService());
-        wire(detail,"bpmTaskService",tasks);
+        var scope=mock(DccControlledFileAssignmentScopeService.class);
+        when(scope.isWithinAssignedFileScope(77L,20L)).thenReturn(true);
+        wire(query,"assignmentScopeService",scope);
+        wire(detail,"bpmTaskService",tasks,"assignmentScopeService",scope,"applicationRoundService",rounds,"masterMapper",masters);
         wireIfPresent(query,"boundWorkflowContractResolver",bound);wireIfPresent(detail,"boundWorkflowContractResolver",bound);wireIfPresent(detail,"adminUserApi",actors);
         wireIfPresent(detail,"projectAccessService",access);wireIfPresent(detail,"bpmProcessInstanceService",processes);
         var infra=(FileMapper)ReflectionTestUtils.getField(query,"fileMapper");
-        when(infra.selectById(100L)).thenReturn(FileDO.builder().id(100L).configId(1L).name("bound-A1.pdf").type("application/pdf").path("actual-bound/A1.pdf").build());
+        when(infra.selectById(100L)).thenReturn(FileDO.builder().id(100L).configId(1L).name("bound-A1.pdf").type("application/pdf").path("actual-bound/A1.pdf").size(3L).build());
         var preview=(DccControlledPreviewAccessService)ReflectionTestUtils.getField(query,"previewAccessService");
         var now=LocalDateTime.now();
         when(preview.prepareAccess(any())).thenReturn(new DccPreviewAccessResult(30L,"event",31L,"trace","declared-token","id","nonce",now,now.plusMinutes(15),"{}"));
+        when(preview.prepareSourceBoundAccess(any(),any(DccPreviewSourceIdentity.class))).thenReturn(new DccPreviewAccessResult(30L,"event",31L,"trace","declared-token","id","nonce",now,now.plusMinutes(15),"{}"));
         var business=(BusinessFileAccessService)ReflectionTestUtils.getField(query,"businessFileAccessService");
         when(business.assertAllowed(any())).thenAnswer(call->{var request=call.<BusinessFileAccessRequest>getArgument(0);
             assertEquals(100L,request.fileId());query.assertBusinessFileAccess(request.userId(),20L,request.operation(),audit());
@@ -101,13 +108,56 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal,null,List.of()));}
     private DccRequestAuditContext audit(){return new DccRequestAuditContext("127.0.0.1","task-owned supervisor permission fixture","w08-supervisor-read");}
     private DccControlledFileDO file(){return files.selectById(20L);}
+    private DccControlledFileBodyReadContext exactBodyContext(Long actor){
+        var selected=file();
+        var frozen=bound.resolve(selected);
+        assertEquals(bpm,frozen.processInstanceId());
+        assertEquals(frozen.attributeRound().intValue(),rounds.require("UPLOAD",selected.getId(),frozen.processInstanceId()));
+        var task=engine.getTaskService().createTaskQuery().taskId(taskId).singleResult();
+        if(task!=null && Objects.equals(actor.toString(),task.getAssignee())){
+            assertEquals("SUPERVISOR_REVIEW",task.getTaskDefinitionKey());
+            assertEquals(frozen.processInstanceId(),task.getProcessInstanceId());
+            assertEquals(frozen.processDefinitionId(),task.getProcessDefinitionId());
+            return new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.APPROVAL_TASK,
+                    selected.getId().toString(),selected.getVersionNo(),"UPLOAD",frozen.processInstanceId(),task.getId());
+        }
+        var process=processes.getProcessInstance(frozen.processInstanceId());
+        assertNotNull(process);assertEquals(actor.toString(),process.getStartUserId());assertEquals(actor,selected.getRequesterId());
+        return new DccControlledFileBodyReadContext(DccControlledFileBodyReadContext.Intent.AUTHORING,
+                selected.getId().toString(),selected.getVersionNo(),"UPLOAD",frozen.processInstanceId(),null);
+    }
+    private void freezeActualSupervisorRoute()throws Exception{
+        String canonical=canonicalMatrix(1);
+        var baseline=DccApprovalMatrixSourceService.readCanonical(canonical);
+        var raw=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(canonical,Map.class);
+        var nodes=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseArray(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(raw.get("nodes")),
+                cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO.class);
+        var projection=cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.project(nodes,"NEW",List.of(51L));
+        var task=engine.getTaskService().createTaskQuery().taskId(taskId).singleResult();
+        assertNotNull(task);assertEquals("SUPERVISOR_REVIEW",task.getTaskDefinitionKey());assertEquals(bpm,task.getProcessInstanceId());
+        Long supervisor=Long.valueOf(task.getAssignee());
+        var resolved=new ArrayList<DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode>();
+        resolved.add(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(0,"SUPERVISOR_REVIEW","直接上级审核",0,
+                "USER",supervisor,List.of(supervisor),"ALL",100,true,List.of(supervisor)));
+        projection.nodes().forEach(node->resolved.add(new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRouteNode(
+                node.getStageNo(),node.getStageCode(),node.getStageName(),node.getStageOrder(),node.getCandidateSourceType(),
+                Long.valueOf(node.getCandidateSourceIds()),List.of(Long.valueOf(node.getCandidateSourceIds())),
+                node.getApproveMethod(),node.getApproveRatio(),node.getRequireAllApprovals(),List.of(99L))));
+        var route=new DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO.builder()
+                        .id(baseline.getRouteId()).versionNo(baseline.getRouteVersionNo()).build(),resolved,baseline,
+                cn.iocoder.yudao.module.dcc.service.route.DccPublicMatrixNativeDerivation.VERSION,projection.groups());
+        var producer=new DccControlledFileWorkflowServiceImpl();wire(producer,"routeSnapshotMapper",routeSnapshots);
+        tx().executeWithoutResult(status->ReflectionTestUtils.invokeMethod(producer,"persistApprovalRouteSnapshots",20L,route));
+    }
     private boolean body(Long actor){return Boolean.TRUE.equals(ReflectionTestUtils.invokeMethod(query,"canReadBinary",actor,file(),DccAccessTypeEnum.PREVIEW,false));}
     private void noPreview(){assertFalse(body(77L));assertFalse(detail.isAllowed(77L,file(),false,null));}
 
     @Test void exactPublicActiveSupervisorCanReadThisBodyAndPreviewMetadataOnly(){
         var resolved=bound.resolve(file());assertTrue(resolved.active());assertEquals(1,resolved.attributeRound());
         assertTrue(body(77L));assertTrue(detail.isAllowed(77L,file(),false,null));
-        var metadata=query.getPreviewMetadata(77L,20L,audit());assertEquals("PDF",metadata.getPreviewKind());assertEquals("declared-token",metadata.getViewerToken());
+        var metadata=query.getPreviewMetadata(77L,20L,exactBodyContext(77L),audit());assertEquals("PDF",metadata.getPreviewKind());assertEquals("declared-token",metadata.getViewerToken());
         assertEquals(publicId,resolved.processDefinitionId());assertEquals("A/1",file().getVersionNo());
         assertFalse(Boolean.TRUE.equals(ReflectionTestUtils.invokeMethod(query,"canReadBinary",77L,file(),DccAccessTypeEnum.DOWNLOAD,false)));
         assertFalse(Boolean.TRUE.equals(ReflectionTestUtils.invokeMethod(query,"canPrintControlledFile",77L,file())));
@@ -220,7 +270,7 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         wire(query,"onlyOfficePreviewProperties",properties,"onlyOfficePreviewTokenService",signed,"fileService",storage);
         var infra=(FileMapper)ReflectionTestUtils.getField(query,"fileMapper");
         when(infra.selectById(100L)).thenReturn(FileDO.builder().id(100L).configId(1L).name("bound-A1.docx")
-                .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document").path("actual-bound/A1.docx").build());
+                .type("application/vnd.openxmlformats-officedocument.wordprocessingml.document").path("actual-bound/A1.docx").size(3L).build());
         var actualAudit=new cn.iocoder.yudao.module.dcc.service.audit.DccControlledFileAccessAuditService();
         wire(actualAudit,"accessEventMapper",officeEvents,"watermarkTraceMapper",officeTraces,"accessLogMapper",officeLogs);
         var viewer=new cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService();wire(viewer,"hmacSecret","actual-ic27-metadata-Viewer-token-secret");
@@ -231,17 +281,19 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         doAnswer(call->{var request=call.<BusinessFileAccessRequest>getArgument(0);
             assertEquals(actor,request.userId());query.assertBusinessFileAccess(request.userId(),20L,request.operation(),audit());
             if(cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser()==null){
-                assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getPreviewMetadata(actor,20L,audit()));
+                assertEquals("BODY_READ_SCOPE_ALREADY_BOUND",assertThrows(IllegalStateException.class,
+                        ()->query.getPreviewMetadata(actor,20L,audit())).getMessage());
                 assertNotNull(issuedMetadata);
-                assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.readPreviewFile(actor,20L,
+                assertEquals("BODY_READ_SCOPE_ALREADY_BOUND",assertThrows(IllegalStateException.class,()->query.readPreviewFile(actor,20L,
                         issuedMetadata.getViewerToken(),issuedMetadata.getAccessEventCode(),issuedMetadata.getWatermarkTraceCode(),
-                        issuedMetadata.getViewerTokenId(),issuedMetadata.getViewerTokenNonce(),audit()));
+                        issuedMetadata.getViewerTokenId(),issuedMetadata.getViewerTokenNonce(),audit())).getMessage());
                 assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.getAttachmentPreviewMetadata(actor,20L,777L,audit()));
                 assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->query.assertBusinessFileAccess(actor,20L,BusinessFileAccessOperation.DOWNLOAD,audit()));
             }
             return Optional.of(new BusinessFileAccessReference("dcc","DCC_CONTROLLED_FILE",20L,"A/1",1L,null));}).when(business).assertAllowed(any());
         when(storage.getFileContent(1L,"actual-bound/A1.docx")).thenReturn(new byte[]{25,77,20});
-        var metadata=tx().execute(status->query.getPreviewMetadata(actor,20L,audit()));assertEquals("OFFICE",metadata.getPreviewKind());
+        issuedBodyContext=exactBodyContext(actor);
+        var metadata=tx().execute(status->query.getPreviewMetadata(actor,20L,issuedBodyContext,audit()));assertEquals("OFFICE",metadata.getPreviewKind());
         issuedMetadata=metadata;
         assertNotNull(metadata.getOnlyofficeDocumentUrl());String token=metadata.getOnlyofficeDocumentUrl().split("token=",2)[1];
         var issued=signed.verifyControlledFile(token,20L);officeEventId=issued.getAccessEventId();
@@ -335,8 +387,9 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
     }
     @Test void metadataPassesTheBoundRoundReturnedByTheRealAuthorizationToTheProducer(){
         var captured=(DccControlledPreviewAccessService)ReflectionTestUtils.getField(query,"previewAccessService");
-        query.getPreviewMetadata(77L,20L,audit());
-        verify(captured).prepareAccess(argThat(request->bpm.equals(request.processInstanceId())&&request.fileId().equals(20L)));
+        query.getPreviewMetadata(77L,20L,exactBodyContext(77L),audit());
+        verify(captured).prepareSourceBoundAccess(argThat(request->bpm.equals(request.processInstanceId())&&request.fileId().equals(20L)),
+                eq(new DccPreviewSourceIdentity(100L,1L,"actual-bound/A1.pdf","bound-A1.pdf","application/pdf",3L)));
     }
     @ParameterizedTest @ValueSource(strings={"legacyNull","wrongSavedRound"})
     void eventWithoutTheIssuedExactRoundCannotBeRepairedDuringAnonymousCallback(String invalid)throws Exception{
@@ -367,13 +420,14 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         var producer=new DccControlledPreviewAccessService();wire(producer,"accessAuditService",auditService,"viewerTokenService",viewer);
         wire(query,"previewAccessService",producer,"viewerTokenService",viewer,"accessEventMapper",officeEvents,"watermarkTraceMapper",officeTraces,"accessLogMapper",officeLogs,"fileService",storage);
         when(storage.getFileContent(1L,"actual-bound/A1.pdf")).thenReturn(new byte[]{27,77,20});
-        var metadata=tx().execute(status->query.getPreviewMetadata(77L,20L,audit()));assertEquals(expectedKind,metadata.getPreviewKind());
+        issuedBodyContext=exactBodyContext(77L);
+        var metadata=tx().execute(status->query.getPreviewMetadata(77L,20L,issuedBodyContext,audit()));assertEquals(expectedKind,metadata.getPreviewKind());
         var saved=officeEvents.selectOne(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAccessEventDO>()
                 .eq("access_event_code",metadata.getAccessEventCode()));assertNotNull(saved);assertEquals(bpm,saved.getProcessInstanceId());officeEventId=saved.getId();
         return metadata;
     }
     private DccControlledFileBinary pdf(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO metadata) {
-        return query.readPreviewFile(77L,20L,metadata.getViewerToken(),metadata.getAccessEventCode(),metadata.getWatermarkTraceCode(),metadata.getViewerTokenId(),metadata.getViewerTokenNonce(),audit());
+        return query.readPreviewFile(77L,20L,issuedBodyContext,metadata.getViewerToken(),metadata.getAccessEventCode(),metadata.getWatermarkTraceCode(),metadata.getViewerTokenId(),metadata.getViewerTokenNonce(),audit());
     }
     @Test void actualPdfMetadataAndCurrentHumanPrincipalReadTheExactIssuedRound() throws Exception {
         var storage=mock(cn.iocoder.yudao.module.infra.service.file.FileService.class);var metadata=actualPdfMetadata(storage);
@@ -387,7 +441,8 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
         String another=bindAnotherPdfOrImageRound(oldEvent.getOccurredAt().withNano(0));
         var current=bound.resolve(file());assertEquals(another,current.processInstanceId());assertEquals(2,current.attributeRound());assertTrue(current.active());
         assertEquals(77L,cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId());clearInvocations(storage);
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->pdf(metadata));verifyNoInteractions(storage);
+        assertEquals("ROUND_FLOW_ACTIVE_HISTORICAL_SOURCE_NOT_RECORDED",
+                assertThrows(IllegalStateException.class,()->pdf(metadata)).getMessage());verifyNoInteractions(storage);
         assertEquals(oldEvent,officeEvents.selectById(officeEventId));
     }
     private String bindAnotherPdfOrImageRound(LocalDateTime submittedAt) {
@@ -416,16 +471,19 @@ class DccW08SupervisorReadDatabaseTest extends DccPreparedExecutionInheritanceDa
     void actualImageMetadataAndBytesUseTheSamePersistentRoundProofWithoutAnyNewPurpose(String scenario)throws Exception{
         jdbc.update("UPDATE dcc_controlled_file SET source_original_file_name='source.png' WHERE id=20");
         var infra=(FileMapper)ReflectionTestUtils.getField(query,"fileMapper");
-        when(infra.selectById(100L)).thenReturn(FileDO.builder().id(100L).configId(1L).name("source.png").type("image/png").path("actual-bound/A1.png").build());
+        when(infra.selectById(100L)).thenReturn(FileDO.builder().id(100L).configId(1L).name("source.png").type("image/png").path("actual-bound/A1.png").size(3L).build());
         var storage=mock(cn.iocoder.yudao.module.infra.service.file.FileService.class);when(storage.getFileContent(1L,"actual-bound/A1.png")).thenReturn(new byte[]{27,77,21});
         var metadata=actualBodyMetadata(storage,"IMAGE");var event=officeEvents.selectById(officeEventId);
-        assertEquals("CONTROLLED_PREVIEW",event.getPurpose());assertEquals(bpm,event.getProcessInstanceId());
+        assertEquals(issuedBodyContext.purpose(),event.getPurpose());assertEquals(bpm,event.getProcessInstanceId());
         if("current".equals(scenario)){assertArrayEquals(new byte[]{27,77,21},pdf(metadata).bytes());return;}
         if("anotherBound".equals(scenario)){String another=bindAnotherPdfOrImageRound(event.getOccurredAt().withNano(0));
             assertEquals(another,bound.resolve(file()).processInstanceId());assertEquals(2,bound.resolve(file()).attributeRound());}
         else jdbc.update("UPDATE dcc_controlled_file_access_event SET process_instance_id=? WHERE id=?","legacyNull".equals(scenario)?null:"other-image-round",officeEventId);
         var before=officeEvents.selectById(officeEventId);clearInvocations(storage);
-        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->pdf(metadata));verifyNoInteractions(storage);
+        if("anotherBound".equals(scenario))assertEquals("ROUND_FLOW_ACTIVE_HISTORICAL_SOURCE_NOT_RECORDED",
+                assertThrows(IllegalStateException.class,()->pdf(metadata)).getMessage());
+        else assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->pdf(metadata));
+        verifyNoInteractions(storage);
         assertEquals(before,officeEvents.selectById(officeEventId));
     }
 }

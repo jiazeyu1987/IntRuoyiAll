@@ -27,6 +27,8 @@ export interface UserVO {
   disabled?: boolean
 }
 
+export type UserSaveVO = Omit<UserVO, 'deptId'> & { deptId: number | null }
+
 export interface UserDingTalkImportRespVO {
   createUsernames: string[]
   failureUsernames: Record<string, string>
@@ -60,12 +62,12 @@ export const getUser = (id: number) => {
 }
 
 // 新增用户
-export const createUser = (data: UserVO) => {
+export const createUser = (data: UserSaveVO) => {
   return request.post({ url: '/system/user/create', data })
 }
 
 // 修改用户
-export const updateUser = (data: UserVO) => {
+export const updateUser = (data: UserSaveVO) => {
   return request.put({ url: '/system/user/update', data })
 }
 

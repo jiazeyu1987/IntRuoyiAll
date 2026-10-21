@@ -4420,6 +4420,45 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("need changes", updateCaptor.getValue().getRejectReason());
     }
 
+    @Test void checkedOutPendingEffectiveBaselineAcceptsCheckinSourcePreview() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder().id(10L).active(true).build());
+        var file = DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L)
+                .categoryId(10L).dccProjectCodeId(3000L).status("CONTROLLED_PENDING_EFFECTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(
+                cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO.builder()
+                        .masterId(700L).baseIterationId(900L).actorId(99L).status("CHECKED_OUT").build());
+        var request = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO();
+        request.setCategoryId(10L);request.setControlledFileId(900L);request.setUploadContext("CHECKIN");
+        assertTrue(DccControlledFileVersionPolicy.hasControlledBodyStatus(file.getStatus()));
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> workflowService.validateSourceUploadContext(99L, request),
+                "a checked-out policy-allowed pending-effective baseline must accept its source preview");
+        verify(projectAccessService).assertProjectEditorOrOwner(99L, 3000L);
+        verifyNoInteractions(uploadTicketService, sourceOwnershipService);
+    }
+
+    @Test void checkinSourcePreviewRetainsCheckoutScopeAndStateGuards() {
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder().id(10L).active(true).build());
+        var file = DccControlledFileDO.builder().id(900L).masterId(700L).tenantId(1L)
+                .categoryId(10L).dccProjectCodeId(3000L).status("ACTIVE").build();
+        when(controlledFileMapper.selectById(900L)).thenReturn(file);
+        var checkout = cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileCheckoutDO.builder()
+                .masterId(700L).baseIterationId(900L).actorId(88L).status("CHECKED_OUT").build();
+        when(checkoutMapper.selectActiveByMasterId(1L, 700L)).thenReturn(checkout);
+        var request = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadPreviewReqVO();
+        request.setCategoryId(10L);request.setControlledFileId(900L);request.setUploadContext("CHECKIN");
+        assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        checkout.setActorId(99L);checkout.setBaseIterationId(899L);
+        assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        checkout.setBaseIterationId(900L);file.setStatus("PENDING_MATRIX_REVIEW");
+        assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        file.setStatus("CONTROLLED_PENDING_EFFECTIVE");file.setTenantId(2L);
+        assertServiceException(() -> workflowService.validateSourceUploadContext(99L, request), CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        verify(projectAccessService, never()).assertProjectEditorOrOwner(anyLong(), anyLong());
+        verifyNoInteractions(uploadTicketService, sourceOwnershipService);
+    }
+
     @Test void normalNewUploadPreviewAndSubmitDoNotRequireProjectTemplateNames() {
         var request=buildSubmitReqVO("A/1");prepareManagerSubmission();
         request.setFileName("CUSTOM-REPORT");

@@ -10,6 +10,28 @@ test('actual matrix state carries custom choices and accepts typed custom respon
  assert.equal(request.request.approvalMatrixBaselineToken,undefined);assert.equal(state.accept(request,response()),true)
  const value=state.selection('SUBMIT');assert.equal(value.approvalSourceMode,'APPLICATION_CUSTOM');assert.deepEqual(plain(value.applicationCustomMatrix),config);assert.equal(value.expectedApplicationCustomMatrixDigest,response().applicationCustomMatrixDigest);assert.equal(value.expectedApprovalRouteId,undefined);assert.equal(value.applicationCustomMatrixPhase,'PREVIEW')
 })
+
+test('safe numeric actor IDs from the formal Long serializer match canonical strings and remain exact in selections',()=>{
+ const m=load(),state=new m.UploadApprovalMatrixState(scope);state.setApplicationCustomMatrix(config)
+ const request=state.begin(['51','52']),actual=response()
+ actual.applicationCustomMatrix={approverUserId:77,documentControlUserId:66}
+ assert.equal(state.accept(request,actual),true)
+ const saved=state.selection('SAVE'),submitted=state.selection('SUBMIT')
+ assert.deepEqual(plain(saved.applicationCustomMatrix),config)
+ assert.deepEqual(plain(submitted.applicationCustomMatrix),config)
+ assert.equal(actual.applicationCustomMatrix.approverUserId,77,'do not mutate the response object')
+})
+
+test('custom transport normalization never accepts unsafe numbers or changes the selected actor identity',()=>{
+ for(const actor of [Number.MAX_SAFE_INTEGER+1,0,-1,77.5]){
+  const state=new (load().UploadApprovalMatrixState)(scope);state.setApplicationCustomMatrix(config)
+  const actual=response();actual.applicationCustomMatrix={approverUserId:actor,documentControlUserId:66}
+  assert.throws(()=>state.accept(state.begin(['51','52']),actual))
+ }
+ const state=new (load().UploadApprovalMatrixState)(scope);state.setApplicationCustomMatrix(config)
+ const actual=response();actual.applicationCustomMatrix={approverUserId:78,documentControlUserId:66}
+ assert.throws(()=>state.accept(state.begin(['51','52']),actual))
+})
 test('changing custom actors invalidates old readiness and late replies cannot authorize replacement choice',()=>{
  const m=load(),state=new m.UploadApprovalMatrixState(scope);state.setApplicationCustomMatrix(config);const old=state.begin(['51']);state.setApplicationCustomMatrix({...config,approverUserId:'78'});assert.equal(state.accept(old,response()),false);assert.throws(()=>state.selection('SUBMIT'),/预检|读取|校验/)
  const req=state.begin(['51']);assert.throws(()=>state.accept(req,response()),/本次自定义.*不一致/)

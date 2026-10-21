@@ -1,6 +1,10 @@
 <template>
   <DistributionReadPanel v-if="distributionReadMode" :file-id="controlledFileId"
     :query="route.query" :context-key="route.fullPath" />
+  <ContentWrap v-else-if="accessExplanationError && !fileDetail">
+    <el-alert data-testid="dcc-detail-read-error" :title="accessExplanationError"
+      type="error" :closable="false" show-icon />
+  </ContentWrap>
   <ContentWrap v-else-if="viewerMode">
     <div class="detail-viewer-page">
       <div class="detail-viewer-page__toolbar">
@@ -52,6 +56,7 @@
       />
       <ControlledFileBrowseRecords
         v-if="fileDetail && isWorkingBrowserDetailCurrent" :key="String(fileDetail.id)" :file="fileDetail"
+        :read-authority="readDetailAuthority"
         :category-name="categoryNameMap.get(fileDetail.categoryId) || '未记录'"
         :user-names="userNameMap" :department-names="deptNameMap" @refresh="reloadAll" />
     </div>
@@ -461,6 +466,7 @@
               <el-alert v-if="detailBodyPreviewState.error" :title="detailBodyPreviewState.error" type="error" :closable="false" show-icon />
               <ProtectedPdfViewer
                 v-if="detailBodyPreviewState.source"
+                ref="approvalBodyViewerRef"
                 :controlled-file-id="controlledFileId"
                 :preview-source="detailBodyPreviewState.source"
                 :title="fileDetail?.title || '附件预览'"
@@ -564,6 +570,9 @@
 
     <DetailApplicationHistory
       v-if="fileDetail?.id && hasRelationApplicationContext" :key="relationApplicationContextKey" :file-id="fileDetail.id"
+      :expected-version-no="fileDetail.versionNo"
+      :read-authority="readDetailAuthority"
+      :primary-application-type="detailReadSelectionState.selection?.applicationType"
       :primary-bpm-round="applicationRoundSelection.primaryBpmRound"
       :context-key="applicationRoundContextKey"
       :context-error="applicationRoundSelection.blockedReason"
@@ -575,6 +584,7 @@
     <DetailRelationsPanel
       v-if="fileDetail?.id && fileDetail.masterId && fileDetail.dccProjectCodeId"
       :key="String(fileDetail.id)" :file="fileDetail"
+      :read-authority="readDetailAuthority"
       :application-selection="relationApplicationSelection"
       :allow-edit="showDetailManagementActions && !isExternalReviewProcess" />
 
@@ -699,7 +709,8 @@
 
     <ContentWrap v-if="!isBrowserTraceabilityPage" v-loading="approvalLoading" class="mt-16px">
       <el-alert v-if="approvalProgressError" :title="approvalProgressError" type="error" :closable="false" />
-      <el-alert v-else-if="!approvalProgressScope" title="正在核验本轮审批流程身份；尚未读取的阶段不作推断。" type="info" :closable="false" />
+      <el-alert v-else-if="approvalProgressNotice" :title="approvalProgressNotice" type="info" :closable="false" />
+      <el-alert v-else-if="approvalLoading && !approvalProgressScope" title="正在核验本轮审批流程身份；尚未读取的阶段不作推断。" type="info" :closable="false" />
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">审批阶段进度</div>
         <div class="text-13px text-[var(--el-text-color-secondary)]">
@@ -2814,7 +2825,7 @@ import type { UploadProps, UploadUserFile } from 'element-plus'
 import DetailApplicationHistory from './DetailApplicationHistory.vue'
 import { resolveApplicationRoundSelection, validateApplicationApprovalRead, validateApplicationRoundMappings, requireDelayedConfirmationRound, type ApplicationApprovalRead } from './application-round-context'
 import { getControlledFileApplicationRounds, getControlledFileApplicationProgress } from '@/api/dcc/controlledFile/applicationRead'
-import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, getNativeApprovalProcessText, resolveSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
+import { resolveApprovalProgressScope, buildNativeApprovalProgress, getNativeApprovalFlowUnavailableReason, getNativeApprovalProcessText, resolveSignatureDuty, resolveRecordedSignatureDuty, type ApprovalProgressScope, type ApprovalProgressStage } from './native-approval-progress'
 import DetailRelationsPanel from './DetailRelationsPanel.vue'
 import DetailApplicationPanel from './DetailApplicationPanel.vue'
 import DetailLifecycleProjectionRepairDialog from './DetailLifecycleProjectionRepairDialog.vue'
@@ -2946,6 +2957,7 @@ import ControlledFileMetadataDialog from '../shared/ControlledFileMetadataDialog
 import ProtectedPdfViewer from '../view/index.vue'
 import { buildDccControlledFileAttachmentPreviewSource, buildDccControlledFilePreviewSource } from '@/api/common/filePreview'
 import { normalizeDccBodyReadContext, readDccBodyReadContextRoute, serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
+import { resolveDetailReadSelection } from './detail-read-context'
 import { getDccSignatureOpinionLabel } from '../shared/signature-evidence'
 import {
   buildControlledFileViewerPath,
@@ -2989,6 +3001,11 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
+const currentUserId = computed(() => userStore.getUser.id)
+const detailReadSelectionState = computed(() => {
+  try { return { selection: resolveDetailReadSelection(String(route.params.id || ''), route.query), error: '' } }
+  catch (error) { return { selection: undefined, error: error instanceof Error ? error.message : String(error) } }
+})
 
 const DOC_CONTROL_ROLE_CODE = 'doc_control'
 const APPLICANT_REWORK_TASK_DEFINITION_KEY = 'APPLICANT_REWORK'
@@ -3048,15 +3065,16 @@ const departmentList = ref<DeptVO[]>([])
 const approvalTodoTask = ref<any>()
 const signoffAssignmentState = ref<{ fileId: string; taskId: string; assigned: boolean }>()
 const isSignoffTask = computed(() => !isExternalReviewProcess.value && approvalTodoTask.value?.taskDefinitionKey === 'MATRIX_REVIEW')
-const approvalProcessInstanceId = computed(() => String(route.query.processInstanceId || fileDetail.value?.processInstanceId || ''))
+const approvalProcessInstanceId = computed(() => detailReadSelectionState.value.error ? ''
+  : detailReadSelectionState.value.selection?.bpmRound || fileDetail.value?.processInstanceId || '')
 const applicationApprovalRead = ref<ApplicationApprovalRead>()
 const applicationRoundContextKey = computed(() => JSON.stringify([String(fileDetail.value?.id || ''), route.fullPath, String(currentUserId.value)]))
 const applicationRoundSelection = computed(() => resolveApplicationRoundSelection({
   fileId: fileDetail.value?.id,
   requestedFileId: controlledFileId.value,
   nativeBpmRound: fileDetail.value?.processInstanceId,
-  requestedBpmRound: route.query.processInstanceId,
-  requestedTaskId: route.query.taskId,
+  requestedBpmRound: detailReadSelectionState.value.selection?.bpmRound,
+  requestedTaskId: detailReadSelectionState.value.selection?.taskId,
   contextKey: applicationRoundContextKey.value,
   readContext: applicationApprovalRead.value
 }))
@@ -3092,9 +3110,9 @@ const saveDelayedConfirmation=async(command:DelayedEffectiveConfirmationCommand)
   if(!isDelayedEffectiveTask.value || !delayedConfirmationContext.value)throw new Error('本轮延迟生效确认任务已变化，请重新读取')
   return await confirmDelayedEffectiveness(delayedConfirmationContext.value,command)
 }
-watch(delayedConfirmationIdentity,loadDelayedConfirmation,{flush:'post'})
 onBeforeUnmount(()=>{delayedConfirmationSequence++})
 const approvalProgressError = ref('')
+const approvalProgressNotice = ref('')
 const paperDistributionRecords = ref<ControlledFilePaperDistributionRecordVO[]>([])
 const dccSignatureEvidenceLoading = ref(false)
 const dccSignatureEvidenceList = ref<DccElectronicSignatureVO[]>([])
@@ -3392,6 +3410,7 @@ const applicantTrainingRecordDialog = reactive({
   file: undefined as ControlledFileUploadRespVO | undefined
 })
 
+const approvalBodyViewerRef = ref<InstanceType<typeof ProtectedPdfViewer>>()
 const actionDialog = reactive({
   visible: false,
   submitting: false,
@@ -3539,7 +3558,6 @@ const selectedAttachmentPreviewSource = computed(() =>
     )
     : undefined
 )
-const currentUserId = computed(() => userStore.getUser.id)
 watch(() => [route.fullPath, String(controlledFileId.value), String(fileDetail.value?.id || ''),
   String(approvalTodoTask.value?.id || ''), approvalProcessInstanceId.value, String(currentUserId.value)], () => {
   actionDialogGeneration++
@@ -3564,6 +3582,7 @@ const distributionReadMode = computed(() => route.query.mode === 'distribution-r
 const isBrowserTraceabilityPage = computed(
   () => String(route.query.traceability || '') === '1'
 )
+watch(delayedConfirmationIdentity,loadDelayedConfirmation,{flush:'post'})
 const isApprovalUploadHandlingPage = computed(
   () =>
     String(route.query.handling || '') === 'approval' &&
@@ -3987,13 +4006,17 @@ const publishVisibilityScopeText = computed(() => {
 });
 
 const openControlledBrowserLocation = () => {
+  if (!ensureCurrentDetailContext()) return
   if (!fileDetail.value) {
     return
   }
-  window.open(buildControlledFileViewerPath(controlledFileId.value, 'controlled-browser', route.fullPath), '_blank')
+  const context = resolveDetailBodyReadContext()
+  window.open(buildControlledFileViewerPath(controlledFileId.value, 'controlled-browser', route.fullPath,
+    serializeDccBodyReadContext(controlledFileId.value, context)), '_blank')
 }
 
 const openTraceFileEvidence = (row: SignatureTraceRow) => {
+  if (!ensureCurrentDetailContext()) return
   if (!row.hasFileEvidence) {
     message.warning('当前节点暂无盖章/发布文件证据。')
     return
@@ -4032,7 +4055,9 @@ const hasSignatureTraceFileEvidence = () =>
   Boolean(fileDetail.value?.publishedArtifactAvailable || fileDetail.value?.stampedArtifactAvailable)
 
 const buildSignatureTraceRow = (signature: ControlledFileSignatureSummaryVO): SignatureTraceRow => ({
-  traceRole: resolveSignatureDuty(signature, approvalTaskList.value, approvalProgressScope.value),
+  traceRole: ['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE', 'SUPERSEDED', 'OBSOLETE'].includes(fileDetail.value?.status || '')
+    ? resolveRecordedSignatureDuty(signature, fileDetail.value)
+    : resolveSignatureDuty(signature, approvalTaskList.value, approvalProgressScope.value),
   actorName: getSignatureActorSummary(signature, userNameMap.value),
   approvalCommentText: formatSignatureTraceComment(signature.comment),
   signedAtText: formatControlledFileDateTime(signature.signedAt),
@@ -4158,7 +4183,11 @@ const getVersionHashText = (version: ControlledFileVersionHistoryVO) =>
 const getVersionApprovalResultText = (version: ControlledFileVersionHistoryVO) => {
   if (version.finalizationError) return `生效失败：${version.finalizationError}`
   if (version.rejectReason) return `审批驳回：${version.rejectReason}`
-  if (version.publishedTime) return `已生效：${formatControlledFileDateTime(version.publishedTime)}`
+  if (version.status === 'PENDING_DELAYED_EFFECTIVE_CONFIRM' || version.status === 'CONTROLLED_PENDING_EFFECTIVE') {
+    return getDetailStatusLabel(version.status)
+  }
+  if (version.effectiveTime) return `已生效：${formatControlledFileDateTime(version.effectiveTime)}`
+  if (version.publishedTime) return `已发布：${formatControlledFileDateTime(version.publishedTime)}`
   if (version.approvedTime) return `已批准：${formatControlledFileDateTime(version.approvedTime)}`
   return getDetailStatusLabel(version.status)
 }
@@ -4303,11 +4332,7 @@ const publishCompletionSummaryItems = computed(() => {
   ]
 })
 const getPreviewApprovalProgress = (snapshot: ControlledFileRouteSnapshotVO) =>
-  stageProgressList.value.find(
-    (item) =>
-      item.stageCode === snapshot.stageCode ||
-      item.stageOrder === (snapshot.stageOrder ?? snapshot.stageNo)
-  )
+  stageProgressList.value.find((item) => item.stageCode === snapshot.stageCode)
 
 type ControlledFileDepartmentObligationDetail = {
   snapshotId?: number | null
@@ -4694,6 +4719,8 @@ const shouldLoadControlledPrintRecords = () =>
   controlledPrintAllowed.value
 
 const loadControlledPrintRecords = async () => {
+  const sequence = detailLoadSequence, requestedId = controlledFileId.value, requestedRoute = route.fullPath
+  const isCurrent = () => isCurrentDetailLoad(sequence, requestedId, requestedRoute)
   controlledPrintRecordsError.value = ''
   if (!shouldLoadControlledPrintRecords()) {
     controlledPrintRecords.value = []
@@ -4701,15 +4728,17 @@ const loadControlledPrintRecords = async () => {
   }
   controlledPrintRecordsLoading.value = true
   try {
-    controlledPrintRecords.value = await getControlledFilePrintRecords(controlledFileId.value)
+    const records = await getControlledFilePrintRecords(requestedId)
+    if (isCurrent()) controlledPrintRecords.value = records
   } catch (error) {
+    if (!isCurrent()) return
     controlledPrintRecords.value = []
     controlledPrintRecordsError.value = resolveReadSideErrorMessage(
       error,
       '受控打印记录加载失败，请查看后端错误后重试。'
     )
   } finally {
-    controlledPrintRecordsLoading.value = false
+    if (isCurrent()) controlledPrintRecordsLoading.value = false
   }
 }
 
@@ -4823,6 +4852,8 @@ const loadActivePublishAction = async (
 }
 
 let detailLoadSequence = 0
+const readDetailAuthority = () => JSON.stringify([String(currentUserId.value), String(getTenantId() ?? ''), String(getVisitTenantId() ?? '')])
+let detailLoadAuthority = ''
 const workingBrowserLoadedContext = ref<{ sequence: number; fileId: string; route: string }>()
 const isWorkingBrowserDetailCurrent = computed(() => Boolean(workingBrowserLoadedContext.value
   && workingBrowserLoadedContext.value.sequence === detailLoadSequence
@@ -4833,7 +4864,7 @@ const isWorkingBrowserDetailCurrent = computed(() => Boolean(workingBrowserLoade
 const selectedRelationApplication = ref<DetailRelationApplicationSelection | null>(null)
 const relationApplicationSelectionError = ref('')
 const hasRelationApplicationContext = computed(() => Boolean(fileDetail.value?.processInstanceId
-  || route.query.processInstanceId || route.query.taskId))
+  || detailReadSelectionState.value.selection?.bpmRound || detailReadSelectionState.value.selection?.taskId))
 const relationApplicationContextKey = computed(() => JSON.stringify([
   applicationRoundContextKey.value, workingBrowserLoadedContext.value?.sequence
 ]))
@@ -4852,6 +4883,9 @@ const onApplicationSelectionChange = computed(() => {
       const round = applicationRoundSelection.value
       if (round.blockedReason || (round.lockPrimaryRound && selection.bpmRound !== round.primaryBpmRound))
         throw new Error(round.blockedReason || '所选关联申请不属于当前核验的办理轮次')
+      if (round.lockPrimaryRound && detailReadSelectionState.value.selection?.applicationType
+        && selection.applicationType !== detailReadSelectionState.value.selection.applicationType)
+        throw new Error('所选关联申请类型与详情来源不一致')
       selectedRelationApplication.value = { ...selection }
     } catch (error) {
       relationApplicationSelectionError.value = error instanceof Error ? error.message : String(error)
@@ -4873,10 +4907,12 @@ const isCurrentDetailLoad = (sequence: number, requestedId: string, requestedRou
   isActiveControlledFileDetailRoute(requestedId, requestedRoute) &&
   sequence === detailLoadSequence &&
   requestedId === controlledFileId.value &&
-  requestedRoute === route.fullPath
+  requestedRoute === route.fullPath &&
+  detailLoadAuthority === readDetailAuthority()
 
 const loadData = async (sequence: number, requestedId: string, requestedRoute: string) => {
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
+  const selectedRead = resolveDetailReadSelection(requestedId, route.query || {})
   const canReadControlledFileAuxiliaries = checkPermi(['dcc:controlled-file:query'])
   const [
     detail,
@@ -4887,7 +4923,9 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
     paperRecords,
     approvalPrintTemplate
   ] = await Promise.all([
-    getControlledFile(requestedId),
+    getControlledFile(requestedId, selectedRead.bodyReadContext
+      ? { bodyReadContext: selectedRead.bodyReadContext }
+      : { bpmRound: selectedRead.bpmRound, taskId: selectedRead.taskId, applicationType: selectedRead.applicationType }),
     canReadControlledFileAuxiliaries ? getFileCategoryList() : Promise.resolve([]),
     canReadControlledFileAuxiliaries ? getDirectoryTree() : Promise.resolve([]),
     canReadControlledFileAuxiliaries ? getSimpleUserList() : Promise.resolve([]),
@@ -4903,7 +4941,12 @@ const loadData = async (sequence: number, requestedId: string, requestedRoute: s
     return false
   }
   if (String(detail?.id) !== requestedId) throw new Error('文件详情响应与当前所选文件身份不一致，请重新读取')
+  if (selectedRead.expectedVersionNo && selectedRead.expectedVersionNo !== detail.versionNo)
+    throw new Error('详情响应与来源指定的原始版本不一致')
   fileDetail.value = detail
+  if (selectedRead.bpmRound) applicationApprovalRead.value = {
+    contextKey: applicationRoundContextKey.value, processInstanceId: selectedRead.bpmRound, taskId: selectedRead.taskId || ''
+  }
   workingBrowserLoadedContext.value = { sequence, fileId: requestedId, route: requestedRoute }
   await loadActiveObsoleteAction(detail, sequence, requestedId, requestedRoute)
   if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return false
@@ -4942,13 +4985,14 @@ const loadDccSignatureEvidenceList = async () => {
   const requestedPageNo = dccSignatureEvidenceQueryParams.pageNo
   const requestedPageSize = dccSignatureEvidenceQueryParams.pageSize
   const requestedDetailSequence = detailLoadSequence
+  const requestedAuthority = readDetailAuthority()
   const isCurrentRequest = () =>
     requestSequence === dccSignatureEvidenceRequestSequence &&
     requestedFileId === String(controlledFileId.value || '').trim() &&
     requestedRoute === route.fullPath &&
     requestedPageNo === dccSignatureEvidenceQueryParams.pageNo &&
     requestedPageSize === dccSignatureEvidenceQueryParams.pageSize &&
-    requestedDetailSequence === detailLoadSequence
+    requestedDetailSequence === detailLoadSequence && requestedAuthority === readDetailAuthority()
 
   dccSignatureEvidenceError.value = ''
   if (viewerMode.value || !showSignatureTraceSections.value) {
@@ -5018,24 +5062,26 @@ const loadAccessExplanationOnly = async (
   }
 }
 
-const toNumericUserId = (value: unknown) => {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : undefined
+const toExactUserId = (value: unknown) => {
+  if ((typeof value !== 'string' && typeof value !== 'number')
+    || typeof value === 'number' && !Number.isSafeInteger(value)) return undefined
+  const id = String(value)
+  return /^[1-9][0-9]*$/.test(id) && BigInt(id) <= 9223372036854775807n ? id : undefined
 }
 
 const findCurrentUserTodoTask = (taskList: DccTaskLike[]) => {
-  const userId = toNumericUserId(currentUserId.value)
+  const userId = toExactUserId(currentUserId.value)
   if (userId === undefined) {
     return null
   }
   return (
     taskList.find((task) => {
-      const requestedTaskId = String(route.query.taskId || '')
+      const requestedTaskId = detailReadSelectionState.value.selection?.taskId || ''
       if (task.processInstanceId !== approvalProcessInstanceId.value
-        || (requestedTaskId && task.id !== requestedTaskId)) return false
-      const taskAssigneeId = toNumericUserId(task.assigneeUser?.id)
-      const taskAssigneeUserId = toNumericUserId(task.assigneeUserId)
-      const taskAssignee = toNumericUserId(task.assignee)
+        || (requestedTaskId && String(task.id) !== requestedTaskId)) return false
+      const taskAssigneeId = toExactUserId(task.assigneeUser?.id)
+      const taskAssigneeUserId = toExactUserId(task.assigneeUserId)
+      const taskAssignee = toExactUserId(task.assignee)
       return (
         (taskAssigneeId === userId || taskAssigneeUserId === userId || taskAssignee === userId) &&
         (task.status === DCC_BPM_TASK_STATUS.RUNNING ||
@@ -5080,12 +5126,17 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
   applicationApprovalRead.value = undefined
   approvalProgressScope.value = undefined
   approvalProgressError.value = ''
-  const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
-  const taskId = String(route.query.taskId || '')
+  approvalProgressNotice.value = ''
+  const selectedRead = resolveDetailReadSelection(requestedId, route.query)
+  const processInstanceId = selectedRead.bpmRound || fileDetail.value?.processInstanceId || ''
+  const taskId = selectedRead.taskId || ''
   const formalRead = !taskId && ['ACTIVE', 'CONTROLLED_PENDING_EFFECTIVE', 'SUPERSEDED', 'OBSOLETE'].includes(fileDetail.value?.status || '')
   const trainingProgressRead = !taskId && (canUploadApplicantTrainingRecord.value
     || fileDetail.value?.canReadTrainingApplicationProgress === true)
   if (viewerMode.value || isBrowserTraceabilityPage.value || (formalRead && !trainingProgressRead)) {
+    if (selectedRead.bpmRound) applicationApprovalRead.value = {
+      contextKey: roundContextKey, processInstanceId: selectedRead.bpmRound, taskId
+    }
     approvalTodoTask.value = null
     approvalTaskList.value = []
     approvalLoading.value = false
@@ -5095,6 +5146,17 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
   if ((isBrowserTraceabilityPage.value && !checkPermi(['bpm:task:query'])) || !processInstanceId) {
     approvalTodoTask.value = null
     approvalTaskList.value = []
+    syncStageProgress()
+    return
+  }
+  if (!taskId && !trainingProgressRead && !checkPermi(['bpm:task:query'])) {
+    if (selectedRead.bpmRound) applicationApprovalRead.value = {
+      contextKey: roundContextKey, processInstanceId: selectedRead.bpmRound, taskId
+    }
+    approvalProgressNotice.value = '当前可查阅本轮申请及已发生的审批记录；实时任务进度不在当前权限范围。'
+    approvalTodoTask.value = null
+    approvalTaskList.value = []
+    approvalLoading.value = false
     syncStageProgress()
     return
   }
@@ -5122,8 +5184,7 @@ const loadApprovalDetail = async (sequence = detailLoadSequence, requestedId = c
     if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) {
       return
     }
-    const hasRequestedRoundContext = (route.query.processInstanceId != null && route.query.processInstanceId !== '') ||
-      (route.query.taskId != null && route.query.taskId !== '')
+    const hasRequestedRoundContext = selectedRead.lockRound
     const verifiedRound = hasRequestedRoundContext ? validateApplicationApprovalRead(processInstanceId, taskId, taskList) : undefined
     if (detail?.todoTask) validateApplicationApprovalRead(processInstanceId, String(detail.todoTask.id), [detail.todoTask])
     validateApplicationApprovalRead(processInstanceId, taskId, taskList)
@@ -5160,10 +5221,26 @@ const reloadAll = async () => {
     return
   }
   const sequence = ++detailLoadSequence
+  detailLoadAuthority = readDetailAuthority()
+  fileDetail.value = undefined
+  fileAccessExplanation.value = null
+  paperDistributionRecords.value = []
+  approvalTodoTask.value = null
+  approvalTaskList.value = []
+  stageProgressList.value = []
+  controlledPrintRecords.value = []
+  controlledPrintRecordsLoading.value = false
+  controlledPrintRecordsError.value = ''
+  dccSignatureEvidenceRequestSequence++
+  dccSignatureEvidenceList.value = []
+  dccSignatureEvidenceTotal.value = 0
+  dccSignatureEvidenceLoading.value = false
+  dccSignatureEvidenceError.value = ''
   workingBrowserLoadedContext.value = undefined
   applicationApprovalRead.value = undefined
   approvalProgressScope.value = undefined
   approvalProgressError.value = ''
+  approvalProgressNotice.value = ''
   const requestedId = controlledFileId.value
   const requestedRoute = route.fullPath
   if (!isActiveControlledFileDetailRoute(requestedId, requestedRoute)) {
@@ -5200,7 +5277,8 @@ const reloadAll = async () => {
     await loadAccessExplanationOnly(sequence, requestedId, requestedRoute)
     if (!isCurrentDetailLoad(sequence, requestedId, requestedRoute)) return
     const errorMessage = resolveReadSideErrorMessage(error, '受控文件详情加载失败，请查看权限说明后重试。')
-    message.error(accessExplanationError.value ? `${errorMessage}；${accessExplanationError.value}` : errorMessage)
+    accessExplanationError.value = accessExplanationError.value ? `${errorMessage}；${accessExplanationError.value}` : errorMessage
+    message.error(accessExplanationError.value)
   }
 }
 
@@ -5241,7 +5319,14 @@ const formatAttachmentFileSize = (fileSize: number | null | undefined) => {
   return `${(fileSize / 1024 / 1024).toFixed(2)} MB`
 }
 
+const ensureCurrentDetailContext = () => {
+  if (String(fileDetail.value?.id || '') === controlledFileId.value
+    && isCurrentDetailLoad(detailLoadSequence, controlledFileId.value, route.fullPath)) return true
+  message.warning('当前详情的身份或版本上下文已变化，请重新读取后重试。')
+  return false
+}
 const ensureDetailActionAllowed = (action: Parameters<typeof isDccControlledFileActionAllowed>[1], actionLabel: string) => {
+  if (!ensureCurrentDetailContext()) return false
   if (isDccControlledFileActionAllowed(fileDetail.value, action)) {
     return true
   }
@@ -5271,6 +5356,19 @@ const resolveDetailBodyReadContext = (): DccBodyReadContext => {
     ? scope.applicationType : file.changeType === 'NEW' ? 'UPLOAD' : file.changeType === 'REVISION' ? 'REVISION' : undefined
   const requestTask = route.query.taskId
   const requestRound = route.query.processInstanceId
+  // A live training owner is not an approval-history participant; PREVIEW still comes from the backend.
+  if (!viewerMode.value && requestTask === undefined && file.status === 'PENDING_APPLICANT_TRAINING_RECORD'
+    && file.canReadTrainingApplicationProgress === true && file.fileOwnerSignatureId
+    && String(file.fileOwnerUserId) === String(currentUserId.value)
+    && file.fileOwnerProcessInstanceId === file.processInstanceId
+    && scope?.fileId === controlledFileId.value && scope.bpmRound === file.processInstanceId
+    && (scope.applicationType === 'UPLOAD' || scope.applicationType === 'REVISION')
+    && (requestRound === undefined || requestRound === scope.bpmRound)
+    && isDccControlledFileActionAllowed(file, 'PREVIEW')) {
+    return normalizeDccBodyReadContext(controlledFileId.value, { intent: 'TRAINING_APPLICATION',
+      controlledFileId: controlledFileId.value, expectedVersionNo: file.versionNo,
+      applicationType: scope.applicationType, bpmRound: scope.bpmRound })
+  }
   if (requestTask !== undefined || requestRound !== undefined) {
     if (typeof requestRound !== 'string' || !scope || scope.fileId !== controlledFileId.value || scope.bpmRound !== requestRound)
       throw new Error('正文任务或历史轮次尚未通过正式申请身份核验')
@@ -5295,12 +5393,13 @@ const resolveDetailBodyReadContext = (): DccBodyReadContext => {
 }
 
 const detailBodyPreviewState = computed(() => {
-  if (!fileDetail.value) return { source: undefined, error: '' }
+  if (!fileDetail.value || !isWorkingBrowserDetailCurrent.value) return { source: undefined, error: '' }
   try { return { source: buildDccControlledFilePreviewSource(controlledFileId.value, resolveDetailBodyReadContext()), error: '' } }
   catch (error) { return { source: undefined, error: error instanceof Error ? error.message : String(error) } }
 })
 
 const openAttachmentPreview = (attachment: ControlledFileAttachmentVO) => {
+  if (!ensureCurrentDetailContext()) return
   try { assertAttachmentBelongsToVersion(attachment, controlledFileId.value) }
   catch (error) { message.error(error instanceof Error ? error.message : String(error)); return }
   selectedAttachmentPreview.value = attachment
@@ -5379,6 +5478,7 @@ const handleMetadataSaved = async () => {
 }
 
 const openViewerTraceability = () => {
+  if (!ensureCurrentDetailContext()) return
   const file = fileDetail.value
   if (!file || !isWorkingBrowserDetailCurrent.value || viewerIdentityError.value || String(file.id) !== controlledFileId.value) return
   const nextQuery = { ...route.query }
@@ -5392,6 +5492,7 @@ const openViewerTraceability = () => {
 }
 
 const openHistoryDetail = (id: number | string) => {
+  if (!ensureCurrentDetailContext()) return
   const selected = fileDetail.value?.versionHistory?.find(version => String(version.id) === String(id))
   if (!selected) throw new Error('所选历史版本尚未正式读取')
   const applicationType = selected.changeType === 'NEW' ? 'UPLOAD' : selected.changeType === 'REVISION' ? 'REVISION' : undefined
@@ -5418,20 +5519,23 @@ const closeViewerMode = () => {
 }
 
 const openBpmDetail = () => {
+  if (!ensureCurrentDetailContext()) return
+  const selection = resolveDetailReadSelection(controlledFileId.value, route.query)
   router.push({
     name: 'BpmProcessInstanceDetail',
     query: {
       id:
-        route.query.processInstanceId ||
+        selection.bpmRound ||
         fileDetail.value?.processInstanceId ||
         activeObsoleteAction.value?.bpmProcessInstanceId ||
         activePublishAction.value?.bpmProcessInstanceId,
-      taskId: route.query.taskId
+      taskId: selection.taskId
     }
   })
 }
 
 const openWorkingFileInBrowser = () => {
+  if (!ensureCurrentDetailContext()) return
   const file = fileDetail.value
   if (!file?.id) {
     return
@@ -6989,6 +7093,7 @@ const handleDetailDangerCommand = (command: string) => {
 }
 
 const openActionDialog = (mode: DccApprovalActionMode) => {
+  if (!ensureCurrentDetailContext()) return
   if(isDelayedEffectiveTask.value){message.error('请在本轮延迟生效确认任务选择生效时间并电子签名');return}
   if (isSignoffTask.value && !signoffReadyForReview.value) {
     message.error('请先由部门负责人签名指派，再由实际会签人独立签名。')
@@ -7074,6 +7179,7 @@ const readActionDialogRequest = () => ({
 })
 const actionDialogRequestIsCurrent = (request: ReturnType<typeof readActionDialogRequest>) => actionDialog.visible
   && request.generation === actionDialogGeneration && request.contextKey === actionDialogContextKey.value
+  && isCurrentDetailLoad(detailLoadSequence, controlledFileId.value, route.fullPath)
 
 const returnToCompletedTaskInbox = async (): Promise<boolean> => {
   if (route.query?.handling !== 'approval' || route.query?.from !== 'approval-center') return false
@@ -7098,7 +7204,7 @@ const submitActionDialog = async () => {
     const current = readActionDialogRequest()
     return fingerprint === JSON.stringify([current.form, current.externalForm, current.external, current.collectFourthNodeFiles])
   }
-  let signatureSent = false, signatureSucceeded = false
+  let signatureSent = false, signatureSucceeded = false, resumingReading = false
   const originalRecord = `文件 #${request.fileId}（${getDccVersionDisplayText(request.versionNo)}），原任务 #${request.taskId}`
   actionDialog.submitting = true
   actionDialog.inlineError = ''
@@ -7174,6 +7280,11 @@ const submitActionDialog = async () => {
       if (!isClickedForm())
         throw new Error('批准文件、任务、意见或负责人选择已变化，请重新确认')
     }
+    const readingViewer = approvalBodyViewerRef.value
+    await readingViewer?.pauseReading()
+    if (!isClickedForm() || readingViewer !== approvalBodyViewerRef.value) {
+      throw new Error('批准文件、任务、意见或负责人选择已变化，请重新确认')
+    }
     signatureSent = true
     const result = await submitDccApprovalAction({ fileId: request.fileId, action: request.action, form: request.form, taskId: request.taskId })
     signatureSucceeded = result.success
@@ -7188,7 +7299,13 @@ const submitActionDialog = async () => {
           [result.field]: result.inlineError || ''
         }
       }
-      actionDialog.inlineError = result.inlineError || ''
+      actionDialog.inlineError = result.resultUnconfirmed
+        ? `${result.inlineError || ''} 签名结果未确认，请到原记录核对，勿重复签名。`.trim()
+        : result.inlineError || ''
+      if (isClickedForm() && readingViewer === approvalBodyViewerRef.value) {
+        resumingReading = true
+        await readingViewer?.resumeReading()
+      }
       return
     }
     message.success(buildActionSuccessMessage(request.action, result.response))
@@ -7205,6 +7322,11 @@ const submitActionDialog = async () => {
       if (signatureSent) message.warning(`${originalRecord}的签名请求未确认成功，请到原记录核对结果；当前弹框已保留。`)
       return
     }
+    if (resumingReading) {
+      message.error(`正文阅读恢复失败：${resolveReadSideErrorMessage(error, '请查看正文阅读错误提示')}`)
+      return
+    }
+    if (signatureSent) message.warning(`${originalRecord}的签名结果未确认，请到原记录核对后再操作。`)
     if (isControlledFileTaskPasswordInvalidError(error)) {
       actionDialog.fieldErrors = {
         password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
@@ -7347,6 +7469,10 @@ onBeforeRouteLeave(async () => {
 })
 
 onBeforeUnmount(() => {
+  detailLoadSequence++
+  dccSignatureEvidenceRequestSequence++
+  fileDetail.value = undefined
+  workingBrowserLoadedContext.value = undefined
   clearControlledPrintRecordHighlightTimer()
   stopRelationApplicationContext()
   selectedRelationApplication.value = null
@@ -7378,15 +7504,12 @@ watch(
 watch(
   [currentUserId, approvalTaskList],
   () => {
-    const currentTask = findCurrentUserTodoTask(approvalTaskList.value)
-    if (currentTask) {
-      approvalTodoTask.value = currentTask
-    }
+    approvalTodoTask.value = findCurrentUserTodoTask(approvalTaskList.value)
   }
 )
 
 watch(
-  () => route.fullPath,
+  () => [route.fullPath, String(currentUserId.value), String(getVisitTenantId() || getTenantId() || '')],
   () => {
     reloadAll()
   },

@@ -96,7 +96,7 @@
           <div class="w-full">
             <el-select
               v-model="formData.fileTypeTaxonomyId" class="!w-560px" clearable filterable
-              :loading="fileTypeOptionsLoading" :disabled="!formData.dccProjectCodeId || submitLoading || fileTypeOptionsLoading"
+              :loading="fileTypeOptionsLoading || categoryOptionsLoading" :disabled="!formData.dccProjectCodeId || submitLoading || fileTypeOptionsLoading || categoryOptionsLoading || Boolean(categoryOptionsError)"
               placeholder="请选择启用的文件类型" @change="handleFileTypeTaxonomyChange">
               <el-option v-for="option in uploadFileTypeOptions" :key="option.id" :value="option.id" :label="option.names.join(' / ')" :disabled="Boolean(option.uploadBlocker) || option.approvalSourceMode === null" />
             </el-select>
@@ -734,12 +734,14 @@ const projectAttributesPanel = ref<{
 const projectAttributesPanelKey = ref(0)
 const projectAttributesRestoreSnapshot = ref<AttributeSnapshot>()
 const acceptedProjectCodeId = ref<number | string | null>(null)
+const acceptedProjectCodeOption = ref<DccDiscoveredProject>()
 const projectAttributesLoading = ref(false)
 let projectAttributesSelectionSequence = 0
 const uploadRef = ref()
 const drawingPdfUploadRef = ref()
 const attachmentUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
+const categoryOptionsLoading = ref(true)
 const projectCodeOptions = ref<DccDiscoveredProject[]>([])
 const projectFolders = ref<ProjectFolder[]>([])
 const projectFoldersProjectId = ref<string>()
@@ -1390,7 +1392,10 @@ const loadProjectCodeOptions = async (keyword = '') => {
       status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
-    projectCodeOptions.value = page.list
+    const acceptedProject = acceptedProjectCodeOption.value
+    projectCodeOptions.value = acceptedProject && !page.list.some(project => project.id === acceptedProject.id)
+      ? [acceptedProject, ...page.list]
+      : page.list
   } catch (error) {
     projectCodeOptions.value = []
     const errorMessage = resolveUploadErrorMessage(error, 'DCC 项目候选加载失败，请确认项目代码权限或联系文控管理员。')
@@ -1455,6 +1460,7 @@ const resetCompletedUploadDraft = () => {
   Object.assign(formData, createInitialUploadDraft())
   fileTypeCategoryError.value = ''
   acceptedProjectCodeId.value = null
+  acceptedProjectCodeOption.value = undefined
   projectAttributesRestoreSnapshot.value = undefined
   projectAttributesPanelKey.value++
   projectAttributesLoading.value = false
@@ -1535,6 +1541,7 @@ const applyDccProjectCodeProductNumber = async () => {
 }
 
 const loadBaseData = async () => {
+  categoryOptionsLoading.value = true
   categoryOptionsError.value = ''
   try {
     const [categoryList] = await Promise.all([
@@ -1549,6 +1556,8 @@ const loadBaseData = async () => {
       ? errorMessage
       : `文件类别候选加载失败：${errorMessage}`
     message.error(categoryOptionsError.value)
+  } finally {
+    categoryOptionsLoading.value = false
   }
 }
 
@@ -1600,11 +1609,21 @@ const ensureUploadNameOptionsLoaded = async () => {
   await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
 }
 
+const uploadProjectAttributesEdited = ref(false)
+const uploadProjectAttributesKey = (attributes: AttributeSnapshot['actual']) => JSON.stringify({
+  targetMarkets: [...attributes.targetMarkets].sort(),
+  licenseHolder: attributes.licenseHolder,
+  actualManufacturer: attributes.actualManufacturer,
+  documentTransfer: attributes.documentTransfer,
+  otherMarket: attributes.otherMarket?.trim() ?? '',
+  transferTo: attributes.transferTo?.trim() ?? ''
+})
 const captureProjectAttributes = (snapshot: AttributeSnapshot) => {
   if (snapshot.applicationType !== 'UPLOAD' || snapshot.projectId !== String(formData.dccProjectCodeId)) {
     return
   }
   formData.projectAttributes = JSON.parse(JSON.stringify(snapshot.actual))
+  uploadProjectAttributesEdited.value = uploadProjectAttributesKey(snapshot.actual) !== uploadProjectAttributesKey(snapshot.defaultSource)
 }
 
 const hasUploadApplicationInput = () => Boolean(
@@ -1614,12 +1633,14 @@ const hasUploadApplicationInput = () => Boolean(
   || formData.fileNumber?.trim() || formData.remark?.trim() || formData.effectiveDate || formData.needTraining
   || formData.effectiveMode || formData.relatedControlledFileIds?.length || formData.selectedSignoffDepartmentIds?.length
   || formData.selectedDistributionDepartmentIds?.length
+  || (formData.projectAttributes && uploadProjectAttributesEdited.value)
   || fileList.value.length || drawingPdfFileList.value.length || attachmentFileList.value.length
 )
 
 const handleProjectCodeChange = async () => {
   const sequence = ++projectAttributesSelectionSequence
   const requestedProjectId = formData.dccProjectCodeId
+  const requestedProjectOption = projectCodeOptions.value.find(project => project.id === requestedProjectId)
   const previousProjectId = acceptedProjectCodeId.value
   projectAttributesLoading.value = true
   try {
@@ -1646,7 +1667,7 @@ const handleProjectCodeChange = async () => {
       if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
       formData.dccProjectCodeId = previousProjectId
       if (previousSnapshot) {
-        formData.projectAttributes = JSON.parse(JSON.stringify(previousSnapshot.actual))
+        captureProjectAttributes(previousSnapshot)
         projectAttributesRestoreSnapshot.value = previousSnapshot
         projectAttributesPanelKey.value++
       }
@@ -1654,6 +1675,7 @@ const handleProjectCodeChange = async () => {
     }
     if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
     acceptedProjectCodeId.value = requestedProjectId
+    acceptedProjectCodeOption.value = requestedProjectOption
   } catch (error) {
     if (sequence !== projectAttributesSelectionSequence || formData.dccProjectCodeId !== requestedProjectId) return
     formData.dccProjectCodeId = previousProjectId

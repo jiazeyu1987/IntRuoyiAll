@@ -158,18 +158,25 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
         assertEquals(original,attributes.readValue(saved.getDefaultSourceJson()));
     }
     @Test void h02PublicFileCreationCapturesRealDefaultsAndActualBeforeAnyBpmExists() {
-        var ticket=configurePublicCreation();var request=creationRequest();
+        var ticket=configureAttributeCreation();var request=attributeCreationRequest();
         long id=new TransactionTemplate(manager).execute(s->workflow.createWorkingControlledFile(99L,request));
         var created=files.selectById(id);assertEquals("WORKING",created.getStatus());assertNull(created.getProcessInstanceId());
         var saved=bridge.readReservedDraft(99L,5L,"UPLOAD",id);
         assertEquals(original,attributes.readValue(saved.getDefaultSourceJson()));assertEquals(actual,attributes.readValue(saved.getActualAttributesJson()));
-        assertFalse(saved.getSubmitted());Long replay=new TransactionTemplate(manager).execute(s->workflow.createWorkingControlledFile(99L,creationRequest()));assertEquals(Long.valueOf(id),replay);
+        assertFalse(saved.getSubmitted());Long replay=new TransactionTemplate(manager).execute(s->workflow.createWorkingControlledFile(99L,attributeCreationRequest()));assertEquals(Long.valueOf(id),replay);
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_application_round_link",Integer.class));
         verify(ticket,times(1)).markBound(any());
     }
     @Test void h02PublicFileCreationLateTicketFailureRollsBackTheRealFileMasterClaimRoundAndAttributes() {
-        var ticket=configurePublicCreation();doThrow(new IllegalStateException("late ticket binding failure")).when(ticket).markBound(any());
-        assertThrows(IllegalStateException.class,()->new TransactionTemplate(manager).executeWithoutResult(s->workflow.createWorkingControlledFile(99L,creationRequest())));
+        var ticket=configureAttributeCreation();doAnswer(call->{
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class));
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_master",Integer.class));
+            for(String table:List.of("dcc_controlled_file_name_claim","dcc_application_round_link","dcc_project_application_attributes"))
+                assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class),table);
+            throw new IllegalStateException("late ticket binding failure");
+        }).when(ticket).markBound(any());
+        var failure=assertThrows(IllegalStateException.class,()->new TransactionTemplate(manager).executeWithoutResult(s->workflow.createWorkingControlledFile(99L,attributeCreationRequest())));
+        assertEquals("late ticket binding failure",failure.getMessage());verify(ticket).markBound(any());
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file",Integer.class));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_master",Integer.class));
         for(String table:List.of("dcc_controlled_file_name_claim","dcc_application_round_link","dcc_project_application_attributes"))
@@ -266,8 +273,38 @@ class DccWorkflowAttributesIntegrationTest extends BaseDbUnitTest {
         return ticket;
     }
     @Resource cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNameClaimMapper nameClaims;
-    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO creationRequest(){var request=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO();
-        request.setCategoryId(2L);request.setDirectoryId(3L);request.setDccProjectCodeId(5L);request.setFileTypeTaxonomyId(6L);
+    @Resource DccProjectFolderMapper attributeFolders;
+    private cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService configureAttributeCreation(){
+        var ticket=configurePublicCreation();
+        var taxonomy=(cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService)ReflectionTestUtils.getField(workflow,"fileTypeTaxonomyAdminService");
+        when(taxonomy.resolveActiveCategoryId(6L)).thenReturn(2L);
+        var folder=new cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectFolderDO();
+        folder.setId(500L);folder.setTenantId(1L);folder.setProjectCodeId(5L);folder.setParentId(0L);folder.setName("Attribute fixture folder");folder.setSortOrder(0);folder.setActive(true);attributeFolders.insert(folder);
+        // Storage, ledger and immutable preparation are isolated ports; Workflow, placement orchestration and SQL stay real.
+        var storage=mock(DccProjectFolderStorageService.class);
+        when(storage.resolve(eq(99L),any(),argThat(f->Long.valueOf(500L).equals(f.getId())),eq(2L),eq(6L)))
+            .thenReturn(new DccDerivedUploadStorage(1L,99L,5L,500L,2L,1L,3L,3L,false));
+        var placement=new DccPublicUploadPlacementService();
+        wire(placement,"storage",storage,"projects",projects,"folders",attributeFolders,"files",files,
+            "access",mock(DccProjectAccessService.class),"placements",mock(cn.iocoder.yudao.module.dcc.service.projectcode.folder.DccProjectFilePlacementService.class));
+        var contracts=mock(DccApplicationExecutionContractService.class);
+        when(contracts.requireOrdinaryPublic(DccApplicationExecutionContractService.PUBLIC,"h02-definition","a".repeat(64),DccControlledFileProcessDefinitionKeys.UPLOAD))
+            .thenReturn(new DccApplicationExecutionContractService.Prepared(DccApplicationExecutionContractService.PUBLIC,"h02-definition","a".repeat(64),DccControlledFileProcessDefinitionKeys.UPLOAD));
+        var baseline=mock(DccApprovalMatrixBaselineService.class);
+        when(baseline.creationBaseline(99L,5L,2L,"NEW","h02-baseline","h02-context")).thenReturn("{\"tenantId\":\"1\",\"categoryId\":\"2\",\"fileTypeTaxonomyId\":\"6\"}");
+        wire(workflow,"publicUploadPlacementService",placement,"executionContracts",contracts,"approvalMatrixBaselines",baseline,
+            "approvedProductIdentityMapper",mock(DccApprovedProductIdentityMapper.class));
+        return ticket;
+    }
+    private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO attributeCreationRequest(){
+        var request=creationRequest(null);request.setProjectFolderId(500L);request.setProjectFolderChangeReason("Attribute creation fixture");
+        request.setNeedTraining(false);request.setEffectiveMode("PRESET_DATE");request.setExecutionContract(DccApplicationExecutionContractService.PUBLIC);
+        request.setExpectedProcessDefinitionId("h02-definition");request.setExpectedDefinitionDigest("a".repeat(64));
+        request.setApprovalMatrixBaselineToken("h02-baseline");request.setApplicationContextKey("h02-context");return request;
+    }
+    cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO creationRequest(){return creationRequest(3L);}
+    private cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO creationRequest(Long directoryId){var request=new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO();
+        request.setCategoryId(2L);if(directoryId!=null)request.setDirectoryId(directoryId);request.setDccProjectCodeId(5L);request.setFileTypeTaxonomyId(6L);
         request.setChangeType("NEW");request.setProcessType("CONTROLLED_FILE");request.setFileName("SOP");request.setFileNumber("N-2");request.setEffectiveDate(java.time.LocalDate.now().plusDays(15));
         request.setProjectAttributes(actual);request.setOriginalUploadTicket("test-ticket");request.setSessionId(DccSourceUploadSession.scope(DccSourceUploadSession.newUploadPrefix(5L,6L,"SOP"),"new-draft"));request.setIdempotencyKey("h02-real-create");return request;}
     private void bindInitialBpm(){jdbc.update("UPDATE dcc_controlled_file SET status='PENDING_MATRIX_REVIEW',process_instance_id='opaque-bpm-round',process_definition_key='dcc-controlled-file-upload' WHERE id=20");}

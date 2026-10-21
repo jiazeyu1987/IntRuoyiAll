@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.dcc.service.audit.DccWatermarkTraceCreateCommand;
 import cn.iocoder.yudao.module.dcc.service.token.DccIssuedViewerToken;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenIssueCommand;
 import cn.iocoder.yudao.module.dcc.service.token.DccViewerTokenService;
+import cn.iocoder.yudao.module.dcc.service.token.DccPreviewSourceIdentity;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,18 @@ public class DccControlledPreviewAccessService {
 
     @Transactional(rollbackFor = Exception.class)
     public DccPreviewAccessResult prepareAccess(DccPreviewAccessRequest request) {
+        return prepareAccessInternal(request, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public DccPreviewAccessResult prepareSourceBoundAccess(DccPreviewAccessRequest request, DccPreviewSourceIdentity source) {
+        Objects.requireNonNull(source, "preview source identity");
+        if (request == null || !"PREVIEW".equals(request.accessType()))
+            throw new IllegalArgumentException("Source-bound access is only valid for preview");
+        return prepareAccessInternal(request, source);
+    }
+
+    private DccPreviewAccessResult prepareAccessInternal(DccPreviewAccessRequest request, DccPreviewSourceIdentity source) {
         requireRequest(request);
         LocalDateTime issuedAt = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         // The existing PREVIEW event column is DATETIME(0); persist and expose this same UTC second.
@@ -88,9 +101,11 @@ public class DccControlledPreviewAccessService {
                 request.purpose(), RESULT_SUCCESS, null, null, request.sourceIp(), request.requestId(),
                 request.userAgent()));
 
-        DccIssuedViewerToken issuedToken = viewerTokenService.issue(new DccViewerTokenIssueCommand(
+        var command = new DccViewerTokenIssueCommand(
                 request.tenantId(), request.userId(), request.fileId(), request.versionId(), accessEvent.getId(),
-                request.purpose(), request.ttlSeconds()));
+                request.purpose(), request.ttlSeconds());
+        DccIssuedViewerToken issuedToken = source == null ? viewerTokenService.issue(command)
+                : viewerTokenService.issueSourceBound(command, source);
         return new DccPreviewAccessResult(accessEvent.getId(), accessEventCode, watermarkTrace.getId(),
                 watermarkTraceCode, issuedToken.token(), issuedToken.payload().getTokenId(),
                 issuedToken.payload().getNonce(), issuedAt, expiresAt, watermarkPayloadJson);

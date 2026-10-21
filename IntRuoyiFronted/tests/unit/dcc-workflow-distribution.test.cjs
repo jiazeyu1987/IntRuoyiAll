@@ -62,6 +62,23 @@ function factsModule() {
   const context = { exports: {}, require: () => { throw new Error('Unexpected facts runtime import') }, Error, BigInt }
   vm.runInNewContext(compiled, context); return context.exports
 }
+test('current failed state shows failure time but recovered sent state retains history without a failure banner', async () => {
+  const automaticResult = { controlledFileId: '42', versionNo: 'B/1', approvalProcessInstanceId: 'round-42', batchId: '51',
+    status: 'FAILED', errorCode: 'DELIVERY_FAILED', errorMessage: '原发送失败', failureAt: '2026-10-17 16:31:50' }
+  const view = mount('WorkflowDistributionPanel.vue', { fileId: '42', processInstanceId: 'round-42', versionNo: 'B/1',
+    facts: { status: 'ACTIVE' }, receipts: [], automaticResult })
+  try {
+    assert.match(text(view.rootNode), /实际失败时间/)
+    view.props.automaticResult = { ...automaticResult, status: 'SENT', sentAt: '2026-10-17 16:31:54' }
+    await vue.nextTick()
+    assert.match(text(view.rootNode), /本批通知已全部送达/)
+    assert.doesNotMatch(text(view.rootNode), /实际失败时间/)
+    assert.equal(view.props.automaticResult.failureAt, automaticResult.failureAt)
+    view.props.automaticResult = { ...automaticResult, status: 'DISPATCH_READY' }
+    await vue.nextTick()
+    assert.doesNotMatch(text(view.rootNode), /实际失败时间/)
+  } finally { view.app.unmount() }
+})
 test('pending effective panel states zero receipt tasks and exposes no manual audience controls', () => {
   let calls = 0
   const view = mount('WorkflowDistributionPanel.vue', { fileId: '42', processInstanceId: 'round-42', versionNo: 'B/1',

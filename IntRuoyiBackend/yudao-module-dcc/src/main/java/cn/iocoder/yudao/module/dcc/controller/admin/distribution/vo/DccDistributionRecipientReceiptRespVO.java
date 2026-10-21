@@ -16,6 +16,8 @@ public class DccDistributionRecipientReceiptRespVO {
     private Long recipientId;
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long departmentId;
+    /** 当前接收部门名称；签名时部门仍使用独立快照字段。 */
+    private String departmentName;
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     private Long userId;
     private String currentUserName;

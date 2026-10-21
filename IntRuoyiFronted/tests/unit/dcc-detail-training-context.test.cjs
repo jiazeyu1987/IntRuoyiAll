@@ -91,6 +91,18 @@ test('a false binding response cannot report progression to document control rev
   assert.equal(state.env.applicantTrainingRecordDialog.visible, true)
   assert.ok(state.env.applicantTrainingRecordDialog.inlineError)
 })
+test('a 30-second confirmation timeout stays visible and is never retried or reported successful', async () => {
+  const state = handlers(undefined, async () => { throw new Error('timeout of 30000ms exceeded') })
+  const sessionId = trainingSession(10, 'round-1', 'nonce')
+  state.env.applicantTrainingRecordUploadSessionId.value = sessionId
+  state.env.applicantTrainingRecordDialog.file = ticket(sessionId)
+  await state.submit()
+  assert.equal(state.calls.binds.length, 1)
+  assert.equal(state.calls.successes.length, 0)
+  assert.equal(state.env.applicantTrainingRecordDialog.visible, true)
+  assert.equal(state.env.applicantTrainingRecordDialog.submitting, false)
+  assert.match(state.env.applicantTrainingRecordDialog.inlineError, /timeout of 30000ms exceeded/)
+})
 test('a confirmed training binding reports the upload without inventing a subsequent review', async () => {
   const state = handlers()
   const sessionId = trainingSession(10, 'round-1', 'nonce')

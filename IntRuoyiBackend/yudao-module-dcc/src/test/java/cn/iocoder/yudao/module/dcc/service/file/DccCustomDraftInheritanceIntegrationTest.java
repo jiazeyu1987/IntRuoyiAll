@@ -133,8 +133,12 @@ class DccCustomDraftInheritanceIntegrationTest extends cn.iocoder.yudao.framewor
     SourceContext context(Long id,int round){return new SourceContext(DccApplicationCustomMatrix.ApprovalSourceMode.APPLICATION_CUSTOM,1L,5L,2L,6L,99L,id,round,"UPLOAD",contextKey,definition,digest);}
     DccControlledFileCheckinReqVO input(){var input=new DccControlledFileCheckinReqVO();input.setChangeDescription("preserve actual custom choices");input.setRemark("real metadata change");input.setNeedTraining(false);input.setAttachmentUploadTickets(List.of());return input;}
     void checkout(){var reason=new DccControlledFileCheckoutReqVO();reason.setReason("A34 exact custom checkin");tx().execute(s->query.checkoutControlledFile(99L,20L,reason));}
-    void assertFreshCustom(Long id,String sourceCanonical){var target=files.selectById(id);assertEquals("APPLICATION_CUSTOM",target.getDraftApprovalSourceMode());assertEquals(contextKey,target.getDraftApplicationContextKey());
-        int round=rounds.requireDraft("UPLOAD",id);var actual=new DccApplicationCustomMatrixService().readCanonical(target.getDraftApplicationCustomMatrixJson(),DigestUtil.sha256Hex(target.getDraftApplicationCustomMatrixJson()),context(id,round));
+    void assertFreshCustom(Long id,String sourceCanonical){var target=files.selectById(id);assertEquals("APPLICATION_CUSTOM",target.getDraftApprovalSourceMode());
+        String sourceKey=cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(sourceCanonical).get("context").get("applicationContextKey").asText();
+        assertNotEquals(sourceKey,target.getDraftApplicationContextKey());assertNotNull(target.getDraftApplicationContextKey());
+        int round=rounds.requireDraft("UPLOAD",id);
+        var targetContext=new SourceContext(DccApplicationCustomMatrix.ApprovalSourceMode.APPLICATION_CUSTOM,1L,5L,2L,6L,99L,id,round,"UPLOAD",target.getDraftApplicationContextKey(),definition,digest);
+        var actual=new DccApplicationCustomMatrixService().readCanonical(target.getDraftApplicationCustomMatrixJson(),DigestUtil.sha256Hex(target.getDraftApplicationCustomMatrixJson()),targetContext);
         assertEquals(matrix,actual.applicationCustomMatrix());assertEquals(departments,actual.selectedSignoffDepartmentIds());assertNotEquals(sourceCanonical,target.getDraftApplicationCustomMatrixJson());}
 
     @Test void a34_queryCheckinCallsActualTypedServiceAndPersistsNewVersionRoundCanonical() {

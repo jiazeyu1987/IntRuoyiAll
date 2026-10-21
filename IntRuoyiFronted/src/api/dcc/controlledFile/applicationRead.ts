@@ -897,17 +897,17 @@ export const loadDccProjectBrowserPage = async (
   const directory = query.folderId !== undefined
   if (
     (directory && !query.projectId) ||
-    (!directory && query.projectId !== undefined) ||
     !Number.isInteger(query.pageNo) || query.pageNo < 1 ||
     !Number.isInteger(query.pageSize) || query.pageSize < 1 || query.pageSize > 200
   ) throw new Error('项目文件查询范围或分页无效')
-  const projectId = directory ? identity(query.projectId!) : undefined
+  const projectId = query.projectId === undefined ? undefined : identity(query.projectId)
   const folderId = directory ? identity(query.folderId!) : undefined
   const response = await request.get<{ list: ProjectBrowserRow[]; total: number }>({
     url: '/dcc/controlled-files/browser-page',
     params: {
       browserScope: directory ? 'PROJECT_FOLDER' : 'GLOBAL',
-      ...(directory ? { dccProjectCodeId: projectId, projectFolderId: folderId } : {}),
+      ...(projectId === undefined ? {} : { dccProjectCodeId: projectId }),
+      ...(directory ? { projectFolderId: folderId } : {}),
       latestVersionOnly,
       ...(options.status === undefined ? {} : { status: options.status }),
       keyword: query.keyword, pageNo: query.pageNo, pageSize: query.pageSize
@@ -931,7 +931,8 @@ export const loadDccProjectBrowserPage = async (
       (options.status !== undefined && row.status !== options.status) ||
       (latestVersionOnly && (row.currentActiveControlledFileId == null || identity(row.currentActiveControlledFileId) !== id ||
         row.status !== 'ACTIVE' || row.controlled !== true || row.executable !== true || row.pendingEffect !== false)) ||
-      (directory && (rowProjectId !== projectId || rowFolderId !== folderId))
+      (projectId !== undefined && rowProjectId !== projectId) ||
+      (directory && rowFolderId !== folderId)
     ) throw new Error('项目文件响应包含失配的版本、项目或权限事实')
     if (row.latestControlledFileId != null) identity(row.latestControlledFileId)
     if (row.currentActiveControlledFileId != null) identity(row.currentActiveControlledFileId)

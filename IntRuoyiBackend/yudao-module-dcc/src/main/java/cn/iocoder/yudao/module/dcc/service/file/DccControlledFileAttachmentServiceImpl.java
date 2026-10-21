@@ -66,8 +66,8 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
                 || !Objects.equals(checkout.getMasterId(), source.getMasterId())
                 || !Objects.equals(target.getRequesterId(), actorId) || !"WORKING".equals(target.getStatus())
                 || target.getProcessInstanceId() != null || target.getRevisionChangeType() != null
-                || !java.util.Set.of("WORKING", "REJECTED", "WITHDRAWN", "PENDING_APPLICANT_REWORK", "ACTIVE", "SUPERSEDED")
-                        .contains(String.valueOf(source.getStatus()))
+                || (!java.util.Set.of("WORKING", "REJECTED", "WITHDRAWN", "PENDING_APPLICANT_REWORK")
+                        .contains(String.valueOf(source.getStatus())) && !versionPolicy.isControlledBaseline(source))
                 || !targetVersion.isWorkingIteration() || targetVersion.compareTo(sourceVersion) <= 0
                 || !sourceVersion.formal().display().equals(targetVersion.formal().display())
                 || !Objects.equals(target.getPredecessorControlledFileId(), baseFileId)) {
@@ -174,7 +174,7 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
         if (TenantContextHolder.isIgnore() || actorId == null || actorId <= 0 || selectedFileId == null || selectedFileId <= 0
                 || !TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalArgumentException("普通附件事实读取需要精确身份和正式业务事务");
-        var selected = requireAttachmentVersion(selectedFileId);
+        var selected = readAttachmentVersion(selectedFileId);
         requireAttachmentActor(actorId, selected);
         var facts = new java.util.ArrayList<OrdinaryAttachmentFact>();
         for (var row : ordinaryRows(selected)) {
@@ -250,6 +250,16 @@ public class DccControlledFileAttachmentServiceImpl implements DccControlledFile
     private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO requireAttachmentVersion(Long id) {
         Long tenant = TenantContextHolder.getRequiredTenantId();
         var file = controlledFileMapper.selectByIdAndTenantForUpdate(tenant, id);
+        return requireAttachmentVersionIdentity(file, id, tenant);
+    }
+
+    private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO readAttachmentVersion(Long id) {
+        Long tenant = TenantContextHolder.getRequiredTenantId();
+        return requireAttachmentVersionIdentity(controlledFileMapper.selectById(id), id, tenant);
+    }
+
+    private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO requireAttachmentVersionIdentity(
+            cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO file, Long id, Long tenant) {
         if (file == null || !Objects.equals(file.getId(), id) || !Objects.equals(file.getTenantId(), tenant)
                 || Boolean.TRUE.equals(file.getDeleted()) || file.getMasterId() == null || file.getMasterId() <= 0
                 || file.getDccProjectCodeId() == null || file.getCategoryId() == null)

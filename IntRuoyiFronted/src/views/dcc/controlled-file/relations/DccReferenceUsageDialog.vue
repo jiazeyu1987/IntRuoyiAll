@@ -67,6 +67,8 @@
 </template>
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { getTenantId, getVisitTenantId } from '@/utils/auth'
+import { useUserStore } from '@/store/modules/user'
 import { getProjectReferenceUsagePage } from '@/api/dcc/controlledFile/relations'
 import { getControlledFileRelationPermissions } from '@/api/dcc/controlledFile/applicationRead'
 import { referenceIdentity } from './project-reference-contract'
@@ -87,18 +89,28 @@ const props = defineProps<{
   returnTo: string
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
+const userStore = useUserStore()
+const readReferenceAuthority = () => JSON.stringify([
+  String(userStore.getUser.id), String(getTenantId() ?? ''), String(getVisitTenantId() ?? '')
+])
 const page = ref<ReferenceUsagePage>(),
   loading = ref(false),
   error = ref(''),
   pageNo = ref(1),
   pageSize = 20
 const previewing = ref('')
+const loadedAuthority = ref('')
+let disposed = false
+let closed = false
 let sequence = 0,
   contextGeneration = 0,
   previewSequence = 0
 const statusLabel = (status: string) =>
   getDccControlledFileStatusLabel(status as DccControlledFileStatus)
 const close = () => {
+  closed = true
+  loadedAuthority.value = ''
+  error.value = ''
   sequence++
   contextGeneration++
   previewSequence++
@@ -108,35 +120,57 @@ const close = () => {
   emit('update:modelValue', false)
 }
 const load = async () => {
-  if (!props.modelValue) return
+  if (disposed || closed || !props.modelValue) return
   const token = ++sequence,
-    generation = contextGeneration
+    generation = contextGeneration,
+    authority = readReferenceAuthority()
+  const isCurrent = () => token === sequence && generation === contextGeneration
+    && !disposed && !closed && props.modelValue && authority === readReferenceAuthority()
   const context = {
     tenantId: props.source.tenantId,
     sourceControlledFileId: props.source.controlledFileId,
     masterId: props.source.masterId
   }
   page.value = undefined
+  loadedAuthority.value = ''
   loading.value = true
   error.value = ''
   previewSequence++
   previewing.value = ''
   try {
     const result = await getProjectReferenceUsagePage(context, pageNo.value, pageSize)
-    if (token === sequence && generation === contextGeneration) page.value = result
+    if (isCurrent()) {
+      page.value = result
+      loadedAuthority.value = authority
+    }
   } catch (cause) {
-    if (token === sequence && generation === contextGeneration)
+    if (isCurrent())
       error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (token === sequence && generation === contextGeneration) loading.value = false
+    if (isCurrent()) loading.value = false
   }
 }
 const preview = async (row: ReferenceUsageRow) => {
+  if (disposed || closed || !props.modelValue || !page.value) return
+  if (loadedAuthority.value !== readReferenceAuthority()) {
+    sequence++
+    contextGeneration++
+    previewSequence++
+    page.value = undefined
+    loadedAuthority.value = ''
+    loading.value = false
+    previewing.value = ''
+    error.value = '引用权限上下文已变化，请刷新当前详情后重试'
+    return
+  }
   const saved = page.value?.list.find((entry) => entry.referenceId === row.referenceId)
   if (!saved || !saved.canPreview || loading.value || previewing.value) return
   const generation = contextGeneration,
     token = ++previewSequence,
+    authority = readReferenceAuthority(),
     expected = { ...saved }
+  const isCurrent = () => generation === contextGeneration && token === previewSequence
+    && !disposed && !closed && props.modelValue && authority === readReferenceAuthority()
   previewing.value = row.referenceId
   error.value = ''
   try {
@@ -145,7 +179,7 @@ const preview = async (row: ReferenceUsageRow) => {
     const metadata = await getControlledFileRelationPermissions(
       referenceIdentity(expected.selectedControlledFileId)
     )
-    if (generation !== contextGeneration || token !== previewSequence || !props.modelValue) return
+    if (!isCurrent()) return
     if (
       metadata.tenantId !== props.source.tenantId ||
       metadata.masterId !== props.source.masterId ||
@@ -177,15 +211,17 @@ const preview = async (row: ReferenceUsageRow) => {
     if (!opened) throw new Error('正文窗口未打开，请允许此站点打开新窗口')
     opened.opener = null
   } catch (cause) {
-    if (generation === contextGeneration && token === previewSequence)
+    if (isCurrent())
       error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
-    if (generation === contextGeneration && token === previewSequence) previewing.value = ''
+    if (isCurrent()) previewing.value = ''
   }
 }
 watch(
   () => [props.modelValue, props.contextKey, props.source],
   () => {
+    closed = !props.modelValue
+    loadedAuthority.value = ''
     sequence++
     contextGeneration++
     previewSequence++
@@ -199,6 +235,9 @@ watch(
   { immediate: true, flush: 'sync' }
 )
 onBeforeUnmount(() => {
+  disposed = true
+  loadedAuthority.value = ''
+  error.value = ''
   sequence++
   contextGeneration++
   previewSequence++

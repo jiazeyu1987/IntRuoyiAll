@@ -313,6 +313,47 @@ public class DccRevisionAttachmentsDatabaseTest {
         assertThrows(RuntimeException.class,()->f.tx.execute(s->query.checkinControlledFile(99L,20L,input)));assertEquals(before,f.snapshot());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"REJECTED","PENDING_APPLICANT_REWORK"})
+    void correctionCheckinSavesTwoFreshAttachmentsWithoutCopyingHistoricalTraining(String status) throws Exception {
+        var query=f.configureQuery();
+        // Persist an already-bound prior application; this case exercises check-in, not BPM rejection.
+        f.jdbc.update("UPDATE dcc_controlled_file SET status=?,process_instance_id='prior-correction-round',training_record_file_id=199 WHERE id=20",status);
+        f.jdbc.execute("CREATE TABLE dcc_application_round_link(tenant_id BIGINT,project_id BIGINT,application_type VARCHAR(16),application_id BIGINT,bpm_round VARCHAR(64),attribute_round INT)");
+        f.jdbc.update("INSERT INTO dcc_application_round_link VALUES(1,5,'UPLOAD',20,'prior-correction-round',1)");
+        var rounds=new DccApplicationRoundService();Fixture.wire(rounds,"jdbc",f.jdbc,"files",f.files);
+        ReflectionTestUtils.setField(query,"applicationRoundService",rounds);
+        var execution=(DccApplicationExecutionContractService)ReflectionTestUtils.getField(query,"executionContracts");
+        when(execution.inheritPrepared(eq(99L),anyLong(),eq(20L),eq(1))).thenReturn(
+                new DccApplicationExecutionContractService.Prepared("LEGACY","exact-definition","d".repeat(64),"dcc-upload"));
+        when(execution.readInheritedDraftFacts(eq(99L),anyLong(),eq(20L),eq(1))).thenReturn(
+                new DccApplicationExecutionContractService.DraftFacts(true,false,"{}","[]","AFTER_STANDARDIZATION_SIGNATURE",null,"[]","[]",false,null,null,null));
+        f.training();
+        f.jdbc.update("UPDATE dcc_controlled_file_attachment SET controlled_file_id=20 WHERE attachment_purpose='TRAINING_RECORD'");
+        var historicalTraining=f.rows(20L);
+        var result=f.tx.execute(s->query.checkinControlledFile(99L,20L,f.checkinRequest()));
+        assertEquals("WORKING",result.getStatus());assertEquals("A/1-1",result.getVersionNo());
+        assertEquals(List.of(111L,112L),f.rows(result.getId()).stream().map(DccControlledFileAttachmentDO::getStorageFileId).toList());
+        assertTrue(f.rows(result.getId()).stream().allMatch(row->"ATTACHMENT".equals(row.getAttachmentPurpose())
+                && Objects.equals(result.getId(),row.getControlledFileId()) && row.getApplicationProcessInstanceId()==null));
+        assertEquals(historicalTraining,f.rows(20L));
+        assertNull(f.files.selectById(result.getId()).getTrainingRecordFileId());
+        assertEquals(3,f.jdbc.queryForObject("SELECT COUNT(*) FROM dcc_controlled_file_temporary_file WHERE bound_controlled_file_id=? AND status='BOUND'",Integer.class,result.getId()));
+        assertEquals(2,result.getAttachments().size());assertNotNull(result.getOrdinaryAttachmentManifestHash());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"REJECTED","PENDING_APPLICANT_REWORK"})
+    void correctionCheckinCannotUseTwoFreshAttachmentsToBypassFreshBodyRequirement(String status) throws Exception {
+        var query=f.configureQuery();f.jdbc.update("UPDATE dcc_controlled_file SET status=? WHERE id=20",status);
+        var input=f.checkinRequest();input.setUploadTicket(null);input.setSessionId(null);
+        String before=f.snapshot();int bytes=f.bytes.size();
+        var denied=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->f.tx.execute(s->query.checkinControlledFile(99L,20L,input)));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CHECKIN_REQUEST_INVALID.getCode(),denied.getCode());
+        assertEquals(before,f.snapshot());assertEquals(bytes,f.bytes.size());
+    }
+
     @Test void a20_remarkNullVersusExplicitClearAndChangedTrainingCannotReplay() throws Exception {
         var query=f.configureQuery();var input=f.checkinRequest();input.setRemark(null);f.tx.execute(s->query.checkinControlledFile(99L,20L,input));String before=f.snapshot();
         input.setRemark("");assertThrows(RuntimeException.class,()->f.tx.execute(s->query.checkinControlledFile(99L,20L,input)));assertEquals(before,f.snapshot());
@@ -379,8 +420,9 @@ public class DccRevisionAttachmentsDatabaseTest {
         var guard=new DccControlledFileDetailAuthorizationGuard();mockDependenciesForGuard(guard);
         assertThrows(RuntimeException.class,()->guard.requireBodyRead(99L,file,DccControlledFileBodyReadContext.daily(20L)));
     }
-    @Test void a23_manifestHasStableOrderAndByteFactsAndRejectsAbsentServerHash() {
-        f.bind();var manifest=f.tx.execute(s->f.attachments.readOrdinaryAttachmentManifest(99L,21L));
+    @Test void a23_manifestHasStableOrderAndByteFactsAndRejectsAbsentServerHash() throws Exception {
+        var query=f.configureQuery();var saved=f.tx.execute(s->query.checkinControlledFile(99L,20L,f.checkinRequest()));
+        var manifest=f.tx.execute(s->f.attachments.readOrdinaryAttachmentManifest(99L,saved.getId()));
         assertEquals(f.ids(),manifest.attachmentIds());assertEquals(List.of(0,1),manifest.facts().stream().map(DccControlledFileAttachmentService.OrdinaryAttachmentFact::sortNo).toList());
         assertEquals(DigestUtil.sha256Hex(new byte[]{1,2,3}),manifest.facts().get(0).fileSha256());
         assertThrows(UnsupportedOperationException.class,()->manifest.facts().clear());

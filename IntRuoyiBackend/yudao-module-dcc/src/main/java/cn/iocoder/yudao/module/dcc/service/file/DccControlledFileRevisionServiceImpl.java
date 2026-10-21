@@ -98,23 +98,38 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                 || !selectedVersion.isWorkingIteration() || selected.getRevisionChangeType()!=null
                 || selected.getRevisionBaseActiveControlledFileId()!=null)
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
-        if (chain.stream().anyMatch(v -> !sameLogicalIdentity(selected,v)
+        if (chain.stream().anyMatch(v -> !(sameLogicalIdentity(selected,v) || executionContracts.isRecordedNewTypeChangeHistory(userId,selected,v))
                 || !Objects.equals(selected.getSourceOriginalFileName(),v.getSourceOriginalFileName())
                 || !Set.of("WORKING","DRAFT","REJECTED","WITHDRAWN").contains(v.getStatus())
-                || v.getSelectedIterationControlledFileId()!=null && v.getRevisionChangeType()!=null))
+                || v.getSelectedIterationControlledFileId()!=null && v.getRevisionChangeType()!=null && !"INITIAL".equals(v.getRevisionChangeType())))
             throw exception(CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
         var byId = chain.stream().collect(java.util.stream.Collectors.toMap(DccControlledFileDO::getId,v -> v));
         var ancestor = selected;
         var visited = new java.util.HashSet<Long>();
-        while (versionPolicy.requireStored(ancestor).isWorkingIteration()) {
+        var failedInitials = new java.util.ArrayList<DccControlledFileDO>();
+        while (versionPolicy.requireStored(ancestor).isWorkingIteration() || ancestor.getPredecessorControlledFileId()!=null) {
             if (!visited.add(ancestor.getId()) || !"NEW".equals(ancestor.getChangeType())
-                    || ancestor.getRevisionBaseActiveControlledFileId()!=null || ancestor.getRevisionChangeType()!=null
+                    || ancestor.getRevisionBaseActiveControlledFileId()!=null || ancestor.getControlledTime()!=null
                     || !Objects.equals(userId,ancestor.getRequesterId()) || ancestor.getPredecessorControlledFileId()==null)
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
             var previous = byId.get(ancestor.getPredecessorControlledFileId());
-            if (previous==null || !versionPolicy.requireStored(previous).formal().display().equals(selectedVersion.formal().display())
-                    || versionPolicy.requireStored(previous).compareTo(versionPolicy.requireStored(ancestor))>=0)
+            if (previous==null || !versionPolicy.requireStored(previous).formal().display().equals(selectedVersion.formal().display()))
                 throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+            if(versionPolicy.requireStored(ancestor).isWorkingIteration()){
+                if(!"WORKING".equals(ancestor.getStatus()) || ancestor.getRevisionChangeType()!=null
+                        ||versionPolicy.requireStored(previous).compareTo(versionPolicy.requireStored(ancestor))>=0)
+                    throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+            }else{
+                // A failed INITIAL points back to its frozen selected body, not to a lower formal version.
+                if(!"INITIAL".equals(ancestor.getRevisionChangeType()) || !Set.of("REJECTED","WITHDRAWN").contains(ancestor.getStatus())
+                        ||!sameLogicalIdentity(selected,ancestor)||ancestor.getRevisionSourceControlledFileId()!=null
+                        ||!Objects.equals(previous.getId(),ancestor.getSelectedIterationControlledFileId())
+                        ||!Objects.equals(previous.getVersionNo(),ancestor.getSelectedIterationVersionNo())
+                        ||!versionPolicy.requireStored(previous).isWorkingIteration()
+                        ||!Objects.equals(previous.getSourceSha256(),ancestor.getSourceSha256()))
+                    throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+                requireFailedProcess(ancestor);failedInitials.add(ancestor);
+            }
             ancestor = previous;
         }
         if (!"NEW".equals(ancestor.getChangeType()) || ancestor.getPredecessorControlledFileId()!=null
@@ -123,11 +138,20 @@ public class DccControlledFileRevisionServiceImpl implements DccControlledFileRe
                 || ancestor.getRevisionChangeType()!=null && !"INITIAL".equals(ancestor.getRevisionChangeType())
                 || !versionPolicy.requireStored(ancestor).display().equals(selectedVersion.formal().display()))
             throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        if(chain.stream().filter(v->"INITIAL".equals(v.getRevisionChangeType())&&v.getSelectedIterationControlledFileId()!=null).count()!=failedInitials.size())
+            throw exception(CONTROLLED_FILE_WORKFLOW_IN_PROGRESS);
+        for(int i=0;i<failedInitials.size();i++){
+            var failed=failedInitials.get(i);
+            if((failed.getRevisionAttemptNo()==null?1:failed.getRevisionAttemptNo())!=failedInitials.size()-i
+                    ||!Objects.equals(failed.getReworkPredecessorControlledFileId(),i+1<failedInitials.size()?failedInitials.get(i+1).getId():null))
+                throw exception(CONTROLLED_FILE_CHECKIN_NOT_ALLOWED);
+        }
         var checkout = checkoutMapper.selectActiveByMasterId(tenant,master.getId());
         if (checkout!=null) throw exception(CONTROLLED_FILE_ALREADY_CHECKED_OUT,checkout.getActorId());
         nameClaimService.claimExistingVersion(tenant,selected.getSourceOriginalFileName(),master.getDccProjectCodeId(),
                 master.getFileTypeTaxonomyLeafId(),master.getNormalizedFileNumber(),master.getId(),selected.getId());
-        return freezeCandidate(userId,selected,selectedVersion.formal(),null,request,hash,true);
+        var attempt=failedInitials.isEmpty()?null:new DccRevisionReworkPolicy.Attempt(failedInitials.get(0),Math.addExact(failedInitials.size(),1));
+        return freezeCandidate(userId,selected,selectedVersion.formal(),null,request,hash,true,attempt);
     }
 
     @Override

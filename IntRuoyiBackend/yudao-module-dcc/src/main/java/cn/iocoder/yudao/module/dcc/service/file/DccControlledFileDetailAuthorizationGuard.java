@@ -70,10 +70,7 @@ class DccControlledFileDetailAuthorizationGuard {
                 requireReadableProject(userId, file);
             }
             case VERSION_HISTORY -> {
-                if (!Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE").contains(file.getStatus())
-                        || file.getPublishedFileId() == null) bodyDenied();
-                requireReadableProject(userId, file);
-                requireMasterIdentity(file);
+                if (!canReadRetainedVersion(userId, file, null)) bodyDenied();
             }
             case AUTHORING -> {
                 if (Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE", "CONTROLLED_PENDING_EFFECTIVE").contains(file.getStatus())) bodyDenied();
@@ -127,14 +124,31 @@ class DccControlledFileDetailAuthorizationGuard {
                 || !projectAccessService.listReadableProjectIds(actor).contains(file.getDccProjectCodeId())) bodyDenied();
     }
 
+    boolean canReadRetainedVersion(Long userId, DccControlledFileDO file, Map<Long, Boolean> viewMatrixCache) {
+        if (file == null || file.getId() == null || file.getStatus() == null || Boolean.TRUE.equals(file.getDeleted())
+                || !Set.of("ACTIVE", "SUPERSEDED", "OBSOLETE").contains(file.getStatus())
+                || file.getPublishedFileId() == null || file.getPublishedFileId() <= 0
+                || !Objects.equals(file.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !hasAuthenticatedActor(userId, file)
+                || !assignmentScopeService.isWithinAssignedFileScope(userId, file.getId())
+                || file.getDccProjectCodeId() == null
+                || !projectAccessService.listReadableProjectIds(userId).contains(file.getDccProjectCodeId())
+                || !matchesMasterIdentity(file)) return false;
+        return hasAuthorizedDirectoryAccess(userId, file) || canAccessCurrentViewMatrix(userId, file, viewMatrixCache);
+    }
+
     private void requireMasterIdentity(DccControlledFileDO file) {
+        if (!matchesMasterIdentity(file)) bodyDenied();
+    }
+
+    private boolean matchesMasterIdentity(DccControlledFileDO file) {
         var master = file.getMasterId() == null ? null : masterMapper.selectById(file.getMasterId());
-        if (master == null || Boolean.TRUE.equals(master.getDeleted()) || !Objects.equals(master.getId(), file.getMasterId())
-                || !Objects.equals(master.getTenantId(), file.getTenantId())
-                || !Objects.equals(master.getDccProjectCodeId(), file.getDccProjectCodeId())
-                || !Objects.equals(master.getCategoryId(), file.getCategoryId())
-                || !Objects.equals(master.getFileTypeTaxonomyLeafId(), file.getFileTypeTaxonomyId())
-                || !Objects.equals(master.getNormalizedFileNumber(), file.getFileNumber())) bodyDenied();
+        return master != null && !Boolean.TRUE.equals(master.getDeleted()) && Objects.equals(master.getId(), file.getMasterId())
+                && Objects.equals(master.getTenantId(), file.getTenantId())
+                && Objects.equals(master.getDccProjectCodeId(), file.getDccProjectCodeId())
+                && Objects.equals(master.getCategoryId(), file.getCategoryId())
+                && Objects.equals(master.getFileTypeTaxonomyLeafId(), file.getFileTypeTaxonomyId())
+                && Objects.equals(master.getNormalizedFileNumber(), file.getFileNumber());
     }
 
     private record BodyRound(String definitionId, String startUserId, boolean active) {}
@@ -202,6 +216,10 @@ class DccControlledFileDetailAuthorizationGuard {
             return true;
         }
         if (userId != null && userId.equals(file.getRequesterId())) {
+            return true;
+        }
+        if (file != null && (isObsolete(file) || "SUPERSEDED".equals(file.getStatus()))
+                && canReadRetainedVersion(userId, file, viewMatrixCache)) {
             return true;
         }
         if (directoryManager) {

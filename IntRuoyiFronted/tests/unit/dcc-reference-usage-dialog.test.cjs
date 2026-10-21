@@ -67,6 +67,8 @@ function mount(options = {}) {
     exports = {},
     events = []
   const deps = {
+    '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => null },
+    '@/store/modules/user': { useUserStore: () => ({ getUser: { id: 99 } }) },
     '@/api/dcc/controlledFile/relations': {
       getProjectReferenceUsagePage: async (context) => {
         calls.push(['page', context])

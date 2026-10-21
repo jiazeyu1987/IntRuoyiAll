@@ -8,6 +8,9 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.*;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 import java.time.LocalDateTime;
@@ -24,6 +27,7 @@ class DccDistributionRecipientProjectionTest extends BaseMockitoUnitTest {
     @Mock DccControlledFileSignatureMapper signatureMapper;
     @Mock PermissionApi permissionApi;
     @Mock AdminUserApi adminUserApi;
+    @Mock DeptApi deptApi;
     @Mock DccControlledFileCategoryPermissionSupport permissionSupport;
     @Mock cn.iocoder.yudao.module.dcc.service.projectcode.access.DccProjectAccessService projects;
     @InjectMocks DccDistributionTaskServiceImpl service;
@@ -73,5 +77,27 @@ class DccDistributionRecipientProjectionTest extends BaseMockitoUnitTest {
     @Test void menuPermissionDoesNotReplaceDocumentControlRole() {
         when(permissionApi.hasAnyRoles(99L,"doc_control")).thenReturn(false);assertThrows(Exception.class,this::project);
         verifyNoInteractions(distributionMapper,distributionRecipientMapper);
+    }
+    @Test void receivingDepartmentNameComesFromDistributionWithoutRewritingSendOrSignatureFacts() throws Exception {
+        var department = new DeptRespDTO(); department.setId(61L); department.setName("实际接收部门");
+        when(deptApi.getDept(61L)).thenReturn(department);
+        var row = project().get(0);
+        var json = JsonUtils.parseTree(JsonUtils.toJsonString(row));
+        assertEquals(61L, row.getDepartmentId());
+        assertEquals("实际接收部门", json.path("departmentName").asText());
+        assertEquals("FAILED", row.getMessageStatus());
+        assertEquals("平台明确失败", row.getErrorMessage());
+        assertNull(row.getSentAt()); assertNull(row.getSignedAt()); assertNull(row.getSignerDepartmentNameSnapshot());
+        verify(deptApi).getDept(61L);
+        verify(distributionMapper, never()).updateById(any(DccControlledFileDistributionDO.class));
+        verify(distributionRecipientMapper, never()).updateById(any(DccControlledFileDistributionRecipientDO.class));
+        verify(messageJobMapper, never()).updateById(any(DccControlledFileMessageJobDO.class));
+    }
+    @Test void missingDepartmentDoesNotInventANameFromRecipientOrSignature() throws Exception {
+        var row = project().get(0);
+        var json = JsonUtils.parseTree(JsonUtils.toJsonString(row));
+        assertEquals(61L, row.getDepartmentId());
+        assertTrue(json.path("departmentName").isNull() || json.path("departmentName").isMissingNode());
+        assertEquals("当前账号名称", row.getCurrentUserName());
     }
 }

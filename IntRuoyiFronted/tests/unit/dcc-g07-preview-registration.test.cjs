@@ -6,7 +6,7 @@ const script = parse(fs.readFileSync('src/views/dcc/controlled-file/view/index.v
 const ast = ts.createSourceFile('viewer.ts', script, ts.ScriptTarget.Latest, true)
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => { resolve=a; reject=b }); return { promise, resolve, reject } }
 function load({ kind='TEXT', metadataTime='2026-10-15T00:30:10Z', bodyGate, local=false }={}) {
-  const names=['registeredPreviewVisible','clearRegisteredPreview','registeredPreviewLabel','markRegisteredPreviewVisible','handleMediaLoaded','handleMediaError','handleOfficeOpened','handleOfficeError','loadPreview']
+  const names=['identityId','readPreviewIdentity','matchesPreviewIdentity','registeredPreviewVisible','clearRegisteredPreview','registeredPreviewLabel','markRegisteredPreviewVisible','handleMediaLoaded','handleMediaError','handleOfficeOpened','handleOfficeError','loadPreview']
   const statements=names.map(name => {
     const statement=ast.statements.find(node=>ts.isVariableStatement(node)&&node.declarationList.declarations.some(d=>d.name.text===name))
     assert.ok(statement,'actual viewer declaration missing: '+name)
@@ -17,6 +17,10 @@ function load({ kind='TEXT', metadataTime='2026-10-15T00:30:10Z', bodyGate, loca
   const host={exports:{},...vue,TextDecoder,Intl,Date,Number,URL:{createObjectURL:()=> 'blob:exact'},
     props:{title:'所选正文',...(local?{previewKind:kind,previewBlob:new Uint8Array([1,2])}: {})},
     previewUnmounted:false,renderVersion:vue.ref(0),loading:vue.ref(false),errorMessage:vue.ref(''),
+    previewIdentitySnapshot:null,previewIdentityInvalidated:false,
+    getAccessToken:()=> 'viewer-fixture-auth',getTenantId:()=> '31',getVisitTenantId:()=>undefined,
+    CACHE_KEY:{USER:'USER'},previewIdentityCache:{get:()=>({user:{id:'99'}})},
+    readingSourceSnapshot:vue.shallowRef(null),readingError:vue.ref(''),closePreviewReading(){},startPreviewReading:async()=>{},
     resolvedPreviewMetadata:vue.shallowRef(null),resolvedPreviewKind:vue.ref(''),resolvedOnlyOfficeBaseUrl:vue.ref(''),
     resolvedOnlyOfficeDocumentUrl:vue.ref(''),resolvedPreviewUnavailableReason:vue.ref(''),resolvedFileName:vue.ref(''),
     resolvedWatermark:vue.ref(null),mediaObjectUrl:vue.ref(''),textPreviewContent:vue.ref(''),currentPdfBytes:vue.ref(null),

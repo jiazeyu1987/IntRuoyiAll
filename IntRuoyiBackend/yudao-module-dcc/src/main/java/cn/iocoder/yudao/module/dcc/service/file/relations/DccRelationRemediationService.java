@@ -87,7 +87,7 @@ public class DccRelationRemediationService {
         if(event==null || !Objects.equals(tenant,event.tenantId()) || event.masterId()==null || event.controlledFileId()==null
                 || event.applicationRound()==null || event.applicationRound().isBlank() || event.applicationRound().length()>64
                 || event.eventKey()==null || event.eventKey().isBlank() || event.eventKey().length()>128
-                || event.controlledAt()==null || event.controlledAt().getNano()!=0) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_CONTROLLED_EVENT_INVALID");
+                || event.controlledAt()==null || event.controlledAt().getNano()%1000!=0) throw new cn.iocoder.yudao.module.dcc.service.file.relations.DccRelationFailure("DCC_CONTROLLED_EVENT_INVALID");
         store.lockMaster(tenant,event.masterId());
         var previous=store.jdbc().query("SELECT master_id,controlled_file_id,application_round,event_key,controlled_at FROM dcc_relation_controlled_event "
                 + "WHERE tenant_id=? AND (event_key=? OR (controlled_file_id=? AND application_round=?)) FOR UPDATE",

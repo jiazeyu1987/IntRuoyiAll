@@ -11,6 +11,14 @@ import java.time.LocalDateTime;
 
 @Mapper
 public interface DccControlledFileNameClaimMapper extends BaseMapperX<DccControlledFileNameClaimDO> {
+    @Update("""
+            UPDATE dcc_controlled_file_name_claim SET file_type_taxonomy_leaf_id=#{targetLeaf},update_time=CURRENT_TIMESTAMP
+            WHERE tenant_id=#{tenant} AND id=#{id} AND master_id=#{master} AND dcc_project_code_id=#{project}
+              AND file_type_taxonomy_leaf_id=#{sourceLeaf} AND normalized_file_number=#{number}
+              AND source_original_file_name IS NOT NULL AND obsolete_time IS NULL AND deleted=0
+            """)
+    int rebindNewWorkingType(@Param("tenant") Long tenant,@Param("id") Long id,@Param("master") Long master,
+            @Param("project") Long project,@Param("sourceLeaf") Long sourceLeaf,@Param("targetLeaf") Long targetLeaf,@Param("number") String number);
 
     @Select("""
             SELECT *

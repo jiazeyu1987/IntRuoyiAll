@@ -438,6 +438,16 @@
                   检出
                 </el-button>
                 <el-button
+                  v-if="canOpenWorkingTypeStorageRecovery(row)"
+                  v-hasPermi="['dcc:controlled-file:submit']"
+                  data-testid="dcc-working-type-storage-recovery-open"
+                  link
+                  type="primary"
+                  @click="openWorkingTypeStorageRecovery(getSelectedVersion(row))"
+                >
+                  核对类型存储
+                </el-button>
+                <el-button
                   v-if="isCheckedOutByCurrentUser(getSelectedVersion(row))"
                   data-testid="dcc-controlled-browser-checkin"
                   link
@@ -1104,6 +1114,12 @@
     </template>
   </el-dialog>
 
+  <WorkingTypeStorageRecoveryDialog
+    v-if="workingTypeStorageRecoveryMounted"
+    v-model="workingTypeStorageRecoveryVisible"
+    :file-id="workingTypeStorageRecoveryFileId"
+    @recovered="getList"
+  />
   <ControlledFileMetadataDialog
     v-if="metadataDialogMounted"
     v-model="metadataDialogVisible"
@@ -1214,6 +1230,9 @@ defineOptions({ name: 'DccControlledFileBrowser' })
 
 const ControlledFileMetadataDialog = defineAsyncComponent(
   () => import('../shared/ControlledFileMetadataDialog.vue')
+)
+const WorkingTypeStorageRecoveryDialog = defineAsyncComponent(
+  () => import('./WorkingTypeStorageRecoveryDialog.vue')
 )
 
 import ProjectBrowserPanel from './ProjectBrowserPanel.vue'
@@ -1387,6 +1406,14 @@ const recognitionMigrationImportFile = ref<File | null>(null)
 const recognitionMigrationImportPreview =
   ref<ControlledFileRecognitionMigrationImportPreviewRespVO | null>(null)
 const metadataDialogVisible = ref(false)
+const workingTypeStorageRecoveryMounted = ref(false)
+const workingTypeStorageRecoveryVisible = ref(false)
+const workingTypeStorageRecoveryFileId = ref<string>()
+const openWorkingTypeStorageRecovery = (file: ControlledFileVO | ControlledFileBrowserVersion) => {
+  workingTypeStorageRecoveryFileId.value = String(file.id)
+  workingTypeStorageRecoveryMounted.value = true
+  workingTypeStorageRecoveryVisible.value = true
+}
 const metadataDialogMounted = ref(false)
 const metadataEditingFile = ref<ControlledFileVO>()
 const internUserDccTimeFormRef = ref()
@@ -1869,6 +1896,9 @@ const canSubmitWorkingIteration = (
 )
 
 const browserMutationIdempotencyKeys = reactive<Record<string, string>>({})
+const canOpenWorkingTypeStorageRecovery = (row: ControlledFileBrowserRow) =>
+  isLatestVersionSelected(row) && getSelectedVersion(row).changeType === 'NEW' &&
+  canSubmitWorkingIteration(row, getSelectedVersion(row))
 
 const getBrowserMutationCacheKey = (action: string, id: number | string) => `${action}:${id}`
 
@@ -2304,6 +2334,12 @@ const submitCheckin = async () => {
         return
       }
       mergeCheckinResult(updatedFile, baseId)
+      if (workingBrowserIdentityQuery(route.query).workingMasterId === String(masterId)) {
+        await withBrowserRouteSyncGuard(() => router.replace({
+          path: route.path,
+          query: { ...route.query, workingFileId: String(updatedFile.id), workingMasterId: String(masterId) }
+        }))
+      }
     } catch (error) {
       if (!current()) {
         message.warning('原文件已完成检入，原列表刷新失败，请回到原文件核对工作版本。')
@@ -3035,6 +3071,7 @@ async function withBrowserRouteSyncGuard(action: () => Promise<unknown>) {
 }
 
 const syncRouteFromBrowserState = async () => {
+  if (route.path !== '/dcc/controlled-file/browser') return
   const browserRouteQuery = buildBrowserRouteQuery()
   if (JSON.stringify(browserRouteQuery) === JSON.stringify(buildBrowserRouteQueryFromRoute())) {
     return

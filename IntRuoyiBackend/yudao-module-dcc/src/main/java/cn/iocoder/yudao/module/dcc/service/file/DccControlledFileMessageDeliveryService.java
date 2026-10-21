@@ -129,23 +129,28 @@ public class DccControlledFileMessageDeliveryService {
             reqDTO.setTemplateParams(attempt.params());
             TransactionTemplate outside = new TransactionTemplate(transactionManager);
             outside.setPropagationBehavior(TransactionDefinition.PROPAGATION_NOT_SUPPORTED);
-            Long messageId = outside.execute(ignored -> notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(reqDTO));
-            if (messageId == null || messageId <= 0)
-                throw new IllegalStateException("DCC notification platform message id is missing");
-            LocalDateTime sentAt;
-            if ("DISTRIBUTION".equals(attemptJob.getBusinessType())) {
-                var platformMessage = notifyMessageService.getNotifyMessage(messageId);
-                if (platformMessage == null || !Objects.equals(platformMessage.getTenantId(), tenantId)
-                        || !Objects.equals(platformMessage.getUserId(), attemptJob.getRecipientUserId())
-                        || !Objects.equals(platformMessage.getUserType(), 2)
-                        || !Objects.equals(platformMessage.getBusinessKey(), reqDTO.getBusinessKey())
-                        || !Objects.equals(platformMessage.getTemplateCode(), attemptJob.getTemplateCode())
-                        || platformMessage.getCreateTime() == null)
-                    throw new IllegalStateException("DCC notification platform send evidence is missing or mismatched");
-                sentAt = platformMessage.getCreateTime();
-            } else {
-                sentAt = LocalDateTime.now();
-            }
+            PlatformSendEvidence evidence = outside.execute(ignored -> {
+                Long messageId = notifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin(reqDTO);
+                if (messageId == null || messageId <= 0)
+                    throw new IllegalStateException("DCC notification platform message id is missing");
+                LocalDateTime sentAt;
+                if ("DISTRIBUTION".equals(attemptJob.getBusinessType())) {
+                    var platformMessage = notifyMessageService.getNotifyMessage(messageId);
+                    if (platformMessage == null || !Objects.equals(platformMessage.getTenantId(), tenantId)
+                            || !Objects.equals(platformMessage.getUserId(), attemptJob.getRecipientUserId())
+                            || !Objects.equals(platformMessage.getUserType(), 2)
+                            || !Objects.equals(platformMessage.getBusinessKey(), reqDTO.getBusinessKey())
+                            || !Objects.equals(platformMessage.getTemplateCode(), attemptJob.getTemplateCode())
+                            || platformMessage.getCreateTime() == null)
+                        throw new IllegalStateException("DCC notification platform send evidence is missing or mismatched");
+                    sentAt = platformMessage.getCreateTime();
+                } else {
+                    sentAt = LocalDateTime.now();
+                }
+                return new PlatformSendEvidence(messageId, sentAt);
+            });
+            Long messageId = evidence.messageId();
+            LocalDateTime sentAt = evidence.sentAt();
             transaction.executeWithoutResult(ignored -> {
                 if(attemptIdentity.batchId!=null)dispatchAttemptService.lockBatch(attemptIdentity.batchId);
                 DccControlledFileMessageJobDO current = requireLockedJob(tenantId, attemptJob.getId());
@@ -204,6 +209,7 @@ public class DccControlledFileMessageDeliveryService {
     }
 
     private record MessageAttempt(DccControlledFileMessageJobDO job, Map<String, Object> params) {}
+    private record PlatformSendEvidence(Long messageId, LocalDateTime sentAt) {}
     private static final class DccDistributionDispatchAttemptDOHolder { Long id;Long batchId; }
 
     private Map<String, Object> resolveTemplateParams(DccControlledFileMessageJobDO messageJob) {
@@ -240,6 +246,13 @@ public class DccControlledFileMessageDeliveryService {
         if (matches.size() != 1 || matches.get(0).getId() == null)
             throw exception(CONTROLLED_FILE_MESSAGE_JOB_CONTEXT_INVALID);
         Map<String, Object> params = buildBaseNotifyParams(file, false);
+        if (DccWorkflowDatePolicy.AFTER_STANDARDIZATION_SIGNATURE.equals(file.getEffectiveMode())
+                || DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) {
+            if (file.getEffectiveTime() == null) {
+                throw new IllegalStateException("下发通知缺少实际生效时间");
+            }
+            params.put("effectiveDate", file.getEffectiveTime().toLocalDate().toString());
+        }
         params.put("controlledFileId", file.getId().toString());
         params.put("distributionId", distribution.getId().toString());
         params.put("recipientId", matches.get(0).getId().toString());

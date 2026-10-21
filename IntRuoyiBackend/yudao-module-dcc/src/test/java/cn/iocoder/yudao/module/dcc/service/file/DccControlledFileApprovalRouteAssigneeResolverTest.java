@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileRouteSnapshotDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.position.DccPositionAssignmentDO;
@@ -29,8 +30,14 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_IS_DISABLE;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_NOT_EXISTS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -54,6 +61,44 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
 
     @InjectMocks
     private DccControlledFileApprovalRouteAssigneeResolver resolver;
+
+    @Test
+    void disabledApproverPreservesFormalUserFailureAndStopsRoute() {
+        var file = DccControlledFileDO.builder().id(900L).categoryId(10L).build();
+        var route = DccCategoryApprovalRouteDO.builder()
+                .id(20L).categoryId(10L).versionNo(3).active(true).build();
+        when(routeMapper.selectLatestActiveByCategoryId(10L)).thenReturn(route);
+        when(routeNodeMapper.selectListByRouteId(20L)).thenReturn(List.of(
+                routeNode(1, DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode(), "USER", 101L, null, 1),
+                routeNode(2, DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode(), "USER", 102L, null, 2),
+                routeNode(3, DccControlledFileStageCodeEnum.MATRIX_APPROVAL.getCode(), "USER", 910442L, null, 3),
+                routeNode(4, DccControlledFileStageCodeEnum.DOC_CONTROL_APPROVAL.getCode(), "USER", 103L, null, 4)));
+        var unavailable = exception(USER_IS_DISABLE, "DCC241016C10批准人");
+        doNothing().when(adminUserApi).validateUserList(List.of(101L));
+        doNothing().when(adminUserApi).validateUserList(List.of(102L));
+        doThrow(unavailable).when(adminUserApi).validateUserList(List.of(910442L));
+
+        var actual = assertThrows(ServiceException.class,
+                () -> resolver.resolveStartUserSelectAssignees(file, 99L));
+
+        assertSame(unavailable, actual);
+        verify(adminUserApi, never()).validateUserList(List.of(103L));
+        verify(approvalParticipantPostValidator, never()).requireConfiguredPosts(List.of(910442L));
+        verifyNoInteractions(positionAssignmentMapper, positionRuntimeResolver);
+    }
+
+    @Test
+    void missingSelectedLeaderPreservesFormalUserFailure() {
+        when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L, "质量", 99L)));
+        var unavailable = exception(USER_NOT_EXISTS);
+        doThrow(unavailable).when(adminUserApi).validateUserList(List.of(99L));
+
+        var actual = assertThrows(ServiceException.class,
+                () -> resolver.withSelectedSignoffDepartments(selectedRoute("NEW"), List.of(51L)));
+
+        assertSame(unavailable, actual);
+        verifyNoInteractions(routeMapper, routeNodeMapper, approvalParticipantPostValidator);
+    }
 
     @Test
     void resolveStartUserSelectAssignees_userSourceReturnsDocControlReviewOnly() {
@@ -155,7 +200,7 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
         when(deptApi.getDeptList(List.of(81L))).thenReturn(List.of(dept(81L, "生产部", null)));
 
         assertServiceException(() -> resolver.resolveRoute(17L, 99L),
-                ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+                CONTROLLED_FILE_ROUTE_NOT_READY, "会签部门“生产部”（ID：81）未配置部门负责人");
     }
 
     @Test
@@ -344,7 +389,8 @@ class DccControlledFileApprovalRouteAssigneeResolverTest extends BaseMockitoUnit
     }
     @Test void aSelectedDepartmentMissingItsLeaderIsNotFilledFromTheDefaultDepartment() {
         when(deptApi.getDeptList(List.of(51L))).thenReturn(List.of(dept(51L,"质量",null)));
-        assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("NEW"),List.of(51L)),ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+        assertServiceException(()->resolver.withSelectedSignoffDepartments(selectedRoute("NEW"),List.of(51L)),
+                CONTROLLED_FILE_ROUTE_NOT_READY,"会签部门“质量”（ID：51）未配置部门负责人");
         verify(adminUserApi,never()).validateUserList(any());
     }
     @Test void duplicateDirectoryIdentitiesCannotCreateAmbiguousSelectedDepartmentLeaders() {

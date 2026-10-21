@@ -230,6 +230,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
 
     private PageResult<ApprovalTaskSummary> pageTodo(ApprovalTaskQueryContext context) {
         BpmTaskPageReqVO reqVO = buildTaskPageReqVO(context);
+        reqVO.setExcludedProcessDefinitionKeys(List.copyOf(DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS));
         PageResult<Task> page = taskService.getTaskTodoPage(resolveQueryUserId(context), reqVO);
         Objects.requireNonNull(page, "APPROVAL_ADAPTER_PAGE_REQUIRED: BPM todo");
         Objects.requireNonNull(page.getList(), "APPROVAL_ADAPTER_PAGE_LIST_REQUIRED: BPM todo");
@@ -270,6 +271,7 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider {
         allReqVO.setPageSize(Math.max(1000, reqVO.getPageSize() == null ? 0 : reqVO.getPageSize()));
         allReqVO.setCategory(reqVO.getCategory());
         allReqVO.setProcessDefinitionKey(reqVO.getProcessDefinitionKey());
+        allReqVO.setExcludedProcessDefinitionKeys(reqVO.getExcludedProcessDefinitionKeys());
         allReqVO.setCreateTime(reqVO.getCreateTime());
         PageResult<Task> allPage = taskService.getTaskTodoPage(null, allReqVO);
         if (allPage == null || allPage.getList() == null || allPage.getList().isEmpty()) {

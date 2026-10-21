@@ -9,13 +9,14 @@ const versionDisplay = {}
 new Function('exports', ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/shared/version-display.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(versionDisplay)
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve } }
 const flush = async () => { for (let n = 0; n < 25; n++) await Promise.resolve() }
-function parent({ confirm = async () => true, readyGate, saveGate, failGate, cleanupGate, ownerRequired = true } = {}) {
+function parent({ confirm = async () => true, readyGate, saveGate, failGate, cleanupGate, ownerRequired = true, viewer } = {}) {
   const raw = fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue', 'utf8')
   const page = ts.createSourceFile('detail.ts', parse(raw).descriptor.scriptSetup.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   const names = new Set(['submitActionDialog', 'refreshTaskActionReadiness', 'openActionDialog', 'closeActionDialog', 'readActionDialogRequest', 'actionDialogRequestIsCurrent', 'returnToCompletedTaskInbox'])
   const code = page.statements.filter(s => ts.isVariableStatement(s) && s.declarationList.declarations.some(d => names.has(d.name.getText(page)))).map(s => s.getText(page)).join('\n')
   const sent = [], success = [], feedback = [], closed = [], navigated = [], env = { exports: {}, Error, JSON, String, Promise, structuredClone, ...versionDisplay,
-    actionDialogGeneration: 1, taskActionReadinessRequestSeq: 0, taskListRevision: 0,
+    actionDialogGeneration: 1, taskActionReadinessRequestSeq: 0, taskListRevision: 0, approvalBodyViewerRef: { value: viewer },
+    detailLoadSequence: 1, isCurrentDetailLoad: () => true, ensureCurrentDetailContext: () => true, isDelayedEffectiveTask: vue.ref(false),
     useApprovalTodoBadgeStoreWithOut: () => ({ invalidateTaskLists: () => { env.taskListRevision++ } }),
     actionDialog: vue.reactive({ visible: true, submitting: false, mode: 'approve', inlineError: '', fieldErrors: {}, form: { password: 'unit-only-A', reason: 'A意见', fileOwnerUserId: '9007199254740993' } }),
     approvalTodoTask: vue.ref({ id: 'task-A', taskDefinitionKey: 'MATRIX_APPROVAL' }), fileDetail: vue.ref({ id: '10', fileNumber: 'F', versionNo: 'A/2' }), controlledFileId: vue.ref('10'), currentUserId: vue.ref('6'),
@@ -51,8 +52,30 @@ function parent({ confirm = async () => true, readyGate, saveGate, failGate, cle
   }
   return { env, sent, success, feedback, closed, navigated, change, ...env.exports.api }
 }
+test('signature waits for late reading start and its confirmed stop',async()=>{
+  const template=parse(fs.readFileSync('src/views/dcc/controlled-file/detail/index.vue','utf8')).descriptor.template.content
+  assert.match(template.split('data-testid="dcc-approval-upload-file-preview"')[1].split('</el-col>')[0],/ref="approvalBodyViewerRef"/,'signature must control the approval-pane viewer')
+  const module = {}
+  new Function('exports', ts.transpileModule(fs.readFileSync('src/views/dcc/controlled-file/view/reading-lifecycle.ts','utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(module)
+  const start=deferred(), stop=deferred(), events=[]
+  const lifecycle=module.createPreviewReadingLifecycle({api:{start:async()=>{events.push('start');await start.promise;return {sessionId:'old',heartbeatIntervalSeconds:10}},stop:async()=>{events.push('stop');await stop.promise},heartbeat:async()=>{}},visible:()=>true,newClientId:()=> 'client',schedule:()=>()=>{},onError:error=>{throw error}})
+  const starting=lifecycle.resume()
+  const p=parent({ownerRequired:false,viewer:{pauseReading:()=>lifecycle.pause(),resumeReading:()=>lifecycle.resume()}})
+  const signing=p.submitActionDialog();await flush()
+  assert.equal(p.sent.length,0,'signature must wait while the old reading start is pending')
+  start.resolve();await flush();assert.deepEqual(events,['start','stop']);assert.equal(p.sent.length,0,'signature must wait for stop acknowledgement')
+  stop.resolve();await starting;await signing;assert.equal(p.sent.length,1)
+})
 test('completed approval-center task returns to inbox without rereading expired task body',async()=>{
   const p=parent({ownerRequired:false});p.env.route.query={handling:'approval',from:'approval-center'};let reloads=0;p.env.reloadAll=async()=>{reloads++;throw Error('expired task body')};await p.submitActionDialog();assert.equal(p.sent.length,1);assert.equal(reloads,0);assert.equal(p.env.taskListRevision,1);assert.equal(p.navigated[0].path,'/approval-center/todo')
+})
+test('explicit signature failure resumes current reading but stop failure never submits',async()=>{
+  let resumed=0,paused=0
+  const failure=deferred(),p=parent({ownerRequired:false,failGate:failure,viewer:{pauseReading:async()=>{paused++},resumeReading:async()=>{resumed++}}})
+  const signing=p.submitActionDialog();await flush();failure.resolve();await signing
+  assert.equal(paused,1);assert.equal(p.sent.length,1);assert.equal(resumed,1)
+  const q=parent({ownerRequired:false,viewer:{pauseReading:async()=>{throw Error('reading stop unconfirmed')},resumeReading:async()=>{resumed++}}})
+  await q.submitActionDialog();assert.equal(q.sent.length,0);assert.equal(resumed,1);assert.match(q.env.actionDialog.inlineError,/reading stop unconfirmed/)
 })
 test('unconfirmed version owner defaults to original requester, never current approver',()=>{
   const p=parent();p.env.fileDetail.value.requesterId='9007199254740901';p.openActionDialog('approve');assert.equal(p.env.actionDialog.form.fileOwnerUserId,'9007199254740901')

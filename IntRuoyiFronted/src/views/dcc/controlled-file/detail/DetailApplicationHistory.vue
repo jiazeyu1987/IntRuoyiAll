@@ -133,6 +133,7 @@
         :attribute-round="evidence.relationEvidence.attributeRound"
         :context-key="selectedKey"
         :signature-facts="evidence.signatures"
+        :node-records="evidence.nodeRecords"
       />
       <p v-else>本申请轮次的关联阶段证据未记录。</p>
     </section>
@@ -166,11 +167,14 @@ import type { DetailRelationApplicationSelection } from './relation-contract'
 import { getDccVersionDisplayText } from '../shared/version-display'
 const props = defineProps<{
   fileId: string | number
+  expectedVersionNo?: string
+  primaryApplicationType?: DccApplicationType
   primaryBpmRound?: string | null
   lockPrimaryRound?: boolean
   contextKey?: string
   contextError?: string
   showNodeRecords?: boolean
+  readAuthority?: () => string
 }>()
 const emit = defineEmits<{
   'selection-change': [selection: DetailRelationApplicationSelection | null]
@@ -181,6 +185,7 @@ const evidence = ref<ControlledFileApplicationEvidence>(),
   loading = ref(false),
   evidenceLoading = ref(false),
   error = ref('')
+const loadedAuthority = ref<string | undefined>()
 let generation = 0,
   selectionGeneration = 0
 const roundKey = (round: ControlledFileApplicationRound) =>
@@ -194,8 +199,18 @@ const applicationLabel = (type: DccApplicationType) =>
   ({ UPLOAD: '初始上传', REVISION: '升版申请', OBSOLETE: '作废申请' })[type]
 const selectRound = async (key: string) => {
   const token = ++selectionGeneration,
-    context = generation
+    context = generation,
+    authority = props.readAuthority?.()
+  const isCurrent = () => context === generation && token === selectionGeneration && authority === props.readAuthority?.()
   emit('selection-change', null)
+  if (loadedAuthority.value !== authority) {
+    rounds.value = []
+    evidence.value = undefined
+    selectedKey.value = ''
+    loadedAuthority.value = undefined
+    error.value = '申请权限上下文已变化，请刷新当前详情后重试'
+    return
+  }
   selectedKey.value = key
   evidence.value = undefined
   error.value = ''
@@ -206,18 +221,22 @@ const selectRound = async (key: string) => {
     if (props.contextError) throw new Error(props.contextError)
     if (props.lockPrimaryRound && round.bpmRound !== props.primaryBpmRound)
       throw new Error('本面板只能显示当前办理轮次的申请证据')
+    if (props.lockPrimaryRound && props.primaryApplicationType && round.applicationType !== props.primaryApplicationType)
+      throw new Error('所选申请类型与来源指定的正式申请不一致')
     const result = await getControlledFileApplicationEvidence(
       round.controlledFileId,
       round.applicationType,
       round.bpmRound
     )
-    if (context !== generation || token !== selectionGeneration) return
+    if (!isCurrent()) return
     if (
       detailIdentity(result.controlledFileId) !== detailIdentity(props.fileId) ||
       result.applicationType !== round.applicationType ||
       result.bpmRound !== round.bpmRound
     )
       throw new Error('申请证据与所选文件或实际办理轮次不一致')
+    if (props.expectedVersionNo && result.versionNo !== props.expectedVersionNo)
+      throw new Error('申请证据与所选原始版本不一致')
     if (
       !Array.isArray(result.signatures) ||
       result.signatures.some((signature) => signature.processInstanceId !== round.bpmRound)
@@ -244,14 +263,14 @@ const selectRound = async (key: string) => {
       attributeRound: round.attributeRound
     })
   } catch (cause) {
-    if (context === generation && token === selectionGeneration) {
+    if (isCurrent()) {
       selectedKey.value = ''
       evidence.value = undefined
       emit('selection-change', null)
       error.value = cause instanceof Error ? cause.message : String(cause)
     }
   } finally {
-    if (context === generation && token === selectionGeneration) evidenceLoading.value = false
+    if (isCurrent()) evidenceLoading.value = false
   }
 }
 watch(
@@ -260,12 +279,18 @@ watch(
     props.primaryBpmRound,
     props.contextKey,
     props.contextError,
-    props.lockPrimaryRound
+    props.lockPrimaryRound,
+    props.expectedVersionNo,
+    props.primaryApplicationType,
+    props.readAuthority?.()
   ],
   async () => {
     const token = ++generation
+    const authority = props.readAuthority?.()
+    const isCurrent = () => token === generation && authority === props.readAuthority?.()
     selectionGeneration++
     emit('selection-change', null)
+    loadedAuthority.value = undefined
     rounds.value = []
     evidence.value = undefined
     selectedKey.value = ''
@@ -275,8 +300,9 @@ watch(
     try {
       if (props.contextError) throw new Error(props.contextError)
       const result = await getControlledFileApplicationRounds(props.fileId)
-      if (token === generation) {
+      if (isCurrent()) {
         const validated = validateApplicationRoundMappings(props.fileId, result)
+        loadedAuthority.value = authority
         if (props.primaryBpmRound) {
           const matching = validated.filter((row) => row.bpmRound === props.primaryBpmRound)
           if (matching.length > 1) throw new Error('本版本 BPM 对应多个申请类型，正式映射不明确')
@@ -289,14 +315,15 @@ watch(
         else rounds.value = validated
       }
     } catch (cause) {
-      if (token === generation) error.value = cause instanceof Error ? cause.message : String(cause)
+      if (isCurrent()) error.value = cause instanceof Error ? cause.message : String(cause)
     } finally {
-      if (token === generation) loading.value = false
+      if (isCurrent()) loading.value = false
     }
   },
   { immediate: true, flush: 'sync' }
 )
 onBeforeUnmount(() => {
+  loadedAuthority.value = undefined
   generation++
   selectionGeneration++
   emit('selection-change', null)

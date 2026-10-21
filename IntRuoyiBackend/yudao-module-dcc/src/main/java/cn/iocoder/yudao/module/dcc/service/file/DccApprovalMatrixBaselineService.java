@@ -3,6 +3,8 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.*;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -16,6 +18,8 @@ public class DccApprovalMatrixBaselineService {
     @Resource private DccApprovalMatrixTokenService tokens;
     @Resource(name="dccControlledFileMapper") private DccControlledFileMapper files;
     @Resource private DccApplicationExecutionContractService executionContracts;
+    @Resource private DccFileCategoryMapper categories;
+    @Resource private DccFileTypeTaxonomyAdminService taxonomies;
     public record Expectations(Long routeId,Integer routeVersionNo,String digest,String baselineToken,String confirmationToken,
                                Boolean changeConfirmed,String applicationContextKey){}
     public record Comparison(DccApprovalMatrixTokenService.Context context,String beforeCanonical,
@@ -81,9 +85,10 @@ public class DccApprovalMatrixBaselineService {
         requireSourceIdentity(DccApprovalMatrixSourceService.readCanonical(before),current.baseline());return before;
     }
     public Comparison preview(Long actor,DccControlledFileRoutePreviewReqVO request){
-        var current=sources.read(request.getCategoryId());
         DccControlledFileDO file=request.getControlledFileId()==null?null:requireDraft(actor,request.getControlledFileId());
         Long project=file==null?request.getDccProjectCodeId():file.getDccProjectCodeId();
+        var current=rejectedSource(actor,file,request.getCategoryId(),request.getDccProjectCodeId(),request.getActionType());
+        if(current==null)current=sources.read(request.getCategoryId());
         var context=context(actor,project,current.baseline(),request.getActionType(),file==null?null:file.getId(),request.getApplicationContextKey());
         if(file!=null&&file.getDraftApprovalMatrixJson()==null)
             throw new IllegalStateException("APPROVAL_MATRIX_DRAFT_BASELINE_REQUIRED：既有工作申请不能用当前配置补原基线");
@@ -99,9 +104,11 @@ public class DccApprovalMatrixBaselineService {
     public Confirmed confirm(Long actor,Long project,Long category,Long fileId,String action,Expectations expected){
         if(expected==null||expected.routeId()==null||expected.routeVersionNo()==null||expected.digest()==null)
             throw new IllegalArgumentException("APPROVAL_MATRIX_EXPECTATION_REQUIRED");
-        var current=sources.readForUpdate(category);var file=fileId==null?null:requireDraft(actor,fileId);
+        var file=fileId==null?null:requireDraft(actor,fileId);
         if(file!=null&&(!Objects.equals(file.getDccProjectCodeId(),project)||!Objects.equals(file.getCategoryId(),category)))
             throw new IllegalArgumentException("APPROVAL_MATRIX_DRAFT_IDENTITY_INVALID");
+        var current=rejectedSource(actor,file,category,project,action);
+        if(current==null)current=sources.readForUpdate(category);
         var context=context(actor,project,current.baseline(),action,fileId,expected.applicationContextKey());
         String before=file!=null&&file.getDraftApprovalMatrixJson()!=null?file.getDraftApprovalMatrixJson():tokens.verifyBaseline(context,expected.baselineToken());
         var baseline=DccApprovalMatrixSourceService.readCanonical(before);requireSourceIdentity(baseline,current.baseline());
@@ -138,6 +145,39 @@ public class DccApprovalMatrixBaselineService {
                 .isNull(DccControlledFileDO::getDraftApprovalMatrixJson).set(DccControlledFileDO::getDraftApprovalMatrixJson,baseline))!=1)
             throw new IllegalStateException("APPROVAL_MATRIX_DRAFT_CAS_CONFLICT");
         file.setDraftApprovalMatrixJson(baseline);return baseline;
+    }
+    DccApprovalMatrixSourceService.Source rejectedSource(Long actor,DccControlledFileDO file,Long category,Long project,String action){
+        if(file==null)return null;
+        String selected=executionContracts.readConfirmedTypeChangeBaseline(actor,file);
+        var facts=selected==null?executionContracts.readRejectedDraftFacts(actor,file):null;
+        if(selected==null&&facts==null)return null;
+        requireRequestFamily(file,category,project,action);
+        String canonical=selected!=null?selected:facts.approvalMatrixCanonical();
+        var baseline=DccApprovalMatrixSourceService.readCanonical(canonical);requireFileMatrix(file,baseline);
+        requireSavedTypeAvailable(baseline);
+        return sourceFromCanonical(canonical);
+    }
+    public DccApprovalMatrixSourceService.Source savedTypeChangeSource(Long actor,DccControlledFileDO file){
+        String canonical=executionContracts.readConfirmedTypeChangeBaseline(actor,file);
+        if(canonical==null)return null;
+        var baseline=DccApprovalMatrixSourceService.readCanonical(canonical);
+        requireSavedTypeAvailable(baseline);
+        return sourceFromCanonical(canonical);
+    }
+    private void requireSavedTypeAvailable(DccApprovalMatrixBaselineVO baseline){
+        var category=categories.selectById(baseline.getCategoryId());
+        if(category==null||!Boolean.TRUE.equals(category.getActive())
+                ||!Objects.equals(category.getFileTypeTaxonomyId(),baseline.getFileTypeTaxonomyId()))
+            throw new IllegalStateException("APPROVAL_MATRIX_SAVED_CATEGORY_UNAVAILABLE");
+        if(!Objects.equals(taxonomies.resolveActiveCategoryId(baseline.getFileTypeTaxonomyId()),baseline.getCategoryId()))
+            throw new IllegalStateException("APPROVAL_MATRIX_SAVED_TYPE_UNAVAILABLE");
+    }
+    private DccApprovalMatrixSourceService.Source sourceFromCanonical(String canonical){
+        var baseline=DccApprovalMatrixSourceService.readCanonical(canonical);
+        var nodes=baseline.getNodes().stream().map(node->cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(node),cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO.class)).toList();
+        return new DccApprovalMatrixSourceService.Source(cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO.builder()
+                .id(baseline.getRouteId()).categoryId(baseline.getCategoryId()).versionNo(baseline.getRouteVersionNo()).actionType("LEGACY").build(),nodes,baseline,canonical);
     }
     private DccControlledFileDO requireDraft(Long actor,Long id){var file=files.selectById(id);if(file==null||!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())||!Objects.equals(file.getRequesterId(),actor)||!"WORKING".equals(file.getStatus())||file.getProcessInstanceId()!=null)throw new IllegalArgumentException("APPROVAL_MATRIX_DRAFT_IDENTITY_INVALID");return file;}
     private DccApprovalMatrixChangeException change(String code,DccApprovalMatrixTokenService.Context context,String original,DccApprovalMatrixBaselineVO before,DccApprovalMatrixBaselineVO after){

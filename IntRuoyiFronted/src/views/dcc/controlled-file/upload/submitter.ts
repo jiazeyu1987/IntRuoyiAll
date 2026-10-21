@@ -207,12 +207,14 @@ export const EDITABLE_SOURCE_EXTENSIONS = [
   'dwg',
   'sldprt',
   'sldasm',
-  'slddrw'
+  'slddrw',
+  'png',
+  'txt'
 ] as const
 export const EDITABLE_SOURCE_ACCEPT = EDITABLE_SOURCE_EXTENSIONS.map((item) => `.${item}`).join(',')
 export const EDITABLE_SOURCE_MESSAGE =
-  '仅支持 doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw 等源文件'
-const EDITABLE_SOURCE_EXT_PATTERN = /\.(doc|docx|xls|xlsx|pdf|dwg|sldprt|sldasm|slddrw)$/i
+  '仅支持 doc、docx、xls、xlsx、pdf、dwg、sldprt、sldasm、slddrw、png、txt 等源文件'
+const EDITABLE_SOURCE_EXT_PATTERN = /\.(doc|docx|xls|xlsx|pdf|dwg|sldprt|sldasm|slddrw|png|txt)$/i
 
 export const validateSingleUploadFileSelection = (
   files: ReadonlyArray<UploadSelectionCandidate>

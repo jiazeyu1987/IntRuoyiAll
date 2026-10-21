@@ -159,6 +159,11 @@ function application(
       '@/utils/auth': { getTenantId: () => '1', getVisitTenantId: () => undefined },
       '@/api/system/dept': { getSimpleDeptList: async () => [{ id: 50, name: '质量' }] },
       '@/api/system/user': { getSimpleUserList: async () => [{ id: 60, nickname: '批准' }] },
+      '@/api/dcc/controlledFile/fileTypeTaxonomies': {
+        getFileTypeTaxonomyUploadOptions: async () => {
+          throw Error('ordinary application selection must not load type-change candidates')
+        }
+      },
       '@/api/dcc/controlledFile/approvalRoutes': {
         previewApprovalRoute: async () => [
           { stageCode: 'MATRIX_REVIEW', candidateSourceType: 'DEPT', candidateSourceIds: [50] },

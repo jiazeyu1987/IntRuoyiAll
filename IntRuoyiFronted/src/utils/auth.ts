@@ -33,6 +33,11 @@ export const getRefreshToken = () => {
 // 设置token
 export const setToken = (token: TokenType) => {
   clearAuthenticatedUserCache()
+  setRefreshedToken(token)
+}
+
+// 同一登录会话刷新令牌时保留已认证身份及代访范围。
+export const setRefreshedToken = (token: TokenType) => {
   wsCache.set(RefreshTokenKey, token.refreshToken)
   wsCache.set(AccessTokenKey, token.accessToken)
 }

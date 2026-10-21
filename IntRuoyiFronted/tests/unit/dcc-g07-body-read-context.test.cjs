@@ -206,6 +206,69 @@ test('actual detail body context keeps route version, exact task/history and met
   assert.equal(host.exports.resolve().intent, 'AUTHORING')
 })
 
+function trainingOwnerDetail() {
+  const script = parse(read('src/views/dcc/controlled-file/detail/index.vue')).descriptor.scriptSetup.content
+  const ast = ts.createSourceFile('detail.ts', script, ts.ScriptTarget.Latest, true)
+  const declaration = ast.statements.find(statement => ts.isVariableStatement(statement)
+    && statement.declarationList.declarations.some(value => value.name.text === 'resolveDetailBodyReadContext'))
+  const lifecycle = load('src/views/dcc/controlled-file/shared/lifecycle.ts', {
+    '@/api/form-center/actionProjection': load('src/api/form-center/actionProjection.ts')
+  })
+  const host = { exports: {}, ...helper(), isDccControlledFileActionAllowed: lifecycle.isDccControlledFileActionAllowed,
+    fileDetail: vue.ref({ id: FILE, versionNo: 'A/1', status: 'PENDING_APPLICANT_TRAINING_RECORD', changeType: 'NEW',
+      processDefinitionKey: 'dcc-controlled-file-upload', processInstanceId: 'round-exact', fileOwnerUserId: '99',
+      fileOwnerProcessInstanceId: 'round-exact', fileOwnerSignatureId: '860', canReadTrainingApplicationProgress: true,
+      actionProjection: { allowedActions: ['VIEW', 'PREVIEW'], actionLocked: false, canExecute: true } }),
+    controlledFileId: vue.ref(FILE), currentUserId: vue.ref('99'),
+    route: { query: { management: '1', from: 'workbench', processInstanceId: 'round-exact' } },
+    approvalProgressScope: vue.ref({ fileId: FILE, applicationType: 'UPLOAD', bpmRound: 'round-exact' }),
+    approvalTodoTask: vue.ref(), viewerMode: vue.ref(false), canUploadApplicantTrainingRecord: vue.ref(false) }
+  vm.runInNewContext(ts.transpileModule(declaration.getText(ast) + '\nexports.resolve=resolveDetailBodyReadContext', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+  }).outputText, host)
+  return host
+}
+
+test('current confirmed training owner uses exact training body context from the original workbench route without upload duty', () => {
+  const host = trainingOwnerDetail()
+  assert.deepEqual(plain(host.exports.resolve()), { intent: 'TRAINING_APPLICATION', controlledFileId: FILE,
+    expectedVersionNo: 'A/1', applicationType: 'UPLOAD', bpmRound: 'round-exact' })
+  assert.equal(host.canUploadApplicantTrainingRecord.value, false)
+})
+
+test('training body context never inherits owner metadata for other rounds, tasks, files, ended duty or absent body grant', () => {
+  for (const invalid of ['route-round', 'scope-round', 'scope-file', 'file', 'owner', 'owner-round', 'unsigned', 'ended', 'no-preview', 'no-progress', 'task']) {
+    const host = trainingOwnerDetail(), file = host.fileDetail.value
+    switch (invalid) {
+      case 'route-round': host.route.query.processInstanceId = 'other-round'; break
+      case 'scope-round': host.approvalProgressScope.value.bpmRound = 'other-round'; break
+      case 'scope-file': host.approvalProgressScope.value.fileId = '7'; break
+      case 'file': file.id = '7'; break
+      case 'owner': host.currentUserId.value = '88'; break
+      case 'owner-round': file.fileOwnerProcessInstanceId = 'other-round'; break
+      case 'unsigned': file.fileOwnerSignatureId = null; break
+      case 'ended': file.status = 'ACTIVE'; break
+      case 'no-preview': file.actionProjection.allowedActions = ['VIEW']; break
+      case 'no-progress': file.canReadTrainingApplicationProgress = false; break
+      case 'task': host.route.query.taskId = 'historic-task'; break
+    }
+    let result
+    try { result = host.exports.resolve() }
+    catch (error) {
+      assert.match(error.message, /正文所选版本尚未读取或与当前文件不一致|正文任务或历史轮次尚未通过正式申请身份核验/, invalid)
+      continue
+    }
+    assert.notEqual(result.intent, 'TRAINING_APPLICATION', invalid)
+  }
+  const task = trainingOwnerDetail()
+  task.route.query.taskId = 'task-exact'
+  task.approvalTodoTask.value = { id: 'task-exact', processInstanceId: 'round-exact' }
+  assert.equal(task.exports.resolve().intent, 'APPROVAL_TASK')
+  const explicit = trainingOwnerDetail()
+  explicit.route.query.bodyReadContext = helper().serializeDccBodyReadContext(FILE, { intent: 'DAILY', controlledFileId: FILE })
+  assert.equal(explicit.exports.resolve().intent, 'DAILY')
+})
+
 test('actual shared workflow wrappers use identical canonical metadata params and binary headers; distribution remains separate', async () => {
   const h = helper(), source = read('src/api/dcc/controlledFile/workflow.ts')
   const ast = ts.createSourceFile('workflow.ts', source, ts.ScriptTarget.Latest, true)

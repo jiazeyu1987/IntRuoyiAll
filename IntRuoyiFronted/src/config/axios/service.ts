@@ -9,7 +9,7 @@ import {
   getTenantId,
   getVisitTenantId,
   removeToken,
-  setToken
+  setRefreshedToken
 } from '@/utils/auth'
 import errorCode from './errorCode'
 
@@ -215,7 +215,7 @@ service.interceptors.response.use(
             throw createApiError(t('sys.api.timeoutMessage'), refreshCode, refreshTokenPayload)
           }
           // 2.1 刷新成功，则回放队列的请求 + 当前请求
-          setToken(refreshTokenPayload.data)
+          setRefreshedToken(refreshTokenPayload.data)
           ;(config.headers as RequestCustomHeaders).Authorization = 'Bearer ' + getAccessToken()
           requestList.forEach((cb: any) => {
             cb()

@@ -117,3 +117,5 @@ DELETE FROM dcc_legacy_source_name_scope;
 DELETE FROM dcc_project_folder_storage_mapping;
 DELETE FROM dcc_obsolete_form_runtime_obligation;
 DELETE FROM dcc_obsolete_form_runtime_snapshot;
+
+DELETE FROM `dcc_controlled_file_preview_view_session`;

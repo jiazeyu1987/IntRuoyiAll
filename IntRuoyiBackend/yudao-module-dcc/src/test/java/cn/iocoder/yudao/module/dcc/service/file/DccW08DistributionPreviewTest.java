@@ -110,10 +110,15 @@ class DccW08DistributionPreviewTest {
         assertArrayEquals(new byte[]{1,2,3},result.bytes());assertEquals("issued-A1.pdf",result.fileName());
         verify(tokens).verify(eq("token"),argThat((DccViewerTokenExpectedContext c)->c.purpose().equals("DIST_PREVIEW:10:11")
                 &&c.fileId().equals(5L)&&c.userId().equals(99L)));
-        query.readPreviewFile(99L,5L,"token","event","trace","tid","nonce",audit());
+        query.readDistributionPreviewFile(99L,5L,10L,11L,"token","event","trace","tid","nonce",audit());
+        // A distribution token is not a grant for the separate DAILY body-read entry.
+        var denied=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                ()->query.readPreviewFile(99L,5L,"token","event","trace","tid","nonce",audit()));
+        assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED.getCode(),denied.getCode());
         verify(storage,times(2)).getFileContent(1L,"issued/A1.pdf");verifyNoInteractions(masters);
         verify(bodyReceipts,times(2)).recordDistributionBodyOpened(99L,5L,10L,11L);
         assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"distributionPreviewContext")).get());
+        assertNull(((ThreadLocal<?>)ReflectionTestUtils.getField(query,"bodyReadContext")).get());
     }
     @Test void anotherRecipientUnsentAndNoActivationNeverReadOrIssueToken() {
         recipient.setUserId(98L);

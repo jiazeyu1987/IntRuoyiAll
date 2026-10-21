@@ -5,7 +5,7 @@ function load(fail = false) {
   const h = { exports: {}, Error, BigInt, TextEncoder, TextDecoder, btoa, atob, Object }
   vm.runInNewContext(ts.transpileModule(read('bodyReadContext.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, h)
   const src = read('workflow.ts'), ast = ts.createSourceFile('workflow.ts', src, ts.ScriptTarget.Latest, true), calls = { metadata: [], binary: [] }
-  const wanted = ['getControlledFilePreviewMetadata', 'previewControlledFileWithWatermark']
+  const wanted = ['getControlledFile', 'getControlledFilePreviewMetadata', 'previewControlledFileWithWatermark']
   const chunks = wanted.map(name => ast.statements.find(s => s.declarationList?.declarations.some(d => d.name.text === name)).getText(ast))
   const c = { exports: {}, ...h.exports, Error, axiosConfig: { base_url: '/admin-api', request_timeout: 1000 },
     request: { get: async req => { calls.metadata.push(req); if (fail) throw new Error('真实metadata失败'); return { viewerToken: 'token', viewerTokenId: 'id', viewerTokenNonce: 'nonce', accessEventCode: 'event', watermarkTraceCode: 'trace' } } },
@@ -39,4 +39,19 @@ test('invalid context and metadata error produce no fallback binary request', as
   assert.equal(p.calls.metadata.length, 0); assert.equal(p.calls.binary.length, 0)
   const error = load(true); await assert.rejects(error.api.previewControlledFileWithWatermark('20'), /真实metadata失败/)
   assert.equal(error.calls.metadata.length, 1); assert.equal(error.calls.binary.length, 0)
+})
+
+test('detail wrapper forwards the same canonical source or exact plain task and never retries a denied context', async () => {
+  const p=load(),ctx={intent:'APPROVAL_HISTORY',controlledFileId:'9007199254740993',expectedVersionNo:'A/1',
+    applicationType:'REVISION',bpmRound:'old-round',taskId:'old-task'}
+  await p.api.getControlledFile(ctx.controlledFileId,{bodyReadContext:ctx})
+  const request=p.calls.metadata[0]
+  assert.equal(request.url,'/dcc/controlled-files/9007199254740993')
+  assert.deepEqual(JSON.parse(Buffer.from(request.params.bodyReadContext,'base64url')),ctx)
+  await p.api.getControlledFile(ctx.controlledFileId,{bpmRound:'old-round',taskId:'old-task',applicationType:'REVISION'})
+  assert.deepEqual(JSON.parse(JSON.stringify(p.calls.metadata[1].params)),
+    {processInstanceId:'old-round',taskId:'old-task',applicationType:'REVISION'})
+  const denied=load(true)
+  await assert.rejects(denied.api.getControlledFile(ctx.controlledFileId,{bodyReadContext:ctx}),/真实metadata失败/)
+  assert.equal(denied.calls.metadata.length,1)
 })

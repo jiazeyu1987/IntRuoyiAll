@@ -1,5 +1,6 @@
 <template>
   <Dialog v-model="dialogVisible" :title="dialogTitle">
+    <el-alert v-if="formLoadError" :title="formLoadError" type="error" :closable="false" />
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -17,6 +18,8 @@
           <el-form-item label="归属部门" prop="deptId">
             <el-tree-select
               v-model="formData.deptId"
+              clearable
+              :value-on-clear="null"
               :data="deptList"
               :props="defaultProps"
               check-strictly
@@ -90,7 +93,7 @@
       </el-row>
     </el-form>
     <template #footer>
-      <el-button :disabled="formLoading" type="primary" @click="submitForm">确 定</el-button>
+      <el-button :disabled="formLoading || !formReady" type="primary" @click="submitForm">确 定</el-button>
       <el-button @click="dialogVisible = false">取 消</el-button>
     </template>
   </Dialog>
@@ -113,10 +116,13 @@ const message = useMessage() // 消息弹窗
 const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
+const formReady = ref(false)
+const formLoadError = ref('')
+let formRequestId = 0
 const formType = ref('') // 表单的类型：create - 新增；update - 修改
 const formData = ref({
   nickname: '',
-  deptId: '',
+  deptId: null as number | null,
   mobile: '',
   email: '',
   id: undefined,
@@ -170,38 +176,49 @@ const normalizeAvailablePostIds = (postIds: unknown) => {
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number) => {
+  const requestId = ++formRequestId
+  formReady.value = false
+  formLoadError.value = ''
+  formLoading.value = true
   dialogVisible.value = true
   dialogTitle.value = t('action.' + type)
   formType.value = type
   resetForm()
-  // 修改时，设置数据
-  if (id) {
-    formLoading.value = true
-    try {
-      formData.value = await UserApi.getUser(id)
-    } finally {
-      formLoading.value = false
-    }
+  try {
+    const [user, depts, posts] = await Promise.all([
+      id ? UserApi.getUser(id) : Promise.resolve(undefined),
+      DeptApi.getSimpleDeptList(),
+      PostApi.getSimplePostList()
+    ])
+    if (requestId !== formRequestId || !dialogVisible.value) return
+    if (id && user.id !== id) throw new Error('用户详情身份与编辑目标不一致')
+    deptList.value = handleTree(depts)
+    postList.value = posts
+    if (user) formData.value = user
+    formData.value.postIds = normalizeAvailablePostIds(formData.value.postIds)
+    formReady.value = true
+  } catch (error) {
+    if (requestId === formRequestId) formLoadError.value = '用户资料加载失败，请关闭后重试。'
+    throw error
+  } finally {
+    if (requestId === formRequestId) formLoading.value = false
   }
-  // 加载部门树
-  deptList.value = handleTree(await DeptApi.getSimpleDeptList())
-  // 加载岗位列表
-  postList.value = await PostApi.getSimplePostList()
-  formData.value.postIds = normalizeAvailablePostIds(formData.value.postIds)
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
+  if (formLoading.value || !formReady.value || !dialogVisible.value) return
+  const requestId = formRequestId
   // 校验表单
   if (!formRef) return
   const valid = await formRef.value.validate()
-  if (!valid) return
+  if (!valid || requestId !== formRequestId || !dialogVisible.value) return
   // 提交请求
   formLoading.value = true
   try {
-    const data = formData.value as unknown as UserApi.UserVO
+    const data = formData.value as unknown as UserApi.UserSaveVO
     if (formType.value === 'create') {
       await UserApi.createUser(data)
       message.success(t('common.createSuccess'))
@@ -209,11 +226,11 @@ const submitForm = async () => {
       await UserApi.updateUser(data)
       message.success(t('common.updateSuccess'))
     }
-    dialogVisible.value = false
+    if (requestId === formRequestId) dialogVisible.value = false
     // 发送操作成功的事件
     emit('success')
   } finally {
-    formLoading.value = false
+    if (requestId === formRequestId) formLoading.value = false
   }
 }
 
@@ -221,7 +238,7 @@ const submitForm = async () => {
 const resetForm = () => {
   formData.value = {
     nickname: '',
-    deptId: '',
+    deptId: null,
     mobile: '',
     email: '',
     id: undefined,

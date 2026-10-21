@@ -149,6 +149,17 @@ const drain = async () => {
   for (let n = 0; n < 30; n++) await Promise.resolve()
   await vue.nextTick()
 }
+
+test('wrong raw version or application type cannot publish a round into the parent', async () => {
+  const c = mount({props:{primaryBpmRound:'round-1',lockPrimaryRound:true,expectedVersionNo:'A/1'},
+    getEvidence:async()=>evidence(rows()[0])})
+  try { await drain(); assert.equal(c.state.evidence,undefined); assert.match(c.state.error,/原始版本/)
+    assert.ok(c.events.every(value=>value===null))
+    c.props.expectedVersionNo='A/1-2'; c.props.primaryApplicationType='OBSOLETE'; await drain()
+    assert.equal(c.state.evidence,undefined); assert.match(c.state.error,/申请类型/)
+    assert.ok(c.events.every(value=>value===null))
+  } finally {c.app.unmount()}
+})
 test('real parent receives initial null and verified exact selected application only after successful evidence read', async () => {
   const c = mount()
   try {

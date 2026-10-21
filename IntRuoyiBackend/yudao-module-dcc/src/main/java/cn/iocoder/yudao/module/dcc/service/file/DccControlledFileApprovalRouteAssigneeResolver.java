@@ -39,6 +39,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_RUNTIME_MISMATCH;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW_APPROVER_NOT_FOUND;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY;
 
 @Service
 public class DccControlledFileApprovalRouteAssigneeResolver {
@@ -68,11 +69,11 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         var login=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser();
         if(login==null||!Objects.equals(login.getId(),actor)||!Objects.equals(login.getTenantId(),tenant)||!Objects.equals(tenant,TenantContextHolder.getRequiredTenantId())
                 ||!Integer.valueOf(2).equals(login.getUserType())||!Objects.equals(actor,requester))throw new IllegalArgumentException("CUSTOM_SOURCE_AUTHENTICATED_ACTOR_INVALID");
-        requireNativeAccount(adminUserApi.getUser(requester),requester,tenant);
+        requireNativeAccount(adminUserApi.getUser(requester),requester,tenant,"编制人");
         var provider=nativeSupervisors.getIfAvailable();if(provider==null)throw new NativeSupervisorNotReadyException();
         var evidence=provider.require(new DccDirectSupervisorSource.Context(tenant,requester,file,project,type));
         if(evidence==null||!Objects.equals(evidence.tenantId(),tenant)||!Objects.equals(evidence.requesterId(),requester))throw new IllegalArgumentException("CUSTOM_SUPERVISOR_SOURCE_IDENTITY_INVALID");
-        requireNativeAccount(adminUserApi.getUser(evidence.supervisorUserId()),evidence.supervisorUserId(),tenant);return evidence;
+        requireNativeAccount(adminUserApi.getUser(evidence.supervisorUserId()),evidence.supervisorUserId(),tenant,"编制人直接主管");return evidence;
     }
     private ResolvedRoute customRoute(DccApplicationCustomMatrixService.SavedSelection saved,DccDirectSupervisorSource.Evidence evidence,CustomRouteSource source){
         var result=new ArrayList<ResolvedRouteNode>();
@@ -101,11 +102,11 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         Long tenant=TenantContextHolder.getRequiredTenantId();var login=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser();
         if(derived==null||derived.sourceApprovalMatrix()==null||!java.util.Set.of("NEW","REVISION").contains(action==null?"":action)||actor==null||actor<=0||projectId==null||projectId<=0||fileId!=null&&fileId<=0||login==null||!Objects.equals(login.getId(),actor)||!Objects.equals(login.getTenantId(),tenant)||!Integer.valueOf(2).equals(login.getUserType()))throw new IllegalArgumentException("NATIVE_SUPERVISOR_AUTHENTICATED_CONTEXT_INVALID");
         var baseline=derived.sourceApprovalMatrix();if(!Objects.equals(baseline.getTenantId(),tenant))throw new IllegalArgumentException("NATIVE_SUPERVISOR_MATRIX_TENANT_INVALID");
-        var applicant=adminUserApi.getUser(actor);requireNativeAccount(applicant,actor,tenant);
+        var applicant=adminUserApi.getUser(actor);requireNativeAccount(applicant,actor,tenant,"编制人");
         var provider=nativeSupervisors.getIfAvailable();if(provider==null)throw new NativeSupervisorNotReadyException();
         var evidence=provider.require(new DccDirectSupervisorSource.Context(tenant,actor,fileId,projectId,"NEW".equals(action)?"UPLOAD":"REVISION"));
         if(evidence==null||!Objects.equals(evidence.tenantId(),tenant)||!Objects.equals(evidence.requesterId(),actor)||evidence.supervisorUserId()==null||evidence.supervisorUserId()<=0||!exactSourceText(evidence.sourceSystem())||!exactSourceText(evidence.sourceIdentity())||!exactSourceText(evidence.sourceVersion()))throw new IllegalArgumentException("NATIVE_SUPERVISOR_SOURCE_IDENTITY_INVALID");
-        requireNativeAccount(adminUserApi.getUser(evidence.supervisorUserId()),evidence.supervisorUserId(),tenant);
+        requireNativeAccount(adminUserApi.getUser(evidence.supervisorUserId()),evidence.supervisorUserId(),tenant,"编制人直接主管");
         var nodes=new ArrayList<ResolvedRouteNode>();nodes.add(new ResolvedRouteNode(0,"SUPERVISOR_REVIEW","直接主管独立审核与签名",0,"USER",evidence.supervisorUserId(),List.of(evidence.supervisorUserId()),"ANY",null,false,List.of(evidence.supervisorUserId())));derived.nodes().stream().filter(node->!"SUPERVISOR_REVIEW".equals(node.stageCode())).forEach(nodes::add);
         if(!nodes.stream().map(ResolvedRouteNode::stageCode).toList().equals(List.of("SUPERVISOR_REVIEW","MATRIX_REVIEW","MATRIX_APPROVAL","DOC_CONTROL_REVIEW")))throw new IllegalArgumentException("NATIVE_SUPERVISOR_STAGE_CONTRACT_INVALID");
         var signoff=derived.nodes().stream().filter(node->"MATRIX_REVIEW".equals(node.stageCode())).toList();
@@ -119,7 +120,15 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     }
     public void requireNativeExpectation(NativeApprovalSource source,String expectedDigest,String token){nativeSourceTokens.requireNativeSupervisor(source.proof(),expectedDigest,token);}
     private boolean exactSourceText(String value){return value!=null&&!value.isBlank()&&value.equals(value.strip())&&value.length()<=1024;}
-    private void requireNativeAccount(AdminUserRespDTO user,Long id,Long tenant){if(user==null||!Objects.equals(user.getId(),id)||!Objects.equals(user.getTenantId(),tenant)||!Integer.valueOf(0).equals(user.getStatus())||user.getPostIds()==null||user.getPostIds().isEmpty())throw new IllegalArgumentException("NATIVE_SUPERVISOR_ENABLED_ACCOUNT_REQUIRED");}
+    private void requireNativeAccount(AdminUserRespDTO user, Long id, Long tenant, String responsibility) {
+        if (user == null || !Objects.equals(user.getId(), id) || !Objects.equals(user.getTenantId(), tenant)
+                || !Integer.valueOf(0).equals(user.getStatus())) {
+            throw new IllegalArgumentException("NATIVE_SUPERVISOR_ENABLED_ACCOUNT_REQUIRED");
+        }
+        if (user.getPostIds() == null || user.getPostIds().isEmpty()) {
+            throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, responsibility + "未配置系统岗位，请先维护账号组织关系");
+        }
+    }
 
     @Resource
     private DccCategoryApprovalRouteMapper routeMapper;
@@ -486,8 +495,12 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
         List<Long> leaderUserIds = new ArrayList<>(departmentIds.size());
         for (Long departmentId : departmentIds) {
             List<DeptRespDTO> matches = departmentMap.get(departmentId);
-            if (matches == null || matches.size() != 1 || matches.get(0).getLeaderUserId() == null) {
+            if (matches == null || matches.size() != 1) {
                 throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
+            }
+            if (matches.get(0).getLeaderUserId() == null) {
+                throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_READY,
+                        "会签部门“" + matches.get(0).getName() + "”（ID：" + departmentId + "）未配置部门负责人");
             }
             leaderUserIds.add(matches.get(0).getLeaderUserId());
         }
@@ -496,11 +509,7 @@ public class DccControlledFileApprovalRouteAssigneeResolver {
     }
 
     private void validateResolvedUserIds(List<Long> userIds, boolean requireConfiguredPosts) {
-        try {
-            adminUserApi.validateUserList(userIds);
-        } catch (ServiceException ex) {
-            throw exception(ROUTE_PREVIEW_APPROVER_NOT_FOUND);
-        }
+        adminUserApi.validateUserList(userIds);
         if (requireConfiguredPosts) {
             approvalParticipantPostValidator.requireConfiguredPosts(userIds);
         }

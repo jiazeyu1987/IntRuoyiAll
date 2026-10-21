@@ -9,6 +9,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
 
 /** Exact active/historical identity and full graph classification with real Flowable/round/attribute facts. */
 class DccBoundExecutionGraphContractTest extends DccPreparedExecutionInheritanceDatabaseTest {
@@ -61,5 +66,24 @@ class DccBoundExecutionGraphContractTest extends DccPreparedExecutionInheritance
             case "UNREGISTERED"->doReturn(engine.getRepositoryService().getBpmnModel(exactId)).when(definitions).getProcessDefinitionBpmnModel(anyString());
         }
         var before=original(20L);assertThrows(RuntimeException.class,this::resolve);assertEquals(before,original(20L));verify(definitions,never()).getActiveProcessDefinition(anyString());
+    }
+    @Test void catalogMismatchLogsBoundDiagnosticContextAndRethrowsOriginalFailure() throws Exception {
+        publicActive(true);
+        jdbc.update("UPDATE dcc_controlled_file SET prepared_workflow_contract=? WHERE id=20", "PUBLIC_MATRIX_NATIVE_V2");
+        String runtimeDefinitionId=files.selectById(20L).getPreparedProcessDefinitionId();
+        Logger logger=(Logger) LoggerFactory.getLogger(DccBoundWorkflowContractResolver.class);
+        var appender=new ListAppender<ILoggingEvent>(); appender.start(); logger.addAppender(appender);
+        var before=original(20L);
+        try {
+            var failure=assertThrows(IllegalStateException.class,this::resolve);
+            assertEquals("EXECUTION_CONTRACT_UNREGISTERED_DEFINITION",failure.getMessage());
+            var event=appender.list.stream().filter(e->e.getMessage().contains("DCC_EXECUTION_CONTRACT_MISMATCH")).findFirst().orElseThrow();
+            var text=event.getFormattedMessage();
+            assertAll(() -> assertTrue(text.contains("fileId=20")),() -> assertTrue(text.contains("processDefinitionId="+runtimeDefinitionId)),
+                    () -> assertTrue(text.contains("contract=PUBLIC_MATRIX_NATIVE_V2")),() -> assertTrue(text.contains("processKey="+DccControlledFileProcessDefinitionKeys.UPLOAD)),
+                    () -> assertTrue(text.contains("digest=")));
+            assertEquals(Level.ERROR,event.getLevel());
+            assertEquals(before,original(20L));
+        } finally { logger.detachAppender(appender); appender.stop(); }
     }
 }

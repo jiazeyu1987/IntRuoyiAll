@@ -44,12 +44,16 @@ class DccNewActionBaselinePreparationDatabaseTest extends DccPreparedExecutionIn
     @BeforeEach void configureActualWorkingResources()throws Exception{
         dates=new DccWorkflowDatePolicy();dates.setZoneId("Asia/Shanghai");
         var category=cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO.builder().id(2L).code("IC21").name("新升版测试")
-                .active(true).source("LOCAL").lifecycleStage("DEVELOPMENT").fileTypeTaxonomyId(6L).build();categories.insert(category);
+                .active(true).source("LOCAL").approvalSourceMode("PUBLIC_MATRIX").lifecycleStage("DEVELOPMENT").fileTypeTaxonomyId(6L).build();categories.insert(category);
         jdbc.update("UPDATE dcc_file_category SET tenant_id=1 WHERE id=2");
         matrixSources=new DccApprovalMatrixSourceService();wire(matrixSources,"categories",categories,"routes",rawRoutes,"nodes",rawNodes,"datePolicy",dates);
         var key=new DccApprovalMatrixTokenProperties();key.setSigningSecret("ic21-isolated-technical-baseline-key-at-least-32-bytes");
         tokens=new DccApprovalMatrixTokenService();wire(tokens,"properties",key);
-        baselines=new DccApprovalMatrixBaselineService();wire(baselines,"sources",matrixSources,"tokens",tokens,"files",files);
+        var savedTypeAvailability=mock(cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService.class);
+        when(savedTypeAvailability.resolveActiveCategoryId(6L)).thenReturn(2L);
+        when(savedTypeAvailability.resolveActiveCategoryId(8L)).thenReturn(3L);
+        baselines=new DccApprovalMatrixBaselineService();wire(baselines,"sources",matrixSources,"tokens",tokens,"files",files,
+                "categories",categories,"taxonomies",savedTypeAvailability);
         if(Arrays.stream(baselines.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("executionContracts")))wire(baselines,"executionContracts",contracts);
         workflow=new DccControlledFileWorkflowServiceImpl();defaults(workflow);
         var scope=mock(DccControlledFileAssignmentScopeService.class);when(scope.isWithinAssignedFileScope(any(),any())).thenReturn(true);

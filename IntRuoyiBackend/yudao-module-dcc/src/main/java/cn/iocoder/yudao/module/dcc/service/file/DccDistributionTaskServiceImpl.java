@@ -11,6 +11,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapp
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDistributionRecipientDO;
@@ -54,6 +55,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
     @Resource private DccControlledFileSignatureMapper signatureMapper;
     @Resource private PermissionApi permissionApi;
     @Resource private AdminUserApi adminUserApi;
+    @Resource private DeptApi deptApi;
     @Resource private DccControlledFileCategoryPermissionSupport permissionSupport;
     @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccDistributionBatchMapper batchMapper;
     @Resource private DccDistributionBatchService batchService;
@@ -124,6 +126,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
         List<DccDistributionRecipientReceiptRespVO> rows = new ArrayList<>();
         for (var distribution : distributionMapper.selectListByControlledFileId(fileId)) {
             if (!"PUBLIC_FOLDER".equals(distribution.getDistributionMedium())) continue;
+            var department = deptApi.getDept(distribution.getDepartmentId());
             for (var recipient : distributionRecipientMapper.selectListByDistributionId(distribution.getId())) {
                 var job = recipient.getMessageJobId() == null ? null : messageJobMapper.selectById(recipient.getMessageJobId());
                 if (job == null || !"DISTRIBUTION".equals(job.getBusinessType())
@@ -137,6 +140,7 @@ public class DccDistributionTaskServiceImpl implements DccDistributionTaskServic
                 row.setControlledFileId(fileId); row.setVersionNo(file.getVersionNo());
                 row.setDistributionId(distribution.getId()); row.setRecipientId(recipient.getId());
                 row.setDepartmentId(distribution.getDepartmentId()); row.setUserId(recipient.getUserId());
+                if (department != null) row.setDepartmentName(department.getName());
                 var user = adminUserApi.getUser(recipient.getUserId());
                 if (user != null) row.setCurrentUserName(user.getNickname());
                 row.setMessageStatus(job.getStatus()); row.setErrorMessage(job.getErrorMessage());

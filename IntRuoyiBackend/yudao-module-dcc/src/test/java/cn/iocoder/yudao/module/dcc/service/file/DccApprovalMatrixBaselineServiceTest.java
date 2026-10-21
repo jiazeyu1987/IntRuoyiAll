@@ -17,6 +17,7 @@ class DccApprovalMatrixBaselineServiceTest {
         TenantContextHolder.setTenantId(1L);sources=mock(DccApprovalMatrixSourceService.class);files=mock(DccControlledFileMapper.class);
         var key=new DccApprovalMatrixTokenProperties();key.setSigningSecret("w05-matrix-confirmation-isolated-key-at-least-32-bytes");tokens=new DccApprovalMatrixTokenService();ReflectionTestUtils.setField(tokens,"properties",key);
         service=new DccApprovalMatrixBaselineService();ReflectionTestUtils.setField(service,"sources",sources);ReflectionTestUtils.setField(service,"tokens",tokens);ReflectionTestUtils.setField(service,"files",files);
+        ReflectionTestUtils.setField(service,"executionContracts",mock(DccApplicationExecutionContractService.class));
         Path root=Path.of("").toAbsolutePath();while(root!=null&&!Files.isRegularFile(root.resolve("AGENTS.md")))root=root.getParent();
         var raw=JsonUtils.parseObject(Files.readString(root.resolve("doc/tasks/20261011-dcc-w02-types-matrix/immutable-public-matrix-v2.fixture.json")),Map.class);
         initial=source(raw);raw.put("routeId","9007199254741100");raw.put("routeVersionNo",3);current=source(raw);

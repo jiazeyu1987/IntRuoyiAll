@@ -89,9 +89,26 @@ class DccCurrentFileRelationsTest {
         dependencies();when(fileMapper.selectById(100L)).thenReturn(DccControlledFileDO.builder().id(100L).masterId(10L).tenantId(1L).dccProjectCodeId(1L).build());
         for(var invalid:List.of(file(201,20,2,false),file(201,20,1,true))){
             when(files.resolveSelected(201L)).thenReturn(invalid);when(files.resolveLatest(20L)).thenReturn(invalid);
-            assertThrows(RuntimeException.class,()->tx.executeWithoutResult(s->service.validateAndBindRelatedFiles(100L,1L,List.of(201L))));
+            var failure=assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                    ()->tx.executeWithoutResult(s->service.validateAndBindRelatedFiles(100L,1L,List.of(201L))));
+            assertEquals(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_RELATED_FILE_INVALID.getCode(),failure.getCode());
         }
+        verify(files,times(2)).resolveSelected(201L);
+        verify(files,times(2)).resolveLatest(20L);
         verify(related,never()).insert(any(DccControlledFileRelatedFileDO.class));
+    }
+    @Test void sameProjectActiveSelectionPersistsExactVersion() {
+        dependencies();
+        when(fileMapper.selectById(100L)).thenReturn(DccControlledFileDO.builder()
+                .id(100L).masterId(10L).tenantId(1L).dccProjectCodeId(1L).status("WORKING").build());
+        when(files.resolveSelected(201L)).thenReturn(file(201,20,1,false));
+        when(files.resolveLatest(20L)).thenReturn(file(201,20,1,false));
+        tx.executeWithoutResult(s->service.validateAndBindRelatedFiles(100L,1L,List.of(201L)));
+        var captured=org.mockito.ArgumentCaptor.forClass(DccControlledFileRelatedFileDO.class);
+        verify(related).insert(captured.capture());
+        assertEquals(201L,captured.getValue().getRelatedControlledFileId());
+        assertEquals(1L,captured.getValue().getProjectCodeId());
+        assertEquals("A/1",captured.getValue().getRelatedVersionNoSnapshot());
     }
     @Test void missingCurrentProvenanceCannotBecomeAnEmptySuccess(){
         dependencies();when(files.resolveSelected(100L)).thenReturn(file(100,10,1,false));
