@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolPqcRecordDO;
@@ -245,8 +246,6 @@ public class MesPqcProcessInspectionAggregationServiceImpl
                 || !Objects.equals(record.getQaProcessId(), task.getQaProcessId())
                 || !Objects.equals(event.getQaProcessId(), task.getQaProcessId())
                 || task.getRouteVersionId() == null
-                || task.getRouteProcessId() == null
-                || task.getProcessId() == null
                 || task.getRegulationVersionId() == null
                 || StrUtil.isBlank(task.getInspectionType())
                 || task.getBusinessDate() == null

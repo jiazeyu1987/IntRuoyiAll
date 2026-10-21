@@ -115,8 +115,8 @@ class MesEdhrOpinionSignatureChainTest {
                             .setDossierSummaryJson(call.getArgument(6)).setApplicationStatus("MANAGER_RELEASE_PENDING");
                     return 1;
                 });
-        when(tasks.completePqcDecisionTask(eq(177L), any(), eq("APPROVE"))).thenAnswer(call -> {
-            task.setStatus("DONE").setCompletedAt(call.getArgument(1)).setReason("APPROVE"); return 1;
+        when(tasks.completePqcApprovedTask(eq(177L), any(), any())).thenAnswer(call -> {
+            task.setStatus("DONE").setCompletedAt(call.getArgument(2)).setReason("APPROVE"); return 1;
         });
         when(applications.handoffReportsToManager(eq(95L), eq(2), any(), eq(91L), eq(178L), eq("candidates"))).thenReturn(1);
         var orders = mock(MesProcessPoolActiveOrderMapper.class);
@@ -131,6 +131,7 @@ class MesEdhrOpinionSignatureChainTest {
                 mock(MesProductionReleaseBatchExecutionPort.class), mock(MesProductionReleaseReportStageInitializer.class), manager,
                 mock(MesReleaseFlowAuditRecorder.class), writer, mock(MesProEdhrNonconformanceReviewService.class),
                 mock(MesProEdhrNonconformanceReviewMapper.class), Clock.fixed(AT.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
+        configureAuthenticatedPqcWriter(authorization);
         ReflectionTestUtils.setField(pqc, "gxpAuditService", audit);
         ReflectionTestUtils.setField(pqc, "approvalAuthority", mock(cn.iocoder.yudao.module.system.api.permission.ApprovalAuthorityApi.class));
         var batches = mock(MesProEdhrBatchExecutionMapper.class);
@@ -150,6 +151,38 @@ class MesEdhrOpinionSignatureChainTest {
         outcomes = new MesEdhrApprovalOutcomeReader(tasks, transactions, mock(MesProEdhrReleaseDecisionMapper.class),
                 applications, actors, queries, new MesProductionReleaseSignoffService(queries), mock(MesEdhrExecutionFinalOutcomeReader.class));
     }
+    private void replaceWithLegacyPqcSignature() {
+        String subject = stored.getSubjectId(); String reason = stored.getReason();
+        stored = null; createdAudit = null;
+        try (var security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+            security.when(SecurityFrameworkUtils::getLoginUser).thenReturn(signedIn);
+            kernel.sign(new cn.iocoder.yudao.module.signature.api.dto.ElectronicSignatureCommand(
+                    "MES", "PQC_RELEASE", "MES_BATCH_RECORD", subject,
+                    MesBatchRecordSignatureSubjectAdapter.subjectVersion(subject), "test-credential", reason,
+                    "legacy-pqc-fixture", null, null));
+        }
+    }
+
+    private void configureAuthenticatedPqcWriter(DccElectronicSignatureAuthorizationService authorization) {
+        var authentication = mock(cn.iocoder.yudao.module.system.service.signature.SystemSignatureAuthenticationService.class);
+        when(authentication.identityDomain()).thenReturn("SYSTEM_USER");
+        when(authentication.authenticate(any())).thenAnswer(call -> new cn.iocoder.yudao.module.system.api.signature.dto.SignatureAuthenticationOutcome(
+                new cn.iocoder.yudao.module.system.api.signature.dto.AuthenticatedSigner(1L,"SYSTEM_USER",188L,188L,"00000000-0000-0000-0000-000000000001",1L,"request"),null));
+        when(authentication.lockAndRevalidate(any(),any())).thenAnswer(call -> call.getArgument(0));
+        var tx = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(tx.getTransaction(any())).thenAnswer(call -> new org.springframework.transaction.support.SimpleTransactionStatus());
+        var executor = new cn.iocoder.yudao.module.signature.service.ElectronicSignatureTransactionExecutor(
+                signatureRows,actualCreationAudit,List.of(authentication),Clock.fixed(AT.toInstant(ZoneOffset.UTC),ZoneOffset.UTC));
+        when(auth.getUser(188L)).thenReturn(new cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO()
+                .setId(188L).setNickname("真实意见操作者"));
+        var authenticatedWriter = new MesPqcReleaseAuthenticatedSignatureService(executor,verifiedFacts,auth,authorization);
+        doAnswer(call -> {actualCreationAudit.acquireLedgerLock(); return null;}).when(audit).acquireLedgerLock();
+        ReflectionTestUtils.setField(pqc,"signatureAuthentication",authentication);
+        ReflectionTestUtils.setField(pqc,"transactionManager",tx);
+        ReflectionTestUtils.setField(pqc,"authenticatedSignatures",authenticatedWriter);
+    }
+
     @AfterEach void clear() {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             for (var callback : org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations())
@@ -407,8 +440,8 @@ class MesEdhrOpinionSignatureChainTest {
         ReflectionTestUtils.setField(summary, "verifiedSignatureFacts", verifiedFacts);
         ReflectionTestUtils.setField(summary, "batchExecutionMapper", batchRows);
         ReflectionTestUtils.invokeMethod(summary, "attachPqcProductionRelease", detail, application, formalPqcPurpose());
-        assertNull(queries.getById(88L).actorDisplayName());
-        assertEquals("未记录", detail.getPqcProductionRelease().getSignature().getSignerName());
+        assertEquals("真实意见操作者", queries.getById(88L).actorDisplayName());
+        assertEquals("真实意见操作者", detail.getPqcProductionRelease().getSignature().getSignerName());
         assertEquals(88L, detail.getPqcProductionRelease().getSignature().getSignatureId());
         assertEquals(stored.getSignedAt(), detail.getPqcProductionRelease().getSignature().getSignedAt());
         var authorizedDetail = mock(MesTeamLeaderActiveOrderDetailService.class);
@@ -423,7 +456,7 @@ class MesEdhrOpinionSignatureChainTest {
         assertEquals(stored.getCanonicalContentJson(), result.evidence().canonicalContentJson());
         var originalAudit = createdAudit;
         createdAudit = null;
-        assertEquals("INCOMPLETE", consumer.getTeam(188L, 180L, 88L).verification().verificationStatus());
+        assertEquals("MISMATCH", consumer.getTeam(188L, 180L, 88L).verification().verificationStatus());
         assertThrows(RuntimeException.class, () -> ReflectionTestUtils.invokeMethod(summary, "attachPqcProductionRelease", detail, application, formalPqcPurpose()));
         createdAudit = originalAudit;
         String originalTime = stored.getTimeEvidenceId();
@@ -532,6 +565,7 @@ class MesEdhrOpinionSignatureChainTest {
     @ValueSource(strings = {"VALID", "ORDINARY", "AUDIT_MISSING", "TIME_MISSING", "SIGNED_AT_MISSING", "HASH_MISSING", "HASH_MISMATCH", "AUDIT_MISMATCH"})
     void realInitialDetailsAndBothEvidenceEntriesExposeVerificationWithoutAuthorizingFormalConsumption(String state) {
         signPqc("历史意见");
+        if (state.equals("ORDINARY")) replaceWithLegacyPqcSignature();
         if (!state.equals("ORDINARY")) {
             String subject = MesBatchRecordSignatureSubjectAdapter.subjectWithoutOpinionSource(stored.getSubjectId());
             stored = null; createdAudit = null;
@@ -700,7 +734,7 @@ class MesEdhrOpinionSignatureChainTest {
         createdAudit = null;
         var missing = queries.verifyEvidence(88L);
         assertEquals("CONSISTENT", missing.digestStatus());
-        assertEquals("INCOMPLETE", missing.verificationStatus());
+        assertEquals("MISMATCH", missing.verificationStatus());
         assertEquals("MISSING", missing.auditBindingStatus());
         assertThrows(RuntimeException.class, () -> outcomes.readAuthorizedTask(task));
         createdAudit = original;
@@ -730,15 +764,15 @@ class MesEdhrOpinionSignatureChainTest {
         application.setPqcReleaseWorkTaskId(178L); assertThrows(RuntimeException.class, () -> outcomes.readAuthorizedTask(task));
     }
 
-    @Test void ordinaryDiagnosticReadDoesNotIssueFormalFactAndLegacyNameRemainsAbsent() {
+    @Test void ordinaryDiagnosticReadDoesNotIssueFormalFactAndFrozenNameRemainsAvailable() {
         signPqc("正式意见");
         var fact = verifiedFacts.requireVerifiedFact(88L);
-        assertEquals("NOT_RECORDED", MesActiveOrderSignatureEvidenceService
+        assertEquals("VERIFIED_SNAPSHOT", MesActiveOrderSignatureEvidenceService
                 .pqcReadProjection(queries.getById(88L), fact).getSignerNameStatus());
         createdAudit = null;
         var evidence = queries.getById(88L);
         var diagnostic = queries.verifyEvidence(88L);
-        assertEquals("INCOMPLETE", MesActiveOrderSignatureEvidenceService
+        assertEquals("MISMATCH", MesActiveOrderSignatureEvidenceService
                 .pqcReadProjection(evidence, diagnostic).getVerification().verificationStatus());
         assertThrows(RuntimeException.class, () -> verifiedFacts.requireVerifiedFact(88L));
     }
@@ -774,7 +808,7 @@ class MesEdhrOpinionSignatureChainTest {
                 new MesTeamLeaderActiveOrderDetail.OperationFact().setSignatureId(88L).setActorUserId(188L)
                         .setActorName("上市签署人").setOperationType("BATCH_RECORD_RELEASE_APPROVED")));
         var batchDetail = mock(MesProEdhrBatchActiveOrderDetailService.class);
-        when(batchDetail.getDetail(92L)).thenReturn(detail);
+        when(batchDetail.getSignatureDetail(92L, 88L)).thenReturn(detail);
         var reader = new MesActiveOrderSignatureEvidenceService(null, null, batchDetail, queries,
                 null, null, null, null, null, applications, transactions, tasks, batches, new MesProductionReleaseSignoffService(queries));
         ReflectionTestUtils.setField(reader, "verifiedSignatureFacts", verifiedFacts);

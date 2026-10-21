@@ -32,9 +32,9 @@ class GxpApprovalCenterCandidatePolicyTest {
         }
         Set<String> added=new HashSet<>(operations.keySet());baseline.policyNode().get("operations").forEach(o -> added.remove(o.path("operationId").asText()));
         assertEquals(Set.of("mes.independent-batch-prerequisite-receipt.issue","mes.independent-batch-prerequisite-receipt.revoke",
-                "mes.edhr.material-gate.receipt.create","mes.market-release.manager-stage.initialize","APPROVAL_CENTER_REVIEW_COMMIT"),added);
+                "mes.edhr.material-gate.receipt.create"),added);
         assertEquals("REQUIRED",operations.get("APPROVAL_CENTER_REVIEW_COMMIT").path("signaturePolicy").asText());
-        assertTrue(operations.get("signature.record.create").path("sourceLocators").toString().contains("ElectronicSignatureTransactionExecutor.executeAuthenticated"));
+        assertTrue(operations.get("signature.record.create").path("sourceLocators").toString().contains("ElectronicSignatureTransactionExecutor#executeAuthenticated"));
         assertTrue(operations.get("mes.production.submit").path("sourceLocators").toString().contains("MesProFrontlineFeedbackSubmitServiceImpl#submitAuthenticated"));
     }
     private static String resource(String path) throws Exception {

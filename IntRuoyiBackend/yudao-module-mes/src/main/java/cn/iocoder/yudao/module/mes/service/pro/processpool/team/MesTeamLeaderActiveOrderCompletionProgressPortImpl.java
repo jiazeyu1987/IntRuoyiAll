@@ -95,8 +95,8 @@ public class MesTeamLeaderActiveOrderCompletionProgressPortImpl
                     || !Objects.equals(activeOrder.getWorkOrderId(), task.getWorkOrderId())
                     || !Objects.equals(activeOrder.getRouteId(), task.getRouteId())
                     || !Objects.equals(activeOrder.getRouteVersionId(), task.getRouteVersionId())
-                    || task.getRouteProcessId() == null || task.getProcessId() == null || task.getId() == null
-                    || !snapshotsByProcess.containsKey(key(task.getRouteProcessId(), task.getProcessId()))) {
+                    || task.getId() == null || task.getQaProcessId() == null || task.getRegulationVersionId() == null
+                    || task.getRouteProcessId() != null || task.getProcessId() != null) {
                 throw sourceMissing(activeOrder, "PQC_TASK");
             }
         }).filter(task -> MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())).count();

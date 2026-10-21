@@ -175,14 +175,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
         source.getAggregateDetails().get(0).setSelectedEquipmentId(9999L);
         when(reader.read(any())).thenReturn(bundle(source));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command());
 
         assertTrue(plan.getBlockers().isEmpty());
         assertEquals(9999L, plan.getPreparedInspections().get(0).getMappedValues().stream()
-                .filter(value -> "selectedEquipmentId".equals(value.getRule().getSourceFieldCode()))
+                .filter(value -> value.getRule().getSourceFieldCode().endsWith("|selectedEquipmentId"))
                 .findFirst().orElseThrow().getValue());
         verify(executionService, never()).openOrCreateByContext(any());
     }
@@ -226,7 +226,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .setInspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_FAILURE)
                 .setRawPayload("{\"scrapQuantity\":1,\"pqcDraft\":{\"scrapQuantity\":1}}");
         when(reader.read(any())).thenReturn(bundle(source));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command());
@@ -254,11 +254,11 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         item.setStandardPrecision(null);
         item.setResultType("BOOLEAN");
         when(reader.read(command)).thenReturn(bundle(source));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         List<MesProBatchRecordCellLinkRuleDO> choiceRules = new ArrayList<>(rules());
         choiceRules.removeIf(rule -> List.of("standardLowerLimit", "standardUpperLimit", "standardUnit",
-                "standardPrecision").contains(rule.getSourceFieldCode()));
-        choiceRules.stream().filter(rule -> "measuredValue".equals(rule.getSourceFieldCode())).findFirst()
+                "standardPrecision").contains(rule.getSourceFieldCode().substring(rule.getSourceFieldCode().lastIndexOf('|') + 1)));
+        choiceRules.stream().filter(rule -> rule.getSourceFieldCode().endsWith("|measuredValue")).findFirst()
                 .orElseThrow().setTargetValueType("STRING");
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(choiceRules);
 
@@ -266,7 +266,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
 
         assertTrue(plan.getBlockers().isEmpty());
         assertEquals("合格", plan.getPreparedInspections().get(0).getMappedValues().stream()
-                .filter(value -> "measuredValue".equals(value.getRule().getSourceFieldCode()))
+                .filter(value -> value.getRule().getSourceFieldCode().endsWith("|measuredValue"))
                 .findFirst().orElseThrow().getValue());
         verify(executionService, never()).openOrCreateByContext(any());
         verify(fieldAuditService, never()).saveSystemCellLinkChanges(any());
@@ -276,15 +276,15 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     void missingRequiredMappingReturnsLocatedBlocker() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         when(reader.read(command)).thenReturn(bundle(source()));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         List<MesProBatchRecordCellLinkRuleDO> incomplete = new ArrayList<>(rules());
-        incomplete.removeIf(rule -> "reviewedAt".equals(rule.getSourceFieldCode()));
+        incomplete.removeIf(rule -> rule.getSourceFieldCode().endsWith("|reviewedAt"));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(incomplete);
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
 
         assertEquals(List.of("PROCESS_INSPECTION_MAPPING_REQUIRED"), blockerTypes(plan));
-        assertEquals("reviewedAt", plan.getBlockers().get(0).getObjectCode());
+        assertEquals("FIRST|reviewedAt", plan.getBlockers().get(0).getObjectCode());
         verify(executionService, never()).openOrCreateByContext(any());
     }
 
@@ -293,7 +293,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         when(reader.read(command)).thenReturn(bundle(source()));
         MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(28L, "PI_" + ROUTE_PROCESS_ID);
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any()))
                 .thenReturn(List.of(binding));
         List<MesProBatchRecordCellLinkRuleDO> rules = dynamicRules();
         List<MesProBatchRecordCellLinkRuleDO> storedRules = new ArrayList<>(rules);
@@ -347,13 +347,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource pressure = source();
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource flow = secondInspectionSource();
         List<MesQaInspectionRegulationItemDO> qaItems = List.of(pressure.getRegulationItems().get(0),
-                qaItem(704L, "FLOW", "流量"));
+                qaItem(704L, "FLOW", "流量").setQaProcessId(8002L));
+        flow.getTask().setQaProcessId(8002L);
         pressure.setRegulationItems(qaItems);
         flow.setRegulationItems(qaItems);
         when(reader.read(command)).thenReturn(new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle()
                 .setSources(List.of(pressure, flow)));
         MesProRouteFlowProcessBatchRecordDO binding = dynamicFormBinding(28L, "PI_" + ROUTE_PROCESS_ID);
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any()))
                 .thenReturn(List.of(binding));
         List<MesProBatchRecordCellLinkRuleDO> rules = dynamicRules();
         when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 2801L, "FORMTPL:2801"))
@@ -409,7 +410,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .setLastPublishedTemplateVersionId(3101L)
                 .setLastPublishedTemplateVersionNo("V2")
                 .setFormTemplateNameSnapshot("按压式压力泵过程检验记录");
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any()))
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any()))
                 .thenReturn(List.of(binding));
         List<MesProBatchRecordCellLinkRuleDO> rules = dynamicRules();
         rules.forEach(rule -> {
@@ -486,7 +487,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource commonSource = commonQaSource();
         when(reader.read(command)).thenReturn(new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle()
                 .setSources(List.of(dedicatedSource, commonSource)));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
@@ -503,15 +504,16 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     @Test
-    void itemScopedTaskDoesNotRequireSiblingQaItemsInSameFrozenVersion() {
+    void stageTaskMustIncludeAllSiblingQaItemsInItsFrozenProcess() {
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command = command();
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
-        source.setRegulationItems(List.of(source.getRegulationItems().get(0), qaItem(704L, "FLOW", "流量")));
-        stubFormalPlan(command, source);
+        source.setRegulationItems(List.of(source.getRegulationItems().get(0),
+                qaItem(704L, "FLOW", "流量")));
+        when(reader.read(command)).thenReturn(bundle(source));
 
         MesTeamLeaderActiveOrderReleaseProcessInspectionPlan plan = writer.plan(command);
 
-        assertTrue(plan.getBlockers().isEmpty(), () -> "blockers=" + blockerTypes(plan));
+        assertEquals(List.of("PQC_QA_ITEM_MISMATCH"), blockerTypes(plan));
     }
 
     @Test
@@ -523,7 +525,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON)
                 .setRegulationCode("COMMON-PACK")
                 .setRegulationName("通用包装检验规程");
-        source.setRegulationItems(List.of(source.getRegulationItems().get(0), qaItem(704L, "FLOW", "流量")));
+        source.setRegulationItems(List.of(source.getRegulationItems().get(0),
+                qaItem(704L, "FLOW", "流量").setQaProcessId(8002L)));
         source.getQaDccProvenance()
                 .setProvenanceType("COMMON_QA_REGULATION_VERSION")
                 .setProvenanceId("common:" + source.getRegulationVersion().getId())
@@ -617,10 +620,62 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 captor.getAllValues().get(1).getIdempotencyKey());
     }
 
+    @Test
+    void twentyOneQaStagesWriteOneOrderFormWithAllResultsAndSignatures() {
+        var command = command();
+        List<MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource> sources = new ArrayList<>();
+        for (long process = 1; process <= 7; process++) {
+            for (String stage : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
+                var source = source();
+                long index = sources.size() + 1;
+                String type = stage.equals("FIRST") ? "FIRST" : "PATROL";
+                source.getTask().setId(6000L + index).setQaProcessId(8000L + process)
+                        .setSubmittedEventId(7000L + index).setInspectionRuleKey(stage).setInspectionType(type);
+                source.getRegulationItems().get(0).setQaProcessId(8000L + process).setInspectionType(type);
+                source.getAggregateDetails().get(0).setId(9000L + index).setPqcTaskId(6000L + index)
+                        .setEventId(7000L + index).setReviewId(10000L + index).setInspectionType(type)
+                        .setSourcePqcRecordId(11000L + index);
+                source.getEvent().setId(7000L + index).setFeedbackSourceId(6000L + index).setSignatureId(12000L + index);
+                source.getPqcRecord().setId(11000L + index).setEventId(7000L + index)
+                        .setProcessInspectionReviewId(10000L + index).setSignatureId(12000L + index);
+                source.getReview().setId(10000L + index).setEventId(7000L + index).setReviewSignatureId(13000L + index);
+                sources.add(source);
+            }
+        }
+        when(reader.read(command)).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionReader.SourceBundle().setSources(sources));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any()))
+                .thenReturn(List.of(dynamicFormBinding(28L, "ORDER_PI")));
+        var rules = dynamicRules();
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules);
+        when(dynamicFormPort.resolveTarget(any(), any(), any())).thenReturn(dynamicTarget(rules));
+        when(batchTaskMapper.selectListByBatchExecutionId(BATCH_EXECUTION_ID)).thenReturn(
+                List.of(dynamicBatchTask().setFormBindingKey("ORDER_PI")));
+        when(dynamicFormPort.write(any())).thenReturn(
+                new MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteResult()
+                        .setFormCenterInstanceId(9801L).setFieldAuditSnapshotId(9802L)
+                        .setFieldAuditHeadHash("order-qa-stage-audit").setEffectiveStatus("EFFECTIVE"));
+        var plan = writer.plan(command);
+        assertTrue(plan.getBlockers().isEmpty(), () -> "blockers=" + blockerTypes(plan));
+        assertEquals(21, plan.getPreparedInspections().size());
+        assertEquals(42, plan.getSignatureEvidence().size());
+        assertEquals(List.of(9801L), writer.write(plan, BATCH_EXECUTION_ID).getFormCenterInstanceIds());
+        var captured = ArgumentCaptor.forClass(MesTeamLeaderActiveOrderReleaseProcessInspectionDynamicFormPort.WriteCommand.class);
+        verify(dynamicFormPort).write(captured.capture());
+        String results = captured.getValue().getFields().stream()
+                .filter(field -> "itemSummary".equals(field.getSourceFieldCode()))
+                .map(field -> String.valueOf(field.getValue())).findFirst().orElseThrow();
+        for (long process = 1; process <= 7; process++) {
+            for (String stage : List.of("FIRST", "PATROL_AM", "PATROL_PM")) {
+                assertTrue(results.contains("qaProcessId=" + (8000L + process) + "|stage=" + stage), results);
+            }
+        }
+    }
+
     private void stubFormalPlan(MesTeamLeaderActiveOrderReleaseProcessInspectionPlanCommand command,
                                 MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source) {
         when(reader.read(command)).thenReturn(bundle(source));
-        when(bindingMapper.selectListByRouteProcessIdsAndUseType(any(), any())).thenReturn(List.of(binding()));
+        when(bindingMapper.selectListByRouteIdAndUseType(any(), any())).thenReturn(List.of(binding()));
         when(ruleMapper.selectEnabledListByScopeAndTargetReport(any(), any(), any())).thenReturn(rules());
     }
 
@@ -659,19 +714,20 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesPqcInspectionTaskDO task = MesPqcInspectionTaskDO.builder()
                 .id(TASK_ID).activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID)
                 .routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
-                .qaProcessId(8001L).qaItemCode("PRESSURE")
-                .regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
+                .routeProcessId(null).processId(null)
+                .qaProcessId(8001L).qaItemCode("").inspectionRuleKey("FIRST")
+                .regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                 .businessDate(LocalDate.of(2026, 8, 9)).shiftCode("DAY").roundNo(1)
                 .plannedInspectionQuantity(1).actualInspectionQuantity(1)
+                .inspectionItemPlanJson("{\"PRESSURE\":1}")
                 .taskStatus(MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED).build();
         task.setTenantId(TENANT_ID);
         MesPqcProcessInspectionAggregateDetailDO detail = MesPqcProcessInspectionAggregateDetailDO.builder()
                 .id(AGGREGATE_ID).sourcePqcRecordId(PQC_RECORD_ID).sourcePieceDetailId(606L)
                 .eventId(EVENT_ID).reviewId(REVIEW_ID).productionSubmitEventId(607L).pqcTaskId(TASK_ID)
                 .activeOrderId(ACTIVE_ORDER_ID).workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID)
-                .routeVersionId(ROUTE_VERSION_ID).routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
-                .regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
+                .routeVersionId(ROUTE_VERSION_ID).routeProcessId(null).processId(null)
+                .regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                 .businessDate(LocalDate.of(2026, 8, 9)).shiftCode("DAY").roundNo(1)
                 .actualInspectionQuantity(1).sampleNo(1).itemCode("PRESSURE").itemName("压力")
                 .inspectionMethod("压力表测量").standardText("10.0-11.0 MPa")
@@ -684,15 +740,15 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         detail.setTenantId(TENANT_ID);
         MesProProcessPoolEventDO event = MesProProcessPoolEventDO.builder()
                 .id(EVENT_ID).eventType(MesProProcessPoolEventDO.EVENT_TYPE_PQC_INSPECTION)
-                .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeProcessId(ROUTE_PROCESS_ID)
-                .processId(PROCESS_ID).actualEmployeeId(11001L).feedbackSourceType("MES_PQC_INSPECTION_TASK")
+                .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeProcessId(null)
+                .processId(null).actualEmployeeId(11001L).feedbackSourceType("MES_PQC_INSPECTION_TASK")
                 .feedbackSourceId(TASK_ID).serverSubmitTime(INSPECTED_AT).signatureId(1101L)
                 .signatureUserId(11001L).signatureSnapshot("pqc-signature-evidence")
                 .rawPayload("raw-payload-must-not-enter-hash").build();
         event.setTenantId(TENANT_ID);
         MesProProcessPoolPqcRecordDO record = MesProProcessPoolPqcRecordDO.builder()
                 .id(PQC_RECORD_ID).eventId(EVENT_ID).productionSubmitEventId(607L).workOrderId(WORK_ORDER_ID)
-                .routeId(ROUTE_ID).routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
+                .routeId(ROUTE_ID).routeProcessId(null).processId(null)
                 .actualEmployeeId(11001L).signatureId(1101L).signatureUserId(11001L)
                 .inspectionResult(MesProProcessPoolPqcRecordDO.INSPECTION_RESULT_SUCCESS)
                 .serverSubmitTime(INSPECTED_AT)
@@ -710,7 +766,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesQaInspectionRegulationDO regulation = MesQaInspectionRegulationDO.builder()
                 .id(REGULATION_ID).dccProjectCodeId(705L)
                 .productId(PRODUCT_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                .routeProcessId(ROUTE_PROCESS_ID).processId(PROCESS_ID)
+                .routeProcessId(null).processId(null)
                 .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)
                 .lifecycleStatus("PUBLISHED").currentVersionId(REGULATION_VERSION_ID).build();
         regulation.setTenantId(TENANT_ID);
@@ -720,7 +776,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
                 .snapshotJson("qa-version-snapshot").build();
         version.setTenantId(TENANT_ID);
         MesQaInspectionRegulationItemDO item = MesQaInspectionRegulationItemDO.builder()
-                .id(703L).regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
+                .id(703L).regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                 .qaProcessId(8001L).itemCode("PRESSURE").itemName("压力").inspectionMethod("压力表测量")
                 .standardText("10.0-11.0 MPa").standardLowerLimit(new BigDecimal("10.0"))
                 .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
@@ -798,7 +854,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         MesTeamLeaderActiveOrderReleaseProcessInspectionReader.InspectionSource source = source();
         source.getTask()
                 .setId(COMMON_TASK_ID)
-                .setQaItemCode("FLOW");
+                .setQaItemCode("").setInspectionItemPlanJson("{\"FLOW\":1}");
         MesPqcProcessInspectionAggregateDetailDO detail = source.getAggregateDetails().get(0)
                 .setId(COMMON_AGGREGATE_ID)
                 .setSourcePqcRecordId(COMMON_PQC_RECORD_ID)
@@ -829,7 +885,7 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
 
     private static MesQaInspectionRegulationItemDO qaItem(long id, String itemCode, String itemName) {
         MesQaInspectionRegulationItemDO item = MesQaInspectionRegulationItemDO.builder()
-                .id(id).regulationVersionId(REGULATION_VERSION_ID).inspectionType("PQC")
+                .id(id).regulationVersionId(REGULATION_VERSION_ID).inspectionType("FIRST")
                 .qaProcessId(8001L).itemCode(itemCode).itemName(itemName).inspectionMethod("压力表测量")
                 .standardText("10.0-11.0 MPa").standardLowerLimit(new BigDecimal("10.0"))
                 .standardUpperLimit(new BigDecimal("11.0")).standardUnit("MPa").standardPrecision(1)
@@ -956,7 +1012,8 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
         rule.setBatchRecordVersionId(803L);
         rule.setSourceType("PQC_AGGREGATE_DETAIL");
         rule.setSourceCellKey(sourceCellKey);
-        rule.setSourceFieldCode(fieldCode);
+        rule.setSourceFieldCode(sourceCellKey.startsWith("QA_PROCESS:")
+                ? sourceCellKey.substring(sourceCellKey.indexOf('|') + 1) : fieldCode);
         rule.setSourceValueType(valueType);
         rule.setTargetReportId(REPORT_ID);
         rule.setTargetRowIndex(row);
@@ -1019,14 +1076,14 @@ class MesTeamLeaderActiveOrderReleaseProcessInspectionWriterTest {
     }
 
     private static String itemKey(String fieldCode) {
-        return "QA_PROCESS:8001|PQC|PRESSURE|1|" + fieldCode;
+        return "QA_PROCESS:8001|FIRST|PRESSURE|1|" + fieldCode;
     }
 
     private static String headerKey(String fieldCode) {
         if (fieldCode.startsWith("dccProject")) {
-            return "QA_PROCESS:8001|PQC|DCC|" + fieldCode;
+            return "QA_PROCESS:8001|FIRST|DCC|" + fieldCode;
         }
-        return "QA_PROCESS:8001|PQC|" + fieldCode;
+        return "QA_PROCESS:8001|FIRST|" + fieldCode;
     }
 
     private static String summaryKey(String fieldCode) {

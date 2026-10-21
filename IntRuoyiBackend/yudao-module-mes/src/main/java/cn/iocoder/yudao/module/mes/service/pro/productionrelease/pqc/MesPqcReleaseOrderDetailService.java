@@ -95,10 +95,11 @@ public class MesPqcReleaseOrderDetailService {
         }
         ElectronicSignatureEvidenceDTO signature = requireUnifiedPqcReleaseSignature(
                 decision.getSignatureId(), application.getBatchExecutionId(), application.getId());
-        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application,
-                MesActiveOrderSignatureEvidenceService.readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId()),
-                MesActiveOrderSignatureEvidenceService.readPqcBatch(batchMapper, application.getBatchExecutionId()), signature);
+        var task = MesActiveOrderSignatureEvidenceService.readPqcTask(workTaskMapper, application.getPqcReleaseWorkTaskId());
+        var batch = MesActiveOrderSignatureEvidenceService.readPqcBatch(batchMapper, application.getBatchExecutionId());
+        MesActiveOrderSignatureEvidenceService.requirePqcPersistedBinding(detail, application, task, batch, signature);
         ElectronicSignatureVerificationDTO verification = signatureQueryService.verifyEvidence(signature.id());
+        MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(detail, application, task, batch, signature, verification);
         detail.setPqcProductionRelease(new MesTeamLeaderActiveOrderDetail.PqcProductionReleaseSummary()
                 .setStatus(decision.getStatus())
                 .setStatusLabel("已生产放行")
@@ -136,7 +137,6 @@ public class MesPqcReleaseOrderDetailService {
                 || signature.actorId() == null || signature.actorId() <= 0) {
             throw new IllegalStateException("PQC_RELEASE_SIGNATURE_ACTION_MISMATCH");
         }
-        MesActiveOrderSignatureEvidenceService.requirePqcCanonical(signature);
         return signature;
     }
 

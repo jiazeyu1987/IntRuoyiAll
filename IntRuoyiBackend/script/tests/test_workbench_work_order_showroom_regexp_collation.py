@@ -17,8 +17,8 @@ BACKEND = Path(__file__).resolve().parents[2]
 BOUNDARY = "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
 COLLATIONS = ("utf8mb4_unicode_ci", "utf8mb4_0900_ai_ci")
 SOURCES = {
- "WORK_ORDER": ("mes", "Mes", "baseWorkOrder", 8, "f62e9df1365a8b4c4c4716d43d67c3e3c25482560ba121cc8cdcc9a1f7aecb4b"),
- "SHOWROOM_ASSIGNMENT": ("showroom", "Showroom", "baseAssignment", 6, "89d1f0b5f58c49a53c83c86ca0be79ba7a9b7c45762f0619105bd920f3f73715"),
+ "WORK_ORDER": ("mes", "Mes", "baseWorkOrder", 8, "db71987fd491b4d864ce00eb683ae52c9b1001ea12f04a55ded32609426da039"),
+ "SHOWROOM_ASSIGNMENT": ("showroom", "Showroom", "baseAssignment", 6, "f79bb6da69a2d1a59e050006f99c8eccb3f6ee0b86bcc9e55ec6773128f7e246"),
 }
 
 def mapper(source):
@@ -117,11 +117,13 @@ def records():
      "inspect_expr_collation_coercibility_columns":[2,3]}
 
 class OfflineContract(unittest.TestCase):
- def test_exact_inverse_bytes_and_xml(self):
+ def test_exact_inverse_detail_and_xml(self):
   for source, (_, _, _, count, old_hash) in SOURCES.items():
-   raw = mapper(source).read_bytes()
-   self.assertEqual(hashlib.sha256(raw.replace(b" COLLATE utf8mb4_unicode_ci",b"")).hexdigest(),old_hash)
    expression = detail(source)
+   # Freeze the original business expression, independent of mapper line endings
+   # and unrelated query-contract changes. Only the collation repair may differ.
+   original = expression.replace(" COLLATE utf8mb4_unicode_ci", "")
+   self.assertEqual(hashlib.sha256(original.encode("utf-8")).hexdigest(),old_hash)
    self.assertEqual(expression.count("COLLATE utf8mb4_unicode_ci"),count)
    regexes = arguments(expression,"REGEXP_REPLACE")
    self.assertEqual(len(regexes),count // 2)

@@ -17,6 +17,7 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "工序池提交事件编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "1001")
     private Long id;
+    private String displayedPayloadHash;
 
     @Schema(description = "工序池编号", example = "10")
     private Long processPoolId;

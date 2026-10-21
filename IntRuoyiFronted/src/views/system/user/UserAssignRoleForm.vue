@@ -8,7 +8,7 @@
         <el-input v-model="formData.nickname" :disabled="true" />
       </el-form-item>
       <el-form-item label="角色">
-        <el-select v-model="formData.roleIds" multiple placeholder="请选择角色">
+        <el-select v-model="formData.roleIds" :disabled="formLoading || !roleOptionsReady" multiple placeholder="请选择角色">
           <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
       </el-form-item>
@@ -28,7 +28,7 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button :disabled="formLoading" type="primary" @click="submitForm">确 定</el-button>
+      <el-button :disabled="formLoading || !roleOptionsReady" type="primary" @click="submitForm">确 定</el-button>
       <el-button @click="dialogVisible = false">取 消</el-button>
     </template>
   </Dialog>
@@ -45,6 +45,7 @@ const message = useMessage() // 消息弹窗
 
 const dialogVisible = ref(false) // 弹窗的是否展示
 const formLoading = ref(false) // 表单的加载中：1）修改时的数据加载；2）提交的按钮禁用
+const roleOptionsReady = ref(false)
 const formData = ref({
   id: -1,
   nickname: '',
@@ -66,18 +67,23 @@ const open = async (row: UserApi.UserVO) => {
   // 获得角色拥有的菜单集合
   formLoading.value = true
   try {
-    formData.value.roleIds = await PermissionApi.getUserRoleList(row.id)
+    const [roleIds, availableRoles] = await Promise.all([
+      PermissionApi.getUserRoleList(row.id),
+      RoleApi.getSimpleRoleList()
+    ])
+    roleList.value = availableRoles
+    formData.value.roleIds = roleIds
+    roleOptionsReady.value = true
   } finally {
     formLoading.value = false
   }
-  // 获得角色列表
-  roleList.value = await RoleApi.getSimpleRoleList()
 }
 defineExpose({ open }) // 提供 open 方法，用于打开弹窗
 
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
+  if (!roleOptionsReady.value) throw new Error('角色资料尚未加载完成，请重新打开后再分配')
   // 校验表单
   if (!formRef) return
   const valid = await formRef.value.validate()
@@ -102,6 +108,8 @@ const submitForm = async () => {
 
 /** 重置表单 */
 const resetForm = () => {
+  roleOptionsReady.value = false
+  roleList.value = []
   formData.value = {
     id: -1,
     nickname: '',

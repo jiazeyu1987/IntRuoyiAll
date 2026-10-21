@@ -28,6 +28,7 @@ public class MesTeamLeaderActiveOrderDetail {
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages = List.of();
     private List<ProcessDetail> processes = List.of();
+    private List<PqcSubmissionDetail> pqcSubmissions = List.of();
     private ActiveOrderStatusSummary activeOrderStatus;
     private PqcProductionReleaseSummary pqcProductionRelease;
     private ReworkSourceDetail reworkSource;

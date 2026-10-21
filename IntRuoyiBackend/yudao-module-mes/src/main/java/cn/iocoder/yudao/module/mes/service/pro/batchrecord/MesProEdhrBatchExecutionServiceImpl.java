@@ -5411,7 +5411,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (taskConfigs.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        return includeProductInfoMemberTaskConfigs(taskConfigs);
+        return includeProductInfoMemberTaskConfigs(collapseOrderProcessInspectionTasks(taskConfigs));
     }
 
     private ResolvedRouteFormBinding resolveRouteFormBinding(
@@ -5503,6 +5503,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return resolveBatchTaskConfigs(route, routeProcesses);
     }
 
+    private List<BatchTaskConfig> collapseOrderProcessInspectionTasks(List<BatchTaskConfig> taskConfigs) {
+        Set<Long> retained = cn.iocoder.yudao.module.mes.service.pro.route.MesOrderProcessInspectionBindings
+                .collapse(taskConfigs.stream().map(BatchTaskConfig::batchRecord).filter(Objects::nonNull).toList())
+                .stream().map(MesProRouteFlowProcessBatchRecordDO::getId).collect(Collectors.toSet());
+        return taskConfigs.stream().filter(config -> config.batchRecord() == null
+                || retained.contains(config.batchRecord().getId())).toList();
+    }
+
     private List<BatchTaskConfig> resolveFrozenBatchTaskConfigs(MesProEdhrBatchExecutionDO batch) {
         JSONObject snapshot = parseFrozenRouteSnapshot(batch.getRouteSnapshotJson());
         JSONObject configSnapshots = requireFrozenObject(snapshot, "configSnapshots");
@@ -5563,7 +5571,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (taskConfigs.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        return includeProductInfoMemberTaskConfigs(taskConfigs);
+        return includeProductInfoMemberTaskConfigs(collapseOrderProcessInspectionTasks(taskConfigs));
     }
 
     private List<BatchTaskConfig> includeProductInfoMemberTaskConfigs(List<BatchTaskConfig> taskConfigs) {

@@ -44,6 +44,50 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     @InjectMocks MesActiveOrderSignatureEvidenceService service;
 
     @BeforeEach void verifiedPort() { cn.iocoder.yudao.module.mes.service.pro.MesVerifiedConsumerFixture.wire(service, signatureQueryService, 1L); }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"VALID", "MISMATCH", "INCOMPLETE"})
+    void v2PqcEvidenceUsesRegisteredProtocolAndPreservesDiagnosticStatus(String status) {
+        var evidence = v2PqcEvidence(MesTeamLeaderActiveOrderDetailServiceImplTest.pqcEvidence("正式放行意见", false));
+        stubPqc(evidence);
+        when(signatureQueryService.verifyEvidence(7701L)).thenReturn(v2PqcVerification(evidence, status));
+        var result = service.getTeam(3001L, 8101L, 7701L);
+        assertEquals(status, result.verification().verificationStatus());
+        assertEquals("VALID".equals(status) ? "签署时正式姓名" : "签时姓名未核验", result.signerName());
+        assertSame(evidence, result.evidence());
+        var application = MesTeamLeaderActiveOrderDetailServiceImplTest.pqcApplication();
+        application.setPqcDecidedBy(3002L);
+        assertThrows(RuntimeException.class, () -> MesActiveOrderSignatureEvidenceService.requirePqcReadBinding(
+                MesTeamLeaderActiveOrderDetailServiceImplTest.pqcDetail(), application,
+                MesTeamLeaderActiveOrderDetailServiceImplTest.pqcTask(), MesTeamLeaderActiveOrderDetailServiceImplTest.pqcBatch(),
+                evidence, v2PqcVerification(evidence, status)));
+    }
+
+    static ElectronicSignatureEvidenceDTO v2PqcEvidence(ElectronicSignatureEvidenceDTO original) {
+        var content = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(original.canonicalContentJson());
+        content.put("evidenceFormatVersion", "V2"); content.put("commandHashVersion", "V2");
+        var identity = content.putObject("signatureIdentity");
+        identity.put("domain", "SYSTEM_USER"); identity.put("signerId", original.actorId().toString());
+        identity.put("operatorId", original.actorId().toString()); identity.put("tenantId", "1"); identity.put("displayName", "签署时正式姓名");
+        var time = content.putObject("signatureTime");
+        time.put("localDateTime", original.signedAt().toString()); time.put("zoneId", "Asia/Shanghai");
+        time.put("precision", "SECOND"); time.put("source", "SERVER_CLOCK");
+        content.putObject("signatureImage").put("state", "NOT_REQUIRED").putNull("snapshot");
+        var position = content.putObject("nodePosition");position.put("applicability", "NOT_APPLICABLE");
+        position.putNull("taskId"); position.putNull("nodeCode"); position.putNull("processInstanceId");
+        var json = (com.fasterxml.jackson.databind.node.ObjectNode) cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseTree(
+                cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(original));
+        json.put("canonicalContentJson", content.toString());json.put("actorDisplayName", "签署时正式姓名");
+        json.put("identitySnapshotStatus", "SNAPSHOT");json.put("keyVersion", "digest-format-v2");
+        return cn.iocoder.yudao.framework.common.util.json.JsonUtils.parseObject(json.toString(), ElectronicSignatureEvidenceDTO.class);
+    }
+    static ElectronicSignatureVerificationDTO v2PqcVerification(ElectronicSignatureEvidenceDTO evidence, String status) {
+        return new ElectronicSignatureVerificationDTO(evidence.id(), status, evidence.contentHash(), evidence.contentHash(),
+                evidence.evidenceHash(), evidence.evidenceHash(), evidence.algorithm(), evidence.keyVersion(),
+                "LOCAL_DIGEST_TIME_AND_CREATION_AUDIT", "CONSISTENT", "CONSISTENT", "SERVER_CLOCK", "NOT_BOUND",
+                "VALID".equals(status) ? "CONSISTENT" : "MISMATCH".equals(status) ? "MISMATCH" : "MISSING",
+                "VALID".equals(status) ? List.of() : List.of("CONSUMER_PORT_FAILURE_FIXTURE"), LocalDateTime.now(), "V2");
+    }
     @ParameterizedTest @NullSource
     @ValueSource(strings = {"PQC_RELEASE", "APPROVE", "首行\n次行\r\n制表\t引号\"路径\\"})
     void explicitPqcUserAndSystemSourceReadThroughFormalBinding(String opinion) {
@@ -306,7 +350,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     }
 
     @Test void historicalBatchUsesArchivedDetailAuthorizationNotActiveTeamOwner() {
-        when(batchDetailService.getDetail(800L)).thenReturn(production());
+        when(batchDetailService.getSignatureDetail(800L, 742L)).thenReturn(production());
         stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
         var result = service.getBatch(800L, null, 742L);
         assertEquals(409L, result.activeOrderId());
@@ -315,7 +359,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     }
 
     @Test void historicalActiveOrderIdentityIsExactAndCannotBeAmbiguous() {
-        when(batchDetailService.getDetailByActiveOrderId(409L)).thenReturn(production());
+        when(batchDetailService.getSignatureDetailByActiveOrderId(409L, 742L)).thenReturn(production());
         stub(742L, "PRODUCTION_SUBMIT", null, null, "VALID");
         service.getBatch(null, 409L, 742L);
         assertThrows(RuntimeException.class, () -> service.getBatch(800L, 409L, 742L));
@@ -337,12 +381,11 @@ class MesActiveOrderSignatureEvidenceServiceTest {
     }
 
     @Test void pqcSubmitRequiresExactTaskMembership() {
-        var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(409L).setProcesses(List.of(
-                new MesTeamLeaderActiveOrderDetail.ProcessDetail().setPqcSubmissions(List.of(
+        var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(409L).setPqcSubmissions(List.of(
                         new MesTeamLeaderActiveOrderDetail.PqcSubmissionDetail().setPqcTaskIds(List.of(140L, 141L))
                                 .setSubmittedEventIds(List.of(241L))
-                                .setSubmitterSignatures(List.of(signature(744L, "PQC人员")))))));
-        when(batchDetailService.getDetail(800L)).thenReturn(detail);
+                                .setSubmitterSignatures(List.of(signature(744L, "PQC人员")))));
+        when(batchDetailService.getSignatureDetail(800L, 744L)).thenReturn(detail);
         stub(744L, "PQC_SUBMIT", "MES_PQC_INSPECTION_TASK", 141L, "VALID");
         assertEquals(744L, service.getBatch(800L, null, 744L).evidence().id());
     }
@@ -351,7 +394,7 @@ class MesActiveOrderSignatureEvidenceServiceTest {
         var detail = new MesTeamLeaderActiveOrderDetail().setActiveOrderId(409L).setOperationFacts(List.of(
                 new MesTeamLeaderActiveOrderDetail.OperationFact().setSignatureId(745L).setActorUserId(342L)
                         .setActorName("上市放行人员").setOperationType("BATCH_RECORD_RELEASE_APPROVED")));
-        when(batchDetailService.getDetail(800L)).thenReturn(detail);
+        when(batchDetailService.getSignatureDetail(800L, 745L)).thenReturn(detail);
         stub(745L, "MARKET_RELEASE", "EDHR_MARKET_RELEASE", 901L, "VALID");
         assertEquals("MARKET_RELEASE", service.getBatch(800L, null, 745L).evidence().actionCode());
     }

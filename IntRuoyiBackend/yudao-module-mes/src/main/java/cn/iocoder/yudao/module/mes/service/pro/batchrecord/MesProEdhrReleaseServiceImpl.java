@@ -195,6 +195,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseTransactionEventMapper releaseTransactionEventMapper;
     @Resource
     private MesProEdhrReleaseDecisionMapper releaseDecisionMapper;
+    @jakarta.annotation.Resource private cn.iocoder.yudao.module.mes.approval.content.EdhrSignedDossierReader signedDossierReader;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
     @Resource
@@ -314,7 +315,13 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw exception(PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS);
         }
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
-        return toResp(batch, transaction);
+        var result = toResp(batch, transaction);
+        if (transaction.getReleaseDecisionId() != null) {
+            var decision = releaseDecisionMapper.selectById(transaction.getReleaseDecisionId());
+            result.setSignedDossierManifestJson(signedDossierReader.read(decision, transaction.getId(), batch.getId(),
+                    cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId()));
+        }
+        return result;
     }
 
     private MesProEdhrReleaseRespVO finalizeReject(MesReleaseFinalizationCommand command) {
@@ -666,7 +673,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             throw new IllegalStateException("APPROVAL_ACTIVE_ORDER_REQUIRED");
         return new cn.iocoder.yudao.module.mes.approval.content.MesEdhrApprovalFinalizationGraph(observed.tenantId(), observed.task(),
                 observed.transaction(), observed.batch(), managed, origin, source, selection.materialFact(), provenance,
-                applicationId, active == null ? null : active.getVersion().longValue());
+                applicationId, active == null ? null : active.getVersion().longValue(), selection.activeOrderFact());
     }
 
     @Override
@@ -698,17 +705,24 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.canonical(signedContent.get("approvalContent")));
         if (!Objects.equals(actualPreviewHash, c.getCanonicalHash())) throw new IllegalStateException("CENTER_PREPARE_CONTENT_MISMATCH");
         var origin = graph.origin();
+        var approvalContent = signedContent.get("approvalContent");
         var command = new MesReleaseFinalizationCommand().setAction(MesReleaseFinalizationAction.APPROVE)
                 .setReleaseTransactionId(graph.transaction().getId()).setBatchExecutionId(graph.batch().getId())
                 .setWorkOrderId(graph.batch().getWorkOrderId()).setReleaseApplicationId(graph.applicationId())
                 .setActorUserId(c.getActorId()).setWorkTaskId(c.getWorkTaskId()).setExpectedVersion(c.getExpectedVersion())
                 .setIdempotencyKey(c.getIdempotencyKey()).setSignatureId(c.getSignatureId()).setSignoffEvidenceHash(c.getEvidenceHash())
                 .setSignoffSubjectId(c.getSubjectId()).setApprovalOpinion(c.getReason()).setPasswordReauthenticated(true)
-                .setMaterialGateRequired(true).setMaterialGateReceipt(graph.materialFact().ownerReceipt())
+                .setMaterialGateRequired(graph.activeOrderFact()==null)
+                .setSourceSnapshotHash(origin.getSourceSnapshotHash()).setEntryType(origin.getEntryType());
+        command.setApprovalContentPolicyVersion(approvalContent.path("contentPolicyVersion").asText());
+        if ("approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())) {
+            command.setSignedDossierManifestJson(cn.iocoder.yudao.module.bpm.approval.content.ApprovalContentJson.canonical(
+                    approvalContent.at("/finalization/materialManifest")));
+        }
+        if(graph.materialFact()!=null) command.setMaterialGateReceipt(graph.materialFact().ownerReceipt())
                 .setMaterialGateReceiptId(graph.materialFact().ownerReceipt().getReceiptId())
                 .setMaterialGateManifestHash(graph.materialFact().ownerReceipt().getManifestHash())
-                .setMaterialGateSourceSnapshotHash(graph.materialFact().ownerReceipt().getSourceSnapshotHash())
-                .setSourceSnapshotHash(origin.getSourceSnapshotHash()).setEntryType(origin.getEntryType());
+                .setMaterialGateSourceSnapshotHash(graph.materialFact().ownerReceipt().getSourceSnapshotHash());
         if ("ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType())) command.setOrigin(MesReleaseOrigin.ACTIVE_ORDER)
                 .setActiveOrderId(origin.getActiveOrderId()).setActiveOrderExpectedVersion(graph.activeOrderVersion().intValue())
                 .setCompletionBackfillReceiptId(origin.getCompletionBackfillReceiptId().toString());
@@ -969,6 +983,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             if (prepared.isReplayed()) {
                 return toResp(prepared.getBatchExecution(), prepared.getReleaseTransaction());
             }
+            if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                    && (!"approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())
+                    || StrUtil.isBlank(command.getSignedDossierManifestJson()))) {
+                throw new IllegalStateException("请在审批中心或上市放行待办中预览资料后签署放行");
+            }
             Map<String, Object> auditBefore = marketReleaseBefore(command, transaction);
             String managerPayloadHash = finalizationPayloadHash(command, evidence);
             LocalDateTime occurredAt = now();
@@ -1007,6 +1026,11 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         if (existingEvent != null) {
             requireSameFinalizationPayload(existingEvent, finalizationPayloadHash);
             return get(command.getReleaseTransactionId());
+        }
+        if (command.getOrigin() == MesReleaseOrigin.ACTIVE_ORDER
+                && (!"approval-content-active-order-v2".equals(command.getApprovalContentPolicyVersion())
+                || StrUtil.isBlank(command.getSignedDossierManifestJson()))) {
+            throw new IllegalStateException("请在审批中心或上市放行待办中预览资料后签署放行");
         }
         requirePendingApproval(transaction);
         nonconformanceReviewService.ensureBatchNotFrozen(transaction.getBatchExecutionId(), "PQC放行");
@@ -2156,6 +2180,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("sourceSnapshotHash", command.getSourceSnapshotHash());
         snapshot.put("signoffSubjectId", command.getSignoffSubjectId());
         snapshot.put("signatureId", command.getSignatureId());
+        snapshot.put("approvalContentPolicyVersion", command.getApprovalContentPolicyVersion());
+        snapshot.put("signedDossierManifestJson", command.getSignedDossierManifestJson());
         snapshot.put("signoffEvidenceHash", command.getSignoffEvidenceHash());
         snapshot.put("materialGateReceiptId", gate == null ? null : gate.getReceiptId());
         snapshot.put("materialGateManifestHash", gate == null ? null : gate.getManifestHash());
@@ -2705,6 +2731,31 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setPrecheckSnapshotJson(JSON.toJSONString(buildSnapshot(batch, items, STATUS_PRECHECK_PASSED, checkedAt, gate.manifestHash())))
                 .setReleaseStatus(STATUS_PRECHECK_PASSED);
         if (releaseTransactionMapper.updateById(transaction) != 1) throw new IllegalStateException("MANAGER_PRECHECK_UPDATE_FAILED");
+        return transaction;
+    }
+
+    /** Active-order readiness is backed by its frozen completion and PQC facts; reports are a later user action. */
+    public MesProEdhrReleaseTransactionDO produceActiveOrderManagerPrecheck(MesProEdhrReleaseTransactionDO transaction,
+            MesProEdhrBatchExecutionDO batch,
+            cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesProductionReleaseBusinessReadiness readiness,
+            cn.iocoder.yudao.module.mes.service.pro.productionrelease.manager.MesEdhrVerifiedActiveOrderReleaseFact fact) {
+        if (readiness.hasBlockingChecks() || readiness.checks().size()!=6 || !Objects.equals(fact.batchExecutionId(),batch.getId()))
+            throw exception(PRO_EDHR_RELEASE_PRECHECK_REQUIRED);
+        releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
+        LocalDateTime checkedAt=now();
+        var items=readiness.checks().stream().map(check -> buildCompletenessSourceItem(transaction.getId(),batch,checkedAt,check)
+                .setSourceObjectId(fact.applicationId().toString()).setSourceObjectCode(fact.formalFactsHash())
+                .setEvidenceHash(DigestUtil.sha256Hex(check.checkCode()+"|"+fact.formalFactsHash()+"|"+fact.pqcEvidenceHash()))).toList();
+        if(items.stream().map(MesProEdhrReleaseCheckItemDO::getCheckCode).distinct().count()!=6)
+            throw new IllegalStateException("ACTIVE_ORDER_PRECHECK_SIX_FACTS_REQUIRED");
+        for(var item:items) if(releaseCheckItemMapper.insert(item)!=1 || item.getId()==null || item.getId()<=0)
+            throw new IllegalStateException("ACTIVE_ORDER_PRECHECK_ITEM_INSERT_FAILED");
+        var snapshot=buildSnapshot(batch,items,STATUS_PRECHECK_PASSED,checkedAt,null);
+        snapshot.put("evidencePolicy","ACTIVE_ORDER_FORMAL_FACTS_V1");
+        snapshot.put("formalFactsHash",fact.formalFactsHash());
+        transaction.setRequiredCheckCount(6).setFailedCheckCount(0).setBlockingCheckCount(0).setLastPrecheckAt(checkedAt)
+                .setPrecheckSnapshotJson(JSON.toJSONString(snapshot)).setReleaseStatus(STATUS_PRECHECK_PASSED);
+        if(releaseTransactionMapper.updateById(transaction)!=1) throw new IllegalStateException("ACTIVE_ORDER_MANAGER_PRECHECK_UPDATE_FAILED");
         return transaction;
     }
 

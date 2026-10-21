@@ -13,5 +13,5 @@ public interface MesProEdhrDeviationHandlingService {
     Long sign(Long actorUserId, Long deviationId, String node, String password, String comment,
               Integer expectedContentVersion, String expectedContentHash);
 
-    void closeNormally(Long actorUserId, Long deviationId);
+    void closeNormally(Long actorUserId, Long deviationId, Integer expectedContentVersion, String expectedContentHash);
 }

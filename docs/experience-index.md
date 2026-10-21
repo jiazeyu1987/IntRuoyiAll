@@ -80,60 +80,22 @@
 - Keywords: eDHR 放行预检, INSPECTION_RESULT, PQC任务身份, 多QA项目, 产品专用规程, 通用规程, CONFIRMED不等于结果证据, submittedEventId, mes_pro_process_pool_pqc_record, mes_pqc_inspection_piece_detail, mes_pqc_process_inspection_aggregate_detail, PQC_SUBMISSION不合格处置 -> `docs/backend-development.md#mes-一线设备账号权限门禁`
 - Keywords: 排产员工作台产能覆盖, 班次产能编辑, 手工调整产能, process-wip-settings, MANUAL_OVERRIDE, 小时产量覆盖值, 班次小时重算, refreshScheduleOrderProcessesFromRouteConfig, 重排刷新路线配置覆盖工作台产能 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台产能覆盖门禁`
 - Keywords: 排产员工作台最近一次排产口径, process-wip-statistics, 最近只排5个订单但显示9个订单在做, AUTO_APPLY, REPLAN_APPLY, afterSnapshotJson.scheduleOrderIds, operation_log.schedule_order_id 不补范围, 历史排产工单混入, process-wip-settings, 班次小时刷新不更新历史工单 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#工作台最近一次排产口径门禁`
-- Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#重复任务记录收口门禁`
+- Keywords: 重复任务记录, duplicate task, 多次继续, resume 误捡 in_progress, pending 验证证据, 主任务证据, 重复任务同步收口 -> `docs/task-closeout-rules.md#记录`
 - Keywords: 活跃订单多张领料单, 完工时查询领料单, 领料同步前未回填, 完工后输入物料回填, 一线输入批号共享正式领料单校验, 输入物料只读批号, 输出物料填写数量, 一对多领料来源, 部分绑定补齐, pick-list binding, pickListSources, sourceFid, sourceLineKey, ERP来源唯一键, 复制来源身份, 第二张领料单唯一键冲突, 来源证据ID, 物化回填ID, 全量来源清理 -> `docs/backend-development.md#关联从一对一扩展为一对多门禁` and `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 - Keywords: EDHR-STATIC-018, 订单备注不能改变领料来源, sourceActiveOrderId, workOrder.remark, 自由文本备注, 正式领料resolver, 批号来源按当前工单编号, 跨订单来源必须受控关系 -> `docs/backend-development.md#活跃订单申请放行资料必须只使用正式来源`
 
-任务启动顺序固定为：先创建或识别 `doc/tasks/<task-id>/` 并写入最小 `task.md`（目标、里程碑、预期验证、当前状态），再读本文件并只打开命中的经验文档，随后把适用门禁补入任务文档；不要全量阅读所有经验。唯一例外：PowerShell / Windows shell 任务可先执行只读 UTF-8 bootstrap 读取适用规则，bootstrap 完成后必须立即创建或更新任务文档。
+根据当前问题按关键词查找相关经验，只读取命中的内容；未变化的规则不重复阅读。本索引不要求先建任务目录、固定启动顺序或额外的经验预检回执，现行执行政策以 AGENTS.md 为准。
 
-## 经验文档写入规范（强制）
+## 经验文档写入建议
 
-### 归档原则
-
-- 先搜索并更新已有经验文档；不得把同类经验拆成多个重复入口。
-- 可在行动前检查的问题，必须优先写入 preflight、checklist、memory 或正式流程文档；只有不能转成前置门禁的事后分析才写入 error-prevention。
-- 一次性任务状态、临时数据、当前完成情况和长篇执行流水保留在 `doc/tasks/<task-id>/`，不得混入长期经验。
-- 没有合适归宿且确需新建长期经验文档时，必须先取得用户明确授权。
-
-### 门禁摘要模板
-
-每条可执行经验必须先提供以下固定摘要，字段不得缺失：
-
-```markdown
-### <经验标题>
-
-- Trigger: <哪些任务、关键词或现象会命中本经验>
-- Preflight check: <执行风险动作前必须运行的精确检查>
-- Blocker: <出现哪些结果必须立即停止>
-- Verification: <证明通过的命令、字段、状态、日志或证据路径>
-- Forbidden action: <禁止采用的绕过、降级、手工修补或跳过动作>
-- Evidence: <来源任务、提交、releaseTag、operation id、文件或问题记录>
-```
-
-### 操作流程扩展模板
-
-涉及构建、发布、服务器、数据库、真实 E2E、worktree、备份恢复或其他长链路操作时，在门禁摘要后按执行顺序补充：
-
-1. `阶段 N：<阶段名称>`
-2. `必查项`
-3. `推荐命令`
-4. `Fail Fast`
-5. `必须记录`
-
-每个问题必须记录：现象、阶段、影响、原因判断、处理动作、结果、是否可前置检查、是否可自动化、下次如何避免。
-
-### 写入完成条件
-
-- 在本索引增加可命中的任务关键词、错误文本、命令名、配置键或环境名路由。
-- 若经验会阻塞实际流程，同步更新对应 checklist 或主流程入口。
-- 在当前任务 `task.md` 摘取本次适用门禁，在 `execution-log.md` 记录验证证据。
-- 使用 `rg` 验证新关键词能从索引定位到目标文档。
-- 验证 UTF-8 编码和 `git diff --check`，只提交本任务产生的文件。
-- 不得用模糊描述替代精确命令、字段、路径和 fail-fast 条件。
+- 有可复用经验或用户要求时才更新；优先合并到已有合适文档，避免重复入口。
+- 只写适用问题、有效处理和必要依据；模板按需要选用，不要求固定字段、逐问题流水或多份记录同步。
+- 日常代码和验证工作不以经验归档、关键词索引或额外审批为前提；新增文档按用户已授权范围处理。
+- 区分历史事实与当前规则，不把历史状态、已取消流程或未经验证的结论变成新门禁。
 
 ## 路由
 
-- 经验沉淀 / 新增经验 / 更新经验 / 经验文件格式 / 前置经验 / 经验门禁模板：先执行本文件“经验文档写入规范（强制）”，再按下方关键词选择目标文档。
+- 经验沉淀 / 新增经验 / 更新经验 / 经验文件格式 / 前置经验 / 经验门禁模板：按本文件“经验文档写入建议”及下方关键词选择合适文档，无固定启动或建档要求。
 - 测试服发布 / 仅测试服 / current HEAD test release / publish-test / 运行态验收 / release-info 版本变更说明：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`
 - publish-test preview 崩溃 / release package candidate scan / dead RUNNING operation / runtime-control JVM 退出：`docs/release-build-preflight-lessons.md#2026-07-11-runtime-control-发布候选扫描与-dead-operation-门禁`。
 - PowerShell host:port 插值 / SSH IO pending / bash `$()` / Playwright 浏览器缓存 / release-info mojibake：`docs/powershell-preflight-lessons.md`，标题“2026-07-11 PowerShell/SSH/Playwright 发布验收门禁”。

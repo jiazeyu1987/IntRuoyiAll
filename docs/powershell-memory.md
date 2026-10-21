@@ -1,21 +1,18 @@
 # IntRuoyi PowerShell / Git 共同前置经验
 
-## 触发场景
+## 适用场景
 
-- PowerShell 中编排 Git、提交、推送、清理、长链路命令或多行脚本前，先读本文件。
-- 任务要求提交、推送、基线保存、远端同步、处理脏工作区或检查 `origin` 前，先读本文件。
-- 本文件是共同门禁；涉及中文读写时还必须读取 `docs\powershell-encoding.md`，涉及任务收尾时还必须读取 `docs\task-closeout-rules.md`。
+- PowerShell、Git、提交推送或清理问题按需查阅本文件，已读且未变化的规则不重复读取。
+- 中文编码及收尾问题按需查阅相关说明；不要求固定读取顺序、任务目录或额外预检回执。
 
 ## Git 提交与推送门禁
 
-### 任务提交推送前置门禁
+### 按授权执行 Git 操作
 
-- Trigger: 任何任务进入实现提交、收尾提交、`git push`、处理 `ahead` 状态或保存脏工作区基线。
-- Preflight check: 运行 `git status --short --branch`、`git branch --show-current`、`git remote -v`，并在提交前检查 staged 文件清单。
-- Blocker: 当前目录不是 Git 仓库、当前分支不是预期分支、缺少可用 `origin`、存在无法解释的冲突、推送凭据/网络不可用、或 staged 文件混入不应提交的秘密文件。
-- Verification: 记录每个提交的 commit hash、文件清单和 `git status --short --branch` 结果；推送后必须确认本地分支不再领先 `origin`。
-- Forbidden action: 禁止用 force push、历史重写、destructive reset、丢弃脏改动、跳过 push、或把基线提交与当前任务提交混在一起作为绕过。
-- Evidence: `doc\tasks\<task-id>\execution-log.md`、`docs\task-closeout-rules.md`、当前 Git 命令输出。
+- 仅在用户已授权范围内提交、推送或保存基线；不要求每个任务推送或拆分基线、实现、收尾提交。
+- 执行前核对当前仓库、分支和暂存文件；仅推送任务才要求可用远端、凭据及网络，本地提交不因缺少 origin 阻塞。
+- 只纳入本任务改动，不能混入其他任务、临时产物或秘密文件；不通过强制推送、破坏性重置或丢弃他人改动绕过失败。
+- 实际命令失败如实报告；所要求的推送完成后核对目标远端结果，不强制固定记录文件或额外收尾提交。
 
 ### Git index.lock 陈旧锁恢复门禁
 

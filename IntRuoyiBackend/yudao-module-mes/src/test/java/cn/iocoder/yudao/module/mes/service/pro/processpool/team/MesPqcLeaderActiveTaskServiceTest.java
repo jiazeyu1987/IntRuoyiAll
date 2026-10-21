@@ -88,7 +88,7 @@ class MesPqcLeaderActiveTaskServiceTest {
     }
 
     @Test
-    void listActiveTasksExcludesStaleTaskWhenQaVersionDiffersFromActiveOrderSnapshot() {
+    void listActiveTasksRejectsInconsistentDedicatedQaVersion() {
         when(activeOrderMapper.selectActiveList()).thenReturn(List.of(activeOrder()));
         when(taskMapper.selectListByActiveOrderIdsAndStatuses(
                 List.of(ACTIVE_ORDER_ID), Set.of("PENDING", "SUBMITTED")))
@@ -97,9 +97,23 @@ class MesPqcLeaderActiveTaskServiceTest {
                         task(7002L, "PENDING", "PATROL_AM")));
         stubFormalContext(REGULATION_VERSION_ID);
 
-        List<MesPqcLeaderActiveTaskRow> result = service.listActiveTasks();
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, service::listActiveTasks);
+    }
 
-        assertEquals(List.of(7002L), result.stream().map(MesPqcLeaderActiveTaskRow::getPqcTaskId).toList());
+    @Test
+    void listActiveTasksIncludesIndependentCommonQaFrozenVersion() {
+        when(activeOrderMapper.selectActiveList()).thenReturn(List.of(activeOrder()
+                .setQaRegulationId(1234L).setQaRegulationVersionId(1235L)));
+        when(taskMapper.selectListByActiveOrderIdsAndStatuses(
+                List.of(ACTIVE_ORDER_ID), Set.of("PENDING", "SUBMITTED")))
+                .thenReturn(List.of(task(7001L, "PENDING", "FIRST")));
+        stubFormalContext(REGULATION_VERSION_ID);
+        when(regulationMapper.selectBatchIds(List.of(REGULATION_ID))).thenReturn(List.of(
+                MesQaInspectionRegulationDO.builder().id(REGULATION_ID).regulationCode("COMMON")
+                        .regulationName("通用规程").ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON).build()));
+        var result = service.listActiveTasks();
+        assertEquals(1, result.size());
+        assertEquals("COMMON", result.get(0).getQaRegulationCode());
     }
 
     private void stubFormalContext(long regulationVersionId) {
@@ -114,7 +128,8 @@ class MesPqcLeaderActiveTaskServiceTest {
                         .routeId(ROUTE_ID).versionNo("V8").build()));
         when(regulationMapper.selectBatchIds(List.of(REGULATION_ID)))
                 .thenReturn(List.of(MesQaInspectionRegulationDO.builder().id(REGULATION_ID)
-                        .regulationCode("QA-PQC-001").regulationName("PQC检验规程").build()));
+                        .regulationCode("QA-PQC-001").regulationName("PQC检验规程")
+                        .ownerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA).build()));
         when(regulationVersionMapper.selectBatchIds(List.of(regulationVersionId)))
                 .thenReturn(List.of(MesQaInspectionRegulationVersionDO.builder().id(regulationVersionId)
                         .regulationId(REGULATION_ID).versionNo("V3").lifecycleStatus("PUBLISHED").build()));
@@ -135,7 +150,8 @@ class MesPqcLeaderActiveTaskServiceTest {
         String inspectionType = ruleKey.startsWith("PATROL") ? "PATROL" : ruleKey;
         return MesPqcInspectionTaskDO.builder().id(id).activeOrderId(ACTIVE_ORDER_ID)
                 .workOrderId(WORK_ORDER_ID).routeId(ROUTE_ID).routeVersionId(ROUTE_VERSION_ID)
-                .qaProcessId(QA_PROCESS_ID).regulationVersionId(REGULATION_VERSION_ID)
+                .qaProcessId(QA_PROCESS_ID).qaRegulationId(REGULATION_ID).regulationVersionId(REGULATION_VERSION_ID)
+                .qaItemCode("").inspectionItemPlanJson("{\"A\":4}")
                 .inspectionRuleKey(ruleKey).inspectionType(inspectionType)
                 .businessDate(LocalDate.of(2026, 8, 17)).shiftCode(ruleKey).roundNo(1)
                 .plannedInspectionQuantity(4).actualInspectionQuantity(

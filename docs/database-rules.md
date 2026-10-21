@@ -1,9 +1,9 @@
 # IntRuoyi Database And SQL Rules
 
-## 触发场景
+## 适用场景
 
-- 写 SQL、迁移、菜单、权限、租户绑定、schema 相关代码或数据修复脚本前，必须先读取本文件。
-- 涉及真实数据库连接、远端数据库或发布数据变更时，还必须读取 `docs/server-access.md` 和 `docs/release-backup-restore.md`。
+- SQL、迁移、schema、权限或租户问题按需查阅相关段落，已读且未变化的规则不重复读取。
+- 涉及真实数据库操作时按需核对服务器及备份说明，仍须执行必要的目标库、结构、授权和数据保护检查。
 
 ## Schema 核对
 

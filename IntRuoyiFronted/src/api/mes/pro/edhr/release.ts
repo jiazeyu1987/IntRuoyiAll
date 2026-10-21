@@ -26,6 +26,7 @@ export interface EdhrReleasePageReqVO extends PageParam {
 }
 
 export interface EdhrReleaseRowVO {
+  signedDossierManifestJson?: string
   releaseTransactionId?: string
   releaseCode?: string
   batchExecutionId: string

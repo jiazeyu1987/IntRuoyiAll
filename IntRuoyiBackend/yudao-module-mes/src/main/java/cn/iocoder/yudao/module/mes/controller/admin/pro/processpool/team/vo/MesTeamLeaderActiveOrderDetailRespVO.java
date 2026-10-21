@@ -31,6 +31,7 @@ public class MesTeamLeaderActiveOrderDetailRespVO {
     private String routeName;
     private List<InputMaterialDetail> inputMaterialUsages;
     private List<ProcessDetail> processes;
+    private List<PqcSubmissionDetail> pqcSubmissions;
     private ActiveOrderStatusSummary activeOrderStatus;
     private PqcProductionReleaseSummary pqcProductionRelease;
     private ReworkSourceDetail reworkSource;

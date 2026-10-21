@@ -565,6 +565,8 @@ const signHandling = async () => {
 }
 const closeHandling = async () => {
   if (props.readonly || !canSignSavedHandling()) return
+  const reviewedVersion = handling.value!.contentVersion!
+  const reviewedHash = handling.value!.contentHash!
   const id = props.id
   const sequence = loadSequence
   try {
@@ -576,7 +578,7 @@ const closeHandling = async () => {
   if (id !== props.id || sequence !== loadSequence || !canSignSavedHandling()) return
   closing.value = true
   try {
-    await closeDeviationHandling(id)
+    await closeDeviationHandling(id, reviewedVersion, reviewedHash)
     if (id !== props.id || sequence !== loadSequence) return
     await load()
     ElMessage.success('偏差已关闭')

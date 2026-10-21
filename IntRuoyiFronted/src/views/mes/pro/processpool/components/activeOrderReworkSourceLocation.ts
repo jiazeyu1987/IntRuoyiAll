@@ -20,7 +20,7 @@ export const buildReworkSourceDetailLocation = (
   for (const field of ['reviewCode','nonconformanceReason','reviewOpinion'] as const) {
     if (typeof source[field] !== 'string' || !source[field].trim()) throw new Error('返工来源处置内容不完整')
   }
-  if (!source.qaSignature.signerName?.trim() || source.qaSignature.signedAt == null
+  if (source.qaSignature.signedAt == null
       || exactId(source.qaSignature.signatureId!) !== exactId(source.qaSignatureEvidence.id)
       || exactId(source.qaSignatureEvidence.actorId) !== exactId(source.qaUserId)
       || source.qaSignatureEvidence.actionCode !== 'QA_DISPOSITION'

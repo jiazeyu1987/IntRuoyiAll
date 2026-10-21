@@ -105,7 +105,7 @@ assert.doesNotMatch(
 const releaseFlow = extractBlock(
   page,
   'const releaseApplicationIdempotencyKeys',
-  'const submitMoveActiveOrder'
+  'const handleRebuildActiveOrder'
 )
 assert.match(
   releaseFlow,

@@ -23,6 +23,7 @@ public class EdhrReleaseContentResolver implements ApprovalContentResolver {
     private final MesIndependentBatchPrerequisiteReceiptService independent;
     private final MesProEdhrFourMaterialGateService materials;
     private final FileService files;
+    @jakarta.annotation.Resource private EdhrActiveOrderDossierManifest dossierManifest;
     public EdhrReleaseContentResolver(MesProEdhrReleaseService releases, EdhrReleasePrecheckContentReader checks,
             EdhrReleaseContentSemanticValidator semantic, MesTeamLeaderActiveOrderCompletionFlow6ReceiptPort completion,
             MesIndependentBatchPrerequisiteReceiptService independent, MesProEdhrFourMaterialGateService materials, FileService files) {
@@ -52,9 +53,24 @@ public class EdhrReleaseContentResolver implements ApprovalContentResolver {
         boolean active = "ACTIVE_ORDER_COMPLETION".equals(origin.getEntryType());
         JsonNode completionJson = active ? completion(completion.requireVerifiedByReceiptId(origin.getCompletionBackfillReceiptId(), graph.tenantId()).receipt()) : null;
         JsonNode independentJson = active ? null : independent(independent.getCreationVerifiedByReceiptId(graph.tenantId(), origin.getSourceCredentialId(), origin.getEntryType(), origin.getSourceSnapshotHash()).ownerReceipt());
+        var attachments = new ArrayList<PreviewAttachment>();
+        JsonNode manifest=null;
+        JsonNode activeFacts=null;
+        boolean activeFormal=graph.activeOrderFact()!=null;
+        if(activeFormal) {
+            var dossier = dossierManifest.read(graph.tenantId(), origin.getActiveOrderId(), graph.applicationId(), batch.getId(), locked);
+            manifest = dossier.manifest();
+            attachments.addAll(dossier.attachments());
+            var fact=graph.activeOrderFact(); var proof=fact.completionCreation();
+            activeFacts=object("applicationId",fact.applicationId(),"batchExecutionId",fact.batchExecutionId(),
+                    "formalFactsHash",fact.formalFactsHash(),"sourceSnapshotHash",fact.sourceSnapshotHash(),
+                    "completionReceiptId",proof.sourceReceiptId(),"completionReceiptHash",proof.sourceHash(),
+                    "completionCreationEventId",proof.creationEventId(),"completionCreationEventHash",proof.creationEventHash(),
+                    "pqcSignatureId",fact.pqcSignatureId(),"pqcEvidenceHash",fact.pqcEvidenceHash(),"pqcCreationEventId",fact.pqcCreationEventId());
+        } else {
         var evaluated = materials.evaluate(batch.getId()); var receipt = graph.materialFact().ownerReceipt();
         if (!evaluated.ready() || !Objects.equals(evaluated.manifestHash(), receipt.getManifestHash())) throw new IllegalArgumentException("EDHR_MATERIAL_CONTENT_CHANGED");
-        var materialList = JsonNodeFactory.instance.arrayNode(); var attachments = new ArrayList<PreviewAttachment>();
+        var materialList = JsonNodeFactory.instance.arrayNode();
         evaluated.materials().stream().sorted(Comparator.comparing(a -> a.getFieldKey())).forEach(a -> {
             materialList.add(object("type", a.getFieldKey(), "attachmentId", a.getId(), "batchExecutionId", a.getBatchExecutionId(), "batchTaskId", a.getBatchTaskId(), "fieldKey", a.getFieldKey(), "attachmentGroupKey", a.getAttachmentGroupKey(), "versionNo", version(a.getVersionNo()), "fileId", a.getFileId(), "fileName", a.getFileName(), "fileSize", a.getFileSize(), "contentType", a.getContentType(), "sha256", a.getSha256(), "attachmentHash", a.getAttachmentHash(), "sourceSnapshotHash", origin.getSourceSnapshotHash()));
             var file = files.getFile(a.getFileId()); if (file == null || !Objects.equals(file.getSize(), a.getFileSize())) throw new IllegalArgumentException("EDHR_MATERIAL_FILE_MISSING");
@@ -65,11 +81,14 @@ public class EdhrReleaseContentResolver implements ApprovalContentResolver {
             attachments.add(new PreviewAttachment(a.getFileId().toString(), a.getFileName(), version(a.getVersionNo()), a.getSha256(), a.getFileSize().toString(), a.getContentType(), files.presignGetUrl(file.getUrl(), 900)));
         });
         var types = JsonNodeFactory.instance.arrayNode(); receipt.getMaterialTypeKeys().stream().sorted().forEach(types::add);
-        var manifest = object("receiptId", receipt.getReceiptId(), "batchExecutionId", receipt.getBatchExecutionId(), "gateStatus", receipt.getGateStatus(), "materialTypeKeys", types, "manifestHash", receipt.getManifestHash(), "sourceSnapshotHash", receipt.getSourceSnapshotHash(), "materialVersionSetHash", receipt.getMaterialVersionSetHash(), "receiptHash", receipt.getReceiptHash(), "issuedBy", receipt.getIssuedBy(), "auditEventId", receipt.getAuditEventId(), "version", version(receipt.getVersion()), "materials", materialList);
+        manifest = object("receiptId", receipt.getReceiptId(), "batchExecutionId", receipt.getBatchExecutionId(), "gateStatus", receipt.getGateStatus(), "materialTypeKeys", types, "manifestHash", receipt.getManifestHash(), "sourceSnapshotHash", receipt.getSourceSnapshotHash(), "materialVersionSetHash", receipt.getMaterialVersionSetHash(), "receiptHash", receipt.getReceiptHash(), "issuedBy", receipt.getIssuedBy(), "auditEventId", receipt.getAuditEventId(), "version", version(receipt.getVersion()), "materials", materialList);
+        }
         var trace = graph.sourceContext(); var finalization = object("sourceKind", active ? "ACTIVE_ORDER" : "INDEPENDENT", "authorizationBranch", graph.managed() ? "MANAGED" : "GENERAL", "applicationId", graph.applicationId(), "origin", originJson, "trace", object("originLinkId", trace.getOriginLinkId(), "traceLinkHash", trace.getTraceLinkHash(), "sourceSnapshotHash", trace.getSourceSnapshotHash(), "relationStatus", trace.getRelationStatus()), "sourceRelation", active ? "FLOW4_COMPLETION_BACKFILL_RECEIPT" : "INDEPENDENT_PREREQUISITE_RECEIPT", "sourceSnapshotHash", origin.getSourceSnapshotHash(), "activeOrderVersion", version(graph.activeOrderVersion()), "completionBackfillReceipt", completionJson, "independentPrerequisiteReceipt", independentJson, "materialManifest", manifest);
-        var root = object("contentPolicyVersion", "approval-content-v1", "scopeCode", "EDHR_RELEASE", "identity", identityJson, "workTask", taskJson, "release", releaseJson, "finalization", finalization);
+        if(activeFormal) finalization.set("activeOrderFormalFacts",activeFacts);
+        String contentPolicy=activeFormal?"approval-content-active-order-v2":"approval-content-v1";
+        var root = object("contentPolicyVersion", contentPolicy, "scopeCode", "EDHR_RELEASE", "identity", identityJson, "workTask", taskJson, "release", releaseJson, "finalization", finalization);
         var guard = object("id", batch.getId(), "tenantId", batch.getTenantId(), "workOrderId", batch.getWorkOrderId(), "status", batch.getStatus(), "provisioningStatus", batch.getProvisioningStatus(), "aggregateHash", batch.getAggregateHash(), "routeVersionId", batch.getRouteVersionId(), "routeVersionNo", batch.getRouteVersionNo(), "routeSnapshotJsonRaw", batch.getRouteSnapshotJson(), "attemptNo", batch.getAttemptNo(), "activeContextKey", batch.getActiveContextKey(), "sourceRejectedBatchExecutionId", batch.getSourceRejectedBatchExecutionId(), "supersededByBatchExecutionId", batch.getSupersededByBatchExecutionId(), "reexecutedByChangeEventId", batch.getReexecutedByChangeEventId());
-        return new PreparedApprovalContent(identity, "approval-content-v1", semantic.subjectVersion(root, guard), ApprovalContentJson.hash(root), "EDHR_RELEASE", "eDHR放行正文、正式来源、预检及四项材料", ApprovalContentJson.canonical(root), attachments, List.of("APPROVE"));
+        return new PreparedApprovalContent(identity, contentPolicy, semantic.subjectVersion(root, guard), ApprovalContentJson.hash(root), "EDHR_RELEASE", activeFormal?"eDHR活跃订单正式完工、PQC放行与上市放行正文":"eDHR放行正文、正式来源、预检及四项材料", ApprovalContentJson.canonical(root), attachments, List.of("APPROVE"));
     }
     private static JsonNode evidence(List<MesBatchExecutionSourceEvidence> source) {
         if (source == null) return null; var result = JsonNodeFactory.instance.arrayNode(); source.stream().sorted(Comparator.comparing(MesBatchExecutionSourceEvidence::getSourceType).thenComparing(MesBatchExecutionSourceEvidence::getSourceId)).forEach(e -> result.add(object("sourceType", e.getSourceType(), "sourceId", e.getSourceId(), "sourceVersion", e.getSourceVersion(), "sourceSnapshotHash", e.getSourceSnapshotHash(), "payloadHash", e.getPayloadHash(), "signature", e.getSignature()))); return result;

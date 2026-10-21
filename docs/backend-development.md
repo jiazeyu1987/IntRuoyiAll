@@ -1,10 +1,9 @@
 # IntRuoyi Backend Development Rules
 
-## 触发场景
+## 适用场景
 
-- 修改 `IntRuoyiBackend` 下的 Java、Spring Boot、Maven、接口、服务、Mapper、DO、配置、脚本或后端测试前，必须先读取本文件。
-- 涉及 SQL、schema、菜单、权限、租户绑定或数据修复时，还必须读取 `docs/database-rules.md`。
-- 涉及本机服务启动、端口或运行态验证时，还必须读取 `docs/local-runtime.md`。
+- 按当前后端改动需要查阅本文件相关段落，未变化的已读规则不重复读取。
+- SQL、schema、权限、租户或本机服务问题，按需要查阅对应数据库及运行态说明；不要求每次操作前串行读取所有文档。
 
 ## 项目边界
 
@@ -17,7 +16,7 @@
 ## 实施规则
 
 - 先确认变更所属模块、现有 Controller/Service/Mapper/DO 边界和已有测试。
-- 对功能、修复、重构和行为变更，先记录 BDD，再执行 RED -> GREEN -> REGRESSION。
+- 对功能、修复、重构和行为变更，完成与风险匹配的验证；BDD、TDD 及 RED/GREEN 记录按任务需要或用户明确要求选用。
 - 缺少数据库、Redis、依赖、测试数据或运行配置时，必须 fail fast；不得切换数据源、返回 mock 成功或吞掉错误。
 - 接口和服务错误必须通过真实响应、日志或测试暴露；不得用默认成功值掩盖失败。
 
@@ -141,7 +140,7 @@
 
 - Trigger: 生产组长工作台、工序配置、损耗原因、设备映射、设备参数标准、`process-config/list`、`routeStartProductionLeaders`、`mes:pro-process-pool-team-leader:maintain`、admin 工序配置看到其它工艺路线工序。
 - Preflight check: 修改生产组长配置页候选工序、损耗/设备/参数维护授权前，先区分“维护入口权限”和“正式负责路线范围”：`mes:pro-process-pool-team-leader:maintain` 只能说明用户可进入维护入口，不能扩大路线工序范围；后端候选列表和直接维护断言必须只读取当前 active 路线版本 `routeStartProductionLeaders` 中命中的 `USER/USERS/ROLE` 配置。验证职责范围必须读取各路线 active `routeStartProductionLeaders`，并同时计算直接用户配置与当前账号角色命中的 `ROLE` 配置。若通过 SQL 修复 active 路线快照，写入前还必须核对目标路线是否存在 DRAFT/candidate version；已有草稿缺少同一配置时，后续发布会覆盖本次 active 修复，必须阻塞并改走正式草稿保存/发布或取得明确的数据修复范围授权。写入后必须重新只读解析当前 active version；路线发布可能把原目标 version 置为 `SUPERSEDED` 并生成新的 active version，最终验证不得继续把旧 draft/version ID 当作非目标失败条件。
-- Blocker: `process-config/list` 返回未在正式负责路线内的路线工序、拥有维护权限的 admin 可直接维护非负责路线工序、无负责路线时返回全部 active 路线、或用维护权限/admin 身份替代 `routeStartProductionLeaders` 命中结果时必须停止并补后端 RED/GREEN。
+- Blocker: `process-config/list` 返回未在正式负责路线内的路线工序、拥有维护权限的 admin 可直接维护非负责路线工序、无负责路线时返回全部 active 路线、或用维护权限/admin 身份替代 `routeStartProductionLeaders` 命中结果时必须停止相关越权操作并修复、验证后端授权，不强制 RED/GREEN 形式。
 - Verification: 后端回归必须覆盖“拥有维护权限也只能列出正式负责路线工序”“拥有维护权限但不在工序开始快照中直接维护 routeProcess 会被拒绝”“无维护权限仍走 USER/ROLE 快照授权”，并复跑工序配置相邻服务测试和前端新增入口静态合同；真实登录态验证工序配置时必须调用生产组长工序配置数据源 `/mes/pro/process-pool/team-leader/process-config/list`，并断言其路线名称集合等于 `/mes/pro/process-pool/team-leader/responsible-routes` 返回的正式负责路线集合。验证“账号实际配置了哪些路线的生产组长”时必须逐路读取 `/mes/pro/route/flow-config/route-start-production-leaders` 或当前 active JSON 快照，不能用维护入口列表代替。数据修复复验必须以 `tenant_id + route_id + active=1 + lifecycle_status=ACTIVE` 当前命中行为准，同时记录原写入 version 与当前 active version 的差异，并确认目标路线没有会在下一次发布时丢失配置的旧草稿。
 - RouteProcess identity check: 路线重新发布后排查一线“不良/设备参数为空”时，必须同时列出 QA 发布规程绑定的 `routeVersionId + routeProcessId`、当前唯一 ACTIVE 路线版本的 `routeProcessId`，以及损耗原因和设备参数规则实际绑定的 `routeProcessId`。不得按相同 `processId`、工序名称或历史页面仍有数据显示来推断配置已继承；若配置仍落在 `deleted=1` 的旧路线工序而当前 active 路线工序计数为 0，应明确判定为当前正式配置缺失，并通过正式配置维护/迁移方案处理，不能让运行态回读旧 ID 作为 fallback。恢复旧版本配置前必须冻结目标当前配置的业务键和内容 hash；若目标已有经授权保留的当前配置且业务编码不同，按用户确认的去重边界保留目标配置并只迁移缺失工序，禁止覆盖成旧编码或把旧新两套参数同时插入。
 - Active order parameter snapshot check: 已存在活跃订单的一线 runtime-config 会优先读取 `mes_pro_process_pool_active_order_process_snapshot.parameter_snapshot_json`，不会自动回读最新生产组长设备参数配置；排查“并行设备可选但参数为空”时，必须同时比对当前正式规则和该 `active_order_id` 的冻结快照。若当前正式配置已正确而快照缺项，数据修复必须限定精确活跃订单、备份原快照、按 `route_process_id + process_id + device_id + parameter_code` 重算 JSON 与 sha256，并确认无参数工序为 `[]`、无空设备占位、无孤儿快照设备。Evidence: `doc/tasks/20260902-active-order-396-parameter-snapshot-backfill/verification-report.md`。
@@ -1023,7 +1022,7 @@
 - Trigger: 生产人员档案、班组员工、一线生产员工弹窗、`getFrontlineRuntimeConfig().employees`、正式工搜索关联、全量用户下拉、跨部门正式工、临时工/正式工统一候选、`getUserListBySubordinate`、`getUserListByNickname`、`mes_pro_process_pool_team_employee_profile`、`system_user_id`、`employee_code=USER-<id>`、DuplicateKeyException、重复关联返回 500。
 - Preflight check: 先明确正式工候选范围是“组长下属”还是“全量系统用户”；候选查询与提交关联校验必须使用同一范围，不能只放开下拉。一线生产员工弹窗、运行配置员工和切换员工校验必须同源于当前负责生产组长启用的生产人员档案。生产员工账号请求一线工序时，必须先按启用人员档案 `systemUserId -> 唯一 leaderUserId` 解析负责生产组长，再读取该组长在正式“工序开始”配置中负责路线下的全部工序；禁用档案、多组长归属或组长无正式负责工序必须显式失败，不得回退本人岗位、设备账号路线或历史工序员工绑定。即使设备/工序 scope leader 与当前负责组长不同，员工弹窗也不得切到设备 scope leader，不得用工序员工绑定或设备账号候选替代人员管理列表。新增正式工关联前还必须按当前 `leaderUserId + systemUserId` 查询现有未删除生产人员档案，并区分“已禁用可启用既有档案”和“从未关联可新增”；显示名唯一校验不能替代正式用户唯一关联校验。新增正式工/临时工档案只建立当前组长名下档案，不得要求该员工已在负责员工范围内。生产组长员工 scope 必须同步写入与正式提交一致的 `actualEmployeeId`：正式工使用 `systemUserId`，临时工使用人员档案 `id`，测试不得只断言其中一种身份。
 - Historical data gate: 当运行时代码已保证新增/启停人员同步 `PRODUCTION/EMPLOYEE` scope，但旧人员档案仍缺范围时，必须用正式幂等数据迁移按 `tenant_id + leader_user_id + COALESCE(system_user_id, profile.id)` 补齐；迁移前应阻塞重复派生身份、重复有效范围和档案/范围启用状态错位，迁移后验证全量覆盖并复跑幂等。组长报工读取仍只消费正式 scope，禁止改成读取人员档案推断、管理员全量可见或查询时自愈写入。
-- Blocker: 全量候选可见但提交仍按 `getUserListBySubordinate` 拒绝、候选只靠前端过滤、生产员工仍需逐工序绑定才能看到工序、员工档案存在却进入设备/岗位路线来源、一线生产弹窗和生产组长人员管理列表不一致、弹窗能选但 `switchActualEmployee` 按另一来源拒绝、重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、创建人员阶段触发 `assertCanAccessEmployee` / `assertCanMaintainProcess`、范围拒绝仍返回“员工或工序”混合文案，或只靠前端禁用按钮阻止重复时必须停止并补后端 RED/GREEN。
+- Blocker: 全量候选可见但提交仍按 `getUserListBySubordinate` 拒绝、候选只靠前端过滤、生产员工仍需逐工序绑定才能看到工序、员工档案存在却进入设备/岗位路线来源、一线生产弹窗和生产组长人员管理列表不一致、弹窗能选但 `switchActualEmployee` 按另一来源拒绝、重复正式工关联落到数据库唯一键异常、接口返回 500、禁用旧档案后再次新增同一系统用户、创建人员阶段触发 `assertCanAccessEmployee` / `assertCanMaintainProcess`、范围拒绝仍返回“员工或工序”混合文案，或只靠前端禁用按钮阻止重复时必须停止相关越权操作并修复、验证后端授权，不强制 RED/GREEN 形式。
 - Verification: 后端回归必须覆盖生产员工继承唯一负责组长的全部正式路线工序、禁用/多组长/无负责工序失败且不触发设备路线来源、候选数据源、运行配置员工来源、切换员工校验同源、空关键字不触发无条件全量扫描、重复正式工在 `employeeProfileMapper.insert` 前抛业务错误，且成功正式工路径仍不保存签名密码；前后端合同必须断言员工工序绑定写入口和运行时读取均已移除。新增人员成功路径必须断言不调用负责范围校验；跨模块新增 `AdminUserApi` 方法时必须用 `-am` 编译所有上游测试手写实现。真实 E2E 重跑时使用新的任务自有正式工候选或先明确启用既有档案。
 - Forbidden action: 禁止只改候选接口不改关联校验，禁止让前端加载全系统用户后本地过滤，禁止保留员工工序绑定入口或用工序员工绑定冒充人员管理列表和工序授权，禁止生产员工归属异常时回退岗位/设备路线，禁止为接口扩展增加默认空列表兼容 fallback，禁止 catch DuplicateKeyException 后返回默认成功，禁止创建重复正式工档案，禁止把正式工重复关联伪装成显示名重名，禁止用“员工或工序”混合错误掩盖实际越权目标。
 - Evidence: `doc/tasks/20260805-production-personnel-management/verification-report.md`、`doc/tasks/20260805-production-personnel-full-user-dropdown/verification-report.md`、`doc/tasks/20260806-production-employee-create-scope-fix/verification-report.md`、`doc/tasks/20260806-frontline-production-employee-options-match-leader-personnel/verification-report.md`、`doc/tasks/20260807-production-employee-inherits-leader-processes/verification-report.md`；目标测试 `MesTeamLeaderRuntimeConfigServiceTest#shouldRejectDuplicateFormalUserBeforeDatabaseInsert`、`MesTeamLeaderRuntimeConfigServiceTest#shouldSearchFormalCandidatesFromAllSystemUsers`、`MesTeamLeaderRuntimeConfigServiceTest#shouldLinkFormalUserWithoutStoringSignaturePassword`、`MesTeamLeaderRuntimeConfigServiceTest#shouldCreateTemporaryProductionPersonWithSignaturePasswordHashAndAudit`、`MesTeamLeaderScopeServiceTest#shouldRejectOutOfScopeEmployeeAccess`、`MesFrontlineRuntimeConfigServiceTest#getRuntimeConfig_returnsEnabledLeaderPersonnelProfilesInsteadOfOnlyProcessBindings`、`MesFrontlineProductionEmployeeLeaderProcessScopeTest`。

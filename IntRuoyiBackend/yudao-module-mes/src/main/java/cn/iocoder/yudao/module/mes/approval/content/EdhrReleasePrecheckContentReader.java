@@ -17,7 +17,7 @@ public class EdhrReleasePrecheckContentReader {
     public EdhrReleasePrecheckContentReader(MesProEdhrReleaseCheckItemMapper mapper) { this.mapper = mapper; }
     public ObjectNode read(MesProEdhrReleaseTransactionDO release, boolean locked) {
         var raw = ApprovalContentJson.parse(release.getPrecheckSnapshotJson());
-        Set<String> allowed = Set.of("batchExecutionId", "releaseStatus", "checkedAt", "materialGateManifestHash", "items", "batchExecutionCode", "workOrderCode", "batchCode", "productCode");
+        Set<String> allowed = Set.of("batchExecutionId", "releaseStatus", "checkedAt", "materialGateManifestHash", "items", "batchExecutionCode", "workOrderCode", "batchCode", "productCode", "evidencePolicy", "formalFactsHash");
         raw.fieldNames().forEachRemaining(key -> { if (!allowed.contains(key)) fail("unknown precheck key " + key); });
         for (String key : Set.of("batchExecutionId", "releaseStatus", "checkedAt", "materialGateManifestHash", "items")) if (!raw.has(key)) fail("missing precheck key " + key);
         if (!raw.path("batchExecutionId").isIntegralNumber() || !raw.path("batchExecutionId").canConvertToLong() || !Objects.equals(raw.path("batchExecutionId").longValue(), release.getBatchExecutionId())) fail("precheck batch");
@@ -26,10 +26,15 @@ public class EdhrReleasePrecheckContentReader {
         try { checked = LocalDateTime.parse(time, DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss").withResolverStyle(ResolverStyle.STRICT)); }
         catch (java.time.DateTimeException e) { throw new IllegalArgumentException("EDHR_PRECHECK_CALENDAR_INVALID", e); }
         if (checked.getYear() < 1 || !checked.equals(release.getLastPrecheckAt())) fail("lastPrecheckAt mismatch");
-        var rows = mapper.selectCurrentOpen(release.getId(), locked); if (rows.size() != 10 || raw.path("items").size() != 10) fail("ten current checks required");
+        boolean active="ACTIVE_ORDER_FORMAL_FACTS_V1".equals(raw.path("evidencePolicy").asText());
+        if(active ? !raw.path("formalFactsHash").asText().matches("ACTIVE_ORDER_FACTS:[0-9a-f]{64}") || !raw.path("materialGateManifestHash").isNull()
+                : raw.has("evidencePolicy") || raw.has("formalFactsHash")) fail("precheck evidence policy mismatch");
+        int expectedCount=active?6:10;
+        var rows = mapper.selectCurrentOpen(release.getId(), locked);
+        if (rows.size()!=expectedCount || raw.path("items").size()!=expectedCount) fail("current checks required by evidence policy");
         long failed=rows.stream().filter(r->"FAIL".equals(r.getCheckResult()) || "BLOCKER".equals(r.getCheckResult()) || "BLOCKER".equals(r.getSeverity())).count();
         long blocking=rows.stream().filter(r->"BLOCKER".equals(r.getCheckResult()) || "BLOCKER".equals(r.getSeverity())).count();
-        if(!Objects.equals(release.getRequiredCheckCount(),10) || !Objects.equals(release.getFailedCheckCount(),(int)failed) || !Objects.equals(release.getBlockingCheckCount(),(int)blocking)) fail("formal check count mismatch");
+        if(!Objects.equals(release.getRequiredCheckCount(),expectedCount) || !Objects.equals(release.getFailedCheckCount(),(int)failed) || !Objects.equals(release.getBlockingCheckCount(),(int)blocking)) fail("formal check count mismatch");
         var snapshots = new HashMap<String, com.fasterxml.jackson.databind.JsonNode>();
         for (var item : raw.path("items")) {
             Set<String> keys = new HashSet<>(); item.fieldNames().forEachRemaining(keys::add);

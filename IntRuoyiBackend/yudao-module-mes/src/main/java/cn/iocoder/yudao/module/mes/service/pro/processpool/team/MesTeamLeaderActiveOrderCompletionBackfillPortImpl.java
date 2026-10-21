@@ -32,6 +32,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueDe
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.productissue.MesWmProductIssueMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.enums.wm.MesWmProductIssueStatusEnum;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -132,7 +133,7 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
         }
         List<Long> batchSourceIds = new ArrayList<>(
                 validateProductionSources(activeOrder, snapshots, allocations, completions));
-        List<Long> inspectionSourceIds = validateInspectionSources(activeOrder, snapshots, tasks, details);
+        List<Long> inspectionSourceIds = validateInspectionSources(activeOrder, tasks, details);
         Map<String, Object> productionFacts = freezeProductionFacts(activeOrder, snapshots, allocations);
 
         MesProWorkOrderDO workOrder = workOrderMapper.selectByIdForUpdate(activeOrder.getWorkOrderId());
@@ -465,46 +466,51 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
     }
 
     private List<Long> validateInspectionSources(MesProcessPoolActiveOrderDO order,
-                                                   List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots,
                                                    List<MesPqcInspectionTaskDO> tasks,
                                                    List<MesPqcProcessInspectionAggregateDetailDO> details) {
         List<Long> ids = new ArrayList<>();
+        Set<Long> taskIds = new java.util.LinkedHashSet<>();
+        Set<Long> detailIds = new java.util.LinkedHashSet<>();
+        Set<Long> sourcePieceIds = new java.util.LinkedHashSet<>();
+        if (details.stream().anyMatch(Objects::isNull)) {
+            throw sourceMissing(order, "PROCESS_INSPECTION");
+        }
         for (MesPqcInspectionTaskDO task : tasks) {
             if (task == null || task.getId() == null
+                    || !taskIds.add(task.getId())
+                    || task.getQaProcessId() == null || task.getRegulationVersionId() == null
+                    || task.getRouteProcessId() != null || task.getProcessId() != null
+                    || !Objects.equals(order.getId(), task.getActiveOrderId())
+                    || !Objects.equals(order.getWorkOrderId(), task.getWorkOrderId())
+                    || !Objects.equals(order.getRouteId(), task.getRouteId())
+                    || !Objects.equals(order.getRouteVersionId(), task.getRouteVersionId())
                     || !MesPqcInspectionTaskDO.TASK_STATUS_CONFIRMED.equals(task.getTaskStatus())
                     || task.getActualInspectionQuantity() == null || task.getActualInspectionQuantity() <= 0
+                    || !Objects.equals(task.getPlannedInspectionQuantity(), task.getActualInspectionQuantity())
                     || task.getSubmittedEventId() == null) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
-            List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshotMatches = snapshots.stream().filter(item -> item != null
-                    && Objects.equals(item.getRouteProcessId(), task.getRouteProcessId())
-                    && Objects.equals(item.getProcessId(), task.getProcessId()))
-                    .toList();
-            if (snapshotMatches.size() != 1) {
-                throw sourceMissing(order, "PROCESS_INSPECTION");
-            }
-            MesProcessPoolActiveOrderProcessSnapshotDO snapshot = snapshotMatches.get(0);
+            Map<String, Integer> itemPlan = MesPqcInspectionItemPlan.require(task);
             List<MesPqcProcessInspectionAggregateDetailDO> detailMatches = details.stream()
-                    .filter(item -> item != null && Objects.equals(task.getId(), item.getPqcTaskId())
-                            && Objects.equals(order.getId(), item.getActiveOrderId())
-                            && Objects.equals(order.getWorkOrderId(), item.getWorkOrderId())
-                            && Objects.equals(order.getRouteId(), item.getRouteId())
-                            && Objects.equals(order.getRouteVersionId(), item.getRouteVersionId())
-                            && Objects.equals(task.getRouteProcessId(), item.getRouteProcessId())
-                            && Objects.equals(task.getProcessId(), item.getProcessId()))
+                    .filter(item -> Objects.equals(task.getId(), item.getPqcTaskId()))
                     .toList();
-            if (detailMatches.isEmpty()
-                    || !Objects.equals(task.getActualInspectionQuantity(), detailMatches.size())) {
+            if (!detailMatches.stream().map(MesPqcProcessInspectionAggregateDetailDO::getItemCode)
+                    .collect(java.util.stream.Collectors.toSet()).equals(itemPlan.keySet())) {
                 throw sourceMissing(order, "PROCESS_INSPECTION");
             }
-            Set<Long> detailIds = new java.util.LinkedHashSet<>();
-            Set<Long> sourcePieceIds = new java.util.LinkedHashSet<>();
             for (MesPqcProcessInspectionAggregateDetailDO detail : detailMatches) {
                 if (detail.getId() == null
+                        || !Objects.equals(order.getId(), detail.getActiveOrderId())
+                        || !Objects.equals(order.getWorkOrderId(), detail.getWorkOrderId())
+                        || !Objects.equals(order.getRouteId(), detail.getRouteId())
+                        || !Objects.equals(order.getRouteVersionId(), detail.getRouteVersionId())
+                        || !Objects.equals(task.getRegulationVersionId(), detail.getRegulationVersionId())
+                        || detail.getRouteProcessId() != null || detail.getProcessId() != null
                         || detail.getSourcePqcRecordId() == null
                         || detail.getSourcePieceDetailId() == null
                         || detail.getEventId() == null
                         || detail.getReviewId() == null
+                        || detail.getSampleNo() == null
                         || !Objects.equals(task.getSubmittedEventId(), detail.getEventId())
                         || !Objects.equals(task.getActualInspectionQuantity(), detail.getActualInspectionQuantity())
                         || !detailIds.add(detail.getId())
@@ -512,12 +518,20 @@ public class MesTeamLeaderActiveOrderCompletionBackfillPortImpl
                     throw sourceMissing(order, "PROCESS_INSPECTION");
                 }
             }
+            for (var item : itemPlan.entrySet()) {
+                List<Integer> sampleNos = detailMatches.stream()
+                        .filter(detail -> Objects.equals(item.getKey(), detail.getItemCode()))
+                        .map(MesPqcProcessInspectionAggregateDetailDO::getSampleNo).sorted().toList();
+                if (!sampleNos.equals(java.util.stream.IntStream.rangeClosed(1, item.getValue()).boxed().toList())) {
+                    throw sourceMissing(order, "PROCESS_INSPECTION");
+                }
+            }
             ids.add(task.getId());
-            ids.addAll(detailIds);
         }
-        if (ids.isEmpty()) {
+        if (ids.isEmpty() || detailIds.size() != details.size()) {
             throw sourceMissing(order, "PROCESS_INSPECTION");
         }
+        ids.addAll(detailIds);
         return ids.stream().distinct().sorted().toList();
     }
 

@@ -701,6 +701,7 @@ export interface TeamLeaderActiveOrderDetailRespVO {
   routeName: string
   inputMaterialUsages?: TeamLeaderActiveOrderInputMaterialDetailRespVO[]
   processes: TeamLeaderActiveOrderProcessDetailRespVO[]
+  pqcSubmissions: TeamLeaderActiveOrderPqcSubmissionDetailRespVO[]
   activeOrderStatus?: TeamLeaderActiveOrderStatusSummaryRespVO
   pqcProductionRelease?: TeamLeaderActiveOrderPqcProductionReleaseSummaryRespVO
   operationFacts?: TeamLeaderActiveOrderOperationFactRespVO[]

@@ -1,0 +1,214 @@
+{
+  "changes": [
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccDistributionWorkbenchSource.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingWorkbenchSource.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:training:mine",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:training:mine 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/workbench/DccProjectionExport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/workbench/DccProjectionExport.java",
+      "kind": "permission",
+      "value": "dcc:controlled-file:training:mine",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 dcc:controlled-file:training:mine 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-batch-execution:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesEdhrWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/workorder/MesWorkOrderWorkbenchSource.java",
+      "kind": "permission",
+      "value": "mes:pro-work-order:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-batch-execution:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-batch-execution:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-edhr-work-task:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-edhr-work-task:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/workbench/MesProjectionExport.java",
+      "kind": "permission",
+      "value": "mes:pro-work-order:query",
+      "reason": "工作台来源适配器/投影导出复用业务模块已有 mes:pro-work-order:query 权限，只读取当前授权决定可见任务；不新增权限、办理入口或角色/租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/utils/businessConfigAccess.ts",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:golden-finger",
+      "reason": "配置组件迁移或显式跳转复用既有 mes:pro-batch-record-execution:golden-finger 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/ReminderConfigDialog.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:update",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "HH:mm:ss",
+      "reason": "时间选择器的时分秒格式字符串，并非权限标识，无菜单或授权变更。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/components/TableAutoSyncSetting.vue",
+      "kind": "permission",
+      "value": "infra:job:update",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/index.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "permission",
+      "value": "infra:config:update",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:update 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/index.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-config/components/RecordbookGlobalSetting.vue",
+      "kind": "permission",
+      "value": "mes:pro-batch-record-execution:golden-finger",
+      "reason": "配置组件迁移或显式跳转复用既有 mes:pro-batch-record-execution:golden-finger 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "dcc:registration-certificate:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 dcc:registration-certificate:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "erp:kingdee-sync:query",
+      "reason": "配置组件迁移或显式跳转复用既有 erp:kingdee-sync:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "infra:config:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:config:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/system/config-migration/BusinessConfigMigrationNotice.vue",
+      "kind": "permission",
+      "value": "infra:job:query",
+      "reason": "配置组件迁移或显式跳转复用既有 infra:job:query 权限和对应后端接口；不新增该权限，不扩大角色/租户套餐授权。配置菜单另见本文件 page/router 项及 S1 授权例外。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/mes/pro/edhr-config/index.vue",
+      "kind": "page",
+      "value": "mes/pro/edhr-config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/erp/sync/config/index.vue",
+      "kind": "page",
+      "value": "erp/sync/config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/dcc/registration-certificate/config/index.vue",
+      "kind": "page",
+      "value": "dcc/registration-certificate/config/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
+      "kind": "page",
+      "value": "infra/config/basic/index",
+      "reason": "用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/businessConfig.ts",
+      "kind": "router",
+      "value": "c3f80e3f0e9c150c06be22408e7de8174b0d217300fe7737c7728359ecaf3387",
+      "reason": "四个配置命名路由仅供显式跳转，运行时权限仍由原业务权限及服务端菜单控制，不据隐藏路由宣称菜单验收通过。用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "kind": "router",
+      "value": "0d4f1a7ae64e78d37025ad9460b95ca23d8a6c1ff90506988563d30438f9f47d",
+      "reason": "四个配置命名路由仅供显式跳转，运行时权限仍由原业务权限及服务端菜单控制，不据隐藏路由宣称菜单验收通过。用户于2026-10-21明确批准本任务保留已评审的正式命令授权方案，例外于 SQL 直写角色/套餐要求；不修改门禁脚本。菜单定义由 IntRuoyiBackend/sql/mysql/20261008_profile_business_config_menus.sql 发布，角色/套餐必须按 doc/tasks/20261008-profile-architecture-implementation/menu-migration-runbook-s1.md 使用正式权限命令、真实差集及审计完成。当前仅融合静态候选，不表示迁移执行、真实菜单可见或授权验收通过。"
+    }
+  ]
+}

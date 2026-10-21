@@ -15,7 +15,7 @@ assert.notEqual(activeOrderEnd, -1, 'Expected the active-order pool tab end.')
 const activeOrderBlock = source.slice(activeOrderStart, activeOrderEnd)
 
 const p1Button = activeOrderBlock.match(
-  /data-team-leader-simulate-active-order-stage1-p1[\s\S]*?<\/el-button>/
+  /data-team-leader-simulate-active-order-stage1-p1[\s\S]*?<\/el-dropdown-item>/
 )
 assert.ok(p1Button, 'The active-order list must expose the P1 Stage1 simulation button.')
 assert.match(
@@ -25,11 +25,11 @@ assert.match(
 )
 assert.match(
   p1Button[0],
-  />\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-button>/,
+  />\s*<Icon icon="ep:refresh" \/>\s*P1双100\s*<\/el-dropdown-item>/,
   'The P1 button must display P1双100.'
 )
 const p2Button = activeOrderBlock.match(
-  /data-team-leader-generate-active-order-stage1-p2[\s\S]*?<\/el-button>/
+  /data-team-leader-generate-active-order-stage1-p2[\s\S]*?<\/el-dropdown-item>/
 )
 assert.ok(p2Button, 'The active-order list must expose the P2 generated form button.')
 assert.match(
@@ -39,12 +39,12 @@ assert.match(
 )
 assert.match(
   p2Button[0],
-  />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-button>/,
+  />\s*<Icon icon="ep:document" \/>\s*P2生成\s*<\/el-dropdown-item>/,
   'The P2 button must display P2生成.'
 )
 assert.doesNotMatch(
   activeOrderBlock,
-  /data-team-leader-simulate-active-order-completion|handleSimulateActiveOrderCompletion|ep:magic-stick|>\s*Stage1模拟\s*<\/el-button>|>\s*模拟完成\s*<\/el-button>/,
+  /data-team-leader-simulate-active-order-completion|handleSimulateActiveOrderCompletion|ep:magic-stick|>\s*Stage1模拟\s*<\/el-(?:button|dropdown-item)>|>\s*模拟完成\s*<\/el-(?:button|dropdown-item)>/,
   'The active-order list must not render the generic magic-wand simulation button.'
 )
 

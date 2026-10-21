@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -207,13 +209,30 @@ public class GxpCreationAuditVerificationService {
         var bean = new BeanWrapperImpl(audit);
         for (String field : PROTECTED_FIELDS) {
             Object column = bean.getPropertyValue(field);
-            // The writer explicitly serializes this field using LocalDateTime.toString().
-            if ("serverOccurredAt".equals(field)) column = audit.getServerOccurredAt().toString();
             JsonNode node = canonical.get(field);
+            if ("serverOccurredAt".equals(field)) {
+                if (!matchesPersistedAuditTime(node, audit.getServerOccurredAt())) return false;
+                continue;
+            }
             if (column == null ? node != null && !node.isNull()
                     : !Objects.equals(node, originalTree(JsonUtils.toJsonString(column)))) return false;
         }
         return true;
+    }
+
+    private static boolean matchesPersistedAuditTime(JsonNode canonical, LocalDateTime persisted) {
+        if (canonical == null || !canonical.isTextual() || persisted == null
+                || persisted.getNano() % 1_000_000 != 0) return false;
+        try {
+            LocalDateTime original = LocalDateTime.parse(canonical.textValue());
+            // The immutable JSON retains the original writer clock precision. MySQL DATETIME(3)
+            // rounds it to milliseconds; compare that exact storage projection, without rewriting
+            // the signed JSON or accepting a difference in any persisted millisecond.
+            return original.toString().equals(canonical.textValue())
+                    && original.plusNanos(500_000).truncatedTo(ChronoUnit.MILLIS).equals(persisted);
+        } catch (DateTimeParseException ex) {
+            return false;
+        }
     }
 
     static JsonNode originalTree(String json) {

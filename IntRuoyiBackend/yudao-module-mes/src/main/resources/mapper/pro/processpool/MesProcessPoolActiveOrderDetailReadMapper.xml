@@ -62,7 +62,7 @@
                pool_event.signature_id AS submitterSignatureId,
                pool_event.server_submit_time AS submitterSignedAt,
                latest_review.review_signature_id AS reviewerSignatureId,
-               latest_review.reviewed_at AS reviewerSignedAt,
+               review_signature.signed_at AS reviewerSignedAt,
                CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
                pool_event.device_id AS eventDeviceId,
                event_device.device_code AS eventDeviceCode,
@@ -142,6 +142,10 @@
         ) latest_review
           ON latest_review.event_id = pool_event.id
          AND latest_review.tenant_id = pool_event.tenant_id
+        LEFT JOIN system_electronic_signature review_signature
+          ON review_signature.id = latest_review.review_signature_id
+         AND review_signature.tenant_id = pool_event.tenant_id
+         AND review_signature.deleted = 0
         LEFT JOIN system_users reviewer
           ON reviewer.id = latest_review.leader_user_id
          AND reviewer.tenant_id = pool_event.tenant_id
@@ -159,7 +163,7 @@
                pool_event.signature_id AS submitterSignatureId,
                pool_event.server_submit_time AS submitterSignedAt,
                latest_review.review_signature_id AS reviewerSignatureId,
-               latest_review.reviewed_at AS reviewerSignedAt,
+               review_signature.signed_at AS reviewerSignedAt,
                CASE
                    WHEN JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) REGEXP '^[0-9]+$'
                        THEN CAST(JSON_UNQUOTE(JSON_EXTRACT(pool_event.raw_payload, '$.scrapQuantity')) AS SIGNED)
@@ -200,6 +204,10 @@
         ) latest_review
           ON latest_review.event_id = pool_event.id
          AND latest_review.tenant_id = pool_event.tenant_id
+        LEFT JOIN system_electronic_signature review_signature
+          ON review_signature.id = latest_review.review_signature_id
+         AND review_signature.tenant_id = pool_event.tenant_id
+         AND review_signature.deleted = 0
         LEFT JOIN system_users reviewer
           ON reviewer.id = latest_review.leader_user_id
          AND reviewer.tenant_id = pool_event.tenant_id

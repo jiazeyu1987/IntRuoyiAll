@@ -1,6 +1,16 @@
 const assert=require('node:assert/strict')
 const test=require('node:test')
 const {fixture,deferred,tick,descriptor,dir,row,read,compile}=require('./helpers/workbench-s3-fixture.cjs')
+
+const actualRequestContextGuard=(ts,ast)=>{
+ let initializer
+ const visit=node=>{
+  if(ts.isVariableDeclaration(node)&&node.name.getText(ast)==='assertRequestContextCurrent')initializer=node.initializer.getText(ast)
+  ts.forEachChild(node,visit)
+ }
+ visit(ast);assert.ok(initializer,'actual request context guard is present')
+ return Function(compile('const guard='+initializer+';')+';return guard;')()
+}
 test('neutral sixth nonnumeric source, token-only requests and business badge',async()=>{
  const f=fixture();assert.equal(await f.page.loadWorkbench(),true)
  assert.equal(f.page.todoRows.value[0].businessId,'opaque:work-A');assert.equal(f.page.total.value,1);assert.equal(f.badge.todoTotal,3)
@@ -146,10 +156,11 @@ test('actual Axios response interceptor rejects S3 401 without authentication re
  const createApiError=Function('return '+compile('const value='+creator+';').replace(/const value = /,'').replace(/;\s*$/,''))()
  let refreshes=0,replays=0
  const deps={ApiEncrypt:{getEncryptHeader:()=> 'encrypted'},useI18n:()=>({t:x=>x}),result_code:200,errorCode:{default:'error'},ignoreMsgs:[],
-  createApiError,isRefreshToken:false,getRefreshToken:()=> 'refresh',refreshToken:async()=>{refreshes++;return {data:{code:0,data:{accessToken:'a',refreshToken:'r'}}}},
+  createApiError,assertRequestContextCurrent:actualRequestContextGuard(ts,ast),isRefreshToken:false,getRefreshToken:()=> 'refresh',refreshToken:async()=>{refreshes++;return {data:{code:0,data:{accessToken:'a',refreshToken:'r'}}}},
   setRefreshedToken(){},getAccessToken:()=> 'a',requestList:[],service:()=>{replays++},handleAuthorized:()=>{throw new Error('unexpected relogin')}}
  const handler=Function(...Object.keys(deps),compile('const callback='+callback+';')+';return callback;')(...Object.values(deps))
  await assert.rejects(handler({data:{code:401,msg:'登录过期'},headers:{},config:{skipAuthRefreshReplay:true,ignoreErrorMessage:true}}),e=>e.code===401)
+ await assert.rejects(handler({data:{code:401,msg:'登录过期'},headers:{},config:{skipAuthRefreshReplay:true,isRequestContextCurrent:()=>false}}),{code:'REQUEST_CONTEXT_EXPIRED'})
  assert.equal(refreshes,0);assert.equal(replays,0)
  await handler({data:{code:401,msg:'登录过期'},headers:{},config:{headers:{}}})
  assert.equal(refreshes,1);assert.equal(replays,1,'ordinary existing callers keep their original refresh policy')
@@ -241,7 +252,7 @@ test('actual request and response rejection diagnostics redact workbench config/
  const ts=require('typescript'),source=read('src/config/axios/service.ts'),ast=ts.createSourceFile('service.ts',source,ts.ScriptTarget.Latest,true)
  const callbacks=[];const walk=node=>{if(ts.isCallExpression(node)&&['service.interceptors.request.use','service.interceptors.response.use'].includes(node.expression.getText(ast)))callbacks.push(node.arguments[1].getText(ast));ts.forEachChild(node,walk)};walk(ast)
  for(const callback of callbacks){const logs=[],error={message:'Network Error',config:{skipAuthRefreshReplay:true,ignoreErrorMessage:true,params:{queryVersion:'secret-token'},headers:{Authorization:'secret-auth'}}}
-  const handler=Function('console','useI18n','ElMessage','return '+compile('const handler='+callback).replace(/^const handler = /,'').replace(/;\s*$/,''))({error:(...args)=>logs.push(args),log:(...args)=>logs.push(args)},()=>({t:x=>x}),{error:()=>assert.fail()})
+  const handler=Function('console','useI18n','ElMessage','assertRequestContextCurrent','return '+compile('const handler='+callback).replace(/^const handler = /,'').replace(/;\s*$/,''))({error:(...args)=>logs.push(args),log:(...args)=>logs.push(args)},()=>({t:x=>x}),{error:()=>assert.fail()},actualRequestContextGuard(ts,ast))
   await assert.rejects(handler(error),e=>e===error);assert.equal(JSON.stringify(logs).includes('secret'),false);assert.equal(logs.length,1)
  }
 })

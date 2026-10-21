@@ -113,8 +113,7 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
                 routeVersionMapper.selectBatchIds(distinctIds(currentTasks, MesPqcInspectionTaskDO::getRouteVersionId)),
                 MesProRouteVersionDO::getId, "routeVersion");
         Map<Long, MesQaInspectionRegulationDO> regulationsById = mapById(
-                regulationMapper.selectBatchIds(distinctIds(currentTasks, task ->
-                        activeOrdersById.get(task.getActiveOrderId()).getQaRegulationId())),
+                regulationMapper.selectBatchIds(distinctIds(currentTasks, MesPqcInspectionTaskDO::getQaRegulationId)),
                 MesQaInspectionRegulationDO::getId, "qaRegulation");
         Map<Long, MesQaInspectionRegulationVersionDO> qaVersionsById = mapById(
                 regulationVersionMapper.selectBatchIds(
@@ -150,7 +149,7 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
         MesProRouteVersionDO routeVersion = requireRow(
                 routeVersionsById, task.getRouteVersionId(), task, "routeVersion");
         MesQaInspectionRegulationDO regulation = requireRow(
-                regulationsById, activeOrder.getQaRegulationId(), task, "qaRegulation");
+                regulationsById, task.getQaRegulationId(), task, "qaRegulation");
         MesQaInspectionRegulationVersionDO qaVersion = requireRow(
                 qaVersionsById, task.getRegulationVersionId(), task, "qaVersion");
         MesQaInspectionRegulationProcessDO qaProcess = requireRow(
@@ -165,6 +164,12 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
         requireText(qaProcess.getProcessName(), task, "qaProcessName");
         if (!Objects.equals(routeVersion.getRouteId(), task.getRouteId())
                 || !Objects.equals(qaVersion.getRegulationId(), regulation.getId())
+                || (MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA.equals(regulation.getOwnerModule())
+                    && (!Objects.equals(task.getRegulationVersionId(), activeOrder.getQaRegulationVersionId())
+                        || !Objects.equals(regulation.getId(), activeOrder.getQaRegulationId())))
+                || regulation.getOwnerModule() == null
+                || !Set.of(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA,
+                        MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON).contains(regulation.getOwnerModule())
                 || !LOCKED_QA_VERSION_STATUSES.contains(qaVersion.getLifecycleStatus())
                 || !Objects.equals(qaProcess.getRegulationVersionId(), qaVersion.getId())) {
             throw identityMismatch(task, "冻结版本归属不一致");
@@ -211,8 +216,7 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
         }
         return Objects.equals(task.getWorkOrderId(), activeOrder.getWorkOrderId())
                 && Objects.equals(task.getRouteId(), activeOrder.getRouteId())
-                && Objects.equals(task.getRouteVersionId(), activeOrder.getRouteVersionId())
-                && Objects.equals(task.getRegulationVersionId(), activeOrder.getQaRegulationVersionId());
+                && Objects.equals(task.getRouteVersionId(), activeOrder.getRouteVersionId());
     }
 
     private static void requireCurrentTaskComplete(
@@ -225,6 +229,8 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
                 && task.getRouteId() != null
                 && task.getRouteVersionId() != null
                 && task.getRegulationVersionId() != null
+                && task.getQaRegulationId() != null
+                && (task.getQaItemCode() == null || task.getQaItemCode().isBlank())
                 && activeOrder.getQaRegulationId() != null
                 && task.getQaProcessId() != null
                 && RULE_SORTS.containsKey(task.getInspectionRuleKey())
@@ -233,6 +239,10 @@ public class MesPqcLeaderActiveTaskServiceImpl implements MesPqcLeaderActiveTask
                 && task.getShiftCode() != null
                 && task.getRoundNo() != null
                 && task.getPlannedInspectionQuantity() != null;
+        if (complete) {
+            cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionItemPlan.require(task);
+            complete = task.getRouteProcessId() == null && task.getProcessId() == null;
+        }
         if (!complete) {
             throw identityMismatch(task, "当前任务正式身份不完整");
         }

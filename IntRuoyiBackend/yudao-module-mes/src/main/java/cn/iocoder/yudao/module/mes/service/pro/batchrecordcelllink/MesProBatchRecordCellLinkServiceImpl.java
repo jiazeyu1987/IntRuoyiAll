@@ -63,6 +63,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegula
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.qa.regulation.MesQaInspectionRegulationVersionMapper;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.pqc.MesPqcInspectionRulePlan;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
@@ -1539,66 +1540,57 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         }
         List<PqcAggregateSourceField> fields = new ArrayList<>();
         Set<String> fieldCodes = new LinkedHashSet<>();
-        addPqcHeaderFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, items);
-        addPqcDccFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, items);
-        for (MesQaInspectionRegulationItemDO item : items) {
-            String inspectionType = StrUtil.trim(item.getInspectionType());
-            String itemCode = StrUtil.trim(item.getItemCode());
-            String itemName = StrUtil.trim(item.getItemName());
-            if (StrUtil.isBlank(inspectionType) || StrUtil.isBlank(itemCode) || StrUtil.isBlank(itemName)) {
-                throw exception(
-                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
-                        "PQC_AGGREGATE_DETAIL 项目定义不完整");
+        for (var stage : MesPqcInspectionRulePlan.require(catalog.version())) {
+            if (!stage.required()) {
+                continue;
             }
-            int sampleCount = Math.max(1, item.getFirstInspectionQuantity() == null
-                    ? 1 : item.getFirstInspectionQuantity());
-            for (int sampleNo = 1; sampleNo <= sampleCount; sampleNo += 1) {
-                addPqcItemFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, item, inspectionType,
-                        itemCode, itemName, sampleNo);
+            List<MesQaInspectionRegulationItemDO> stageItems = items.stream().filter(item ->
+                    Objects.equals(stage.inspectionType(),
+                            MesPqcInspectionRulePlan.normalizeType(item.getInspectionType()))).toList();
+            if (stageItems.isEmpty()) {
+                continue;
+            }
+            addPqcHeaderFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, stage.ruleKey());
+            addPqcDccFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, stage.ruleKey());
+            for (MesQaInspectionRegulationItemDO item : stageItems) {
+                String itemCode = StrUtil.trim(item.getItemCode());
+                String itemName = StrUtil.trim(item.getItemName());
+                if (StrUtil.isBlank(itemCode) || StrUtil.isBlank(itemName)) {
+                    throw exception(
+                            MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                            "PQC_AGGREGATE_DETAIL 项目定义不完整");
+                }
+                int sampleCount = Math.max(1, item.getFirstInspectionQuantity() == null
+                        ? 1 : item.getFirstInspectionQuantity());
+                for (int sampleNo = 1; sampleNo <= sampleCount; sampleNo += 1) {
+                    addPqcItemFields(fields, fieldCodes, targetRouteProcessId, qaProcessId, item, stage.ruleKey(),
+                            itemCode, itemName, sampleNo);
+                }
             }
         }
         return List.copyOf(fields);
     }
 
     private void addPqcHeaderFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                                    Long routeProcessId, Long qaProcessId, List<MesQaInspectionRegulationItemDO> items) {
-        items.stream().map(MesQaInspectionRegulationItemDO::getInspectionType)
-                .map(StrUtil::trim)
-                .filter(StrUtil::isNotBlank)
-                .distinct()
-                .forEach(inspectionType -> {
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|inspectorUserId", inspectionTypeLabel(inspectionType)
-                                    + " / 检验员", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|inspectedAt", inspectionTypeLabel(inspectionType)
-                                    + " / 检验时间", "DATETIME");
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|reviewerUserId", inspectionTypeLabel(inspectionType)
-                                    + " / 复核人", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|reviewedAt", inspectionTypeLabel(inspectionType)
-                                    + " / 复核时间", "DATETIME");
-                });
+                                    Long routeProcessId, Long qaProcessId, String stageKey) {
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|inspectorUserId", inspectionTypeLabel(stageKey) + " / 检验员", "NUMBER");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|inspectedAt", inspectionTypeLabel(stageKey) + " / 检验时间", "DATETIME");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|reviewerUserId", inspectionTypeLabel(stageKey) + " / 复核人", "NUMBER");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|reviewedAt", inspectionTypeLabel(stageKey) + " / 复核时间", "DATETIME");
     }
 
     private void addPqcDccFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
-                                 Long routeProcessId, Long qaProcessId, List<MesQaInspectionRegulationItemDO> items) {
-        items.stream().map(MesQaInspectionRegulationItemDO::getInspectionType)
-                .map(StrUtil::trim)
-                .filter(StrUtil::isNotBlank)
-                .distinct()
-                .forEach(inspectionType -> {
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|DCC|dccProjectId", inspectionTypeLabel(inspectionType)
-                                    + " / DCC项目ID", "NUMBER");
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|DCC|dccProjectCode", inspectionTypeLabel(inspectionType)
-                                    + " / DCC项目代码", "STRING");
-                    addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
-                            inspectionType + "|DCC|dccProjectName", inspectionTypeLabel(inspectionType)
-                                    + " / DCC项目名称", "STRING");
-                });
+                                 Long routeProcessId, Long qaProcessId, String stageKey) {
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|DCC|dccProjectId", inspectionTypeLabel(stageKey) + " / DCC项目ID", "NUMBER");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|DCC|dccProjectCode", inspectionTypeLabel(stageKey) + " / DCC项目代码", "STRING");
+        addPqcField(fields, fieldCodes, routeProcessId, qaProcessId,
+                stageKey + "|DCC|dccProjectName", inspectionTypeLabel(stageKey) + " / DCC项目名称", "STRING");
     }
 
     private void addPqcItemFields(List<PqcAggregateSourceField> fields, Set<String> fieldCodes,
@@ -1648,6 +1640,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return switch (StrUtil.trim(inspectionType)) {
             case "FIRST" -> "首检";
             case "PATROL" -> "巡检";
+            case "PATROL_AM" -> "上午巡检";
+            case "PATROL_PM" -> "下午巡检";
             case "FINAL" -> "末检";
             default -> StrUtil.trim(inspectionType);
         };

@@ -110,8 +110,23 @@ class MesQaInspectionRegulationServiceTest {
                 activeOrderMapper, pqcInspectionTaskMapper, commonRegulationProductBindingMapper,
                 commonRegulationSetMapper, commonRegulationSetVersionMapper,
                 commonRegulationSetVersionMemberMapper);
+        lenient().when(regulationMapper.selectByIdForUpdate(REGULATION_ID)).thenReturn(publishedRegulation());
+        lenient().when(versionMapper.update(any(MesQaInspectionRegulationVersionDO.class), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(publishedVersion());
+    }
+
+    @Test
+    void staleDraftCannotReplaceChildrenOrPublishedContent() {
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        when(regulationMapper.selectByDccProjectCodeId(DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA)).thenReturn(publishedRegulation());
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1"))
+                .thenReturn(publishedVersion().setLifecycleStatus("DRAFT").setDraftRevision(2L));
+        var request = validRequest().setExpectedDraftRevision(1L);
+        var failure = assertThrows(ServiceException.class, () -> service.saveDraft(request));
+        assertEquals(cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.QA_INSPECTION_REGULATION_VERSION_CONFLICT.getCode(), failure.getCode());
+        verifyNoInteractions(processMapper,itemMapper,itemEquipmentMapper);
+        verify(versionMapper,never()).update(any(MesQaInspectionRegulationVersionDO.class),any(com.baomidou.mybatisplus.core.conditions.Wrapper.class));
     }
 
     @Test
@@ -214,7 +229,7 @@ class MesQaInspectionRegulationServiceTest {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
         }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(VERSION_ID);
             return 1;
@@ -249,13 +264,14 @@ class MesQaInspectionRegulationServiceTest {
                 .regulationId(REGULATION_ID)
                 .versionNo("G/1")
                 .lifecycleStatus("DRAFT")
+                .draftRevision(0L)
                 .snapshotJson("{}")
                 .build();
         when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
         when(regulationMapper.selectByDccProjectCodeId(
                 DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
                 .thenReturn(publishedRegulation());
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(draft);
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(draft);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
             return 1;
@@ -291,7 +307,7 @@ class MesQaInspectionRegulationServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(
                 DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
                 .thenReturn(publishedRegulation());
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1"))
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1"))
                 .thenReturn(MesQaInspectionRegulationVersionDO.builder()
                         .id(VERSION_ID).regulationId(REGULATION_ID).versionNo("G/1")
                         .lifecycleStatus("PUBLISHED").snapshotJson("{}").build());
@@ -344,7 +360,7 @@ class MesQaInspectionRegulationServiceTest {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
         }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(VERSION_ID);
             return 1;
@@ -384,7 +400,7 @@ class MesQaInspectionRegulationServiceTest {
             invocation.<MesQaInspectionRegulationDO>getArgument(0).setId(REGULATION_ID);
             return 1;
         }).when(regulationMapper).insert(any(MesQaInspectionRegulationDO.class));
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(VERSION_ID);
             return 1;
@@ -418,7 +434,7 @@ class MesQaInspectionRegulationServiceTest {
         when(regulationMapper.selectByDccProjectCodeId(
                 DCC_PROJECT_ID, MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA))
                 .thenReturn(publishedRegulation());
-        when(versionMapper.selectByRegulationIdAndVersionNo(REGULATION_ID, "G/1")).thenReturn(null);
+        when(versionMapper.selectByRegulationIdAndVersionNoForUpdate(REGULATION_ID, "G/1")).thenReturn(null);
         doAnswer(invocation -> {
             invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(72L);
             return 1;
@@ -504,6 +520,8 @@ class MesQaInspectionRegulationServiceTest {
         lenient().when(regulationMapper.selectListByDccProjectCodeIds(List.of(DCC_PROJECT_ID)))
                 .thenReturn(List.of(configured));
         lenient().when(versionMapper.selectLatestDraftByRegulationId(REGULATION_ID)).thenReturn(draft);
+        lenient().when(regulationMapper.selectByIdForUpdate(REGULATION_ID)).thenReturn(publishedRegulation());
+        lenient().when(versionMapper.update(any(MesQaInspectionRegulationVersionDO.class), any(com.baomidou.mybatisplus.core.conditions.Wrapper.class))).thenReturn(1);
         lenient().when(versionMapper.selectLatestPublishedByRegulationId(REGULATION_ID))
                 .thenReturn(latestPublished);
 
@@ -828,6 +846,60 @@ class MesQaInspectionRegulationServiceTest {
                 commonRegulationProductBindingMapper);
     }
 
+    @Test
+    void upgradeCommonSetItems_publishesNewMemberWithExplicitCreationBaseline() {
+        var common = publishedRegulation().setOwnerModule(MesQaInspectionRegulationDO.OWNER_MODULE_MES_QA_COMMON);
+        when(commonRegulationSetMapper.selectById(71L)).thenReturn(commonRegulationSet(71L, 81L));
+        when(commonRegulationSetVersionMapper.selectById(81L)).thenReturn(
+                MesQaCommonRegulationSetVersionDO.builder().id(81L).setId(71L)
+                        .lifecycleStatus("PUBLISHED").versionNo("A/1").build());
+        when(commonRegulationSetVersionMemberMapper.selectListBySetVersionId(81L)).thenReturn(List.of(
+                MesQaCommonRegulationSetVersionMemberDO.builder().id(91L).setVersionId(81L)
+                        .regulationVersionId(VERSION_ID).build()));
+        when(versionMapper.selectById(VERSION_ID)).thenReturn(publishedVersion());
+        when(regulationMapper.selectById(REGULATION_ID)).thenReturn(common);
+        when(regulationMapper.selectByIdForUpdate(REGULATION_ID)).thenReturn(common);
+        when(dccProjectCodeMapper.selectById(DCC_PROJECT_ID)).thenReturn(enabledDccProject());
+        doAnswer(invocation -> {
+            invocation.<MesQaInspectionRegulationVersionDO>getArgument(0).setId(72L);
+            return 1;
+        }).when(versionMapper).insert(any(MesQaInspectionRegulationVersionDO.class));
+        doAnswer(invocation -> {
+            invocation.<MesQaInspectionRegulationProcessDO>getArgument(0).setId(QA_PROCESS_ID);
+            return 1;
+        }).when(processMapper).insert(any(MesQaInspectionRegulationProcessDO.class));
+        when(processMapper.selectListByVersionId(72L)).thenReturn(List.of(qaProcess().setRegulationVersionId(72L)));
+        var upgradeService = org.mockito.Mockito.spy(service);
+        org.mockito.Mockito.doReturn(MesQaCommonRegulationSetRespVO.Version.builder().id(82L).build())
+                .when(upgradeService).saveCommonRegulationSetVersion(any());
+        var template = validRequest();
+        var member = new cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO.Member();
+        member.setCommonRegulationId(REGULATION_ID);
+        member.setSourceCommonRegulationVersionId(VERSION_ID);
+        member.setCommonDccProjectCodeId(DCC_PROJECT_ID);
+        member.setCommonRegulationCode(template.getRegulationCode());
+        member.setCommonRegulationName(template.getRegulationName());
+        member.setVersionNo(template.getVersionNo());
+        member.setFinalInspectionApplicable(template.getFinalInspectionApplicable());
+        member.setInspectionTypeRules(template.getInspectionTypeRules());
+        member.setProcesses(template.getProcesses());
+        var request = new cn.iocoder.yudao.module.mes.controller.admin.qa.regulation.vo.MesQaCommonRegulationSetItemsUpgradeReqVO();
+        request.setSetId(71L);
+        request.setSourceSetVersionId(81L);
+        request.setVersionNo("A/2");
+        request.setEffectiveDate(template.getEffectiveDate());
+        request.setMembers(List.of(member));
+
+        assertEquals(82L, upgradeService.upgradeCommonRegulationSetItems(request).getId());
+        var created = ArgumentCaptor.forClass(MesQaInspectionRegulationVersionDO.class);
+        verify(versionMapper).insert(created.capture());
+        assertEquals(1L, created.getValue().getDraftRevision());
+        assertEquals("PUBLISHED", created.getValue().getLifecycleStatus());
+        var setRequest = ArgumentCaptor.forClass(MesQaCommonRegulationSetVersionSaveReqVO.class);
+        verify(upgradeService).saveCommonRegulationSetVersion(setRequest.capture());
+        assertEquals(72L, setRequest.getValue().getMembers().get(0).getCommonRegulationVersionId());
+    }
+
     private static MesQaCommonRegulationSetDO commonRegulationSet(long setId, long currentVersionId) {
         return MesQaCommonRegulationSetDO.builder()
                 .id(setId)
@@ -945,6 +1017,7 @@ class MesQaInspectionRegulationServiceTest {
         reqVO.setRegulationCode("PQC-ID-001");
         reqVO.setRegulationName("（椎体）球囊扩张压力泵组装过程检验规程");
         reqVO.setVersionNo("G/1");
+        reqVO.setExpectedDraftRevision(0L);
         reqVO.setEffectiveDate(LocalDate.of(2026, 8, 11));
         reqVO.setFinalInspectionApplicable(true);
         reqVO.setInspectionTypeRules(List.of(

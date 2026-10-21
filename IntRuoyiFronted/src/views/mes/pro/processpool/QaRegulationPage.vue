@@ -2435,6 +2435,8 @@ interface QaRegulationItem extends QaItemInspectionState {
 }
 
 interface QaRegulationDraft {
+  draftRevision?: number
+  loadedVersionNo?: string
   regulationId?: number
   dccProjectCodeId?: number
   regulationCode: string
@@ -3483,6 +3485,8 @@ const applyQaRegulationConfiguration = (
     throw new Error('后端 QA 规程与当前 DCC 项目代码不一致')
   }
   Object.assign(qaRegulationDraft, {
+    draftRevision: configuration.draftRevision,
+    loadedVersionNo: configuration.versionNo,
     regulationId: configuration.regulationId,
     regulationCode: configuration.regulationCode,
     regulationName: configuration.regulationName,
@@ -4914,6 +4918,8 @@ const buildQaRegulationSavePayload = (): QaInspectionRegulationSaveReqVO => {
   return {
     regulationId: qaRegulationDraft.regulationId,
     dccProjectCodeId: resolvePositiveId(qaRegulationDraft.dccProjectCodeId, 'DCC 项目代码 ID'),
+    expectedDraftRevision: resolveQaRegulationDraftVersionNoForSave() === qaRegulationDraft.loadedVersionNo
+      && qaRegulationDraft.lifecycleStatus === 'DRAFT' ? qaRegulationDraft.draftRevision! : 0,
     ownerModule: 'MES_QA',
     regulationCode: resolveRequiredText(qaRegulationDraft.regulationCode, '规程编号'),
     regulationName: resolveRequiredText(qaRegulationDraft.regulationName, '规程名称'),
@@ -5068,6 +5074,8 @@ const previewQaRegulationDraft = async () => {
   qaRegulationSaving.value = true
   try {
     const result = await QcTemplateApi.saveQaRegulationDraft(payload)
+    qaRegulationDraft.loadedVersionNo = result.versionNo
+    qaRegulationDraft.draftRevision = result.draftRevision
     qaRegulationDraft.regulationId = result.regulationId
     qaRegulationDraft.versionNo = result.versionNo
     qaRegulationDraft.lifecycleStatus = result.lifecycleStatus

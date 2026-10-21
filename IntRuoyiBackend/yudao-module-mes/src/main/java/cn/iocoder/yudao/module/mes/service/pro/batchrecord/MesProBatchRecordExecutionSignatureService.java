@@ -851,11 +851,16 @@ public class MesProBatchRecordExecutionSignatureService {
                         : "MES|" + actorId + "|" + actionType + "|" + subjectId,
                 businessOccurredAt(signatureTimeEvidence),
                 businessTimeZone(signatureTimeEvidence));
-        if (!ACTION_PRODUCTION_SUBMIT.equals(actionType) && !ACTION_PQC_SUBMIT.equals(actionType)) {
+        if (!Set.of(ACTION_PRODUCTION_SUBMIT, ACTION_PQC_SUBMIT, ACTION_PQC_RELEASE, ACTION_QA_DISPOSITION,
+                ACTION_MARKET_RELEASE).contains(actionType)) {
             return electronicSignatureService.sign(command);
         }
+        AdminUserDO signer = adminUserService.getUser(actorId);
+        if (signer == null || StrUtil.isBlank(signer.getNickname())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_NOT_AUTHORIZED);
+        }
         return electronicSignatureService.signAuthorized(command, new AuthorizedSignatureIdentity(AuthorizedSignatureIdentity.SYSTEM_USER, actorId,
-                        adminUserService.getUser(actorId).getNickname()), null);
+                        signer.getNickname()), null);
     }
 
     private String businessOccurredAt(SignatureTimeEvidence signatureTimeEvidence) {

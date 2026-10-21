@@ -718,9 +718,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         assertEquals(revision.getAfterPayload(), original.getRawPayload(), "Current reader must expose the signed correction");
         var signed = ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
         verify(signatureService).recordFieldChangeSignature(signed.capture());
-        assertEquals(cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
-                .sha256("176|" + cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
-                        .canonicalizeJsonString(revision.getAfterPayload()) + "|" + request.getChangeReason().trim()),
+        assertEquals(MesCorrectionBaselineGuard.challenge(176L, originalPayload, revision.getAfterPayload(), request.getChangeReason()),
                 signed.getValue().getSignatureChallengeHash());
         verify(fragmentMapper, never()).updateById(any(MesProProcessPoolQuantityFragmentDO.class));
         org.mockito.Mockito.verifyNoInteractions(scopeService);
@@ -731,6 +729,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void ownReturnAcceptsEquivalentPersistedJsonAndKeepsCanonicalSignedChallenge(boolean pretty) throws Exception {
         var original = eventWithDuplicateParameterCopies(false);
+        String beforePayload = original.getRawPayload();
         var rejected = cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolSubmissionReviewDO
                 .builder().id(91L).eventId(176L).leaderType("PRODUCTION").reviewStatus("REJECTED").build();
         var context = new MesFrontlineReturnCorrectionService.ReturnContext(original, rejected, 413L, 0L,
@@ -760,9 +759,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         assertEquals(JsonUtils.parseTree(revision.getAfterPayload()), JsonUtils.parseTree(persistedJson[0]));
         var signed = ArgumentCaptor.forClass(MesProBatchRecordExecutionFieldAuditSignatureCommand.class);
         verify(signatureService).recordFieldChangeSignature(signed.capture());
-        String challenge = cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher.sha256(
-                "176|" + cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher
-                        .canonicalizeJsonString(persistedJson[0]) + "|" + request.getChangeReason().trim());
+        String challenge = MesCorrectionBaselineGuard.challenge(176L, beforePayload, persistedJson[0], request.getChangeReason());
         assertEquals(challenge, signed.getValue().getSignatureChallengeHash());
         var audit = (GxpAuditService) ReflectionTestUtils.getField(service, "gxpAuditService");
         var command = ArgumentCaptor.forClass(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.class);
@@ -994,6 +991,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
 
     /** Unit boundary fixtures only. Actual persisted snapshots/atomicity are covered by AuditTransactionTest. */
     private void initializeAuditFixture() {
+        ReflectionTestUtils.setField(service, "baselineGuard", org.mockito.Mockito.mock(MesCorrectionBaselineGuard.class));
         TenantContextHolder.setTenantId(1L);
         ReflectionTestUtils.setField(service, "gxpAuditService", org.mockito.Mockito.mock(GxpAuditService.class));
         var revisionRows = org.mockito.Mockito.mock(MesProProcessPoolEventRevisionMapper.class);
@@ -1022,7 +1020,10 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
         var query = new ElectronicSignatureQueryServiceImpl();
         var signatureRows = org.mockito.Mockito.mock(ElectronicSignatureRecordMapper.class);
         ReflectionTestUtils.setField(query, "signatureRecordMapper", signatureRows);
-        ReflectionTestUtils.setField(query, "subjectAdapters", List.of(new MesBatchRecordSignatureSubjectAdapter()));
+        var creation = org.mockito.Mockito.mock(cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerificationService.class);
+        org.mockito.Mockito.lenient().when(creation.verifySignatureCreation(org.mockito.ArgumentMatchers.any())).thenReturn(
+                new cn.iocoder.yudao.module.system.service.gxpaudit.SignatureCreationVerification("CONSISTENT", List.of(), 1L));
+        ReflectionTestUtils.setField(query, "signatureCreationVerificationService", creation);
         ReflectionTestUtils.setField(service, "electronicSignatureQueryService", query);
         lenient().when(signatureRows.selectById(any(java.io.Serializable.class))).thenAnswer(call -> {
             MesProBatchRecordExecutionFieldAuditSignatureCommand input = lastArgument(signatureService, "recordFieldChangeSignature");
@@ -1044,7 +1045,7 @@ class MesProcessPoolProductionReportCorrectionServiceTest {
                     .signedAt(result.getSignedAt()).timeEvidenceId("SERVER_CLOCK:" + result.getSignedAt())
                     .authenticationMethod("SESSION_PLUS_PASSWORD").canonicalContentJson(canonical)
                     .contentHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(canonical)).algorithm("SHA-256")
-                    .keyVersion("system-local-v1").policyVersion(definition.policyVersion()).verificationStatus("VALID").build();
+                    .keyVersion("system-local-v1").policyVersion(definition.policyVersion()).verificationStatus("VALID").idempotencyKey("correction-signature-fixture").build();
             record.setTenantId(1L);
             record.setEvidenceHash(cn.hutool.crypto.digest.DigestUtil.sha256Hex(String.join("|", "1", "3001", "MES", "FIELD_CHANGE",
                     "MES_BATCH_RECORD", subject, version, record.getMeaningCode(), record.getMeaningLabel(), input.getReasonText(),

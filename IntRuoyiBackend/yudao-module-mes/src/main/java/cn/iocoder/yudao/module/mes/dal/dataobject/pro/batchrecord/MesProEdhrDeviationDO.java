@@ -61,6 +61,10 @@ public class MesProEdhrDeviationDO extends BaseDO {
     private String status;
     private String closeReason;
     private LocalDateTime closedAt;
+    private Long closedBy;
+    private Integer closedContentVersion;
+    private String closedContentHash;
+    private String closedSignatureIdsJson;
     private Long nonconformanceReviewId;
     private String createIdempotencyKey;
     private String createPayloadHash;

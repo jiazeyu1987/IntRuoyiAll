@@ -212,6 +212,44 @@ public final class MesEdhrSourceCreationCodec {
         return encodeDedicatedObject(result);
     }
 
+    /** Explicit active-order protocol: completion and PQC facts, never a MATERIALS_READY receipt. */
+    public static Encoded encodeManagedActiveOrderAssociationV1(JsonNode input) {
+        Set<String> longs = Set.of("tenantId", "applicationId", "batchExecutionId", "releaseTransactionId", "managerWorkTaskId",
+                "sourceActorId", "sourceWorkTaskId", "completionSourceRowId", "completionCreationEventId", "pqcSignatureId", "pqcCreationEventId");
+        Set<String> integers = Set.of("releaseTransactionVersion", "sourceExpectedApplicationVersion", "initializedApplicationVersion");
+        Set<String> hashes = Set.of("sourcePayloadHash", "handoffRequestHash", "businessReadinessSnapshotHash", "precheckSnapshotHash",
+                "completionReceiptHash", "sourceSnapshotHash", "completionCreationEventHash", "pqcEvidenceHash");
+        Set<String> strings = Set.of("sourceIdempotencyKey", "reportSnapshotHash", "businessReadinessSnapshotJsonRaw", "managerCandidateSnapshotHash",
+                "completionReceiptId", "completionVersion", "sourceMethod", "associationId", "codecVersion", "associationProtocol");
+        Set<String> keys = new HashSet<>(longs); keys.addAll(integers); keys.addAll(hashes); keys.addAll(strings); keys.add("associationVersion");
+        Set<String> actual=new HashSet<>(); if(input!=null && input.isObject()) input.fieldNames().forEachRemaining(actual::add);
+        if (!actual.equals(keys)) throw invalid("$", "EXACT_FIELD_SET_REQUIRED");
+        ObjectNode result=MAPPER.createObjectNode();
+        for(String key:new TreeSet<>(keys)) {
+            JsonNode value=input.get(key);
+            if(longs.contains(key)) value=P.validate(value,key);
+            else if(integers.contains(key)) value=positiveInteger(value,key,Integer.MAX_VALUE,key.startsWith("sourceExpected") || key.startsWith("initialized"));
+            else if(hashes.contains(key)) value=H.validate(value,key);
+            else if("associationVersion".equals(key)) value=fixedIntegerOne().validate(value,key);
+            else value=S.validate(value,key);
+            result.set(key,value);
+        }
+        if(!CODEC_VERSION.equals(result.path("codecVersion").asText())
+                || !"MANAGED_ACTIVE_ORDER_ASSOCIATION_V1".equals(result.path("associationProtocol").asText())
+                || !"MANAGED_PQC_APPROVE".equals(result.path("sourceMethod").asText())
+                || !result.path("reportSnapshotHash").asText().matches("ACTIVE_ORDER_FACTS:[0-9a-f]{64}")
+                || !result.path("associationId").asText().matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"))
+            throw invalid("$","ACTIVE_ORDER_HANDOFF_PROTOCOL_INVALID");
+        return encodeDedicatedObject(result);
+    }
+
+    public static Encoded encodeManagedHandoffAssociation(JsonNode input) {
+        String protocol=input==null?null:input.path("associationProtocol").asText();
+        if("MANAGED_ACTIVE_ORDER_ASSOCIATION_V1".equals(protocol)) return encodeManagedActiveOrderAssociationV1(input);
+        if("MANAGED_HANDOFF_MATERIAL_ASSOCIATION_V1".equals(protocol)) return encodeManagedHandoffMaterialAssociationV1(input);
+        throw invalid("$","HANDOFF_PROTOCOL_INVALID");
+    }
+
     public static Encoded encodeManagedHandoffRequestV1(JsonNode input) {
         Set<String> keys = Set.of("codecVersion", "sourceMethod", "tenantId", "applicationId", "batchExecutionId",
                 "sourceWorkTaskId", "sourceActorId", "sourceExpectedApplicationVersion", "sourceIdempotencyKey", "sourcePayloadHash",

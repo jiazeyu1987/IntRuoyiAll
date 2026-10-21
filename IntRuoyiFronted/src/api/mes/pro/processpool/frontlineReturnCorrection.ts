@@ -67,7 +67,7 @@ type OwnReturnContext = Pick<
   'activeOrderId' | 'rejectedReviewId' | 'expectedRevisionId'
 >
 export const resubmitOwnProduction = (
-  data: OwnReturnContext & { correction: ProcessPoolProductionReportCorrectionReqVO },
+  data: OwnReturnContext & { correction: Omit<ProcessPoolProductionReportCorrectionReqVO, 'expectedRevisionId' | 'expectedPayloadHash'> },
   options?: RequestContextOptions
 ) =>
   request.post<OwnReturnCorrectionResult>({
@@ -76,7 +76,7 @@ export const resubmitOwnProduction = (
     data
   })
 export const resubmitOwnPqc = (
-  data: OwnReturnContext & { correction: ProcessPoolPqcInspectionCorrectionReqVO },
+  data: OwnReturnContext & { correction: Omit<ProcessPoolPqcInspectionCorrectionReqVO, 'expectedRevisionId' | 'expectedPayloadHash'> },
   options?: RequestContextOptions
 ) =>
   request.post<OwnReturnCorrectionResult>({
