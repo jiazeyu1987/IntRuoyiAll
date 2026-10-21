@@ -41,7 +41,7 @@ public class MesProCraftController {
         return success(service.initializationPreview());
     }
     @PostMapping("/initialize")
-    @PreAuthorize("@ss.hasPermission('mes:pro-craft:initialize') && @ss.hasPermission('mes:pro-route:version-create') && @ss.hasPermission('mes:pro-route:version-update') && @ss.hasPermission('mes:pro-route:version-submit')")
+    @PreAuthorize("@ss.hasPermission('mes:pro-craft:initialize')")
     public CommonResult<MesProCraftChangeDO> initialize(@RequestParam("impactToken") String impactToken) {
         return success(service.initialize(impactToken));
     }
@@ -52,6 +52,11 @@ public class MesProCraftController {
     @PreAuthorize("@ss.hasPermission('mes:pro-craft:update')")
     public CommonResult<Boolean> cancel(@RequestParam("id") Long id) {
         service.cancelChange(id); return success(true);
+    }
+    @PostMapping("/bind-existing")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:version-update')")
+    public CommonResult<Boolean> bindExisting(@Valid @RequestBody MesProCraftBindingTargetReqVO request) {
+        service.bindExistingCandidate(request); return success(true);
     }
     @PostMapping("/bind")
     @PreAuthorize("@ss.hasPermission('mes:pro-route:version-update')")
