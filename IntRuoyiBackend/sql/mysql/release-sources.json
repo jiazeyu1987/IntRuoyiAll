@@ -1003,7 +1003,9 @@
     "20261022_retire_legacy_test_initializers.sql",
     "20261022_scheduler_current_route_permission.sql",
     "20261022_business_approval_form_columns.sql",
-    "20261022_dcc_rework_versioned_deployment.sql"
+    "20261022_dcc_rework_versioned_deployment.sql",
+    "20261022_mes_pqc_c00_empty_history_activation.sql",
+    "20261022_dcc_product_catalog_project_columns.sql"
   ],
   "migrationScopes": [
     {
@@ -1061,12 +1063,62 @@
         "with-data"
       ],
       "reason": "One-time ID pressure-pump QA regulation seed for DCC business key ID/112 and PQC-ID-001 G/0; requires separate approval of this site business data."
+    },
+    {
+      "file": "20260812_mes_qa_pressure_pump_idi_seed.sql",
+      "sha256": "2dffc5b9e03ea7d4d9713b8ea2dec5d96e1443053fc50b237f53288f68d6b712",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time IDI/1 pressure-pump QA regulation import PQC-IDI-001 with fixed historical process sources and counts; requires site business-data approval."
+    },
+    {
+      "file": "20260818_mes_pressure_pump_same_name_item_convergence.sql",
+      "sha256": "5b1a84a646c9d69ab405932164f2ecc36840cbd158939b86e5274b106b172558",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time tenant 1 RT000028 route 922119/item 902101/material AW.107.02.01.1009 reconciliation; requires site business-data approval."
+    },
+    {
+      "file": "20260708_mes_scheduler_edhr_route_900025_route_edit_permission.sql",
+      "sha256": "f44f0e147906ef8fe92d1b7031cc7c00b7fa07e1c58588cc4e0644393b600450",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time scheduler business authorization for fixed route 900025; unrelated routes must not receive or require this site grant."
+    },
+    {
+      "file": "20260708_mes_scheduler_edhr_route_900026_route_edit_permission.sql",
+      "sha256": "b17648dd0357d3a7e3c40f67a031cc284bdcb2c7e0b56e6cccc1e47cc1acbbb9",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time scheduler business authorization for fixed route 900026; unrelated routes must not receive or require this site grant."
+    },
+    {
+      "file": "20260729_dcc_product_catalog_remove_subsidiary_source.sql",
+      "sha256": "659deeb115c6f85b533b5492af7979e5cf43c14cc9f953d1c84c13019a37575a",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time removal of the subsidiary product catalog business source; application deployment must preserve existing catalog rows."
     }
   ],
   "excludedSources": [
     {
       "file": "20260822_mes_process_pool_active_order_completion_receipt_rollback.sql",
       "reason": "Manual rollback only; never execute during application upgrade."
+    }
+  ],
+  "migrationDependencies": [
+    {
+      "file": "20260812_mes_pqc_dcc_qa_c00_schema.sql",
+      "sha256": "906c6ac4ccb3145b2f26f7346c8fab71fe63dedde20a3e3592997a121fefeeff",
+      "dependsOn": [
+        "20261022_mes_pqc_c00_empty_history_activation"
+      ],
+      "reason": "C00 schema activation must follow explicit empty-history validation; non-empty histories require approved maintenance manifests."
     }
   ]
 }
