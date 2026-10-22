@@ -7,7 +7,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 public final class DccProjectAttributeErrors {
     private DccProjectAttributeErrors() {}
     public static final ErrorCode INVALID = new ErrorCode(1_080_090_001, "项目属性缺失或组合不合法，请检查市场、身份与转移目标");
-    public static final ErrorCode DEFAULTS_MISSING = new ErrorCode(1_080_090_002, "请先补齐项目默认属性，历史缺值不能推断");
+    public static final ErrorCode DEFAULTS_MISSING = new ErrorCode(1_080_090_002, "所选项目未配置默认属性（目标市场、是否为注册人、是否为生产方、文件转移）。请到【基础数据 → DCC项目代码】选中该项目，点击【修改项目默认属性与负责人账号】补齐并保存，再重新选择项目；无维护权限请联系项目管理员。");
     public static final ErrorCode LEADER_INVALID = new ErrorCode(1_080_090_003, "项目负责人必须是存在且启用的正式系统账号");
     public static final ErrorCode LEADER_REQUIRED = new ErrorCode(1_080_090_004, "仅当前项目正式负责人可办理此操作");
     public static final ErrorCode SNAPSHOT_INVALID = new ErrorCode(1_080_090_005, "申请属性身份、轮次或项目不匹配");

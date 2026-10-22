@@ -55,6 +55,16 @@ public class DccProjectCodeController {
     private DccProjectCodeService projectCodeService;
     @Resource
     private DccProjectAccessService projectAccessService;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectUploadOptionsService projectUploadOptionsService;
+
+    @GetMapping("/upload-options")
+    @Operation(summary = "获得全部可见上传项目及选择阻断原因")
+    @PreAuthorize("@ss.hasAnyPermissions('dcc:project-code:query','dcc:controlled-file:query')")
+    public CommonResult<List<cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectUploadOptionsService.Option>> getUploadOptions(
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        return success(projectUploadOptionsService.list(getLoginUserId(),keyword));
+    }
 
     @PostMapping("/create")
     @Operation(summary = "创建 DCC 项目代码")

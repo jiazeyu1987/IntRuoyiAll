@@ -127,8 +127,9 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         var project = projectCodeId == null || projectCodeId <= 0 ? null : projectCodeMapper.selectById(projectCodeId);
         if (project == null || !java.util.Objects.equals(project.getTenantId(), tenant)
                 || !"ENABLE".equals(project.getStatus())
-                || !hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
-                || !withinAssignedProjectScope(userId, projectCodeId, tenant)) {
+                || (!isEnabledTenantSuperAdmin(userId)
+                    && (!hasProjectAccess(userId, projectCodeId, Set.of("VIEW", "EDIT", "OWNER"), tenant)
+                        || !withinAssignedProjectScope(userId, projectCodeId, tenant)))) {
             throw exception(DCC_PROJECT_ACCESS_DENIED);
         }
     }
@@ -138,6 +139,13 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         Long tenant = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getRequiredTenantId();
         AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
         if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) throw exception(DCC_PROJECT_ACCESS_DENIED);
+        if (permissionApi.hasAnyRoles(userId, "super_admin")) {
+            return projectCodeMapper.selectEnabledList().stream()
+                    .filter(project -> java.util.Objects.equals(project.getTenantId(), tenant)
+                            && "ENABLE".equals(project.getStatus()))
+                    .map(cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO::getId)
+                    .toList();
+        }
         Set<Long> roleIds = permissionApi.getUserRoleIdListByUserId(userId);
         Set<Long> deptIds = collectDeptIds(user.getDeptId());
         Set<Long> allowed = accessRuleMapper.selectActiveReaderRules(tenant, LocalDateTime.now()).stream()
@@ -149,6 +157,12 @@ public class DccProjectAccessServiceImpl implements DccProjectAccessService {
         List<Long> hardScope = assignedProjectScope(userId, tenant);
         if (hardScope != null) allowed.retainAll(hardScope);
         return List.copyOf(allowed);
+    }
+
+    private boolean isEnabledTenantSuperAdmin(Long userId) {
+        AdminUserRespDTO user = userId == null ? null : adminUserApi.getUser(userId);
+        return DccAccessUserIdentity.isEnabledTenantUser(userId, user)
+                && permissionApi.hasAnyRoles(userId, "super_admin");
     }
 
     private boolean withinAssignedProjectScope(Long userId, Long projectId, Long tenant) {

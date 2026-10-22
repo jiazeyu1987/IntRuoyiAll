@@ -39,10 +39,17 @@
             <el-option
               v-for="project in projectCodeOptions"
               :key="project.id"
-              :label="formatProjectCodeOptionLabel(project)"
+              :label="project.projectCode"
               :value="project.id"
-            />
+              :disabled="!project.uploadSelectable"
+              :title="project.uploadIssues.join('；')"
+            >
+              <span :class="project.uploadSelectable ? 'text-green-700' : 'text-red-600'">
+                {{ project.projectCode || '缺少项目代码' }}
+              </span>
+            </el-option>
           </el-select>
+          <div class="text-12px text-[var(--el-text-color-secondary)]">绿色可选；红色资料不全或无上传权限，将鼠标移到项目代码可查看原因。</div>
           <el-alert
             v-if="projectCodeOptionsError"
             class="mt-8px !w-560px"
@@ -631,7 +638,7 @@ import type { SelectorSource, DirectoryNode } from '../relations/DccFileSelector
 import type { FileCandidate, SelectorQuery } from '../relations/selector-state'
 import { mapReferenceDirectoryNodes, referenceIdentity } from '../relations/project-reference-contract'
 import { loadDccSelectorPage } from '@/api/dcc/controlledFile/applicationRead'
-import { getProjectDiscoveryPage, type DccDiscoveredProject } from '@/api/dcc/controlledFile/projectDiscovery'
+import { getProjectUploadOptions, type DccDiscoveredProject, type DccUploadProjectOption } from '@/api/dcc/controlledFile/projectDiscovery'
 import { getProjectFolders, type ProjectFolder } from '@/api/dcc/controlledFile/projectAttributes'
 import { getSimpleDeptList } from '@/api/system/dept'
 import { getSimpleUserList } from '@/api/system/user'
@@ -653,7 +660,6 @@ import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
-  DCC_PROJECT_CODE_STATUS_ENABLE,
   getProjectCodeFileTemplate,
   type DccProjectFileTemplateItemRespVO
 } from '@/api/dcc/controlledFile/projectCodes'
@@ -712,6 +718,7 @@ defineOptions({ name: 'DccControlledFileUpload' })
 const ProtectedPdfViewer = defineAsyncComponent(() => import('../view/index.vue'))
 
 const route = useRoute()
+const uploadRoutePath = route.path
 const router = useRouter()
 const message = useMessage()
 const userStore = useUserStore()
@@ -742,7 +749,8 @@ const drawingPdfUploadRef = ref()
 const attachmentUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
 const categoryOptionsLoading = ref(true)
-const projectCodeOptions = ref<DccDiscoveredProject[]>([])
+const projectCodeOptions = ref<DccUploadProjectOption[]>([])
+let projectOptionsRequestSequence = 0
 const projectFolders = ref<ProjectFolder[]>([])
 const projectFoldersProjectId = ref<string>()
 const projectFoldersLoading = ref(false)
@@ -986,6 +994,7 @@ const selectedCategory = computed(() =>
 )
 const selectedProjectCode = computed(() =>
   projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
+    ?? (acceptedProjectCodeOption.value?.id === formData.dccProjectCodeId ? acceptedProjectCodeOption.value : undefined)
 )
 const isNormalNewUpload = computed(() => formData.processType === 'CONTROLLED_FILE' && formData.changeType === 'NEW')
 const categorySelectEmptyText = computed(() => {
@@ -1070,9 +1079,6 @@ const canLoadUploadNameOptions = computed(
     Boolean(formData.fileTypeTaxonomyId) &&
     isFileTypeTaxonomyDepthValid.value
 )
-
-const formatProjectCodeOptionLabel = (project: DccDiscoveredProject) =>
-  [project.projectName, project.projectCode].filter(Boolean).join(' · ')
 
 const formRules = reactive<FormRules>({
   dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],
@@ -1383,20 +1389,15 @@ const cleanupStaleUploadResponse = async (
 }
 
 const loadProjectCodeOptions = async (keyword = '') => {
+  const sequence = ++projectOptionsRequestSequence
   projectCodeOptionsLoading.value = true
   projectCodeOptionsError.value = ''
   try {
-    const page = await getProjectDiscoveryPage({
-      pageNo: 1,
-      pageSize: 50,
-      status: DCC_PROJECT_CODE_STATUS_ENABLE,
-      keyword: keyword.trim() || undefined
-    })
-    const acceptedProject = acceptedProjectCodeOption.value
-    projectCodeOptions.value = acceptedProject && !page.list.some(project => project.id === acceptedProject.id)
-      ? [acceptedProject, ...page.list]
-      : page.list
+    const options = await getProjectUploadOptions(keyword)
+    if (sequence !== projectOptionsRequestSequence) return
+    projectCodeOptions.value = options
   } catch (error) {
+    if (sequence !== projectOptionsRequestSequence) return
     projectCodeOptions.value = []
     const errorMessage = resolveUploadErrorMessage(error, 'DCC 项目候选加载失败，请确认项目代码权限或联系文控管理员。')
     projectCodeOptionsError.value = errorMessage.includes('DCC 项目候选加载失败')
@@ -1404,7 +1405,7 @@ const loadProjectCodeOptions = async (keyword = '') => {
       : `DCC 项目候选加载失败：${errorMessage}`
     message.error(projectCodeOptionsError.value)
   } finally {
-    projectCodeOptionsLoading.value = false
+    if (sequence === projectOptionsRequestSequence) projectCodeOptionsLoading.value = false
   }
 }
 
@@ -2937,6 +2938,7 @@ watch(
 watch(
   () => route.fullPath,
   () => {
+    if (route.path !== uploadRoutePath) return
     formData.processType = resolveProcessTypeByRoute()
     void applyDccProjectCodeProductNumber()
     void refreshRouteReadiness()
