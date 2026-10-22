@@ -4604,6 +4604,16 @@ const resolveInitialDccProjectCodeId = () => {
 const initializeQaRegulationPage = async () => {
   await Promise.all([loadDccProjectCodeOptions(), loadQaMachineryOptions()])
   const projectId = resolveInitialDccProjectCodeId()
+  if (projectId && !route.query.dccProjectCodeId) {
+    const rememberedProject = dccProjectCodeOptions.value.find(
+      (project) => Number(project.id) === projectId
+    )
+    if (!rememberedProject) {
+      await selectDccProjectCode()
+      ElMessage.warning('上次选择的 DCC 项目已停用或不在当前访问范围内，请重新选择项目')
+      return
+    }
+  }
   if (projectId) {
     await handleDccProjectCodeChange(projectId)
   }
