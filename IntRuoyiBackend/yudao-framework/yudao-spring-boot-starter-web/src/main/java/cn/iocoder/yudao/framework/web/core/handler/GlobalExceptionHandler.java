@@ -450,7 +450,10 @@ public class GlobalExceptionHandler {
         errorLog.setTraceId(TracerUtils.getTraceId());
         errorLog.setApplicationName(applicationName);
         errorLog.setRequestUrl(getLogRequestUri(request));
-        if (!parametersProtected) {
+        if (parametersProtected) {
+            // Persist an explicit redaction marker: request_params is NOT NULL in the error log schema.
+            errorLog.setRequestParams(REQUEST_PARAMETERS_PROTECTED);
+        } else {
             Map<String, Object> requestParams = MapUtil.<String, Object>builder()
                     .put("query", ServletUtils.getParamMap(request))
                     .put("body", ServletUtils.getBody(request)).build();

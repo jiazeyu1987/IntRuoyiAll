@@ -71,5 +71,6 @@ class WorkbenchRequestPrivacyTest {
   var request=new MockHttpServletRequest("POST","/admin-api/workbench/context;queryVersion="+SECRET);request.addParameter("queryVersion",SECRET);var response=new MockHttpServletResponse();
   metadata.doFilter(request,response,(r,s)->new ApiAccessLogFilter(properties,"workbench-privacy",access).doFilter(r,s,(a,b)->{var result=handler.allExceptionHandler((jakarta.servlet.http.HttpServletRequest)a,new IllegalStateException(SECRET));assertEquals(500,result.getCode());}));privateLogs();
   var capture=ArgumentCaptor.forClass(ApiErrorLogCreateReqDTO.class);verify(errors).createApiErrorLogAsync(capture.capture());assertFalse(JsonUtils.toJsonString(capture.getValue()).contains(SECRET));
+  assertEquals("参数禁止记录",capture.getValue().getRequestParams());
  }
 }

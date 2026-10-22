@@ -29,6 +29,14 @@ class WorkbenchModuleSqlContractTest {
    args.put("fetchLimit",1000);assertThrows(RuntimeException.class,()->sql(chunk.get(0),args));
   }
  }
+ @Test void distributionPageAndVisibilityIdentityIncludeFormalNavigationIdentity(){
+  var args=new HashMap<String,Object>();args.put("q",query());args.put("fetchLimit",101);args.put("after",null);args.put("businessId","7");
+  for(String statement:List.of("chunkDistribution","identityDistribution")){
+   String distribution=sql(DCC+statement,args);
+   assertTrue(distribution.contains("f.version_no AS version_no"));
+   assertTrue(distribution.contains("f.process_instance_id AS approval_process_instance_id"));
+  }
+ }
  @Test void directModuleInvalidQueryCannotUseSilentOtherwise(){
   var badSort=query();badSort.setSortKey("invalid");assertThrows(RuntimeException.class,()->sql(DCC+"countTraining",Map.of("q",badSort)));
   var q=query();q.setVisibilityFilter(new VisibilityFilter(9,3,1,"visible"));var invalid=q;assertThrows(RuntimeException.class,()->sql(MES+"countWorkOrder",Map.of("q",invalid)));
