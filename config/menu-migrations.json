@@ -1,6 +1,18 @@
 {
   "changes": [
     {
+      "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
+      "kind": "permission",
+      "value": "bpm:task:query",
+      "reason": "审批中心内部历史归属核验弹窗，无独立菜单或路由，复用现有 bpm:task:query 查看权限；入口及服务仅允许当前租户超级管理员，后端仍要求显式启用维护开关，不新增角色或租户套餐授权。"
+    },
+    {
+      "source": "IntRuoyiFronted/src/views/approval-center/ApprovalHistoryMaintenance.vue",
+      "kind": "permission",
+      "value": "bpm:task:update",
+      "reason": "审批中心内部历史归属修复按钮，复用已有修复接口 bpm:task:update 权限，服务另校验超级管理员、批次、原始证据与核验摘要；不新增权限、菜单、角色或租户套餐授权。"
+    },
+    {
       "source": "IntRuoyiFronted/src/views/infra/config/basic/index.vue",
       "kind": "permission",
       "value": "infra:job:query",

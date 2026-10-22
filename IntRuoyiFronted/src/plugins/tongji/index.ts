@@ -9,7 +9,8 @@ declare global {
 // 用于 router push
 window._hmt = window._hmt || []
 // HM_ID
-const HM_ID = import.meta.env.VITE_APP_BAIDU_CODE
+// 开发环境不加载生产站点统计脚本。
+const HM_ID = import.meta.env.PROD ? import.meta.env.VITE_APP_BAIDU_CODE : ''
 ;(function () {
   // 有值的时候，才开启
   if (!HM_ID) {

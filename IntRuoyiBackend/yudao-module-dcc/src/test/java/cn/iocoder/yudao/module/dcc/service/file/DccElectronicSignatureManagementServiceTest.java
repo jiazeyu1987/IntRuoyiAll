@@ -802,6 +802,38 @@ class DccElectronicSignatureManagementServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
+    void getAuthorizationAuditPage_withoutOperator_preservesAuditEvidence() {
+        DccElectronicSignatureAuthorizationAuditPageReqVO reqVO = new DccElectronicSignatureAuthorizationAuditPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        LocalDateTime operatedAt = LocalDateTime.of(2026, 5, 26, 13, 0, 0);
+        when(authorizationAuditMapper.selectPage(eq(reqVO), any())).thenReturn(new PageResult<>(List.of(
+                DccElectronicSignatureAuthorizationAuditDO.builder()
+                        .id(61001L)
+                        .targetUserId(101L)
+                        .beforeState("DISABLED")
+                        .afterState("ENABLED")
+                        .reason("历史授权初始化")
+                        .operatedAt(operatedAt)
+                        .build()), 1L));
+
+        PageResult<DccElectronicSignatureAuthorizationAuditRespVO> result =
+                service.getAuthorizationAuditPage(101L, reqVO);
+
+        assertEquals(1L, result.getTotal());
+        DccElectronicSignatureAuthorizationAuditRespVO audit = result.getList().get(0);
+        assertEquals(61001L, audit.getId());
+        assertEquals(101L, audit.getTargetUserId());
+        assertNull(audit.getOperatorUserId());
+        assertNull(audit.getOperatorName());
+        assertEquals("DISABLED", audit.getBeforeState());
+        assertEquals("ENABLED", audit.getAfterState());
+        assertEquals("历史授权初始化", audit.getReason());
+        assertEquals(operatedAt, audit.getOperatedAt());
+        verify(adminUserService, never()).getUserList(any());
+    }
+
+    @Test
     void getAuthorizationPage_returnsFailClosedStateAndAuditFields() {
         DccElectronicSignatureAuthorizationPageReqVO reqVO = new DccElectronicSignatureAuthorizationPageReqVO();
         reqVO.setPageNo(1);

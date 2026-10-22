@@ -282,7 +282,8 @@ public class DccElectronicSignatureManagementServiceImpl implements DccElectroni
         }
         Map<Long, String> operatorNameMap = getOperatorNameMap(pageResult.getList());
         return new PageResult<>(CollectionUtils.convertList(pageResult.getList(),
-                audit -> toAuthorizationAuditRespVO(audit, operatorNameMap.get(audit.getOperatorId()))),
+                audit -> toAuthorizationAuditRespVO(audit, audit.getOperatorId() != null
+                        ? operatorNameMap.get(audit.getOperatorId()) : null)),
                 pageResult.getTotal());
     }
 

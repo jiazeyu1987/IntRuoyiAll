@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -178,6 +179,62 @@ class MenuMigrationGateTest(unittest.TestCase):
         self.write(SQL, MIGRATION.replace("test,prod,backup", "test"))
         with self.assertRaisesRegex(gate.GateError, "must support test,prod,backup"):
             self.check()
+
+    def test_hundreds_of_staged_sources_use_one_batch_not_one_process_per_file(self):
+        for number in range(700):
+            self.write(f"IntRuoyiFronted/src/components/batch-{number}.ts", "export const label = 'Example';\n")
+        self.git("add", ".")
+        with patch.object(gate.subprocess, "run", wraps=gate.subprocess.run) as measured:
+            result = self.check(staged=True)
+        self.assertEqual(result, {"status": "passed", "signalCount": 0, "requiredSql": []})
+        commands = [call.args[0][3:] for call in measured.call_args_list]
+        self.assertFalse(any(command[:1] == ["show"] for command in commands))
+        self.assertEqual(sum("--batch" in command for command in commands), 1)
+        self.assertLessEqual(len(commands), 5)
+
+    def test_batch_reader_handles_unicode_newline_paths_and_byte_lengths(self):
+        path = "batch/中文文件.txt"
+        self.write(path, "")
+        (self.root / path).write_bytes("\ufeff第一行\r\n第二行\0正文\n".encode("utf-8"))
+        self.write("batch/empty.txt", "")
+        self.git("add", "batch")
+        blob = self.git("rev-parse", ":" + path).strip()
+        # Git trees can contain newline paths even though Windows cannot check them out.
+        tree = subprocess.run(["git", "-C", str(self.root), "mktree", "-z"],
+                              input=f"100644 blob {blob}\t中文\n文件.txt\0".encode("utf-8"),
+                              check=True, capture_output=True).stdout.decode().strip()
+        newline_expression = tree + ":中文\n文件.txt"
+        self.write(path, "Unstaged changes must not be read")
+        result = gate.read_git_objects(self.root, [":" + path, ":batch/empty.txt", ":" + path, newline_expression])
+        self.assertEqual(result, {":" + path: "第一行\n第二行\0正文\n", ":batch/empty.txt": "",
+                                  newline_expression: "第一行\n第二行\0正文\n"})
+        with self.assertRaisesRegex(gate.GateError, "Cannot read Git blob"):
+            gate.read_git_objects(self.root, [":batch/not-present.txt"])
+
+    def test_shared_migration_is_read_and_validated_once_per_check(self):
+        finding = self.permission()
+        self.write(PAGE, "<template>New page</template>")
+        self.write(SQL, MIGRATION)
+        self.decisions([{**finding, "migrations": [SQL]},
+                        {"source": PAGE, "kind": "page", "value": "mes/example/index", "migrations": [SQL]}])
+        self.git("add", ".")
+        with patch.object(gate, "read_git_objects", wraps=gate.read_git_objects) as reads, \
+                patch.object(gate, "validate_migrations", wraps=gate.validate_migrations) as validations:
+            result = self.check(staged=True, packaged_sql={SQL})
+        self.assertEqual(result["signalCount"], 2)
+        self.assertEqual(validations.call_count, 1)
+        self.assertEqual(sum(call.args[1].count(":" + SQL) for call in reads.call_args_list), 1)
+
+    def test_committed_snapshot_keeps_valid_sql_despite_worktree_changes(self):
+        self.cover(self.permission())
+        self.git("add", ".")
+        self.git("-c", "commit.gpgsign=false", "commit", "-qm", "Covered permission")
+        revision = self.git("rev-parse", "HEAD").strip()
+        self.write(SQL, "Broken uncommitted SQL")
+        self.decisions([])
+        self.write(SOURCE, "<button v-hasPermi=\"['mes:other:query']\">Other</button>")
+        self.assertEqual(self.check(revision=revision, packaged_sql={SQL}),
+                         {"status": "passed", "signalCount": 1, "requiredSql": [SQL]})
 
     @unittest.skipUnless(shutil.which("powershell.exe"), "Windows release entry uses PowerShell")
     def test_release_entry_passes_actual_package_list_and_stops_on_failure(self):

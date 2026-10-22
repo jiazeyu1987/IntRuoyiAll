@@ -6,6 +6,7 @@ unmigrated change by comparing only the last commit. No database is contacted.
 from __future__ import annotations
 
 import argparse
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -13,6 +14,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 BASELINE = "32ff79dec7bee877df7a65d896c6143ae6d53523"
 CONTRACT = "config/menu-migrations.json"
@@ -31,6 +33,35 @@ def git(root: Path, *args: str) -> str:
     if result.returncode:
         raise GateError(result.stderr.decode("utf-8", errors="replace").strip())
     return result.stdout.decode("utf-8")
+
+
+def read_git_objects(root: Path, expressions: list[str]) -> dict[str, str]:
+    """Read blobs in one process; NUL framing also supports newlines in paths."""
+    expressions = list(dict.fromkeys(expressions))
+    if not expressions:
+        return {}
+    result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch", "-Z"],
+                            input="".join(value + "\0" for value in expressions).encode("utf-8"),
+                            capture_output=True)
+    if result.returncode:
+        raise GateError(result.stderr.decode("utf-8", errors="replace").strip())
+    contents, offset = {}, 0
+    for expression in expressions:
+        end = result.stdout.find(b"\0", offset)
+        if end < 0:
+            raise GateError(f"Incomplete Git batch header: {expression}")
+        header = result.stdout[offset:end].split()
+        if len(header) != 3 or header[1] != b"blob" or not header[2].isdigit():
+            raise GateError(f"Cannot read Git blob {expression}: {result.stdout[offset:end]!r}")
+        start, size = end + 1, int(header[2])
+        offset = start + size
+        if result.stdout[offset:offset + 1] != b"\0":
+            raise GateError(f"Incomplete Git batch content: {expression}")
+        contents[expression] = result.stdout[start:offset].decode("utf-8").removeprefix("\ufeff").replace("\r\n", "\n")
+        offset += 1
+    if offset != len(result.stdout):
+        raise GateError("Unexpected trailing Git batch output")
+    return contents
 
 
 def uncomment(source: str) -> str:
@@ -58,6 +89,9 @@ def signals(path: str, before: str, after: str) -> list[dict[str, str]]:
 
 def check(root: Path, *, staged: bool = False, revision: str | None = None, baseline: str = BASELINE,
           packaged_sql: set[str] | None = None) -> dict:
+    started = time.perf_counter()
+    snapshot = "index" if staged else revision or "worktree"
+    print(f"MENU-MIGRATION: checking {snapshot}; collecting cumulative changes...", file=sys.stderr, flush=True)
     git(root, "cat-file", "-e", baseline + "^{commit}")
     old_paths = set(git(root, "ls-tree", "-r", "--name-only", "-z", baseline).split("\0"))
     current_paths = set(git(root, "ls-tree", "-r", "--name-only", "-z", revision).split("\0")) if revision else set(git(root, "ls-files", "--cached", "-z").split("\0"))
@@ -70,18 +104,31 @@ def check(root: Path, *, staged: bool = False, revision: str | None = None, base
         current_paths |= untracked
         changed |= untracked
 
+    sources = sorted(path for path in changed - {""}
+                     if path.startswith(("IntRuoyiFronted/src/", "IntRuoyiBackend/"))
+                     and Path(path).suffix in {".ts", ".js", ".vue", ".tsx", ".java"})
+    expressions = [baseline + ":" + path for path in sources if path in old_paths]
+    if staged or revision:
+        expressions.extend((revision or "") + ":" + path for path in [*sources, CONTRACT] if path in current_paths)
+    print(f"MENU-MIGRATION: reading {len(sources)} source files ({len(expressions)} Git blobs in batch)...",
+          file=sys.stderr, flush=True)
+    blobs = read_git_objects(root, expressions)
+
+    @lru_cache(maxsize=None)
     def read(path: str, old: bool = False) -> str:
         if path not in (old_paths if old else current_paths):
             return ""
         if old or staged or revision:
-            return git(root, "show", (baseline if old else revision or "") + ":" + path).removeprefix("\ufeff").replace("\r\n", "\n")
+            expression = (baseline if old else revision or "") + ":" + path
+            if expression not in blobs:
+                blobs.update(read_git_objects(root, [expression]))
+            return blobs[expression]
         file = root / path
         return file.read_text(encoding="utf-8-sig") if file.is_file() else ""
 
     findings = []
-    for path in sorted(changed - {""}):
-        if path.startswith(("IntRuoyiFronted/src/", "IntRuoyiBackend/")) and Path(path).suffix in {".ts", ".js", ".vue", ".tsx", ".java"}:
-            findings.extend(signals(path, read(path, True), read(path)))
+    for path in sources:
+        findings.extend(signals(path, read(path, True), read(path)))
     contract_text = read(CONTRACT)
     if not contract_text:
         raise GateError(f"Missing {CONTRACT}; stage it together with the source changes.")
@@ -92,7 +139,9 @@ def check(root: Path, *, staged: bool = False, revision: str | None = None, base
         if key in indexed:
             raise GateError(f"Duplicate menu migration decision: {key}")
         indexed[key] = item
+    print(f"MENU-MIGRATION: validating {len(findings)} menu/permission changes...", file=sys.stderr, flush=True)
     errors, required = [], set()
+    migration_cache = {}
     for finding in findings:
         key = tuple(finding[name] for name in ("source", "kind", "value"))
         decision = indexed.get(key)
@@ -107,7 +156,10 @@ def check(root: Path, *, staged: bool = False, revision: str | None = None, base
             print(f"MENU-MIGRATION EXEMPT: {key}: {reason}")
             continue
         try:
-            closure, sql = validate_migrations(root, read, current_paths, migrations)
+            cache_key = tuple(migrations)
+            if cache_key not in migration_cache:
+                migration_cache[cache_key] = validate_migrations(root, read, current_paths, migrations)
+            closure, sql = migration_cache[cache_key]
             if any(read(path, True) for path in migrations):
                 raise GateError("Link a new migration, not an unchanged historical SQL file")
             if finding["kind"] != "router" and not re.search(
@@ -123,6 +175,7 @@ def check(root: Path, *, staged: bool = False, revision: str | None = None, base
             errors.append(f"{key}: {exc}")
     if errors:
         raise GateError("\n".join(errors))
+    print(f"MENU-MIGRATION: passed in {time.perf_counter() - started:.2f}s", file=sys.stderr, flush=True)
     return {"status": "passed", "signalCount": len(findings), "requiredSql": sorted(required)}
 
 

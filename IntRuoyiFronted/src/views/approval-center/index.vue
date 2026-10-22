@@ -1,16 +1,6 @@
 <template>
   <ContentWrap>
     <div class="approval-center">
-      <div class="approval-center__toolbar">
-        <div class="approval-center__title-group">
-          <h3 class="approval-center__title">审批中心</h3>
-          <div class="approval-center__meta">
-            <el-tag size="small" type="info">{{ modules.length }} 个模块</el-tag>
-            <span>{{ activeTabLabel }}</span>
-          </div>
-        </div>
-      </div>
-
       <UnifiedListTemplate
         :table-key="approvalCenterTableKey"
         :query-model="queryParams"
@@ -31,6 +21,15 @@
         @column-reset="resetApprovalColumnConfig"
         @pagination="handlePagination"
       >
+        <template #extra-filters>
+          <div class="approval-center__title-group">
+            <h3 class="approval-center__title">审批中心</h3>
+            <div class="approval-center__meta">
+              <el-tag size="small" type="info">{{ modules.length }} 个模块</el-tag>
+              <span>{{ activeTabLabel }}</span>
+            </div>
+          </div>
+        </template>
         <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
           <div class="approval-center__table-scope" data-user-table-column-explicit-scope>
             <el-alert
@@ -1735,17 +1734,26 @@ watch(
   gap: 12px;
 }
 
-.approval-center__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+.approval-center :deep(.unified-list-template__query-form) {
+  flex-wrap: nowrap;
+}
+
+.approval-center :deep(.unified-list-template__multi-filter) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.approval-center :deep(.unified-list-template__toolbar-actions) {
+  margin-left: 0;
 }
 
 .approval-center__title-group {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  order: -1;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
 }
 
 .approval-center__title {
