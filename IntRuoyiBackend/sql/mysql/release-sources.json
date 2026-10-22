@@ -42,6 +42,12 @@
       "kind": "review-only",
       "sha256": "fa4ec464698dc2839164b45bc65ca040e441d97048c9b2ba71d633bbe5356407",
       "reason": "Entirely commented review draft, not an executable migration. Preserve for audit without applying or recording it; no approval is inferred for protected product names or mappings."
+    },
+    {
+      "file": "20260817_mes_pqc_item_level_task_identity_rollback.sql",
+      "kind": "rollback-only",
+      "sha256": "aac77c15090e7f880553197a39ccd64e30970f1bb917dbe51e68f918528ede73",
+      "reason": "Reverse-only PQC item identity rollback removes qa_item_code required by forward migrations and runtime. Retained for separate approved recovery, never an application upgrade or APPLIED ledger entry."
     }
   ],
   "historicalMigrations": [
@@ -832,7 +838,6 @@
     "20260816_mdm_enterprise_company_scope.sql",
     "20260817_dcc_registration_certificate_core.sql",
     "20260817_mes_pqc_item_level_task_identity.sql",
-    "20260817_mes_pqc_item_level_task_identity_rollback.sql",
     "20260817_mes_route_form_global_sync_key.sql",
     "20260818_dcc_registration_certificate_access.sql",
     "20260818_dcc_registration_certificate_lifecycle.sql",
@@ -1119,6 +1124,14 @@
         "20261022_mes_pqc_c00_empty_history_activation"
       ],
       "reason": "C00 schema activation must follow explicit empty-history validation; non-empty histories require approved maintenance manifests."
+    }
+  ],
+  "migrationContracts": [
+    {
+      "file": "20260812_mes_route_version_snapshot_identity_enforce.sql",
+      "sha256": "1cd2f6c77346c10c6ebfda2a8b5f5ed5686deac7d7a17212f9560c875e21a236",
+      "approvedHook": "route-snapshot-identity-v1",
+      "reason": "Requires candidate-only offline Java PRECHECK before stopping writers and transactional BACKFILL plus strict READINESS immediately before immutable NOT NULL enforcement; never reconstruct historical snapshots."
     }
   ]
 }
