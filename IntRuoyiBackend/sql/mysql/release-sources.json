@@ -1005,6 +1005,64 @@
     "20261022_business_approval_form_columns.sql",
     "20261022_dcc_rework_versioned_deployment.sql"
   ],
+  "migrationScopes": [
+    {
+      "file": "20260811_mes_process_pool_cleaning_process_parameter_data.sql",
+      "sha256": "f6546659e3f02852660575ec42520ff3ea6bfa7cc6224e8a1baacd955200f0ad",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time normalization of existing cleaning-process ultrasonic-cleaner parameter rules; requires site business records and is not an application upgrade prerequisite."
+    },
+    {
+      "file": "20260811_mes_process_pool_uv1_metering_valid_parameter.sql",
+      "sha256": "2eea7583ebdf997994d07f0ee02770c61a401c4521050f7bd682e8f6182d5501",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time UV curing I equipment transfer from A05075 to A05059 and metering-valid parameter setup; requires separately approved site configuration."
+    },
+    {
+      "file": "20260811_mes_process_pool_uv2_two_device_runtime_config.sql",
+      "sha256": "c3875352d5a51c64d18eb974d616037890498c25fc4fbcf00d553a79f6363483",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time UV curing II two-device setup sourced from enabled A05075 bindings; requires separately approved site configuration."
+    },
+    {
+      "file": "20260812_mes_process_pool_b04091_cleaning_temperature_label.sql",
+      "sha256": "064b87f041e38218c9bbf08b802f92b77c39c5a10a137068d71bd941ea0324dd",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time B04091 cleaning-temperature business label change; depends on the separate cleaning-rule normalization and requires that equipment configuration."
+    },
+    {
+      "file": "20260812_mes_process_pool_b09353_cleaning_temperature_label.sql",
+      "sha256": "4719fb181205ec211395ef212d674ba5d84ac0d2c1218499c4f3eea7b9eab086",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time B09353 cleaning-temperature business label change; depends on the separate B04091 correction and requires that equipment configuration."
+    },
+    {
+      "file": "20260830_mes_process_pool_idi_device_parameter_rules.sql",
+      "sha256": "710e6d411aa5b6062b768f06e521c5dc07947fa15a0b0c01631bf52551d81950",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time tenant 1 IDI project equipment-parameter copy from RT000028 to RT000028-IDI for admin device bindings; not a generic application upgrade."
+    },
+    {
+      "file": "20260811_mes_qa_pressure_pump_id_seed.sql",
+      "sha256": "01e1f1faa036d8034db506b8e785df3b32a2dfb34164dd1446125c7e6a956fc1",
+      "allowedPublishScopes": [
+        "with-data"
+      ],
+      "reason": "One-time ID pressure-pump QA regulation seed for DCC business key ID/112 and PQC-ID-001 G/0; requires separate approval of this site business data."
+    }
+  ],
   "excludedSources": [
     {
       "file": "20260822_mes_process_pool_active_order_completion_receipt_rollback.sql",
