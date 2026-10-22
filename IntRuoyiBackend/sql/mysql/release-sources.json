@@ -1001,7 +1001,8 @@
     "20261022_retire_fixed_route_initializers.sql",
     "20261022_retire_historical_role_e2e_fixtures.sql",
     "20261022_retire_legacy_test_initializers.sql",
-    "20261022_scheduler_current_route_permission.sql"
+    "20261022_scheduler_current_route_permission.sql",
+    "20261022_dcc_rework_versioned_deployment.sql"
   ],
   "excludedSources": [
     {
