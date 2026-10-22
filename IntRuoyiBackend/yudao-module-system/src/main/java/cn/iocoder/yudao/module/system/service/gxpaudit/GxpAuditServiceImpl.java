@@ -17,7 +17,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMa
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper;
-import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Propagation;
@@ -50,7 +50,10 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     @Resource
     private GxpAuditEventRelationMapper eventRelationMapper;
     @Resource
-    private AdminUserApi adminUserApi;
+    private AdminUserMapper adminUserMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private GxpLocalDevelopmentPolicy localDevelopmentPolicy;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -81,12 +84,17 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         Long tenantId = resolveTenantId();
         LoginUser actor = resolveActor(tenantId);
         GxpAuditLedgerSequenceDO ledger = lockLedgerSequence(tenantId);
-        GxpAuditPolicyActivationDO activation = policyActivationMapper.selectLatestForUpdate(tenantId);
-        if (activation == null) {
-            throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
+        GxpAuditPolicyOperationDO policy;
+        if (localDevelopmentPolicy != null) {
+            policy = localDevelopmentPolicy.findOperation(tenantId, command.getOperationId());
+        } else {
+            GxpAuditPolicyActivationDO activation = policyActivationMapper.selectLatestForUpdate(tenantId);
+            if (activation == null) {
+                throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
+            }
+            policy = policyOperationMapper.selectByPolicyVersionForUpdate(
+                    tenantId, activation.getPolicyVersion(), command.getOperationId());
         }
-        GxpAuditPolicyOperationDO policy = policyOperationMapper.selectByPolicyVersionForUpdate(
-                tenantId, activation.getPolicyVersion(), command.getOperationId());
         if (policy == null || !Boolean.TRUE.equals(policy.getActive())
                 || !"GXP".equals(policy.getApplicability())) {
             throw exception(GXP_AUDIT_POLICY_NOT_FOUND, command.getOperationId());
@@ -320,7 +328,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
             }
             if (loginUser.getId() < 1L)
                 throw exception(GXP_AUDIT_ACTOR_MISMATCH, "authenticated-actor");
-            var current = adminUserApi.getUser(loginUser.getId());
+            var current = adminUserMapper.selectGxpAuditActor(tenantId, loginUser.getId());
             if (current == null || !Objects.equals(loginUser.getId(), current.getId())
                     || !Objects.equals(tenantId, current.getTenantId()) || !Integer.valueOf(0).equals(current.getStatus())
                     || StrUtil.isBlank(current.getUsername()) || StrUtil.isBlank(current.getNickname()))

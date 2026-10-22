@@ -71,6 +71,7 @@ class GxpAuditPolicyActivationIntegrationTest extends BaseDbUnitTest {
     @Resource private GxpAuditEventRelationMapper relationMapper;
     @Resource private GxpAuditLedgerSequenceMapper ledgerMapper;
     @Resource private TenantMapper tenantMapper;
+    @Resource private cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper userMapper;
     @Resource private PlatformTransactionManager transactionManager;
 
     private TransactionTemplate transactions;
@@ -89,6 +90,8 @@ class GxpAuditPolicyActivationIntegrationTest extends BaseDbUnitTest {
 
         LoginUser user = new LoginUser();
         user.setId(ACTOR);
+        user.setUserType(2);
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(TENANT);
         user.setTenantId(TENANT);
         user.setInfo(Map.of("username", "act04.fixture", LoginUser.INFO_KEY_NICKNAME, "ACT04 fixture"));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null));
@@ -100,6 +103,11 @@ class GxpAuditPolicyActivationIntegrationTest extends BaseDbUnitTest {
                     .packageId(0L).expireTime(LocalDateTime.of(2099, 1, 1, 0, 0))
                     .accountCount(1).build();
             assertEquals(1, tenantMapper.insert(tenant));
+            var account = cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO.builder()
+                    .id(ACTOR).username("act04.fixture").canonicalUsername("act04.fixture")
+                    .nickname("ACT04 fixture").status(0).build();
+            account.setTenantId(TENANT);
+            assertEquals(1, userMapper.insert(account));
             GxpAuditLedgerSequenceDO ledger = new GxpAuditLedgerSequenceDO();
             ledger.setTenantId(TENANT);
             ledger.setNextLedgerSequence(1L);
@@ -115,6 +123,7 @@ class GxpAuditPolicyActivationIntegrationTest extends BaseDbUnitTest {
         } finally {
             bundleLoader.useClasspath();
             SecurityContextHolder.clearContext();
+            cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
         }
     }
 

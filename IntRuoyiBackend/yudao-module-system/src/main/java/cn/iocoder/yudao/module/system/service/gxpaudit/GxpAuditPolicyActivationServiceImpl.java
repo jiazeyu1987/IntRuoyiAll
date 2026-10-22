@@ -53,9 +53,15 @@ public class GxpAuditPolicyActivationServiceImpl implements GxpAuditPolicyActiva
     @Resource
     private GxpAuditEventMapper auditEventMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private GxpLocalDevelopmentPolicy localDevelopmentPolicy;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public GxpAuditPolicyActivationResult activate(GxpAuditPolicyActivationCommand command) {
+        if (localDevelopmentPolicy != null) {
+            throw exception(GXP_AUDIT_POLICY_ACTIVATION_INVALID, "disable-local-development-policy-before-formal-activation");
+        }
         validate(command);
         Long tenantId = TenantContextHolder.getRequiredTenantId();
         if (!Objects.equals(tenantId, command.tenantId())) {

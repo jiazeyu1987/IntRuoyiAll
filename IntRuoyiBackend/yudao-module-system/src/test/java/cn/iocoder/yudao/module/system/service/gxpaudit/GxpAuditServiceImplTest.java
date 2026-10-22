@@ -2,8 +2,8 @@ package cn.iocoder.yudao.module.system.service.gxpaudit;
 
 import cn.iocoder.yudao.framework.security.core.LoginUser;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
-import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.dal.mysql.user.AdminUserMapper;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditEventDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.gxpaudit.GxpAuditLedgerSequenceDO;
@@ -236,12 +236,18 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         assertEquals(canonical, persisted.getCanonicalEventJson());
     }
     @MockBean
-    private AdminUserApi users;
+    private AdminUserMapper users;
+
+    private AdminUserDO directoryAccount() {
+        AdminUserDO account = new AdminUserDO();
+        account.setTenantId(1L);
+        return account;
+    }
 
     @BeforeEach
     void setLoginUser() {
         TenantContextHolder.setTenantId(1L);
-        when(users.getUser(1001L)).thenReturn(new AdminUserRespDTO().setId(1001L).setTenantId(1L)
+        when(users.selectGxpAuditActor(1L, 1001L)).thenReturn(directoryAccount().setId(1001L)
                 .setStatus(0).setUsername("qa.admin").setNickname("质量管理员"));
         LoginUser loginUser = new LoginUser();
         loginUser.setId(1001L);
@@ -297,7 +303,7 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
     void missingDisabledOrForeignDirectoryAndContextRejectBeforeAnyLedgerWrite() {
         for (String invalid : new String[] { "missing", "disabled", "directoryId", "directoryTenant", "blankUsername",
                 "blankNickname", "contextTenant", "ignore", "missingLoginId", "wrongType" }) {
-            var account = new AdminUserRespDTO().setId(1001L).setTenantId(1L).setStatus(0)
+            var account = directoryAccount().setId(1001L).setStatus(0)
                     .setUsername("qa.admin").setNickname("质量管理员");
             var login = new LoginUser().setId(1001L).setTenantId(1L).setUserType(2)
                     .setInfo(Map.of(LoginUser.INFO_KEY_NICKNAME, "质量管理员", LoginUser.INFO_KEY_DEPT_ID, "9"));
@@ -315,7 +321,7 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
                 case "missingLoginId" -> login.setId(null);
                 case "wrongType" -> login.setUserType(1);
             }
-            when(users.getUser(1001L)).thenReturn(account);
+            when(users.selectGxpAuditActor(1L, 1001L)).thenReturn(account);
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login, null));
             assertServiceException(() -> gxpAuditService.append(command("edhr.execution.field.update", "bad-actor-" + invalid)),
                     GXP_AUDIT_ACTOR_MISMATCH, invalid.startsWith("directory") || invalid.startsWith("blank")
@@ -333,14 +339,14 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         login.setInfo(originalInfo);
         var first = gxpAuditService.append(command("edhr.execution.field.update", "directory-replay"));
         var historical = auditEventMapper.selectById(first.eventId()).getCanonicalEventJson();
-        when(users.getUser(1001L)).thenReturn(new AdminUserRespDTO().setId(1001L).setTenantId(1L)
+        when(users.selectGxpAuditActor(1L, 1001L)).thenReturn(directoryAccount().setId(1001L)
                 .setStatus(0).setUsername("renamed-current").setNickname("新昵称"));
         var replay = gxpAuditService.append(command("edhr.execution.field.update", "directory-replay"));
         assertTrue(replay.replayed());
         assertEquals(historical, auditEventMapper.selectById(first.eventId()).getCanonicalEventJson());
         assertEquals("qa.admin", auditEventMapper.selectById(first.eventId()).getActorUsername());
         assertSame(originalInfo, login.getInfo());
-        when(users.getUser(1001L)).thenReturn(null);
+        when(users.selectGxpAuditActor(1L, 1001L)).thenReturn(null);
         assertServiceException(() -> gxpAuditService.append(command("edhr.execution.field.update", "directory-replay")),
                 GXP_AUDIT_ACTOR_MISMATCH, "current-account");
         assertEquals(1L, auditEventMapper.selectCount());
@@ -491,6 +497,67 @@ class GxpAuditServiceImplTest extends BaseDbUnitTest {
         assertEquals(result.eventId(), gxpAuditService.append(replay).eventId());
         assertEquals(1L, auditEventMapper.selectCount());
         assertEquals(employee, auditEventMapper.selectById(result.eventId()).getPerformedByJson());
+    }
+
+    @Test
+    void localPolicyWritesAndReplaysRealLedgerWithoutChangingFormalPolicyRows() {
+        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(),
+                new GxpAuditPolicyBundleLoader());
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
+        String activationBefore = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(policyActivationMapper.selectList());
+        String operationsBefore = cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(policyOperationMapper.selectList());
+        ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
+        try {
+            var input = command("dcc.project-file-placement.upload-bind", "local-new-operation");
+            var first = gxpAuditService.append(input);
+            var event = auditEventMapper.selectById(first.eventId());
+            assertEquals(policy.eventPolicyVersion(), event.getPolicyVersion());
+            assertEquals(1001L, event.getActorId());
+            assertEquals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(event.getCanonicalEventJson()), event.getEventHash());
+            assertEquals(first.eventId(), gxpAuditService.append(input).eventId());
+            assertTrue(gxpAuditService.append(input).replayed());
+            assertEquals(1L, auditEventMapper.selectCount());
+            assertEquals(2L, ledgerSequenceMapper.selectById(1L).getNextLedgerSequence());
+            assertEquals(activationBefore, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(policyActivationMapper.selectList()));
+            assertEquals(operationsBefore, cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(policyOperationMapper.selectList()));
+        } finally {
+            ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);
+        }
+    }
+
+    @Test
+    void localPolicyWorksWithoutFormalActivationButStillRequiresExistingLedger() {
+        policyActivationMapper.selectList().forEach(row -> policyActivationMapper.deleteById(row.getId()));
+        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(), new GxpAuditPolicyBundleLoader());
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
+        ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
+        try {
+            assertNotNull(gxpAuditService.append(command("mes.work-task.notify", "local-no-activation")).eventId());
+            assertEquals(0L, policyActivationMapper.selectCount());
+            ledgerSequenceMapper.deleteById(1L);
+            assertThrows(RuntimeException.class, () -> gxpAuditService.append(command("mes.work-task.notify", "local-no-ledger")));
+            assertEquals(1L, auditEventMapper.selectCount());
+        } finally {
+            ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"unknown", "signature", "reason", "actor"})
+    void localPolicyKeepsOperationSignatureReasonAndIdentityValidation(String failure) {
+        var policy = new GxpLocalDevelopmentPolicy(GxpLocalDevelopmentPolicyTest.localEnvironment(), new GxpAuditPolicyBundleLoader());
+        Object target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(gxpAuditService);
+        ReflectionTestUtils.setField(target, "localDevelopmentPolicy", policy);
+        try {
+            var input = command("unknown".equals(failure) ? "unknown.operation" : "APPROVAL_CENTER_REVIEW_COMMIT", "local-rejected");
+            if ("reason".equals(failure)) input.setReason("");
+            if ("actor".equals(failure)) SecurityContextHolder.clearContext();
+            assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class, () -> gxpAuditService.append(input));
+            assertEquals(0L, auditEventMapper.selectCount());
+            assertEquals(1L, ledgerSequenceMapper.selectById(1L).getNextLedgerSequence());
+        } finally {
+            ReflectionTestUtils.setField(target, "localDevelopmentPolicy", null);
+        }
     }
 
     private GxpAuditCommand command(String operationId, String idempotencyKey) {

@@ -16,6 +16,10 @@ import java.util.List;
 
 @Mapper
 public interface AdminUserMapper extends BaseMapperX<AdminUserDO> {
+    @Select("SELECT id, tenant_id, status, username, nickname FROM system_users "
+            + "WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
+    AdminUserDO selectGxpAuditActor(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+
     @Select("SELECT * FROM system_users WHERE tenant_id=#{tenantId} AND id=#{userId} AND deleted=0")
     AdminUserDO selectDirectSupervisorUser(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
 

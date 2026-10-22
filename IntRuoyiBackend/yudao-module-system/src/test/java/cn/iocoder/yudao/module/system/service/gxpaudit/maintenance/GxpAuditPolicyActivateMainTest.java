@@ -262,7 +262,7 @@ class GxpAuditPolicyActivateMainTest {
                 assertFalse(qualified.contains("WebServer") || qualified.contains("Scheduler")
                         || qualified.contains("AutoConfiguration") || qualified.contains("StartupGuard"), qualified);
                 if (qualified.startsWith("cn.iocoder.yudao.module.")) {
-                    assertTrue(qualified.contains(".gxpaudit.") || qualified.endsWith("TenantMapper"), qualified);
+                    assertTrue(qualified.contains(".gxpaudit.") || qualified.endsWith("TenantMapper") || qualified.endsWith("AdminUserMapper"), qualified);
                 }
             }
             assertTrue(jdbc.queryForList("SELECT * FROM gxp_audit_policy_activation").isEmpty());

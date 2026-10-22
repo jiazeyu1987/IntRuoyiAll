@@ -39,5 +39,5 @@ WHERE package.deleted=0 AND package.status=0 AND JSON_VALID(package.menu_ids)
           'intern-user:time-maintenance:dcc-published-time:update',
           'intern-user:time-maintenance:dcc-published-time-audit:query',
           'intern-user:time-maintenance:dcc-obsoleted-time:update',
-          'intern-user:time-maintenance:dcc-obsoleted-time-audit:query')))));
+          'intern-user:time-maintenance:dcc-obsoleted-time-audit:query'))));
 COMMIT;
