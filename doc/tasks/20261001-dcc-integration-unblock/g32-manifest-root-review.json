@@ -1,0 +1,15 @@
+{
+  "status": "ROOT_REVIEWED_CANONICAL_MANIFEST_BUILDER_PREPARATION_CURRENT_SOURCE_SET_BLOCKED",
+  "tests": 10,
+  "exitCode": 0,
+  "manifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g32-delivery-fingerprints.json",
+  "manifestSha256": "348f8bae91e62fcf2b4e115f8f71b4c112904706f7f5c5145098f0c2ada669d8",
+  "assetsVerified": 8,
+  "actualReadOnlyJDBCInvocations": 0,
+  "actualLegacyActivationManifest": false,
+  "currentBodyMatch": "35/39",
+  "currentOutcome": "BLOCKED_INCOMPLETE_SOURCES_DIAGNOSTIC_ONLY",
+  "rowHashProtocol": "Actual compiled DccLegacyNameVerifiedScope.rowHash with reviewed Boot mapper",
+  "runtimeCanonicalProfileProven": false,
+  "notes": "Fake complete sources are offline schema/factory protocol only; current missing objects cannot be replaced by local candidates as proof."
+}

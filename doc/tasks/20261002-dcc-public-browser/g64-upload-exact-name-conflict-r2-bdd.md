@@ -1,0 +1,11 @@
+# G64 r2 — 准确同名占用不能误提示改编号或作废释放
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root自然UI r12/025实际code1080000348及正式“文件名称已存在，请先走作废或者升版路线”，修后UI026仍被原泛exists规则归编号。拒绝已真实发生但当前指引错误；不把同名code-only当整项E2E PASS。
+
+Given正式NameClaim错误码1080000348或准确已知完整同名消息，WhenresolveUploadPreviewErrorMessage运行，Then说明完整文件名已占用、作废20年保留期仍占原名，使用现引用或既有链升版入口；不能建议修改编号或先作废释放名称。Given真实编号冲突/未知exists或其它存储格式权限错误，Then原合同保持，不以泛字符串把所有冲突猜同名。
+
+生产仅upload/submitter.ts新精确分支，test扩原专属actualAxiosError模块；不改后端历史消息/nameclaim数据、globalaxios/上传params/原文件名/审批逻辑。先actualbodycode/msg旧源RED→GREEN，有限原number/其他error/actualpayload回归及单源lint，不跑types/build/Maven/API/UI/DB/Git/服务，Root真实页面新提示验收。
+
+有效actualAxiosError NameClaimbody/原完整message RED5=4PASS/1FAIL、exit1。唯一精确分支识别正式code1080000348（number或同值string）或准确完整原message，不从广泛exists猜name；显示“文件名称已被占用：已作废文件在20年保留期内仍占用原名。请引用已有文件，或在既有文件链中办理升版。”避免附带原先作废建议，原历史后端msg不回写。
+
+最终3文件17项PASS、0fail/skip、exit0；新5实际AxiosError/knownmsg、无payload、存储格式、真实编号/未知dup回归和旧12actualattributes/typeSFC数量有重叠，不叠加原15。单生产ESLint0warning/exit0。原r1manifest保持，新r2只替代同submitter/test两asset；ParentG63及其它源raw保持。不全types/build（Root明确无需），Root新自然页面提示重验待，不以离线或单bodycode冒E2E完成。

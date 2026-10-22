@@ -44,7 +44,7 @@ public class DccControlledFileFinalizationFailureService {
                     && !DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(expectedStatus)) {
                 return;
             }
-            if (TERMINAL_SUCCESS_STATUSES.contains(current.getStatus())) {
+            if (current.getControlledTime() != null || TERMINAL_SUCCESS_STATUSES.contains(current.getStatus())) {
                 return;
             }
             if (!Objects.equals(expectedStatus, current.getStatus())) {

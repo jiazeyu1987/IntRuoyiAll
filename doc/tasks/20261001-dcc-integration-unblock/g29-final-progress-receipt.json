@@ -1,0 +1,15 @@
+{
+  "status": "ACTUAL_READONLY_COLLECTION_AND_EXECUTABLE_UI_SCRIPT_PREPARATION_PASS_RUNTIME_WRITES_NOT_AUTHORIZED",
+  "previousTurnClassification": "progress",
+  "newRuntimeCollection": "g29-r2-actual-collection-root-review.json",
+  "scriptFamilyFinalReview": "doc\\tasks\\20261001-dcc-integration-unblock\\g31-ui-family-root-review-final.json",
+  "productionAssetsUnchanged": 41,
+  "unrelatedProtectedAssetsUnchanged": 6,
+  "newMigrationAnswerReceived": false,
+  "objectRecoveryApproved": false,
+  "qualityApproved": false,
+  "sourceOriginalObjectsMatched": 35,
+  "sourceOriginalObjectsTotal": 39,
+  "localIntQmsMerge": false,
+  "goalComplete": false
+}

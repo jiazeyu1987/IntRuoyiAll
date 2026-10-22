@@ -188,7 +188,7 @@
         {{ displayText(currentLog.fileNumber) }}
       </el-descriptions-item>
       <el-descriptions-item label="版本">
-        {{ displayText(currentLog.versionNo) }}
+        {{ getDccVersionDisplayText(currentLog.versionNo) }}
       </el-descriptions-item>
       <el-descriptions-item label="操作人">
         {{ displayOperator(currentLog) }}
@@ -228,6 +228,7 @@ import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { dateFormatter } from '@/utils/formatTime'
+import { getDccVersionDisplayText } from '../shared/version-display'
 
 defineOptions({ name: 'DccControlledFileLogs' })
 
@@ -290,9 +291,10 @@ const queryParams = reactive<DccControlledFileLogPageReqVO & { pageNo: number; p
   pageNo: 1,
   pageSize: 10,
   logType: getFirstQueryValue(route.query.logType),
+  keyword: getFirstQueryValue(route.query.keyword),
   projectCodeId: getNumberQueryValue(route.query.projectCodeId),
   assignmentId: getNumberQueryValue(route.query.assignmentId),
-  controlledFileId: getNumberQueryValue(route.query.controlledFileId)
+  controlledFileId: getFirstQueryValue(route.query.controlledFileId)
 })
 
 const loading = ref(false)

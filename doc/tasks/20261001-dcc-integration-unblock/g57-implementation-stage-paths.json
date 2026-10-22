@@ -1,0 +1,196 @@
+{
+  "status": "PREPACKAGE_G57_EXACT_TASK_SOURCE_TEST_FREEZE",
+  "paths": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+      "bytes": 45293,
+      "sha256": "feabbb3a2498a6d363104ebfd38228f8068e0aeab048cb2ab7a71c7b79222beb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccOfflineTrainingTaskDelegate.java",
+      "bytes": 2964,
+      "sha256": "6973261ed84a037db9527cfb061974f859e01dd58565896c4ad1cd4a85a52f03"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "bytes": 7039,
+      "sha256": "e575f2435cfbd4a185c4e302cc14b398974b9e72c96639ff7c80b525e2e66877"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 42257,
+      "sha256": "91c7263173259a20305d4a82f32e9ad5bdd7700f90c0b8cbd5bbfff34514bf5a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuard.java",
+      "bytes": 11946,
+      "sha256": "29601d1eadebe926b83bd88a7cd672dcbe0d493179300dcf591d8e16fcad15ac"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 268783,
+      "sha256": "d778318190fd823515d91b3d61e6aff23624c966000b2e36c4604465bda90d63"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 218873,
+      "sha256": "ec3ac285d0f0ee3f9b9835dd7d132dede62fb1c9b13216756c995b1bbb20349c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+      "bytes": 13294,
+      "sha256": "13b2e9270674ba0b39f79dc20ce2f9fe0b0dd2a8085ef687bbd6a7afffbd8541"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccLocalActivationStartupSyncRunner.java",
+      "bytes": 9688,
+      "sha256": "7de4bb6a306e3d0c8573aeba979e33a2156f2c3549074aeff3d32376a80acf90"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+      "bytes": 54556,
+      "sha256": "92485732baa0b7e8b286dec80e2b53936161a3d73c8b20fe8c5df4af9fe6e9e7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java",
+      "bytes": 401762,
+      "sha256": "7f515be4b4c228a8bc29ad75d226d7fc6e0aa143ef4c3c2ea29cf24561496a32"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 296436,
+      "sha256": "8e1bf71adc0eadbbfeb9bf3a058dfeef7b550ad04c1cf3461f59f6095bd17fd7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLocalActivationStartupSyncRunnerTest.java",
+      "bytes": 11664,
+      "sha256": "c4b3fc7a77b8a0d99a1a5d2147db48b2f912c04e1642caacf604aa9460792480"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingApprovalTransactionTest.java",
+      "bytes": 9751,
+      "sha256": "b2fbd3be702422375a8f9308704c22e1ae7de9cc68f76f3f079458c381aaff65"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingEntryDatabaseTest.java",
+      "bytes": 20687,
+      "sha256": "50d25c24e22637c38cbb6e82e3fae949022b0f8cd51676ec9016b2e36340af56"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 18177,
+      "sha256": "2ea8291e750d8838a0ce0412a2bc4215c67ab74fefb021e0c75f0002d1dde818"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectApplicationNotificationTest.java",
+      "bytes": 19857,
+      "sha256": "19e684a1b55b61da8880f623fba9285546b2e1efe1970ef53049e9e1e6611073"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86422,
+      "sha256": "fa10737360368ec25c732361bbf413e143effe11c0e3cf4523028459b7aa1c8f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/dccOfflineTrainingRecord.ts",
+      "bytes": 4744,
+      "sha256": "04757b4ceca584c0809eb75ff0ca9845a806d2048a877927a270be013616dcf9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 11217,
+      "sha256": "5921441ae9cf92eacc420686350a69baaf91c6606ee7fec139365e8d302c9285"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 56265,
+      "sha256": "1751e82a53b3738b755c71ba56b1cc43d4c118ad16d676e10a2ba719f035cba4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 313189,
+      "sha256": "5a34915427e9d1e041bbdd0fc900a827c8f9f5407e609e6b734101de32137176"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/working-browser-navigation.ts",
+      "bytes": 3251,
+      "sha256": "75eccc9e57359caa95e6feeb6309de34cb8971723f19cd7ab4e18d12bca1edc7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "bytes": 38361,
+      "sha256": "30ab4c9a40b25b025b7d4b7ff9e04ee8702c5e75b83a8fdbd55c5a3c6a88f4f0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 12607,
+      "sha256": "abca7f5a59f59209bba7412ac642a4a4d212b58f3c7350431ad81506b33eea06"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
+      "bytes": 4897,
+      "sha256": "f49b004fe5d6531f0927a15f7b07f2ce5ba1458bf0400feee3267e92c533a4b1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-native-stage-evidence.test.cjs",
+      "bytes": 4509,
+      "sha256": "28cf5a87f95b2bddcdac25ce2e53cd87d1ae8e0686bdec8cad0037c65cae1d3f"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-offline-training-entry.test.cjs",
+      "bytes": 9382,
+      "sha256": "87f55bb748e3fe53f549aa1bc3c5762fb62b52ee85d407cc5f23ceeb5105afd0"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12955,
+      "sha256": "975fe3d06f848d6f7d47e7b7d24792f6fae6c9bfa4b42840b7470a5e8b85a0f3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-readonly-metadata-gate.test.cjs",
+      "bytes": 3477,
+      "sha256": "1ec633798334a121301f913f69079562e8bace291a17bc3330a464586ae0fe1a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5730,
+      "sha256": "595a775f50f36d12cf3a401ad7ea9852e2352aa03288a647af1385dcb08b8af3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-distribution-public.test.cjs",
+      "bytes": 13827,
+      "sha256": "f078a34406033b78c2dba01a141fd62d0fe52aa458e81e0524cd6783bc20ddb4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-working-browser-navigation.test.cjs",
+      "bytes": 12218,
+      "sha256": "0ed5d12a4e4c54511657f0c0318e16d3b5b1e8a8a303c937290fdc7b64892c9b"
+    }
+  ],
+  "sourceCount": 33,
+  "backendRuntimeStopped": 16096,
+  "typesR2": {
+    "session": 41690,
+    "exit": 0
+  },
+  "buildR2": {
+    "session": 46227,
+    "exit": 0
+  },
+  "backendFinite": {
+    "tests": 284,
+    "groups": 9,
+    "exit": 0
+  },
+  "jobRunnerR2": {
+    "tests": 24,
+    "groups": 2,
+    "session": 9074,
+    "exit": 0
+  },
+  "protectedAssets": {
+    "AGENTS.md": "3ae2c3981839b6a746c5166747b34a4d64d62d907da883d166a189fcd595e7da",
+    "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java": "7b003bfc1e13ec22bea261b77df7f6b1d17fa6d59dd2df393048896880ed7426",
+    "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java": "22a723ccfd96d720d070cef401f2fd586dcdc9049d8eb0f164452dc0bff23908"
+  }
+}

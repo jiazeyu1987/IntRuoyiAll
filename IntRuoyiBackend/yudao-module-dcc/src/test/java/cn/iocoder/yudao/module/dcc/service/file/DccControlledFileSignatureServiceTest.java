@@ -53,6 +53,45 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
 
+    @Test
+    void missingOrInvalidUnifiedSignatureFactNeverCreatesADccSuccessProjection() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        var timestamp=LocalDateTime.now();
+        for (ElectronicSignatureResult invalid:java.util.Arrays.asList(null,
+                new ElectronicSignatureResult(null,"VALID",timestamp,"clock","version","content","hash","SHA-256","key"),
+                new ElectronicSignatureResult(1L,"INVALID",timestamp,"clock","version","content","hash","SHA-256","key"))) {
+            when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class))).thenReturn(invalid);
+            assertServiceException(()->signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,"task-1",
+                    "MATRIX_REVIEW","APPROVE","secret","同意"),CONTROLLED_FILE_SIGNATURE_PERSIST_FAILED);
+        }
+        verify(signatureMapper,never()).insert(any(DccControlledFileSignatureDO.class));
+        verify(signatureImageService,never()).markReferenced(any());
+    }
+
+    @Test
+    void assignmentSignsItsOwnMeaningAndDoesNotCreateAnApprovalSignature() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L,LocalDateTime.now().withNano(0)));
+        var result=signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,"task-assign",
+                "MATRIX_REVIEW","ASSIGN","secret","指派本人");
+        assertEquals("MATRIX_REVIEW_ASSIGN",result.getMeaningCode());
+        var evidence=ArgumentCaptor.forClass(DccControlledFileSignatureEvidenceCreateReq.class);
+        verify(signatureEvidenceService).createEvidence(evidence.capture());
+        assertEquals("ASSIGNED",evidence.getValue().getTaskActionResult());
+        var record=ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        verify(signatureMapper).insert(record.capture());
+        assertEquals("ASSIGN",record.getValue().getActionType());
+    }
+
     @Mock
     private AdminUserService adminUserService;
     @Mock
@@ -162,6 +201,40 @@ class DccControlledFileSignatureServiceTest extends BaseMockitoUnitTest {
         assertEquals("6f2c91ab03d4aabb", signatureCaptor.getValue().getEvidenceHash());
         assertEquals("HMAC_SHA256", signatureCaptor.getValue().getEvidenceHashAlgorithm());
         assertEquals("dcc-signature-2026-05", signatureCaptor.getValue().getEvidenceKeyVersion());
+    }
+
+    @Test
+    void distributionAckAcceptsOptionalCommentWithoutInventedOpinion() {
+        TenantContextHolder.setTenantId(1L);
+        when(adminUserService.getUser(99L)).thenReturn(snapshotUser(20L,"审核员"));
+        stubActorSnapshot(true);
+        when(signatureEvidenceService.createEvidence(any(DccControlledFileSignatureEvidenceCreateReq.class)))
+                .thenReturn(signatureEvidence());
+        when(electronicSignatureService.sign(any(ElectronicSignatureCommand.class)))
+                .thenReturn(unifiedSignatureResult(7001L,LocalDateTime.now().withNano(0)));
+        for(String comment:new String[]{null,"","   "}) {
+            var result=signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,
+                    "DISTRIBUTION:301:501","DISTRIBUTION","DISTRIBUTION_ACK","secret",comment);
+            assertEquals("DISTRIBUTION_ACK",result.getMeaningCode());
+        }
+        var command=ArgumentCaptor.forClass(ElectronicSignatureCommand.class);
+        org.mockito.Mockito.verify(electronicSignatureService,org.mockito.Mockito.times(3)).sign(command.capture());
+        assertTrue(command.getAllValues().stream().allMatch(value->"".equals(value.reason())));
+        var projection=ArgumentCaptor.forClass(DccControlledFileSignatureDO.class);
+        org.mockito.Mockito.verify(signatureMapper,org.mockito.Mockito.times(3)).insert(projection.capture());
+        assertTrue(projection.getAllValues().stream().allMatch(value->"".equals(value.getComment())));
+        assertTrue(projection.getAllValues().stream().allMatch(value->"分发确认".equals(value.getMeaningLabel())));
+    }
+
+    @Test
+    void approveRejectAssignEmptyCommentsStillFailWithoutEvidenceWrite() {
+        for(String action:List.of("APPROVE","REJECT","ASSIGN"))
+            for(String comment:new String[]{null,"","   "})
+                assertServiceException(()->signatureVerificationService.verifyPasswordAndCreateSignature(99L,900L,
+                        "task-required","MATRIX_REVIEW",action,"secret",comment),CONTROLLED_FILE_SIGNATURE_REASON_REQUIRED);
+        verify(signatureEvidenceService,never()).createEvidence(any());
+        verify(electronicSignatureService,never()).sign(any());
+        verify(signatureMapper,never()).insert(any(DccControlledFileSignatureDO.class));
     }
 
     @Test

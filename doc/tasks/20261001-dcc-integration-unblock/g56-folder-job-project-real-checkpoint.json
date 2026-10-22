@@ -1,0 +1,85 @@
+{
+  "status": "ACTUAL_PAGE_BRANCH_CHECKPOINT",
+  "folderCreateEditDelete": {
+    "projectId": "271",
+    "folderId": "3",
+    "finalDeleted": true,
+    "retainedHistory": true
+  },
+  "workingCheckout": {
+    "fileId": "2054545668044084026",
+    "actorId": "1",
+    "checkedOut": true,
+    "checkinSubmitted": false,
+    "reason": "navigation placement contract incomplete, source upload preview actual but no business checkin POST"
+  },
+  "projectRequest10": {
+    "status": "COMPLETED",
+    "previousId": "9",
+    "generatedProjectId": "272",
+    "catalogId": "615"
+  },
+  "minuteJob": {
+    "id": "5625",
+    "uiLogIds": [
+      "43957",
+      "43956",
+      "43955"
+    ],
+    "intervalSeconds": 60,
+    "visibleTenantResults": {
+      "1": 0,
+      "162": 0,
+      "121": 0,
+      "122": 0
+    },
+    "naturalFutureSwitchProved": false
+  },
+  "evidence": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\010.json",
+      "sha256": "90d8266329bc5d350e9f8572552cd512e3145c4a2c45a0a65127e94ef00dc56c"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\016.json",
+      "sha256": "84fc2487f310dd21462ee99f8be23f90dfb891a0ab345e15942fe3810d962387"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\022.json",
+      "sha256": "ed864002f65c2b1640f06d40aebc33ed91732d8daff7c510ec99168a45f5b530"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\030.json",
+      "sha256": "7370c86e2f3be75da3adf30b7c58a3ef0eb055e49f799720a0491e3f2f220b5f"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\026.json",
+      "sha256": "a970913b4214b038ed222a73b5dcc7822d7e4cecb13031f2ee1c641068d84f2c"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\040.json",
+      "sha256": "95d1dcc1b74813d0d2dd98c1dd597329255839eda19a066708c450c78d98be81"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\042.json",
+      "sha256": "d8361f42252cab98e7f1ab090b9d97573d3b0e2eecd7992e5abcd0d8bfff2487"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\043.json",
+      "sha256": "b1591006a5e507ba15974792fb21e93c55cd58becea8d7cca2a2e2622bf23b50"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\048.json",
+      "sha256": "e1257cc5706029b59656042acc4d47d387c6cb06f8e599fa93c066903016ead6"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\050.json",
+      "sha256": "a9d8c58431dd930e45ce48082e7907009d055812fa3bf5367099eace67bd3a42"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g56-real-ui-r4\\056.json",
+      "sha256": "21629504093ab6041b973c9e56e88199809a9a919fa7d9875b1598ed1e980860"
+    }
+  ],
+  "businessWritesByReceipt": 0
+}

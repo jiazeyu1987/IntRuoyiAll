@@ -1,0 +1,166 @@
+{
+  "status": "LD04_G49_NATIVE_PROJECT_KEY_FIELDS_R3_FROZEN_FOR_ROOT_REVIEW",
+  "previousDelivery": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-fingerprints-r2.json",
+    "bytes": 5002,
+    "sha256": "affe52dbce9a1396a376e650bdca5e9a64124f7f0800335f89376f21b210a792"
+  },
+  "priorRootVerification": {
+    "source": "Root reported actual r2 sessions",
+    "typesSession": 97698,
+    "typesExitCode": 0,
+    "buildSession": 28748,
+    "buildExitCode": 0,
+    "scope": "Historical r2 only; new r3 full checks pending"
+  },
+  "changedSourceFiles": 1,
+  "addedTestFiles": 1,
+  "changedExistingTestFiles": 0,
+  "productionFiles": 5,
+  "testFiles": 3,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "bytes": 76565,
+      "sha256": "e2870627e936e85d8cfbab14b1ee524d224c424d0ff125a24340d3474855b7f8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts",
+      "bytes": 5637,
+      "sha256": "9ee50a97893e08ed46f4f009d4f188556d4987bf57f54baf68aa0ec03d5d0fb3"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 9770,
+      "sha256": "e184920a9ca69d47949c6bc09622ed2ce6ac061f3139e259758f217f2f8e63c2"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 11958,
+      "sha256": "d6b31ea1c3684ceaa7b59b44aec5adb88de294cca8b4ac608e9928378855d65d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 55951,
+      "sha256": "faf9ac9b92c3bc27c4d2b6f418a79cec68f43498432d9ba07d8dc802c22a5045"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12646,
+      "sha256": "cf27bbaf55dbf572df70a1b1336b256b9494344ce049525a20980d22879eca4c"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-product-reasons-unit.spec.js",
+      "bytes": 8714,
+      "sha256": "6ea2ce38b19bf60e063e3eda010d1d0ca994b88b399f51a8e2825dd78b470723"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-approval-key-fields.test.cjs",
+      "bytes": 5439,
+      "sha256": "e62dea87a5d39fad7a856106c71b3e09188f35f65f25765684ec181b166997f0"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-bdd.md",
+      "bytes": 2033,
+      "sha256": "91b0fbd1657dc65711aa002f8e8b3a7a2c315fa9e41bad67c30e9be9f468ff13"
+    }
+  ],
+  "unchangedPreviousDocuments": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-application-entry-type-fix-bdd.md",
+      "bytes": 1688,
+      "sha256": "dbaa72ccb5be85b7b9cc95c5da8c3e34fcc5aa7643c36565fa471b598cea59de"
+    }
+  ],
+  "unchangedUploadAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86222,
+      "sha256": "6e3079a4df6f335b90ce12de0ea0aa2b101151e96b5bf4dfaa946f033f88a8da"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "exactChange": "resolveDccKeyFields handles only DCC_PROJECT_PRODUCT_REVIEW/APPROVAL with actual businessCode as 项目代码 and original actual node helper; original four file fields/template/navigation unchanged; no new tags contract or fake version/type.",
+  "verification": {
+    "RED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1,
+      "expected": "Old file branch already passes; project label/tags/ID fallback and actual render fail"
+    },
+    "GREEN": {
+      "tests": 4,
+      "pass": 4,
+      "failures": 0,
+      "exitCode": 0
+    },
+    "finalRegression": {
+      "files": 9,
+      "tests": 26,
+      "pass": 26,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Original 22 plus new4; repeated executions not added"
+    },
+    "ownedLint": {
+      "files": 1,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-red-r3.log",
+      "bytes": 4660,
+      "sha256": "7881b02457e67bc79dd3cc8cf954791f08c101d34216b20b626e73ea738ed71e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-green-r3.log",
+      "bytes": 543,
+      "sha256": "99292910a2185cfc9230703522c4ed0b4eb35f26dc7b4ddda95942b8ab177031"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-final-r3.log",
+      "bytes": 3123,
+      "sha256": "d670f0d354c0a135c98403db09631159f4c277e8f37560ffb2aae90cf4d9f29d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g49-project-approval-key-fields-lint-r3.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual source resolver/display helpers and actual template AST Vue renderer; not browser E2E",
+    "Root new full types/build pending; prior r2 PASS does not prove r3",
+    "Root owns actual backend/native tasks/notification/runtime/DB/browser/Git; agent no such actions"
+  ]
+}

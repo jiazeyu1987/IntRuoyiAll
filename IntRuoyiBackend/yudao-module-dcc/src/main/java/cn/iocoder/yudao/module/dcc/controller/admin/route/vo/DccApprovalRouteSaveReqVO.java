@@ -9,6 +9,7 @@ import java.util.List;
 
 @Data
 public class DccApprovalRouteSaveReqVO {
+    private String actionType;
     @NotNull(message = "生效时间不能为空")
     private LocalDateTime effectiveTime;
     private String remark;

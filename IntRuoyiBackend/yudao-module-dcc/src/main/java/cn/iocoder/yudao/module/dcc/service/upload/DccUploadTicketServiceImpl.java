@@ -63,7 +63,7 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         String uploadTicket = newTicket();
         LocalDateTime expireTime = LocalDateTime.now().plusMinutes(TICKET_TTL_MINUTES);
         try {
-            temporaryFileMapper.insert(DccControlledFileTemporaryFileDO.builder()
+            var temporaryFile=DccControlledFileTemporaryFileDO.builder()
                     .uploadTicket(uploadTicket)
                     .sessionId(sessionId)
                     .purpose(purpose)
@@ -78,7 +78,9 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                     .expireTime(expireTime)
                     .cleanupStatus(CLEANUP_ACTIVE)
                     .requestId(StrUtil.trimToNull(command.requestId()))
-                    .build());
+                    .build();
+            temporaryFile.setTenantId(TenantContextHolder.getRequiredTenantId());
+            if(temporaryFileMapper.insert(temporaryFile)!=1)throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         } catch (DuplicateKeyException ex) {
             DccUploadTicketCreated winner = resolveReusableActiveTicket(command.userId(), command.categoryId(), sessionId, purpose,
                     contentSha256);
@@ -114,6 +116,33 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
         }
         return new DccUploadTicketBoundFile(temporaryFile.getUploadTicket(), temporaryFile.getStorageFileId(),
                 storageFile.getName(), storageFile.getType(), temporaryFile.getFileSize());
+    }
+
+    @Override
+    public DccTrainingUploadTicketBoundFile resolveTrainingForBinding(DccUploadTicketResolveCommand command) {
+        requireTenantContext();
+        if (TenantContextHolder.isIgnore() || command == null
+                || !"TRAINING_RECORD".equals(normalizePurpose(command.purpose()))
+                || command.categoryId() == null || command.categoryId() <= 0) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        requirePositiveUser(command.userId());
+        DccControlledFileTemporaryFileDO temporaryFile = requireBindableTemporaryFile(command);
+        if (!Objects.equals(temporaryFile.getTenantId(), TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(temporaryFile.getUploadTicket(), StrUtil.trim(command.uploadTicket()))) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        String fileSha256 = temporaryFile.getFileSha256();
+        if (fileSha256 == null || !fileSha256.matches("[a-f0-9]{64}")) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        FileDO storageFile = fileMapper.selectById(temporaryFile.getStorageFileId());
+        if (storageFile == null || !Objects.equals(storageFile.getId(), temporaryFile.getStorageFileId())) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        return new DccTrainingUploadTicketBoundFile(new DccUploadTicketBoundFile(temporaryFile.getUploadTicket(),
+                temporaryFile.getStorageFileId(), storageFile.getName(), storageFile.getType(), temporaryFile.getFileSize()),
+                fileSha256);
     }
 
     @Override
@@ -194,6 +223,12 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
             }
             if (cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false)) {
                 cleaned++;
+            } else {
+                DccControlledFileTemporaryFileDO current = temporaryFileMapper.selectById(temporaryFile.getId());
+                if (current == null || !CLEANUP_CLEANED.equals(current.getCleanupStatus())
+                        || !STATUS_AVAILABLE.equals(current.getStatus()) || current.getBoundControlledFileId() != null) {
+                    throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+                }
             }
         }
         return cleaned;
@@ -245,10 +280,21 @@ public class DccUploadTicketServiceImpl implements DccUploadTicketService {
                 || !StrUtil.equals(normalizedSessionId, temporaryFile.getSessionId())) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
         }
-        if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
+        if (CLEANUP_CLEANED.equals(temporaryFile.getCleanupStatus())
+                && STATUS_AVAILABLE.equals(temporaryFile.getStatus())
+                && temporaryFile.getBoundControlledFileId() == null) {
             return 0;
         }
-        return cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false) ? 1 : 0;
+        if (!isSessionCleanupCandidate(temporaryFile, userId, normalizedSessionId)) {
+            throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
+        }
+        if (cleanTemporaryFile(temporaryFile, cleanupTime, normalizedReason, false)) return 1;
+        DccControlledFileTemporaryFileDO current = temporaryFileMapper.selectById(temporaryFile.getId());
+        if (current != null && CLEANUP_CLEANED.equals(current.getCleanupStatus())
+                && STATUS_AVAILABLE.equals(current.getStatus()) && current.getBoundControlledFileId() == null) {
+            return 0;
+        }
+        throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
     }
 
     @Override

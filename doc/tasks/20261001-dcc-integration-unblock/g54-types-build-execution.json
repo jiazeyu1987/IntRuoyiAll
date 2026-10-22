@@ -1,0 +1,16 @@
+{
+  "status": "G54_FRONTEND_FULL_TYPES_BUILD_PASS_BACKEND_FREEZE_PENDING",
+  "types": {
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sessionId": 83534,
+    "exitCode": 0
+  },
+  "build": {
+    "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1",
+    "indexSha256": "236545681f8b54439932c0324bd4a233c42db6f18fe7d1968efddc95a4297736",
+    "sessionId": 15404,
+    "exitCode": 0
+  },
+  "actualNewAssignment": false,
+  "backendPackage": "AWAITING_CURRENT_CONTEXT_SCOPE_FREEZE"
+}

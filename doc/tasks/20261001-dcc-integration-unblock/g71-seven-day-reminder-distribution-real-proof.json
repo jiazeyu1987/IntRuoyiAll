@@ -1,0 +1,65 @@
+{
+  "status": "ACTUAL_SEVEN_DAY_REMINDER_AND_PENDING_DISTRIBUTION_CLOSURE_PASS",
+  "ShanghaiToday": "2026-10-06",
+  "source": "4045/B1 future10/13 exactly7days",
+  "before": "workbench1 pending rowlabel临期未下发/待生效；生效前不得执行",
+  "action": "normalworkbench办理下发→exactsource→下发+recipientG67Dept910335USER910328→twoConfirm→realdistributed09:59:10",
+  "after": "workbench0/reminderrowgone;sourceB1stillpending10/13,oldA3ACTIVE",
+  "ui": [
+    {
+      "step": "322",
+      "sha256": "e283f16dffd1a18ba91653cda0d68cf85cc9dcc92075a3550d0f6a5e23dad25a",
+      "url": "/dcc/controlled-file/workbench",
+      "visible": "仅显示到期、逾期及按配置临期事项\n刷新待处置列表\n\n按预设生效日期从早到晚办理；已下发事项不作为未办理提醒。\n\n文件编号\n\t\n名称\n\t\n受控版本\n\t\n受控日期\n\t\n预设生效日期\n\t\n提醒\n\t\n生效状态\n\t\n办理\nG53-DOC-20261005-01\n\t\n20261005-dcc-four-directions-g53-source.pdf\n\t\nB/1\n\t\n2026-10-06 08:41:52\n\t\n2026-10-13\n\t\n临期未下发\n\t\n待生效；生效前不得执行\n\t\n办理下发\n待培训确认\n全部\n文件\n\t\n状态\n\t\n进度\n\t\n操作\n暂无培训任务\n生效失败\n全部\n文件\n\t\n编号\n\t\n阻塞提示\n\t\n操作\nDCC-E2E-DOCFINAL-SOURCE-20260924.docx\n\t\nDCC-E2E-ADMIN-1790236214434\n\t\n责任：系统生效任务\n\t\n重试生效\n\n\nCODEX-DCC-THREE-WORKFLOWS-20260923114631.docx\n\t\nDCC-E2E-ADMIN-1790136634742\n\t\n责任：系统生效任务\n\t\n重试生效\n我的影响评估\n刷新\n相关文件\n\t\n关系方向\n\t\n任务状态\n\t\n评估结论\n\t\n升版跟踪\n\t\n操作\n暂无待处理影响评估\nCopyright ©2026 瑛泰管理系统\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置",
+      "naturalWrites": []
+    },
+    {
+      "step": "323",
+      "sha256": "ac468cbd075fb0bcd45e90e03295817da6240d60541625e2ba512479c616d013",
+      "url": "/dcc/controlled-file/workbench",
+      "visible": "仅显示到期、逾期及按配置临期事项\n刷新待处置列表\n\n按预设生效日期从早到晚办理；已下发事项不作为未办理提醒。\n\n文件编号\n\t\n名称\n\t\n受控版本\n\t\n受控日期\n\t\n预设生效日期\n\t\n提醒\n\t\n生效状态\n\t\n办理\nG53-DOC-20261005-01\n\t\n20261005-dcc-four-directions-g53-source.pdf\n\t\nB/1\n\t\n2026-10-06 08:41:52\n\t\n2026-10-13\n\t\n临期未下发\n\t\n待生效；生效前不得执行\n\t\n办理下发\n待培训确认\n全部\n文件\n\t\n状态\n\t\n进度\n\t\n操作\n暂无培训任务\n生效失败\n全部\n文件\n\t\n编号\n\t\n阻塞提示\n\t\n操作\nDCC-E2E-DOCFINAL-SOURCE-20260924.docx\n\t\nDCC-E2E-ADMIN-1790236214434\n\t\n责任：系统生效任务\n\t\n重试生效\n\n\nCODEX-DCC-THREE-WORKFLOWS-20260923114631.docx\n\t\nDCC-E2E-ADMIN-1790136634742\n\t\n责任：系统生效任务\n\t\n重试生效\n我的影响评估\n刷新\n相关文件\n\t\n关系方向\n\t\n任务状态\n\t\n评估结论\n\t\n升版跟踪\n\t\n操作\n暂无待处理影响评估\nCopyright ©2026 瑛泰管理系统\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置",
+      "naturalWrites": []
+    },
+    {
+      "step": "324",
+      "sha256": "cc644ef35dd9679e8297e5ce3558bc850e84cd377c8404edd50f6b4f1fe6aeb4",
+      "url": "/dcc/controlled-file/workbench",
+      "visible": "仅显示到期、逾期及按配置临期事项\n刷新待处置列表\n\n按预设生效日期从早到晚办理；已下发事项不作为未办理提醒。\n\n文件编号\n\t\n名称\n\t\n受控版本\n\t\n受控日期\n\t\n预设生效日期\n\t\n提醒\n\t\n生效状态\n\t\n办理\nG53-DOC-20261005-01\n\t\n20261005-dcc-four-directions-g53-source.pdf\n\t\nB/1\n\t\n2026-10-06 08:41:52\n\t\n2026-10-13\n\t\n临期未下发\n\t\n待生效；生效前不得执行\n\t\n办理下发\n待培训确认\n全部\n文件\n\t\n状态\n\t\n进度\n\t\n操作\n暂无培训任务\n生效失败\n全部\n文件\n\t\n编号\n\t\n阻塞提示\n\t\n操作\nDCC-E2E-DOCFINAL-SOURCE-20260924.docx\n\t\nDCC-E2E-ADMIN-1790236214434\n\t\n责任：系统生效任务\n\t\n重试生效\n\n\nCODEX-DCC-THREE-WORKFLOWS-20260923114631.docx\n\t\nDCC-E2E-ADMIN-1790136634742\n\t\n责任：系统生效任务\n\t\n重试生效\n我的影响评估\n刷新\n相关文件\n\t\n关系方向\n\t\n任务状态\n\t\n评估结论\n\t\n升版跟踪\n\t\n操作\n暂无待处理影响评估\nCopyright ©2026 瑛泰管理系统\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置",
+      "naturalWrites": []
+    },
+    {
+      "step": "337",
+      "sha256": "43a1fa232b5346a9437a87fc0fa8025e2bb879bfb67059666e24cb27cfe3f373",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "visible": [
+        "受控文件下发\n\n受控版本：B/1；预设生效日期：2026-10-13\n\n2026-10-13 生效，生效前不得执行\n\nG67独立文控会签验收\n电子下发\nG57独立文控验收\n移除部门\n添加接收部门\n核对并下发\n\n确认向下列部门和人员下发本受控版本？生效日期保持 2026-10-13。\n\nG67独立文控会签验收 / 电子： G57独立文控验收\n\n2026-10-13 生效，生效前不得执行\n\n取消\n确认下发"
+      ],
+      "naturalWrites": []
+    },
+    {
+      "step": "338",
+      "sha256": "4224a4c1382340e4cdcc91e620da03c1ff03135d5462afb958373af31bf2b7a3",
+      "url": "/dcc/controlled-file/detail/2054545668044084045",
+      "visible": [
+        "受控文件下发\n\n受控版本：B/1；预设生效日期：2026-10-13\n\n2026-10-13 生效，生效前不得执行\n\nG67独立文控会签验收\n电子下发\nG57独立文控验收\n移除部门\n添加接收部门\n核对并下发\n\n确认向下列部门和人员下发本受控版本？生效日期保持 2026-10-13。\n\nG67独立文控会签验收 / 电子： G57独立文控验收\n\n2026-10-13 生效，生效前不得执行\n\n取消\n确认下发"
+      ],
+      "naturalWrites": []
+    },
+    {
+      "step": "340",
+      "sha256": "0b3b7a35ef77f9f9896e766fcd85677851660605a680d0558c589d3d57378c1f",
+      "url": "/dcc/controlled-file/workbench",
+      "visible": "瑛泰管理系统",
+      "naturalWrites": []
+    },
+    {
+      "step": "341",
+      "sha256": "2a719c0eb11b44f098e43c86cd4f55133fc702c2032d7feff92ee0540a917bf9",
+      "url": "/dcc/controlled-file/workbench",
+      "visible": "仅显示到期、逾期及按配置临期事项\n刷新待处置列表\n\n按预设生效日期从早到晚办理；已下发事项不作为未办理提醒。\n\n文件编号\n\t\n名称\n\t\n受控版本\n\t\n受控日期\n\t\n预设生效日期\n\t\n提醒\n\t\n生效状态\n\t\n办理\n暂无待下发事项\n待培训确认\n全部\n文件\n\t\n状态\n\t\n进度\n\t\n操作\n暂无培训任务\n生效失败\n全部\n文件\n\t\n编号\n\t\n阻塞提示\n\t\n操作\nDCC-E2E-DOCFINAL-SOURCE-20260924.docx\n\t\nDCC-E2E-ADMIN-1790236214434\n\t\n责任：系统生效任务\n\t\n重试生效\n\n\nCODEX-DCC-THREE-WORKFLOWS-20260923114631.docx\n\t\nDCC-E2E-ADMIN-1790136634742\n\t\n责任：系统生效任务\n\t\n重试生效\n我的影响评估\n刷新\n相关文件\n\t\n关系方向\n\t\n任务状态\n\t\n评估结论\n\t\n升版跟踪\n\t\n操作\n暂无待处理影响评估\nCopyright ©2026 瑛泰管理系统\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置\n显示字段\n重置",
+      "naturalWrites": []
+    }
+  ],
+  "limits": "This7daycase+afterremovalactualUI; mixeddateordering/currentpolicy9branchesfiniteproof, no clock manipulation",
+  "directBusinessSqlWrites": false
+}

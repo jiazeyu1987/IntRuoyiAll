@@ -56,12 +56,27 @@ class FormCenterRepositoryBoundaryTest {
 
         assertTrue(submitReq.contains("Map<String, List<Long>> startUserSelectAssignees"),
                 "form submission must expose BPM start-user-selected assignees explicitly");
-        assertTrue(source.contains("buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees())"),
+        assertTrue(source.contains("buildBpmRequest(instance, resolvedPolicy, reqVO.getStartUserSelectAssignees(),"),
                 "form center must read start-user-selected assignees from the submit request");
         assertTrue(source.contains("reqDTO.setStartUserSelectAssignees(startUserSelectAssignees)"),
                 "form center must pass start-user-selected assignees to BpmProcessInstanceCreateReqDTO");
         assertTrue(source.contains("BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_START_USER_SELECT_ASSIGNEES"),
                 "form center must also place selected assignees in BPM variables for downstream strategies");
+    }
+
+    @Test
+    void runtimeBpmRequestCarriesApproveUserSelectAssigneesAcrossDtoBoundary() throws IOException {
+        String createDto = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/bpm/api/task/dto/BpmProcessInstanceCreateReqDTO.java"));
+        String source = Files.readString(Path.of(
+                "src/main/java/cn/iocoder/yudao/module/bpm/formcenter/runtime/FormCenterRuntimeServiceImpl.java"));
+
+        assertTrue(createDto.contains("Map<String, List<Long>> approveUserSelectAssignees"),
+                "BPM create DTO must explicitly carry approve-user-selected assignees");
+        assertTrue(source.contains("reqDTO.setApproveUserSelectAssignees(approveUserSelectAssignees)"),
+                "form center must pass approve-user-selected assignees across the BPM DTO boundary");
+        assertTrue(source.contains("BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_APPROVE_USER_SELECT_ASSIGNEES"),
+                "form center must also place approve-user-selected assignees in BPM variables");
     }
 
     @Test

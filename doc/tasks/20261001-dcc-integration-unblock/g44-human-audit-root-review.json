@@ -1,0 +1,13 @@
+{
+  "status": "G44_NORMAL_UI_AUDIT_IDENTITY_ROOT_SOURCE_AND_TEST_REVIEW_PASS_NOT_RUNTIME",
+  "manifestSha256": "0d4ea5a0fcf193b782bfcd0c8f8fb0d01d43a35caf29925c8309f05995a40407",
+  "executions": 184,
+  "classes": 11,
+  "inheritanceOverlapPreserved": true,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "currentDirectoryBeforeNewEventOrReplay": true,
+  "historicalEventsRewritten": false,
+  "actualNewUiAuditRuntimeProven": false
+}

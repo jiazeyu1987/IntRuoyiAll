@@ -1,0 +1,17 @@
+# G59 r2 — 维护原因、Long范围及成功回执合同
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root旧G59完整types55673/build47918实际exit0，保原seal。本批仅newwrapper/newDialog/原专属test；Parent原pin保持。
+
+Given正式后端修复原因最多500字符，When用户填写500或501字符，Then真实输入maxlength=500，500可按原确认规则提交，501不能发POST，wrapper也拒绝501而不靠组件截断或后端错误兜底。
+
+Given所有原身份为Java Long十进制string，When使用最大值9223372036854775807或大一的9223372036854775808，Then最大值原字节保持，超范围在path/preview/command/receipt身份校验拒绝，不转Number、不截断。
+
+Given正式preview目标为ACTIVE或CONTROLLED_PENDING_EFFECTIVE，WhenPOST返回回执，Thenwrapper只接受这两同名canonical/domain状态；dialog完成前还必须与本次preview.expectedTargetStatus一致。非法或不同目标不能close/emit repaired，错误明确，不新增POST字段或改变后端transition。
+
+先现实际wrapper/dialog源码有效RED→GREEN，有限原5项及新3项/必要readonly回归和2prodlint。Root最终再跑全types/build，真实维护/审计配置/环境仍Root独占。旧工作台summary权限只读另报，本批不扩。无Parent/shared/BE/DB/API/UI/Git/Maven/服务/全typesbuild操作。
+
+有效RED为g59-repair-contract-r2-red.log，8项=5PASS/3FAIL、exit1：旧wrapper允许501原因/Long溢出和非法成功态。实施2生产边界guard后，真实input/handler与preview target补验均符合；POST字段保持8个，目标只用于读取回执比较，未注入请求。Java Long最大值保持string、overflow各path/preview/command/receipt拒；两同名合法状态均支持，dialog不同于预览目标不close/emit。
+
+首GREEN中的renderer节点查找受compileScript缓存模板AST转换为IFbranches影响而失败；加入不存在的vue/compiler-dom子路径也报导出错误，均为宿主准备错误，保日志不计业务RED。最终只用既有compiler-sfc AST遍历children/branches，实际el-input renderer收到maxlength500，移除无效导入。最后g59-repair-contract-r2-final-frozen-r3.log为3文件13项PASS、0fail/skip、exit0，包含专属8项及原readonly5项，数量不与原20累加。2生产ESLint --max-warnings 0实际exit0、无输出（session15874终态，源此后未改）。
+
+旧manifest不变；r2仅替代Dialog/API/原专属test三资产，Parent及G58和G57其他资产原始pin保持。所有结果仅离线actualsource测试，Rootr2完整types/build与真实维护验收仍待，旧完整检查只代表旧源。

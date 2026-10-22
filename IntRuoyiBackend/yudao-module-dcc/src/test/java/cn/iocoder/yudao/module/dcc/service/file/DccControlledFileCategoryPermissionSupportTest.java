@@ -24,6 +24,12 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileCategoryPermissionSupportTest extends BaseMockitoUnitTest {
+    @org.junit.jupiter.api.BeforeEach void tenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
 
     @Mock
     private DccFileCategoryPermissionRuleMapper permissionRuleMapper;
@@ -41,6 +47,7 @@ class DccControlledFileCategoryPermissionSupportTest extends BaseMockitoUnitTest
     void hasCategoryPermission_matchesDepartmentDescendantRule() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setTenantId(1L).setStatus(0)
                 .setDeptId(11L)
                 .setPostIds(Set.of(20L)));
         doReturn(List.of(
@@ -58,6 +65,7 @@ class DccControlledFileCategoryPermissionSupportTest extends BaseMockitoUnitTest
     void hasCategoryPermission_rejectsWhenNoSubjectMatches() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setTenantId(1L).setStatus(0)
                 .setDeptId(11L)
                 .setPostIds(Set.of(20L)));
         doReturn(List.of(

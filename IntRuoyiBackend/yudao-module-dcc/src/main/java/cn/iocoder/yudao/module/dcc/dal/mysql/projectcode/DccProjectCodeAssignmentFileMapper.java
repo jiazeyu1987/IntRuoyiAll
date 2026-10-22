@@ -40,6 +40,10 @@ public interface DccProjectCodeAssignmentFileMapper extends BaseMapperX<DccProje
                 .inIfPresent(DccProjectCodeAssignmentFileDO::getAssignmentId, assignmentIds));
     }
 
+    default List<DccProjectCodeAssignmentFileDO> selectListByControlledFileId(Long controlledFileId) {
+        return selectList(DccProjectCodeAssignmentFileDO::getControlledFileId, controlledFileId);
+    }
+
     @Select("""
             SELECT DISTINCT latest_file.id
             FROM dcc_project_code_assignment_file assignment_file

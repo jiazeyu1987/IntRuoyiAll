@@ -1,0 +1,9 @@
+# G56 R02 — 无当前受控来源时只显示本版本审批快照
+
+Status: ready_for_closeout_for_Root_review。Root真实NEW未受控GET current-set失败；G55受控后空集不证明此前阶段。正式BE已确认hasCurrentControlledSource:boolean来自Master准确latest受控事实，selected.controlled=false可能工作/历史仍有current，不得猜。
+
+Givenmetadata false，WhenDetailRelationsPanel.load，Then准确显示无可用受控版本/本次申请快照，0currentGET，不初始化currentset或伪造files[]；selectedSource与history真实加载保持。Giventrue（含selected非受控但master有current），Then原latest/current/rowVersion/edit权限行为不变。缺字段准确拒、不fallback。
+
+唯一FEchild+applicationReadDTOvalidator和有限测试，RootBE已freeze，Agent不后端/DB/UI/HTTP/服务/Git。有效watch/API/实际text渲染RED→GREEN及原relations回归，Root一次types/build。
+
+结果：有效RED3项1PASS/2FAIL（旧true仍GET已PASS、false和缺boolean拒缺），GREEN真实selectedhistory加载/false0GETcurrent、selectedfalseavailabilitytrue current原edit、严格wrapper通过；新增actualwarningtemplate Vue渲染，总专属4。初GREENtrueedit fixture未提供source.folder201仅fixture补正式folder不改守卫；旧closuremetadata一次加实际availabilitytrue（source selectedstatus仍保），原断言及historicalcurrent错误/权限失败保持。R02相关23项阶段PASS，最终组合15files90PASS0skip/exit0及7prodlint0warning/exit0，source/testsfreeze。history真实API仍由同childloadHistory，不造空currentcontext；metadatafalse准确警告并切history，字段缺失不默认false，true读current/latest/rowVersion/edit/late逻辑原样。Root同源BE39/3与真实NEW/历史/待生效关联显示另验，本记录非UI实际PASS。

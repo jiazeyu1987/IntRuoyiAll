@@ -1,0 +1,100 @@
+{
+  "status": "LD01_PRODUCT_IDENTITY_BACKEND_FROZEN_FOR_ROOT_REVIEW",
+  "workspace": "MAIN_int_qms",
+  "baselineHead": "ce88a18",
+  "productionFiles": 12,
+  "testFiles": 3,
+  "schemaFiles": 2,
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/projectcode/DccApprovedProductIdentityMapper.java",
+      "bytes": 2084,
+      "sha256": "2fff6bf933d6e3ac24207eb5468182ecdf9f5dfcd1cdd286ff394e53acd3ab1f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductIdentityResolver.java",
+      "bytes": 3344,
+      "sha256": "e42ac37fa6e107cbf9f4d40f4e4c5fa6785db6803d127694c33f5dc6a380c47a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/file/DccControlledFileDO.java",
+      "bytes": 4600,
+      "sha256": "0c9f693c1b58e85b2a66f56b932ccbd636e988d4be7d7de6a041feb8e73e1a62"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/dataobject/productcatalog/DccProductCatalogDO.java",
+      "bytes": 1577,
+      "sha256": "04be3fb008ff2f23e174884f4494c80354f5ff2745464a3c375254eff4dc1533"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileCurrentVersionRespVO.java",
+      "bytes": 3986,
+      "sha256": "e10de3cd3b4c191cabccfa75eab2b3afe66df082e01cb6d9edbe777ea0ed7c8f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+      "bytes": 6861,
+      "sha256": "018c563bd555b506746db6f2eafc1fff59f306941f746a5da6d555b84fb27d0e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccProjectProductRespVO.java",
+      "bytes": 997,
+      "sha256": "2db391cb4e77477c82ff19972b9b281b85723c27cc4062b1b0dda970cdb1a167"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceImpl.java",
+      "bytes": 19839,
+      "sha256": "252c3b0200483460daf70796716185ae890ff3ab27f2bcec2193be7efae1d3df"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 262638,
+      "sha256": "02352d43752293817155ccf4bb2cc3467777f0601d825131b3aa8adf7fe5011d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "bytes": 213889,
+      "sha256": "d0b48b56284937b6e2d6976b69a4a140a7811e2739e4a8afa2c10c801a65d7d2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/assignmentaudit/DccProjectCodeMetadataChangeAuditServiceImpl.java",
+      "bytes": 17580,
+      "sha256": "ce3f5d92d76e8a3bdf145bf7bd0dea11967c9022a8f02a20b6fe8d1bf87ea159"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.java",
+      "bytes": 10271,
+      "sha256": "e1bfc1f515ca3243c12ee25c4c72af1c6e80643ed895b160a9c10270859cb237"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "bytes": 291149,
+      "sha256": "e89e74ec730e752676547a60d57924c64dd37a3e37acbaf7b77a32cdc950fc5c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileMetadataUpdateServiceTest.java",
+      "bytes": 31663,
+      "sha256": "9376f3390324fff75ae3572de8c19f778b3b043a18be41a1ab761eca715d24b2"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/G46ApprovedProductIdentityTest.java",
+      "bytes": 9595,
+      "sha256": "4538235de7ec1770146b48b9cb795eef5b671db2c7e67ebd73bb4d7dd035749e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql",
+      "bytes": 126289,
+      "sha256": "1b027039935f3d3a991151d3c677b5a1ccfc950b94939d6cbd4694095c09375c"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261004_dcc_product_identity_source.sql",
+      "bytes": 1576,
+      "sha256": "049d60e2e8f4a7999ebc213cda77154fa78c315bff296f78be127462977a2760"
+    }
+  ],
+  "schemaExecutionAllowedByThisAgent": false,
+  "sourceProtocol": "MDM_MASTER exact realMDM; DCC_CATALOG verifiedcurrenttenant COMPLETEDrequest+ACTIVErelation+catalog exactrawcode/name; UNBOUND onlyno modern declaration. productMasterId nevercatalog; 3catalogprovenanceIDs separate. AllHTTP IDsstrings.",
+  "frontendOwnership": "No FE edits by this agent; separate Root assigned owner.",
+  "oldRowDML": false,
+  "no14RuleForApprovedDccProducts": true
+}

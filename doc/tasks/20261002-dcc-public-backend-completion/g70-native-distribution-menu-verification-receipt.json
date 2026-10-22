@@ -1,0 +1,53 @@
+{
+  "status": "PASS_PREPARED_OFFLINE_ONLY",
+  "productionSql": {
+    "path": "IntRuoyiBackend/sql/mysql/20261006_dcc_native_distribution_menu.sql",
+    "bytes": 5672,
+    "sha256": "c3d947651bf3f279f00de14b3e6af939c6ebd94914ba2596c8f631066b417362"
+  },
+  "offlineTests": {
+    "command": "python doc/tasks/20261002-dcc-public-backend-completion/g70-menu-contract-test.py",
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "cliExitCode": 0,
+    "logSha256": "f7dc1c65d9bf1c31f1cb9a0be1fc0c0840290cbe7f978a8864c6557dbd2fbb5e"
+  },
+  "red": {
+    "reason": "required exact distribution permission seed missing",
+    "tests": 5,
+    "failures": 1,
+    "errors": 0,
+    "logSha256": "627fc196cae148677c8de89b572a204461c4d9ed6586d81864f25c14ac61b836"
+  },
+  "releasePolicyClosure": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure.json",
+    "sha256": "593ae6d550be0d19a705b79136d94c8d11934ec1784632418b6e12f2660e88d4",
+    "cliExitCode": 0,
+    "dependencyCount": 5,
+    "onlyNewScriptMayExecute": true
+  },
+  "sourceFactsFromRoot": {
+    "reservedMenu6839": "ABSENT",
+    "parent6800": "ACTIVE_DIRECTORY_EXISTING_DOCROLE_GRANT",
+    "retired6808": "UNCHANGED",
+    "notGranted6819": true,
+    "targetTenant": "1",
+    "targetRole": "910233",
+    "roleCode": "doc_control"
+  },
+  "maxWrites": {
+    "newMenu": 1,
+    "newRoleMenu": 1,
+    "oldRows": 0,
+    "otherTenants": 0,
+    "rolesUsersPackagesCategory": 0
+  },
+  "exactUiCreatedMenuReuse": "positive ID is returned only after all immutable business fields match; preserve old audit metadata",
+  "actualDbRuns": 0,
+  "actualFirstRepeatRollbackVerified": false,
+  "actualMenuId": null,
+  "actualUiPermissionProof": false,
+  "mavenRuns": 0,
+  "notes": "Pure proposal oracle + actualSQLstatic contract is not actual MySQL execution; Root sole clone/source/UI"
+}

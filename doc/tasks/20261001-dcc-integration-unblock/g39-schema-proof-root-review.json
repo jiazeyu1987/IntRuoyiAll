@@ -1,0 +1,17 @@
+{
+  "status": "ACTUAL_COMPLETED_SOURCE_SCHEMA_PROOF_SEALED_NOT_LEGACY_ACTIVATION",
+  "proof": {
+    "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g39-source-schema-proof\\schema-proof.json",
+    "sha256": "6532d514443b04080698be6eb6b488dbc4781b051dde748c15434a87852d9f76",
+    "bytes": 1414
+  },
+  "validator": {
+    "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g39-source-schema-proof\\validator-receipt.json",
+    "sha256": "16565ba789b665aff0805d786a2679090d68ae13df0007de900862d07059f87d",
+    "bytes": 788
+  },
+  "currentTables": 3,
+  "actualReadOnlyShowCreateQueries": 3,
+  "databaseWrites": false,
+  "actualQualityApproved": false
+}

@@ -1,0 +1,10 @@
+{
+  "status": "ACTUAL_FULL_TYPES_FAILED_ONE_IMPORT_BINDING_ERROR",
+  "sessionId": 10656,
+  "exitCode": 2,
+  "log": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-types.log",
+  "error": "detail/index.vue(5169,22):Cannot find name buildControlledFileTraceabilityPath",
+  "ownerFix": "existing presentation helper import only",
+  "oldBuildSession": 23344,
+  "finalTypesBuild": "AWAITING_OWNER_IMPORT_SEAL"
+}

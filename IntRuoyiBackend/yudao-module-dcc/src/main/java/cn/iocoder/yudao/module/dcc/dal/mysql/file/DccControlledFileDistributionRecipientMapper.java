@@ -11,6 +11,13 @@ import java.util.List;
 @Mapper
 public interface DccControlledFileDistributionRecipientMapper extends BaseMapperX<DccControlledFileDistributionRecipientDO> {
 
+    @Select("SELECT * FROM dcc_controlled_file_distribution_recipient WHERE tenant_id=#{tenantId} AND id=#{id} AND deleted=0 FOR UPDATE")
+    DccControlledFileDistributionRecipientDO selectByIdAndTenantForUpdate(@Param("tenantId") Long tenantId, @Param("id") Long id);
+
+    @Select("SELECT * FROM dcc_controlled_file_distribution_recipient WHERE tenant_id=#{tenantId} AND distribution_id=#{distributionId} AND deleted=0 ORDER BY id FOR UPDATE")
+    List<DccControlledFileDistributionRecipientDO> selectListByDistributionIdForUpdate(@Param("tenantId") Long tenantId,
+                                                                                     @Param("distributionId") Long distributionId);
+
     default List<DccControlledFileDistributionRecipientDO> selectListByDistributionId(Long distributionId) {
         return selectList(DccControlledFileDistributionRecipientDO::getDistributionId, distributionId);
     }

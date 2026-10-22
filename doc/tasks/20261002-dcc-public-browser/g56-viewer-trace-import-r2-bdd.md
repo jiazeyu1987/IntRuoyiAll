@@ -1,0 +1,9 @@
+# G56 r2 — 正文档案路由辅助函数导入装配
+
+Status: ready_for_closeout_for_Root_review。Root真实完整类型session10656退出2，唯一错误为detail/index.vue(5169,22) Cannot find name buildControlledFileTraceabilityPath。F03实际handler已调用现正式helper，生产import列表漏添加；unit宿主提供helper未覆盖装配，不能用此前90PASS冒完整类型PASS。
+
+Given现正文档案handler引用buildControlledFileTraceabilityPath而生产SFC未导入，WhenRoot完整类型检查，Then唯一TS缺名失败为本修复有效RED。Root旧build23344未终态前源码保持冻结；Root通知终态后只添加现`../view/presentation` named import，不改handler/路线/权限或其余生产/测试。
+
+补后本Agent仅原2viewer行为回归及Parent lint，Root统一新完整types/build作为实际GREEN；不写只镜像字符串的新test，不重复全部90。新r2manifest声明唯Parent import字节变化、其余原source/testpins准确保持、旧c132seal保留。本装配修正不是新增业务UI或真实页面PASS，Agent无DB/API/browser/服务/Git。
+
+Root旧build23344实际退出0后授权实施，旧build缺import时的Vite0不代r2类型/构建。唯一添加生产namedimport；原2viewer行为实际exit0/2PASS/0fail/skip，Parent lint终态exit0/空日志。Source/test再次freeze，Root新统一types/build待确认，不把本地行为PASS写成完整类型GREEN。旧其余6source/9tests逐rawSHA/bytes保持，r2单列指纹。

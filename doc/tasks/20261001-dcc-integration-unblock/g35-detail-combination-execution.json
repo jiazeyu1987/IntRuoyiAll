@@ -1,0 +1,19 @@
+{
+  "kind": "affected_public_detail_combination",
+  "exitCode": 1,
+  "files": [
+    "tests/unit/dcc-detail-integration.test.cjs",
+    "tests/unit/dcc-detail-closure.test.cjs",
+    "tests/unit/dcc-detail-application-round-context.test.cjs",
+    "tests/unit/dcc-detail-training-context.test.cjs",
+    "tests/unit/dcc-working-browser-navigation.test.cjs",
+    "tests/unit/dcc-browser-application-entry.test.cjs",
+    "tests/unit/dcc-application-read-loader.test.cjs",
+    "tests/unit/dcc-application-evidence-panel.test.cjs",
+    "tests/unit/dcc-approval-dialog-context.test.cjs",
+    "tests/unit/dcc-approval-file-owner.test.cjs",
+    "tests/unit/dcc-working-attributes-api.test.cjs"
+  ],
+  "log": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g35-detail-combination.log",
+  "actualBrowserRun": false
+}

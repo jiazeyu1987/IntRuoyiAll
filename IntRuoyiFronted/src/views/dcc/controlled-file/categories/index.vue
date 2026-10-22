@@ -1,6 +1,15 @@
 <template>
   <ContentWrap>
+    <ControlledFileWorkbenchEntry class="mb-12px" />
     <el-tabs v-model="activeTab" class="dcc-category-tabs">
+      <el-tab-pane
+        v-if="checkPermi(['dcc:controlled-file:category:manage'])"
+        label="文件类型"
+        name="file-types"
+        lazy
+      >
+        <FileTypeTaxonomyPanel v-if="activeTab === 'file-types'" />
+      </el-tab-pane>
       <el-tab-pane label="类别列表" name="list" lazy>
         <div class="category-tab-pane">
           <UnifiedListTemplate
@@ -103,7 +112,11 @@
                   v-bind="sortColumnAttrs('fileTypeTaxonomy')"
                 >
                   <template #default="{ row }">
-                    {{ row.fileTypeTaxonomyId ? taxonomyPathMap.get(row.fileTypeTaxonomyId) || '-' : '-' }}
+                    {{
+                      row.fileTypeTaxonomyId
+                        ? taxonomyPathMap.get(row.fileTypeTaxonomyId) || '-'
+                        : '-'
+                    }}
                   </template>
                 </el-table-column>
                 <el-table-column
@@ -199,6 +212,14 @@
         />
       </el-tab-pane>
 
+      <el-tab-pane label="类别权限" name="permission-rules" lazy>
+        <CategoryPermissionRulesTab
+          v-if="isTabPaneMounted('permission-rules')"
+          :active="activeTab === 'permission-rules'"
+          :category-revision="categoryRevision"
+        />
+      </el-tab-pane>
+
       <el-tab-pane label="目录授权" name="directory-auth" lazy>
         <DirectoryAuthorizationTabPanel
           v-if="isTabPaneMounted('directory-auth')"
@@ -234,6 +255,9 @@
 </template>
 
 <script lang="ts" setup>
+import { checkPermi } from '@/utils/permission'
+import ControlledFileWorkbenchEntry from '../shared/ControlledFileWorkbenchEntry.vue'
+import FileTypeTaxonomyPanel from '../basic-data/file-type-taxonomy/index.vue'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
 import { handleTree } from '@/utils/tree'
@@ -249,7 +273,10 @@ import {
   type DccFileTypeTaxonomyVO
 } from '@/api/dcc/controlledFile/fileTypeTaxonomies'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition,
@@ -283,6 +310,9 @@ const CategoryReviewMatrixTable = defineAsyncComponent(
 const CategoryViewMatrixTable = defineAsyncComponent(
   () => import('./components/CategoryViewMatrixTable.vue')
 )
+const CategoryPermissionRulesTab = defineAsyncComponent(
+  () => import('./components/CategoryPermissionRulesTab.vue')
+)
 const DirectoryAuthorizationTabPanel = defineAsyncComponent(
   () => import('../components/DirectoryAuthorizationTabPanel.vue')
 )
@@ -304,9 +334,11 @@ interface CategoryListRow extends ControlledFileCategoryVO {
 const route = useRoute()
 const router = useRouter()
 const TAB_NAMES = [
+  'file-types',
   'list',
   'review-matrix',
   'view-matrix',
+  'permission-rules',
   'directory-auth',
   'distribution-rules',
   'training-rules'
@@ -330,7 +362,9 @@ const categoryRevision = ref(0)
 const directories = ref<ControlledFileDirectoryVO[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const message = useMessage()
-const currentDirectoryId = computed(() => parsePositiveRouteQueryId(route.query.directoryId) || undefined)
+const currentDirectoryId = computed(
+  () => parsePositiveRouteQueryId(route.query.directoryId) || undefined
+)
 
 const queryParams = reactive<{
   code?: string
@@ -456,8 +490,12 @@ const {
 } = useUserTableColumns('dcc.controlledFile.permission.categories', categoryDefaultColumns)
 
 const filteredCategories = computed(() => {
-  const codeKeyword = String(queryParams.code || '').trim().toLowerCase()
-  const nameKeyword = String(queryParams.name || '').trim().toLowerCase()
+  const codeKeyword = String(queryParams.code || '')
+    .trim()
+    .toLowerCase()
+  const nameKeyword = String(queryParams.name || '')
+    .trim()
+    .toLowerCase()
   return categoryRowsWithTaxonomyStage.value.filter((item) => {
     const itemCode = String(item.code || '').toLowerCase()
     const itemName = String(item.name || '').toLowerCase()
@@ -572,7 +610,6 @@ const openCategoryUploadPolicyDialog = async (row: ControlledFileCategoryVO) => 
   }
   dialogRef.open(row)
 }
-
 
 const handleDelete = async (row: ControlledFileCategoryVO) => {
   if (!row.id) {

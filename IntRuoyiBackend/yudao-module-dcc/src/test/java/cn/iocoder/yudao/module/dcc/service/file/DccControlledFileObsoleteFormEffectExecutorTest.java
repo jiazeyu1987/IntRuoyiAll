@@ -31,9 +31,11 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
 
     @Mock
     private DccControlledFileObsoleteService obsoleteService;
+    @Mock private DccObsoleteFormExecutionPreparationService executionPreparation;
 
     @InjectMocks
     private DccControlledFileObsoleteFormEffectExecutor executor;
+    @org.junit.jupiter.api.BeforeEach void wireActualPreparationPort(){org.springframework.test.util.ReflectionTestUtils.setField(executor,"executionPreparation",executionPreparation);}
 
     @Test
     void lifecyclePreflightValidatesDccObsoleteBeforeBpmStarts() {
@@ -44,6 +46,20 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
         assertTrue(precheck.isPassed());
         verify(obsoleteService).precheckObsoleteControlledFile(eq(99L), eq(900L), any());
         verify(obsoleteService, never()).applyApprovedObsoleteControlledFile(any(), any(), any());
+    }
+
+    @Test
+    void futureControlledVersionCanUseTheSameObsoleteApprovalEffectBoundary() {
+        var request=instance("DCC","CONTROLLED_FILE","OBSOLETE","CONTROLLED_PENDING_EFFECTIVE");
+        request.setFormData(formData("未来受控版本需作废"));
+        assertTrue(executor.supports(request));
+        assertTrue(executor.preflight(request).isPassed());
+        approvedEffectStage(request);
+        assertTrue(executor.execute(request,"future-obsolete-effect").isSuccess());
+        verify(obsoleteService).precheckObsoleteControlledFile(eq(99L),eq(900L),any());
+        verify(obsoleteService).applyApprovedObsoleteControlledFile(eq(99L),eq(900L),any());
+        var unsigned=instance("DCC","CONTROLLED_FILE","OBSOLETE","PENDING_DOC_CONTROL_REVIEW");
+        assertFalse(executor.supports(unsigned));
     }
 
     @Test
@@ -84,6 +100,7 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
     @Test
     void executeDccObsolete_appliesExistingDomainServiceAfterApprovalOnly() {
         FormActionInstance instance = dccObsoleteInstance();
+        approvedEffectStage(instance);
 
         FormBusinessEffectResult result = executor.execute(instance, "IDEM-DCC-OBSOLETE-1");
 
@@ -93,11 +110,14 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
                 ArgumentCaptor.forClass(DccControlledFileObsoleteReqVO.class);
         verify(obsoleteService).applyApprovedObsoleteControlledFile(eq(99L), eq(900L), reqCaptor.capture());
         assertEquals("no longer effective", reqCaptor.getValue().getReason());
+        assertEquals("obsolete-round",reqCaptor.getValue().getApprovalProcessInstanceId());
+        assertEquals("V1.0",reqCaptor.getValue().getApprovedVersionNo());
     }
 
     @Test
     void executeDccObsolete_domainFailureBecomesQueryableEffectFailure() {
         FormActionInstance instance = dccObsoleteInstance();
+        approvedEffectStage(instance);
         doThrow(new IllegalStateException("obsolete domain effect failed"))
                 .when(obsoleteService).applyApprovedObsoleteControlledFile(eq(99L), eq(900L), any());
 
@@ -105,6 +125,16 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
 
         assertFalse(result.isSuccess());
         assertEquals("obsolete domain effect failed", result.getFailureReason());
+    }
+
+    @Test
+    void executeWithoutActualBpmBindingCannotApplyAnApprovedObsoleteFact() {
+        FormActionInstance instance=dccObsoleteInstance();
+        instance.setStatus(cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus.PENDING_EFFECT);
+        instance.setBpmBinding(null);
+        var result=executor.execute(instance,"missing-approval-binding");
+        assertFalse(result.isSuccess());
+        verify(obsoleteService,never()).applyApprovedObsoleteControlledFile(any(),any(),any());
     }
 
     @Test
@@ -122,6 +152,7 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
         FormActionInstance instance = dccObsoleteInstance();
 
         executor.onPendingApprovalStarted(instance);
+        verify(executionPreparation).onPendingApprovalStarted(instance);
 
         verify(obsoleteService, never()).precheckObsoleteControlledFile(any(), any(), any());
         verify(obsoleteService, never()).applyApprovedObsoleteControlledFile(any(), any(), any());
@@ -141,6 +172,11 @@ class DccControlledFileObsoleteFormEffectExecutorTest extends BaseMockitoUnitTes
         FormActionInstance instance = instance("DCC", "CONTROLLED_FILE", "OBSOLETE", "ACTIVE");
         instance.setFormData(formData("no longer effective"));
         return instance;
+    }
+
+    private void approvedEffectStage(FormActionInstance instance) {
+        instance.setBpmBinding(new cn.iocoder.yudao.module.bpm.formcenter.model.FormBpmBinding("obsolete-round",null));
+        instance.setStatus(cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus.PENDING_EFFECT);
     }
 
     private FormActionInstance instance(String systemCode, String objectType, String actionCode, String objectState) {

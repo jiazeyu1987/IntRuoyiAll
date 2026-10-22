@@ -1,0 +1,32 @@
+{
+  "status": "FINITE_INDEPENDENT_STATIC_MAINLINE_NAVIGATION_REVIEW_NO_NEW_FINDING",
+  "productionEdits": 0,
+  "testsRun": 0,
+  "browserInvocations": 0,
+  "MavenRuns": 0,
+  "files": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 298909,
+      "sha256": "77635fadf1bb0e3ae9b7e0e21f25a0b7dde911739c567468924984c5045589aa"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/submitted-application-navigation.ts",
+      "bytes": 1281,
+      "sha256": "e06cc5905122eca46f28b60b71ca0d5fed9bdbaf12343942f53204d258aed2eb"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-submitted-application-navigation.test.mjs",
+      "bytes": 7169,
+      "sha256": "0008dc617ce9e1cb37e41f6d94950d5339eba98cb1e0f49f844b971c7760e770"
+    },
+    {
+      "path": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "bytes": 67878,
+      "sha256": "c6a031abf0836a5aa56471ebfe8f3ffd749da6adb2c3bef9614a6747d944bab4"
+    }
+  ],
+  "reportedOwnerTests": 7,
+  "ownerTestsIndependentlyReexecuted": false,
+  "actualGuardUnchanged": true
+}

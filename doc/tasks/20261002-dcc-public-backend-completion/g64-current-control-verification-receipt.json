@@ -1,0 +1,65 @@
+{
+  "status": "PASS_CURRENT_ISOLATED_NATIVE_CONTROL_REMEDIATION",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T02:23:06+08:00",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am -Dtest=DccRelationControlledEventIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+  "counts": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "testSource": {
+    "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+    "sha256": "e58100f503f02cbc49034fa59e04f90f7992cb03c1010c7e214dedbcdfe51b5f",
+    "priorSha256": "2ec61791112acd08c97dba157d3e06f092008c24cf5d2b07ca7c061a05a7f551"
+  },
+  "rawXml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest.xml",
+    "sha256": "029ade1e3f3fcfb8b5bd84cafb41ab2e2b799707aa9dc93f52d9a7dba3c087dd"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-current-control-green-r2.log",
+    "sha256": "1f83041b5338a4a7abbcba587d48913cddd3cea837eb61d4b92d8b991fc725c1"
+  },
+  "sourceProductionChanged": 0,
+  "priorG64ProductionTestSourceSealsUnchanged": true,
+  "originalCasesPreserved": 15,
+  "addedLateControlCase": 1,
+  "actualComponents": [
+    "DCC Lifecycle",
+    "Shared Adapter/Core/StateMachine and mappers",
+    "Flowable signed-assignment task/process identity",
+    "Relation arrangement/event/task/outbox/current projection SQL",
+    "Gxp append service and DB",
+    "NotifyMessageSendApi/NotifySendService/NotifyMessageService and DB",
+    "afterCommit scheduler and REQUIRES_NEW dispatcher"
+  ],
+  "isolatedPorts": [
+    "account/template/permission query",
+    "signature authentication/HMAC",
+    "upstream approval/finalization readiness"
+  ],
+  "proofBoundaries": [
+    "Typed REVISION+CONTROLLED_FILE source with exact current Flowable round",
+    "Two related masters, only selected recipient/task/outbox at control",
+    "Shared CONTROLLED_PENDING_EFFECTIVE closes only open flag; original ACTIVE remains",
+    "Late outer control failure rolls DCC/shared/event/task/outbox/audit facts back and schedules no message",
+    "Real official notification DB only after commit; repeated event does not duplicate",
+    "Existing source-store/finalization readiness fixtures are explicit preconditions; not complete native v4 route or real frontend signature proof"
+  ],
+  "fixtureAttempts": [
+    {
+      "path": "g64-current-control-fixture-red.xml",
+      "errors": 3,
+      "cause": "missing mandatory Adapter"
+    },
+    {
+      "path": "g64-current-control-green-attempt1.xml",
+      "errors": 16,
+      "cause": "missing current unbound-read BpmTaskService/Definition dependency ports"
+    }
+  ],
+  "runtimeE2eComplete": false,
+  "mavenOwnership": "FREE_FROZEN_NO_MORE_SOURCE_OR_TARGET_CHANGES"
+}

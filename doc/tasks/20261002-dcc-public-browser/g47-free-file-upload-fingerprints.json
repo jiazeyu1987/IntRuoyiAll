@@ -1,0 +1,127 @@
+{
+  "status": "LD02_G47_DIRECT_FILETYPE_REAL_FILENAME_FROZEN_FOR_ROOT_REVIEW",
+  "workspace": "C:/IntRuoyiAll-int_main",
+  "branch": "int_qms",
+  "productionFiles": 5,
+  "testFiles": 2,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 111768,
+      "sha256": "61d1890af9f1433c6557f6bc239589a63b7ae5e66c10f3b5dd89e048f5fea15c"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/file-type-options.ts",
+      "bytes": 2097,
+      "sha256": "ca3f915d98aa7838d7d125ecc85992a4aa94cdbc7546ba66ae3cff61b2ca7122"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19012,
+      "sha256": "9ac17c2bb5170b86f05b264a2d4b951bec313614971ca7f27ef3cdaa5713575f"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 85771,
+      "sha256": "8bc74794b165af100685a226bc8525afe80e73d9396edf3e548c220ff6f13eaf"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/fileTypeTaxonomies.ts",
+      "bytes": 1776,
+      "sha256": "9304ce47281aff0ad4727d63bdc5ebba7de151262c84bb322c2f66e9571350e5"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9673,
+      "sha256": "5504f09027b859f22f329219dbed632e86f68e2961cc478d8ab2f3ab9a0e3593"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-long-contract.test.cjs",
+      "bytes": 3058,
+      "sha256": "ee601b4e82c0d9dc3ef1c79bbd511a69e3e38e2b1e2ed03e2e5636128435cd2c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-bdd.md",
+      "bytes": 2640,
+      "sha256": "1df4abef38cb3b43967c8dcda2440e2c6ec54a233acb8ce454b3dacfd8961d34"
+    }
+  ],
+  "supersedes": "Declared uploader/relatedtypeandLongwrapper/draft source fromG46; oldmanifest kept unchanged. Productidentityhelper/payloadserverauthority remains.",
+  "oldG46ManifestSha256": "9361d82695a043912d1af8a71c9c2bb9bfbfbf66998a3525f42f0ac08d2082be",
+  "LD01ProductIdentityHelperUnchanged": {
+    "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/project-product-identity.ts",
+    "bytes": 3012,
+    "sha256": "5f0562d96a02899d7c6b993483e507c64f12feddd142fc4ea4e18c659a73ec69"
+  },
+  "acceptedBlockerDisplayUnchanged": true,
+  "NASDirectoryStage3Changed": false,
+  "verification": {
+    "RED": {
+      "tests": 4,
+      "failures": 4,
+      "exitCode": 1
+    },
+    "initialGreenFixtureIssues": [
+      "missingisExternalReview handlerdependency",
+      "ASTselectedexternalfilenameinsteadcontrolledbranch"
+    ],
+    "finalRegression": {
+      "files": 8,
+      "tests": 55,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "ContainspriorLD01/uploadcases notaddedagain."
+    },
+    "ownedLint": {
+      "productionFiles": 5,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-red.log",
+      "bytes": 5453,
+      "sha256": "81aa9720b1b613fead7096dd45ff189a3c2eac2f38e9f8254b7cee7280f50c27"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-green.log",
+      "bytes": 2963,
+      "sha256": "23d8e003da323d9c823d803a6dd4e4c8203b57f3dad28488442264420c8a630e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-regression.log",
+      "bytes": 6108,
+      "sha256": "c675dd27b30beecf9a43f3eeeaec7cf012450078402581486198ede1e2f4cbee"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-regression-r2.log",
+      "bytes": 5531,
+      "sha256": "1edd21694070a9dd5a0d10a88200b5bf51d7277839394f04e01d32bdbf89aba6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-final.log",
+      "bytes": 5631,
+      "sha256": "4521fcf66655fe15d7305468c0db580b86ea88d1fd22ea514ee10e9d7198e67e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-lint.log",
+      "bytes": 295,
+      "sha256": "1ac7cea56bf444ba4bccedcf37a2185512a27b134852d720d1fdd19989c56b90"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g47-free-file-upload-lint-r2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "actualHTTP": 0,
+  "browserRuns": 0,
+  "DBActions": 0,
+  "MavenRuns": 0,
+  "serviceActions": 0,
+  "GitMutations": 0,
+  "fullTypeOrBuildRuns": 0,
+  "RootRemaining": "review/types/build/backend andactualUI"
+}

@@ -1,0 +1,69 @@
+{
+  "status": "G68_R2_BUSINESS_WORDING_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 321675,
+      "sha256": "f8f8cfaaa9abbefeb08ba1c39ea86316680f62f81750251d006cdd82d03bb312"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-withdrawn-revision-hint.test.cjs",
+      "bytes": 7229,
+      "sha256": "ce74e7338cd34af96cd332563c5158db6fa0ac8c8f6de382fdd6e59058844ca5"
+    }
+  ],
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-fingerprints.json",
+    "bytes": 4258,
+    "sha256": "ddec94766832a4d6445f3769ef8ea894c83dd633be19f6ba7a9258a9444b425e"
+  },
+  "protectedNotificationStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json",
+    "bytes": 5053,
+    "sha256": "810f2d66ad1c8cfd85f943c518e3cfbc499bb1679752cdd783b1eee9834383c0"
+  },
+  "verification": {
+    "kind": "Low-impact copy edit,no newBDD/test or businessbehavior",
+    "finalRegression": {
+      "files": 5,
+      "tests": 16,
+      "pass": 16,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Same prior16,nothistoryadditive"
+    },
+    "ownedLint": {
+      "files": 1,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    "typesBuild": {
+      "status": "Not run per explicit Root scope,no types/API/logic change"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-r2-final.log",
+      "bytes": 2106,
+      "sha256": "46e4b82f543cb349736a641411a7546bff77725db8c276c7dd2d6abfc2ad4dad"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-r2-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "copyChange": {
+    "from": "责任：原申请人；重提目标由正式服务保持，原撤回记录及签名历史保留",
+    "to": "责任：原申请人；重新提交仍申请原目标版本，原撤回记录及签名历史保留",
+    "unchanged": "All eligibility/stage/menu/commands/route/sourcefields identical; existing assertion matchesbusinesswording"
+  },
+  "supersedes": "Only same-stage Parent literal bytes and existingtest expectedregex; prior G68 manifest/BDD preserved,otherstage assets unchanged",
+  "limitations": [
+    "No new businessaction/runtimeUI verification,Rootfinalsourcepin/HMRacceptance owner",
+    "No fulltypes/build/Git/UI/DB/service/runtime/Maven by agent,sharedtaskin_progress"
+  ]
+}

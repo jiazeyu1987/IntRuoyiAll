@@ -1,0 +1,95 @@
+{
+  "status": "EXACT_ACTUAL_JUNIT_BYTE_COPY_VERIFIED_RAW_NOTCOMMITTED",
+  "files": [
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "sha256": "98e2d21bbcc156a4551da5e089eb07a712dc84a6770903486a77af0648fbc61d"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "sha256": "0f3454fef89fd5c269118fd2df1fd8fd0f7e44a485cf3e371e3b5452b4513753"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "sha256": "4338a61eff665aeb872fa3524569a7698d6ea44c9fb949e4a6563832cc7d1066"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativePlatformLifecycleTransactionTest.xml",
+      "sha256": "9fc9fb90fc50396e77e8fa4694baa7fd02909d323fc21ff7af2e7e1df3374604"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest.xml",
+      "sha256": "43d588c3f3f83990e1e33ea64872ddc05ab2895e134c4ec4de2bfda6e281421c"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+      "sha256": "30f2d8f2702663bca32541bfeb2877c32e38497b04fce855619ccf893162c939"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "sha256": "5cac2cc90cc843f085724c7404b9165c98f19d7c714fc37412c2a179d95c7ada"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentRegistrationProjectionContractTest.xml",
+      "sha256": "a3ba6f6b0c20e2648705eac551794c397f2dde8ed863b7d8d43d9f36c4433a42"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-final-r2-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "sha256": "f1dc4f9bfe36032407232182169a3754bbe7cf3a8179833e21769f9d278f923a"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-repair-final-r4-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-repair-final-r4-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "sha256": "d2a8647772f35f0c39c48260ef36f1acaa8f401ddf23465de7c04d0199953613"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g59-jdbc-event-time-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g59-jdbc-event-time-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+      "sha256": "ffa873dadebe4412de551d50c3373014aa5c764008d7b425ec7d83c45875f552"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledContentAdapterTest.xml",
+      "sha256": "d2d168bc80b96f195bd32f4e1082d9c916a7f33bc243059ba12c31e403f607db"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml",
+      "sha256": "b090afa0bdaecb34c93a83ccfb04e10f8577d4dfe47a9f65d81663e4cf350da8"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml",
+      "sha256": "8785af14e991f5e5a87bd4c0b2321dab0ba41eafd4b7eade4026c9adfbbe2d5a"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccPendingObsoletePlatformTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccPendingObsoletePlatformTransactionTest.xml",
+      "sha256": "6daf7e7e447a37cb54c1951bc8347f0abc5046d29f96041e7dbe788392520385"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml",
+      "sha256": "002dc4ee9e89cf63083726749f684abf96a834db5eb339cc248bcdcb55766ab8"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentLifecycleCoreServiceTest.xml",
+      "sha256": "271d592064a2113277405a942a8b91978ea145676e9f07ead1a39e1f5a5be458"
+    },
+    {
+      "source": "doc\\tasks\\20261002-dcc-public-backend-completion\\g60-final-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "archive": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g60-final-evidence\\g60-final-junit\\TEST-cn.iocoder.yudao.module.system.service.controlledcontent.ControlledContentStateMachineTest.xml",
+      "sha256": "c8fb2df20d6ef091b434f496b79373de5dd8b7bec6e08ede89787bbe53385cca"
+    }
+  ]
+}

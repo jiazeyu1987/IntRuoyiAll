@@ -1,3 +1,6 @@
+DELETE FROM dcc_workflow_obsolete_archive;
+DELETE FROM dcc_workflow_lifecycle_event;
+DELETE FROM `dcc_controlled_file_name_claim`;
 DELETE FROM `dcc_registration_certificate_access_audit`;
 DELETE FROM `dcc_registration_certificate_download_consumption`;
 DELETE FROM `dcc_registration_certificate_grant`;
@@ -36,6 +39,7 @@ DELETE FROM `dcc_project_code_import_batch`;
 DELETE FROM `dcc_project_file_template_item`;
 DELETE FROM `dcc_project_access_rule`;
 DELETE FROM `dcc_project_code`;
+DELETE FROM `intern_user_time_maintenance_audit`;
 DELETE FROM `dcc_controlled_file_obsolete_audit`;
 DELETE FROM `dcc_electronic_signature_authorization`;
 DELETE FROM `dcc_controlled_file_training_view_session`;
@@ -55,6 +59,7 @@ DELETE FROM `dcc_controlled_file_upload_policy`;
 DELETE FROM `dcc_controlled_file_watermark_trace`;
 DELETE FROM `dcc_controlled_file_access_event`;
 DELETE FROM `dcc_controlled_file_stamp`;
+DELETE FROM `dcc_controlled_file_task_assignee_snapshot`;
 DELETE FROM `dcc_controlled_file_route_snapshot`;
 DELETE FROM `dcc_controlled_file_checkout`;
 DELETE FROM `dcc_publication_impact_audit`;
@@ -84,3 +89,33 @@ DELETE FROM `dcc_directory_access_rule`;
 DELETE FROM `dcc_file_type_taxonomy`;
 DELETE FROM `dcc_file_category`;
 DELETE FROM `dcc_file_directory`;
+
+DELETE FROM dcc_project_application_attributes;
+DELETE FROM dcc_folder_template_history;
+DELETE FROM dcc_project_folder;
+DELETE FROM dcc_folder_template;
+DELETE FROM dcc_project_product_relation;
+DELETE FROM dcc_project_product_identity_claim;
+DELETE FROM dcc_project_product_create_request;
+DELETE FROM dcc_product_catalog;
+DELETE FROM dcc_product_catalog_source_sequence;
+INSERT INTO dcc_product_catalog_source_sequence(data_source,last_row_no) VALUES('瑛泰产品',1);
+DELETE FROM dcc_distribution_dispatch_attempt;
+DELETE FROM dcc_distribution_batch;
+DELETE FROM dcc_relation_stage_member;
+DELETE FROM dcc_relation_stage_snapshot;
+DELETE FROM dcc_application_round_link;
+
+DELETE FROM dcc_project_file_placement;
+
+DELETE FROM dcc_project_reviewer_config;
+
+DELETE FROM dcc_legacy_source_name_evidence;
+DELETE FROM dcc_source_name_reservation;
+DELETE FROM dcc_legacy_source_name_scope;
+
+DELETE FROM dcc_project_folder_storage_mapping;
+DELETE FROM dcc_obsolete_form_runtime_obligation;
+DELETE FROM dcc_obsolete_form_runtime_snapshot;
+
+DELETE FROM `dcc_controlled_file_preview_view_session`;

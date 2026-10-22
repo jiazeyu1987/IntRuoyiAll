@@ -1,0 +1,181 @@
+{
+  "g07-three-version-green.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest"
+      },
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest"
+      },
+      {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest"
+      }
+    ],
+    "executions": 31
+  },
+  "g07-final-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccActivationJobRegistrationContractTest"
+      },
+      {
+        "tests": 59,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest"
+      },
+      {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccFrozenApprovalSignaturesTest"
+      },
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccLifecycleVisibilityAuditTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest"
+      },
+      {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest"
+      },
+      {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteEvidenceGuardTest"
+      }
+    ],
+    "executions": 118
+  },
+  "g07-complete-regression.log": {
+    "buildSuccess": true,
+    "classes": [
+      {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccActivationJobRegistrationContractTest"
+      },
+      {
+        "tests": 59,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest"
+      },
+      {
+        "tests": 240,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest"
+      },
+      {
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccFrozenApprovalSignaturesTest"
+      },
+      {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccLifecycleVisibilityAuditTest"
+      },
+      {
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccObsoleteTaskReadinessTest"
+      },
+      {
+        "tests": 15,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationControlledEventIntegrationTest"
+      },
+      {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccThreeControlledVersionActivationTest"
+      },
+      {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest"
+      },
+      {
+        "tests": 14,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest"
+      },
+      {
+        "tests": 8,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteEvidenceGuardTest"
+      }
+    ],
+    "executions": 368
+  }
+}

@@ -33,6 +33,9 @@ public class DccOnlyOfficeConversionClientImpl implements DccOnlyOfficeConversio
         conversionPayload.put("outputtype", "pdf");
         conversionPayload.put("title", command.title());
         conversionPayload.put("url", command.documentUrl());
+        if ("xls".equals(command.fileType()) || "xlsx".equals(command.fileType())) {
+            conversionPayload.put("spreadsheetLayout", Map.of());
+        }
         String jwt = createJwt(conversionPayload, command.jwtSecret());
         Map<String, Object> requestBody = new LinkedHashMap<>(conversionPayload);
         requestBody.put("token", jwt);

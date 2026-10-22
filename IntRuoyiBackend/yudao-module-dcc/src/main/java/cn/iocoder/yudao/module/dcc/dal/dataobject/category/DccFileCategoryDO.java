@@ -26,6 +26,8 @@ public class DccFileCategoryDO extends BaseDO {
     private Long id;
     private String code;
     private String name;
+    /** Formal category configuration; unknown historical values must be repaired explicitly. */
+    private String approvalSourceMode;
     private Long parentId;
     private Boolean active;
     private Integer sort;
@@ -36,5 +38,13 @@ public class DccFileCategoryDO extends BaseDO {
     private Long fileTypeTaxonomyId;
     private Boolean distributionRequired;
     private Boolean trainingRequired;
+
+    /** No runtime fallback: callers must obtain this from the formal category row. */
+    public static String requireApprovalSourceMode(String value) {
+        if (!"PUBLIC_MATRIX".equals(value) && !"APPLICATION_CUSTOM".equals(value)) {
+            throw new IllegalArgumentException("CATEGORY_APPROVAL_SOURCE_INVALID：文件类别审批来源未配置或无效，请明确维护");
+        }
+        return value;
+    }
 
 }

@@ -1,0 +1,32 @@
+{
+  "status": "CURRENT_FORMAL_CONTROLLER_TRANSACTION_NAME_REF74_PASS",
+  "sourceOnlyTestAccountDTOCorrection": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+  "suites": [
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccUploadNamePreflightDatabaseTest.xml",
+      "sha256": "fd6164d5e75f1d89f312221e1f9d7c2d8fa9c3516d040fc2274e873dd6506e74",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-r1-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLegacySourceNameOccupancyTest.xml",
+      "sha256": "1f6d3978554d14349e2985776f8dd728245d9e0b384b377f8e936e05d482e781",
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "C:/IntRuoyiAll-int_main/doc/tasks/20261002-dcc-public-backend-completion/g64-name-ref-current-reference-r3-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccProjectReferenceFormalAuthorityIntegrationTest.xml",
+      "sha256": "4b3f68459ec6673d50ffb8d1f2f783f01b6859c227dd681b96ea0e60b0f673f7",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "productionGuardsUnchanged": true,
+  "realUISeparate": "oldG56referencecount0/1/0 plusG64sameglobalobsoleteNamepreflight"
+}

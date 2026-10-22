@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
 import cn.iocoder.yudao.module.bpm.api.event.BpmProcessInstanceStatusEvent;
 import cn.iocoder.yudao.module.bpm.enums.task.BpmProcessInstanceStatusEnum;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
@@ -41,6 +42,7 @@ import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileTrainingStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccDistributionMediumEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProcessDefinitionKeys;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
@@ -66,10 +68,13 @@ import java.util.Set;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_MEDIUM_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_CONFIG_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PDF_CONVERSION_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PUBLISH_NOT_ALLOWED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_STAMP_GENERATION_FAILED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_VIEWER_TOKEN_INVALID;
@@ -88,11 +93,23 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private static final String APPROVE_PERMISSION = "dcc:controlled-file:approve";
 
     private static final Set<String> WITHDRAW_EVENT_STATUSES = Set.of(
+            DccControlledFileStatusEnum.PENDING_SUPERVISOR_REVIEW.getStatus(),
             DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(),
             DccControlledFileStatusEnum.PENDING_MATRIX_REVIEW.getStatus(),
             DccControlledFileStatusEnum.PENDING_MATRIX_APPROVAL.getStatus(),
             DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus(),
             DccControlledFileStatusEnum.APPROVING.getStatus()
+    );
+    private static final Set<String> REJECT_REPLAY_IGNORED_STATUSES = Set.of(
+            DccControlledFileStatusEnum.REJECTED.getStatus(),
+            DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus(),
+            DccControlledFileStatusEnum.FINALIZING.getStatus(),
+            DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus(),
+            DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus(),
+            DccControlledFileStatusEnum.ACTIVE.getStatus(),
+            DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
+            DccControlledFileStatusEnum.OBSOLETE.getStatus(),
+            DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus()
     );
 
     @Resource
@@ -148,9 +165,27 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     @Resource
     private DccControlledFileSignatureBindingService signatureBindingService;
     @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapper approvalSignatureMapper;
+    @Resource
+    private DccElectronicSignatureManagementService signatureManagementService;
+    @Resource
     private DccPublicationFollowupService publicationFollowupService;
     @Resource
     private DccControlledFileFinalizationFailureService finalizationFailureService;
+    @Resource
+    private BpmTaskService bpmTaskService;
+    @Resource
+    private DccControlledFileLifecycleService lifecycleService;
+    @Resource
+    private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTaskAssigneeSnapshotMapper taskAssigneeSnapshotMapper;
+    @Resource private DccBoundWorkflowContractResolver boundContracts;
+    @Resource private DccDelayedEffectiveConfirmationEvidence confirmationEvidence;
+    @Resource private cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService processes;
+    @Resource private org.flowable.engine.RuntimeService runtime;
+    @Resource private org.flowable.engine.HistoryService history;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAttachmentMapper trainingAttachments;
 
     @Override
     public void handleProcessInstanceStatusChanged(BpmProcessInstanceStatusEvent event) {
@@ -160,33 +195,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             return;
         }
         if (BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(event.getStatus())) {
-            if (isRevisionApprovalSplitCandidate(file)) {
-                validateApprovalEventIdentity(file, event);
-                if (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
-                        || DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
-                    return;
-                }
-                if (!DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus()
-                        .equals(file.getStatus())) {
-                    throw new IllegalStateException("DCC approval event cannot transition file status "
-                            + file.getStatus());
-                }
-                LocalDateTime approvedTime = LocalDateTime.now();
-                int updated = controlledFileMapper.markReadyToPublishAfterApproval(
-                        TenantContextHolder.getRequiredTenantId(), fileId, event.getId(),
-                        event.getProcessDefinitionKey(), file.getStatus(), approvedTime, event.getActorUserId());
-                if (updated != 1) {
-                    DccControlledFileDO current = controlledFileMapper.selectById(fileId);
-                    if (current != null && Objects.equals(current.getProcessInstanceId(), event.getId())
-                            && (DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(current.getStatus())
-                            || DccControlledFileStatusEnum.ACTIVE.getStatus().equals(current.getStatus()))) {
-                        return;
-                    }
-                    throw new IllegalStateException("DCC approval event lost its status CAS");
-                }
-                file.setStatus(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus());
-                file.setApprovedTime(approvedTime);
-                platformAdapter.recordApprovedReadyToPublish(file, event.getActorUserId(), event.getId());
+            if (isOrdinaryApprovalCandidate(file)) {
+                finalizeOrdinaryApproval(file, event);
                 return;
             }
             platformAdapter.recordFinalizationStarted(file, event.getActorUserId(), event.getId());
@@ -194,13 +204,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             return;
         }
         if (BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(event.getStatus())) {
-            controlledFileMapper.updateById(DccControlledFileDO.builder()
-                    .id(fileId)
-                    .status(DccControlledFileStatusEnum.REJECTED.getStatus())
-                    .rejectedTime(LocalDateTime.now())
-                    .rejectReason(event.getReason())
-                    .build());
-            platformAdapter.recordRejected(file, event.getActorUserId(), event.getReason(), event.getId());
+            markRejectedAfterApprovalEvent(file, event);
             return;
         }
         if (BpmProcessInstanceStatusEnum.CANCEL.getStatus().equals(event.getStatus())
@@ -223,13 +227,42 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             throw exception(CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED);
         }
         requirePublishPermission(userId, file);
-        String eventKey = platformAdapter.nextFinalizationRetryEventKey(file);
-        platformAdapter.recordFinalizationRetried(file, userId, eventKey);
-        runFinalizationWithFailureHandling(file, userId, eventKey);
+        DccControlledFileDO[] attempted = new DccControlledFileDO[1];
+        String[] retryKey = new String[1];
+        try {
+            transactionTemplate.executeWithoutResult(ignored -> {
+                Long tenant = TenantContextHolder.getRequiredTenantId();
+                var master = controlledFileMasterMapper.selectByIdForUpdate(file.getMasterId());
+                var current = controlledFileMapper.selectByIdAndTenantForUpdate(tenant,id);
+                if (master == null || current == null || !Objects.equals(master.getId(),current.getMasterId())
+                        || !Objects.equals(master.getTenantId(),tenant))
+                    throw exception(CONTROLLED_FILE_NOT_EXISTS);
+                requirePublishPermission(userId,current);
+                if (current.getControlledTime() != null) return;
+                if (!DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus().equals(current.getStatus()))
+                    throw exception(CONTROLLED_FILE_STAMP_RETRY_NOT_ALLOWED);
+                requireRetryApprovalEvidence(current);
+                retryKey[0] = platformAdapter.nextFinalizationRetryEventKey(current);
+                attempted[0] = current;
+                platformAdapter.recordFinalizationRetried(current,userId,retryKey[0]);
+                finalizeRevision(current,master,false,userId,retryKey[0],true);
+            });
+        } catch (RuntimeException failure) {
+            if (attempted[0] == null) throw failure;
+            String reason = resolveFailureReason(failure);
+            scheduleFailureAfterRollback(attempted[0],DccControlledFileStatusEnum.FINALIZATION_FAILED.getStatus(),
+                    userId,reason,retryKey[0]);
+            throw toFinalizationException(reason,failure);
+        }
     }
 
     @Override
     public void precheckPublishControlledFile(Long userId, Long id) {
+        DccControlledFileDO target = controlledFileMapper.selectById(id);
+        if (target == null) throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        if (!isExternalReviewProcess(target)) {
+            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+        }
         DccControlledFileDO file = requirePublishReadyCandidate(userId, id, true);
         validatePublishDistributionPlans(file);
     }
@@ -276,7 +309,12 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        if (!DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
+        if (isThreeWorkflowUploadOrRevision(file)) {
+            releaseThreeWorkflowManualDistribution(userId, id);
+            return;
+        }
+        if (DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
+                || !DccControlledFileStatusEnum.PENDING_MANUAL_DISTRIBUTION.getStatus().equals(file.getStatus())
                 || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
                 DccFileCategoryPermissionActionEnum.DISTRIBUTE)) {
             throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
@@ -297,6 +335,44 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         transactionTemplate.executeWithoutResult(status ->
                 activateRevision(file, master, category, publishedArtifact, distributionPlans, userId,
                         "dcc-manual-release:" + id));
+    }
+
+    private void releaseThreeWorkflowManualDistribution(Long userId, Long id) {
+        transactionTemplate.executeWithoutResult(status -> {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, id);
+            if (file == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+            if (!isThreeWorkflowUploadOrRevision(file)
+                    || file.getControlledTime() == null
+                    || file.getActivatedTime() == null
+                    || userId==null || !permissionApi.hasAnyRoles(userId,DOC_CONTROL_ROLE)
+                    || !DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                    || !permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                    DccFileCategoryPermissionActionEnum.DISTRIBUTE)
+                    || Boolean.TRUE.equals(file.getNeedTraining()) && file.getTrainingRecordFileId() == null) {
+                throw exception(CONTROLLED_FILE_MANUAL_RELEASE_NOT_ALLOWED);
+            }
+            if (file.getDistributedTime() != null) return;
+            if(file.getDistributionPayloadHash()==null || !file.getDistributionPayloadHash().matches("[a-fA-F0-9]{64}"))
+                throw new IllegalStateException("本文件尚未确认下发部门、人员和方式");
+            DccFileCategoryDO category = categoryMapper.selectById(file.getCategoryId());
+            if (category == null) throw exception(FILE_CATEGORY_NOT_EXISTS);
+            // Frozen recipient rows are persisted and validated by the actual distribution command.
+            var confirmed=distributionMapper.selectListByControlledFileId(id);
+            if(confirmed==null || confirmed.isEmpty()) throw new IllegalStateException("本文件已确认的下发名单缺失");
+            List<ResolvedDistributionPlan> plans = resolveSavedDistributionPlans(confirmed, false);
+            createDistributionRecords(file, category, plans);
+            if (controlledFileMapper.updateById(DccControlledFileDO.builder().id(id)
+                    .distributedTime(lifecycleService.currentTime()).build()) != 1)
+                throw new IllegalStateException("下发记录保存失败");
+        });
+    }
+
+    private boolean isThreeWorkflowUploadOrRevision(DccControlledFileDO file) {
+        return file != null && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()));
     }
 
     @Override
@@ -325,10 +401,457 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 auditContext);
     }
 
-    private boolean isRevisionApprovalSplitCandidate(DccControlledFileDO file) {
+    private void finalizeOrdinaryApproval(DccControlledFileDO initial, BpmProcessInstanceStatusEvent event) {
+        validateApprovalEventIdentity(initial, event);
+        if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(initial.getStatus())
+                || initial.getControlledTime() != null) {
+            requirePublicCompletedReplay(initial,event);
+            return;
+        }
+        String expectedStatus = initial.getStatus();
+        boolean[] publicAttempt = {false};
+        boolean[] legacyFailureHandling = {!isThreeWorkflowUploadOrRevision(initial)};
+        boolean[] synchronousEnd = {false};
+        Long[] operationActor = {event.getActorUserId()};
+        boolean[] derivationStarted = {false};
+        try {
+            transactionTemplate.executeWithoutResult(ignored -> {
+                Long tenantId = TenantContextHolder.getRequiredTenantId();
+                DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(initial.getMasterId());
+                DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, initial.getId());
+                if (master == null || file == null || !Objects.equals(master.getId(), file.getMasterId())) {
+                    throw exception(CONTROLLED_FILE_NOT_EXISTS);
+                }
+                validateApprovalEventIdentity(file, event);
+                if (DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())
+                        || file.getControlledTime() != null) {requirePublicCompletedReplay(file,event);return;}
+                var bound=isThreeWorkflowUploadOrRevision(file)?boundContracts.resolve(file):null;
+                if(isThreeWorkflowUploadOrRevision(file) && bound==null) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                if(bound!=null) legacyFailureHandling[0]=bound.flowRule()==DccWorkflowDefinitionCatalog.FlowRule.LEGACY_V4_TRAINING_BEFORE_DOCUMENT_CONTROL;
+                boolean publicNative=bound!=null && bound.trainingAfterDocumentControl();
+                publicAttempt[0]=publicNative;
+                if(publicNative) {synchronousEnd[0]=requirePublicEnd(file,event,bound);lifecycleService.requireReviewEffectiveSelection(file);}
+                if (!DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(file.getStatus())
+                        && !DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+                        && !(bound!=null && bound.delayedConfirmationSupported()
+                            && DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())
+                            && DccDelayedEffectiveConfirmationEvidence.STATUS.equals(file.getStatus()))
+                        && !isThreeWorkflowDocControlReview(file)) {
+                    throw new IllegalStateException("DCC approval cannot finalize status " + file.getStatus());
+                }
+                boolean threeWorkflowDocControlReview = isThreeWorkflowDocControlReview(file);
+                if ((threeWorkflowDocControlReview || publicNative)
+                        ? file.getPublishedFileId() != null || file.getStampedFileId() != null
+                        : file.getPublishedFileId() == null || file.getStampedFileId() == null) {
+                    throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+                }
+                List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> approvalSignatures =
+                        approvalSignatureMapper.selectListByControlledFileId(file.getId());
+                if(bound!=null) DccFrozenApprovalSignatures.requireComplete(file,
+                        routeSnapshotMapper.selectListByControlledFileId(file.getId()), approvalSignatures,
+                        taskAssigneeSnapshotMapper.selectListByControlledFileId(file.getId()),bound);
+                else DccFrozenApprovalSignatures.requireComplete(file,
+                        routeSnapshotMapper.selectListByControlledFileId(file.getId()),approvalSignatures,List.of());
+                verifyApprovalSignatureEvidence(file, approvalSignatures,bound);
+                NativeFinalizationActors actors=publicNative?requireNativeFinalizationActors(file,event,bound):null;
+                if(actors!=null) operationActor[0]=actors.operationActorId();
+                if (DccControlledFileStatusEnum.PENDING_DOC_CONTROL_APPROVAL.getStatus().equals(file.getStatus())
+                        || isThreeWorkflowDocControlReview(file)) {
+                    LocalDateTime approvedAt = file.getApprovedTime() == null
+                            ? LocalDateTime.now() : file.getApprovedTime();
+                    if (controlledFileMapper.markReadyToPublishAfterApproval(tenantId, file.getId(), event.getId(),
+                            event.getProcessDefinitionKey(), file.getStatus(), approvedAt, event.getActorUserId()) != 1) {
+                        throw new IllegalStateException("DCC approval lost its status CAS");
+                    }
+                    file.setApprovedTime(approvedAt);
+                    file.setStatus(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus());
+                }
+                // READY_TO_PUBLISH is an internal transition in this transaction, never a separate user task.
+                if(actors!=null) platformAdapter.recordFinalizationStarted(file,actors.approvalActorId(),actors.operationActorId(),event.getId());
+                else platformAdapter.recordFinalizationStarted(file,event.getActorUserId(),event.getId());
+                derivationStarted[0]=true;
+                finalizeRevision(file, master, false, operationActor[0], event.getId(), true);
+            });
+        } catch (RuntimeException failure) {
+            String reason = resolveFailureReason(failure);
+            // Official synchronous End occurs before the engine command is committed. Both the last document
+            // approval and the training trigger must return to their actual pre-command state on rollback.
+            if(legacyFailureHandling[0] || publicAttempt[0] && derivationStarted[0] && !synchronousEnd[0])
+                scheduleFailureAfterRollback(initial,expectedStatus,operationActor[0],reason,event.getId());
+            throw toFinalizationException(reason, failure);
+        }
+    }
+
+    private void markRejectedAfterApprovalEvent(DccControlledFileDO initial, BpmProcessInstanceStatusEvent event) {
+        validateApprovalEventIdentity(initial, event);
+        var initialBound=isThreeWorkflowUploadOrRevision(initial)?boundContracts.resolve(initial):null;
+        if(isThreeWorkflowUploadOrRevision(initial) && initialBound==null)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if(initialBound!=null && initialBound.trainingAfterDocumentControl()) requirePublicRejectEvidence(initial,event,initialBound);
+        if (shouldIgnoreRejectReplay(initial.getStatus())) {
+            return;
+        }
+        if (!WITHDRAW_EVENT_STATUSES.contains(initial.getStatus())) {
+            throw new IllegalStateException("DCC reject cannot transition status " + initial.getStatus());
+        }
+        transactionTemplate.executeWithoutResult(ignored -> {
+            Long tenantId = TenantContextHolder.getRequiredTenantId();
+            DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId, initial.getId());
+            if (file == null) {
+                throw exception(CONTROLLED_FILE_NOT_EXISTS);
+            }
+                validateApprovalEventIdentity(file, event);
+                var bound=isThreeWorkflowUploadOrRevision(file)?boundContracts.resolve(file):null;
+                if(isThreeWorkflowUploadOrRevision(file) && bound==null)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                if(bound!=null && bound.trainingAfterDocumentControl()) requirePublicRejectEvidence(file,event,bound);
+            if (shouldIgnoreRejectReplay(file.getStatus())) {
+                return;
+            }
+            if (!WITHDRAW_EVENT_STATUSES.contains(file.getStatus())) {
+                throw new IllegalStateException("DCC reject cannot transition status " + file.getStatus());
+            }
+            LocalDateTime rejectedTime = LocalDateTime.now();
+            int updated = controlledFileMapper.markRejectedAfterApprovalEvent(tenantId, file.getId(), event.getId(),
+                    file.getProcessDefinitionKey(), file.getStatus(), rejectedTime, event.getReason(), event.getActorUserId());
+            if (updated != 1) {
+                throw new IllegalStateException("DCC reject lost its status CAS");
+            }
+            file.setStatus(DccControlledFileStatusEnum.REJECTED.getStatus());
+            file.setRejectedTime(rejectedTime);
+            file.setRejectReason(event.getReason());
+            platformAdapter.recordRejected(file, event.getActorUserId(), event.getReason(), event.getId());
+        });
+    }
+
+    private boolean shouldIgnoreRejectReplay(String status) {
+        return REJECT_REPLAY_IGNORED_STATUSES.contains(status);
+    }
+
+    private void verifyApprovalSignatureEvidence(DccControlledFileDO file,
+            List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> signatures) {
+        verifyApprovalSignatureEvidence(file,signatures,null);
+    }
+
+    /** Rejection validates only the actual rejecting stage. Later approval stages have not happened. */
+    private void requirePublicRejectEvidence(DccControlledFileDO file,BpmProcessInstanceStatusEvent event,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        if(!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId()) || !Objects.equals(file.getId().toString(),event.getBusinessKey())
+                || !BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(event.getStatus()) || StrUtil.isBlank(event.getReason()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var rejected=Objects.requireNonNull(approvalSignatureMapper.selectListByControlledFileId(file.getId()),"本轮拒绝签名")
+                .stream().filter(Objects::nonNull).filter(s->Objects.equals(file.getProcessInstanceId(),s.getProcessInstanceId())
+                    && "REJECT".equals(s.getActionType()) && !Boolean.TRUE.equals(s.getDeleted())).toList();
+        if(rejected.size()!=1) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var signature=rejected.get(0);String meaning=signature.getMeaningCode();
+        String stage=meaning!=null&&meaning.endsWith("_REJECT")?meaning.substring(0,meaning.length()-7):null;
+        if(stage==null || !Set.of("SUPERVISOR_REVIEW","MATRIX_REVIEW","MATRIX_APPROVAL","DOC_CONTROL_REVIEW").contains(stage)
+                || !Objects.equals(signature.getControlledFileId(),file.getId()) || !Objects.equals(signature.getRevisionId(),file.getId())
+                || !Objects.equals(signature.getVersionNo(),file.getVersionNo()) || !Objects.equals(signature.getActorId(),event.getActorUserId())
+                || StrUtil.isBlank(signature.getComment())
+                || !Objects.equals(cn.iocoder.yudao.module.bpm.enums.task.BpmReasonEnum.REJECT_TASK.format(signature.getComment()),event.getReason())
+                || !Boolean.TRUE.equals(signature.getPasswordVerified())
+                || signature.getSignedAt()==null || !"VALID".equals(signature.getEvidenceStatus()) || !"v4-workflow".equals(signature.getEvidencePayloadVersion()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if(!"REJECTED".equals(file.getStatus()) && !("PENDING_"+stage).equals(file.getStatus()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var task=bpmTaskService.getHistoricTask(signature.getTaskId());
+        if(task==null || !Objects.equals(task.getId(),signature.getTaskId()) || !Objects.equals(task.getProcessInstanceId(),file.getProcessInstanceId())
+                || !Objects.equals(task.getProcessDefinitionId(),bound.processDefinitionId()) || !String.valueOf(file.getTenantId()).equals(task.getTenantId())
+                || !stage.equals(task.getTaskDefinitionKey()) || !String.valueOf(signature.getActorId()).equals(task.getAssignee())
+                || task.getEndTime()==null || task.getTaskLocalVariables()==null
+                || !Integer.valueOf(cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.REJECT.getStatus()).equals(task.getTaskLocalVariables().get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_STATUS))
+                || !Objects.equals(signature.getComment(),task.getTaskLocalVariables().get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_REASON)))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var candidates=Objects.requireNonNull(routeSnapshotMapper.selectListByControlledFileId(file.getId()),"冻结拒绝阶段").stream()
+                .filter(row->stage.equals(row.getStageCode())).toList();
+        if(candidates.size()!=1)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if("SUPERVISOR_REVIEW".equals(stage)) {
+            var supervisor=candidates.get(0);
+            if(!Objects.equals(file.getId(),supervisor.getControlledFileId()) || !Integer.valueOf(0).equals(supervisor.getStageNo())
+                    || !Integer.valueOf(0).equals(supervisor.getStageOrder()) || !"USER".equals(supervisor.getCandidateSourceType())
+                    || !Objects.equals(signature.getActorId(),supervisor.getCandidateSourceId())
+                    || !String.valueOf(signature.getActorId()).equals(supervisor.getCandidateSourceIds())
+                    || !String.valueOf(signature.getActorId()).equals(supervisor.getResolvedUserIds())
+                    || !"ANY".equals(supervisor.getApproveMethod()) || Boolean.TRUE.equals(supervisor.getRequireAllApprovals()))
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        }
+        if("MATRIX_REVIEW".equals(stage)) {
+            var assigned=taskAssigneeSnapshotMapper.selectListByControlledFileId(file.getId()).stream().filter(row->
+                    Objects.equals(row.getProcessInstanceId(),file.getProcessInstanceId()) && Objects.equals(row.getBpmTaskId(),task.getId())
+                        && Objects.equals(row.getAssigneeUserId(),signature.getActorId())).toList();
+            if(assigned.size()!=1) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        } else if(candidates.get(0).getResolvedUserIds()==null || java.util.Arrays.stream(candidates.get(0).getResolvedUserIds().split(",",-1))
+                .noneMatch(id->id.equals(String.valueOf(signature.getActorId())))) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var verified=signatureManagementService.verifySignatureEvidence(signature.getId());
+        if(verified==null || !Objects.equals(verified.getSignatureId(),signature.getId()) || !"VALID".equals(verified.getVerificationStatus()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID);
+        var process=processes.getProcessInstance(file.getProcessInstanceId());
+        Map<String,Object> variables;
+        if(process!=null) {
+            if(!process.isEnded() || !runtime.getActiveActivityIds(process.getId()).isEmpty()) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            variables=process.getProcessVariables();
+        } else {
+            var completed=processes.getHistoricProcessInstance(file.getProcessInstanceId());
+            if(completed==null || completed.getEndTime()==null)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            variables=completed.getProcessVariables();
+        }
+        if(variables==null || !BpmProcessInstanceStatusEnum.REJECT.getStatus().equals(variables.get(
+                cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS))
+                || !Objects.equals(event.getReason(),variables.get(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_REASON))
+                || !String.valueOf(signature.getActorId()).equals(String.valueOf(variables.get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID))))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+    }
+
+    private void verifyApprovalSignatureEvidence(DccControlledFileDO file,
+            List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> signatures,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        for (var signature : signatures) {
+            if (signature == null || signature.getId() == null
+                    || !Objects.equals(file.getId(), signature.getControlledFileId())
+                    || !Objects.equals(file.getVersionNo(), signature.getVersionNo())
+                    || !("APPROVE".equals(signature.getActionType()) || "ASSIGN".equals(signature.getActionType()))
+                    || !"VALID".equals(signature.getEvidenceStatus())) {
+                continue;
+            }
+            if(isThreeWorkflowUploadOrRevision(file)) {
+                if(!Objects.equals(file.getProcessInstanceId(),signature.getProcessInstanceId())) continue;
+                if(bound!=null && bound.delayedConfirmationSupported()
+                        && DccDelayedEffectiveConfirmationEvidence.MEANING.equals(signature.getMeaningCode())) {
+                    var confirmed=confirmationEvidence.requireConfirmed(file,bound);
+                    if(!Objects.equals(confirmed.signatureId(),signature.getId()))
+                        throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID);
+                    continue;
+                }
+                if(!"v4-workflow".equals(signature.getEvidencePayloadVersion()))
+                    throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID);
+                if("APPROVE".equals(signature.getActionType())) requireCompletedNativeTask(file,signature,bound);
+            }
+            var verification = signatureManagementService.verifySignatureEvidence(signature.getId());
+            if (verification == null || !Objects.equals(signature.getId(), verification.getSignatureId())
+                    || !"VALID".equals(verification.getVerificationStatus())) {
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID);
+            }
+        }
+    }
+
+    private void requireCompletedNativeTask(DccControlledFileDO file,
+            cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO signature) {
+        requireCompletedNativeTask(file,signature,null);
+    }
+
+    private void requireCompletedNativeTask(DccControlledFileDO file,
+            cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO signature,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        String meaning=signature.getMeaningCode();
+        String stage=meaning!=null && meaning.endsWith("_APPROVE")?meaning.substring(0,meaning.length()-"_APPROVE".length()):null;
+        var stages=bound!=null && bound.trainingAfterDocumentControl()
+                ?Set.of("SUPERVISOR_REVIEW","MATRIX_REVIEW","MATRIX_APPROVAL","DOC_CONTROL_REVIEW")
+                :Set.of("MATRIX_REVIEW","MATRIX_APPROVAL","DOC_CONTROL_REVIEW");
+        if(stage==null || !stages.contains(stage))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var task=bpmTaskService.getHistoricTask(signature.getTaskId());
+        var local=task==null?null:task.getTaskLocalVariables();
+        if(task==null || !Objects.equals(signature.getTaskId(),task.getId())
+                || !Objects.equals(file.getProcessInstanceId(),task.getProcessInstanceId())
+                || !String.valueOf(TenantContextHolder.getRequiredTenantId()).equals(task.getTenantId())
+                || bound!=null && !Objects.equals(bound.processDefinitionId(),task.getProcessDefinitionId())
+                || !stage.equals(task.getTaskDefinitionKey()) || signature.getActorId()==null
+                || !String.valueOf(signature.getActorId()).equals(task.getAssignee())
+                || task.getEndTime()==null || local==null
+                || !Integer.valueOf(cn.iocoder.yudao.module.bpm.enums.task.BpmTaskStatusEnum.APPROVE.getStatus()).equals(
+                        local.get(cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_STATUS)))
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+    }
+
+    /**
+     * A failed finalization may be retried only when the approval evidence survived
+     * the failed derived-file operation. The failure marker itself is not approval
+     * evidence and must never be enough to activate a file.
+     */
+    private void requireRetryApprovalEvidence(DccControlledFileDO file) {
+        List<cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileSignatureDO> signatures =
+                approvalSignatureMapper.selectListByControlledFileId(file.getId());
+        var bound=isThreeWorkflowUploadOrRevision(file)?boundContracts.resolve(file):null;
+        if(isThreeWorkflowUploadOrRevision(file) && bound==null)throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if(bound!=null) DccFrozenApprovalSignatures.requireComplete(file,routeSnapshotMapper.selectListByControlledFileId(file.getId()),
+                signatures,taskAssigneeSnapshotMapper.selectListByControlledFileId(file.getId()),bound);
+        else DccFrozenApprovalSignatures.requireComplete(file,routeSnapshotMapper.selectListByControlledFileId(file.getId()),signatures,List.of());
+        verifyApprovalSignatureEvidence(file,signatures,bound);
+        if(bound!=null && bound.trainingAfterDocumentControl()) {
+            requireCommittedPublicApproval(file,bound);
+            var doc=lifecycleService.requirePublicDocumentControlEvidence(file,bound);
+            var confirmed=delayedConfirmation(file,bound);
+            var completed=processes.getHistoricProcessInstance(file.getProcessInstanceId());
+            if(!String.valueOf(confirmed==null?doc.getActorId():confirmed.actorId()).equals(String.valueOf(completed.getProcessVariables().get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID)))
+                    || file.getApprovedTime()==null || file.getNeedTraining()==null
+                    || !Objects.equals(file.getNeedTraining(),completed.getProcessVariables().get("needTraining")))
+                throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            if(file.getNeedTraining()==null) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            var activities=history.createHistoricActivityInstanceQuery().processInstanceId(file.getProcessInstanceId()).activityId("TRAINING").list();
+            if(Boolean.TRUE.equals(file.getNeedTraining())) {
+                if(activities.size()!=1 || activities.get(0).getEndTime()==null) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+                requirePublicTrainingRecord(file,bound);
+            } else if(!activities.isEmpty() || file.getTrainingRecordFileId()!=null) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+            lifecycleService.requireReviewEffectiveSelection(file);
+        }
+    }
+
+    private boolean requirePublicEnd(DccControlledFileDO file,BpmProcessInstanceStatusEvent event,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        var confirmed=delayedConfirmation(file,bound);
+        if(!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                || !Objects.equals(file.getId().toString(),event.getBusinessKey())
+                || !BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(event.getStatus())
+                || file.getNeedTraining()==null || file.getActivatedTime()!=null)
+            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+        var process=processes.getProcessInstance(file.getProcessInstanceId());
+        Map<String,Object> variables;
+        if(process!=null) {
+            if(!process.isEnded() || process.isSuspended() || !runtime.getActiveActivityIds(process.getId()).isEmpty())
+                throw new IllegalStateException("PUBLIC正式End事件没有真实引擎终结事实");
+            variables=process.getProcessVariables();
+        } else {
+            var completed=processes.getHistoricProcessInstance(file.getProcessInstanceId());
+            if(completed==null || completed.getEndTime()==null || !Objects.equals(bound.processDefinitionId(),completed.getProcessDefinitionId()))
+                throw new IllegalStateException("PUBLIC正式End历史缺少真实完成事实");
+            variables=completed.getProcessVariables();
+        }
+        if(variables==null || !BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(variables.get(
+                cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS))
+                || !Objects.equals(file.getNeedTraining(),variables.get("needTraining"))
+                || !Objects.equals(String.valueOf(event.getActorUserId()),String.valueOf(variables.get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_LAST_APPROVER_USER_ID))))
+            throw new IllegalStateException("PUBLIC正式End状态或审批来源与冻结实例不一致");
+        // During PROCESS_COMPLETED the completed doc task can remain in the SQL query until command flush.
+        for(var pending:Objects.requireNonNull(bpmTaskService.getRunningTaskListByProcessInstanceId(file.getProcessInstanceId(),null,null),"本轮任务查询")) {
+            if(confirmed!=null && Objects.equals(pending.getId(),confirmed.taskId())
+                    && DccDelayedEffectiveConfirmationEvidence.STAGE.equals(pending.getTaskDefinitionKey())) {
+                // The sole verifier proves the exact signed engine-approved task in the real End command.
+                continue;
+            }
+            var completed=bpmTaskService.getHistoricTask(pending.getId());
+            if(!"DOC_CONTROL_REVIEW".equals(pending.getTaskDefinitionKey()) || completed==null || completed.getEndTime()==null
+                    || !Objects.equals(pending.getId(),completed.getId()) || !Objects.equals(file.getProcessInstanceId(),completed.getProcessInstanceId())
+                    || !Objects.equals(bound.processDefinitionId(),completed.getProcessDefinitionId())
+                    || !String.valueOf(file.getTenantId()).equals(completed.getTenantId())
+                    || completed.getTaskLocalVariables()==null || !Integer.valueOf(2).equals(completed.getTaskLocalVariables().get(
+                        cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.TASK_VARIABLE_STATUS)))
+                throw new IllegalStateException("PUBLIC正式End仍有未完成或非本轮的审批任务");
+        }
+        var training=history.createHistoricActivityInstanceQuery().processInstanceId(file.getProcessInstanceId()).activityId("TRAINING").list();
+        if(Boolean.TRUE.equals(file.getNeedTraining())) {
+            if(!(DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())
+                    || confirmed!=null && DccDelayedEffectiveConfirmationEvidence.STATUS.equals(file.getStatus())) || training.size()!=1
+                    || training.get(0).getEndTime()==null || !Objects.equals(bound.processDefinitionId(),training.get(0).getProcessDefinitionId()))
+                throw new IllegalStateException("PUBLIC培训结束缺少实际receive完成或本轮READY事实");
+        } else if(!training.isEmpty() || file.getTrainingRecordFileId()!=null
+                || !(isThreeWorkflowDocControlReview(file) || confirmed!=null
+                    && (DccDelayedEffectiveConfirmationEvidence.STATUS.equals(file.getStatus())
+                        || DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus()))))
+            throw new IllegalStateException("PUBLIC无需培训结束与本轮正式节点事实不一致");
+        if(file.getApprovedTime()==null) throw new IllegalStateException("PUBLIC受控缺少已保存内容批准时间");
+        return process!=null;
+    }
+
+    private void requireCommittedPublicApproval(DccControlledFileDO file,DccBoundWorkflowContractResolver.BoundExecution bound) {
+        if(processes.getProcessInstance(file.getProcessInstanceId())!=null)
+            throw new IllegalStateException("PUBLIC技术重试不能跳过仍活跃的原审批或培训节点");
+        var completed=processes.getHistoricProcessInstance(file.getProcessInstanceId());
+        if(completed==null || completed.getEndTime()==null || !Objects.equals(bound.processDefinitionId(),completed.getProcessDefinitionId())
+                || completed.getProcessVariables()==null || !BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(completed.getProcessVariables().get(
+                    cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants.PROCESS_INSTANCE_VARIABLE_STATUS)))
+            throw new IllegalStateException("PUBLIC技术重试缺少已提交的真实审批完成事实");
+    }
+
+    private record NativeFinalizationActors(Long approvalActorId,Long operationActorId,Long documentControlSignatureId) {}
+
+    private void requirePublicCompletedReplay(DccControlledFileDO file,BpmProcessInstanceStatusEvent event) {
+        // Completed historical rows are never migrated/re-signed merely to apply new contract metadata.
+        if(file.getPreparedWorkflowContract()==null && file.getPreparedProcessDefinitionId()==null && file.getPreparedDefinitionDigest()==null)return;
+        var bound=boundContracts.resolve(file);
+        if(bound==null) throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        if(!bound.trainingAfterDocumentControl())return;
+        if(file.getControlledTime()==null || file.getPublishedFileId()==null || file.getStampedFileId()==null)
+            throw exception(CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING);
+        var doc=lifecycleService.requirePublicDocumentControlEvidence(file,bound);
+        var confirmed=delayedConfirmation(file,bound);
+        if(confirmed!=null && !Objects.equals(file.getControlledTime(),confirmed.signedAt()))
+            throw new IllegalStateException("已受控延迟事件与原确认签名时间不一致");
+        if(!Objects.equals(confirmed==null?doc.getActorId():confirmed.actorId(),event.getActorUserId()) || !BpmProcessInstanceStatusEnum.APPROVE.getStatus().equals(event.getStatus()))
+            throw new IllegalStateException("PUBLIC已受控事件重放审批来源不一致");
+    }
+
+    private NativeFinalizationActors requireNativeFinalizationActors(DccControlledFileDO file,BpmProcessInstanceStatusEvent event,
+            DccBoundWorkflowContractResolver.BoundExecution bound) {
+        var doc=lifecycleService.requirePublicDocumentControlEvidence(file,bound);
+        var confirmed=delayedConfirmation(file,bound);
+        Long approvalActor=confirmed==null?doc.getActorId():confirmed.actorId();
+        if(!Objects.equals(approvalActor,event.getActorUserId()))
+            throw new IllegalStateException("正式End审批来源与真实文控签名人不一致");
+        var login=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser();
+        if(login==null || !Objects.equals(login.getTenantId(),file.getTenantId()) || login.getId()==null || login.getId()<=0
+                || !Objects.equals(login.getUserType(),cn.iocoder.yudao.framework.common.enums.UserTypeEnum.ADMIN.getValue()))
+            throw new IllegalStateException("PUBLIC同步受控需要本租户真实命令操作者");
+        var account=adminUserApi.getUser(login.getId());
+        if(account==null || !Objects.equals(account.getId(),login.getId()) || !Objects.equals(account.getTenantId(),file.getTenantId())
+                || !Integer.valueOf(0).equals(account.getStatus()))
+            throw new IllegalStateException("PUBLIC受控操作者不是本租户当前启用账户");
+        if(confirmed!=null) {
+            if(!Objects.equals(login.getId(),confirmed.actorId()))
+                throw new IllegalStateException("延迟确认End命令操作者与真实原编制人签名不一致");
+            if(Boolean.TRUE.equals(file.getNeedTraining())) requirePublicTrainingRecord(file,bound);
+        } else if(Boolean.TRUE.equals(file.getNeedTraining())) {
+            var record=requirePublicTrainingRecord(file,bound);
+            if(!Objects.equals(record.getUploadedBy(),login.getId()) || !Objects.equals(file.getRequesterId(),login.getId()))
+                throw new IllegalStateException("PUBLIC培训触发操作者与本轮实际上传事实不一致");
+        } else if(!Objects.equals(login.getId(),doc.getActorId()))
+            throw new IllegalStateException("PUBLIC文控直接结束操作者与真实签名命令不一致");
+        return new NativeFinalizationActors(approvalActor,login.getId(),doc.getId());
+    }
+
+    private DccDelayedEffectiveConfirmationEvidence.VerifiedConfirmation delayedConfirmation(
+            DccControlledFileDO file,DccBoundWorkflowContractResolver.BoundExecution bound) {
+        if(!DccWorkflowDatePolicy.DELAYED.equals(file.getEffectiveMode())) return null;
+        return confirmationEvidence.requireConfirmed(file,bound);
+    }
+
+    private cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileAttachmentDO requirePublicTrainingRecord(
+            DccControlledFileDO file,DccBoundWorkflowContractResolver.BoundExecution bound) {
+        var record=trainingAttachments.selectTrainingRecordForUpdate(file.getTenantId(),file.getId(),file.getProcessInstanceId());
+        if(record==null || !Objects.equals(record.getTenantId(),file.getTenantId()) || !Objects.equals(record.getControlledFileId(),file.getId())
+                || !"TRAINING_RECORD".equals(record.getAttachmentPurpose()) || !Objects.equals(record.getApplicationProcessInstanceId(),bound.processInstanceId())
+                || !Objects.equals(record.getUploadedBy(),file.getRequesterId()) || record.getUploadedAt()==null
+                || !Objects.equals(record.getStorageFileId(),file.getTrainingRecordFileId()) || record.getStorageFileId()==null
+                || Boolean.TRUE.equals(record.getDeleted()) || StrUtil.hasBlank(record.getFileSha256(),record.getOriginalFileName(),record.getContentType()))
+            throw new IllegalStateException("PUBLIC培训完成缺少本轮原上传人正式附件事实");
+        var physical=fileService.getFile(record.getStorageFileId());
+        if(physical==null || physical.getConfigId()==null || StrUtil.isBlank(physical.getPath()) || !Objects.equals(physical.getId(),record.getStorageFileId())
+                || !Objects.equals(physical.getSize(),record.getFileSize()) || !Objects.equals(physical.getName(),record.getOriginalFileName())
+                || !Objects.equals(physical.getType(),record.getContentType()))
+            throw new IllegalStateException("PUBLIC培训附件正式物理文件身份缺失");
+        try {
+            var content=fileService.getFileContent(physical.getConfigId(),physical.getPath());
+            if(content==null || !record.getFileSha256().equals(cn.hutool.crypto.digest.DigestUtil.sha256Hex(content)))
+                throw new IllegalStateException("PUBLIC培训附件物理内容与原保存摘要不一致");
+        } catch(RuntimeException failure){throw failure;}
+        catch(Exception failure){throw new IllegalStateException("PUBLIC培训附件读取失败",failure);}
+        return record;
+    }
+
+    private boolean isOrdinaryApprovalCandidate(DccControlledFileDO file) {
         return DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())
                 && (DccControlledFileChangeTypeEnum.NEW.getCode().equals(file.getChangeType())
                 || DccControlledFileChangeTypeEnum.REVISION.getCode().equals(file.getChangeType()));
+    }
+
+    private boolean isThreeWorkflowDocControlReview(DccControlledFileDO file) {
+        return file != null
+                && DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus().equals(file.getStatus())
+                && (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey()));
     }
 
     private DccControlledFileDO requirePublishReadyCandidate(Long userId, Long id, boolean enforcePendingActionGuard) {
@@ -344,13 +867,13 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
+        if (!isExternalReviewProcess(file)) {
+            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
+        }
         if (!DccControlledFileStatusEnum.READY_TO_PUBLISH.getStatus().equals(file.getStatus())) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
         }
         requirePublishPermission(userId, file);
-        if (file.getPublishedFileId() == null || file.getStampedFileId() == null) {
-            throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
-        }
         DccControlledFileMasterDO master = controlledFileMasterMapper.selectById(file.getMasterId());
         if (master == null) {
             throw exception(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED);
@@ -361,6 +884,11 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             pendingActionGuard.assertNoPendingBusinessAction(file);
         }
         return file;
+    }
+
+    private boolean isExternalReviewProcess(DccControlledFileDO file) {
+        return file != null
+                && DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode().equals(file.getProcessType());
     }
 
     private void requirePublishPermission(Long userId, DccControlledFileDO file) {
@@ -422,13 +950,16 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
 
     private void finalizeRevision(Long fileId, boolean skipGovernance, Long actorId, String eventKey,
                                   boolean bindSignatureEvidence) {
-        DccControlledFileDO file = controlledFileMapper.selectById(fileId);
-        if (file == null) {
+        Long tenantId = TenantContextHolder.getRequiredTenantId();
+        DccControlledFileDO identity = controlledFileMapper.selectById(fileId);
+        if (identity == null || !Objects.equals(identity.getTenantId(),tenantId)) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
         }
-        DccControlledFileMasterDO master = controlledFileMasterMapper.selectById(file.getMasterId());
-        if (master == null) {
-            throw new IllegalStateException("Controlled file master is missing for finalization");
+        DccControlledFileMasterDO master = controlledFileMasterMapper.selectByIdForUpdate(identity.getMasterId());
+        DccControlledFileDO file = controlledFileMapper.selectByIdAndTenantForUpdate(tenantId,fileId);
+        if (master == null || file == null || !Objects.equals(master.getId(),file.getMasterId())
+                || !Objects.equals(master.getTenantId(),tenantId)) {
+            throw new IllegalStateException("Controlled file identity changed during finalization locking");
         }
         finalizeRevision(file, master, skipGovernance, actorId, eventKey, bindSignatureEvidence);
     }
@@ -444,6 +975,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             finalizeObsoleteWorkflow(file, master, actorId, eventKey);
             return;
         }
+        if (file.getControlledTime() != null) return;
         if (file.getPublishedFileId() != null
                 && file.getStampedFileId() != null
                 && (DccControlledFileStatusEnum.TRAINING_IN_PROGRESS.getStatus().equals(file.getStatus())
@@ -456,7 +988,8 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (category == null) {
             throw exception(FILE_CATEGORY_NOT_EXISTS);
         }
-        List<ResolvedDistributionPlan> distributionPlans = skipGovernance ? List.of()
+        boolean ordinaryFile = DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType());
+        List<ResolvedDistributionPlan> distributionPlans = skipGovernance || ordinaryFile ? List.of()
                 : resolveDistributionPlans(file, category, Boolean.TRUE.equals(category.getTrainingRequired()));
         PublishedArtifact publishedArtifact = resolveStampedPublishedArtifact(file, skipGovernance);
         if (bindSignatureEvidence) {
@@ -466,7 +999,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
             activateRevisionWithoutGovernance(file, master, publishedArtifact, actorId, eventKey);
             return;
         }
-        if (Boolean.TRUE.equals(category.getTrainingRequired())) {
+        if (!ordinaryFile && Boolean.TRUE.equals(category.getTrainingRequired())) {
             prepareTrainingGatedRevision(file, category, publishedArtifact, distributionPlans);
             return;
         }
@@ -524,7 +1057,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     private PublishedArtifact resolveStampedPublishedArtifact(DccControlledFileDO file,
                                                               boolean allowPdfStampFailurePassThrough) {
         if (file.getPublishedFileId() != null && file.getStampedFileId() != null) {
-            return new PublishedArtifact(file.getPublishedFileId(), file.getStampedFileId());
+            return new PublishedArtifact(file.getPublishedFileId(), file.getStampedFileId(),file.getStampedTime());
         }
         Long sourceFileId = resolveSourceFileId(file);
         FileDO sourceFile = fileMapper.selectById(sourceFileId);
@@ -568,6 +1101,14 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (sourceFileId == null) {
             throw new IllegalStateException("Controlled file source PDF is missing for finalization");
         }
+        FileDO sourceFile = fileMapper.selectById(sourceFileId);
+        if (sourceFile != null
+                && DccControlledFileUploadTypePolicy.isDrawingSourceName(sourceFile.getName())) {
+            if (file.getDrawingPdfFileId() == null) {
+                throw exception(CONTROLLED_FILE_DRAWING_PDF_REQUIRED);
+            }
+            return file.getDrawingPdfFileId();
+        }
         return sourceFileId;
     }
 
@@ -588,9 +1129,21 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                                   DccFileCategoryDO category, PublishedArtifact publishedArtifact,
                                   List<ResolvedDistributionPlan> distributionPlans,
                                   Long actorId, String eventKey) {
+        if (isThreeWorkflowUploadOrRevision(file)) {
+            file.setPublishedFileId(publishedArtifact.publishedFileId());
+            file.setStampedFileId(publishedArtifact.stampedFileId());
+            file.setStampedTime(publishedArtifact.stampedTime());
+            DccControlledFileDO previous = resolvePreviousActiveRevision(master, file.getId());
+            lifecycleService.completeControl(file, master, actorId);
+            // D consumes only the saved selected arrangements from CONTROLLED outbox events.
+            // The legacy major-version followup enumerates all affected users and is not this contract.
+            return;
+        }
         DccControlledFileDO previousActive = resolvePreviousActiveRevision(master, file.getId());
         assertCandidateAdvancesCurrentActive(file, previousActive);
-        createDistributionRecords(file, category, distributionPlans);
+        if (!DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(file.getProcessType())) {
+            createDistributionRecords(file, category, distributionPlans);
+        }
         supersedeStaleWorkingIterations(master, file);
         supersedePreviousActiveRevision(master, file.getId());
         LocalDateTime publishedAt = LocalDateTime.now().withNano(0);
@@ -653,7 +1206,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 .publishedFileId(publishedArtifact.publishedFileId())
                 .stampedFileId(publishedArtifact.stampedFileId())
                 .stampedTime(publishedArtifact.stampedTime())
-                .approvedTime(LocalDateTime.now())
                 .publishedTime(LocalDateTime.now())
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .finalizationError("")
@@ -739,13 +1291,16 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         LinkedHashSet<Long> recipientUserIds = new LinkedHashSet<>();
         for (DccControlledFileDistributionRecipientDO recipient : recipients) {
             if (recipient == null || recipient.getUserId() == null) {
-                throw new IllegalStateException("Saved electronic distribution contains blank recipient: distributionId="
-                        + distribution.getId());
+                throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                        "Saved electronic distribution contains blank recipient: distributionId="
+                                + distribution.getId());
             }
             recipientUserIds.add(recipient.getUserId());
         }
         if (recipientUserIds.isEmpty()) {
-            throw new IllegalStateException("Single-file electronic distribution requires recipients");
+            throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                    "Single-file electronic distribution requires recipients: distributionId="
+                            + distribution.getId());
         }
         List<Long> orderedRecipientUserIds = List.copyOf(recipientUserIds);
         validateSavedElectronicDistributionRecipients(distribution.getId(), orderedRecipientUserIds);
@@ -769,8 +1324,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 })
                 .toList();
         if (!invalidRecipientUserIds.isEmpty()) {
-            throw new IllegalStateException("Saved electronic distribution recipients are inactive or missing: distributionId="
-                    + distributionId + ", userIds=" + invalidRecipientUserIds);
+            throw new ServiceException(CONTROLLED_FILE_PUBLISH_NOT_ALLOWED.getCode(),
+                    "Saved electronic distribution recipients are inactive or missing: distributionId="
+                            + distributionId + ", userIds=" + invalidRecipientUserIds);
         }
     }
 
@@ -996,7 +1552,7 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
                 "Controlled file version chain must not be null during finalization");
         for (DccControlledFileDO iteration : chain) {
             if (iteration == null || Objects.equals(iteration.getId(), newActiveFile.getId())
-                    || !DccControlledFileStatusEnum.WORKING.getStatus().equals(iteration.getStatus())) {
+                    || !isUnfinishedWorkflowVersion(iteration)) {
                 continue;
             }
             DccControlledFileVersion workingVersion = DccControlledFileVersion.parse(iteration.getVersionNo());
@@ -1016,12 +1572,28 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         }
     }
 
+    private boolean isUnfinishedWorkflowVersion(DccControlledFileDO file) {
+        if (file == null || StrUtil.isBlank(file.getStatus())) {
+            return false;
+        }
+        return !Set.of(
+                DccControlledFileStatusEnum.ACTIVE.getStatus(),
+                DccControlledFileStatusEnum.REJECTED.getStatus(),
+                DccControlledFileStatusEnum.WITHDRAWN.getStatus(),
+                DccControlledFileStatusEnum.OBSOLETE.getStatus(),
+                DccControlledFileStatusEnum.SUPERSEDED.getStatus()
+        ).contains(file.getStatus());
+    }
+
     private void validateApprovalEventIdentity(DccControlledFileDO file,
                                                BpmProcessInstanceStatusEvent event) {
-        if (!Objects.equals(file.getProcessInstanceId(), event.getId())
+        if (!Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId()) || file.getId()==null
+                || !Objects.equals(file.getId().toString(),event.getBusinessKey())
+                || !Objects.equals(file.getProcessInstanceId(), event.getId())
                 || !Objects.equals(file.getProcessDefinitionKey(), event.getProcessDefinitionKey())
-                || !Objects.equals(DccControlledFileWorkflowServiceImpl.BPM_PROCESS_DEFINITION_KEY,
-                event.getProcessDefinitionKey())) {
+                || StrUtil.isBlank(event.getProcessDefinitionKey())
+                || !DccControlledFileProcessDefinitionKeys.NATIVE_FINALIZATION_KEYS
+                .contains(event.getProcessDefinitionKey())) {
             throw new IllegalStateException("DCC approval event identity does not match the controlled file");
         }
     }
@@ -1048,9 +1620,6 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
     }
 
     private record PublishedArtifact(Long publishedFileId, Long stampedFileId, LocalDateTime stampedTime) {
-        PublishedArtifact(Long publishedFileId, Long stampedFileId) {
-            this(publishedFileId, stampedFileId, LocalDateTime.now());
-        }
     }
 
     private String resolveFailureReason(RuntimeException ex) {
@@ -1064,7 +1633,9 @@ public class DccControlledFileFinalizationServiceImpl implements DccControlledFi
         if (ex instanceof ServiceException serviceException
                 && (Objects.equals(serviceException.getCode(), CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode())
                 || Objects.equals(serviceException.getCode(), CONTROLLED_FILE_PDF_CONVERSION_CONFIG_MISSING.getCode())
-                || Objects.equals(serviceException.getCode(), CONTROLLED_FILE_PDF_CONVERSION_FAILED.getCode()))) {
+                || Objects.equals(serviceException.getCode(), CONTROLLED_FILE_PDF_CONVERSION_FAILED.getCode())
+                || Objects.equals(serviceException.getCode(), CONTROLLED_FILE_SIGNATURE_EVIDENCE_MISSING.getCode())
+                || Objects.equals(serviceException.getCode(), CONTROLLED_FILE_SIGNATURE_EVIDENCE_INVALID.getCode()))) {
             return serviceException;
         }
         return new ServiceException(CONTROLLED_FILE_STAMP_GENERATION_FAILED.getCode(), reason);

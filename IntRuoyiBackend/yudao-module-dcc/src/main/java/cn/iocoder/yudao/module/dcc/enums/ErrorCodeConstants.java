@@ -289,6 +289,8 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN = new ErrorCode(1_080_000_187,
             "DCC file type taxonomy parent cannot be changed");
     ErrorCode PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_188, "DCC project code is disabled");
+    ErrorCode FILE_DIRECTORY_HIERARCHY_CYCLE = new ErrorCode(1_080_000_347,
+            "目录关系存在循环，不能将目录设置为自身或下级目录的子目录：{}");
     ErrorCode CONTROLLED_FILE_PRINT_NOT_ALLOWED = new ErrorCode(1_080_000_189,
             "Current controlled file cannot be printed as a controlled copy");
     ErrorCode CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_190,
@@ -591,5 +593,38 @@ public interface ErrorCodeConstants {
             "Only the latest WORKING controlled file iteration can be submitted");
     ErrorCode DCC_PROJECT_ACCESS_RULE_INVALID = new ErrorCode(1_080_000_346,
             "DCC project access rules are invalid: include at least one active OWNER and non-blank change reason");
+    ErrorCode CONTROLLED_FILE_NAME_EXISTS = new ErrorCode(1_080_000_348,
+            "文件名称已存在，请先走作废或者升版路线");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_NOT_EXISTS = new ErrorCode(1_080_000_350,
+            "DCC 项目代码与产品目录联合新建申请不存在");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_STATUS_INVALID = new ErrorCode(1_080_000_351,
+            "DCC 项目代码与产品目录联合新建申请状态不合法");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_ADMIN_REQUIRED = new ErrorCode(1_080_000_352,
+            "只有 admin 可以审核或批准 DCC 项目代码与产品目录联合新建申请");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PROJECT_CODE = new ErrorCode(1_080_000_353,
+            "项目代码已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_CODE = new ErrorCode(1_080_000_354,
+            "产品编码已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_DUPLICATE_PRODUCT_NAME = new ErrorCode(1_080_000_355,
+            "产品名称已存在或正在申请中");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_CLASSIFICATION_INVALID = new ErrorCode(1_080_000_356,
+            "分类只能选择一类、二类或三类");
+    ErrorCode DCC_PROJECT_PRODUCT_CREATE_WRITE_FAILED = new ErrorCode(1_080_000_357,
+            "DCC 项目代码与产品目录正式数据写入失败");
+    ErrorCode DCC_PROJECT_CODE_DIRECT_CREATE_NOT_ALLOWED = new ErrorCode(1_080_000_358,
+            "DCC 项目代码必须从项目代码与产品目录联合新建申请创建");
+    ErrorCode DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED = new ErrorCode(1_080_000_359,
+            "DCC 产品目录必须从项目代码与产品目录联合新建申请创建");
+    ErrorCode CONTROLLED_FILE_OFFLINE_TRAINING_CONFIG_REQUIRED = new ErrorCode(1_080_000_360,
+            "线下培训配置不完整：{}；请配置启用文控账号、TRAINING_RECORD类别权限及本文件/项目范围后再提交");
+    ErrorCode CONTROLLED_FILE_RETAINED_NUMBER_EXISTS = new ErrorCode(1_080_000_361,
+            "文件编号仍被作废保留记录占用，不能在其他项目或文件类型中创建新的文件链");
+    ErrorCode CONTROLLED_FILE_REVIEW_DATE_INVALID = new ErrorCode(1_080_000_362,
+            "生效日期为空或已过，请调整申请并重新审核");
+    ErrorCode APPROVAL_MATRIX_EXPECTATION_STALE = new ErrorCode(1_080_000_363,
+            "审批配置已变化，请刷新正式预检并确认本次配置");
+    ErrorCode APPROVAL_MATRIX_CHANGE_CONFIRMATION_REQUIRED = new ErrorCode(1_080_000_364,
+            "本次审批配置发生变化，需要确认后重新提交");
 
+    ErrorCode DIRECT_SUPERVISOR_SOURCE_UNAVAILABLE = new ErrorCode(1_080_000_365, "{}");
 }

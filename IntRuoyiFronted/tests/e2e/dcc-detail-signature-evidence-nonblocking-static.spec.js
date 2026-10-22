@@ -66,8 +66,28 @@ assert.doesNotMatch(
 )
 assert.match(
   reloadAll,
-  /await loadData\(\)[\s\S]*await loadDccSignatureEvidenceList\(\)[\s\S]*await loadApprovalDetail\(\)/,
+  /await loadData\(sequence,\s*requestedId,\s*requestedRoute\)[\s\S]*await loadDccSignatureEvidenceList\(\)[\s\S]*await loadApprovalDetail\(sequence,\s*requestedId,\s*requestedRoute\)/,
   'reloadAll must continue to load approval detail after the signature evidence loader handles its own visible error'
+)
+assert.match(
+  signatureLoader,
+  /const requestSequence = \+\+dccSignatureEvidenceRequestSequence/,
+  'signature evidence pagination must allocate an independent request sequence'
+)
+assert.match(
+  signatureLoader,
+  /requestedPageNo[\s\S]*requestedPageSize[\s\S]*requestedFileId/,
+  'signature evidence request state must capture file and pagination identity'
+)
+assert.match(
+  signatureLoader,
+  /requestSequence === dccSignatureEvidenceRequestSequence[\s\S]*requestedPageNo === dccSignatureEvidenceQueryParams\.pageNo[\s\S]*requestedPageSize === dccSignatureEvidenceQueryParams\.pageSize/,
+  'signature evidence success, failure and loading writes must be guarded by the current request identity'
+)
+assert.match(
+  signatureLoader,
+  /if \(!isCurrentRequest\(\)\)\s*(?:\{\s*return\s*\}|return\s*;?)/,
+  'stale signature evidence responses must not mutate the current page; either block or single-line return is valid'
 )
 
 console.log('PASS: DCC detail signature evidence non-blocking static contract')

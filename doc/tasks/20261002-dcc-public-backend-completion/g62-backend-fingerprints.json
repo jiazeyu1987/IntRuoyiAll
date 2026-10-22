@@ -1,0 +1,65 @@
+{
+  "status": "FROZEN_MAVEN_FREE_READY_FOR_ROOT_REVIEW_G62",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "bytes": 26148,
+      "sha256": "24c21c781239bbe2d9419e965b4820109528951cfd5ee81c59d26a55ed594515"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "bytes": 43591,
+      "sha256": "64d9e2591672348c7d068dab91aae26ef7e67d1f3d725b82c3219583368c2295"
+    }
+  ],
+  "compiledClassInventory": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.class",
+      "bytes": 34681,
+      "sha256": "c825be46904f5b78cb857d0d9408cba74bd7ea1cc957a314a3b27c4f2d6dd571"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-backend-verification-receipt.json",
+    "bytes": 5285,
+    "sha256": "e72bcccb074c4584adb379cffe077c6790236a0b5f7dfebf3aca08e862861a7e"
+  },
+  "bdd": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-obsolete-obligation-wiring-bdd.md",
+    "bytes": 2341,
+    "sha256": "71e4423bc341e985e48f6545760ea017b1c2ee766934a0ed1cc23b6dccc77e0f"
+  },
+  "unchangedG61G60Assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 269993,
+      "sha256": "9f2f14d389e989ec795af4368d64099227e87a5967a5628f41cadf6fc3bf31a1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 25438,
+      "sha256": "11255c32c717ccff389718890490ed27d61f7302b5e2f42fe01e5f0de9e4343a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.java",
+      "bytes": 21888,
+      "sha256": "99a9768e957b14eaa9d3c1aebfe60d11cc91e1c11b8613aae566ba5ac3d0d3b0"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccPendingObsoletePlatformTransactionTest.java",
+      "bytes": 10805,
+      "sha256": "67ef9aed9fef4765c2fa7163be1163b8e19bf35c55db15a6dfaf468949d411c4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "bytes": 20322,
+      "sha256": "0c9a0c94fb6e57c4682d391c63b0ea2f4d1663a15e3160acbbbf294b1912fedd"
+    }
+  ],
+  "supersession": "Only ObsoleteService G60asset superseded, ownoldServiceTest strengthened; QueryG61/Adapter/Core/JDBC unchanged.",
+  "RootRemaining": "Solepackage/actual4033obsolete/history signatures/fullHTML/Git"
+}

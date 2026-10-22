@@ -43,12 +43,15 @@ public class DccPaperDistributionAckServiceImpl implements DccPaperDistributionA
     private static final String MESSAGE_TEMPLATE_DISTRIBUTION = "dcc_distribution";
     private static final Set<String> ACK_ALLOWED_FILE_STATUSES = Set.of(
             DccControlledFileStatusEnum.ACTIVE.getStatus(),
+            DccControlledFileStatusEnum.CONTROLLED_PENDING_EFFECTIVE.getStatus(),
             DccControlledFileStatusEnum.SUPERSEDED.getStatus(),
             DccControlledFileStatusEnum.OBSOLETE.getStatus()
     );
 
     @Resource
     private DccControlledFileMapper controlledFileMapper;
+    @Resource
+    private DccControlledFileDetailAuthorizationGuard detailAuthorizationGuard;
     @Resource
     private DccControlledFileDistributionMapper distributionMapper;
     @Resource
@@ -63,10 +66,13 @@ public class DccPaperDistributionAckServiceImpl implements DccPaperDistributionA
     private AdminUserApi adminUserApi;
 
     @Override
-    public List<DccPaperDistributionRecordRespVO> getPaperDistributionRecords(Long controlledFileId) {
+    public List<DccPaperDistributionRecordRespVO> getPaperDistributionRecords(Long userId, Long controlledFileId) {
         DccControlledFileDO file = controlledFileMapper.selectById(controlledFileId);
         if (file == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
+        }
+        if (!detailAuthorizationGuard.isAllowed(userId, file)) {
+            throw exception(cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED);
         }
         List<DccControlledFileDistributionDO> paperDistributions =
                 distributionMapper.selectListByControlledFileId(controlledFileId).stream()
@@ -84,7 +90,7 @@ public class DccPaperDistributionAckServiceImpl implements DccPaperDistributionA
                     addUserId(userIds, recipient.getUserId()));
         });
         Map<Long, AdminUserRespDTO> userMap = userIds.isEmpty() ? Map.of() : adminUserApi.getUserMap(userIds);
-        if (userIds.stream().anyMatch(userId -> !userMap.containsKey(userId))) {
+        if (userIds.stream().anyMatch(referencedUserId -> !userMap.containsKey(referencedUserId))) {
             throw exception(CONTROLLED_FILE_DISTRIBUTION_ACK_NOT_ALLOWED);
         }
         return paperDistributions.stream()

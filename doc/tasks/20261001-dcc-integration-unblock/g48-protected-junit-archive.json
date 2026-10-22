@@ -1,0 +1,43 @@
+{
+  "status": "LD03_RAW_SIX_XML_PERMANENT_PROTECTED_COPY_SHA_VERIFIED",
+  "files": [
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccFileCategoryAdminServiceImplTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-DccFileCategoryAdminServiceImplTest.xml",
+      "sha256": "e04d13af76b0840c7ac9425302b87c317d7ea99f442bdae6e6293d77b1d97458",
+      "bytes": 99839
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAccessPermissionServiceTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-DccDirectoryAccessPermissionServiceTest.xml",
+      "sha256": "25910c16127f360c54b8bdd04bac2a420e0a038b2ad67adc9fb158500da5048d",
+      "bytes": 95018
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccDirectoryAdminServiceImplTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-DccDirectoryAdminServiceImplTest.xml",
+      "sha256": "1bc72e121ad895b7bf04dfb9055e9a63ce7de6436e87f5566b0f8398c0abf3e5",
+      "bytes": 99893
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccControlledFileWorkflowServiceImplTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-DccControlledFileWorkflowServiceImplTest.xml",
+      "sha256": "262f5330f3295512a6dca1ffcbf503e72aac1e37dd3016e5e321b0e292b6fbfc",
+      "bytes": 127464
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-DccPublicUploadPlacementHttpContractTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-DccPublicUploadPlacementHttpContractTest.xml",
+      "sha256": "a0e6228d674e29fd4df6fa50882e60f01ba79784800703db47d8c8b5cf4e85ec",
+      "bytes": 95416
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g48-G48StorageProjectionTest.xml",
+      "protectedArchive": "C:/IntRuoyiBackups/20261004-dcc-single-trunk-r2/verification/ld03/g48-G48StorageProjectionTest.xml",
+      "sha256": "1d7a222de4aec9d550f3fe44b2dd2c4544f5884b199af344918fccfd53f07bde",
+      "bytes": 96988
+    }
+  ],
+  "originalFilesDeleted": false,
+  "rawXmlStagedForGit": false
+}

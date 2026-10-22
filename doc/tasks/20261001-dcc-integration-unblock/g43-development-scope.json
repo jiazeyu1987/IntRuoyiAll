@@ -1,0 +1,17 @@
+{
+  "source": "Latest explicit user instruction",
+  "userInstruction": "去除这条限制，开发阶段不需要这个",
+  "developmentQualityApprovalRequired": false,
+  "scope": "Existing local IntRuoyi DCC development and real-page verification in the registered integration worktree",
+  "existingExecutionAuthorizationsPreserved": true,
+  "exactAuditOperations": 26,
+  "legacyClaims": 25,
+  "legacyVersions": 39,
+  "legacyOriginalNameGroups": 13,
+  "fakeQualityApprovalRowsAllowed": false,
+  "businessElectronicSignaturesRequired": true,
+  "realAuditAppendAndHistoryProtectionRequired": true,
+  "productionReleaseQualityApprovalRulesChanged": false,
+  "actualQualityApproved": false,
+  "priorQualityBlockedAuditSupersededForDevelopment": true
+}

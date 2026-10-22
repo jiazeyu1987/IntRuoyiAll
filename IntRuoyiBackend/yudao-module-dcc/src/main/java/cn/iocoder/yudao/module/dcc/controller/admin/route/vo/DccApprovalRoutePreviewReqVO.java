@@ -7,4 +7,5 @@ import lombok.Data;
 public class DccApprovalRoutePreviewReqVO {
     @NotNull(message = "类别编号不能为空")
     private Long categoryId;
+    private String actionType;
 }

@@ -1,0 +1,41 @@
+{
+  "status": "FROZEN_SOURCE_AND_MAVEN_FREE_READY_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationAccessPolicyImpl.java",
+      "bytes": 8496,
+      "sha256": "eddb9dbfef40aec2f18b45c0a70632d7c1a09e88b297890daf1237985309ee9e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccInitialRevisionArrangementReadTest.java",
+      "bytes": 12071,
+      "sha256": "dff18184f42ebab8ae76c7b9d8333d7a31bbc35523cdd5e68eb0475f65e7ba3c"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationAccessPolicyImpl.class",
+      "bytes": 9888,
+      "sha256": "e14ab0acb22eebe20456d3f83cad1eb1f99dc6ddcfa29467136901e8ccf5b77a"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-verification-receipt.json",
+    "bytes": 5504,
+    "sha256": "64fc4d5c49743fdcd85e8b4059d4a80ae2e8f6e9f5f487e33d54f73737ba18e9"
+  },
+  "contracts": [
+    "Initial arrangement READ only: actual same-tenant currentfile/round/status+enabled actor+active exact REVISION task/definition+matching initial obligation+Bpm validateTask",
+    "Bound historical participant protocol preserved",
+    "No change to assertCanArrange signed write guard; no GET backfill, unsigned writer, admin bypass or file-old-key authority"
+  ],
+  "otherProductionEdits": 0,
+  "newSql": 0,
+  "frontendEdits": 0,
+  "actualDb": 0,
+  "actualUi": 0,
+  "package": 0,
+  "Git": 0
+}

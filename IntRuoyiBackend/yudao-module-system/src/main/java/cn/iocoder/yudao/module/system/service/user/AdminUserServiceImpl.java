@@ -228,14 +228,21 @@ public class AdminUserServiceImpl implements AdminUserService {
         AdminUserDO updateObj = BeanUtils.toBean(updateReqVO, AdminUserDO.class);
         updateObj.setPostIds(targetPostIds);
         updateObj.setCanonicalUsername(canonicalizeUsername(updateReqVO.getUsername()));
-        if (userMapper.updateById(updateObj) != 1) {
-            throw exception(USER_POST_WRITE_FAILED, oldUser.getId(), "用户更新行数异常");
+        if (userMapper.update(updateObj, Wrappers.<AdminUserDO>lambdaUpdate()
+                .eq(AdminUserDO::getId, updateReqVO.getId())
+                .set(updateReqVO.isDeptIdSpecified() && updateReqVO.getDeptId() == null,
+                        AdminUserDO::getDeptId, null)) != 1) {
+            throw exception(USER_POST_WRITE_FAILED, oldUser.getId(), "用户资料更新异常");
         }
         // 2.2 更新岗位
         updateUserPost(oldUser.getId(), snapshot.postIds(), targetPostIds);
         approvalAuthority.incrementLockedAuthorityRevision(authority.tenantId(), authority.revision());
 
         // 3. 记录操作日志上下文
+        // 省略部门表示保留；持久化后补齐实际值，避免审计将省略误记为清空。
+        if (!updateReqVO.isDeptIdSpecified()) {
+            updateReqVO.setDeptId(oldUser.getDeptId());
+        }
         LogRecordContext.putVariable(DiffParseFunction.OLD_OBJECT, BeanUtils.toBean(oldUser, UserSaveReqVO.class));
         LogRecordContext.putVariable("user", oldUser);
     }
@@ -993,6 +1000,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (user == null) {
             throw exception(USER_NOT_EXISTS);
         }
+        validateOldPassword(user, oldPassword);
+    }
+
+    private void validateOldPassword(AdminUserDO user, String oldPassword) {
         if (!isPasswordMatch(oldPassword, user.getPassword())) {
             throw exception(USER_PASSWORD_FAILED);
         }

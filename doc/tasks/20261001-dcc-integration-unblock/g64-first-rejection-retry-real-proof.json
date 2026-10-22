@@ -1,0 +1,33 @@
+{
+  "status": "NATIVE_REJECT_PASS_FIRST_RETRY_SAME_A3_REAL_CHAIN",
+  "ui": [
+    "r11/052original500",
+    "r12/033fixedreviewreject4035",
+    "r12/043normalversionselectfailedA3",
+    "r12/047truecheckoutfailed4035",
+    "r12/057eligiblecorrectedbodyA3-1",
+    "r12/066formalretryconfirmationstillA3",
+    "r12/075newroundfullassignment",
+    "r12/084secondroundsignedreview"
+  ],
+  "readonly": [
+    {
+      "query": "SELECT id,status,version_no,revision_attempt_no,rework_predecessor_controlled_file_id,process_instance_id FROM dcc_controlled_file WHERE tenant_id=1 AND master_id=2054545668044079116 ORDER BY id;",
+      "result": "2054545668044084026\tOBSOLETE\tA/1\tNULL\tNULL\te8479810-c062-11f1-bf90-b082e25ec548\n2054545668044084029\tSUPERSEDED\tA/1-1\tNULL\tNULL\tNULL\n2054545668044084030\tSUPERSEDED\tA/1-2\tNULL\tNULL\tNULL\n2054545668044084032\tACTIVE\tA/2\t1\tNULL\t174b9f6e-c0c8-11f1-a5ae-b082e25ec548\n2054545668044084034\tWORKING\tA/2-1\tNULL\tNULL\tNULL\n2054545668044084035\tREJECTED\tA/3\t1\tNULL\t7ebdc840-c0e0-11f1-8698-b082e25ec548\n2054545668044084036\tWORKING\tA/3-1\tNULL\tNULL\tNULL\n2054545668044084037\tPENDING_MATRIX_APPROVAL\tA/3\t2\t2054545668044084035\ta57560c3-c0e6-11f1-b82c-b082e25ec548\n"
+    },
+    {
+      "query": "SELECT id,controlled_file_id,action_type,process_instance_id,evidence_status FROM dcc_controlled_file_signature WHERE tenant_id=1 AND controlled_file_id IN (2054545668044084035,2054545668044084037) ORDER BY id;",
+      "result": "427\t2054545668044084035\tASSIGN\t7ebdc840-c0e0-11f1-8698-b082e25ec548\tVALID\n429\t2054545668044084035\tREJECT\t7ebdc840-c0e0-11f1-8698-b082e25ec548\tVALID\n430\t2054545668044084037\tASSIGN\ta57560c3-c0e6-11f1-b82c-b082e25ec548\tVALID\n431\t2054545668044084037\tAPPROVE\ta57560c3-c0e6-11f1-b82c-b082e25ec548\tVALID\n"
+    }
+  ],
+  "productionCommits": [
+    "9ccf457fe",
+    "723619749"
+  ],
+  "currentJar": "b5deaba71fb6f1f6ea53124311b126441f32766ace83854d60de1fe026d0f581",
+  "remaining": "actualthirdDocReviewreject/fourthfullsameA3controlled, AC13 currentnativecallbacktest",
+  "actualSecondRound": "r12/093 actualapprovalsignedreject4037 A3attempt2 preserves430ASSIGN431APPROVE432REJECT",
+  "thirdRound": "4038correctedA3-2 selected→4039A3attempt3/prev4037 currentlyapprovalconfirmowner, notdoccontrolbeforeactualapproval",
+  "thirdRoundDocReviewPasswordNegative": "r12/165actualDocReview signedreject emptyloginpassword→UIexplicitdenial, formalwrites0 andsignatures433/434/435 retained",
+  "thirdRoundApproval": "r12/159explicitowner1secondconfirm→actual435APPROVE owner1→PENDING_DOC_CONTROL_REVIEW"
+}

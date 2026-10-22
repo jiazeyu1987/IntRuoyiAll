@@ -1,0 +1,46 @@
+{
+  "status": "PREPARED_THREE_EXISTING_TEST_CLASSES",
+  "startedAt": "2026-10-06T01:48:02.2597874+08:00",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccUploadNamePreflightDatabaseTest,DccLegacySourceNameOccupancyTest,DccProjectReferenceFormalAuthorityIntegrationTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "workdir": "C:/IntRuoyiAll-int_main/IntRuoyiBackend",
+  "java17": "C:\\IntRuoyiAll-int_main\\.runtime\\tools\\jdk-17\\bin\\java.exe",
+  "maven": "C:\\IntRuoyiAll-int_main\\.runtime\\tools\\apache-maven-3.9.11\\bin\\mvn.cmd",
+  "actualDBServiceActions": false,
+  "sourceFiles": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccUploadNamePreflightDatabaseTest.java",
+      "bytes": 17689,
+      "sha256": "94e749f926592b6e635b02738a27339f522710ebf45a933884d6de19b8bab6fd"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacySourceNameOccupancyTest.java",
+      "bytes": 29112,
+      "sha256": "5fd6c688b2de0e1d72cd6ab6bfab7f037ac2a91f6f29db3151a977e4e12a6c35"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+      "bytes": 22855,
+      "sha256": "abff0717c4f574c096b13419101f524553a193908fdd803e3d47d94643bfcfca"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNameClaimService.java",
+      "bytes": 22929,
+      "sha256": "909e6a7f6086f61c8aa98c5928ff660d519eca484a9fb6b01d997169a559fa99"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+      "bytes": 11942,
+      "sha256": "37668a9af33bb69d2525b2f64b705a6b51027833f1780205c46d066965b2a7a3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectLeaderService.java",
+      "bytes": 1739,
+      "sha256": "534c51ec04a11fde06ca34263eb1b04a0a5ce300328b8022ea21824f67ee8f91"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadServiceImpl.java",
+      "bytes": 26344,
+      "sha256": "07f3b1769847b6c1dfae742ae25ff971c62804f6fea697181e6be9c4ea147d5d"
+    }
+  ]
+}

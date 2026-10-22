@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DISTRIBUTION_ACK_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -59,6 +61,8 @@ class DccPaperDistributionAckServiceTest extends BaseMockitoUnitTest {
     private DccControlledFileMessageDeliveryService messageDeliveryService;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private DccControlledFileDetailAuthorizationGuard detailAuthorizationGuard;
 
     @InjectMocks
     private DccPaperDistributionAckServiceImpl ackService;
@@ -207,7 +211,8 @@ class DccPaperDistributionAckServiceTest extends BaseMockitoUnitTest {
                 120L, user(120L, "接收人A"),
                 121L, user(121L, "接收人B")));
 
-        List<DccPaperDistributionRecordRespVO> records = ackService.getPaperDistributionRecords(910L);
+        when(detailAuthorizationGuard.isAllowed(eq(99L), any(DccControlledFileDO.class))).thenReturn(true);
+        List<DccPaperDistributionRecordRespVO> records = ackService.getPaperDistributionRecords(99L, 910L);
 
         assertEquals(1, records.size());
         DccPaperDistributionRecordRespVO record = records.get(0);
@@ -225,6 +230,17 @@ class DccPaperDistributionAckServiceTest extends BaseMockitoUnitTest {
         assertEquals("回收人", record.getRecovererName());
         assertEquals(recoveredAt, record.getRecoveredAt());
         assertEquals(DccControlledFileDistributionStatusEnum.RECOVERED.getCode(), record.getStatus());
+    }
+
+    @Test
+    void getPaperDistributionRecords_requiresFormalFileDetailAuthorization() {
+        when(controlledFileMapper.selectById(910L)).thenReturn(DccControlledFileDO.builder()
+                .id(910L).categoryId(10L).status(DccControlledFileStatusEnum.ACTIVE.getStatus()).build());
+        when(detailAuthorizationGuard.isAllowed(eq(99L), any(DccControlledFileDO.class))).thenReturn(false);
+
+        assertServiceException(() -> ackService.getPaperDistributionRecords(99L, 910L),
+                CONTROLLED_FILE_ACCESS_DENIED);
+        verify(distributionMapper, never()).selectListByControlledFileId(910L);
     }
 
     @Test

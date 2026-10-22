@@ -1,0 +1,45 @@
+{
+  "status": "G39_REAL_SERVICE_MAPPER_READER_AUDIT_SOFTWARE_PASS_NOT_UI_ACCEPTANCE",
+  "tests": 154,
+  "classes": 8,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "MavenExitCode": 0,
+  "specializedRealCombinationCases": 7,
+  "effectiveRED": {
+    "file": {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g39-owner-mainline-red-r2.log",
+      "bytes": 67371,
+      "sha256": "7de5b8f1725759656e5ba490eed3fab2c0a2c97fbc5585ecf79799bd4829bd55"
+    },
+    "trigger": "writeApprovedRequest completes assets withoutAccessRule then selectedleader formalreadProjectFolders ACCESS_DENIED",
+    "exitCode": 1
+  },
+  "initialSetupFailureNotBusinessRED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-owner-mainline-red.log",
+    "bytes": 72814,
+    "sha256": "a042eb5332459b849a6f1ebf94a08b89106552b228a7498129a73156ba37fde1"
+  },
+  "GREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-owner-mainline-green.log",
+    "bytes": 64179,
+    "sha256": "96d053ba01d39e61216cc84aa991921f9273b4529a6c629f9b1ac959ed6ff96c"
+  },
+  "regression": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-owner-mainline-regression-r1.log",
+    "bytes": 317249,
+    "sha256": "e6b4477f8d2f87c02741cc471218da1a88c79a4ab58398b13fd1a6a18789691a"
+  },
+  "deliveryFingerprintSha256": "f0d435ee7acd9ccde8a7b10bf53c11f3a41db3e872e22068af95032bd06e6609",
+  "ruleInitialization": "exact enabled same tenant selectedprojectleader USER OWNER only, mandatory samephysical transaction",
+  "completedReplay": "existing STATUS_INVALID reject; no ACL overwrite/success fallback",
+  "completionAuditContainsActualRules": true,
+  "newPolicyOperationAdded": false,
+  "newMigrationAdded": false,
+  "realBrowserE2E": false,
+  "actualDBBusinessWrites": false,
+  "servicesStarted": false,
+  "jarPackageRun": false,
+  "gitMutation": false
+}

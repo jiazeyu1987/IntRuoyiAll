@@ -1,0 +1,8 @@
+{
+  "kind": "full_frontend_local_build",
+  "exitCode": 0,
+  "command": "node node_modules/vite/bin/vite.js build --mode env.local",
+  "log": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g35-frontend-build.log",
+  "actualBrowserRun": false,
+  "actualServiceStarted": false
+}

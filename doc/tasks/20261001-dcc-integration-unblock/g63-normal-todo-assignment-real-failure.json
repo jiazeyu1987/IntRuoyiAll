@@ -1,0 +1,17 @@
+{
+  "status": "REAL_OBSOLETE_FORM_SUBMISSION_PASS_CURRENT_NORMAL_TODO_ASSIGNMENT_HIDDEN",
+  "ui": "r9/321secondconfirm→323formalactiveobsolete then325normaltodo→327exactcurrentBPM",
+  "bpm": "d7c17fa8-c0d7-11f1-8698-b082e25ec548",
+  "readonly": [
+    {
+      "query": "SELECT ID_,PROC_INST_ID_,TASK_DEF_KEY_,NAME_,ASSIGNEE_ FROM ACT_RU_TASK WHERE PROC_INST_ID_=\"d7c17fa8-c0d7-11f1-8698-b082e25ec548\";",
+      "result": "d7c6aef6-c0d7-11f1-8698-b082e25ec548\td7c17fa8-c0d7-11f1-8698-b082e25ec548\tMATRIX_REVIEW\t会签指派与签名\t1\n"
+    },
+    {
+      "query": "SELECT id,status,process_instance_id,controlled_time,effective_date,activated_time FROM dcc_controlled_file WHERE tenant_id=1 AND id=2054545668044084033;",
+      "result": "2054545668044084033\tACTIVE\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:09:37\t2026-10-06\t2026-10-06 00:00:00\n"
+    }
+  ],
+  "actualProblem": "isApprovalUploadHandlingPage hides showDetailManagementActions which excludes DetailSignoffAssignment foractualMATRIX_REVIEW; review disabled expecteduntilassignment",
+  "repair": "G63FEboundedcurrenttaskeligibility no genericmanagement/noquerybypass"
+}

@@ -25,7 +25,7 @@ public class DccControlledFileLogPageReqVO extends PageParam {
     private String result;
 
     @Schema(description = "受控文件编号")
-    private Long controlledFileId;
+    private String controlledFileId;
 
     @Schema(description = "逻辑文件 Master 编号")
     private Long masterId;

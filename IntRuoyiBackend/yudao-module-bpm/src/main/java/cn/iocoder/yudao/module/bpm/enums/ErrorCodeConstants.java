@@ -25,6 +25,9 @@ public interface ErrorCodeConstants {
     ErrorCode MODEL_DEPLOY_FAIL_BPMN_USER_TASK_NAME_NOT_EXISTS = new ErrorCode(1_009_002_006, "部署流程失败，原因：BPMN 流程图中，用户任务({})的名字不存在");
     ErrorCode MODEL_UPDATE_FAIL_NOT_MANAGER = new ErrorCode(1_009_002_007, "操作流程失败，原因：你不是该流程({})的管理员");
     ErrorCode MODEL_DEPLOY_FAIL_FIRST_USER_TASK_CANDIDATE_STRATEGY_ERROR = new ErrorCode(1_009_002_008, "部署流程失败，原因：首个任务({})的审批人不能是【审批人自选】");
+    ErrorCode MODEL_CLAIM_ALREADY_MANAGED = new ErrorCode(1_009_002_009, "模型已有管理人，不能认领");
+    ErrorCode MODEL_CLAIM_FORBIDDEN = new ErrorCode(1_009_002_010, "仅具有模型修改权限的同租户超级管理员可认领无管理人模型");
+    ErrorCode MODEL_CLAIM_REASON_REQUIRED = new ErrorCode(1_009_002_011, "请填写不超过500字的模型管理人认领原因");
 
     // ========== 流程定义 1-009-003-000 ==========
     ErrorCode PROCESS_DEFINITION_KEY_NOT_MATCH = new ErrorCode(1_009_003_000, "流程定义的标识期望是({})，当前是({})，请修改 BPMN 流程图");
@@ -67,6 +70,8 @@ public interface ErrorCodeConstants {
     ErrorCode TASK_WITHDRAW_FAIL_NEXT_TASK_NOT_ALLOW = new ErrorCode(1_009_005_020, "撤回失败，下一节点不满足撤回条件！");
     ErrorCode TASK_APPROVAL_REQUIRES_DCC_SIGNATURE = new ErrorCode(1_009_005_021, "DCC受控文件审批必须在DCC文控中心完成电子签名后提交");
     ErrorCode TASK_APPROVAL_REQUIRES_EDHR_SIGNATURE = new ErrorCode(1_009_005_022, "eDHR审批必须在eDHR审批页面完成电子签名后提交");
+    ErrorCode TASK_DCC_CONFIRMED_CANDIDATE_INVALID = new ErrorCode(1_009_005_023,
+            "DCC确认审批名单为空或人员已失效，不能缩减名单继续审批：{}");
 
     // ========== 统一审批中心 1-009-006-000 ==========
     ErrorCode APPROVAL_SIGNATURE_IMAGE_REQUIRED = new ErrorCode(1_009_006_001,

@@ -21,6 +21,7 @@ let formalCalls = []
 const units = fs.readdirSync(path.join(root, 'src/workbench-sources')).map(module =>
   evaluate(read(`src/workbench-sources/${module}/registration.ts`), {
     '@/workbench/contracts': contracts,
+    '@/utils/dccDistributionNavigation': evaluate(read('src/utils/dccDistributionNavigation.ts')),
     '@/utils/exactJavaLong': evaluate(read('src/utils/exactJavaLong.ts')),
     '@/utils/edhrWorkTaskNavigation': { navigateToEdhrWorkTask: async (...args) => formalCalls.push(args) }
   }).default)
@@ -99,7 +100,7 @@ test('local/remote contract/payload/revision mismatch and unknown directory sour
 })
 test('five real module handlers carry formal identities and MES invokes formal navigator', async () => {
   const registry = createSourceRegistry(units, manifest), pushes = [], router = { push: async route => pushes.push(route) }
-  await registry.require('DCC_DISTRIBUTION').open(router, { controlledFileId:'9007199254740993', distributionId:'2', recipientId:'3' })
+  await registry.require('DCC_DISTRIBUTION').open(router, { controlledFileId:'9007199254740993', distributionId:'2', recipientId:'3', version:'A/1', approvalProcessInstanceId:'original-round' })
   await registry.require('DCC_TRAINING').open(router, { controlledFileId:'1', progressId:'4' })
   await registry.require('WORK_ORDER').open(router, { code:'WO-001' })
   await registry.require('SHOWROOM_ASSIGNMENT').open(router, { assignmentId:'5' })
@@ -107,6 +108,9 @@ test('five real module handlers carry formal identities and MES invokes formal n
   await registry.require('EDHR_WORK_TASK').open(router, payload)
   assert.equal(pushes[0].params.id, '9007199254740993')
   assert.equal(pushes[0].query.recipientId, '3')
+  assert.equal(pushes[0].query.version, 'A/1')
+  assert.equal(pushes[0].query.approvalProcessInstanceId, 'original-round')
+  assert.equal(pushes[0].query.mode, 'distribution-read')
   assert.equal(pushes[1].params.progressId, '4')
   assert.equal(pushes[2].query.code, 'WO-001')
   assert.equal(pushes[3].query.assignmentId, '5')

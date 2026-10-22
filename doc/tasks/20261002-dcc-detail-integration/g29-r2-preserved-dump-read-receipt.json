@@ -1,0 +1,61 @@
+{
+  "status": "READONLY_PRESERVED_DUMP_PARSER_RED_GREEN_NOT_RECOLLECTION_OR_REHEARSAL",
+  "priorRegexCounts": {
+    "dcc_controlled_file": 0,
+    "dcc_controlled_file_master": 36685,
+    "dcc_controlled_file_name_claim": 0,
+    "dcc_controlled_file_source_ownership": 43,
+    "dcc_controlled_file_signature": 339,
+    "system_electronic_signature": 0,
+    "infra_release_migration": 529
+  },
+  "strictParserCounts": {
+    "dcc_controlled_file": 41615,
+    "dcc_controlled_file_master": 36685,
+    "dcc_controlled_file_name_claim": 27,
+    "dcc_controlled_file_source_ownership": 43,
+    "dcc_controlled_file_signature": 339,
+    "system_electronic_signature": 0,
+    "infra_release_migration": 529
+  },
+  "actualBaselineCounts": {
+    "dcc_controlled_file": 41615,
+    "dcc_controlled_file_master": 36685,
+    "dcc_controlled_file_name_claim": 27,
+    "dcc_controlled_file_source_ownership": 43,
+    "dcc_controlled_file_signature": 339,
+    "system_electronic_signature": 0,
+    "infra_release_migration": 529
+  },
+  "generatedColumns": {
+    "dcc_controlled_file": [
+      "c_version_key"
+    ],
+    "dcc_controlled_file_name_claim": [
+      "active_unique_flag",
+      "source_name_key",
+      "number_key"
+    ]
+  },
+  "inputs": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\schema.sql.gz",
+      "bytes": 4605,
+      "sha256": "bbf08a53ef35c922a3d14d5008d4187ed80ce564784483efb16e474f2b3fd119"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\protected-original-rows.sql.gz",
+      "bytes": 3424158,
+      "sha256": "a9ecfd39d1c765f43e4545d760a5c5c86e17fa0ae2edd06fd1191ccd71a2576c"
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g29-clone-fresh-inputs\\fresh-original-baseline.json",
+      "bytes": 9409421,
+      "sha256": "dd002045da7199860f03af8ba9f43c981439fd87e7ac20ef8e3007d71824a96b"
+    }
+  ],
+  "oldFailedReceiptsModified": false,
+  "actualDatabaseConnections": 0,
+  "actualBackupRecollection": false,
+  "actualDDL": false
+}

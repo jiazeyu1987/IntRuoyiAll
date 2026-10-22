@@ -25,17 +25,10 @@
       @pagination="getList"
     >
       <template #actions>
-        <el-button
-          class="scheme-d-btn scheme-d-btn--success"
-          type="primary"
-          plain
-          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
-          @click="openForm('create')"
-          v-hasPermi="['dcc:project-code:create']"
-        >
-          <Icon icon="ep:plus" class="mr-5px" />
-          新增项目代码
-        </el-button>
+        <el-button data-testid="dcc-project-request-create-open" v-hasPermi="['dcc:project-code:create']"
+          type="primary" plain @click="openProjectRequestEntry('create')">新建项目申请</el-button>
+        <el-button data-testid="dcc-project-request-records-open" v-hasPermi="['dcc:project-code:query']"
+          @click="openProjectRequestEntry('records')">项目申请与审批</el-button>
         <el-button
           class="scheme-d-btn scheme-d-btn--primary"
           type="primary"
@@ -824,6 +817,17 @@
         <el-descriptions-item label="优先级">{{ selectedProjectCode.priority || '-' }}</el-descriptions-item>
       </el-descriptions>
 
+      <el-descriptions v-if="selectedProjectCode" :column="2" border class="mt-12px">
+        <el-descriptions-item label="项目负责人账号ID">{{ selectedProjectCode.projectLeaderUserId || '历史未记录' }}</el-descriptions-item>
+        <el-descriptions-item label="项目负责人">{{ selectedProjectCode.projectLeader || '历史未记录' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-alert v-if="projectDefaultAttributeResult.error" :title="projectDefaultAttributeResult.error" type="error" :closable="false" />
+      <el-form label-width="140px" class="mt-12px">
+        <ProjectAttributesFields v-if="!projectDefaultAttributeResult.error" :model-value="projectDefaultAttributeResult.attributes || emptyAttributes()" readonly :historical-missing="!selectedProjectCode?.defaultAttributesJson" />
+      </el-form>
+      <el-button v-if="selectedProjectCode?.id" v-hasPermi="['dcc:project-code:update']" type="primary" plain @click="projectAttributeDialogRef?.open(selectedProjectCode.id)">修改项目默认属性与负责人账号</el-button>
+      <el-button v-hasPermi="['dcc:project-code:update']" plain @click="folderTemplateLibraryRef?.open()">文件夹模板库</el-button>
+      <ProjectFolderTreePanel v-if="selectedProjectCode?.id" :key="String(selectedProjectCode.id)" :project-id="selectedProjectCode.id" />
       <div class="dcc-project-code-associated-heading">
         <span>项目文件模板</span>
         <div class="dcc-project-code-associated-heading-actions">
@@ -838,7 +842,7 @@
             v-hasPermi="['dcc:project-code:update']"
           >
             <Icon icon="ep:user-filled" class="mr-5px" />
-            正式负责人/编制权限
+            项目 OWNER/编制权限
           </el-button>
           <el-button
             class="scheme-d-btn scheme-d-btn--primary"
@@ -1070,6 +1074,8 @@
     </div>
   </el-drawer>
 
+  <ProjectAttributeConfigurationDialog ref="projectAttributeDialogRef" @saved="projectAttributesSaved" />
+  <FolderTemplateLibraryEditor ref="folderTemplateLibraryRef" />
   <ProjectFileTemplateEditor
     ref="projectFileTemplateEditorRef"
     @saved="handleProjectFileTemplateSaved"
@@ -1496,6 +1502,11 @@ import {
   updateProjectCode
 } from '@/api/dcc/controlledFile/projectCodes'
 import ProjectFileTemplateEditor from './ProjectFileTemplateEditor.vue'
+import ProjectAttributeConfigurationDialog from './ProjectAttributeConfigurationDialog.vue'
+import FolderTemplateLibraryEditor from './FolderTemplateLibraryEditor.vue'
+import ProjectFolderTreePanel from './ProjectFolderTreePanel.vue'
+import ProjectAttributesFields from '../../project-attributes/ProjectAttributesFields.vue'
+import { emptyAttributes, validateAttributes, type ProjectAttributes } from '../../project-attributes/state'
 import {
   getDccProjectGovernanceStatus,
   type DccProjectGovernanceStatusVO
@@ -1704,6 +1715,9 @@ const {
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
+const openProjectRequestEntry = (mode: 'create' | 'records') => router.push({
+  path: '/mdm/product-catalog', query: { requestOpen: mode, from: 'project-code' }
+})
 const loading = ref(false)
 const exportLoading = ref(false)
 const previewLoading = ref(false)
@@ -1730,6 +1744,18 @@ const qaRegulationStatusByDccProjectCodeId = ref<
 >({})
 const qaRegulationStatusPermissionDenied = ref(false)
 const selectedProjectCode = ref<DccProjectCodeRespVO | null>(null)
+const projectAttributeDialogRef = ref<InstanceType<typeof ProjectAttributeConfigurationDialog>>()
+const folderTemplateLibraryRef = ref<InstanceType<typeof FolderTemplateLibraryEditor>>()
+const projectDefaultAttributeResult = computed<{ attributes?: ProjectAttributes; error?: string }>(() => {
+  const json = selectedProjectCode.value?.defaultAttributesJson
+  if (!json) return {}
+  try { return { attributes: validateAttributes(JSON.parse(json)) } }
+  catch (cause) { return { error: cause instanceof Error ? cause.message : String(cause) } }
+})
+const projectAttributesSaved = async (id: number | string) => {
+  const refreshed = await getProjectCode(id)
+  if (String(selectedProjectCode.value?.id) === String(id)) selectedProjectCode.value = refreshed
+}
 const projectFileTemplateEditorRef = ref<InstanceType<typeof ProjectFileTemplateEditor>>()
 const projectFileTemplateItems = ref<DccProjectFileTemplateItemRespVO[]>([])
 const projectFileTemplateLoading = ref(false)
@@ -2445,7 +2471,7 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 })
 
 const POSITIVE_INTEGER_TEXT = /^[1-9]\d*$/
-const PROJECT_CODE_ROUTE_PATH = '/mes/md/dcc-project-code'
+const PROJECT_CODE_ROUTE_PATH = '/mdm/project-code'
 
 const isProjectCodeRoute = () => route.path === PROJECT_CODE_ROUTE_PATH
 
@@ -2689,7 +2715,10 @@ const ensureLoaded = async () => {
   if (hasLoaded.value) {
     return
   }
-  await Promise.all([getList(), loadFileTypeTaxonomies()])
+  await Promise.all([
+    getList(),
+    checkPermi(['dcc:controlled-file:category:manage']) ? loadFileTypeTaxonomies() : Promise.resolve()
+  ])
   hasLoaded.value = true
 }
 
@@ -3724,7 +3753,7 @@ const openProjectCodeDetail = async (projectCode: DccProjectCodeRespVO | number 
   }
   detailDrawerVisible.value = true
   await router.replace({
-    path: '/mes/md/dcc-project-code',
+    path: '/mdm/project-code',
     query: { ...route.query, projectCodeId: id }
   })
 }

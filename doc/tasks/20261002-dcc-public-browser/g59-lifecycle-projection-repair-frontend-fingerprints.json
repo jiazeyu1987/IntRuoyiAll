@@ -1,0 +1,109 @@
+{
+  "status": "G59_LIFECYCLE_PROJECTION_REPAIR_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 3,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 315365,
+      "sha256": "7584fa5adca8b9d3b4e9fe2a3509db8485c6bd3a7554d5a84e41c42c13a36889"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailLifecycleProjectionRepairDialog.vue",
+      "bytes": 7606,
+      "sha256": "04a35b1054d69027b0acdd71fe3ee743bb62d40c0b79a2eb37d42a83773690a5"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/lifecycleProjectionRepair.ts",
+      "bytes": 6357,
+      "sha256": "ba59681502ddba1a1661cde53e4a3857e17f37b1b0dde94dfbc918582ab2d2b3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-lifecycle-projection-repair.test.cjs",
+      "bytes": 10389,
+      "sha256": "0acdf259ba9aeace428cb618dcfd95ab1569f35eb689d13bbe686b8f5acc7ba0"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-bdd.md",
+      "bytes": 5161,
+      "sha256": "01fef319601a4b94c71dcc88806e4c6e38d8a8af0fb82001e5e6e677916e6d64"
+    }
+  ],
+  "previousParentStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json",
+    "bytes": 7747,
+    "sha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8"
+  },
+  "protectedOtherStages": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json",
+      "bytes": 4202,
+      "sha256": "e15fd50d192ba4faceffb2e67cb41ab0e10fbfff038de01b024db685b63f766b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json",
+      "bytes": 3976,
+      "sha256": "0b4e2a415c802ced3496adc6aac180133a21d9caeb74a96916a1e0c3f8d6fdf5"
+    }
+  ],
+  "verification": {
+    "effectiveRED": {
+      "tests": 4,
+      "pass": 0,
+      "failures": 4,
+      "exitCode": 1,
+      "reason": "Actual Parent entry absent and two new formal sources absent"
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 20,
+      "pass": 20,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Includes15 existing G57 metadata/viewer/training/route cases; not additive"
+    },
+    "ownedLint": {
+      "files": 3,
+      "warnings": 0,
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-effective-red.log",
+      "bytes": 5695,
+      "sha256": "c07d7bc9c82c7aaa8ebeef56ca0571228bbb344ce373206c22b79e72e0c147c7"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-final-frozen.log",
+      "bytes": 2539,
+      "sha256": "1168898f8365c768adb4255a49c51e285e9f4d9bd5eaf94390f0c0abf306851d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-lint-frozen.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "exactContracts": [
+    "All three existing menu permissions individually checked with every; existing checkPermi is OR, plus actual doc_control/nonviewer/management gates",
+    "Explicit read preview and server canRepair, no automatic writes/QA signature/fake taskId",
+    "POST8fields master/ref/BPM/expectedFINALIZING/factHash/preimageHash/reason/key; file ID only path",
+    "Strict precise string identities/hash/time and request-bound REPAIRED|REPLAY receipt auditID/time",
+    "Actual component context generations and live tenant reader guard late preview/confirmation/write; cancellation zeroPOST",
+    "Original files/history/signatures untouched, formal target/actions read from server; completed write then refresh error explicit"
+  ],
+  "setupIncidents": [
+    "Initial new-test async arrow parentheses syntax error retained as setup failure, not business RED"
+  ],
+  "supersedes": "Only Parent production bytes from prior G57r2; adds own dialog/API/test. All previous seals retained, G58 assets and G57 other11 assets unchanged",
+  "limitations": [
+    "Actual production AST/handlers/wrapper and fullSFC Vue renderer with explicit offline dependencies; not actual runtime/API/UI operation",
+    "Root final full types/build and formal BE integration/technical auditing plus real taskowned maintenance acceptance pending",
+    "No backend/DB/API/browser/service/Git/Maven/fulltypesbuild by this agent",
+    "Shared task remains in_progress; this finite increment ready_for_closeout_for_Root_review"
+  ]
+}

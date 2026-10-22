@@ -5,9 +5,11 @@ export type ControlledFileTraceabilityScope = 'trace' | 'signature'
 export const buildControlledFileViewerPath = (
   id: number | string,
   from?: string,
-  returnTo?: string
+  returnTo?: string,
+  bodyReadContext?: string
 ) => {
   const query = new URLSearchParams({ viewer: '1' })
+  if (bodyReadContext !== undefined) query.set('bodyReadContext', bodyReadContext)
   if (from) {
     query.set('from', from)
   }

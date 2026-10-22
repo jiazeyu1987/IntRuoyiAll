@@ -1,0 +1,32 @@
+{
+  "status": "ACTUAL_PARTIAL_REVISION_EARLIER_WORKING_BODY_CONTROLLED_FUTURE_DATE_PASS",
+  "baselineFile": "2054545668044084026",
+  "candidateFile": "2054545668044084032",
+  "selectedWorkingFile": "2054545668044084029",
+  "selectedWorkingVersion": "A/1-1",
+  "sourceSHA": "4f7fb3939790d1068cc923d50dad677ebfa0fedb5893410c012bebe8fea2a543",
+  "intent": "PARTIAL",
+  "version": "A/2",
+  "effectiveDate": "2026-10-06",
+  "controlledAt": "2026-10-05 22:40:36",
+  "actualActivatedAt": null,
+  "oldExecutingFile": "2054545668044084026",
+  "oldExecutingVersion": "A/1",
+  "oldStatus": "ACTIVE",
+  "dccCandidateStatus": "CONTROLLED_PENDING_EFFECTIVE",
+  "sharedCandidateState": "CONTROLLED_PENDING_EFFECTIVE",
+  "sharedCandidateOpenFlag": null,
+  "sharedCandidateActiveFlag": null,
+  "sharedOldActiveFlag": 1,
+  "signedActions": [
+    "ASSIGN",
+    "APPROVE",
+    "APPROVE",
+    "APPROVE"
+  ],
+  "trainingSelected": false,
+  "rolesActor": "admin1",
+  "trueFutureDateSwitchStillNotObserved": true,
+  "latestOrigin": "1f81bae4b verified0ahead0behindnormalpushnetworkrecovered",
+  "evidence": "realUIr9 submit032/signatures416onwards/approval418/doccontrolactual92+; DB readonly only"
+}

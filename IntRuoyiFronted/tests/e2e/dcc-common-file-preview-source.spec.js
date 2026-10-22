@@ -28,7 +28,8 @@ if (!viewerSource.includes('<audio') || !viewerSource.includes('protected-viewer
 }
 
 const unavailableReasonGuardIndex = viewerSource.indexOf('if (resolvedPreviewUnavailableReason.value)')
-const binaryPreviewLoadIndex = viewerSource.indexOf('const previewPayload = await resolvePreviewBlob()')
+const binaryPreviewLoadMatch = /const previewPayload = await resolvePreviewBlob\([^)]*\)/.exec(viewerSource)
+const binaryPreviewLoadIndex = binaryPreviewLoadMatch ? binaryPreviewLoadMatch.index : -1
 if (unavailableReasonGuardIndex < 0) {
   throw new Error('Protected viewer must short-circuit preview binary loading when previewUnavailableReason is present')
 }
@@ -54,6 +55,10 @@ const requiredTransformFragments = [
   'getPdfPageViewportStyle',
   'protected-viewer-page__canvas-viewport',
   'protected-viewer-transform-stage',
+  'flatPreviewViewportStyle',
+  'flatPreviewTransformStyle',
+  'flatPreviewContainerRef',
+  'flatPreviewStageRef',
   'renderPdfPages(previewPayload.bytes, currentRenderVersion, scale)',
   'MIN_VIEWER_ZOOM_PERCENT',
   'MAX_VIEWER_ZOOM_PERCENT',
@@ -63,7 +68,7 @@ const requiredTransformFragments = [
   'data: clonePdfBytesForWorker(pdfBytes)',
   'max-height: calc(100vh - 180px)',
   'overscroll-behavior: contain',
-  "['PDF', 'IMAGE'].includes(resolvedPreviewKind.value)"
+  "['PDF', 'IMAGE', 'VIDEO', 'TEXT'].includes(resolvedPreviewKind.value)"
 ]
 for (const fragment of requiredTransformFragments) {
   if (!viewerSource.includes(fragment)) {

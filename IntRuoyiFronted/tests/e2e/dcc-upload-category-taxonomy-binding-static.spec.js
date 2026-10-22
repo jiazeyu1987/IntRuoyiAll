@@ -48,7 +48,13 @@ assert.match(
 assert.doesNotMatch(
   uploadPage,
   /const selectedFileTypeTaxonomyAutoCategory = computed\(\(\) =>[\s\S]*Boolean\(category\.directoryId\)/,
-  'auto-resolved formal categories must not require a category-directory binding because unbound categories land in 未分类'
+  'auto-resolved formal categories must not silently filter out missing default-directory configuration before showing the formal category error'
+)
+
+assert.match(
+  uploadPage,
+  /该类别未配置正式默认目录，请联系文控管理员配置后再提交。/,
+  'controlled-file upload must fail fast when the selected formal category has no default controlled-save directory'
 )
 
 assert.match(

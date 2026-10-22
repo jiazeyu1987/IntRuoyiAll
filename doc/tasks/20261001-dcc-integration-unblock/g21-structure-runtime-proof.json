@@ -1,0 +1,7 @@
+{
+  "status": "FAIL",
+  "executionAuthorized": false,
+  "errors": [
+    "Unknown fact kind: capture"
+  ]
+}

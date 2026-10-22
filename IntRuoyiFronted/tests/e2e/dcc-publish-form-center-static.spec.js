@@ -75,7 +75,7 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /instance\.status === 'EFFECTIVE'[\s\S]*当前版本已正式发布[\s\S]*发布申请已提交，等待审批通过后生效/,
+  /instance\.status === 'EFFECTIVE'[\s\S]*当前版本已正式生效[\s\S]*生效申请已提交，等待审批通过后生效/,
   'DCC publish success copy must distinguish direct activation from BPM approval.'
 )
 assert.doesNotMatch(
@@ -85,7 +85,7 @@ assert.doesNotMatch(
 )
 assert.match(
   browserPage,
-  /getSelectedVersion\(row\)\.status === 'READY_TO_PUBLISH'[\s\S]*data-testid="dcc-controlled-browser-publish"[\s\S]*@click="openManagement\(getSelectedVersion\(row\)\.id\)"[\s\S]*发布/,
+  /getBrowserRowActionState\(getSelectedVersion\(row\)\)\.canPublish[\s\S]*data-testid="dcc-controlled-browser-publish"[\s\S]*@click="openManagement\(getSelectedVersion\(row\)\.id\)"[\s\S]*生效处理/,
   'READY_TO_PUBLISH browser versions must expose a visible publish-management entry.'
 )
 assert.match(

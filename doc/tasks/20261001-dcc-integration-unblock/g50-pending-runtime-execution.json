@@ -1,0 +1,26 @@
+{
+  "status": "SOURCE_FOUR_DIRECTIONS_REVIEWED_COMMITTED_AWAITING_LOCAL_RUNTIME_EXECUTION_AUTHORIZATION",
+  "head": "7e2601ab4546eb5a16328ae0bf1d9e0a1d98efc3",
+  "branch": "int_qms",
+  "singleRegisteredWorktree": true,
+  "fourDirectionImplementationCommits": [
+    "64ba36ae92e4d2f08c3808b9130c085b55a2bea8",
+    "5e09a42d9997a247fde52122e4273132c502347b",
+    "69caf4fe43694d7a86970b7fafe2e8671b8333e1"
+  ],
+  "reviewDocsCommit": "7e2601ab4546eb5a16328ae0bf1d9e0a1d98efc3",
+  "newQuestionScope": [
+    "4_nullable_product_source_fields",
+    "1_empty_internal_storage_mapping_table",
+    "1_project_application_notify_template",
+    "at_most_3_new_migration_ledger_rows_per_database",
+    "existing_isolated_clone_first_repeat_then_local_test_database",
+    "real_frontend_Playwright_acceptance"
+  ],
+  "previousUnansweredFourColumnCardSupersededByCombinedScope": true,
+  "qualityApprovalNeededForDevelopment": false,
+  "currentQmsListeners": 0,
+  "actualDatabaseMigration": false,
+  "actualRuntimeAcceptance": false,
+  "automaticApprovalOrElapsedTimeConsent": false
+}

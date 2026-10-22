@@ -40,6 +40,12 @@ import static org.mockito.Mockito.verify;
         DccControlledFileCategoryPermissionSupport.class
 })
 class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
+    @org.junit.jupiter.api.BeforeEach void tenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);
+    }
+    @org.junit.jupiter.api.AfterEach void clearTenant() {
+        cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();
+    }
 
     @Resource
     private DccCategoryViewMatrixAdminServiceImpl viewMatrixAdminService;
@@ -60,7 +66,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void savePreviewRowsAndUserLookup_resolveCurrentViewMatrixSource() {
         DccFileCategoryDO category = createCategory("VIEW-MATRIX-1", "文件查阅矩阵测试");
-        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L).setNickname("赵杰"));
+        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L).setNickname("赵杰").setStatus(0).setTenantId(1L));
         when(directoryAccessPermissionService.hasDirectoryManagementPermission(201L)).thenReturn(false);
 
         DccCategoryViewMatrixSaveReqVO reqVO = saveReq(rule("A", "文控", "●", "USER", 201L));
@@ -87,7 +93,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
         assertEquals(SOURCE_CURRENT_VIEW_MATRIX, lookupRows.get(0).getBrowseSource());
         assertEquals(SOURCE_CURRENT_VIEW_MATRIX, lookupRows.get(0).getDetailSource());
         assertEquals(SOURCE_CURRENT_VIEW_MATRIX, lookupRows.get(0).getPublishedPreviewSource());
-        assertEquals("ROUTE_SNAPSHOT", lookupRows.get(0).getPendingPreviewSource());
+        assertEquals("CURRENT_APPROVAL_TASK", lookupRows.get(0).getPendingPreviewSource());
         assertEquals("DOWNLOAD_POLICY", lookupRows.get(0).getDownloadSource());
     }
 
@@ -97,7 +103,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
         when(deptApi.getDept(300L)).thenReturn(deptWithLeader(300L, "新品开发部", null, 205L));
         when(deptApi.getChildDeptList(300L)).thenReturn(List.of());
         when(deptApi.getDeptList(List.of(300L))).thenReturn(List.of(deptWithLeader(300L, "新品开发部", null, 205L)));
-        when(adminUserApi.getUser(205L)).thenReturn(new AdminUserRespDTO().setId(205L).setNickname("新品开发负责人"));
+        when(adminUserApi.getUser(205L)).thenReturn(new AdminUserRespDTO().setId(205L).setNickname("新品开发负责人").setStatus(0).setTenantId(1L));
 
         DccCategoryViewMatrixSaveReqVO reqVO = saveReq(rule("B", "新品开发部", "▲", "DEPT", 300L));
 
@@ -114,7 +120,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
     @Test
     void saveViewMatrix_ignoresIncomingRuleIdWhenRebuildingRules() {
         DccFileCategoryDO category = createCategory("VIEW-MATRIX-ID", "旧主键重建测试");
-        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L).setNickname("赵杰"));
+        when(adminUserApi.getUser(201L)).thenReturn(new AdminUserRespDTO().setId(201L).setNickname("赵杰").setStatus(0).setTenantId(1L));
         ruleMapper.insert(DccCategoryViewMatrixRuleDO.builder()
                 .id(766L)
                 .categoryId(category.getId())
@@ -217,7 +223,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
         insertDepartmentRule(second.getId(), 300L);
         when(deptApi.getChildDeptList(300L)).thenReturn(List.of());
         when(adminUserApi.getUserListByDeptIds(List.of(300L))).thenReturn(List.of(
-                new AdminUserRespDTO().setId(201L).setNickname("赵杰")));
+                new AdminUserRespDTO().setId(201L).setNickname("赵杰").setStatus(0).setTenantId(1L)));
         when(deptApi.getDept(300L)).thenReturn(dept(300L, "QMS", 200L));
         when(deptApi.getDept(200L)).thenReturn(dept(200L, "质量体系中心", 100L));
         when(deptApi.getDept(100L)).thenReturn(dept(100L, "瑛泰医疗", 0L));
@@ -240,7 +246,7 @@ class DccCategoryViewMatrixAdminServiceImplTest extends BaseDbUnitTest {
     }
 
     private DccFileCategoryDO createCategory(String code, String name, Integer sort) {
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        DccFileCategoryDO category = DccFileCategoryDO.builder().approvalSourceMode("PUBLIC_MATRIX")
                 .id(randomLongId())
                 .code(code)
                 .name(name)

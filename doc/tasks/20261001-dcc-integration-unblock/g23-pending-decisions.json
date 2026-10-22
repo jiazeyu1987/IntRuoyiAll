@@ -1,0 +1,74 @@
+{
+  "status": "SOURCE19_PASS_QUALITY_AND_OBJECT_RECOVERY_NOT_APPROVED_CODE_REVIEW_IN_PROGRESS",
+  "pendingItems": [
+    {
+      "id": "database-upgrade-19",
+      "questionSent": true,
+      "scope": "fixed local clone first/repeat then exact19 original test database upgrade",
+      "answerReceived": true,
+      "answerReference": "g25-user-authorization.json",
+      "executionStatus": "SOURCE19_UPGRADE_PASS",
+      "proofReference": "g25-runtime-evidence-receipt.json"
+    },
+    {
+      "id": "audit-config-25-plus1",
+      "questionSent": true,
+      "scope": "tenant1 exact25 DCC operation registrations and maximum1 actual quality-version record",
+      "answerReceived": true,
+      "answerReference": "g25-user-authorization.json"
+    },
+    {
+      "id": "quality-approval-facts",
+      "questionSent": true,
+      "scope": "actual approver account/time/reference/signature evidence, no admin assumption",
+      "answerReceived": true,
+      "accountProvided": "admin",
+      "missingFacts": [
+        "actual approval time",
+        "approval record/signature basis"
+      ],
+      "answer": "尚未批准",
+      "answerReference": "g26-quality-not-approved.json",
+      "actualApprovalExists": false,
+      "readyForConfiguration": false
+    },
+    {
+      "id": "legacy-name-policy",
+      "questionSent": true,
+      "scope": "existing19 duplicate exact source names/3 multi-name Masters: preserve original records and verified occupied names or manual DCC reconciliation first",
+      "answerReceived": true,
+      "answerReference": "g25-user-authorization.json"
+    },
+    {
+      "id": "three-unique-object-recovery",
+      "scope": "3 exact conditional creates covering4 originalrefs",
+      "answerReceived": true,
+      "answer": "尚未批准",
+      "actualWriteApproval": false,
+      "answerReference": "g27-user-pending-approvals.json"
+    }
+  ],
+  "legacyNames": {
+    "activeTenant1ClaimCount": 25,
+    "status": "business_policy_adopted_actual_bytes_35_match_4_missing_registration_not_activated",
+    "questionSent": true,
+    "writesIncludedIn19": false,
+    "metadataCandidates": 6,
+    "unconfirmed": 19,
+    "multiNameMasters": 3,
+    "sourceBytesVerified": false,
+    "matchingObjects": 35,
+    "missingSourceFileRows": 4,
+    "uniqueMissingObjectKeys": 3,
+    "recoveryCandidateIds": 4,
+    "policyReference": "g25-user-authorization.json"
+  },
+  "applicationComplete": false,
+  "localMergeComplete": false,
+  "confirmationReissuedAtUserRequest": true,
+  "latestQuestionGroups": [
+    "local19UpgradePlus25AuditAndMaximum1VersionWithActualApprovalFacts",
+    "preserveHistoricalExactNamesPolicy",
+    "actualQualityApproverAccountTimeReferenceSignatureOrNotYetApproved"
+  ]
+}

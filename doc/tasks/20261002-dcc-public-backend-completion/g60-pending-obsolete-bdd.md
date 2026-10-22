@@ -1,0 +1,18 @@
+# G60 受控待生效版本独立批准作废
+
+状态：ready_for_closeout。Root采纳确定AC20coupling，唯一BE/Maven有限Adapter+ObsoleteService和必要真实Core/nativeeffect/H2测试；G59JDBC两资产冻结不动。
+
+- Given同tenant锁定真实File前像CONTROLLED_PENDING_EFFECTIVE且shared相同pending完整tuple、批准OBSOLETE独立BPM合法，When实际FormEffect→ObsoleteService→actualCore执行，Then双方OBSOLETE、两个flagNULL、保原受控BPM/原日期/签名/原件、Masterlatest不丢且20年名/号占用，批准即结束，无训练/文控/下发节点。
+- GivenACTIVE锁定前像，Then沿原ACTIVE→OBSOLETE动作；不可看已写OBSOLETE猜from，pending/active都持有锁定File原identity，原sharedprocess是其受控轮次不是独立作废BPM。
+- GivenlateactualAudit/outer业务failure，ThenDCC状态/20年retain/归档/通知/sharedprojection及transitionaudit同txn全部rollback；坏tuple继续拒、重放零额外审计。noCore守卫/平台开放、SQL/实际DB/服务/UI/Git。
+
+EffectiveRED须真实现nativeeffect/Service/H2和actualsharedCore，不以mockplatform验成功；旧sameprovider单元及保留期/核心原合同有限回归，不能全仓扩扫。
+
+
+## 结果与前像合同
+
+有效RED现FormEffect→正式ObsoleteService→actualCore/H2 pending，旧Adapter硬ACTIVEfrom抛stale expectedACTIVE butpending，1test/0failure/1businessError，原XML保留；首getMessage非正式ResultAPI compile属夹具错误不算RED。Service在锁定File后/任何状态write前copy准确File前像；Adapter.native分支根据该前像pending/ACTIVE选择DCC严格core动作，保原shared受控BPM，独立OBSOLETE授权BPM不替换其source。旧legacy4arg非native路径原语义保持，不新增兼容fallback/新节点/全局guard。
+
+首GREEN1全0 22:27:17；最终currentreactor7组68全0fail/error/skip CLI0 22:29:26（system15/2+DCC53/5），真实组合pending正向/ACTIVE重放/lateouter实际shared后回滚3；原obsoleteeffect/retention/adapter/core有限回归。原7JUnitXML byte归档g60-final-junit，source2/test2/编译seal。旧obsoletefixture仅补mandatory当前官方accountport+隔离lifecycleplatformmock，新专属proofactualcore不以mock算成功。G59r3 JDBC/core旧所有除Adapter资产逐SHA不变。
+
+本owner仅隔离H2开发测试、批准BPM/evidence与通知目录外port明确fixture；未执行真正用户作废签名或实库浏览器/SQL/服务/Git/package。Maven/source/target冻结FREE由Root继续solepackage和真实HTML验收，不能sum prior143/7/68为同一完整回归或整体goalPASS。

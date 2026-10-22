@@ -1,3 +1,4 @@
+import { dccDistributionReadLocation, readDccDistributionNotification } from '@/utils/dccDistributionNavigation'
 import type { ModuleRegistration } from '@/workbench/contracts'
 import { requireExactJavaLong as requireIdentity } from '@/utils/exactJavaLong'
 
@@ -7,11 +8,7 @@ const registration: ModuleRegistration = {
     {
       descriptor: { sourceId: 'DCC_DISTRIBUTION', ownerModule: 'dcc', contractVersion: 1, sortRank: 0,
         label: '文控分发', taskType: '文控', policyId: 'dcc.distribution.policy', actionKind: 'dcc.distribution.open', payloadVersion: 1 },
-      open: async (router, payload) => router.push({ name: 'DccControlledFileDetail',
-        params: { id: requireIdentity(payload.controlledFileId, '受控文件编号') },
-        query: { from: 'profile-distribution',
-          distributionId: requireIdentity(payload.distributionId, '分发编号'),
-          recipientId: requireIdentity(payload.recipientId, '收件人编号') } })
+      open: async (router, payload) => router.push(dccDistributionReadLocation(readDccDistributionNotification(payload)))
     },
     {
       descriptor: { sourceId: 'DCC_TRAINING', ownerModule: 'dcc', contractVersion: 1, sortRank: 1,

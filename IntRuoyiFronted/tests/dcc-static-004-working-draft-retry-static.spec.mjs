@@ -92,7 +92,7 @@ assert.match(
 )
 assert.match(
   submitFormBlock,
-  /if \(currentVersionLookupError\.value\) \{[\s\S]*if \(!canRetryWorkingDraftCreationAfterCurrentVersionConflict\(\)\) \{[\s\S]*return[\s\S]*\}[\s\S]*\}/,
+  /if \(currentVersionLookupError\.value\) \{[\s\S]*if \(!canRetryWorkingDraftCreationAfterCurrentVersionConflict(?:Message)?\([^)]*\)\) \{[\s\S]*return[\s\S]*\}[\s\S]*\}/,
   'submit must continue failing fast for non-recoverable current-version errors'
 )
 assert.match(

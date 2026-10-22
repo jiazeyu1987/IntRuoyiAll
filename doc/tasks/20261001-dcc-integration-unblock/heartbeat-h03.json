@@ -1,0 +1,45 @@
+{
+  "automation_id": "dcc",
+  "patrol_id": "H03",
+  "previous_patrol_id": "H02",
+  "trigger_at_utc": "2026-10-01T19:52:49.691Z",
+  "recorded_at_utc": "2026-10-01T22:03:11.442329+00:00",
+  "timed_resume_automations": {
+    "dcc-a": {
+      "target_thread_id": "01a0f2a6-eb43-7e11-8e4e-cf951a911cbf",
+      "status": "ACTIVE",
+      "rrule": "FREQ=MINUTELY;INTERVAL=30"
+    },
+    "dcc-d": {
+      "target_thread_id": "01a0f2a7-c122-76d0-8cfb-fd4bb2b1b1e5",
+      "status": "ACTIVE",
+      "rrule": "FREQ=MINUTELY;INTERVAL=30"
+    },
+    "dcc": {
+      "target_thread_id": "01a0eb90-0723-72b3-a6ca-7a22dab040ab",
+      "status": "ACTIVE",
+      "rrule": "FREQ=MINUTELY;INTERVAL=30"
+    }
+  },
+  "instant_thread_messages_sent": false,
+  "whole_business_complete": false,
+  "verification": {
+    "backend_http_and_query_cases": 27,
+    "new_http_cases": 3,
+    "new_loader_cases": 4,
+    "new_evidence_panel_cases": 4,
+    "related_selector_and_training_cases_not_added_to_new_cases": 19,
+    "types": "PASS",
+    "targeted_lint": "PASS",
+    "main_compile": "PASS",
+    "configured_build": "PASS"
+  },
+  "actions": [
+    "Created and verified native existing-thread heartbeats dcc-a and dcc-d; updated main prompt without duplicates",
+    "Opened formal current-actor RevisionOptions/ApplicationEvidence HTTP routes through the existing Controller and Query service",
+    "Added exact projectFolder/global selector loader with authoritative pagination, Long, latest and content-permission facts",
+    "Mounted readonly frozen actual/default attributes for native file application and active obsolete BPM in detail page",
+    "Synced 8 Root read bridge/panel assets to A/D with hash preflight; corrected real process-definition type selection"
+  ],
+  "runtime_or_real_database_or_git_or_e2e": false
+}

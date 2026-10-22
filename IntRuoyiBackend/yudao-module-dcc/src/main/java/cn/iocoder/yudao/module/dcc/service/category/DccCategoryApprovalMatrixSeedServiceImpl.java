@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,10 +80,10 @@ public class DccCategoryApprovalMatrixSeedServiceImpl implements DccCategoryAppr
             DccCategoryApprovalMatrixSaveReqVO reqVO = new DccCategoryApprovalMatrixSaveReqVO();
             reqVO.setEffectiveTime(effectiveTime);
             reqVO.setRemark(item.getRemark());
-            reqVO.setRules(List.of(
-                    buildSeedRule("SIGNOFF", signoffPositionIds, item.getSignoffPositionNames()),
-                    buildSeedRule("APPROVAL", approvalPositionIds, item.getApprovalPositionNames())
-            ));
+            List<DccCategoryApprovalMatrixSaveReqVO.Rule> rules = new ArrayList<>();
+            rules.addAll(buildSeedRules("SIGNOFF", signoffPositionIds, item.getSignoffPositionNames()));
+            rules.addAll(buildSeedRules("APPROVAL", approvalPositionIds, item.getApprovalPositionNames()));
+            reqVO.setRules(rules);
             approvalMatrixAdminService.saveApprovalMatrix(category.getId(), reqVO);
             seededCount++;
         }
@@ -128,19 +129,24 @@ public class DccCategoryApprovalMatrixSeedServiceImpl implements DccCategoryAppr
                 .toList();
     }
 
-    private DccCategoryApprovalMatrixSaveReqVO.Rule buildSeedRule(String stageType, List<Long> subjectIds,
-                                                                  List<String> subjectNames) {
-        DccCategoryApprovalMatrixSaveReqVO.Rule rule = new DccCategoryApprovalMatrixSaveReqVO.Rule();
-        rule.setStageType(stageType);
-        rule.setActive(true);
-        rule.setSubjectType("DCC_POSITION");
-        rule.setSubjectId(subjectIds.isEmpty() ? null : subjectIds.get(0));
-        rule.setSubjectLabel(subjectNames == null || subjectNames.isEmpty()
-                ? stageType
-                : String.join(" / ", subjectNames));
-        rule.setSubjectName(rule.getSubjectLabel());
-        rule.setMarker("▲");
-        return rule;
+    private List<DccCategoryApprovalMatrixSaveReqVO.Rule> buildSeedRules(String stageType, List<Long> subjectIds,
+                                                                        List<String> subjectNames) {
+        if (subjectIds == null || subjectNames == null || subjectIds.isEmpty() || subjectIds.size() != subjectNames.size()) {
+            throw new IllegalArgumentException("审批矩阵种子主体身份与名称必须完整且一一对应");
+        }
+        List<DccCategoryApprovalMatrixSaveReqVO.Rule> rules = new ArrayList<>();
+        for (int index = 0; index < subjectIds.size(); index++) {
+            DccCategoryApprovalMatrixSaveReqVO.Rule rule = new DccCategoryApprovalMatrixSaveReqVO.Rule();
+            rule.setStageType(stageType);
+            rule.setActive(true);
+            rule.setSubjectType("DCC_POSITION");
+            rule.setSubjectId(subjectIds.get(index));
+            rule.setSubjectLabel(subjectNames.get(index));
+            rule.setSubjectName(rule.getSubjectLabel());
+            rule.setMarker("▲");
+            rules.add(rule);
+        }
+        return rules;
     }
 
     public static class SeededCategoryApprovalMatrix {

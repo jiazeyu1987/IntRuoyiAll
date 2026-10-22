@@ -1,0 +1,117 @@
+{
+  "status": "ACTUAL_SCOPED_REACTOR_PASS_NO_RUNTIME",
+  "finishedAt": "2026-10-05T14:21:54+08:00",
+  "cliExitCode": 0,
+  "classes": 6,
+  "tests": 67,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccInitialRevisionArrangementReadTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccInitialRevisionArrangementReadTest.xml",
+      "bytes": 127584,
+      "sha256": "6765f096a617972f2112b35bce4d4299f1f54cc98585d949a7fab4840e256871"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest",
+      "tests": 23,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignoffAssignmentTest.xml",
+      "bytes": 98043,
+      "sha256": "da0708b309b97ee8dd24f6e9b5f19e9ccd7a2121c54d33b2363ac9122f0151b9"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowSignedArrangementTransactionTest.xml",
+      "bytes": 123426,
+      "sha256": "c0f010b1acb9949b47a51efb3998dc1b11135afe5d4bc0f72c90578f740e5a00"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSignedRelationAssignmentContractTest.xml",
+      "bytes": 94437,
+      "sha256": "6b00f27320bdf23534e0286113e9d1fbcd3849511598044be295b2d027deca0b"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationRemediationTransactionTest.xml",
+      "bytes": 96676,
+      "sha256": "c7640c9d660b6ff555f3be05e3934e771772c72b6e0a374b6c362012793119fe"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRelationFormalQueryGuardTest.xml",
+      "bytes": 94206,
+      "sha256": "057a519448e16533c17a23ba62c7e3be8aa1722df5b7034cf09d9c7f08004d23"
+    }
+  ],
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccInitialRevisionArrangementReadTest,DccWorkflowSignoffAssignmentTest,DccWorkflowSignedArrangementTransactionTest,DccSignedRelationAssignmentContractTest,DccRelationRemediationTransactionTest,DccRelationFormalQueryGuardTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "effectiveRed": {
+    "tests": 1,
+    "failures": 0,
+    "errors": 1,
+    "cliExitCode": 1,
+    "reason": "Actual old Policy throws DCC_RELATION_ARRANGEMENT_FORBIDDEN for persisted initial NULLround via formal listArrangements; no fixture/compile failure",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-effective-red.xml",
+      "bytes": 101181,
+      "sha256": "c3dba59694e7eee030834003acf777a67f630e3eac7e3fb76ca7e538977a006e"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-red.log",
+      "bytes": 75752,
+      "sha256": "fbe6ba9708914a6bf46b7daa62b8237d4fcc62f6f0aaee601682c4c90d9849f2"
+    }
+  },
+  "focusedGreen": {
+    "tests": 11,
+    "classes": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "cliExitCode": 0,
+    "finishedAt": "2026-10-05T14:19:04+08:00",
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-green.log",
+      "bytes": 99434,
+      "sha256": "5fe3ae81b9d214b2b17114cce94cc30c2ab822160ec680f4ecf6d07001500f55"
+    }
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-initial-arrangement-read-final.log",
+    "bytes": 93773,
+    "sha256": "d7a763f04928f2ea18c35286ecea904993b8ddd251801844a26cec72571cc9a6"
+  },
+  "mavenOwnership": "FREE_SOURCE_FROZEN",
+  "boundaries": [
+    "Real H2 persisted original NULLround plus actual Flowable current task/definition and official Bpm validate/Definition service methods",
+    "Formal name discoverability and actual enabled directory ports explicitly isolated in dedicated test",
+    "Bound historical reads and existing signed write scope preserved",
+    "No actual DB/API/UI/runtime/Git/package runs; Root owns actual acceptance"
+  ],
+  "countsOverlap": "67 includes focused11 and existing previously-run neighbors; not additive to G54/G55 totals"
+}

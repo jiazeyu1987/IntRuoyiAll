@@ -1,0 +1,23 @@
+{
+  "status": "BLOCKED_PENDING_EXPLICIT_LOCAL_RUNTIME_MIGRATION_AUTHORIZATION",
+  "currentHead": "5a1d4f92ce0c55ee2a48bec3b3292dcc04c169e0",
+  "branch": "int_qms",
+  "singleWorktree": true,
+  "sourceImplementationAndReview": "COMPLETE",
+  "lastGoalTurnClassification": "PROGRESS_READONLY_TWO_DATABASE_BACKUPS_AND_EXACT_SQL_PREPARATION",
+  "sameConditionConsecutiveGoalTurns": 3,
+  "currentActualNewFields": 0,
+  "currentActualMappingTable": 0,
+  "currentActualNotifyTemplate": 0,
+  "currentActualNewLedgerRows": 0,
+  "currentQmsListeners": 0,
+  "userApprovalReplyReceived": false,
+  "newApprovalQuestionSent": false,
+  "automaticContinueTreatedAsApproval": false,
+  "permittedPreparationExhausted": true,
+  "qualityApprovalRequiredForDevelopment": false,
+  "requiredNextAction": "Answer the existing g50 combined three-script local runtime authorization card",
+  "ruleSource": "AGENTS.md explicit database writes authorization",
+  "actualDatabaseWrites": false,
+  "fullGoalVerified": false
+}

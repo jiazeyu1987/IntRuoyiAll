@@ -1,0 +1,25 @@
+{
+  "status": "FINITE_REVIEWED_G58_SOURCE_COMMITTED",
+  "commit": "8ead0a8f5858fa037cbb34ae39089c2f1a4d3d5f",
+  "files": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/enums/DccFileCategoryPermissionActionEnum.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyApprovalTransactionTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccTrainingRecordDutyDatabaseTest.java",
+    "IntRuoyiFronted/src/api/dcc/controlledFile/fileCategories.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/browser/presentation.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/shared/lifecycle.ts",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/shared/working-browser-navigation.ts",
+    "IntRuoyiFronted/tests/unit/dcc-browser-selected-version-display.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-training-record-category-permission.test.cjs",
+    "IntRuoyiFronted/tests/unit/dcc-working-browser-navigation.test.cjs",
+    "doc/tasks/20261001-dcc-integration-unblock/g56-working-mapped-navigation-bdd.md",
+    "doc/tasks/20261002-dcc-public-backend-completion/g58-training-record-duty-bdd.md",
+    "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-bdd.md",
+    "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-bdd.md"
+  ],
+  "unrelatedThreeUnchanged": true,
+  "remainingMainGap": "G59sharedprojectionpendingreviewfix; runtimeG57notnewG58"
+}

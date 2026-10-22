@@ -1,0 +1,25 @@
+{
+  "status": "G67_CURRENT_ASSOCIATION_PRESENT_NEW_REPLACEMENT_APPROVAL_SNAPSHOT_EMPTY_REAL_REPRODUCTION",
+  "selectedExistingWorking": "4042 initializedbeforecurrentrelationedit; notassumeoldhistoricalrewrite",
+  "actualNormalUi": "r14/012currentrelation40341saved→028replacementB1confirmed→normaltodo initialMATRIX_REVIEW showsnoarrangements",
+  "facts": [
+    {
+      "query": "SELECT source_master_id,related_master_id FROM dcc_current_file_relation WHERE tenant_id=1 AND source_master_id=2054545668044079116;",
+      "result": "2054545668044079116\t2054545668044079118\n"
+    },
+    {
+      "query": "SELECT id,status,version_no,revision_change_type,selected_iteration_controlled_file_id,process_instance_id FROM dcc_controlled_file WHERE tenant_id=1 AND master_id=2054545668044079116 ORDER BY id DESC LIMIT 2;",
+      "result": "2054545668044084043\tPENDING_MATRIX_REVIEW\tB/1\tREPLACEMENT\t2054545668044084042\tf87a6b37-c0fc-11f1-b82c-b082e25ec548\n2054545668044084042\tWORKING\tA/3-4\tNULL\tNULL\tNULL\n"
+    },
+    {
+      "query": "SELECT controlled_file_id,related_master_id,related_controlled_file_id FROM dcc_controlled_file_related_file WHERE tenant_id=1 AND controlled_file_id IN (2054545668044084041,2054545668044084042,2054545668044084043);",
+      "result": ""
+    }
+  ],
+  "businessSQLWrites": false,
+  "actualInitialArrangementUi": {
+    "step": "035.json",
+    "sha256": "a97fea332c1326646cdf5105b916979fd1048803da5ce85ee0ca654252f56508",
+    "visible": "勾选关联文件，填写本次整改负责人和期限。安排随本次指派签名一并提交。\n\n整改\n\t\n关联文件\n\t\n审阅版本\n\t\n负责人\n\t\n整改期限\n暂无数据\n签名确认指派\n\n申请轮次与冻结证据\n\n当前办理轮次：f87a6b37-c0fc-11f1-b82c-b082e25ec548；本面板展示该轮冻结证据。\n\n升版申请 · 属性第 1 轮 · BPM f87a6b37-c0fc-11f1-b82c-b082e25ec548\n\n文件 #2054545668044084043 · B/1 · 升版申请 · BPM f87a6b37-c0fc-11f1-b82c-b082e25ec548 · 属性第 1 轮\n\n目标市场\nNMPA 国内\nCE 欧盟\nFDA"
+  }
+}

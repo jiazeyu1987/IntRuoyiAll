@@ -1,0 +1,41 @@
+# G35 positive frontend main-flow review and navigation repair
+
+ready_for_closeout — finite navigation repair candidate. Root assigned source-only Vue→API positive mainline review, then authorized the confirmed post-submission candidate navigation gap repair. Seven dedicated behavioral cases pass after effective RED. No Maven, types/build, actual browser/DB/service/Git action. G33 five production classes and G34 two matrix production classes remain frozen; only detail success navigation/import, one helper and dedicated behavioral test changed. Root reviews and runs the unified frontend build separately.
+
+## Confirmed mainline gap
+
+`DetailApplicationPanel.vue.submitRevision` submits the exact selected working file to `submitControlledFileWorkingIteration` and emits the returned formal candidate ID. `detail/index.vue.handleApplicationSubmitted:5960–5963` currently pushes a different ID to detail with only `from=application-submit`. `remaining.ts:1193–1222` detail `beforeEnter` accepts viewer, actual approval handling, traceability or existing browser/project/workbench management context, and rejects that application-submit context to `DccControlledFileBrowser`. A created partial/replacement candidate cannot immediately reach its own management detail through the success caller. This is an existing caller/guard mismatch, not the matrix isolation fix.
+
+Root's minimal repair scope: preserve the **existing** management source/returnTo contract and exact newly returned Long string ID; do not grant a new application-submit bypass, widen the router guard, alter backend APIs or invent BPM. Same-file submission reloads current detail. Dedicated behavioral tests execute the actual source `beforeEnter` and actual Vue success handler; a source string assertion is not sufficient RED.
+
+Repair: new `shared/submitted-application-navigation.ts` validates the exact positive signed-Long string and reuses only an existing browser/project-browser/workbench management source plus its original `/dcc/controlled-file/` return path. `handleApplicationSubmitted` uses that helper for a different returned ID and retains same-ID reload. It copies no predecessor processInstanceId/taskId/handling/viewer/project identity. The route guard is unchanged; management route acceptance is navigation eligibility, not a permission grant. Candidate details still require actual authenticated backend reads and action projections.
+
+Effective RED: `g35-navigation-red-r2.log` two tests/one failure shows the old actual Vue caller's requested candidate route rejected by the actual guard and redirected to browser; same-ID reload passed. The initial `g35-navigation-red.log` failed because the test's setup-script attribute-order regex was wrong; that setup failure is **not** credited as defect RED. GREEN `g35-navigation-green.log` CLI exit0 seven tests/zero failures executes the actual source guard/handler through TypeScript AST/transpile+VM and checks original return consistency, exact max Long string, no inherited BPM/task context, invalid IDs/foreign contexts rejected and unchanged bare application-submit guard rejection. This is no browser/E2E PASS.
+
+## BDD / verification plan
+
+- Given actual project-browser management detail with exact original returnTo and a successful formal revision returning a different ID, When the current handler navigates, Then the actual detail guard accepts the new candidate detail, preserving the original returnTo/source; no browser-list redirect.
+- Given browser/workbench management entry with a different valid Long ID, When candidate navigation is built, Then existing management flags/source contract and precise ID are kept; arbitrary application-submit/approval/foreign/empty return contexts do not grant access.
+- Given a submitted ID equal to the current detail ID, When the success handler runs, Then only reloadAll executes and no route push occurs.
+- Given invalid/numeric-unsafe/zero/overflow identity or missing/foreign management context, When building navigation, Then it fails without guessing an ID, source or return path. Existing router guard source remains unchanged.
+- RED actual old handler + actual router guard must redirect, failing the positive assertion; GREEN runs the same behavioral test after the minimal helper caller repair. No actual E2E claim, types/build retained Root.
+
+## Other inspected positive callers
+
+Project/product create/review/approve `ProductCatalogTabPanel`→`projectProductRequests`→`/dcc/project-product-requests`; project default/template/reviewer choices are explicit. Project directory `ProjectBrowserPanel`→`ProjectBrowserState`→formal discovery/folder/application page API and operation selection→current file detail management.
+
+Upload `openUploadRelations`/`persistUploadRelations` and submission snapshot keep project/folder/type/source ticket/current attributes/selected departments/training/related exact file IDs; second confirmation then `/dcc/controlled-files/submit`. Saved current associations `DetailRelationsPanel` read/write `/dcc/file-relations/{id}` independently of readonly per-version history.
+
+Detail→`buildWorkingBrowserRoute` keeps workingFileId/Master/storage scope; checkout/checkin use exact selected version. Checkin sends only MINOR plus actual uploaded source ticket/session and verifies a WORKING hyphen version with released lock. `DetailApplicationPanel`+`DccRevisionPanel` independently select body/intent/target and submit `/dcc/controlled-files/{selectedIterationId}/submit`; actual preview uses the selected body ID.
+
+Approval-center `resolveDccApprovalDetailLocation` carries sourceTaskId/processInstanceId into the actual handling route. Detail resolves/validates the requested round and assigned task. `DetailSignoffAssignment` carries exact File/BPM/task to `assignWorkflowSignoff`, including chosen related remediation; `ApprovalFileOwnerPicker` feeds the current native MATRIX_APPROVAL signature and is absent for independent obsolete approval. `submitDccApprovalAction` calls approve/reject-task with exact task ID and password/reason/owner only when required.
+
+Training action appears from the native action projection, binds the upload session to current File/BPM and calls `/training-record`, then reloads. Native doc-control task uses the existing task readiness/signed action; the old DOC_CONTROL_APPROVAL attachment controls remain confined to that legacy node rather than silently changing the new typed node. Backend automatic controlled-copy generation semantics are the separate backend reviewer lane.
+
+Workbench pending distribution preserves File ID on management navigation; `WorkflowDistributionPanel` validates current File/BPM/version/date, selected departments/media/recipients, confirmation then workflow-lifecycle distribute and current-context saved/reload callback. Formal leader references/cancel carry project/folder/Master/reference ID and actual saved pinned file through their existing APIs. `DetailObsoleteApplication` previews OBSOLETE, uses current project defaults, creates its own formal BPM and validates returned file/action context. Approval handling/history selects this actual mapped round; `DetailApplicationHistory` fetches exact file/application/BPM evidence and readonly defaults/signatures. No additional positive missing caller has been found in those inspected paths; actual roles/configuration/readiness/runtime remain unverified.
+
+## Final mainline conclusion
+
+The one confirmed frontend mainline caller/guard mismatch is repaired in source. No other open positive frontend wiring gap was found in the bounded review. This does not prove runtime roles, actual pages, generated controlled files, source-store completeness, real approvals or final 27-case acceptance. Deferred G34 negative/observer drafts remain unvalidated and unchanged.
+
+`g35-navigation-delivery-fingerprints.json` freezes the two production frontend files, dedicated test and this report, pins unchanged actual route guard and raw RED/GREEN evidence. All earlier delivery manifests remain historical immutable receipts; this specifically supersedes only the previous detail/index.vue source version by the authorized import/handler increment, not other frozen files.

@@ -17,6 +17,11 @@ public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstance
                 .eq("tenant_id", tenantId).eq("bpm_process_instance_id", processId).eq("deleted", false));
     }
 
+    default FormActionInstanceDO selectByIdAndTenantForUpdate(Long tenantId, Long instanceId) {
+        return selectOne(new QueryWrapperX<FormActionInstanceDO>().eq("id", instanceId)
+                .eq("tenant_id", tenantId).last("FOR UPDATE"));
+    }
+
     default List<FormActionInstanceDO> selectSameBusinessAction(Long tenantId, String systemCode, String objectType,
             String objectId, String objectVersion, String actionCode) {
         return selectList(new QueryWrapperX<FormActionInstanceDO>()
@@ -69,6 +74,21 @@ public interface FormActionInstanceMapper extends BaseMapperX<FormActionInstance
                 .eq("object_type", objectType)
                 .eq("object_id", objectId)
                 .in("status", FormInstanceStatus.IN_APPROVAL.name(), FormInstanceStatus.REWORKING.name())
+                .orderByDesc("id")
+                .last("LIMIT 1"));
+    }
+
+    default FormActionInstanceDO selectDraftByBusinessAction(Long tenantId, String systemCode, String objectType,
+            String objectId, String objectVersion, String actionCode, Long applicantUserId) {
+        return selectOne(new QueryWrapperX<FormActionInstanceDO>()
+                .eq("tenant_id", tenantId)
+                .eq("system_code", systemCode)
+                .eq("object_type", objectType)
+                .eq("object_id", objectId)
+                .eq("object_version", objectVersion)
+                .eq("action_code", actionCode)
+                .eq("applicant_user_id", applicantUserId)
+                .eq("status", FormInstanceStatus.DRAFT.name())
                 .orderByDesc("id")
                 .last("LIMIT 1"));
     }

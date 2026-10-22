@@ -1,0 +1,251 @@
+{
+  "status": "EXACT_XML_LOG_ARCHIVE_WITHOUT_DELETING_OR_COMMITTING_GENERATED_OUTPUT",
+  "assets": [
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-effective-red.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g53-latest-definition-effective-red.xml",
+      "bytes": 101192,
+      "sha256": "3e611f9fcfbace4e3614a971de80e996ccd2b9677b952bce0ae1dd8896427f52"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g53-latest-definition-final.log",
+      "bytes": 33589,
+      "sha256": "4559c5a6de9a0b48b3988ea3f7b8f2d4fb709b00be480cfad4822992e05a8d5a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g53-latest-definition-green.log",
+      "bytes": 39541,
+      "sha256": "f8143d5342614a17a91f5ca5ba16e1aeb7aa964a2b31be97fdc00d6fdf459d31"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g53-latest-definition-red.log",
+      "bytes": 42310,
+      "sha256": "c2166b56b048d5a5f9d76842b1435fa07b4f348ff1a649dfcfd227ed7ff6fcf4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-effective-red-r2.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-effective-red-r2.xml",
+      "bytes": 110606,
+      "sha256": "d5df5d8c97c5a3aaeefd26727f5cc091dc9f21f5f323b6e7a57d32bd3625cc58"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-effective-red.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-effective-red.xml",
+      "bytes": 109230,
+      "sha256": "93f732fe23b6e188965d6b971f7019628149bd2a74728bba7f87d53270153cc9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-final-r2.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-final-r2.log",
+      "bytes": 101104,
+      "sha256": "b89ca242e5d1d3ab4a119346f7d5d27065472d32d09e1447919015f4d45879b3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-final.log",
+      "bytes": 184207,
+      "sha256": "aaae5b5e99cf86f24eb093dfa0869fa1969267baae9130cfc09d26dcbeb59370"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-green.log",
+      "bytes": 61794,
+      "sha256": "87f94782cabee3df9a9131ef0184ce58dc123d2bf59a0fe95fa0884babf3d50a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-red-r2.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-red-r2.log",
+      "bytes": 77854,
+      "sha256": "5ed510f623d14952b5dc82dfdb3b69cc05ddd1c3dc13fd03283e7b4203ecefd3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-signoff-scope-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-signoff-scope-red.log",
+      "bytes": 76630,
+      "sha256": "3c4dbbe95144d6f647c146e47215517c946d45c616b81a5d4630c6ab7599bb7a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-final-r2.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-version-placement-context-final-r2.log",
+      "bytes": 96641,
+      "sha256": "50531ab5a9c54388f39e43673f5b7b3e36d4fe97e77bc42d29575c703f2fdf44"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-final-r3.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-version-placement-context-final-r3.log",
+      "bytes": 64980,
+      "sha256": "3426ab6a0a7a18a8347f8d03ae32b4051c7a769689f55092a38fa6e2c011c973"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-version-placement-context-final.log",
+      "bytes": 85737,
+      "sha256": "32d228e470170d31e52c197d2df9f4883b70db501414462b4c83e612067809d4"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g54-version-placement-context-junit.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g54-version-placement-context-junit.xml",
+      "bytes": 99122,
+      "sha256": "b4737f7f84328b2ec2c1baef8fb9a7682fe051df543764dce7d82c175475adba"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-effective-red.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-effective-red.xml",
+      "bytes": 94572,
+      "sha256": "f16757db79c466a835c4878647d5654f27b18b2d2949b0147dca593e0f255b90"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final-junit.xml",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-final-junit.xml",
+      "bytes": 96167,
+      "sha256": "67a8f0b325711c8ba9cd07de91c12bf5d7ba69bbc82eb63bd98e6d06b947c7ff"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final-r2.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-final-r2.log",
+      "bytes": 61651,
+      "sha256": "9fe9c467446a1b9c3168cb871644316ea24c96375d3a224834b6a2ca39551604"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final-r3.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-final-r3.log",
+      "bytes": 59622,
+      "sha256": "d62911aa1e7cf1cd96811c7887a3096b7db604a833bb3f8ea8ec1b2168587a98"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-final.log",
+      "bytes": 35180,
+      "sha256": "6da670761ff3f70c2ff053959da105b566c584d0d52a807b97ab1f79a444737d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-green.log",
+      "bytes": 37054,
+      "sha256": "f300a2be2f93830e8f7240cc3b52a13fa249d44c04062ef2def13e5c891650df"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g55-project-projection-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-backend-completion\\g55-project-projection-red.log",
+      "bytes": 61917,
+      "sha256": "7ab8957402bc835a00a3d551daa25f7a77dc5723bffe50548804bb4784cd2934"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g53-branch-backend-profile-final.log",
+      "bytes": 566,
+      "sha256": "30320c930a526340c0700af212cd387919391c558a13c5d246d72e66d004cd7b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g53-branch-backend-profile-green.log",
+      "bytes": 399,
+      "sha256": "67d678994f29a282cdfb4452c156aa7a082a072d4c3a6b36227c897a1092c913"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g53-branch-backend-profile-red.log",
+      "bytes": 116,
+      "sha256": "798d29b15fa5c62f9aa98d1bd704bfa34f45a8f7ab6ca14e6908642aca080e57"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g53-branch-backend-profile-static.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g53-branch-backend-profile-static.log",
+      "bytes": 65,
+      "sha256": "27b9aa75a8728cb799ca4d9ab8805b39f9691632ac0bd256720cacd8744efc27"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-contract-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g54-signoff-remediation-contract-red.log",
+      "bytes": 2944,
+      "sha256": "a6034b5cf793018b448fcdcc1715e06f2e7dda6d90723477e1a7de2017d37e6d"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g54-signoff-remediation-final.log",
+      "bytes": 5506,
+      "sha256": "96efa453d932a00003fc9f62d0033b24f39938b7be3c49376b119b8598949d51"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g54-signoff-remediation-green.log",
+      "bytes": 675,
+      "sha256": "1cd936b302300908881fdf4154bd57aecc37aa03084c1a53a19d7158cd8cb492"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-lint.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g54-signoff-remediation-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g54-signoff-remediation-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g54-signoff-remediation-red.log",
+      "bytes": 2155,
+      "sha256": "4694b97e96bffccac43b26da63530b36768088622c4189213c7a084554d61dbb"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-final-r3.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-final-r3.log",
+      "bytes": 3714,
+      "sha256": "0b453bdc17560a6509c410653e00d29731f056723e5e107434523d3f5d636b65"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-lint-r3.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-lint-r3.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-project-facts-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-project-facts-red.log",
+      "bytes": 3570,
+      "sha256": "e15e0b01024d106d5f5607f28f9d7d85c1d869892df348de756dc26eb18103c2"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-final.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-route-read-final.log",
+      "bytes": 3339,
+      "sha256": "01cd42f05e5036f28c678fca74c085807ff3f4cfcdf8b2cb1fdaa915a340a946"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-route-read-green.log",
+      "bytes": 1323,
+      "sha256": "4e8ca2fb2533c7a58916f9595bafc60340101a32cb55fc01a7d91e524275bfb9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-red-r2.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-route-read-red-r2.log",
+      "bytes": 3205,
+      "sha256": "b3ea450794a85c5135291c6ecdebd655accb44c5ac2185626ef940de3fec1ef3"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-detail-route-read-red.log",
+      "bytes": 241,
+      "sha256": "b872dbe61dc0c8a5d5313002fbf3485d50e4fb02cfa59a37ddc60c7e2a5e66aa"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-green.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-signature-flow-copy-green.log",
+      "bytes": 1625,
+      "sha256": "d6c70c9f6fbe63907cd43fdbbda7f30e826a993d706a2fa6090b4cdce342762c"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-lint.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-signature-flow-copy-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-red.log",
+      "protectedPath": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g55-verification-archive\\20261002-dcc-public-browser\\g55-signature-flow-copy-red.log",
+      "bytes": 4173,
+      "sha256": "15e16c4f885f65c7e936eddf16a99d4762e77ece51937c82ac8ba6d2a019abea"
+    }
+  ]
+}

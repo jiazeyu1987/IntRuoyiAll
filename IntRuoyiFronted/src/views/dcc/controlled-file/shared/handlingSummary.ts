@@ -65,6 +65,11 @@ const getPendingStageSummary = (
   source: ControlledFileHandlingSummarySource
 ): ControlledFileHandlingSummary => {
   switch (status) {
+    case 'PENDING_SUPERVISOR_REVIEW':
+      return {
+        nextStep: '等待直属主管审核',
+        responsibilityHint: '责任：直属主管'
+      }
     case 'PENDING_DOC_CONTROL_REVIEW':
     case 'PENDING_MATRIX_REVIEW':
     case 'PENDING_MATRIX_APPROVAL':
@@ -81,17 +86,17 @@ const getPendingStageSummary = (
     case 'PENDING_APPLICANT_TRAINING_RECORD':
       return {
         nextStep: '等待上传培训记录',
-        responsibilityHint: '责任：申请人'
+        responsibilityHint: '责任：文控上传线下培训记录'
       }
     case 'READY_TO_PUBLISH':
       return {
-        nextStep: '等待提交发布申请',
-        responsibilityHint: '责任：文控'
+        nextStep: '等待生效处理',
+        responsibilityHint: '责任：文控或系统'
       }
     case 'FINALIZING':
       return {
-        nextStep: '发布处理中，等待系统完成',
-        responsibilityHint: '责任：系统发布任务'
+        nextStep: '生效处理中，等待系统完成',
+        responsibilityHint: '责任：系统生效任务'
       }
     case 'TRAINING_IN_PROGRESS':
       return {
@@ -107,7 +112,7 @@ const getPendingStageSummary = (
       }
     case 'ACTIVE':
       return {
-        nextStep: '可查看和下载现行版',
+        nextStep: '可查看和下载当前受控版本',
         responsibilityHint: '责任：使用部门'
       }
     case 'REJECTED':
@@ -132,7 +137,7 @@ const getPendingStageSummary = (
       }
     case 'SUPERSEDED':
       return {
-        nextStep: '已被替代，查看现行版',
+        nextStep: '已被替代，查看当前受控版本',
         responsibilityHint: '责任：查看最新版本'
       }
     case 'DRAFT':
@@ -142,10 +147,10 @@ const getPendingStageSummary = (
       }
     case 'FINALIZATION_FAILED':
       return {
-        nextStep: source.finalizationError ? '发布失败，需处理阻塞' : '发布失败，需重试或排查',
+        nextStep: source.finalizationError ? '生效失败，需处理阻塞' : '生效失败，需重试或排查',
         responsibilityHint: source.finalizationError
           ? `阻塞：${source.finalizationError}`
-          : '责任：系统发布任务'
+          : '责任：系统生效任务'
       }
     default:
       return {
@@ -175,7 +180,7 @@ const getControlledFileVersionTag = (source: ControlledFileVersionSummarySource)
     return { tagText: '修改中', tagType: 'warning' }
   }
   if (status === 'ACTIVE') {
-    return { tagText: '现行', tagType: 'success' }
+    return { tagText: '当前受控', tagType: 'success' }
   }
   if (status === 'SUPERSEDED') {
     return { tagText: '已替代', tagType: 'info' }
@@ -199,7 +204,7 @@ const getControlledFileVersionChainText = (source: ControlledFileVersionSummaryS
   const versionCount = source.versionHistory?.length || 0
   if (source.modifying) {
     return source.currentActiveVersionNo && source.currentActiveVersionNo !== source.versionNo
-      ? `现行版：${source.currentActiveVersionNo}`
+      ? `当前受控版本：${source.currentActiveVersionNo}`
       : '当前版本正在修改'
   }
   if ((source.status as DccControlledFileStatus | undefined) === 'SUPERSEDED') {
@@ -211,13 +216,13 @@ const getControlledFileVersionChainText = (source: ControlledFileVersionSummaryS
     return '已作废，保留历史记录'
   }
   if (source.currentActiveVersionNo && source.currentActiveVersionNo !== source.versionNo) {
-    return `现行版：${source.currentActiveVersionNo}`
+    return `当前受控版本：${source.currentActiveVersionNo}`
   }
   if (versionCount > 1) {
     return `版本链 ${versionCount} 个版本`
   }
   if ((source.status as DccControlledFileStatus | undefined) === 'ACTIVE') {
-    return '现行版本'
+    return '当前受控版本'
   }
   return '单版本记录'
 }

@@ -1,0 +1,14 @@
+{
+  "log": "g19-job-startup-sync-green-final.log",
+  "executions": 7,
+  "classes": [
+    {
+      "name": "cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "buildSuccess": true
+}

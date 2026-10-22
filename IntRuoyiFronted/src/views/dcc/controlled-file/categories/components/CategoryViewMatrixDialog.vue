@@ -63,9 +63,23 @@
             </el-select>
           </template>
         </el-table-column>
-        <el-table-column label="对应部门" min-width="240">
+        <el-table-column label="对应主体" min-width="240">
           <template #default="{ row }">
-            <div class="view-matrix-dialog__department-cell">
+            <UserSelect v-if="row.subjectType === 'USER'" :model-value="row.subjectId"
+              placeholder="请选择系统用户" @change="(user) => handleUserChange(row, user)" />
+            <RoleSelect v-else-if="row.subjectType === 'ROLE'" :model-value="row.subjectId"
+              placeholder="请选择权限角色" @change="(role) => handleRoleChange(row, role)" />
+            <el-select v-else-if="row.subjectType === 'POST'" :model-value="row.subjectId"
+              class="w-full" clearable filterable placeholder="请选择组织角色"
+              @change="(id) => handlePostChange(row, id)">
+              <el-option v-for="item in postOptions" :key="item.id" :label="item.name" :value="item.id" />
+            </el-select>
+            <el-select v-else-if="row.subjectType === 'DCC_POSITION' || row.subjectType === 'POSITION'"
+              :model-value="row.subjectId" class="w-full" clearable filterable placeholder="请选择审批角色"
+              @change="(id) => handleDccPositionChange(row, id)">
+              <el-option v-for="item in approvalPositionOptions" :key="item.id" :label="item.name" :value="item.id" />
+            </el-select>
+            <div v-else-if="row.subjectType === 'DEPT'" class="view-matrix-dialog__department-cell">
               <el-tree-select
                 :model-value="getDepartmentSelectValue(row)"
                 class="view-matrix-dialog__department-select"
@@ -81,6 +95,7 @@
                 @change="(deptId) => handleDepartmentChange(row, deptId)"
               />
             </div>
+            <span v-else>请选择主体类型后配置主体</span>
           </template>
         </el-table-column>
         <el-table-column label="备注" min-width="170">
@@ -193,6 +208,12 @@ import {
   type ControlledFileCategoryViewMatrixSubjectVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
+import { getSimplePostList, type PostVO } from '@/api/system/post'
+import { getApprovalPositionList, type ControlledFileApprovalPositionVO } from '@/api/dcc/controlledFile/approvalPositions'
+import type { UserVO } from '@/api/system/user'
+import type { RoleVO } from '@/api/system/role'
+import UserSelect from '@/views/system/user/components/UserSelect.vue'
+import RoleSelect from '@/views/system/role/components/RoleSelect.vue'
 import { defaultProps } from '@/utils/tree'
 import { applyDepartmentAutoMatchToViewMatrixRules } from './viewMatrixDepartmentMatcher'
 import {
@@ -216,6 +237,8 @@ const formRules = ref<ControlledFileCategoryViewMatrixRuleVO[]>([])
 const previewData = ref<ControlledFileCategoryViewMatrixEffectivePreviewVO | null>(null)
 const previewError = ref('')
 const departmentOptions = ref<DeptVO[]>([])
+const postOptions = ref<PostVO[]>([])
+const approvalPositionOptions = ref<ControlledFileApprovalPositionVO[]>([])
 const departmentLoadError = ref('')
 const previewAutoRefreshReady = ref(false)
 let previewRefreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -316,7 +339,7 @@ const open = async (row: ControlledFileCategoryViewMatrixRowVO) => {
     previewAutoRefreshReady.value = true
     await refreshPreview()
   } catch (error) {
-    departmentLoadError.value = '部门树加载失败，无法维护对应部门，请刷新后重试。'
+    departmentLoadError.value = '主体目录加载失败，无法维护查看矩阵，请刷新后重试。'
     previewError.value = departmentLoadError.value
     message.error(departmentLoadError.value)
   } finally {
@@ -331,14 +354,16 @@ const cloneRules = (rules: ControlledFileCategoryViewMatrixRuleVO[]) =>
   }))
 
 const loadDepartmentOptions = async () => {
-  if (departmentOptions.value.length > 0) {
-    return
-  }
-  const departments = await getSimpleDeptList()
-  if (!departments.length) {
+  const tasks: Promise<unknown>[] = []
+  if (!departmentOptions.value.length) tasks.push(getSimpleDeptList().then(rows => { departmentOptions.value = rows }))
+  if (!postOptions.value.length) tasks.push(getSimplePostList().then(rows => { postOptions.value = rows }))
+  if (!approvalPositionOptions.value.length) tasks.push(getApprovalPositionList().then(rows => {
+    approvalPositionOptions.value = rows.filter(row => row.active !== false)
+  }))
+  await Promise.all(tasks)
+  if (!departmentOptions.value.length) {
     throw new Error('当前租户没有可选择部门')
   }
-  departmentOptions.value = departments
 }
 
 const addRule = () => {
@@ -569,6 +594,28 @@ const handleSubjectTypeChange = (row: ControlledFileCategoryViewMatrixRuleVO) =>
   row.subjectDepartmentPath = undefined
   runDepartmentAutoMatch({ silent: true })
   resetPreviewState()
+}
+const handleUserChange = (row: ControlledFileCategoryViewMatrixRuleVO, user?: UserVO) => {
+  row.subjectType = 'USER'; row.subjectId = user?.id
+  row.subjectName = user?.nickname || user?.username; row.subjectDepartmentPath = undefined
+  resetPreviewState()
+}
+const handleRoleChange = (row: ControlledFileCategoryViewMatrixRuleVO, role?: RoleVO) => {
+  row.subjectType = 'ROLE'; row.subjectId = role?.id
+  row.subjectName = role?.name; row.subjectDepartmentPath = undefined
+  resetPreviewState()
+}
+const handlePostChange = (row: ControlledFileCategoryViewMatrixRuleVO, id?: number | string) => {
+  const value = Number(id); row.subjectType = 'POST'
+  row.subjectId = Number.isFinite(value) && value > 0 ? value : undefined
+  row.subjectName = postOptions.value.find(item => item.id === row.subjectId)?.name
+  row.subjectDepartmentPath = undefined; resetPreviewState()
+}
+const handleDccPositionChange = (row: ControlledFileCategoryViewMatrixRuleVO, id?: number | string) => {
+  const value = Number(id); row.subjectType = 'DCC_POSITION'
+  row.subjectId = Number.isFinite(value) && value > 0 ? value : undefined
+  row.subjectName = approvalPositionOptions.value.find(item => item.id === row.subjectId)?.name
+  row.subjectDepartmentPath = undefined; resetPreviewState()
 }
 
 const refreshPreview = async () => {

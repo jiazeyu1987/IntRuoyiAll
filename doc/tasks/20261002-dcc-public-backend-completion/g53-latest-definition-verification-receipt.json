@@ -1,0 +1,75 @@
+{
+  "status": "ACTUAL_ISOLATED_FLOWABLE_AND_NEIGHBOR_PASS",
+  "command": "mvn.cmd -o -pl yudao-module-bpm -am '-Dtest=BpmLatestProcessDefinitionTest,BpmProcessInstanceServiceImplTest,BpmProcessInstanceServiceRegistrationCertificateOperationContractTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T09:51:38+08:00",
+  "classes": 3,
+  "tests": 9,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.bpm.service.definition.BpmLatestProcessDefinitionTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-junit/TEST-cn.iocoder.yudao.module.bpm.service.definition.BpmLatestProcessDefinitionTest.xml",
+      "bytes": 93677,
+      "sha256": "95a3397409bcf9115c5160501de789afbe7021ec36fd2f5c5a215a7fa4fe09a8"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceImplTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-junit/TEST-cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceImplTest.xml",
+      "bytes": 93484,
+      "sha256": "d28b89d67dda3dfe80c36752dd5524a2c0a5550fb98f8afd2473fa29df342755"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceRegistrationCertificateOperationContractTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-junit/TEST-cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceServiceRegistrationCertificateOperationContractTest.xml",
+      "bytes": 92963,
+      "sha256": "7f65527f1893b8e98ba0521c9d6699c5584f883ea6f482e1a8d29f74efa2b4a4"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-final.log",
+    "bytes": 33589,
+    "sha256": "4559c5a6de9a0b48b3988ea3f7b8f2d4fb709b00be480cfad4822992e05a8d5a"
+  },
+  "effectiveRed": {
+    "tests": 4,
+    "pass": 1,
+    "failures": 1,
+    "errors": 2,
+    "skip": 0,
+    "cliExitCode": 1,
+    "reason": "Two real query2 errors from same-tenant active multiple versions/query and formalDTO; latest-suspended oldsource returnedolder version",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-effective-red.xml",
+      "bytes": 101192,
+      "sha256": "3e611f9fcfbace4e3614a971de80e996ccd2b9677b952bce0ae1dd8896427f52"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g53-latest-definition-red.log",
+      "bytes": 42310,
+      "sha256": "c2166b56b048d5a5f9d76842b1435fa07b4f348ff1a649dfcfd227ed7ff6fcf4"
+    }
+  },
+  "initialGreenFixtureFailure": "Existing Flowable auth boundary wraps ServiceException; test adjusted actual RuntimeException cause/code, production unchanged",
+  "semantics": "same-tenant stable key latest deployment must be active; highest suspended does not revive an older active deployment. Explicit definitionId contract unchanged",
+  "actualBusinessDB": 0,
+  "actualBrowser": 0,
+  "runtimeOrDeploymentMutations": 0,
+  "GitMutations": 0,
+  "packageRuns": 0,
+  "testPorts": "Real isolated Flowable/H2 deployment/query/start; metadataMapper and approval-prediction explicit fixtures, not UI."
+}

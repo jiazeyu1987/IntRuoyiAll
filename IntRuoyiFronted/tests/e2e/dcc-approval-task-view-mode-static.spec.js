@@ -12,6 +12,7 @@ const readSource = (relativePath) => {
 
 const packageJson = JSON.parse(readSource('package.json'))
 const approvalTaskPage = readSource('src/views/dcc/controlled-file/approval-tasks/index.vue')
+const approvalCenterPage = readSource('src/views/approval-center/index.vue')
 
 assert.equal(
   packageJson.scripts['e2e:dcc:approval-task-view-mode:static'],
@@ -19,79 +20,29 @@ assert.equal(
   'package.json must expose the DCC approval task view mode static contract'
 )
 
-assert.match(
-  approvalTaskPage,
-  /data-testid="dcc-approval-task-view-mode"/,
-  'approval task page must render a stable common/advanced view switch'
-)
-assert.match(approvalTaskPage, /常用视图/, 'approval task page must show the common view label')
-assert.match(approvalTaskPage, /高级视图/, 'approval task page must show the advanced view label')
-assert.match(
-  approvalTaskPage,
-  /const approvalTaskViewMode = ref<ApprovalTaskViewMode>\('common'\)/,
-  'approval task page must default to common view'
-)
-assert.match(
-  approvalTaskPage,
-  /approvalTaskViewModeOptions/,
-  'approval task page must declare view mode options'
-)
-assert.match(
-  approvalTaskPage,
-  /isAdvancedApprovalTaskView/,
-  'approval task page must expose advanced view state'
-)
-
-const commonColumnLabels = [
-  '文件标题',
-  '文件编号',
-  '文件类别',
-  '审批摘要',
-  '处理提示',
-  '流程发起人',
-  '操作'
-]
-for (const label of commonColumnLabels) {
-  assert.match(
-    approvalTaskPage,
-    new RegExp(`label="${label}"`),
-    `common view must keep ${label}`
-  )
+for (const redirectToken of [
+  "path: '/approval-center'",
+  "moduleCode: 'DCC'",
+  "viewType: 'TODO'"
+]) {
+  assert.match(approvalTaskPage, new RegExp(redirectToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `DCC approval task legacy route must redirect to unified approval center: ${redirectToken}`)
 }
 
-const advancedColumnLabels = ['DCC 审批任务', '任务时间', '流程编号']
-for (const label of advancedColumnLabels) {
-  const columnPattern = new RegExp(
-    `<el-table-column\\s+v-if="isAdvancedApprovalTaskView"\\s+label="${label}"`,
-    'm'
-  )
-  assert.match(approvalTaskPage, columnPattern, `${label} column must only render in advanced view`)
+for (const centerToken of [
+  'data-testid="approval-center-dcc-key-fields"',
+  'data-testid="approval-center-dcc-business-context"',
+  'openReviewAction(row)',
+  'openModuleDetail(row)'
+]) {
+  assert.match(approvalCenterPage, new RegExp(centerToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    `unified approval center must keep DCC task handling capability: ${centerToken}`)
 }
 
-assert.match(
-  approvalTaskPage,
-  /query:\s*\{\s*processInstanceId:\s*row\.processInstanceId\s*\}/,
-  'detail navigation must keep processInstanceId for traceability'
-)
-assert.match(
-  approvalTaskPage,
-  /taskId:\s*row\.id,\s*processInstanceId:\s*row\.processInstanceId/s,
-  'audit navigation must keep task id and processInstanceId'
-)
-
-const viewModeTemplateMatch = approvalTaskPage.match(
-  /<div class="approval-task-view-toolbar"[\s\S]*?data-testid="dcc-approval-task-view-mode"[\s\S]*?<\/div>\s*<el-table/
-)
-assert.ok(viewModeTemplateMatch, 'view mode toolbar must stay directly above the approval task table')
-const viewModeLogicMatch = approvalTaskPage.match(
-  /type ApprovalTaskViewMode = 'common' \| 'advanced'[\s\S]*?const isAdvancedApprovalTaskView/
-)
-assert.ok(viewModeLogicMatch, 'view mode state and options must stay together')
-const viewModeContractSource = `${viewModeTemplateMatch[0]}\n${viewModeLogicMatch[0]}`
 assert.doesNotMatch(
-  viewModeContractSource,
+  approvalTaskPage,
   /截止|超期|\bSLA\b|deadline|overdue|mock|placeholder|fallback|降级|吞异常/i,
-  'approval task view mode must not invent deadline/SLA data or introduce mock/fallback behavior'
+  'approval task redirect must not invent deadline/SLA data or introduce mock/fallback behavior'
 )
 
-console.log('PASS: DCC approval task view mode static contract')
+console.log('PASS: DCC approval task redirect static contract')

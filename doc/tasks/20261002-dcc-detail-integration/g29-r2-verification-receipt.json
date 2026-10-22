@@ -1,0 +1,18 @@
+{
+  "status": "R2_OFFLINE_AND_PRESERVED_DUMP_READ_PASS_NOT_RECOLLECTED",
+  "parserTests": 7,
+  "collectorTests": 13,
+  "driverTests": 16,
+  "oldRegexControlledFileCount": 0,
+  "strictControlledFileCount": 41615,
+  "oldRegexClaimCount": 0,
+  "strictClaimCount": 27,
+  "exactSevenTableCountsMatchOriginalBaseline": true,
+  "oldG28G29SealsAndProduction41ZeroDrift": true,
+  "deliveryFingerprintSha256": "40b9bfb8497fe93bfb8dcdd8fdb72b44cc5192b438dc24b9191636938386319a",
+  "actualNewCollection": false,
+  "oldFailedCaptureModified": false,
+  "actualDatabaseConnectionsByAgent": 0,
+  "actualDDLExecuted": false,
+  "actualUserNewDdlApproval": false
+}

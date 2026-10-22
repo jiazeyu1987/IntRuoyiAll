@@ -17,10 +17,13 @@ class DccControlledFileVersionNumberAllocationTest {
     void submitAndResubmit_shouldRunInsideTransactionForNativeMasterVersionChainGuard() throws NoSuchMethodException {
         Method submit = DccControlledFileWorkflowServiceImpl.class.getMethod("submitControlledFile",
                 Long.class, cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO.class);
+        Method createWorking = DccControlledFileWorkflowServiceImpl.class.getMethod("createWorkingControlledFile",
+                Long.class, cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO.class);
         Method resubmit = DccControlledFileWorkflowServiceImpl.class.getMethod("resubmitWithdrawnControlledFile",
                 Long.class, Long.class);
 
         assertRollbackForException(submit);
+        assertRollbackForException(createWorking);
         assertRollbackForException(resubmit);
     }
 

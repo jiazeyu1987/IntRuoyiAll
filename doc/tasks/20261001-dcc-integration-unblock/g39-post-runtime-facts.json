@@ -1,0 +1,35 @@
+{
+  "status": "ACTUAL_G39_POST_EXECUTION_RUNTIME_FACTS",
+  "facts": [
+    {
+      "kind": "identity",
+      "database": "ruoyi-vue-pro",
+      "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+      "mysqlVersion": "8.0.40",
+      "capturedAtUtc": "2026-10-04T05:11:44Z"
+    },
+    {
+      "kind": "sidecarTables",
+      "count": 3
+    },
+    {
+      "kind": "sidecarLedger",
+      "count": 1
+    },
+    {
+      "kind": "newQualityPolicyVersion",
+      "count": 0
+    },
+    {
+      "kind": "newActiveAuditOperations",
+      "count": 0
+    },
+    {
+      "kind": "legacyClaimsMissingOriginalName",
+      "count": 25
+    }
+  ],
+  "actualQueryWrites": false,
+  "actualQualityApproved": false,
+  "legacyRegistrationExecuted": false
+}

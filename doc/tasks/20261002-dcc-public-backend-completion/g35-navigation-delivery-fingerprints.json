@@ -1,0 +1,79 @@
+{
+  "status": "G35_NAVIGATION_CANDIDATE_READY_FOR_ROOT_REVIEW",
+  "branch": "codex/20261001-dcc-integration",
+  "sourceFiles": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 298909,
+      "sha256": "77635fadf1bb0e3ae9b7e0e21f25a0b7dde911739c567468924984c5045589aa"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/submitted-application-navigation.ts",
+      "bytes": 1281,
+      "sha256": "e06cc5905122eca46f28b60b71ca0d5fed9bdbaf12343942f53204d258aed2eb"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-submitted-application-navigation.test.mjs",
+      "bytes": 7169,
+      "sha256": "0008dc617ce9e1cb37e41f6d94950d5339eba98cb1e0f49f844b971c7760e770"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g35-positive-ui-architecture-review.md",
+      "bytes": 8239,
+      "sha256": "5088e6b6c375531d80f04a561713f02da94a460ca43264242101d3c58a72acb1"
+    }
+  ],
+  "unchangedRouteGuard": {
+    "path": "IntRuoyiFronted/src/router/modules/remaining.ts",
+    "bytes": 67878,
+    "sha256": "c6a031abf0836a5aa56471ebfe8f3ffd749da6adb2c3bef9614a6747d944bab4"
+  },
+  "rawEvidence": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-red.log",
+      "bytes": 634,
+      "sha256": "c828fcf5f6ef5fcabe6f1ad6b66d440af98efea2b5d1f94d7070690183871653"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-red-r2.log",
+      "bytes": 279,
+      "sha256": "cf5ee694e8eeb1418c456a4fde634719ae029742f726cacccd7f28c6eec25b54"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-green.log",
+      "bytes": 724,
+      "sha256": "4cd7359fb5851ddfb961993d81d944da38eeab516e9d634c59691cc4783f2514"
+    }
+  ],
+  "effectiveRed": {
+    "file": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-red-r2.log",
+    "tests": 2,
+    "failures": 1,
+    "reason": "Actual old Vue handler candidate navigation rejected by actual guard"
+  },
+  "initialSetupErrorNotDefectRed": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-red.log",
+  "green": {
+    "file": "doc/tasks/20261002-dcc-public-backend-completion/g35-navigation-green.log",
+    "cliExitCode": 0,
+    "tests": 7,
+    "failures": 0,
+    "actualVueHandlerSourceExecuted": true,
+    "actualRouteGuardSourceExecuted": true,
+    "actualBrowserRun": false
+  },
+  "actualDatabaseWrites": false,
+  "actualApiCall": false,
+  "typesOrBuildRun": false,
+  "mavenRun": false,
+  "gitWrite": false,
+  "supersession": "Only prior detail/index.vue source version superseded by authorized import/handler; old receipts unchanged",
+  "remaining": "Root source review/unified frontend types+build/actual runtime approval gates+real UI acceptance",
+  "priorSourceParent": {
+    "path": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g20-delivery-fingerprints.json",
+    "rawSha256": "0120c852de0025441893970c08c330e7156c120d547b45a3ccdcdc35e26dfbcc",
+    "detailPriorSha256": "5cead6301ae9e4dd0cd6c850ef65efe8613d0f529ede81278951269bc7c4c419",
+    "inverseExactTwoBlockDeltaMatchesPrior": true,
+    "otherAssetsCount": 19,
+    "otherAssetsDrift": []
+  }
+}

@@ -86,6 +86,9 @@ import static cn.iocoder.yudao.module.bpm.framework.flowable.core.util.BpmnModel
 public class BpmTaskServiceImpl implements BpmTaskService {
 
     @Resource
+    private org.flowable.engine.RepositoryService repositoryService;
+
+    @Resource
     private TaskService taskService;
     @Resource
     private HistoryService historyService;
@@ -136,6 +139,15 @@ public class BpmTaskServiceImpl implements BpmTaskService {
         }
         if (StrUtil.isNotEmpty(pageVO.getProcessDefinitionKey())) {
             taskQuery.processDefinitionKey(pageVO.getProcessDefinitionKey());
+        }
+        if (CollUtil.isNotEmpty(pageVO.getExcludedProcessDefinitionKeys())) {
+            var includedKeys = repositoryService.createProcessDefinitionQuery()
+                    .processDefinitionTenantId(FlowableUtils.getTenantId()).list().stream()
+                    .map(org.flowable.engine.repository.ProcessDefinition::getKey)
+                    .filter(key -> !pageVO.getExcludedProcessDefinitionKeys().contains(key))
+                    .distinct().toList();
+            if (includedKeys.isEmpty()) return PageResult.empty();
+            taskQuery.processDefinitionKeyIn(includedKeys);
         }
         if (ArrayUtil.isNotEmpty(pageVO.getCreateTime())) {
             taskQuery.taskCreatedAfter(DateUtils.of(pageVO.getCreateTime()[0]));
@@ -569,6 +581,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     public void approveTask(Long userId, @Valid BpmTaskApproveReqVO reqVO) {
         // 1.1 校验任务存在
         Task task = validateTask(userId, reqVO.getId());
+        DccSignedTaskActionGuard.require(task,userId,"APPROVE");
         // 1.2 校验流程实例存在
         ProcessInstance instance = processInstanceService.getProcessInstance(task.getProcessInstanceId());
         if (instance == null) {
@@ -817,6 +830,7 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     public void rejectTask(Long userId, @Valid BpmTaskRejectReqVO reqVO) {
         // 1.1 校验任务存在
         Task task = validateTask(userId, reqVO.getId());
+        DccSignedTaskActionGuard.require(task,userId,"REJECT");
         // 1.2 校验流程实例存在
         ProcessInstance instance = processInstanceService.getProcessInstance(task.getProcessInstanceId());
         if (instance == null) {
@@ -1678,19 +1692,22 @@ public class BpmTaskServiceImpl implements BpmTaskService {
     }
 
     @Override
-    public void triggerTask(String processInstanceId, String taskDefineKey) {
-        Execution execution = runtimeService.createExecutionQuery()
+    public boolean triggerTask(String processInstanceId, String taskDefineKey) {
+        List<Execution> executions = runtimeService.createExecutionQuery()
                 .processInstanceId(processInstanceId)
                 .activityId(taskDefineKey)
-                .singleResult();
-        if (execution == null) {
-            log.error("[triggerTask][processInstanceId({}) activityId({}) 没有找到执行活动]", processInstanceId, taskDefineKey);
-            return;
+                .list();
+        if (executions.size() != 1) {
+            log.error("[triggerTask][processInstanceId({}) activityId({}) execution数量({})不唯一]",
+                    processInstanceId, taskDefineKey, executions.size());
+            throw exception(TASK_TARGET_NODE_NOT_EXISTS);
         }
+        Execution execution = executions.get(0);
 
         // 若存在直接触发接收任务，执行后续节点
         FlowableUtils.execute(execution.getTenantId(),
                 () -> runtimeService.trigger(execution.getId()));
+        return true;
     }
 
     /**

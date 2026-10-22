@@ -204,6 +204,8 @@
           >
             <template #default="{ row }">
               <el-button link type="primary" @click="openModelView(row)"> 查看 </el-button>
+              <el-button v-if="hasPermiUpdate && !(row.managerUserIds?.length)" link type="primary" @click="claimUnmanagedModel(row)">认领管理人</el-button>
+              <el-button v-if="Number(row.type) === BpmModelType.BPMN && hasPermiUpdate" link type="primary" @click="modelXmlImportRef?.open(row.id)">导入流程图</el-button>
               <el-button
                 link
                 type="primary"
@@ -282,6 +284,7 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <BpmModelXmlImport ref="modelXmlImportRef" @saved="getList" />
   <Dialog :title="modelApprovalRouteDialogTitle" v-model="viewDetailVisible" width="520">
     <div
       v-if="selectedModel"
@@ -531,6 +534,7 @@
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
 import { CategoryApi, CategoryVO } from '@/api/bpm/category'
 import * as ModelApi from '@/api/bpm/model'
+import BpmModelXmlImport from './BpmModelXmlImport.vue'
 import * as FormApi from '@/api/bpm/form'
 import * as RoleApi from '@/api/system/role'
 import * as UserApi from '@/api/system/user'
@@ -566,6 +570,15 @@ import { subString } from '@/utils/index'
 import { defaultProps, handleTree } from '@/utils/tree'
 
 defineOptions({ name: 'BpmModel' })
+const modelXmlImportRef = ref<InstanceType<typeof BpmModelXmlImport>>()
+const claimUnmanagedModel = async (row: ModelInfo) => {
+  try {
+    const { value } = await message.prompt('认领后当前账号成为模型管理人，请填写维护原因', '认领无管理人模型', { inputValidator: (v: string) => !!v.trim() || '请填写原因' })
+    await ModelApi.claimModelManager(String(row.id), value)
+    message.success('管理人已认领')
+    await getList()
+  } catch (cause) { if (cause !== 'cancel' && cause !== 'close') handleActionError(cause) }
+}
 
 interface UserInfo {
   nickname: string

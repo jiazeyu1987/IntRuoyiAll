@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "scope": "Candidate deployment inputs for the authorized DCC upload workflow changes",
+  "materialsOnly": true,
+  "runtimeReady": false,
+  "models": [
+    {
+      "source": "doc/tasks/20261011-dcc-w05-approval-signatures/bpmn-v5/upload.bpmn20.xml",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/upload.bpmn20.xml",
+      "rawSha256": "19168160c63d827fa7a2adf613651724f434058e0e8a7511b468990fd271b07f",
+      "processKey": "dcc-controlled-file-upload",
+      "canonicalDefinitionDigest": "dbf44a1bd3afd792a27b195f43f50f4efc886ea85ec8c35b1c05730e9221e162",
+      "flowRule": "PUBLIC_V5_TRAINING_AFTER_DOCUMENT_CONTROL",
+      "executionContract": "PUBLIC_MATRIX_NATIVE_V1"
+    },
+    {
+      "source": "doc/tasks/20261011-dcc-w05-approval-signatures/bpmn-v5/revision.bpmn20.xml",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/revision.bpmn20.xml",
+      "rawSha256": "832eeb34ac311d615115b4c49889b5910843b1f6a17b47d06f7b778370b8d759",
+      "processKey": "dcc-controlled-file-revision",
+      "canonicalDefinitionDigest": "9922d53710050318a4827b3b61449727ff87e3c62f3146619be4d19c7cffcd13",
+      "flowRule": "PUBLIC_V5_TRAINING_AFTER_DOCUMENT_CONTROL",
+      "executionContract": "PUBLIC_MATRIX_NATIVE_V1"
+    },
+    {
+      "source": "doc/tasks/20261011-dcc-w05-approval-signatures/bpmn-v5/obsolete.bpmn20.xml",
+      "path": "IntRuoyiBackend/config/dcc-workflow-v5/obsolete.bpmn20.xml",
+      "rawSha256": "ca3b85eb53f587e5e9a927c5b7c3723aa19a20a442bf028d8167a5a4cae71dba",
+      "processKey": "dcc-controlled-file-obsolete",
+      "canonicalDefinitionDigest": "a3fec88d08ba5a1b4c6830ac05e653b5bc2faa72e9e11b3b54c1fa8006d2f79d",
+      "flowRule": "PUBLIC_V5_OBSOLETE_APPROVAL_END",
+      "executionContract": "PUBLIC_MATRIX_NATIVE_V1"
+    }
+  ],
+  "migrationSeeds": [
+    "20261003_dcc_controlled_file_activation_job_registration",
+    "20261011_dcc_application_effective_distribution",
+    "20261011_dcc_application_round_relation_source",
+    "20261011_dcc_approval_matrix_baseline",
+    "20261011_dcc_distribution_outbox",
+    "20261011_dcc_product_catalog_source_sequence",
+    "20261011_dcc_relation_stage_application_identity",
+    "20261011_dcc_relation_stage_snapshots",
+    "20261011_dcc_training_attachment_facts",
+    "20261012_dcc_application_execution_contract",
+    "20261012_dcc_obsolete_form_draft_round",
+    "20261012_dcc_obsolete_form_runtime",
+    "20261012_dcc_preview_issuing_round",
+    "20261013_system_user_direct_supervisor"
+  ],
+  "declaredDependencyOrder": [
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260513_dcc_base_schema.sql",
+      "sha256": "e5dfa8a13d4e80f27783c288dfb6ea1250c2cc91104d7b9475b168dbc2990aea"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260921_dcc_category_approval_route_action_type.sql",
+      "sha256": "63a3e80538f8d93dace828a02af940c614c316ee9e99b8cfab56cdc283789b47"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260922_dcc_three_workflow_bpmn_seed.sql",
+      "sha256": "a3bd8893a05045c55ab35ed968c6cf1930c02c15f562846637499d49bfe183ce"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260922_dcc_task_assignee_snapshot.sql",
+      "sha256": "1da5ec389e17998258678732ceed13bf36fd6099e2481fd964921936e108ced1"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_lifecycle.sql",
+      "sha256": "a020a9bc36da01f2edb624f488fd51deb48b20eed02dc4de6389432bd99f9209"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261003_dcc_controlled_file_activation_job_registration.sql",
+      "sha256": "49bf35361fd544551ecc3c720a89353ad0f5e31f2366e13083f08ea61c1138a5"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_a_signature_workflow_round.sql",
+      "sha256": "aca622227c3b2795e6fbfe6080c850d7daa12572bf29e29d08f1027f910a6f10"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261003_dcc_approval_file_owner_snapshot.sql",
+      "sha256": "41551b1fa5fc36dd5c63a5717b611d116e9e6878d077ee8ba6704af792c9db9d"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_application_effective_distribution.sql",
+      "sha256": "e1475583c7f331ebb6a0f6fd615a39c065acd7f8c62f7eeaed05a717e8f8407e"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260710_dcc_product_catalog_database.sql",
+      "sha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260903_dcc_explicit_data_relation.sql",
+      "sha256": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260920_dcc_project_product_create_approval.sql",
+      "sha256": "ff131eca63d25cea4cceae2fe60a24b14bdc2a6fa666f222c609bf821225eb2a"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260719_dcc_file_type_taxonomy.sql",
+      "sha256": "4f6bb0a273aa0997e5c29ac259d5e21e5a96bc0b22909a3879f6bc510202e200"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260910_dcc_project_file_template.sql",
+      "sha256": "4e36e6ba67cb98121fb0272c4ee837e57b0ffde9c71d6fb73ce6a09d4e5de8c9"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_b_project_attributes_folders.sql",
+      "sha256": "024ffedb8e7c7d326218f9022e2509c18295b59fb4563c0205d00a0f528a0b3c"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261001_dcc_application_round_link.sql",
+      "sha256": "ba94a49b2785b31fc010a29bd361143a83210e704733cc2aaa354aa6bda9c827"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261001_dcc_b_reserved_draft_round.sql",
+      "sha256": "48a5584639c1f4584247b040fee4825d8d70d291f520e28168b621bfd597e0f0"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260903_dcc_controlled_file_related_file.sql",
+      "sha256": "ada7c709bfc0ffea5270e3b0a46f6a971bd4cf636ca3e79987cbc5cbce34e511"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260906_dcc_new_file_lifecycle_p1.sql",
+      "sha256": "631bae6a1dbd521e5afd1df5838309c1403f9f641f22418e356253d30e8bba0b"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260906_dcc_new_file_lifecycle_p2.sql",
+      "sha256": "3121fb0a6d6f12ad01408fb981f1de5af49f85deae9f3834e28e557a8a79907b"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260906_dcc_new_file_lifecycle_p3.sql",
+      "sha256": "5d4905c888a5163a593a138dc2bef1b3c88c0d889a74999293fdfab25f10818a"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260615_system_config_package_menu.sql",
+      "sha256": "d385c1bcfa87561be90a7d807e97e44b3470e98feda96b135311c44d702695d8"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260717_bpm_form_center.sql",
+      "sha256": "4abbcff46401dc40fc6afcef31df00cc6b1b87ba9f07a4e55c59d898f96e8e4f"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260719_business_approval_policy.sql",
+      "sha256": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260719_dcc_upload_form_policy_seed.sql",
+      "sha256": "059042e6847aba56722c1176efcb3547cd59ee7e0e647a2de58287cce88fbbbd"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260720_dcc_publish_form_policy_seed.sql",
+      "sha256": "ae7bcded6478a90044a7a8dbb3394e5bcbd1d020a79539bfcdcafedac629b6dc"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260906_dcc_new_file_lifecycle_p4.sql",
+      "sha256": "8a4d7db74973febd329771ca89fcacd582c90f63df777b3490b3a457d0b3eec8"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260930_dcc_d_relations.sql",
+      "sha256": "f0824a5a817e71fa6de2440e6497dd90d443cd17c25428965ab710b1bce1f680"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_relation_stage_snapshots.sql",
+      "sha256": "322d385191621cad2aad7dd29edc9a80081ea412ffb12a36f3d5095fcae17d94"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_application_round_relation_source.sql",
+      "sha256": "0c2dc222eb8d15b72d75f8700f1a0491a9f90705c3ad642544edba9d3b2dd840"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_approval_matrix_baseline.sql",
+      "sha256": "839f190e209e8a432c5e943395b2b9aa78b72fb956d6f56c3e804d52fe963fe7"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_distribution_outbox.sql",
+      "sha256": "7b2228085fd44646376d02b58d4ac119f93b893aa4c46dfe7342c41de3ef3022"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_product_catalog_source_sequence.sql",
+      "sha256": "299a0ce92bfb5d1006b6d9f76b1c66ab0187168a181f26c7fc6f50cbc84321d8"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_relation_stage_application_identity.sql",
+      "sha256": "f955126db044c4bd3a303ada2df9ee5f9d5b636d14cbf235d463989a8017117a"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260528_dcc_controlled_file_protection.sql",
+      "sha256": "013bd971c50fff4e7071f02126d024df9d4aaf4b4c44bfe4f3ca20e75146b0dc"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260811_dcc_upload_slot_idempotency.sql",
+      "sha256": "940ad1507e52d22a824e40314821702f75198c32300306ad9ae9fbe33e77b9ac"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260911_dcc_upload_ticket_category_guard.sql",
+      "sha256": "f4672a0637bbbd343ea07212999aea712550a97fdf72df9f0799fc91fbc41603"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260920_dcc_controlled_file_attachment.sql",
+      "sha256": "ec6b0aa4c5c3d73d4dfba518da5bbf73baa5f79b1fed85bb42a9a39036a016f6"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261011_dcc_training_attachment_facts.sql",
+      "sha256": "6d8e19a730085726da1b74bc331479f7344e8c571ef4812ad4e5777b017495fe"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_application_execution_contract.sql",
+      "sha256": "9008cae7cf3f12f23287a498abf8e88f212d9cb48a98db78fd565f4438c2026a"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_obsolete_form_draft_round.sql",
+      "sha256": "bf6e589524470b1163b1e9c12f38cd71d8728fe86fb4029d22e391ff45978660"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_obsolete_form_runtime.sql",
+      "sha256": "ed4e0ff6a39bcdd69171de08860409b7e0bf7af536128f1ad1ffda03e122cce3"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261012_dcc_preview_issuing_round.sql",
+      "sha256": "3c45734cb47a666ac98025647e724195285307aebbe702e31fe266b002600c62"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260827_system_user_login_lock.sql",
+      "sha256": "85613683853337dfd2014f46e8e51bad76e6fcc8c01ef28e1b66970bf07fd7e3"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260830_system_user_lifecycle_deactivation.sql",
+      "sha256": "549944dbbf9b204cbca85d038fa7dc80dd20afb7072d9e8b802bfd2988a997fc"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261013_system_user_direct_supervisor.sql",
+      "sha256": "84ba46d3fd97ff8e1602a279c52db2051d48aeca93001f115963d45f2f92db42"
+    }
+  ],
+  "migrationPolicyGate": {
+    "status": "passed",
+    "migrationCount": 46,
+    "boundary": "Declared dependency closure only; existing runtime schema/ledger not inspected. Never replay all old seed SQL blindly."
+  },
+  "auditPolicy": {
+    "path": "IntRuoyiBackend/config/gxp-audit-policy.yaml",
+    "sha256": "d516122142b142543f1309745e8f94034aa50948037a0082e79c509c6400b537",
+    "policyVersion": "2026-10-dcc-integration-02",
+    "approvalReference": "PENDING-REVIEW-20261011"
+  },
+  "requiredRuntimeFacts": [
+    "Actual target tenant and three deployed exact processDefinitionIds with the recorded canonical digests",
+    "Active official Quartz registration for dccControlledFileActivationJob, explicit approved cron/retry/monitor settings; a paused infra_job row alone is insufficient",
+    "Actual registered definitionTransitions for allowed upload/revision/obsolete ancestry; no invented process IDs",
+    "Explicit dcc.workflow.zone-id; separate actual reminder policy if reminders are enabled",
+    "Approved runtime audit operations, authenticated user supervisor relations, project/category permissions and active department memberships",
+    "Actual database schema/ledger review, backups and authorized rollout/E2E evidence"
+  ],
+  "authorizationBoundary": "No remote/service/DB/BPM/Git write performed; not a release package or quality approval"
+}

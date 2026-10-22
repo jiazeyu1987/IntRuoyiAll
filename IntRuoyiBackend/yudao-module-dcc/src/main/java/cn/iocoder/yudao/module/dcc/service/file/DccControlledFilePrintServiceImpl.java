@@ -238,7 +238,7 @@ public class DccControlledFilePrintServiceImpl implements DccControlledFilePrint
                       <tr><th>审批策略</th><td>直接受控打印（当前文件类别无需打印审批）</td></tr>
                     </tbody>
                   </table>
-                  <div class="notice">本打印件来自当前有效受控版本，按直接受控打印策略生成，仅限登记用途和使用位置使用，打印记录和每份副本编号均可追溯。</div>
+                  <div class="notice">本打印件来自当前执行受控版本，按直接受控打印策略生成，仅限登记用途和使用位置使用，打印记录和每份副本编号均可追溯。</div>
                 </body>
                 </html>
                 """.formatted(

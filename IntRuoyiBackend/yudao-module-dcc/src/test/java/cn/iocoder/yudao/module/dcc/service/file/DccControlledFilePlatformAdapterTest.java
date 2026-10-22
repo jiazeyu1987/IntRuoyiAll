@@ -14,6 +14,7 @@ class DccControlledFilePlatformAdapterTest {
     void workflowFinalizationAndObsoleteServices_shouldDelegateLifecycleFactsToPlatformAdapter() throws Exception {
         String workflow = readSource("DccControlledFileWorkflowServiceImpl.java");
         String finalization = readSource("DccControlledFileFinalizationServiceImpl.java");
+        String finalizationFailure = readSource("DccControlledFileFinalizationFailureService.java");
         String obsolete = readSource("DccControlledFileObsoleteServiceImpl.java");
 
         assertTrue(workflow.contains("DccControlledContentAdapter platformAdapter"),
@@ -26,7 +27,9 @@ class DccControlledFilePlatformAdapterTest {
                 "DCC resubmit must link old WITHDRAWN revision to the new DRAFT successor");
         assertTrue(finalization.contains("platformAdapter.recordFinalizationStarted"),
                 "DCC finalization start must be mirrored to platform lifecycle");
-        assertTrue(finalization.contains("platformAdapter.recordFinalizationFailed"),
+        assertTrue(finalization.contains("finalizationFailureService.recordFailure"),
+                "DCC finalization failure must persist through the independent failure transaction");
+        assertTrue(finalizationFailure.contains("platformAdapter.recordFinalizationFailed"),
                 "DCC finalization failure must keep the candidate open in platform lifecycle");
         assertTrue(finalization.contains("platformAdapter.recordFinalized"),
                 "DCC finalization success must atomically activate platform ref");

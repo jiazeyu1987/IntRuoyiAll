@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>XButton mounted behavior test</title></head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { createApp } from 'vue'
+    import { ElButton } from 'element-plus'
+    import 'element-plus/dist/index.css'
+    import Harness from './Harness.vue'
+    createApp(Harness).component('ElButton', ElButton).mount('#app')
+  </script>
+</body>
+</html>

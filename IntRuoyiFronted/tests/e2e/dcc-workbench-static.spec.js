@@ -42,7 +42,7 @@ assert.match(workbenchPage, /DCC 工作台/, 'workbench page must identify itsel
 assert.match(workbenchPage, /我的审批待办/, 'workbench must show approval todo scope')
 assert.match(workbenchPage, /待文控下发/, 'workbench must show document-control release scope')
 assert.match(workbenchPage, /待培训确认/, 'workbench must show training confirmation scope')
-assert.match(workbenchPage, /发布失败/, 'workbench must show finalization failure scope')
+assert.match(workbenchPage, /生效失败/, 'workbench must show finalization failure scope')
 assert.match(workbenchPage, /getControlledFileBrowserPage/, 'workbench must reuse controlled browser page API')
 assert.match(workbenchPage, /getTaskTodoPage/, 'workbench must reuse existing BPM todo API')
 assert.match(workbenchPage, /getMyTrainingTaskPage/, 'workbench must reuse existing DCC training task API')

@@ -1,0 +1,34 @@
+{
+  "status": "FORMAL_VALIDATOR_PIN_EFFECTIVE_RED_GREEN_PASS_NOT_RUNTIME_ACCEPTANCE",
+  "tests": 28,
+  "classes": 3,
+  "GateTests": 17,
+  "EntryDefaultContextTests": 7,
+  "CommandPrerequisiteTests": 4,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "MavenExitCode": 0,
+  "effectiveRED": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-maintenance-validator-pin-red.log",
+    "bytes": 64445,
+    "sha256": "6145fbdeadfe36dd31375e5c434b299c9cd49b72a1abc136baf15495c776277d"
+  },
+  "REDReason": "newreviewedpin rejected and supersededoldpin reaches shapequery, 17tests/1failure+1error expectedbehavior",
+  "GREEN": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g39-maintenance-validator-pin-green.log",
+    "bytes": 62651,
+    "sha256": "aa05a95829f744d341d7c55325b94dad7695d8d8cb54e9ae34dd4679f9aa8057"
+  },
+  "deliveryFingerprintSha256": "e290ccdf6d160175d34e6840b5187bee932a51b947d666124577457e4f876ad0",
+  "oldValidatorRejectedBeforeShapeRead": true,
+  "schemaContractUnchanged": true,
+  "qualityStillUnapproved": true,
+  "runnerStillDefaultDisabled": true,
+  "actualTokensRead": false,
+  "actualDBWrites": false,
+  "MavenPackage": false,
+  "actualServicesStarted": false,
+  "G39OwnerSourceChanged": false,
+  "gitMutation": false
+}

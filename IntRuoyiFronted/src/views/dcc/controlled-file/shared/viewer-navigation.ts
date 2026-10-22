@@ -4,18 +4,21 @@ import {
   buildControlledFileViewerPath,
   type ControlledFileTraceabilityScope
 } from '../view/presentation'
+import { serializeDccBodyReadContext, type DccBodyReadContext } from '@/api/dcc/controlledFile/bodyReadContext'
 
 export const openControlledFileViewer = (
   router: Router,
   route: RouteLocationNormalizedLoaded,
   controlledFileId: number | string,
-  from: string
+  from: string,
+  bodyReadContext?: DccBodyReadContext
 ) => {
   const normalizedId = String(controlledFileId || '').trim()
   if (!normalizedId) {
     throw new Error('DCC 受控文件预览缺少文件 ID，无法打开受控预览页。')
   }
-  return router.push(buildControlledFileViewerPath(normalizedId, from, route.fullPath))
+  const context = serializeDccBodyReadContext(normalizedId, bodyReadContext)
+  return router.push(buildControlledFileViewerPath(normalizedId, from, route.fullPath, context))
 }
 
 export const openControlledFileTraceability = (

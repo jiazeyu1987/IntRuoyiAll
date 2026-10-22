@@ -1,0 +1,86 @@
+{
+  "status": "ACTUAL_MINIMAL_REACTOR_PASS_NO_RUNTIME",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccLocalActivationStartupSyncRunnerTest,JobStartupSyncRunnerTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-05T18:46:30+08:00",
+  "tests": 24,
+  "classes": 2,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "reports": [
+    {
+      "class": "cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLocalActivationStartupSyncRunnerTest.xml",
+      "bytes": 124826,
+      "sha256": "2cf88ed9151523ad293bee1b30c2fb0802c24031407c35051ee14c7fc81629b9"
+    },
+    {
+      "class": "cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-junit/TEST-cn.iocoder.yudao.module.infra.service.job.JobStartupSyncRunnerTest.xml",
+      "bytes": 70641,
+      "sha256": "cbc68d3f4fa7dbe0e61d3a7d11671107eb818f7a66c449eb6263894a9c9f4819"
+    }
+  ],
+  "effectiveRed": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "cliExitCode": 1,
+    "reason": "Actual Spring old startup with global sync off leaves actual RAM JobKey missing; expected registered minute job present",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-effective-red.xml",
+      "bytes": 96230,
+      "sha256": "60e0f725e07cc1472cc2a3a83da0b99dd5dc10620f3f82a76d1eb2a21bcb43ae"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-red.log",
+      "bytes": 38047,
+      "sha256": "ae33f09a2421176cb3a36d14fba92447980b480c1934f7c7c9e46050aa1da785"
+    }
+  },
+  "focusedGreen": {
+    "tests": 17,
+    "classes": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "cliExitCode": 0,
+    "finishedAt": "2026-10-05T18:42:41+08:00",
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-green-r2.log",
+      "bytes": 95891,
+      "sha256": "0ced210ad5f0b8e782634a680908d2303a9b029f5a31e8dc2dc7569fde0687b4"
+    }
+  },
+  "finalLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-final.log",
+    "bytes": 62342,
+    "sha256": "9eb68fd91df0463e3611647e8a35e15e3decc77ba73c6d89b7d2b69e7b07ff9f"
+  },
+  "toolErrors": [
+    "Initial new test java.util/java.sql Date ambiguity interrupted other Owner testCompile; corrected line93 java.util.Date and original g57-current-file-location-red.log retained by Owner, not businessRED",
+    "First own green81391 compile called nonexistent SchedulerMetaData.isRemote; read actual Quartz2.5.2 javap, corrected to isSchedulerRemote; original green.log retained, not businessRED"
+  ],
+  "failedCompileLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-green.log",
+    "bytes": 35930,
+    "sha256": "69b28edcb72f0eb111d5011fc10aa0c63d23b995e08a9dd859708d78c31efb15"
+  },
+  "boundary": "Actual Spring profile/Conditional/ApplicationRunner sorting and Quartz2.5.2 RAM standby; registry/DataSource actual source identity and DCC handler execution ports explicitly isolated, no DB/services/minute business runs",
+  "mavenOwnership": "FREE_FROZEN",
+  "overlap": "24 includes focused17; do not add to prior284 or earlier GREEN",
+  "actualDb": 0,
+  "actualUI": 0,
+  "services": 0,
+  "Git": 0,
+  "package": 0
+}

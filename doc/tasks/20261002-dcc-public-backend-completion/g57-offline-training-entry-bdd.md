@@ -1,0 +1,25 @@
+# G57 文控线下培训记录工作入口
+
+状态：ready_for_closeout。Root批准有限主架构修复，本owner独占Java/Maven，主管理保真实DB/服务/页面/Git与最后打包。旧七项生命周期源码、R02/Related冻结、旧600秒培训链不改。
+
+- Given正式同租户已批准UPLOAD/REVISION在真实TRAINING ReceiveTask execution等待且File状态一致，独立文控B为官方enabled同tenant、真实启用doc_control成员、approve/query入口权限、category APPROVE及既有file/project硬范围，When统一DCC provider或工作台查询，Then准确native OFFLINE_TRAINING_RECORD待办可见且定位原file/currentBPM，不伪造Flowable taskId；无UserTask也不能丢任务。
+- Given同资格B从待办进入详情，Whenmetadata读取/预览培训票据/上传，Then共用同一精确培训资格；只补metadata读取与上传能力，不授原文件正文/下载权限。其他actor/tenant/状态/错BPM/无waiting execution/错节点类型明确拒绝，GET零写。
+- Given真实批准进入TRAINING，When通知实际有资格的文控，Then使用现dcc_task_assigned模板及正式幂等API同物理事务；消息保存准确file/currentBPM marker、合法管理详情href。模板/人员/载荷冲突等失败必须回滚签名、流程状态与消息，不catch/afterCommit裸发；同事件重复不得多发。
+- Given培训记录上传推进到DOC_CONTROL_REVIEW，Thennative TODO立即消失，旧批准签名/人员历史不变；不新建BPM节点、outbox/schema或600秒培训任务。
+
+## Source API与边界
+
+NotifyMessageSendApi.sendSingleMessageIdempotentlyToAdmin由NotifySendServiceImpl REQUIRED保存到system_notify_message，业务键<=255，同tenant、recipient/template/全部params一致重放；模板dcc_task_assigned已正式seed，不执行SQL或改模板。缺实际模板时明确失败。RoleApi.getRoleByCode和PermissionApi.getUserRoleIdListByRoleIds用于实际doc_control名单；AdminUserApi校enabled/tenant；不使用superadmin角色默认旁路。实际TRAINING执行由正式Flowable RuntimeService查询，BpmnModel节点必须ReceiveTask；同tenant当前process/definition/file业务键和变量精确一致。原BpmTask.triggerTask保持。
+
+最小新增DccOfflineTrainingRecordService（资格/队列/通知）及native delegate；现唯一adapter mandatory组合；Workflow批准状态转换/当前上传及preview调用统一资格；DetailAuthorizationGuard与Query仅metadata/动作；FileMapper候选读查询。前端由Root另owner独占。
+
+sourceType和notifyTargetType=DCC_OFFLINE_TRAINING_RECORD；native sourceTaskId自有namespace，businessKey/fileid Longstring、processInstanceId原BPM；requiresSignature=false，仅PROCESS_IN_MODULE。经当前FE guard与Root真实入口校准，detail路径query固定management=1/from=workbench/returnTo=/dcc/controlled-file/workbench/processInstanceId=<actual>，无taskId/handling。正式通知保detailUrl和actionUrl，并带notifyTargetId=fileid、notifyProcessInstanceId=BPM。
+
+有效RED先由旧真实provider+H2 File+真实隔离Flowable receiveExecution证明TODO丢失；不得用缺class编译错替代。然后权限/消息/事务/上传定向GREEN及相关回归。不会把隔离端口fixture或单账号Root实际链写成不同文控真实E2E PASS。
+
+
+## 最终验证与边界
+
+最终当前源码reactor九组284项全部0fail/error/skip，CLI0，2026-10-05 18:15:24，原九XML已逐字节归档g57-final-junit，两有效RED原XML分别保留。源码/target/Maven已冻结并交Root，详情数据来源、角色与原正文权限分离、真实隔离HMAC双签名/Flowable及官方通知同事务回滚通过。账户/密码/签名图片目录/Gxp及模板目录端口为明确隔离夹具，不冒充不同实际用户E2E。
+
+现共用业务资格不增加bpm:task:query：消息直达管理详情仅依赖正式dcc query/approve、doc_control/category/hard资格；中心/工作台队列沿原controller bpm:task:query。测试独立文控88未配置该中心读权限，业务资格与正式通知仍合法，不自动grant或新增API。前端与真实运行包/页面验收由Root承担。

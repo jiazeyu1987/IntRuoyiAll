@@ -1,0 +1,38 @@
+{
+  "status": "NATURAL_DATE_JOB_AND_REAL_DETAIL_VERSION_SWITCH_PASS",
+  "source": "A/1 4026 automaticOBSOLETE; A/2 4032 actualexecuting",
+  "nativeSharedReadonly": "g62-natural-date-activation-readonly.json",
+  "ui": [
+    {
+      "step": 310,
+      "sha256": "34aa0491dc84bcf44e01c9ad7d95b604fdf19d4600447dfee81b82a5bf7da105",
+      "selectedRoute": "/dcc/controlled-file/detail/2054545668044084032",
+      "showsActiveA2": true,
+      "selectedPartial": true
+    },
+    {
+      "step": 311,
+      "sha256": "549ba06756a7617d2332597ab02ce7fde9a6b1cc2648d56d835ce98b3e8aab0e",
+      "selectedRoute": "/dcc/controlled-file/detail/2054545668044084032",
+      "showsActiveA2": true,
+      "selectedPartial": true
+    }
+  ],
+  "actorActions": "source compiled/controlled/presetdate and all approvals via realUI; minutejob naturalactivation no injectedmutation",
+  "noFakeClock": true,
+  "associationAfterNaturalActivation": [
+    {
+      "step": 314,
+      "version": "A/2",
+      "frozenHistory": false,
+      "sha256": "4d9fe427bd7a6d89af221a554c54ab3a63a410e34dccf3ebdb9a9746d1040d75"
+    },
+    {
+      "step": 315,
+      "version": "A/1",
+      "frozenHistory": true,
+      "sha256": "d4b26b97643056ae6264eb347a549d5e17418a80ca7847f52557b09ca92d498e"
+    }
+  ],
+  "legacyCompletionDisplay": "G62FE有限核对硬编码SUPERSEDED对当前native不适用，正式obsolete facts alreadyactualcorrect"
+}

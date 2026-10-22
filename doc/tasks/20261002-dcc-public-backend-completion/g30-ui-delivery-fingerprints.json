@@ -1,0 +1,45 @@
+{
+  "status": "THREE_MODE_REAL_UI_SCRIPT_SOURCE_PREPARED_ACTUAL_DOM_PENDING",
+  "supportedModes": [
+    "version",
+    "relations",
+    "reference"
+  ],
+  "versionActions": [
+    "checkout",
+    "checkin",
+    "partial",
+    "replacement",
+    "rework"
+  ],
+  "offlineCases": 26,
+  "actualBrowserInvocations": 0,
+  "actualDatabaseOrApiActions": 0,
+  "actualFullGoalComplete": false,
+  "g29FrozenAssetsUnchanged": true,
+  "referenceIdVisibleInDOM": false,
+  "referenceIdBoundary": "exact destination/project/folder/unique saved row+actual pinFileId trace; internal formal UI submitsreferenceId",
+  "blockedUnimplementedModes": [
+    "distribution",
+    "obsolete"
+  ],
+  "assets": [
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g30-public-version-relations-runner.cjs",
+      "bytes": 25998,
+      "sha256": "45d4c1d68ac97905eae00acd924420d37fba831c86901ae1f58ffa4d7abf7f3c"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g30-version-relations-contract-test.cjs",
+      "bytes": 4567,
+      "sha256": "1fedee6c83d0bc18df7adb061eaf841c81e4f6328d126e3304eb67bbf591dc8a"
+    },
+    {
+      "path": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g30-version-relations-contract.md",
+      "bytes": 9063,
+      "sha256": "3db4b59e0c431967cc3c48693ee056c95bec810c7e8e619c5bb50eff8918612b"
+    }
+  ],
+  "modeOverridesForbidden": true,
+  "failedReworkIdentityAssertion": "exactvisibleoldversionrowfileId+BPM+targetversion+rejected/reworkstate"
+}

@@ -1,0 +1,15 @@
+{
+  "status": "G72_EXACT_SOURCE_RUNTIME_HEALTH_UP",
+  "pid": 16112,
+  "port": 48061,
+  "attempt": 18,
+  "launcherPid": 11124,
+  "health": "UP",
+  "jarSha256": "75a9a7a0f923b96399bf12d7774bc6102a3eec4218ebef7ba22b238c9cb91608",
+  "sourceCommit": "4bb09465740819faeba0a99485c2773c81976031",
+  "packageSession": 40305,
+  "sourcePins": 57,
+  "classes": 51,
+  "activationScope": "existingminutejob5625/Shanghai",
+  "sharedDependenciesChanged": false
+}

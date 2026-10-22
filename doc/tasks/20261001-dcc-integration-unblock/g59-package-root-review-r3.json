@@ -1,0 +1,101 @@
+{
+  "status": "FINAL_G59_R3_JDBC_TYPED_PROOF_AND_CORE_PACKAGE_ROOT_PASS",
+  "exitCode": 0,
+  "packageSession": 72549,
+  "jarSha256": "50fa9c07126b6a945122d73f912545a149f5761a0b1a512eef72b8aab6cdb506",
+  "sourcesPinned": 23,
+  "classes": [
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/dal/mysql/controlledcontent/ControlledContentVersionRefMapper.class",
+      "sha256": "db9ad21eb7a624dccc4288981146dfa64dc84923e21f063a231625f06e126a8a",
+      "bytes": 6591
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentCanonicalStatus.class",
+      "sha256": "8237bd287cc9d3aeb2762bb87c61022bc9392e55b6a82282a821218d515e618b",
+      "bytes": 2075
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/enums/controlledcontent/ControlledContentTransitionAction.class",
+      "sha256": "7c6086b4232f1e3ab2dd5da05f35fb44fc58a63e6871c54245d6eef9e31a5a1a",
+      "bytes": 2494
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentLifecycleCoreService.class",
+      "sha256": "4b4b1cd1d150e225c91fdfcb85a7d6e6428eb540b63553a3bca1847213c18abb",
+      "bytes": 29548
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine.class",
+      "sha256": "982c54d2d25b6819f566d6c8001c922a237bc968c794ab1494d730bf429bb3b5",
+      "bytes": 5212
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentStateMachine$TransitionRule.class",
+      "sha256": "a33d906c7c1e61c198bc72c36e9989dd0bf2b6774c789f048e62f3f59529c410",
+      "bytes": 2442
+    },
+    {
+      "module": "system",
+      "class": "cn/iocoder/yudao/module/system/service/controlledcontent/ControlledContentTransitionProfile.class",
+      "sha256": "de1103ce86e83669e1d40c71f1e9621f411dd31a8759668bc3e0410d4e8c4f88",
+      "bytes": 5511
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/DccLifecycleProjectionRepairController.class",
+      "sha256": "9792dfc82170dfb8186f2b84523c5ea80b3be522faaaa8718b7d713822bddb8c",
+      "bytes": 3052
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairPreviewRespVO.class",
+      "sha256": "ffe3a4485318a041b069ff925ee5216eff0997de0d98834fb525f24b4d48ad68",
+      "bytes": 5184
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairReqVO.class",
+      "sha256": "5d28c446f46b73b05d3e2cd99673a09f647542bb02f91a4015bfedac815ce5a1",
+      "bytes": 5206
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccLifecycleProjectionRepairRespVO.class",
+      "sha256": "340ece08e3fca7eb2639ca86af1353581309fd411092073153888aaaf2aa1d2a",
+      "bytes": 2887
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledContentAdapter.class",
+      "sha256": "be1997ecc074e49b8b38d4f8e127b3f0c1ce285e129f3ba6b6d6aa0e33e274af",
+      "bytes": 16677
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.class",
+      "sha256": "7d7e5d7bec1c169f53b5a90be0678f83418712c04e777e207570b309673b1b84",
+      "bytes": 22924
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.class",
+      "sha256": "fb0bb202d648af92927c197a7649de319399ee5c9c454a0f37cbc09ceabd1203",
+      "bytes": 33631
+    },
+    {
+      "module": "dcc",
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService$Proof.class",
+      "sha256": "89516ff340122c4c2cce1f72e4f5c70287f46ead91f1181736187cc291bbfe71",
+      "bytes": 3337
+    }
+  ],
+  "backendBeforeRepack": "OWNED23136_STOPPED_NO48061_LISTENER",
+  "actualPostRetest": "PENDING"
+}

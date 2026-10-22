@@ -499,6 +499,7 @@ import {
 import { useApprovalTodoBadgeStore } from '@/store/modules/approvalTodoBadge'
 import { useApprovalCenterInvalidationStore } from '@/store/modules/approvalCenterInvalidation'
 import { createApprovalListLoader, completeApprovalWrite, approvalTaskIdentityKey } from '@/store/modules/approvalCenterInvalidationState'
+import { DCC_OFFLINE_TRAINING_RECORD, resolveOfflineTrainingRecordLocation } from '@/utils/dccOfflineTrainingRecord'
 
 defineOptions({ name: 'ApprovalCenterWorkbench' })
 
@@ -571,7 +572,10 @@ const APPROVAL_SOURCE_TASK_TYPE_LABELS: Record<string, string> = {
   BPM_PROCESS_INSTANCE_COPY: '流程抄送实例',
   DCC_CONTROLLED_FILE_TASK: '文控受控文件任务',
   EDHR_WORK_TASK: '电子批记录工作任务',
-  MES_PRO_FEEDBACK: '生产报工复核任务'
+  MES_PRO_FEEDBACK: '生产报工复核任务',
+  DCC_PROJECT_PRODUCT_REVIEW: '项目产品审核',
+  DCC_PROJECT_PRODUCT_APPROVAL: '项目产品批准',
+  DCC_OFFLINE_TRAINING_RECORD: '文控上传线下培训记录'
 }
 
 const APPROVAL_BUSINESS_TITLE_LABELS: Record<string, string> = {
@@ -593,6 +597,15 @@ const APPROVAL_STATUS_LABELS: Record<string, string> = {
   CANCELLED: '已取消',
   RUNNING: '进行中',
   PENDING: '待处理',
+  PENDING_SUPERVISOR_REVIEW: '待直属主管审核',
+  PENDING_MATRIX_REVIEW: '待会签',
+  PENDING_MATRIX_APPROVAL: '待批准',
+  PENDING_DOC_CONTROL_REVIEW: '待文控审核',
+  PENDING_APPLICANT_REWORK: '待申请人返工',
+  PENDING_APPLICANT_TRAINING_RECORD: '待文控上传培训记录',
+  PENDING_DELAYED_EFFECTIVE_CONFIRM: '待延迟生效确认',
+  CONTROLLED_PENDING_EFFECTIVE: '受控（待生效）',
+  WORKING: '工作小版本',
   DRAFT: '草稿',
   NEW: '新建',
   SUBMITTED: '已提交',
@@ -848,7 +861,8 @@ const buildApprovalCenterRouteStateKey = () => {
     path: route.path.replace(/\/+$/, ''),
     viewType: normalizeRouteQueryValue(route.query.viewType) || '',
     moduleCode: normalizeRouteQueryValue(route.query.moduleCode) || '',
-    keyword: normalizeRouteQueryValue(route.query.keyword) || ''
+    keyword: normalizeRouteQueryValue(route.query.keyword) || '',
+    taskListRevision: approvalTodoBadgeStore.taskListRevision
   })
 }
 
@@ -1047,6 +1061,7 @@ const resolveDccApprovalDetailLocation = (
 ) => {
   const normalizedPath = String(path || '').trim()
   const nextQuery = { ...query }
+  if (row.sourceTaskType === DCC_OFFLINE_TRAINING_RECORD) return resolveOfflineTrainingRecordLocation(row, normalizedPath, nextQuery)
   const isDccModuleHandling = isDccModuleHandlingAction(row)
   if (row.moduleCode === 'DCC' && normalizedPath.startsWith(DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX)) {
     if (isDccModuleHandling) {
@@ -1508,6 +1523,7 @@ const resolveBusinessContextValueLabel = (value: string, missingLabel: string) =
   if (normalizedVersion) {
     return normalizedVersion[1]
   }
+  if (/^[A-Z]\/[1-9]\d*(?:-[1-9]\d*)?$/.test(text)) return text
   const mappedStatus = APPROVAL_STATUS_LABELS[text] || APPROVAL_NODE_LABELS[text] || APPROVAL_BUSINESS_TITLE_LABELS[text]
   if (mappedStatus) {
     return mappedStatus
@@ -1560,24 +1576,32 @@ const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) 
     : EMPTY_APPROVAL_DISPLAY
 }
 
-const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
-  {
-    label: '文件编号',
-    value: resolveBusinessIdentifierValueLabel(row)
-  },
-  {
-    label: '版本',
-    value: findDccContextTagValue(row, [/版本|version/i, /^v\d+(?:\.\d+)?$/i])
-  },
-  {
-    label: '文件类型',
-    value: findDccContextTagValue(row, [/文件类型|文件分类|类型|分类/])
-  },
-  {
-    label: '当前审批节点',
-    value: resolveNodeNameLabel(row)
+const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => {
+  if (row.sourceTaskType === 'DCC_PROJECT_PRODUCT_REVIEW' || row.sourceTaskType === 'DCC_PROJECT_PRODUCT_APPROVAL') {
+    return [
+      { label: '项目代码', value: normalizeApprovalDisplayText(row.businessCode) || EMPTY_APPROVAL_DISPLAY },
+      { label: '当前审批节点', value: resolveNodeNameLabel(row) }
+    ]
   }
-]
+  return [
+    {
+      label: '文件编号',
+      value: resolveBusinessIdentifierValueLabel(row)
+    },
+    {
+      label: '版本',
+      value: findDccContextTagValue(row, [/版本|version/i, /^v\d+(?:\.\d+)?$/i])
+    },
+    {
+      label: '文件类型',
+      value: findDccContextTagValue(row, [/文件类型|文件分类|类型|分类/])
+    },
+    {
+      label: '当前审批节点',
+      value: resolveNodeNameLabel(row)
+    }
+  ]
+}
 
 const resolveVisibleDccKeyFields = (row: ApprovalTaskSummaryVO) =>
   row.moduleCode === 'DCC'

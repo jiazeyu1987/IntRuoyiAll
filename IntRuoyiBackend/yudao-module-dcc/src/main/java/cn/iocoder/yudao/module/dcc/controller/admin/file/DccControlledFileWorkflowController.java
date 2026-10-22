@@ -26,10 +26,25 @@ public class DccControlledFileWorkflowController {
 
     @Resource
     private DccControlledFileWorkflowService workflowService;
+    @Resource private cn.iocoder.yudao.module.dcc.service.file.DccDelayedEffectiveConfirmationService delayedConfirmation;
+
+    @org.springframework.web.bind.annotation.GetMapping("/{id}/delayed-effective-confirm")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileDelayedEffectiveConfirmRespVO> readDelayedEffective(
+            @PathVariable("id") Long id,@org.springframework.web.bind.annotation.RequestParam String taskId,
+            @org.springframework.web.bind.annotation.RequestParam String processInstanceId,@org.springframework.web.bind.annotation.RequestParam Integer attributeRound){
+        return success(delayedConfirmation.read(getLoginUserId(),id,taskId,processInstanceId,attributeRound));
+    }
+    @PostMapping("/{id}/delayed-effective-confirm")
+    @PreAuthorize("isAuthenticated()")
+    public CommonResult<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileDelayedEffectiveConfirmRespVO> confirmDelayedEffective(
+            @PathVariable("id") Long id,@Valid @RequestBody cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileDelayedEffectiveConfirmReqVO request){
+        return success(delayedConfirmation.confirm(getLoginUserId(),id,request));
+    }
 
     @PostMapping("/{id}/training-record")
-    @Operation(summary = "Upload applicant training record before document-control approval")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
+    @Operation(summary = "本次原上传人上传培训记录；旧流程保留文控审批授权")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:approve') or (@ss.hasPermission('dcc:controlled-file:query') and @ss.hasPermission('dcc:controlled-file:submit'))")
     public CommonResult<Boolean> uploadTrainingRecord(@PathVariable("id") Long id,
                                                       @Valid @RequestBody DccControlledFileTrainingRecordReqVO reqVO) {
         workflowService.uploadTrainingRecord(getLoginUserId(), id, reqVO);

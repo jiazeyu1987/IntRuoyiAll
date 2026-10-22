@@ -1,0 +1,44 @@
+{
+  "status": "ROOT_G57_FORMAL_PROVIDER_LOCATION_AND_TRANSACTION_REVIEW_PASS",
+  "manifestSha256": "0aea4639a14475c5c0162ee5ff88f4fc62bf451fa57f15a212330dc7e77c0468",
+  "productionFiles": 8,
+  "testFiles": 7,
+  "sourcePinsVerified": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingRecordService.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccOfflineTrainingTaskDelegate.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapter.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileDetailAuthorizationGuard.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingEntryDatabaseTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccOfflineTrainingApprovalTransactionTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/approval/DccApprovalTaskAdapterTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectApplicationNotificationTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java"
+  ],
+  "actualCliExitCode": 0,
+  "archivedXmlTotals": {
+    "tests": 284,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    "cn.iocoder.yudao.module.dcc.approval.DccApprovalTaskAdapterTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileDetailAuthorizationGuardTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileQueryServiceTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccFileOwnerPublicApprovalTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingApprovalTransactionTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccOfflineTrainingEntryDatabaseTest",
+    "cn.iocoder.yudao.module.dcc.service.file.DccRelationNameMetadataDatabaseTest",
+    "cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectApplicationNotificationTest"
+  ],
+  "review": "same qualified metadata/upload and typed notifications; no binary grants, no fakeUserTask; canonical own File placement bool; legitimate direct notify does not require centralBpmread",
+  "runtimeRetest": "PENDING_SAME_SOURCE_PACKAGE",
+  "manifestDocumentReseal": "source15/compiled32 and receipt unchanged, child BDD status/Keep updated; prior rawseal preserved"
+}

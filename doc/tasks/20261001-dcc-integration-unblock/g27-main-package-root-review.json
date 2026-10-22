@@ -1,0 +1,18 @@
+{
+  "status": "ROOT_VERIFIED_MAIN_PACKAGE_PASS_NOT_DEPLOYED",
+  "jarPath": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+  "jarBytes": 507297396,
+  "jarSha256": "81b56aa3e1c518ae8f989498a8624826a1ad946d8e2640e652e4cb3a32f30bc5",
+  "sourceManifestSha256": "740678d518f7d635cdd3aecda437861fdaa7f1e631ce38eb43219533505bbec6",
+  "policyCandidateSha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "packageExitCode": 0,
+  "requiredClassCount": 5,
+  "workerReceiptPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g27-main-package-receipt.json",
+  "workerReceiptSha256": "80cc7ae2e3d329e0fd98c6f219c6a77c32e669f309aa080d6b11d1e0f510f260",
+  "servicesStarted": false,
+  "newDatabaseWrites": false,
+  "objectRecovery": false,
+  "qaApproved": false,
+  "realUiE2E": false,
+  "localIntQmsMerge": false
+}

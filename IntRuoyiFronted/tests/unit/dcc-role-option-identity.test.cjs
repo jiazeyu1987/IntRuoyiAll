@@ -1,0 +1,4 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript')
+function load(){const c={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/views/system/user/role-option-label.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,c);return c.exports}
+test('Duplicate names expose distinct actual role IDs',()=>{const {roleOptionLabel}=load(),roles=[{id:3,name:'文控'},{id:9,name:'文控'}];assert.equal(roleOptionLabel(roles[0],roles),'文控（角色编号 3）');assert.equal(roleOptionLabel(roles[1],roles),'文控（角色编号 9）')})
+test('Unique names retain their readable label',()=>{const {roleOptionLabel}=load(),roles=[{id:3,name:'项目审核员'},{id:9,name:'文控'}];assert.equal(roleOptionLabel(roles[0],roles),'项目审核员')})

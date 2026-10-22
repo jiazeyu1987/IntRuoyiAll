@@ -1,0 +1,23 @@
+# G23 原库准入与历史名称准备
+
+状态in_progress。数据库升级/审计配置/真实质量批准资料仍未答复，数据库写入为零。本轮只读数据及离线工具结果不能被当作source升级或业务E2E完成。
+
+## 原库执行准入工具
+
+backend独立准备g23-source-upgrade-*：固定原库ruoyi-vue-pro/本机UUID，只有完整真实clone ISOLATED_REHEARSAL_PASS及first/repeat/原行/33seed/19ledger/schema全部保护原始收据、source fresh25事实、新source备份、16原表+ledger完整列snapshot、writer排除和explicit许可齐备才可写。技术新鲜度900秒不替代用户批准。缺实际clone模板输出PREPARED_BLOCKED_MISSING_REAL_REHEARSAL_RECEIPT，完全不建client；当前正是此状态。
+
+独立upload Review R01–R04发现old-column集合可漏列、fresh证明未重新跑真实validator、新备份epoch未关联实际dump、clone raw ledger/newtable proof未重新对账；backend已接唯一修复。不把纯gate正常5项或工具生成当这些问题关闭。source模式不自动恢复/删除数据库、不启停其它服务；MySQL部分DDL隐式提交风险明确保留。
+
+最终收口：backend补全R01–R04，Root/Owner27离线tests PASS，upload独立6组内存/AST及停写逐链复核关闭。source driver原SHA3afe3715a1fb00ef872ae01f3d3dc6a97fd70bfda1864bcbb80f25a7f3344ff5；tests ad917af0a3f9bc632e43f6fbe29c21edc9f028480022d8026b749f00c5e2cdaf，五工具manifest全部匹配。Root用实际空clone模板prepare得到blocked/no client，未制造真实PASS。g23-verification-receipt.json封存此prepared-only结果；下一步依赖实际用户许可与真实clone运行证据。
+
+## 历史原始文件名核验
+
+Root对正式只读SQL采集283 JSON事实：tenant1 active25claim、25master、39版本、39源metadata、39ownership、76ticket、39同源引用和runtime。query为单SELECT统一快照，无DML；未采密码/token/path/url。实际SQL原始SHA8cecc9b7313117287ed6f67c2824a65bd9d9bf242cd4ae67e66117f44e2a6474，事实rawSHA8c17e87327b31160e86be9d4c9424670c9a5e8097c1d909c8382f021819a416b；详细原名只在保护目录。
+
+第一次contract用LF文本算hash而Windows落CRLF，被validator拒绝INVALID_CAPTURE；Owner修成真实落盘rawhash并新增CLI测试，查询未变、无需重采。第一次局部版本交叉结果7候选/18未确认遗漏未确认多名Master的全部观察名称；有效RED后修全历史交叉，最终**6候选/19未确认**，19均跨claim同完整basename，其中3个Master还跨版本改名。先前7/18不作为最终结果。
+
+全部25未发现缺Master/源登记SHA/metadata或租户链冲突，但6个claim项目/类型/编号identity仍不完整；这些不能以旧normalized_name、模板或受控PDF推断修复。infra_file没有tenant/hash字段，未发明这些字段。source_bytes_verified=false，write_authorized=false；6候选也不是正文bytes已验，更不是回填许可。
+
+g23-legacy-name-review-receipt.json保存最终counts/保护facts/result/review的hash；人可核对清单在C:/IntRuoyiBackups/20261003-dcc-integration/g23-legacy-names-review.md。本次不提交原始业务名字/数据到Git。现行C迁移加source_original_file_name不回填，countUnresolvedNames会使25旧NULL阻止新上传；不能为跑E2E删旧claim或绕failClosed。
+
+已向用户提出具体历史口径问题：建议保留历史文件/版本/签名，经原文件核实的全部旧原名继续作为占用，禁止未来新增同名；或先由文控整理。没有自动合并、重命名、删除或把19SQL扩大成历史回填。待用户选择前，仅准备只读映射，不实施依赖该答案的模型变更。

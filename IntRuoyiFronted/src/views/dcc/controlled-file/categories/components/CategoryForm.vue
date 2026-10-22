@@ -1,5 +1,6 @@
 <template>
   <Dialog v-model="dialogVisible" :title="dialogTitle" width="760px">
+    <el-alert v-if="formError" :title="formError" type="error" :closable="false" class="mb-16px" />
     <el-form
       ref="formRef"
       v-loading="formLoading"
@@ -24,6 +25,13 @@
       </el-form-item>
       <el-form-item label="类别名称" prop="name">
         <el-input v-model="formData.name" placeholder="请输入文件类别名称" />
+      </el-form-item>
+      <el-form-item label="审批来源" prop="approvalSourceMode">
+        <el-select v-model="formData.approvalSourceMode" data-testid="dcc-category-approval-source" class="!w-100%" :disabled="formLoading">
+          <el-option label="公共审批矩阵" value="PUBLIC_MATRIX" />
+          <el-option label="本次申请自定义（其他）" value="APPLICATION_CUSTOM" />
+        </el-select>
+        <div class="mt-1 text-12px text-gray-500">审批来源由此类别明确配置；本次自定义沿用既定主管、会签、批准及文控流程。</div>
       </el-form-item>
       <el-form-item label="阶段">
         <el-input
@@ -102,9 +110,11 @@
 import type { FormRules } from 'element-plus'
 import { defaultProps, handleTree } from '@/utils/tree'
 import {
-  bindCategoryDirectory,
   createFileCategory,
   updateFileCategory,
+  requireCategoryApprovalSourceMode,
+  type DccApprovalSourceMode,
+  type ControlledFileCategorySaveReqVO,
   type ControlledFileCategoryVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import type { ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directories'
@@ -129,6 +139,7 @@ interface CategoryFormData {
   parentId?: number | null
   code: string
   name: string
+  approvalSourceMode: DccApprovalSourceMode | null
   fileTypeTaxonomyId?: number | null
   directoryId?: number | null
   active: boolean
@@ -145,6 +156,7 @@ const { t } = useI18n()
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formLoading = ref(false)
+const formError = ref('')
 const formType = ref<'create' | 'update'>('create')
 const formRef = ref()
 const categoryOptions = ref<CategoryTreeNode[]>([])
@@ -156,6 +168,7 @@ const formData = ref<CategoryFormData>({
   parentId: undefined,
   code: '',
   name: '',
+  approvalSourceMode: 'PUBLIC_MATRIX',
   fileTypeTaxonomyId: undefined,
   directoryId: undefined,
   active: true,
@@ -170,6 +183,7 @@ const formData = ref<CategoryFormData>({
 const formRules = reactive<FormRules>({
   code: [{ required: true, message: '类别编码不能为空', trigger: 'blur' }],
   name: [{ required: true, message: '类别名称不能为空', trigger: 'blur' }],
+  approvalSourceMode: [{ required: true, message: '请明确文件类别审批来源', trigger: 'change' }],
   fileTypeTaxonomyId: [{ required: true, message: '默认文件分类不能为空', trigger: 'change' }],
   directoryId: [{ required: true, message: '绑定目录不能为空', trigger: 'change' }],
   active: [{ required: true, message: '启用状态不能为空', trigger: 'change' }],
@@ -219,6 +233,7 @@ const open = (
       parentId: payload.row.parentId,
       code: payload.row.code,
       name: payload.row.name,
+      approvalSourceMode: null,
       fileTypeTaxonomyId: payload.row.fileTypeTaxonomyId,
       directoryId: payload.row.directoryId,
       active: payload.row.active,
@@ -229,16 +244,20 @@ const open = (
       distributionRequired: payload.row.distributionRequired ?? true,
       trainingRequired: payload.row.trainingRequired ?? true
     }
+    try { formData.value.approvalSourceMode = requireCategoryApprovalSourceMode(payload.row.approvalSourceMode) }
+    catch (cause) { formError.value = cause instanceof Error ? cause.message : String(cause) }
   }
 }
 
 defineExpose({ open })
 
 const resetForm = () => {
+  formError.value = ''
   formData.value = {
     parentId: undefined,
     code: '',
     name: '',
+    approvalSourceMode: 'PUBLIC_MATRIX',
     fileTypeTaxonomyId: undefined,
     directoryId: undefined,
     active: true,
@@ -253,15 +272,27 @@ const resetForm = () => {
 }
 
 const submitForm = async () => {
-  const valid = await formRef.value?.validate()
+  if (formLoading.value) return
+  formError.value = ''
+  let approvalSourceMode: DccApprovalSourceMode
+  try { approvalSourceMode = requireCategoryApprovalSourceMode(formData.value.approvalSourceMode) }
+  catch (cause) { formError.value = cause instanceof Error ? cause.message : String(cause); return }
+  let valid = false
+  try {
+    valid = await formRef.value?.validate()
+  } catch {
+    formError.value = '请修正标出的必填信息后保存'
+    return
+  }
   if (!valid) {
     return
   }
-  const payload: ControlledFileCategoryVO = {
+  const payload: ControlledFileCategorySaveReqVO = {
     id: formData.value.id,
     parentId: formData.value.parentId,
     code: formData.value.code.trim(),
     name: formData.value.name.trim(),
+    approvalSourceMode,
     lifecycleStage: '' as ControlledFileCategoryVO['lifecycleStage'],
     fileTypeTaxonomyId: formData.value.fileTypeTaxonomyId ?? null,
     active: formData.value.active,
@@ -270,24 +301,32 @@ const submitForm = async () => {
     remark: formData.value.remark?.trim() || undefined,
     description: formData.value.description?.trim() || undefined,
     distributionRequired: formData.value.distributionRequired,
-    trainingRequired: formData.value.trainingRequired
+    trainingRequired: formData.value.trainingRequired,
+    directoryBinding: {
+      directoryId: formData.value.directoryId as number,
+      active: true
+    }
   }
   formLoading.value = true
   try {
-    let categoryId = formData.value.id
     if (formType.value === 'create') {
-      categoryId = await createFileCategory(payload)
-      message.success(t('common.createSuccess'))
+      const categoryId = await createFileCategory(payload)
+      if (!Number.isSafeInteger(categoryId) || !categoryId || categoryId <= 0) {
+        throw new Error('新增文件类别未返回有效身份，请核对已保存记录')
+      }
+      formData.value.id = categoryId
+      formType.value = 'update'
     } else if (formData.value.id) {
       await updateFileCategory(formData.value.id, payload)
-      message.success(t('common.updateSuccess'))
+    } else {
+      throw new Error('文件类别身份缺失，不能保存')
     }
-    await bindCategoryDirectory(categoryId as number, {
-      directoryId: formData.value.directoryId as number,
-      active: true
-    })
+    message.success(t('common.saveSuccess'))
     dialogVisible.value = false
     emit('success')
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    formError.value = reason
   } finally {
     formLoading.value = false
   }
@@ -298,7 +337,9 @@ const loadFileTypeTaxonomies = async () => {
   try {
     const rows = await getFileTypeTaxonomyList()
     fileTypeTaxonomies.value = rows
-    fileTypeTaxonomyOptions.value = handleTree(rows.map((item) => ({ ...item }))) as DccFileTypeTaxonomyVO[]
+    fileTypeTaxonomyOptions.value = handleTree(
+      rows.map((item) => ({ ...item }))
+    ) as DccFileTypeTaxonomyVO[]
   } finally {
     taxonomyLoading.value = false
   }

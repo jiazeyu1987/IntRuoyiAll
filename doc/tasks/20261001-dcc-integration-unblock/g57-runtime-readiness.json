@@ -1,0 +1,16 @@
+{
+  "status": "CURRENT_G57_SAME_SOURCE_LOCAL_QMS_UP_AND_SINGLE_JOB_RESTORED",
+  "sourceCommit": "85b76ea6b244cdf768d24e43723d0263344b0f63",
+  "jarSha256": "45a9f9cfaf8879350e153dbdae94a2ee9ea2ed72deb6821c06c3e2fb91c5fcb7",
+  "backendPid": 56836,
+  "backendPort": 48061,
+  "frontendPid": 50712,
+  "frontendPort": 8061,
+  "activationJobId": 5625,
+  "restoredToRam": true,
+  "otherJobsRegistered": false,
+  "databaseJobRowWritesByRecovery": 0,
+  "globalStartupSync": false,
+  "nativeFullHtmlUi": "IN_PROGRESS",
+  "requestLogging": "raw request-body console logging disabled for actual test account/password and electronic signatures; normal sanitized access evidence kept"
+}

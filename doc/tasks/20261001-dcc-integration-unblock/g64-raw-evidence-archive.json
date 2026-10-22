@@ -1,0 +1,81 @@
+{
+  "status": "G64_CURRENT_RAW_BYTE_ARCHIVE_PASS",
+  "assets": [
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-native-reject-regression.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/0bd41af2bc33ebcf41eef6a0.log",
+      "sha256": "c5214358387c89bc1dd1a6102630803569d7bd0f840ab949bca24297791f4f06"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red-r2.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/a8dd151825f5fa261f140fc3.log",
+      "sha256": "5f5266a82f6599b5a2342f1ce3dfcd2ea04b870f68e581575e0aa1b5aa839010"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red-r2.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/55e49fc1f24303bf22d3a1d5.xml",
+      "sha256": "070f45e918556ba9f512523102ecc66533661673d0e4384fa7599952af7eddd9"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/b98d2f6842ac0455f95f0b1f.log",
+      "sha256": "59fc4e94542c437d541e0ab4783a28f312c80b9e8f3dfdd2a827242d43cb8483"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-native-reject-effective-red.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/d20645dcad47cfb47186350f.xml",
+      "sha256": "fa6f5f7db541ad4bdade0564be77cffaf6021bce44224e45dba5f042aaf7df0e"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileFinalizationServiceImplTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/46377dc4c1cdf47a7ae45b95.xml",
+      "sha256": "e6620787e9197a60cf58885cb72d3c65171eaba59e1eda6a91d73a8e81b2af7b"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccNativeRejectionTransactionTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/26bbe567eebf2d42ffa64b93.xml",
+      "sha256": "f0078321a17746dbec02fbad8437438f9f13fca9c1053a79f52cb50a0b6c5be5"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/a20b9f172d57276926427f66.xml",
+      "sha256": "718bb73d2c978b76080bb0b2d8b3e5fc8a6629ed4e82b34f660b01c2f0e4641a"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-backend-completion/g64-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowNativeCompletionEvidenceTest.xml",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/0e117749af057b1a2b35ad9e.xml",
+      "sha256": "742bbb41456ee754c19e5744768c1f97318e6bf5b1881a0d69dba9acdfc0ccf8"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/91fdf6cb6187c5a52f4c3a10.log",
+      "sha256": "c56a0adef30dbb26b320f5308b226a9c9bfa3a57b101ab1487e159ba72013849"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/584b65773a682693ca5196b0.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-exact-name-conflict-r2-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/2786deba4bc5cdaa65e1c50c.log",
+      "sha256": "3f2c26b451358af05188107a02586e00bf08293f4cded88ed55e10c5176cd4b1"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-final.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/039c49b46ea581dc081a5eca.log",
+      "sha256": "b2feb1981a0ee6eaf2803cbc2db1d62c82f4e09bcf13e8bd484ac3043c9182ab"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-lint.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/fa20ebf3f2b6af276cce51dd.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-red.log",
+      "archive": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g64-final-raw/cb3e591157567b4974a9d0f4.log",
+      "sha256": "4b112c1215bb9cc35b7d660f92f73103333d088065dec9c67811befa4433ca9b"
+    }
+  ],
+  "sourceNotDeleted": true
+}

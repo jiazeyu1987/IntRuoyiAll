@@ -18,18 +18,77 @@ public class DccControlledContentAdapter {
 
     @Resource
     private ControlledContentLifecycleCoreService lifecycleCoreService;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper files;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper masters;
 
     public void recordSubmitted(DccControlledFileDO file, Long actorId, String processInstanceId) {
         requireFile(file);
         ControlledContentKey key = dccKey(file);
         ControlledContentVersionRefDO activeRef = lifecycleCoreService.getActiveRef(key);
-        lifecycleCoreService.createCandidateRef(key, file.getMasterId(), file.getId(), file.getVersionNo(),
+        if (DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())) {
+            Long source=file.getRevisionSourceControlledFileId();
+            if(source!=null) {
+                var baseline=files.selectById(source);var master=masters.selectById(file.getMasterId());
+                if(baseline==null || master==null || !java.util.Objects.equals(master.getTenantId(),key.getTenantId())
+                        || !java.util.Objects.equals(master.getLatestControlledFileId(),source)
+                        || !java.util.Objects.equals(baseline.getTenantId(),key.getTenantId())
+                        || !java.util.Objects.equals(baseline.getMasterId(),file.getMasterId())
+                        || !java.util.Objects.equals(baseline.getDccProjectCodeId(),file.getDccProjectCodeId())
+                        || baseline.getControlledTime()==null || !DccControlledFileVersionPolicy.isCurrentControlledStatus(baseline.getStatus()))
+                    throw new IllegalStateException("DCC revision source is not the exact latest controlled baseline");
+            }
+            lifecycleCoreService.createDccCandidateRef(key,file.getMasterId(),file.getId(),file.getVersionNo(),
+                    file.getStatus(),source,actorId,"dcc controlled file submitted");
+        } else lifecycleCoreService.createCandidateRef(key, file.getMasterId(), file.getId(), file.getVersionNo(),
                 file.getStatus(), activeRef == null ? null : activeRef.getId(),
                 activeRef == null ? null : activeRef.getNativeVersionId(), actorId,
                 "dcc controlled file submitted");
         lifecycleCoreService.transitionVersionRef(key, file.getId(), ControlledContentCanonicalStatus.IN_REVIEW,
                 file.getStatus(), ControlledContentTransitionAction.SUBMIT, actorId,
                 "dcc controlled file submitted", processInstanceId);
+    }
+
+    public void recordNativeControl(DccControlledFileDO file,Long actorId,String eventKey) {
+        requireNativeControlledFile(file);
+        lifecycleCoreService.transitionDccControlledRef(dccKey(file),file.getId(),file.getVersionNo(),file.getProcessInstanceId(),
+                ControlledContentCanonicalStatus.FINALIZING,ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE,
+                ControlledContentTransitionAction.COMPLETE_CONTROL,actorId,"DCC正式受控完成",eventKey,null);
+    }
+
+    public void recordNativeActivation(DccControlledFileDO file,Long actorId,String eventKey) {
+        requireNativeControlledFile(file);
+        if(file.getActivatedTime()==null || !"ACTIVE".equals(file.getStatus()))
+            throw new IllegalStateException("DCC activation projection requires actual execution facts");
+        String reason="AFTER_STANDARDIZATION_SIGNATURE".equals(file.getEffectiveMode())
+                ? "DCC已签名实际生效且正式受控完成后日常启用"
+                : "DELAYED".equals(file.getEffectiveMode()) ? "DCC原编制人已签名确认的生效时刻到期，正式受控后日常启用"
+                : "PRESET_DATE".equals(file.getEffectiveMode())
+                    ? "DCC正式受控且预设日期到期后日常启用" : "DCC已受控生效版本日常启用";
+        lifecycleCoreService.transitionDccControlledRef(dccKey(file),file.getId(),file.getVersionNo(),file.getProcessInstanceId(),
+                ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE,ControlledContentCanonicalStatus.ACTIVE,
+                ControlledContentTransitionAction.ACTIVATE_CONTROLLED,actorId,reason,eventKey,null);
+    }
+
+    public void recordNativeObsoleted(DccControlledFileDO before,DccControlledFileDO successor,Long actorId,String eventKey) {
+        requireNativeControlledFile(before);requireNativeControlledFile(successor);
+        if(!java.util.Objects.equals(before.getMasterId(),successor.getMasterId()))
+            throw new IllegalStateException("DCC obsolete successor must belong to the same Master");
+        var from="ACTIVE".equals(before.getStatus())?ControlledContentCanonicalStatus.ACTIVE
+                :"CONTROLLED_PENDING_EFFECTIVE".equals(before.getStatus())?ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE:null;
+        if(from==null)throw new IllegalStateException("DCC automatic obsolete source is not controlled");
+        lifecycleCoreService.transitionDccControlledRef(dccKey(before),before.getId(),before.getVersionNo(),before.getProcessInstanceId(),
+                from,ControlledContentCanonicalStatus.OBSOLETE,from==ControlledContentCanonicalStatus.ACTIVE
+                    ?ControlledContentTransitionAction.OBSOLETE_ACTIVE:ControlledContentTransitionAction.OBSOLETE_CONTROLLED,
+                actorId,"新版生效自动作废",eventKey,successor.getId());
+    }
+
+    private void requireNativeControlledFile(DccControlledFileDO file) {
+        requireFile(file);
+        if(!java.util.Objects.equals(file.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                || file.getControlledTime()==null || file.getPublishedFileId()==null || file.getStampedFileId()==null
+                || file.getProcessInstanceId()==null || file.getProcessInstanceId().isBlank())
+            throw new IllegalStateException("DCC projection lacks actual controlled identity/artifact/time");
     }
 
     public void recordWithdrawn(DccControlledFileDO file, Long actorId, String reason) {
@@ -69,6 +128,26 @@ public class DccControlledContentAdapter {
                 ControlledContentCanonicalStatus.READY_TO_PUBLISH, ControlledContentCanonicalStatus.FINALIZING,
                 DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.START_FINALIZATION,
                 actorId, "dcc controlled file finalization started", file.getProcessInstanceId(),
+                normalizedEventKey + ":start-finalization");
+    }
+
+    /** Approval provenance and the authenticated operation that starts derivation are distinct facts. */
+    public void recordFinalizationStarted(DccControlledFileDO file, Long approvalActorId,
+                                          Long operationActorId, String eventKey) {
+        requireFile(file);
+        if (approvalActorId == null || approvalActorId <= 0 || operationActorId == null || operationActorId <= 0) {
+            throw new IllegalArgumentException("Native finalization requires actual approval and operation actors");
+        }
+        String normalizedEventKey = requireEventKey(eventKey, "finalization");
+        lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
+                ControlledContentCanonicalStatus.IN_REVIEW, ControlledContentCanonicalStatus.READY_TO_PUBLISH,
+                DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.APPROVE,
+                approvalActorId, "dcc controlled file approved", file.getProcessInstanceId(),
+                normalizedEventKey + ":approve");
+        lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
+                ControlledContentCanonicalStatus.READY_TO_PUBLISH, ControlledContentCanonicalStatus.FINALIZING,
+                DccControlledFileStatusEnum.FINALIZING.getStatus(), ControlledContentTransitionAction.START_FINALIZATION,
+                operationActorId, "dcc controlled file finalization started", file.getProcessInstanceId(),
                 normalizedEventKey + ":start-finalization");
     }
 
@@ -192,6 +271,19 @@ public class DccControlledContentAdapter {
 
     public void recordObsoleted(DccControlledFileDO file, Long actorId, String reason, String eventKey) {
         requireFile(file);
+        if("CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())
+                || DccControlledFileProcessDefinitionKeys.UPLOAD.equals(file.getProcessDefinitionKey())
+                || DccControlledFileProcessDefinitionKeys.REVISION.equals(file.getProcessDefinitionKey())) {
+            requireNativeControlledFile(file);
+            ControlledContentCanonicalStatus from="ACTIVE".equals(file.getStatus())?ControlledContentCanonicalStatus.ACTIVE
+                    :"CONTROLLED_PENDING_EFFECTIVE".equals(file.getStatus())?ControlledContentCanonicalStatus.CONTROLLED_PENDING_EFFECTIVE:null;
+            if(from==null)throw new IllegalStateException("DCC obsolete projection requires its locked controlled preimage");
+            lifecycleCoreService.transitionDccControlledRef(dccKey(file),file.getId(),file.getVersionNo(),file.getProcessInstanceId(),
+                    from,ControlledContentCanonicalStatus.OBSOLETE,from==ControlledContentCanonicalStatus.ACTIVE
+                        ?ControlledContentTransitionAction.OBSOLETE_ACTIVE:ControlledContentTransitionAction.OBSOLETE_CONTROLLED,
+                    actorId,reason,requireEventKey(eventKey,"obsolete"),null);
+            return;
+        }
         lifecycleCoreService.transitionVersionRefByDomainEvent(dccKey(file), file.getId(),
                 ControlledContentCanonicalStatus.ACTIVE, ControlledContentCanonicalStatus.OBSOLETE,
                 DccControlledFileStatusEnum.OBSOLETE.getStatus(), ControlledContentTransitionAction.OBSOLETE_ACTIVE,

@@ -1,0 +1,11 @@
+# 第一项产品身份修复：本机数据库升级方案
+
+状态：准备中，等待后端最终源码／定向GREEN冻结后才执行。业务依据为HTML产品创建到文件上传；不增加用户输入或14位编码要求。
+
+影响范围：仅本机现有MySQL23306、源库ruoyi-vue-pro、UUID92ca05d0-aec8-11f1-a944-02b4e226a5ef与已有隔离副本dcc_intqms_g18_rehearsal。正式forward脚本20261004_dcc_product_identity_source.sql，只给dcc_controlled_file新增4个可空产品来源字段：product_source varchar(32)、product_catalog_id bigint、product_relation_id bigint、product_create_request_id bigint。保留现有product_master_id为真实MDM身份，DCC目录ID不混存。
+
+流程：先停止已确认本机任务写者并备份受影响表／迁移账本，冻结原列逐行hash；已存在隔离副本首次、重复执行该一项迁移，完整schema/旧行hash不变通过后，再备份并执行本机源库首次/重复。完整9项dependsOn只作已存在结构证明，不重放旧建库或种子、不改原ledgerSHA。新增迁移台账最多1条，目标精确新ID。SQL配置／业务数据／签名／历史版本／名称占用均不写。
+
+新项目catalog613tenant0已明确旧错误事实，本次不回填或放宽tenant0；修复代码只让未来正式批准创建显式同tenant，真实验收新建task项目。已有project270和旧审计6行保持，如需治理另列明确方案。4字段后续由真实页面上传和工作版本业务事务写入，API/DB仅只读佐证，不直接造文件或审批。
+
+不执行远程／发布，不重建Docker／数据库，不清空对象或审批记录。前后端主line工程GREEN及合入不代表运行升级或真实页面已验收；具体SQL冻结SHA和执行前后实际收据由Root记录。

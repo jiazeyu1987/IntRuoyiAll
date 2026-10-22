@@ -1,0 +1,113 @@
+{
+  "status": "READONLY_LATEST_REVIEWED_SOURCE_SCOPE_NOT_STAGE_OR_MERGE",
+  "sourceCount": 17,
+  "sources": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/category/DccFileCategoryMapper.java",
+      "sha256": "673044f6c0e529f85167e0a4fea35ac5117740ea6ca2af054a38af7cdf6eb86f",
+      "status": "M ",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImpl.java",
+      "sha256": "11a6b75ba7b26781b84bd383797bb6d17faf44ca865bc8e8d92b774c2ac66da2",
+      "status": "M ",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.java",
+      "sha256": "b8413a964cd562a0cde7f1131c63c58e1bd28b5ba2cd5c31a11b739e2b69286f",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceExecutor.java",
+      "sha256": "52b1b8ffd0960dd511ebc6ec48042ad32e49e0b8f222820211ddcda0d12051e0",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.java",
+      "sha256": "04b771396b89495babdf5b132195b3fd505e6df2abf635820328ee718b2338b0",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceCommand.java",
+      "sha256": "fac20c1089e09233d527eb5cfe80d7509bd1bb9590821047fc997419ede1d433",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceRunner.java",
+      "sha256": "d686bb9c8f614145cb14484fb9c4404af136213dea4aa8c369ad01d4618f3a5e",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/category/DccCategoryApprovalMatrixAdminServiceImplTest.java",
+      "sha256": "0638b8c6ceae8c7a3df13109f18758f247126810cf32b49458901c7a94c18d61",
+      "status": "M ",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceCommandTest.java",
+      "sha256": "22a8d51a27603bf59bcd0507f55a89ad01c42a70e98d63bd47c6e13253ce4743",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceEntryTest.java",
+      "sha256": "23ede6f35c2f22d42a7fc75c026332144192a5bfb6eacd7114bf42672f7bc4f6",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGateTest.java",
+      "sha256": "185041088e638f24efbdc8dcd98fa9bd65b5e992f62e791ec77f24df04b9766d",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceKernelTest.java",
+      "sha256": "5c0a1a311b88f52e99758f4c2eb0ee2d0ecefe93a2f807d88a73cd4c0e99765b",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceLoggingTest.java",
+      "sha256": "6997bcf971bfb4c18af80000303970ad09f0becca936756b99e0c55f1bb5f984",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-submitted-application-navigation.test.mjs",
+      "sha256": "0008dc617ce9e1cb37e41f6d94950d5339eba98cb1e0f49f844b971c7760e770",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "77635fadf1bb0e3ae9b7e0e21f25a0b7dde911739c567468924984c5045589aa",
+      "status": "M ",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/shared/submitted-application-navigation.ts",
+      "sha256": "e06cc5905122eca46f28b60b71ca0d5fed9bdbaf12343942f53204d258aed2eb",
+      "status": "??",
+      "ignored": false
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-browser-application-entry.test.cjs",
+      "sha256": "c309f5e061568a6395959e653fd4199c672a7bb4528416095c2b1fe0ddf78c3e",
+      "status": "??",
+      "ignored": false
+    }
+  ],
+  "ignoredCodeCount": 0,
+  "stagingExecuted": false,
+  "commitExecuted": false,
+  "mergeExecuted": false,
+  "scopeLimitation": "Only latest G33/G34/G35 increments and fixture; not the full ABCD baseline."
+}

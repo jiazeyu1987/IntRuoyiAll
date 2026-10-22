@@ -1,0 +1,31 @@
+{
+  "status": "read_only_source_reconstructed_no_execution",
+  "sourceSearch": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g17-ledger-source-search.json",
+  "diff": "C:/IntRuoyiAll-int_main/doc/tasks/20261001-dcc-integration-unblock/g17-ledger-semantic-diff.patch",
+  "results": [
+    {
+      "id": "20260513_dcc_base_schema",
+      "sourceRevision": "03646727bcf91611425da89b730f7b32b16ad0a1",
+      "ledgerSha256": "2a57d12b245485017f67c11335ee8b8c4b07eb6a5d9035ae96dad09d7a8203a0",
+      "reconstructedLedgerSha256": "2a57d12b245485017f67c11335ee8b8c4b07eb6a5d9035ae96dad09d7a8203a0",
+      "exactReconstruction": true,
+      "oldLF": "a99df8754f552dd0ef94466117326c3e76d033e7cbae7319fe84fdc64984aa50",
+      "currentLF": "2186d043facfb5f750219053e7ee14b53e7dfacffb0de8d7c5ea004f0805ffb1",
+      "onlyLineEndings": false
+    },
+    {
+      "id": "20260710_dcc_product_catalog_database",
+      "sourceRevision": "2f514778cc89d7d78c9f5c7f3a9a1902e8c6d986",
+      "ledgerSha256": "2a17bc9ff3845e4ca313c02ca0602471716cc676843a207649c1a0f016f16307",
+      "reconstructedLedgerSha256": "2a17bc9ff3845e4ca313c02ca0602471716cc676843a207649c1a0f016f16307",
+      "exactReconstruction": true,
+      "oldLF": "48a76dc2385d25492496121e3bbf4d28a4b9640593739ae6b697cd95d277f31c",
+      "currentLF": "d9be6777b11e600c6348b8d737fd87c1bc7c31806e95bbf992b81b683abc7157",
+      "onlyLineEndings": false,
+      "schemaAndPreInsertEqualIgnoringSourceComment": true,
+      "oldSeedRows": 181,
+      "currentSeedRows": 186,
+      "currentImportBehavior": "ON DUPLICATE KEY UPDATE id=id; old source_row uniqueness pins old row numbers while new workbook row identities shift"
+    }
+  ]
+}

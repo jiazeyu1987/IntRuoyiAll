@@ -1,0 +1,14 @@
+# G62 作废申请冻结会签部门传递
+
+状态：ready_for_closeout。Root实际4033作废POST readiness正确两节点但DCC作废缺少冻结会签部门义务；仅Caller接线，不能移除FormRuntime安全义务守卫。唯一ObsoleteService/test必要范围，soleMaven、无SQL/runtime/UI/Git。
+
+- Given正式resolved OBSOLETE路线部门与leader列表准确，WhenDCC caller建立FormCenter草稿并提交，Then真实部门义务必须在createInstance立即序列化DRAFT前写入保存payload，实际buildBpmRequest从此保存JSON生成一部门一义务且与leader数一致；旧caller先保存后追加有效RED同业务error。
+- Given同一leader有多部门，Then部门与义务仍各一条，不能去重或借USER签名人替DEPT；保持原申请File/轮次/签名/本次属性同事务，invalid义务继续由正式Runtime拒。
+- Boundary：实际Service caller、正式Json serializer、actualFormCenter buildBpmRequest组合；数据库/流程创建网关外port明确fixture，不以mocknull/error模拟业务拒绝。最小caller前移formData键，Runtime/SharedCore/其它生命期freeze保持；必要ObsoleteService/FrameObligation/effect/原签名guard定向回归，不全仓。
+
+
+## 结果
+
+ActualServiceCaller→正式Json保存草稿→actual FormCenterRuntimeServiceImpl.buildBpmRequest有效RED1businessError0failure，部门义务不存在，原XML永久保存。生产onlycaller将dccSignoffDepartmentIds在createInstance序列化前加入，不改Runtimeguard/assignee方向/两节点/签名/body/前后事件历史。最终集成严格验证保存JSON含51/52生成form37每部门各义务、两leaders保持；旧同MapArgumentCaptor不再冒保存时点证明。首GREEN只测试expected错填6101/6102而fixture51/52，改准确expected，不删守卫。
+
+当前Mavenreactor41/4全部0fail/error/skip CLI0 2026-10-06 00:06:11，正式FrameObligation2+callerService16+effect10+H2obsolete13，原4XMLbyte归档g62-final-junit。组合网关保存/submit为明确portfixture，但actualserialize和实际BPMBuilder方法是真实，不虚构Flowable实例/E2E签名；Root已认可必要scope不另搭H2完整FormCenter。QueryG61及G60Adapter/旧签名/共享Corefreeze不变。Maven/source/targetFREE，Rootsolepackage/真实4033作废/整体HTML/Git，不假累计PASS。

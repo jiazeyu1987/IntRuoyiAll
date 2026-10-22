@@ -42,7 +42,22 @@ public class DccControlledFileDO extends BaseDO {
     private String fileName;
     private String title;
     private String fileNumber;
+    private Long fileOwnerUserId;
+    private String fileOwnerUsernameSnapshot;
+    private String fileOwnerNicknameSnapshot;
+    private Long fileOwnerSignatureId;
+    private String fileOwnerApprovalTaskId;
+    private String fileOwnerProcessInstanceId;
+    private LocalDateTime fileOwnerSelectedTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long productMasterId;
+    private String productSource;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCatalogId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productRelationId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCreateRequestId;
     private String productCode;
     private String productName;
     private Long dccProjectCodeId;
@@ -60,6 +75,16 @@ public class DccControlledFileDO extends BaseDO {
     private String processType;
     private String changeType;
     private String versionNo;
+    /** Actual formal submission intent; null on unclassified historical/working rows. */
+    private String revisionChangeType;
+    private Integer revisionAttemptNo;
+    private Long reworkPredecessorControlledFileId;
+    private Long revisionSourceControlledFileId;
+    private String revisionSourceVersionNo;
+    private Long selectedIterationControlledFileId;
+    private String selectedIterationVersionNo;
+    /** Exact original source filename, including case and extension. */
+    private String sourceOriginalFileName;
     private String revisionCode;
     private Integer iterationNo;
     private Long predecessorControlledFileId;
@@ -68,6 +93,25 @@ public class DccControlledFileDO extends BaseDO {
     private String previousSourceSha256;
     private String changeDescription;
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    private String draftApprovalSourceMode;
+    private String draftApplicationCustomMatrixJson;
+    private String draftApplicationContextKey;
+    private LocalDateTime delayedEffectiveTime;
+    private Long delayedEffectiveSignatureId;
+    private String delayedEffectiveProcessInstanceId;
+    private LocalDateTime delayedEffectiveConfirmedAt;
+    /** Actual effectiveness, distinct from daily-use activation after control completes. */
+    private LocalDateTime effectiveTime;
+    private Long effectiveSignatureId;
+    private String effectiveProcessInstanceId;
+    private String distributionDepartmentIdsJson;
+    private String selectedSignoffDepartmentIdsJson;
+    /** Original public matrix seen by this draft; never inferred from current configuration. */
+    private String draftApprovalMatrixJson;
+    private String preparedWorkflowContract;
+    private String preparedProcessDefinitionId;
+    private String preparedDefinitionDigest;
     private String remark;
     private String status;
     private Long submitterId;
@@ -81,6 +125,10 @@ public class DccControlledFileDO extends BaseDO {
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
+    private LocalDateTime controlledTime;
+    private LocalDateTime activatedTime;
+    private LocalDateTime distributedTime;
+    private String distributionPayloadHash;
     private LocalDateTime rejectedTime;
     private LocalDateTime stampedTime;
     private Long obsoletedBy;

@@ -27,6 +27,7 @@ public class DccCategoryApprovalRouteDO extends BaseDO {
     @TableId
     private Long id;
     private Long categoryId;
+    private String actionType;
     private Integer versionNo;
     private Boolean active;
     private LocalDateTime effectiveTime;

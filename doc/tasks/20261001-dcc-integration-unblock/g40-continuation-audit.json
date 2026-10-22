@@ -1,0 +1,22 @@
+{
+  "status": "FIRST_POST_RESUME_QUALITY_APPROVAL_NO_PROGRESS_AUDIT",
+  "previousGoalTurn": "PROGRESS_G39_AUTHORIZED_MIGRATION_RECOVERY_OWNER_FIX_AND_FINAL_PACKAGE",
+  "consecutiveResumedNoProgressAudits": 1,
+  "blockedThresholdMet": false,
+  "actualQualityApproved": false,
+  "currentNewQualityRegistryRows": 0,
+  "currentNewActiveAuditOperationRows": 0,
+  "currentLegacyActivatedScopes": 0,
+  "conditionalExecutionPermissionAlreadyReceived": true,
+  "authorizedSidecarMigrationCompleted": true,
+  "authorizedThreeObjectRecoveryCompleted": true,
+  "independentAll39MatchesCompleted": true,
+  "ownerMainFlowRepairReviewedAndPackaged": true,
+  "liveVerificationHandle": false,
+  "meaningfulIndependentMainFlowWorkAvailable": false,
+  "deferredDetailWorkRemainsDeferred": true,
+  "newSourceTestsBuildsServiceOrDatabaseWritesExecuted": false,
+  "actualRealUiAcceptanceCompleted": false,
+  "localIntQmsMergeCompleted": false,
+  "nextRequiredInput": "Actual approval of the exact26 quality policy with signer, time, signed record and authority evidence; do not request already granted operation permissions again."
+}

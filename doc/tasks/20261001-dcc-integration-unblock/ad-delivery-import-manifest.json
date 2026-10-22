@@ -1,0 +1,441 @@
+{
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "target": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "files": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\dal\\mysql\\file\\DccControlledFileMapper.java",
+      "sha256": "c9271e10b00d10904026e848a2cc0531bba1c3f71fa02cefc1d3df1e60628e11",
+      "before_sha256": "3cd6eb2b1f0eaa30a5457c6ab9b146f212bdd2cba46ac8671a4dd9c1c90c072c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApprovalRouteAssigneeResolver.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileApprovalRouteAssigneeResolver.java",
+      "sha256": "86854ba01a3db1fcfae2db3a485d9dd89dd163f280bfbd0ed00597f3faa0b4bf",
+      "before_sha256": "82a0dfdf23e20f275979053840c7d36100659d99399238b8f4349415854fa42c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileFinalizationServiceImpl.java",
+      "sha256": "cc3a993ed08a646f4a558291118daa2c5462f5f0ac600e48f49357a64c9ab036",
+      "before_sha256": "182f2d805623c60657fc354ba45c467bcb36fe873ea180fa75e936b861b148b9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileObsoleteServiceImpl.java",
+      "sha256": "f53e0637fd5c9488c4b20f8f038920a94274fcef87509a87e7fe64f40ca90b86",
+      "before_sha256": "67f3a8c98d07c1a6eeec4938ad336e012ebc7c1de794709036d458c5c0638474"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRouteReadinessService.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileRouteReadinessService.java",
+      "sha256": "6ec398ef55901a26d65ae457a995937eb421c8134018c2af5837487205d0fd61",
+      "before_sha256": "1a707a4177ead63bfc04c7a5afb7509c3552b5d56d924fd42807b88a5bbccfea"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadServiceImpl.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileUploadServiceImpl.java",
+      "sha256": "bc035542dcbd1833eb18d682ae1d1f2120b0c12c9d5c6647ff221a3f3caefb58",
+      "before_sha256": "9e97c66b38116a5f374a33b6e7b81b32edeb408ab6ba050a80b4077b4534dc01"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowService.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileWorkflowService.java",
+      "sha256": "f756edc008a82b7e8ea3872be99371ce4ccdb0dc4c6f99647e1f0b978bf6fb68",
+      "before_sha256": "8083894f20fd55849ee26a07b19e818c31190d5c6fef4affd0ac8b42bb4ca106"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileWorkflowServiceImpl.java",
+      "sha256": "405fb91e3865a73d2db7373a002605fec2306cbeba8cb57ac5127a3c909621d3",
+      "before_sha256": "2c7134bc6be72f0550fec1594058ca19e211599f008d72d74d2f7d94502ea673"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignatures.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccFrozenApprovalSignatures.java",
+      "sha256": "4291fef98dc1adc902f42e1490faa25dc1945c75ab879cbba4e61d055dbd9cf9",
+      "before_sha256": "f151ff827be27e85189046966b80b55dc87ae069cdf5f220716a222c119ec398"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApprovalRouteAssigneeResolverTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileApprovalRouteAssigneeResolverTest.java",
+      "sha256": "b5e1708a9b6061dadd38b1889c1e2a0e2f275d9864f078f4ff9bade4ebfe9ba5",
+      "before_sha256": "92ab7c2379492a70e8342a5a365b9c245941a4cdf807da4fb6383dd30d73a6ce"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileFinalizationServiceImplTest.java",
+      "sha256": "e60da1fe4efe4c4f8582b9c642efc616cc58ea2a6aa23931595f92e016cbaeba",
+      "before_sha256": "f9c23f1b22eec24e8a324ccfd35ab07b5c83321b416c6b11225ea8d926ed583a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileObsoleteServiceTest.java",
+      "sha256": "a427823e157efa40f4a2b5087a84826e7c50647d65c578c348d6808b225a5baf",
+      "before_sha256": "a5a74ae354b7e1537555f9bf4b64522929893e86603095a8e3b516514f57c94d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileUploadApiTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileUploadApiTest.java",
+      "sha256": "dbd19f46b70d01d96b2ceaadb54a93fdca19b49f7680adab1d5f6f8728cf4b24",
+      "before_sha256": "88410ea09bacd2a5965be03598aa70cc540dfef7b8695e5a66e8085073c9b172"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImplTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileWorkflowServiceImplTest.java",
+      "sha256": "f094baaaa766959993cd075afd2b57de611d80cb8730563ab3eaac3c0eb6d1a2",
+      "before_sha256": "77a745d81e7d6a281b152bff24edb77ebba9244daaee2f3c967bf62f6bae385a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccFrozenApprovalSignaturesTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccFrozenApprovalSignaturesTest.java",
+      "sha256": "ecf25f2d6e9d251753b1b9c5d6625ab1cf46d0b39868945cc53100050b921e5c",
+      "before_sha256": "32ea165c69fe9ec297726e3c23b85c9975a621ecc70b4101394160c03d5566be"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileLifecycleService.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileLifecycleService.java",
+      "sha256": "f43633d53f1d45fbdebe7a57d5caf8970b3551dc302013ab0b6c9846026b2e18",
+      "before_sha256": "13db13b8471d3c5907124e72e042c34e5eb3d45ee410f441b4bf15675a4eae19"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentService.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowSignoffAssignmentService.java",
+      "sha256": "b4206141d94761df60cde891c2bdd136d27d068f155069c9973bfa54a3a9f7be",
+      "before_sha256": "f9721ed7536af450309d37acbf0ceb107f48c69fb823c4edbc0ca6c3afbe26ab"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowAttributesIntegrationTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowAttributesIntegrationTest.java",
+      "sha256": "2cb1e598cf83470e7c1de62d4c92ca982c55beb2d67f39f286f5faf8791e2f38",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowControlledRemediationIntegrationTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowControlledRemediationIntegrationTest.java",
+      "sha256": "73d35fda22f452694d12f644cb98c164b5b830cdb5483080f5262b629f7b948a",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowLifecycleTransactionTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowLifecycleTransactionTest.java",
+      "sha256": "fd2f4e48a7cf8e2d3eb91da9181a483e8a70a8f0235ab9eb7afa83c0749a36da",
+      "before_sha256": "1d24cc71c8972db97e05b15f5de5f212ab40b02586714b3b63e5e59c494bc88c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowNativeCompletionEvidenceTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowNativeCompletionEvidenceTest.java",
+      "sha256": "73a46a570672c38a7ea5d0b816908c2fc6bcc7b8b276249f45d9bc6d368d952d",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteRoundSignatureTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowObsoleteRoundSignatureTest.java",
+      "sha256": "2b5b49d9b1c0611ba8757f5c4d10817cd8383ebd87f547a1b3ec8d838fd4aad8",
+      "before_sha256": "be173eaee6f46e941a3a6875a0090546b85af08b78c21fd6b8dd31688d9ef0bc"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowObsoleteTransactionTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowObsoleteTransactionTest.java",
+      "sha256": "e805f289eb52b743d282b432db8d0cf24232f4b3b39595659f957551489ceb88",
+      "before_sha256": "85441dbd05256e03eabffb666ddd4bedb9c149d4364eca66a8bceed23d742bdb"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowRevisionIntegrationTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowRevisionIntegrationTest.java",
+      "sha256": "dde97c2d92c134ca026e5a18491deddf9b700e81da8fac7a9d7a36da011b82e0",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignedArrangementTransactionTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowSignedArrangementTransactionTest.java",
+      "sha256": "9cc4ef8e0b593cd8e84e312f98ade0ae0b7fc60122b1d39b4d5e1bfeafc51e54",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSignoffAssignmentTest.java",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccWorkflowSignoffAssignmentTest.java",
+      "sha256": "208d9cb83ff79a459450196c1c4a5706ed2d2e66b10de34e4f3a19ab232166f1",
+      "before_sha256": "fecbc4aea189d7c3d996db26a54d3eee930a4d11628c486038f0c20793a809aa"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflowLifecycle.ts",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiFronted\\src\\api\\dcc\\controlledFile\\workflowLifecycle.ts",
+      "sha256": "3ed06bc521369d1190a48f2e22a495463ff1049f44a84239f233403da106faf5",
+      "before_sha256": "5467eb6890e6ee287c6430d3aa65ad7d616a0273807e405e9c5b02b42b1448f8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/SignoffAssignmentPanel.vue",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiFronted\\src\\views\\dcc\\controlled-file\\workflow\\SignoffAssignmentPanel.vue",
+      "sha256": "1776eddb840b24a498ecdfc5eff24c7e5f48a2993b5ecca900d78ca6d8e861aa",
+      "before_sha256": "b884154c91065ea96651108bdd72d65e27e37e45674f16cfa27fc25ea9e185a9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/workflow-actions.ts",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiFronted\\src\\views\\dcc\\controlled-file\\workflow\\workflow-actions.ts",
+      "sha256": "7e62735b0726d08fccb2fde949039dee2cd8a47bd7cc723f7254c68a32f2b9c5",
+      "before_sha256": "a9f2e33571f30621459639baffb5f55d9a2a2eae1a8b91df351cbf085878f7f6"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-components.test.cjs",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiFronted\\tests\\unit\\dcc-workflow-components.test.cjs",
+      "sha256": "b7b86d9c8d5dde54ba09a48a0fb3f25f4c9eebaeee39cebb9c25bc68912c114e",
+      "before_sha256": "74efa74d14a0b2c8d5e4d8463e015522327faede638526d806ed875dc66d2ebb"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workflow-ic1.test.cjs",
+      "owner": "a",
+      "source": "C:\\IntRuoyi\\20260930-dcc-a\\IntRuoyiFronted\\tests\\unit\\dcc-workflow-ic1.test.cjs",
+      "sha256": "46a84d926345a9b0abc5b1cd171db57c0b1bbb6db7cc276f36f6c207092a1ace",
+      "before_sha256": "063d5658247ad1996cc417da09fa0a3e1cb664820799268818c6b5e877bd27b8"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceImpl.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileRelatedFileServiceImpl.java",
+      "sha256": "8d4d702324cfbee8ab6ad08872e9dabcc5cf41702b1419139819ea1d1bcc54cb",
+      "before_sha256": "76d7a30844cfff71d9f8836f85a0adf93a06c6bff4942850ab98913dfe53080b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRelatedFileServiceTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileRelatedFileServiceTest.java",
+      "sha256": "0bdc48d248fc2dfa699b61355a22e90191c8e808f5d445eff2ff892b85ab619d",
+      "before_sha256": "1103eaf010368ca093dd2cf63ced870ae4e506b855287c9e5abfef1598c60181"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccFileRelationsController.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\controller\\admin\\file\\DccFileRelationsController.java",
+      "sha256": "7062acf04ed7a00b992fc978cf4085ff2c43913f58b4315a5b516334b3e18e4d",
+      "before_sha256": "2882ba32ba1a08e56d98eb9d69780700e4a5eccaa80c48d822ef59b03f642e21"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccProjectReferenceController.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\controller\\admin\\file\\DccProjectReferenceController.java",
+      "sha256": "3f4c188e8ab81492570ee6342e97c49f5c6a1ab51721a0da5312b3ecb1ff8619",
+      "before_sha256": "a89f583f2a19b63de8517926ebdaef122d6bd5247da932c673b63b3b8799326b"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccRelationRemediationController.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\controller\\admin\\file\\DccRelationRemediationController.java",
+      "sha256": "497b39a5dd5dbc7d0f6742602f90115f26ba76d7eca481245947aa0bc8a9149e",
+      "before_sha256": "339defe240ab7c9a16dcd5ff543a7704a4fb1cb11cd8e360e3775acfe55a49c4"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccRelationsExceptionHandler.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\controller\\admin\\file\\DccRelationsExceptionHandler.java",
+      "sha256": "8704660961157fc7adc422964ee6cc6ed8d991f7bafd57c2c8e19389af4360b4",
+      "before_sha256": "cd29761f1c982b16221ce647f3dfd10b8a4e41701f23c483e8328d34f4f64c67"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccLatestControlledFileResolver.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccLatestControlledFileResolver.java",
+      "sha256": "63f24f90675ef4e10abe5162139af0947be29dc3a4358c3ac26f441752e9035d",
+      "before_sha256": "5dffa99656eb7b6bdf27622463ae7b053f9d5bea04e29786813533d87cd07690"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccLatestControlledFileResolverImpl.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccLatestControlledFileResolverImpl.java",
+      "sha256": "6eca1595d875e721fc588f12a5e075b183e5a595ee61a714eebf0362fdb1a363",
+      "before_sha256": "5056ee58fec2a49d40f953203e423b5555c5a735946ce341fb610097f6cb8cec"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccProjectReferenceService.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccProjectReferenceService.java",
+      "sha256": "3d99f6ec2e67b784e50a24524397d4690c5ebd84f2c94f3e6647446eb5edfce8",
+      "before_sha256": "6475a43fe1d72bea7bd5e35daac09eec54ffd2a7a05f924b678b59f666fbbff9"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationContracts.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationContracts.java",
+      "sha256": "29d12e8c09e1956dda194f381d508e9580534961aa926222b3262eef1a39869c",
+      "before_sha256": "3c0fe6877e150f4b3381f967c0180f72192a94624992ba4e3fd5a468cf038073"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationControlledEventConsumer.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationControlledEventConsumer.java",
+      "sha256": "29167f9eed41c727bf88a503af0d30b3de110e0b9460f55d91043cb9904d986d",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationDeadlineDeserializer.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationDeadlineDeserializer.java",
+      "sha256": "9487b292358770d251938e773b81ab1268bce85773c898a8f9f31c3288fa7c33",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationErrorCodes.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationErrorCodes.java",
+      "sha256": "1628a331ee58efbc49ad5b229358e99c2cf2bf7fb69f2282da52fbd032f31b8a",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationRemediationService.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationRemediationService.java",
+      "sha256": "3fe9665a9cd6fe136636071a7779744cb34f7d3921d3a21065686410ec72e485",
+      "before_sha256": "a93e64609292a4e98c9ad19d4557d3b8bd727ddbc88c2060c152f4599f38fc46"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/relations/DccRelationStore.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\relations\\DccRelationStore.java",
+      "sha256": "9fb863fc140361861cbd4e0b62766b8b763f488c7f274be18e92398c6c680a63",
+      "before_sha256": "94d813af42c4ad3dbbf45500af599104fdd4703cfcdfe75a81c127a2509ba78f"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCurrentFileRelationsTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccCurrentFileRelationsTest.java",
+      "sha256": "468c2e88c153bfe9a9a804a80f0126eb08813dcfb45cf1ca42a8e31fa8de9efb",
+      "before_sha256": "bd68f17a8e3c83b8c637404dcddff472e9e3ae677d4a1bf6c4286593fa49dcc1"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccIntegrationAdaptersTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccIntegrationAdaptersTest.java",
+      "sha256": "792e6b5c7b712304c887c1d1f5502e5c1cd717d65fc5760712f977d55c02ae26",
+      "before_sha256": "16c526c1c3f038069927bd5e8127fc1bdca8a8891a55ec1afd6260310a8e2e48"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceApiPersistenceTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccProjectReferenceApiPersistenceTest.java",
+      "sha256": "8d8ce9521331fa5f8ace9440d557747f36f3a7bf65a99e249b525e1ea69c9e6f",
+      "before_sha256": "99f17d698d3f4a9d95403659561c4935146aa33d8db7ed39e5a42216529b3882"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceFormalAuthorityIntegrationTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccProjectReferenceFormalAuthorityIntegrationTest.java",
+      "sha256": "47290bfaf2dc340ef5f8fab17b73ba92dde311ad699f14347e5f2156b1188810",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccProjectReferenceTransactionTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccProjectReferenceTransactionTest.java",
+      "sha256": "ba609db7e2287f03096936e426cbc33e4de02ff9749202f1ecc10fb0d84d89ed",
+      "before_sha256": "96bbb308ec8831474f0a67636e6ab55a865cc65d02e17cbdac1dd2c2b20a4d64"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationControlledEventIntegrationTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationControlledEventIntegrationTest.java",
+      "sha256": "a72ed85909bab19fa89242517658947002be703d30f22bc7c5c36c72fca5689f",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationDeadlineJsonContractTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationDeadlineJsonContractTest.java",
+      "sha256": "343fe5e5c473f611da859a934ce724b2c4af06d33feb9f33d94e3522432ad9f9",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationFormalQueryGuardTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationFormalQueryGuardTest.java",
+      "sha256": "c71dc2596a287d977657ce5dd7abb705f55bf0907b5d6f05b67d1842453477e2",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationPlatformPersistenceTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationPlatformPersistenceTest.java",
+      "sha256": "24251a8b4c5907573fa6f3710091f98a57875f0c5c09971ec77d4161cf7418db",
+      "before_sha256": "492dfddc248f515f2885c3a7b67225ba17788cde38ed0c4e2dd28e2163c34705"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationRemediationTransactionTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationRemediationTransactionTest.java",
+      "sha256": "8614c25153ca75ddccc5a1ab0a5f18d8bdc6cdc30fbab0f4d50dc3fac3a442e3",
+      "before_sha256": "b1442107cf7dbc2e631abf638f3e426838a925592a0d98b0c4b5ea7b8156eac7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationsApiErrorTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationsApiErrorTest.java",
+      "sha256": "9da496f7bb11e8109add093af1819d4d8931b53221c6ae7a61666809181bd811",
+      "before_sha256": "dad91cdb47adb77766e453e51e833b280bcc18890feb2dda7b0ea4265ed0fd24"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationsExceptionBoundaryTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccRelationsExceptionBoundaryTest.java",
+      "sha256": "75194e8e94915a99db72e6fc8a28e3b11ca999a3ba3a9f6954c1e0d1aa8565d5",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSignedRelationAssignmentContractTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccSignedRelationAssignmentContractTest.java",
+      "sha256": "a3bfeb4c6429af092cabb4bc65b7327d61e789d0ce2137264b55d66fe250f5ad",
+      "before_sha256": null
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSubmissionRelationPersistenceTest.java",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccSubmissionRelationPersistenceTest.java",
+      "sha256": "9e5f85c5f134e7965474421a506ac11eaf21f37ff95b1c88676486dc6510da4d",
+      "before_sha256": "6779a967b45c2c25dbcf89238a14459a5184af3a57755119d4a2c2282c26c63c"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-relations-vue-runtime.test.mjs",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiFronted\\scripts\\dcc-relations-vue-runtime.test.mjs",
+      "sha256": "2919e48f30d5b53d7b22979da3facf32479c0b9c6a59715cb02a5d2c297f07e1",
+      "before_sha256": "dfe0133574a3d868360a256f80cc3e8008e5875f7da4b13f393c2d349aedc020"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/relations/DccProjectReferences.vue",
+      "owner": "d",
+      "source": "C:\\IntRuoyi\\20260930-dcc-d\\IntRuoyiFronted\\src\\views\\dcc\\controlled-file\\relations\\DccProjectReferences.vue",
+      "sha256": "9f6cdda97d7a2285c2faacee00df54549a343bf6d40bcd27bbb68175102e35c9",
+      "before_sha256": "d350c3721793ec8c0378a22172c6e857d84505b9fcff744bb4518c12294fef94"
+    }
+  ],
+  "worker_files_written": false
+}

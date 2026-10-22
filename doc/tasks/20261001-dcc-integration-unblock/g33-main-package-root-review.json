@@ -1,0 +1,38 @@
+{
+  "status": "ROOT_REVIEWED_G33_PACKAGED_SOURCE_NOT_RUNTIME_APPROVAL",
+  "manifestSha256": "8db5aa1cd6e23f59e5f2c73829a43e0944f546d30cb89997b4deaa0d724b99b8",
+  "verificationSha256": "2b1a7b2c4ee29e756691b92047e91f8a83ae4d281fc8f0abd44348d77872f370",
+  "independentClosureSha256": "50aeba35fe1cfc184a0743b59175eb9f36e3a273a9398ea0a68c4eb43c28a0b3",
+  "tests": 101,
+  "testClasses": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "sourceFilesVerified": 10,
+  "compiledClassesVerified": 16,
+  "originalFrozenAssetsUnchanged": 41,
+  "priorG20AssetsUnchanged": 20,
+  "protectedNontaskAssetsUnchanged": 6,
+  "actualQualityApproved": false,
+  "actualRegistrationRun": false,
+  "actualSchemaOrObjectWrites": false,
+  "actualBrowserAcceptance": false,
+  "actualLocalMerge": false,
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "sha256": "0f7c9630e061a7d7d3abf03ea78005ea01b33f20fef63486a2bf742a00f1ee01",
+    "bytes": 507322461,
+    "module": "BOOT-INF/lib/yudao-module-dcc-2026.04-SNAPSHOT.jar",
+    "moduleSha256": "b30422073b16d0f6373469bba82e9ba84e745c261d6447c1e36572b1cedddc2a",
+    "compiledProductionClassesVerified": [
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceExecutor.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Descriptor.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Input.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceCommand.class",
+      "cn/iocoder/yudao/module/dcc/service/file/DccLegacyNameRegistrationMaintenanceRunner.class"
+    ],
+    "actualServiceStarted": false
+  }
+}

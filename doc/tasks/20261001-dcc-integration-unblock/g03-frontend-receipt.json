@@ -1,0 +1,98 @@
+{
+  "status": "reviewed_offline_not_e2e",
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "18397cde0075ea8df6065b0e403c3d88aa9f3baba894ac116e0cf455ce4da5e7",
+      "utf8LfSha256": "0a219376b1473db070de50d4452516e6a641514fdefff0b487c1f7ac114d7608"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/project-browser.ts",
+      "sha256": "f817e84d95ed214fe3d4858bb9015634930a80c1fbcd3c70cb21e57336bad3bc",
+      "utf8LfSha256": "f817e84d95ed214fe3d4858bb9015634930a80c1fbcd3c70cb21e57336bad3bc"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/ProjectBrowserPanel.vue",
+      "sha256": "1f776165a71b3941dfe7b6ea9315dbb40111b49c464aca8a2499bb89c685b064",
+      "utf8LfSha256": "6febce388c4b377cd8d939d891aeb297fd12ffdd35e149cee7b9023adc95846d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "sha256": "aa78df88f6adff11d72d31e4967c9f4c8e0a75ec988dbc0345cdaf3780ade7fd",
+      "utf8LfSha256": "1dc945eefd6d86c85237f946733518666ac12630b9bf4d180fd91c8431cca31a"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-public-browser.test.mjs",
+      "sha256": "bff5983cb4286feec99d067c5e4fe67e22ad9b4c1fdaa09d86bc389fe1b1d81b",
+      "utf8LfSha256": "daf471472fe0c8f7787da77f04ac054050aa6d0fcd17cc360c83737e5c88ca2b"
+    },
+    {
+      "path": "IntRuoyiFronted/scripts/dcc-public-browser-vue.test.mjs",
+      "sha256": "71b496c4d3bbbe8a795631149ec36a0a3513f9cabbc42d1ebd1d3fcf13875cd7",
+      "utf8LfSha256": "3ccc39a7c5ac7cb3ea341a7809ad66503386edff2cb7fab0dc58c7955fdc737d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/projectProductRequests.ts",
+      "sha256": "b799a860bc58d030076f0f4ff319d3ccdb6c254981778d074fa89a1b31e9a1fa",
+      "utf8LfSha256": "244895c34685cad60e4980a0f9af669a13bef7f7da5508655e03c7316738d18d"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/project-reviewer.ts",
+      "sha256": "5c359434569c1c1a9e2c4669c1d99c88a61e78448a602b7dea710d07eb157d4c",
+      "utf8LfSha256": "5c359434569c1c1a9e2c4669c1d99c88a61e78448a602b7dea710d07eb157d4c"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProjectReviewerConfiguration.vue",
+      "sha256": "714ff2150fb6ce02fe693724222ccd7db42dbc6f2cf17d525346847e493eb931",
+      "utf8LfSha256": "714ff2150fb6ce02fe693724222ccd7db42dbc6f2cf17d525346847e493eb931"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/basic-data/components/ProductCatalogTabPanel.vue",
+      "sha256": "572d92cfa22b074d8053326369726dc32c85a115533711576e83bc70440fda6b",
+      "utf8LfSha256": "2da3c20ac227cfc84b04be341175581157e466815181150dd38e6ff3b69c5ad1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-reviewer.test.cjs",
+      "sha256": "59a402940d8f9b621e1bf8e7d5237ed4788cd86b77405342f8e4a7e3321d0dd2",
+      "utf8LfSha256": "59a402940d8f9b621e1bf8e7d5237ed4788cd86b77405342f8e4a7e3321d0dd2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-project-product-reasons-unit.spec.js",
+      "sha256": "410def918aa0305dd00a1830814f40a7103e3e6ae24b91cf6aa9fbdef18e5bfa",
+      "utf8LfSha256": "aeb35592e40c382a9b7aab9fc8d1d330ce6dce44e7426e3befab91a4e5ffae49"
+    }
+  ],
+  "backendLogChecks": {
+    "p05-p07-final-regression.log": {
+      "tests": 697,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "buildSuccess": true
+    },
+    "p05-p07-supplement-regression.log": {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "buildSuccess": true
+    },
+    "p07-account-mapping.log": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "buildSuccess": true
+    },
+    "p05-browser-filter-contract.log": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "buildSuccess": true
+    }
+  },
+  "frontendCombinedTests": 38,
+  "finalTypesAndBuildExitCode": 0,
+  "integrationBranch": "codex/20261001-dcc-integration"
+}

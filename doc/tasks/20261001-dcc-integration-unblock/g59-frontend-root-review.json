@@ -1,0 +1,16 @@
+{
+  "status": "ROOT_G59_REPAIR_ENTRY_SOURCE_REVIEW_FULLTYPEBUILDPASS",
+  "assetsMatched": 4,
+  "manifestSha256": "e6095838009d0158544c5677a3289feb80adf9b76a95736a716bc1accb3133c5",
+  "typesSession": 55673,
+  "typesExit": 0,
+  "buildSession": 47918,
+  "buildExit": 0,
+  "strictPermissionAND": true,
+  "readonlyManagementEntryAbsent": true,
+  "explicitPreviewAndTwoConfirmation": true,
+  "noHiddenPostRetry": true,
+  "serverCurrentDTO": "stable supplied by backendowner; pending sameJarAPIactual",
+  "finiteTests": 20,
+  "noFullHtmlClaim": true
+}

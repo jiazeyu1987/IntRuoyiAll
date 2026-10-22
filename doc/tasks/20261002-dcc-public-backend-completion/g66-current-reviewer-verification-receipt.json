@@ -1,0 +1,60 @@
+{
+  "status": "PASS_CURRENT_REVIEWER_CONFIG_WITH_ACTUAL_INHERITED_CASES",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T03:48:27+08:00",
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am -Dtest=DccProjectReviewerConfigurationTest -Dsurefire.failIfNoSpecifiedTests=false test",
+  "counts": {
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "cases": [
+    "failureRecorderCannotReplaceCompletedHistory",
+    "failureRecorderRejectsZeroWrite",
+    "zeroApprovalUpdateCannotAdvanceOrDeleteIdentityProtection(boolean)[1]",
+    "zeroApprovalUpdateCannotAdvanceOrDeleteIdentityProtection(boolean)[2]",
+    "anotherTenantRequestCannotBeApproved",
+    "recordedFailureKeepsItsActualEvidenceWhenRetryStateWriteFails",
+    "failureRecorderCannotChangeAnotherTenantWritingRequest",
+    "zeroReviewUpdatePreservesOriginalDecisionAndIdentityProtection(boolean)[1]",
+    "zeroReviewUpdatePreservesOriginalDecisionAndIdentityProtection(boolean)[2]",
+    "absentReviewerConfigurationRejectsBeforeCreatingApplicationOrIdentityClaims",
+    "configurationWriteRequiresPermissionAndAuditFailureRollsBackTheConfig",
+    "configurationChangesDoNotReplaceFrozenReviewerAndNewSubmissionUsesCurrentAccount",
+    "disabledAndForeignTenantAccountsCannotBeConfiguredOrSubmitAndFrozenDisabledAccountCannotReview"
+  ],
+  "sources": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectReviewerConfigurationTest.java",
+      "sha256": "18434f79775c56116cfd1e33f273f2ba8c17e3f3628c9f823e75d6cd2932155e"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectProductDecisionPersistenceTest.java",
+      "sha256": "fe484cf92981297b64fa32fc4c5a258f5469cf0e767d8da750e4fbea01db2655"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectReviewerConfigurationService.java",
+      "sha256": "e1c74d6b2640b6a5b257b79ff9c4886fbb0e47e6248abafc091e7713b64a1c0d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateServiceImpl.java",
+      "sha256": "4c2c2ab471841e06cc0a917f0f61f2d0dcc2c6c72f8230f9745e1683e8438109"
+    }
+  ],
+  "rawXml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-reviewer-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectReviewerConfigurationTest.xml",
+    "sha256": "5847ae694223931dc9ea7e53405edcc53933f4f4e21ffe7b6454fddd94417d30"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-reviewer-proof.log",
+    "sha256": "bd8a561f7cd2f2cbf3901c8ca1be705d7592b7228ea46f833745ca3dae084da8"
+  },
+  "productionChanged": 0,
+  "testChanged": 0,
+  "noFixtureRepairNeeded": true,
+  "scope": "exact existing ReviewerConfiguration class including inherited DecisionPersistence; no Foundation/Directory rerun",
+  "missingXmlWas": "evidence gap, not a new RED",
+  "proof": "configuration.save to8 keeps prior frozen1;8 cannot take prior review; new submission frozen8; original1 rejection preserved; approval independent; unavailable accounts denied",
+  "receiptPreparationError": "initial inventory used incorrect CreateService source folder; only receipt builder failed, original copied XML and Maven success unaffected"
+}

@@ -1,0 +1,12 @@
+{
+  "status": "EXACT_REAL_JDBC_DATETIME_CONTRACT_FIX_COMMITTED",
+  "commit": "42942d714119107ad168e8e7accbbf7c5cbb2ed1",
+  "files": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairDatabaseTest.java",
+    "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-bdd.md"
+  ],
+  "tests": 7,
+  "jarReviewed": "50fa9c07126b6a945122d73f912545a149f5761a0b1a512eef72b8aab6cdb506",
+  "actualReadOnlyPreview": "033PASS;explicitUIrepair247 executed verifiednative5tablesunchanged"
+}

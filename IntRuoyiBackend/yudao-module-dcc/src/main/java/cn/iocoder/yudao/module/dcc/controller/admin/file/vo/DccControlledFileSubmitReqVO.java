@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -11,6 +12,10 @@ import java.util.List;
 
 @Data
 public class DccControlledFileSubmitReqVO {
+    private cn.iocoder.yudao.module.dcc.service.file.DccApplicationCustomMatrix applicationCustomMatrix;
+    private String expectedApplicationCustomMatrixDigest;
+    private String applicationCustomMatrixToken;
+    private String applicationCustomMatrixPhase;
 
     @NotNull(message = "categoryId is required")
     private Long categoryId;
@@ -40,6 +45,8 @@ public class DccControlledFileSubmitReqVO {
 
     private String drawingPdfUploadTicket;
 
+    private List<DccControlledFileAttachmentUploadTicketReqVO> attachmentUploadTickets;
+
     @JsonIgnore
     @Schema(hidden = true)
     private Long originalFileId;
@@ -68,6 +75,12 @@ public class DccControlledFileSubmitReqVO {
 
     private Long dccProjectCodeId;
 
+    @Schema(description = "Selected project logical folder; independent of directoryId storage identity")
+    private Long projectFolderId;
+
+    @Schema(description = "User reason for placing this file in the selected project folder")
+    private String projectFolderChangeReason;
+
     private Long fileTypeTaxonomyId;
 
     private Long revisionTargetControlledFileId;
@@ -85,8 +98,14 @@ public class DccControlledFileSubmitReqVO {
 
     @NotBlank(message = "changeType is required")
     private String changeType;
+    private String revisionChangeType;
 
     private List<Long> selectedSignoffUserIds;
+    /** This application's department list; the workflow validates and freezes it. */
+    private List<Long> selectedSignoffDepartmentIds;
+    private List<Long> selectedDistributionDepartmentIds;
+    /** User-selected actual attributes; the default source is read from the project by the server. */
+    private cn.iocoder.yudao.module.dcc.service.projectcode.attributes.DccProjectAttributes projectAttributes;
 
     @NotBlank(message = "fileName is required")
     private String fileName;
@@ -94,13 +113,51 @@ public class DccControlledFileSubmitReqVO {
     @NotBlank(message = "fileNumber is required")
     private String fileNumber;
 
-    @NotNull(message = "directoryId is required")
     private Long directoryId;
+    @JsonIgnore
+    @Schema(hidden=true)
+    private boolean directoryIdProvided;
+    public void setDirectoryId(Long directoryId) { this.directoryId=directoryId;this.directoryIdProvided=true; }
 
+    @NotBlank(message = "versionNo is required")
     private String versionNo;
 
-    @NotNull(message = "effectiveDate is required")
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    private Long expectedApprovalRouteId;
+    private Integer expectedApprovalRouteVersionNo;
+    private String expectedApprovalMatrixDigest;
+    private String approvalMatrixBaselineToken;
+    private String approvalMatrixConfirmationToken;
+    private Boolean matrixChangeConfirmed;
+    private String applicationContextKey;
+    private String executionContract;
+    private String expectedProcessDefinitionId;
+    private String expectedDefinitionDigest;
+    private String expectedSupervisorSourceDigest;
+    private String supervisorSourceToken;
+
+    @JsonIgnore
+    @AssertTrue(message="主管来源期待摘要和凭证须完整同给，或全部不提供")
+    public boolean isSupervisorSourceExpectationComplete() {
+        if (expectedSupervisorSourceDigest == null && supervisorSourceToken == null) return true;
+        return expectedSupervisorSourceDigest != null && expectedSupervisorSourceDigest.matches("[a-f0-9]{64}")
+                && supervisorSourceToken != null && !supervisorSourceToken.isEmpty() && supervisorSourceToken.length() <= 131072
+                && supervisorSourceToken.chars().noneMatch(value -> value <= 0x20 || value == 0x7f);
+    }
+
+    @JsonIgnore
+    @AssertTrue(message="请明确生效方式；按预设日期生效须填写日期，标准化后生效不填写预设日期", groups=DccSubmissionValidationGroup.class)
+    public boolean isEffectiveSelectionValid() {
+        if ("EXTERNAL_REVIEW".equals(processType)) return effectiveDate != null;
+        return cn.iocoder.yudao.module.dcc.service.file.DccApplicationEffectiveSelection.isComplete(effectiveMode,effectiveDate);
+    }
+
+    @JsonIgnore
+    @AssertTrue(message="外来文件评审须填写生效日期")
+    public boolean isExternalReviewDateValid() {
+        return !"EXTERNAL_REVIEW".equals(processType) || effectiveDate != null;
+    }
 
     private String remark;
 }

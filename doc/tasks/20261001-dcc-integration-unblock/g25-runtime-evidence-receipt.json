@@ -1,0 +1,59 @@
+{
+  "status": "SOURCE19_UPGRADE_PASS_APPLICATION_GOAL_STILL_IN_PROGRESS",
+  "actualUserAuthorization": "C:\\IntRuoyiAll-int_main\\doc\\tasks\\20261001-dcc-integration-unblock\\g25-user-authorization.json",
+  "sourceDb": "ruoyi-vue-pro",
+  "schema19Executed": true,
+  "audit25Executed": false,
+  "qualityApprovalRegistered": false,
+  "legacyOccupancyActivated": false,
+  "objectsRestored": false,
+  "businessE2EExecuted": false,
+  "gitIntegrated": false,
+  "proofs": [
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-rehearsal-run\\driver-receipt.json",
+      "sha256": "aa5c9d871a01b0e2d42b33f3cbf271c1de18f71b31f3e2e3cd9905375bc1ddab",
+      "bytes": 3197
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-fresh-upgrade\\collection-receipt.json",
+      "sha256": "e5c9a7f3beff998d638eee311c93994a7acdda06d78f647939f2dc4c659df1f6",
+      "bytes": 1241
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-fresh-upgrade\\source-backup-receipt.json",
+      "sha256": "5e7eea8f9b730093b085257e2c7461c353668f5b2a22969889c562482f25980d",
+      "bytes": 3363
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-upgrade-run\\source-driver-receipt.json",
+      "sha256": "ad5b106cc4dd0e6aa632d1b8deb89444ed5ea1c56b4f942f1448f8f31a94af9c",
+      "bytes": 995
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-upgrade-run\\source-history-proof.json",
+      "sha256": "9b2ab783c3ea8a704a39f42e76870b257384cca3ab92465c1a481767526e3cdf",
+      "bytes": 3699
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-bytes-run4\\receipt.json",
+      "sha256": "0c51426ce88dca72b634213203e5f80af5f1640a61f82bafbc987cab0647f88e",
+      "bytes": 1029
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-source-bytes-run4\\source-bytes-results.jsonl",
+      "sha256": "2d3da12a73efa382184b9f165ff835aca3efc3d6bc96f5defe29f6038221bef1",
+      "bytes": 6738
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g25-missing-source-recovery-candidates.json",
+      "sha256": "87353290f1b63a3691e90fff2af56b51c662d4df96c2bb575a0d318de3d3594f",
+      "bytes": 1636
+    },
+    {
+      "path": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g26-four-source-object-identity.jsonl",
+      "sha256": "367ddce02435678435c08219533bff38ca657b1ec1766780e8c376778da5550c",
+      "bytes": 998
+    }
+  ]
+}

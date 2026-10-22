@@ -1,0 +1,185 @@
+{
+  "status": "G55_THREE_BOUNDED_DETAIL_FIXES_R3_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 3,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 308017,
+      "sha256": "b61d3be83136637768167d8368c281355c68ceaa999f1de1bc79804abb77e2a4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86280,
+      "sha256": "91628ac1833ee857201f77fa55e2c952fbf2b02652d35d94672bc8b04d322d2a"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-publish-transition-static.spec.cjs",
+      "bytes": 3516,
+      "sha256": "82ba1b1eaa55f818466cd3ef97de482b82d604cd7be97eec2db2b9f103f7dea2"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-route-read.test.cjs",
+      "bytes": 6129,
+      "sha256": "b9342bc981512e3c0ab923cf0e8ca53f202ddd9acc677f058eead4ecefc44709"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-project-facts.test.cjs",
+      "bytes": 3506,
+      "sha256": "4f60e6b7e97b6ed853979db66f5072b2529b3c9fa096f78dc2546322b9065537"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-bdd.md",
+      "bytes": 2600,
+      "sha256": "73a34589224583f59c1e3f2e8a70c65f8c61b0929be9b732d98a7233706e1e40"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-project-facts-bdd.md",
+      "bytes": 1797,
+      "sha256": "875b0dda9e2e48e70c3de0c083e40ca3ebf5315b3ca6b5f364203bf723770ffd"
+    }
+  ],
+  "oldCopyManifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g55-signature-flow-copy-fingerprints.json",
+    "bytes": 3169,
+    "sha256": "261a0910f94567efaa7123cb103354ce8b2f1adada4c0e0367a194e3a03b1a25"
+  },
+  "unchangedG54Assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailSignoffAssignment.vue",
+      "bytes": 6445,
+      "sha256": "7ddce1e2f06563c697fd9966af568ba4b925bddbb4cf0933ba30152ee4eec513"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "bytes": 21498,
+      "sha256": "6fa4714ac2d023ec70ff7cdc4689f9d883c386a5cbbb815310ccb557465f507e"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-signoff-remediation-scope.test.cjs",
+      "bytes": 7051,
+      "sha256": "6251b0740a9a9547ae13acf465c96a3524bf7d83f229052f29958f24c2434061"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-detail-integration.test.cjs",
+      "bytes": 15633,
+      "sha256": "c57717d585631ea4f55bf977db0efd7ba14b0f157fbb46328cc8d24b7ce48cfd"
+    }
+  ],
+  "unchangedUploadAssets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 113069,
+      "sha256": "75c7cf187f21ad641b2164f78eb849441b108fc8e239be425d2676775ed781a7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "bytes": 19099,
+      "sha256": "0182a9f42bfb813a5da9b96169c23d195f8430983ebd505c9a241eb6380c267f"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-single-project-folder.test.cjs",
+      "bytes": 6866,
+      "sha256": "3b551db3233e91c5dd7f803d0246c0ea97227abca82897ac75b8d3affc1b1189"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-application-page.test.cjs",
+      "bytes": 18437,
+      "sha256": "2c408a13e480c8161a165a18040ca7a6e5f3cc13257a90a2431cba1259467a52"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-free-file-type.test.cjs",
+      "bytes": 9701,
+      "sha256": "210e8275b4591612c415298355b4d376fa179dc1187192061f4a38a1f247abae"
+    }
+  ],
+  "supersedes": "Current detail/index.vue includes prior copy literal plus separately authorized route guard and formal project computed; workflow.ts only adds projectName/projectCode to ControlledFileVO, superseding that G48 source pin, no upload request behavior change. Historical seals retained.",
+  "exactChanges": [
+    "Approve flow hint separates upload/revision full order and preset effective date with old-version obsolescence; obsolete completes after approval; reject copy unchanged",
+    "Detail read entry validates current exact detail route/scalar positive LongID/fullPath; invalid clears read state and invalidates generations; captured IDs for file/paper/access; stale read/error does not request new/blank ID; valid same-ID/switch remains",
+    "DCC project text uses formal projectName/projectCode and two TypeScript VO fields; product text/navigation by actual project ID/unbound history unchanged"
+  ],
+  "verification": {
+    "copyRED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "routeRED": {
+      "tests": 4,
+      "pass": 1,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "projectRED": {
+      "tests": 3,
+      "pass": 0,
+      "failures": 3,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 31,
+      "pass": 31,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Contains existing round/dialog and prior copy/route cases, not additive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "exitCode": 0,
+      "warnings": 0
+    }
+  },
+  "fixtureIncidents": [
+    "Initial route RED session96051 all-ID pending fixture deadlocked; exact owned node34992 stopped, original log retained. Fixture restricts pending to original ID; effectiveRED then exit1",
+    "Initial route GREEN VM empty-array deep equality crossed realms; assertion corrected to length, original log retained, production guards not weakened"
+  ],
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-red.log",
+      "bytes": 241,
+      "sha256": "b872dbe61dc0c8a5d5313002fbf3485d50e4fb02cfa59a37ddc60c7e2a5e66aa"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-red-r2.log",
+      "bytes": 3205,
+      "sha256": "b3ea450794a85c5135291c6ecdebd655accb44c5ac2185626ef940de3fec1ef3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-green.log",
+      "bytes": 1323,
+      "sha256": "4e8ca2fb2533c7a58916f9595bafc60340101a32cb55fc01a7d91e524275bfb9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-route-read-final.log",
+      "bytes": 3339,
+      "sha256": "01cd42f05e5036f28c678fca74c085807ff3f4cfcdf8b2cb1fdaa915a340a946"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-project-facts-red.log",
+      "bytes": 3570,
+      "sha256": "e15e0b01024d106d5f5607f28f9d7d85c1d869892df348de756dc26eb18103c2"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-final-r3.log",
+      "bytes": 3714,
+      "sha256": "0b453bdc17560a6509c410653e00d29731f056723e5e107434523d3f5d636b65"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g55-detail-lint-r3.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Actual production computed/load handlers plus actual text subtrees via Vue/network hosts; not actual browser E2E",
+    "Root new full types/build and actual routing/copy/project projection verification pending",
+    "No actual services/DB/API/browser/Git/Maven; only exact hung owned offline test process stopped",
+    "G54 sources/tests unchanged; Root backend project projection separate owner"
+  ]
+}

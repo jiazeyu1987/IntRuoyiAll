@@ -29,7 +29,7 @@ public class DccDistributionWorkbenchSource implements SourceAdapter {
  private TaskSummary project(DccDistributionWorkbenchRow row) {
   return row.summary(new ActionEnvelope(descriptor().actionKind(),descriptor().payloadVersion(),navigation(row)));
  }
- private Map<String,String> navigation(DccDistributionWorkbenchRow row) { return Map.of("controlledFileId", required(row.getControlledFileId()), "distributionId", required(row.getDistributionId()), "recipientId", row.getBusinessId()); }
+ private Map<String,String> navigation(DccDistributionWorkbenchRow row) { return Map.of("controlledFileId", required(row.getControlledFileId()), "distributionId", required(row.getDistributionId()), "recipientId", row.getBusinessId(), "version", row.getVersionNo(), "approvalProcessInstanceId", row.getApprovalProcessInstanceId()); }
  @Override public TaskSummary resolveVisibilityIdentity(QueryContext query,String businessId) {
   query.validate();
   if(businessId==null || !businessId.matches("[1-9][0-9]*"))throw WorkbenchFailure.TASK_NOT_ELIGIBLE.exception();

@@ -33,6 +33,7 @@ export interface SaveFormDraftReqVO {
 export interface SubmitFormInstanceReqVO {
   formData: Record<string, unknown>
   startUserSelectAssignees?: Record<string, number[]>
+  approveUserSelectAssignees?: Record<string, number[]>
 }
 
 export interface FormInstanceSnapshotVO {
@@ -72,6 +73,13 @@ export const createFormInstance = (data: CreateFormInstanceReqVO) => {
 export const findActiveBusinessAction = (data: BusinessActionContextVO) => {
   return request.post<FormInstanceVO | null>({
     url: '/form-center/actions/active-instance',
+    data
+  })
+}
+
+export const findDraftBusinessAction = (data: BusinessActionContextVO) => {
+  return request.post<FormInstanceVO | null>({
+    url: '/form-center/actions/draft-instance',
     data
   })
 }

@@ -7,5 +7,6 @@ public enum DccControlledFileArtifactRole {
     TRAINING_RECORD,
     PUBLISHED,
     STAMPED,
-    EXTERNAL_REVIEW_OUTPUT
+    EXTERNAL_REVIEW_OUTPUT,
+    ATTACHMENT
 }

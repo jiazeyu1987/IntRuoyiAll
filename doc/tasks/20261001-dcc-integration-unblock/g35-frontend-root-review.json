@@ -1,0 +1,36 @@
+{
+  "status": "ROOT_REVIEWED_MAIN_FLOW_NAVIGATION_AND_FRONTEND_NOT_RUNTIME_ACCEPTANCE",
+  "sourceManifestSha256": "286796c7ab37c715461df866a61147337ecee4ef5414c0cd134a84d5b932fd02",
+  "independentReviewSha256": "8cf2bcc4af42b775c23a8e43e5402a2053b429e0818d10f3b7ebb2de5e500d59",
+  "priorDetailDeltaExactlyTwoBlocks": true,
+  "otherParentAssetsUnchanged": 19,
+  "navigationTests": 7,
+  "navigationFailures": 0,
+  "combinationTests": 84,
+  "combinationFailureWasStaleFixture": true,
+  "verification": {
+    "types": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lint": {
+      "exitCode": 0,
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build": {
+      "exitCode": 0,
+      "logSha256": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1"
+    },
+    "combination": {
+      "tests": 84,
+      "files": 11,
+      "exitCode": 0,
+      "logSha256": "a27bfbf2640e51792105d6bd92948fc99742c8f31e39c1c6001b272c13211385"
+    }
+  },
+  "distIndexSha256": "5cbe795a96da64be290994f180b40ef3320ad7f2f5928ea313a574dd0ab0862e",
+  "actualBrowserAcceptance": false,
+  "actualDatabaseWrites": false,
+  "actualLocalMerge": false,
+  "newProjectInitialAccessDecision": "USER_ANSWER_REQUIRED"
+}

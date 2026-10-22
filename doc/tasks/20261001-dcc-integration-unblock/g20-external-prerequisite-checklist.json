@@ -1,0 +1,380 @@
+{
+  "status": "prepared_checklist_not_execution_authorization",
+  "executableCount": 19,
+  "minimalClosureCount": 44,
+  "externalPrerequisiteCount": 25,
+  "neverInventAppliedHistory": true,
+  "prerequisites": [
+    {
+      "migrationId": "20260513_dcc_base_schema",
+      "requiredBy": [
+        "20260910_dcc_access_log_reason_capacity",
+        "20260906_dcc_new_file_lifecycle_p1"
+      ],
+      "currentFileSha256": "a91dc74e4b40528f43a2571eb0d6463ce1269f70e96945f7ed71c04167f77f98",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "APPLIED_HISTORICAL_SOURCE_PRESERVE_LEDGER",
+      "reviewReason": "Ledger SHA has exact historical source at revision 03646727bcf91611425da89b730f7b32b16ad0a1 in CRLF; semantic changes are not EOL-only. Runtime satisfies route/checkout/task snapshot/batch-recognition deltas, but access_log.reason remains255 and requires existing forward20260910 capacity migration, not base replay.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260921_dcc_category_approval_route_action_type",
+      "requiredBy": [],
+      "currentFileSha256": "39599767147aaa1645d610c52c8f6113f30e39485452e082acec992ae80a714e",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_DATA_CHECK_BEFORE_ANY_REPLAY",
+      "reviewReason": "action_type and exact uk_dcc_category_route_action_version(category_id,action_type,version_no) exist; old uk_dcc_category_route_version absent. UPDATE action_type for NULL/empty cannot be assumed no-op from schema.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260922_dcc_three_workflow_bpmn_seed",
+      "requiredBy": [],
+      "currentFileSha256": "cd8cb4b2cadcda67086750df13071d6e6649310283e9a55d650b4bd51d15c63d",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_BPM_DATA_REVIEW",
+      "reviewReason": "Historical v1 deployment/model/procdef/info writes, bytearray UPDATE and OBSOLETE policy UPDATE for tenants1/122; schema cannot prove BPM state. Never blindly replay before v4.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260922_dcc_task_assignee_snapshot",
+      "requiredBy": [
+        "20260930_dcc_a_lifecycle"
+      ],
+      "currentFileSha256": "2143d36b3255d639f21bc00f7495bd97c674255151b7cdff2462669e02ce3641",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "Declared table/columns/index basis exists; A lifecycle adds new round fields later.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260923_dcc_three_workflow_candidate_strategy_fix",
+      "requiredBy": [],
+      "currentFileSha256": "7127acdd73c61b1389124d2cca65480d60e5ff6e8756e11a363890e089d9c307",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_BPM_DATA_REVIEW",
+      "reviewReason": "Creates v2 definitions/models and suspends v1; fixed IDs cannot prove safe rerun without actual BPM/bytearray data.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260926_dcc_three_workflow_matrix_multi_instance_fix",
+      "requiredBy": [
+        "20260930_dcc_a_workflow_bpmn_v4"
+      ],
+      "currentFileSha256": "e345c35ba89e8386aa3315257cef8bd4fce6fbfd0cc1b25e6c78a9cea9eea0e4",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_BPM_DATA_REVIEW",
+      "reviewReason": "Creates v3 definitions/models and suspends v2, validates source XML; inspect existing versions before deciding.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260710_dcc_product_catalog_database",
+      "requiredBy": [],
+      "currentFileSha256": "3d9d8e4ab76b6512e993810dc971341193d3273e5d6a68a83cca39c1d70fef5d",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "APPLIED_HISTORICAL_SOURCE_PRESERVE_LEDGER",
+      "reviewReason": "Ledger SHA has exact historical source at revision 2f514778cc89d7d78c9f5c7f3a9a1902e8c6d986 in CRLF. DDL prefix unchanged; seed workbook/row values shifted from181to186 rows. Schema is present; do not replay changed seed or overwrite ledger.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260903_dcc_explicit_data_relation",
+      "requiredBy": [],
+      "currentFileSha256": "70b99159002094ec50f55625e4e8dd01e192a1d7e8a144a53e7aa18dfe40134b",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "dcc_data_relation declared columns are present; current script contains CREATE only.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260920_dcc_project_product_create_approval",
+      "requiredBy": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "currentFileSha256": "2d60785f65c898218f2d925f6aed89a4d0b670e3aa266224c56f0cf040e6c8a7",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "All3request/relation/identity_claim tables and declared columns present (BIT(1) normalization). No new schema gap attributable to this script.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260719_dcc_file_type_taxonomy",
+      "requiredBy": [],
+      "currentFileSha256": "28ee75f74c4d02607e4db5ac110a0a11d24ac485a5c0ff60a6c0fa693f5a0c5e",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "MATCHING_LEDGER_NO_REPLAY",
+      "reviewReason": "Ledger current rawhash matches; taxonomy table andbound leaf columns exist. Script also menu/roleDML, do not reapply.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260910_dcc_project_file_template",
+      "requiredBy": [
+        "20260930_dcc_b_project_attributes_folders"
+      ],
+      "currentFileSha256": "4e36e6ba67cb98121fb0272c4ee837e57b0ffde9c71d6fb73ce6a09d4e5de8c9",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "dcc_project_file_template_item table/declared columns present. Ledger missing is not execution evidence.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260917_dcc_controlled_file_name_claim",
+      "requiredBy": [
+        "20260930_dcc_c_revision_identity"
+      ],
+      "currentFileSha256": "34a2950ca9ecaaf10a1d71e1e86a3b06115e80c06faaa0a118f9f2e5d50162fe",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "Name claim legacy table/generated active_unique_flag and indexes exist; C forward replacement removes legacy uniqueness later, not re-create.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p2",
+      "requiredBy": [],
+      "currentFileSha256": "3121fb0a6d6f12ad01408fb981f1de5af49f85deae9f3834e28e557a8a79907b",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "Checkout table andcolumns, active_master generated expression,4named indexes plus requiredfilecolumns present.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p3",
+      "requiredBy": [
+        "20260930_dcc_c_revision_identity"
+      ],
+      "currentFileSha256": "5d4905c888a5163a593a138dc2bef1b3c88c0d889a74999293fdfab25f10818a",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "file.revision_base_active_controlled_file_id exists as nullable bigint.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260815_system_notify_message_business_key",
+      "requiredBy": [],
+      "currentFileSha256": "227eb5c335b0726d0a9b91a93341c6cba360f26f208788dd7948ce22765274a9",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "MATCHING_LEDGER_NO_REPLAY",
+      "reviewReason": "Ledger rawhash matches andsystem_notify_message.business_key exists.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260903_dcc_controlled_file_related_file",
+      "requiredBy": [
+        "20260930_dcc_d_relations"
+      ],
+      "currentFileSha256": "ada7c709bfc0ffea5270e3b0a46f6a971bd4cf636ca3e79987cbc5cbce34e511",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "Historical relation snapshot table and all declared columns/indexes present; no backfill current relation sets.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260615_system_config_package_menu",
+      "requiredBy": [],
+      "currentFileSha256": "93150ecb2cd1f8bd110b5cae2a7c6853201a4afc64df582bc9b65402d0ed600e",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "MATCHING_LEDGER_NO_REPLAY",
+      "reviewReason": "Ledger rawhash matches; skip menu/role/tenantpackage rewrite.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260717_bpm_form_center",
+      "requiredBy": [],
+      "currentFileSha256": "efbb62110581dda5fff647914b16f8deff11d8921016633eeab559a2c3824a7e",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "MATCHING_LEDGER_NO_REPLAY",
+      "reviewReason": "Ledger rawhash matches; all6FormCenter tables present. Script includes menus/role/packageDML.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260719_business_approval_policy",
+      "requiredBy": [],
+      "currentFileSha256": "3c51d352f2d0245efea952d2fc08a9d559aaf29cff119159ac257d93d65fe299",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "MATCHING_LEDGER_NO_REPLAY",
+      "reviewReason": "Ledger rawhash matches; both policy/request tables present. Does not prove required DCC policy rowvalues.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260719_dcc_upload_form_policy_seed",
+      "requiredBy": [],
+      "currentFileSha256": "059042e6847aba56722c1176efcb3547cd59ee7e0e647a2de58287cce88fbbbd",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_POLICY_DATA_REVIEW",
+      "reviewReason": "Requires legacy dcc-controlled-file-approval definitions and policies, inserts DRAFTUPLOAD policy; no supplied rowproof.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260720_dcc_publish_form_policy_seed",
+      "requiredBy": [],
+      "currentFileSha256": "ae7bcded6478a90044a7a8dbb3394e5bcbd1d020a79539bfcdcafedac629b6dc",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_POLICY_DATA_REVIEW",
+      "reviewReason": "Historical expects READY_TO_PUBLISH BPM_REQUIRED; if P4 current DIRECT already exists, validator fails. Cannot blindly replay due missing ledger.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260906_dcc_new_file_lifecycle_p4",
+      "requiredBy": [
+        "20260930_dcc_d_relations"
+      ],
+      "currentFileSha256": "8a4d7db74973febd329771ca89fcacd582c90f63df777b3490b3a457d0b3eec8",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "HOLD_POLICY_DATA_REVIEW",
+      "reviewReason": "Updates existing publish source status toDISABLED and inserts DIRECT; must inspect existing published policies andactive business expectations before execution.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260907_dcc_publication_followup",
+      "requiredBy": [],
+      "currentFileSha256": "b0d0c1af3f8cf0302f21ed7f1fefb43db7d37e4d335cab71ce225533be963e1c",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "All7followup/frozen visibility/relation tables anddeclared columns present; no direct historicalDML.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260907_dcc_publication_impact_assessment",
+      "requiredBy": [],
+      "currentFileSha256": "cae0a56e0bf9dd332662e566310d223d22a6fbccabf5f5324efb90045f3ae192",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_NO_REPLAY",
+      "reviewReason": "Task/audit tables anddeclared columns present.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    },
+    {
+      "migrationId": "20260907_dcc_publication_notification",
+      "requiredBy": [
+        "20260930_dcc_d_notification_template"
+      ],
+      "currentFileSha256": "7042398a7ec61810fa4dfa7f1bc182680f6e02f8b710f09a817ee999654b56c0",
+      "migrationMustNotExecute": true,
+      "existingReviewDecision": "STRUCTURE_PRESENT_DML_HOLD",
+      "reviewReason": "Both notification tables present; rest writes/replaces template/menu/role/tenantpackage. Full rerun not justified.",
+      "evidenceStatus": "pending_exact_target_contract",
+      "sourceEvidence": [
+        "g14-schema-complete.log",
+        "g18-runtime-configuration-preflight.log",
+        "g17-ledger-source-search.json"
+      ]
+    }
+  ]
+}

@@ -3,15 +3,18 @@ package cn.iocoder.yudao.module.dcc.service.file;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessBlockerRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRouteReadinessRespVO;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +36,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.ROUTE_PREVIEW
 public class DccControlledFileRouteReadinessService {
 
     static final String BLOCKER_POST = "APPROVER_POST_MISSING";
+    static final String BLOCKER_ACCOUNT = "APPROVER_ACCOUNT_INVALID";
     static final String BLOCKER_PERMISSION = "APPROVER_STAGE_PERMISSION_MISSING";
     static final String BLOCKER_AUTHORIZATION = "APPROVER_SIGNATURE_NOT_AUTHORIZED";
     static final String BLOCKER_IMAGE = "APPROVER_SIGNATURE_IMAGE_INVALID";
@@ -53,9 +57,15 @@ public class DccControlledFileRouteReadinessService {
     private DccElectronicSignatureImageService signatureImageService;
 
     public RouteReadinessEvaluation evaluate(Long categoryId, Long submitterUserId, List<Long> selectedSignoffUserIds) {
+        return evaluate(categoryId, submitterUserId, selectedSignoffUserIds, null);
+    }
+
+    public RouteReadinessEvaluation evaluate(Long categoryId, Long submitterUserId, List<Long> selectedSignoffUserIds,
+                                             String actionType) {
+        rejectManualSignoffUsersForActionRoute(actionType, selectedSignoffUserIds);
         DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute;
         try {
-            resolvedRoute = routeAssigneeResolver.resolveRouteForReadiness(categoryId, submitterUserId);
+            resolvedRoute = routeAssigneeResolver.resolveRouteForReadiness(categoryId, submitterUserId, actionType);
         } catch (ServiceException ex) {
             if (ex.getCode() != APPROVAL_POSITION_UPLOADER_CONTEXT_REQUIRED.getCode()
                     && ex.getCode() != APPROVAL_POSITION_UPLOADER_MAPPING_INVALID.getCode()) {
@@ -77,6 +87,13 @@ public class DccControlledFileRouteReadinessService {
         return evaluateResolvedRoute(resolvedRoute);
     }
 
+    private void rejectManualSignoffUsersForActionRoute(String actionType, List<Long> selectedSignoffUserIds) {
+        if (DccControlledFileChangeTypeEnum.isValid(actionType)
+                && selectedSignoffUserIds != null && !selectedSignoffUserIds.isEmpty()) {
+            throw exception(CONTROLLED_FILE_ROUTE_NOT_READY, "会签人由部门矩阵负责人配置，预检请求不得手选会签人");
+        }
+    }
+
     private RouteReadinessEvaluation evaluateResolvedRoute(
             DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute resolvedRoute) {
         LinkedHashSet<Long> userIds = resolvedRoute.nodes().stream()
@@ -86,7 +103,7 @@ public class DccControlledFileRouteReadinessService {
         Map<Long, AdminUserRespDTO> userMap = adminUserApi.getUserList(orderedUserIds).stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(AdminUserRespDTO::getId, user -> user,
-                        (left, right) -> left, LinkedHashMap::new));
+                        (left, right) -> { throw new IllegalStateException("审批账号目录存在重复身份"); }, LinkedHashMap::new));
         Map<Long, Boolean> authorizationMap = signatureAuthorizationService.getAuthorizationMap(orderedUserIds);
         Map<Long, Boolean> imageValidityMap = resolveImageValidity(orderedUserIds);
         List<DccControlledFileRouteReadinessBlockerRespVO> blockers = new ArrayList<>();
@@ -95,6 +112,10 @@ public class DccControlledFileRouteReadinessService {
             for (Long userId : node.resolvedUserIds()) {
                 AdminUserRespDTO user = userMap.get(userId);
                 String userName = userName(userId, user);
+                if (user == null || !Objects.equals(user.getTenantId(),TenantContextHolder.getRequiredTenantId())
+                        || !Integer.valueOf(0).equals(user.getStatus())) {
+                    blockers.add(blocker(BLOCKER_ACCOUNT, "审批人不存在、已停用或不属于本租户", node, userId, userName));
+                }
                 if (user == null || CollUtil.isEmpty(user.getPostIds())) {
                     blockers.add(blocker(BLOCKER_POST, "审批人未配置系统岗位", node, userId, userName));
                 }
@@ -114,6 +135,18 @@ public class DccControlledFileRouteReadinessService {
                 .nodes(resolvedRoute.nodes().stream().map(this::toPreviewNode).toList())
                 .blockers(blockers)
                 .build());
+    }
+
+    public RouteReadinessEvaluation evaluateDepartments(Long categoryId,Long actorId,List<Long> departments,String actionType) {
+        var route=routeAssigneeResolver.resolveRouteForReadiness(categoryId,actorId,actionType,departments);
+        return evaluateResolvedRoute(route);
+    }
+    /** Formal callers may already have resolved and validated the exact frozen route. */
+    public void requireReadyResolvedRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route) {
+        evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route")).requireReady();
+    }
+    public RouteReadinessEvaluation evaluateFrozenRoute(DccControlledFileApprovalRouteAssigneeResolver.ResolvedRoute route){
+        return evaluateResolvedRoute(Objects.requireNonNull(route,"formal resolved approval route"));
     }
 
     public void requireReadyParticipants(String stageCode, List<Long> userIds) {
@@ -141,6 +174,8 @@ public class DccControlledFileRouteReadinessService {
                 result.put(userId, snapshot != null && snapshot.getImageId() != null
                         && snapshot.getFileId() != null && "VALID".equals(snapshot.getVerifiedStatus()));
             } catch (ServiceException ex) {
+                result.put(userId, false);
+            } catch (NoSuchKeyException ex) {
                 result.put(userId, false);
             }
         }
@@ -174,7 +209,8 @@ public class DccControlledFileRouteReadinessService {
     }
 
     private String requiredPermission(String stageCode) {
-        if (DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(stageCode)
+        if (DccControlledFileStageCodeEnum.SUPERVISOR_REVIEW.getCode().equals(stageCode)
+                || DccControlledFileStageCodeEnum.DOC_CONTROL_REVIEW.getCode().equals(stageCode)
                 || DccControlledFileStageCodeEnum.MATRIX_REVIEW.getCode().equals(stageCode)) {
             return REVIEW_PERMISSION;
         }

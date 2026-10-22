@@ -1,0 +1,23 @@
+{
+  "status": "REAL_LINKED_UPLOAD_ROLLBACK_CAUSE_REQUIRES_SOURCE_FIX",
+  "fileNumber": "G56-TRAIN-20261005-01",
+  "sourceOriginalFileName": "20261005-dcc-full-html-g56-training.pdf",
+  "projectId": "271",
+  "projectFolderId": "2",
+  "typeId": "13",
+  "needTraining": true,
+  "selectedRelatedControlledFileId": "2054545668044084026",
+  "actualUiEvidence": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r1/031.json",
+  "actualFrontendPost": "/admin-api/dcc/controlled-files/submit",
+  "httpStatus": 200,
+  "businessSucceeded": false,
+  "newFileRowsReadOnly": 0,
+  "exception": "DCC_RELATION_APPROVAL_SNAPSHOT_FROZEN",
+  "errorLogTime": "2026-10-05 14:45:37.489 Asia/Shanghai",
+  "rootCause": "insertControlledFile creates WORKING but advances it to pending inside insertion; submit binds selected relations afterwards, which correctly rejects a pending target",
+  "repairConstraint": "Freeze this submission's relations while its new candidate is still WORKING, before pending/BPM in the same transaction. Preserve relation historical write guard, exact replay and rollback.",
+  "owner": "missing_object_recovery",
+  "sourceFixStatus": "IN_PROGRESS",
+  "automaticRetry": false,
+  "apiOrDbBusinessAction": false
+}

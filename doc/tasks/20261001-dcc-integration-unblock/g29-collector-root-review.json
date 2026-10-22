@@ -1,0 +1,18 @@
+{
+  "status": "ROOT_REVIEWED_READONLY_COLLECTOR_SOFTWARE_PASS_ACTUAL_COLLECTION_NOT_YET_RUN",
+  "tests": 13,
+  "exitCode": 0,
+  "manifestSha256": "a8aef83b9cb50e7a6053384c48a43349d8c8fdc45f5dea955d2565102d54f653",
+  "manifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-detail-integration\\g29-collector-fingerprints.json",
+  "rootReviewFixes": [
+    "Raw CRLF formal query SHA",
+    "Actual same-session capture identity",
+    "Windows raw LF output persistence",
+    "Rejected existing directory zero mutation",
+    "Strict readonly/fresh writer and fixed backup profiles"
+  ],
+  "productionChanged": false,
+  "specificNewMigrationAuthorization": false,
+  "actualDatabaseWrites": false,
+  "actualReadonlyCollection": false
+}

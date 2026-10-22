@@ -1,0 +1,54 @@
+{
+  "status": "FORM_CENTER_ACTUAL_BUILD_REQUEST_OBLIGATIONS41_PASS",
+  "mavenSession": 79391,
+  "exitCode": 0,
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceImpl.java",
+      "bytes": 26148,
+      "sha256": "24c21c781239bbe2d9419e965b4820109528951cfd5ee81c59d26a55ed594515"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileObsoleteServiceTest.java",
+      "bytes": 43591,
+      "sha256": "64d9e2591672348c7d068dab91aae26ef7e67d1f3d725b82c3219583368c2295"
+    }
+  ],
+  "suites": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.bpm.formcenter.runtime.DccWorkflowFormCenterObligationTest.xml",
+      "sha256": "32a74ae7fc459fefee144f55538e22448512ebe61e54000854b4a95b25ef9b1d",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteFormEffectExecutorTest.xml",
+      "sha256": "028a3c37975e0ee264546741871a57b941361c22b8a9038e8d4bee0310e6fd2c",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileObsoleteServiceTest.xml",
+      "sha256": "ce4bce57b9b1c5a8b9e5770b875bf2cbc1a4714118b5bc3a2d578ae514000880",
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g62-final-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowObsoleteTransactionTest.xml",
+      "sha256": "23b859191227b9fdfe593a5d0acc9910bdf39699a6f03555fb406f50a441c7c1",
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "actualUI": "nextsame4033retry"
+}

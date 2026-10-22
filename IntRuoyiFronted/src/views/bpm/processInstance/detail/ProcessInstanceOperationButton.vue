@@ -1135,6 +1135,13 @@ const isEndProcessStatus = (status: number) => {
 
 /** 是否显示按钮 */
 const isShowButton = (btnType: OperationButtonType): boolean => {
+  if (
+    props.processInstance?.processDefinition?.key === CONTROLLED_FILE_PROCESS_DEFINITION_KEY &&
+    [OperationButtonType.TRANSFER, OperationButtonType.DELEGATE,
+      OperationButtonType.ADD_SIGN, OperationButtonType.RETURN].includes(btnType)
+  ) {
+    return false
+  }
   let isShow = true
   if (runningTask.value?.buttonsSetting && runningTask.value?.buttonsSetting[btnType]) {
     isShow = runningTask.value.buttonsSetting[btnType].enable

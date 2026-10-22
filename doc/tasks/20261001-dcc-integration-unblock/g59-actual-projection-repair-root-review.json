@@ -1,0 +1,44 @@
+{
+  "status": "ACTUAL_ADMIN_FRONTEND_EXPLICIT_REPAIR_COMPLETED_FORMAL_AUDIT_AND_NATIVE_UNCHANGED",
+  "fileId": "2054545668044084026",
+  "masterId": "2054545668044079116",
+  "versionRefId": "65592",
+  "previewUi": "g56-real-ui-r9/033.json",
+  "confirmUi": "g56-real-ui-r9/036.json",
+  "before": {
+    "canonical": "FINALIZING",
+    "domain": "FINALIZING",
+    "openFlag": 1,
+    "activeFlag": null
+  },
+  "after": {
+    "canonical": "ACTIVE",
+    "domain": "ACTIVE",
+    "openFlag": null,
+    "activeFlag": 1
+  },
+  "maintenanceAuditEventId": "247",
+  "actorId": "1",
+  "realMaintenanceTime": "2026-10-05 22:13:11",
+  "originalControlledDate": "2026-10-05 11:51:36",
+  "originalDateUnchanged": true,
+  "originalSignatures": [
+    "406",
+    "407",
+    "408",
+    "409",
+    "410",
+    "411"
+  ],
+  "nativeProtectedTables": 5,
+  "exactOldRowsUnchanged": true,
+  "noNewQualityApprovalOrSignature": true,
+  "oldBusinessEventsUnchanged": true,
+  "maintenanceTransitionActions": [
+    "COMPLETE_CONTROL",
+    "ACTIVATE_CONTROLLED"
+  ],
+  "businessActionPerformedBy": "realPlaywrightFrontendOnly",
+  "readProofOnlyByThisScript": true,
+  "initialReadDiagnostic": "field names action_type/transition_time were obsolete; formalSHOW COLUMNS action/create_time used, no business effects"
+}

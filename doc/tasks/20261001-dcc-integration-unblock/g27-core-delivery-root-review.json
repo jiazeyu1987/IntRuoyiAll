@@ -1,0 +1,16 @@
+{
+  "status": "ROOT_VERIFIED_CORE579_FROZEN_SCOPE_NEXT_SELECTOR_BATCH_SEPARATE",
+  "coreTests": 579,
+  "coreClasses": 17,
+  "logSha256": "05f3b9aaa5cacb64fe685d1899437094151b62ea18a2cddd7ce32a09f190594a",
+  "fingerprintSha256": "262da2de7f73ac18f4f02fb1ceaf095b36f233b49b8ab2e75b4d923552e27012",
+  "checkedAssets": 37,
+  "currentDriftDueToNextBatch": [
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacySourceNameOccupancyTest.java"
+  ],
+  "unexpectedDrift": [],
+  "actualNewDatabaseWrites": false,
+  "actualObjectWrites": false,
+  "qaApproved": false
+}

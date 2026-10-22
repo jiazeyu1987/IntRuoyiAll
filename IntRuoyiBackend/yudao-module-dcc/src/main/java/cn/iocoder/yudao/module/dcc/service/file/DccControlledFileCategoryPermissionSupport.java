@@ -37,7 +37,7 @@ public class DccControlledFileCategoryPermissionSupport {
             return CategoryPermissionEvaluation.denied();
         }
         AdminUserRespDTO user = adminUserApi.getUser(userId);
-        if (user == null) {
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, user)) {
             return CategoryPermissionEvaluation.denied();
         }
         List<DccFileCategoryPermissionRuleDO> matchedRules = permissionRuleMapper

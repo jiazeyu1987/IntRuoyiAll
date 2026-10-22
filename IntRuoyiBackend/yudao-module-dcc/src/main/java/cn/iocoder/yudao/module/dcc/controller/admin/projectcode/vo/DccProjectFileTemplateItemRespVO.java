@@ -15,4 +15,7 @@ public class DccProjectFileTemplateItemRespVO {
     private String taxonomyPath;
     private String fileName;
     private Integer sortOrder;
+    private Boolean valid;
+    private Integer validationCode;
+    private String validationMessage;
 }

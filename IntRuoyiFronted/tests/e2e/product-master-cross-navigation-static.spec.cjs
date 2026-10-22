@@ -64,7 +64,7 @@ assert.match(projectCodePage, /const\s+syncDetailFromRoute\s*=\s*async\s*\(\)\s*
   'project-code page must open the linked project-code detail drawer from projectCodeId')
 assert.match(projectCodePage, /watch\(\s*\(\)\s*=>\s*\[route\.path,\s*route\.query\.projectCodeId\],[\s\S]*if\s*\(!isProjectCodeRoute\(\)\)\s*\{[\s\S]*return[\s\S]*await\s+syncDetailFromRoute\(\)/,
   'project-code page must resync the detail drawer only when linked projectCodeId changes on the project-code route')
-assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mes\/md\/dcc-project-code['"]/,
+assert.match(projectCodePage, /const\s+PROJECT_CODE_ROUTE_PATH\s*=\s*['"]\/mdm\/project-code['"]/,
   'project-code route path must be explicit')
 assert.match(projectCodePage, /const\s+isProjectCodeRoute\s*=\s*\(\)\s*=>\s*route\.path\s*===\s*PROJECT_CODE_ROUTE_PATH/,
   'project-code query sync must be scoped to the active project-code route')
@@ -98,7 +98,7 @@ assert.match(mdmProductPage, /@click="openLinkedProjectCodeManagement\(row\)"/,
   'product rows must expose a project-code jump')
 assert.match(mdmProductPage, /@click="openLinkedRegistrationCertificateManagement\(row\)"/,
   'product rows must expose a registration-certificate jump')
-assertNavigationBlock(mdmProductPage, 'openLinkedProjectCodeManagement', '/mes/md/dcc-project-code', 'productMasterId', 'row\\.id')
+assertNavigationBlock(mdmProductPage, 'openLinkedProjectCodeManagement', '/mdm/project-code', 'productMasterId', 'row\\.id')
 assertNavigationBlock(mdmProductPage, 'openLinkedRegistrationCertificateManagement', '/mdm/registration-certificate', 'productMasterId', 'row\\.id')
 
 assert.match(registrationApi, /projectCodeId\?:\s*number\s*\|\s*string/, 'registration page request must accept projectCodeId query')
@@ -130,7 +130,7 @@ assert.match(registrationPage, /@click="openLinkedProductManagement\(row\.produc
 assert.match(registrationPage, /@click="openLinkedProjectCodeManagement\(row\.projectCodeId\)"/,
   'registration rows must expose a project-code jump')
 assertNavigationBlock(registrationPage, 'openLinkedProductManagement', '/mes/md/showroom-product', 'productMasterId', 'productMasterId')
-assertNavigationBlock(registrationPage, 'openLinkedProjectCodeManagement', '/mes/md/dcc-project-code', 'projectCodeId', 'projectCodeId')
+assertNavigationBlock(registrationPage, 'openLinkedProjectCodeManagement', '/mdm/project-code', 'projectCodeId', 'projectCodeId')
 
 for (const source of [projectCodePage, mdmProductPage, registrationPage]) {
   assert.doesNotMatch(source, /mock|defaultSuccess|fallback|降级|吞异常/,

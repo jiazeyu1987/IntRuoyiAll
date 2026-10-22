@@ -1,0 +1,5 @@
+{
+  "command": "git diff --cached --check",
+  "exitCode": 2,
+  "stagedFiles": 901
+}

@@ -101,6 +101,11 @@ public class BpmNativeApprovalTaskProvider implements ApprovalTaskProvider, Appr
     );
     private static final Set<String> TODO_ACTIONS = Set.of("OPEN_DETAIL", "APPROVE", "REJECT");
     private static final Set<String> DETAIL_ACTIONS = Set.of("OPEN_DETAIL");
+    private static final Set<String> DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS = Set.of(
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
 
     private final BpmProcessInstanceService processInstanceService;
     private final BpmProcessInstanceCopyService copyService;

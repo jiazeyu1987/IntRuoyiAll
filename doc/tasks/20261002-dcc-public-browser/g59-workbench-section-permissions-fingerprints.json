@@ -1,0 +1,111 @@
+{
+  "status": "G59_LEGACY_WORKBENCH_SECTION_PERMISSIONS_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "bytes": 42493,
+      "sha256": "33a574789b43e4126580692c55dd5d3552ee0cf96c8f6357e5acfcc4bb3ad05e"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/presentation.ts",
+      "bytes": 5239,
+      "sha256": "1f4203d4e7feecf087c7fe64376e37a026b82e58543211dcf0947084da102ac1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-section-permissions.test.cjs",
+      "bytes": 7970,
+      "sha256": "fdf9d8243187170bd1218d1282804d58decbd5787153b9afff00ba160112eedb"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-bdd.md",
+      "bytes": 3577,
+      "sha256": "f06f55df0266a10378f61ffb50e2ec9e2ad95ca3996852ad7343815c506a1ef5"
+    }
+  ],
+  "previousWorkbenchStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints-r2.json",
+    "bytes": 7747,
+    "sha256": "b2e6ede8284ffe43d5c00d0c826bb7ce118602b234a75140c10827243b47bde8"
+  },
+  "protectedOtherStages": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-lifecycle-projection-repair-frontend-fingerprints-r2.json",
+      "bytes": 4400,
+      "sha256": "9e960e4912e080f604d7019294e4a4f6176414486eeac5ac3fbb1af66bba1886"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-training-record-category-permission-frontend-fingerprints.json",
+      "bytes": 4202,
+      "sha256": "e15fd50d192ba4faceffb2e67cb41ab0e10fbfff038de01b024db685b63f766b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g58-browser-selected-version-display-fingerprints.json",
+      "bytes": 3976,
+      "sha256": "0b4e2a415c802ced3496adc6aac180133a21d9caeb74a96916a1e0c3f8d6fdf5"
+    }
+  ],
+  "verification": {
+    "effectiveRED": {
+      "tests": 4,
+      "pass": 0,
+      "failures": 4,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 3,
+      "tests": 19,
+      "pass": 19,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "5 owned new +6 native +8 existing distribution, not additive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0
+    },
+    "existingWorkbenchStatic": {
+      "exitCode": 0
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-red.log",
+      "bytes": 4037,
+      "sha256": "d615ab998180ec7ba2c3aae86634671fe64045e4f296886f78b7006face72088"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-final-frozen.log",
+      "bytes": 2352,
+      "sha256": "b3c49f8b7d5d45f68a8bc643df141f86ba75b5f1e04351e50a65a86e03757dfd"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-permissions-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g59-workbench-section-static-existing.log",
+      "bytes": 37,
+      "sha256": "5936bef5c5d8ce0ce0fd77447a8df2a7203d213cb13069a62fab69cc416e6e67"
+    }
+  ],
+  "exactContracts": [
+    "Legacy approval requires bpm taskquery+process-instancequery menus, trainingconfirmation mine, finalization browser query; current menus only not role guess",
+    "Each authorized section loads own state/error/count; unauthorized0GET hidden, failed null/— no empty success table, successful0 preserved",
+    "Live route/actor/tenant/menu context plus requestgeneration prevents late publication; native/distribution original independent components retained",
+    "Count type number|null and no default zero, original metric route unchanged, no new API/provider/600sec change"
+  ],
+  "limitations": [
+    "Actual source offline handlers/getter/template renderer/metrichelper, no actual runtime/UI/API validation",
+    "Root final fulltypesbuild and independentDoc actual page acceptance pending",
+    "Old unrelated static all0/pendingDistributionRows assertion not modified/run as this gate; existing source static passed",
+    "No DB/API/UI/service/Git/Maven/fulltypesbuild by agent, sharedtask in_progress"
+  ],
+  "supersedes": "Only prior workbench index and existing presentation count bytes plus new owned test; Parent/repairR2 and G58 sources unchanged, previous manifests retained"
+}

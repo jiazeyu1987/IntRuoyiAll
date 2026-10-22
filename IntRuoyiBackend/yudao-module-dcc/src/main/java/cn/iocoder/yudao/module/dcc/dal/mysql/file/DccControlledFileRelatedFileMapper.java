@@ -8,12 +8,14 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 
 @Mapper
 public interface DccControlledFileRelatedFileMapper extends BaseMapperX<DccControlledFileRelatedFileDO> {
 
     default List<DccControlledFileRelatedFileDO> selectListByControlledFileId(Long controlledFileId) {
         return selectList(new LambdaQueryWrapperX<DccControlledFileRelatedFileDO>()
+                .eq(DccControlledFileRelatedFileDO::getTenantId,TenantContextHolder.getRequiredTenantId())
                 .eq(DccControlledFileRelatedFileDO::getControlledFileId, controlledFileId)
                 .orderByAsc(DccControlledFileRelatedFileDO::getId));
     }

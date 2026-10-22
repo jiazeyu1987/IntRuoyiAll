@@ -1,0 +1,27 @@
+{
+  "status": "NEW_G59_RUNTIME_R3_HEALTH_UP_AND_ACTUAL_READONLY_PREVIEW_PASS",
+  "backendPid": 23896,
+  "backendPort": 48061,
+  "frontendPid": 50712,
+  "frontendPort": 8061,
+  "sourceJar": "50fa9c07126b6a945122d73f912545a149f5761a0b1a512eef72b8aab6cdb506",
+  "runtimeProfile": "dcc-local-development",
+  "singleActivationJob": "5625restored",
+  "actualMaint": "explicitrealadminrepairaudit247 pass originalfiveTablerows0rewrite; detailed g59actualrepairproof",
+  "actualPartialSubmit": {
+    "candidateFileId": "2054545668044084032",
+    "version": "A/2",
+    "intent": "PARTIAL",
+    "selectedWorkingFile": "2054545668044084029",
+    "selectedVersion": "A/1-1",
+    "selectedBodySHA256": "4f7fb3939790d1068cc923d50dad677ebfa0fedb5893410c012bebe8fea2a543",
+    "effectiveDate": "2026-10-06",
+    "currentBPM": "174b9f6e-c0c8-11f1-a5ae-b082e25ec548",
+    "status": "PENDING_MATRIX_REVIEW",
+    "oldExecuting": "4026ACTIVEA/1"
+  },
+  "training": "independentDoc account910328 login/profile/workbench visibilityPASS; actualTRAINING_RECORDconfigure/event stillpending",
+  "fullHtml": "in_progress",
+  "push": "origin8ead latestlocal42942 includes49ce/8c564/typedfix; latestnetworkhandshake/reset errors3 boundedretries, preservedfailreceipts, nextrecheck onlywhenconnectivitychanges",
+  "G60pendingObsolete": "confirmed exactadapteroldfromstatecoupling, ownerfiniteTDD inprogress"
+}

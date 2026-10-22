@@ -1,0 +1,145 @@
+{
+  "status": "PASS_CURRENT_ATTRIBUTES_ISOLATED_NOT_UI",
+  "cliExitCode": 0,
+  "finishedAt": "2026-10-06T03:42:24+08:00",
+  "scope": "4 existing classes; Integration8 exact methods/Selected2 local methods, no inherited50 rerun",
+  "counts": {
+    "tests": 30,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "xml": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.projectcode.DccProjectAttributesServiceTest.xml",
+      "sha256": "c61f4d870121b292970507c6a78286fab31d7ecbecbfbfc8a57249af59d72fcf",
+      "cases": [
+        "conditionalFieldsAndIndependentIdentitiesAreStrict",
+        "projectChangeCannotOverwriteSavedDraftOrSubmittedHistory",
+        "initializationSourceFreezesImmediatelyAndReworkKeepsPreviousValues",
+        "zeroRowFreezeCannotReportPersistedSubmittedSnapshot(String)[1]",
+        "zeroRowFreezeCannotReportPersistedSubmittedSnapshot(String)[2]",
+        "zeroRowFreezeCannotReportPersistedSubmittedSnapshot(String)[3]",
+        "uploadUsesDefaultsAndSavesManualActual",
+        "missingDefaultsCannotBecomeNoOrNotApplicable",
+        "obsoleteHasIndependentApplicationSnapshotAndNoFileWrite",
+        "revisionUsesProjectDefaultsInsteadOfPreviousVersion",
+        "wrongProjectActionRoundAndDeniedPermissionFailWithoutWrite",
+        "explicitRestoreUpdatesOnlyConfirmedUnsubmittedDraftAndRejectsConcurrentDefaults"
+      ],
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowAttributesIntegrationTest.xml",
+      "sha256": "6d74aa3a6831ee342edea8a7d3bb74d7c5231c9a008f8608ef1b6d95d8f385a8",
+      "cases": [
+        "h02AuthorizedOrdinarySaveUsesOnlyTheExistingReservedSnapshotAndKeepsItsSource",
+        "h02UnsubmittedSourceMustKeepItsSavedSourceWhenAnotherRealFileIsAllocated",
+        "actualValuesAndServerDefaultSourceRemainSeparateAfterProjectDefaultsChange",
+        "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[1]",
+        "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[2]",
+        "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[3]",
+        "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[4]",
+        "h02OrdinarySaveCannotBypassItsRealFileOrCreateAnUnreservedSnapshot(String)[5]",
+        "h02TwoCrossFileReworksForkSubmittedSourceAndActualRatherThanTodaysDefaults",
+        "h08TwoDirectPredecessorsKeepNmpaAndCeAfterDefaultsBecomeFda",
+        "h02OrdinarySaveLateOuterFailureRestoresTheSavedActualAndSource",
+        "h02SubmissionBindsTheRealReservedRoundAndPreservesSavedSourceAfterDefaultChanges"
+      ],
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSelectedWorkingAttributesDatabaseTest.xml",
+      "sha256": "b3ca7dad962a3b70d6843ca33a66c7298f98a056cdaef025d20e6ce374f9a036",
+      "cases": [
+        "exactEarlierHttpReadAndCandidateFreezeUseTheSameSavedSourceAndActual",
+        "submissionIneligibilityNeverHidesTheEarlierSavedDraft"
+      ],
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkingAttributesHttpContractTest.xml",
+      "sha256": "d0180eba8cc3649a92e72dd2565026bf9fbcb2696aed8506b378d3d41107f902",
+      "cases": [
+        "saveCallsFormalDraftServiceWithActualValuesAndCurrentActor",
+        "readAndRestoreUseExactFileIdentityAndReturnSavedSourceWithoutInventedDepartments",
+        "replacementReadPassesExactLargeSourceAndBaselineWithActualCurrentActor",
+        "emptyBodyCannotReportASavedApplication"
+      ],
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "sources": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/projectcode/DccProjectAttributesServiceTest.java",
+      "sha256": "4dca95512dd217a43d6055d1dc612ac614f8ac003c72a39ee125e600cd89e950"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowAttributesIntegrationTest.java",
+      "sha256": "617ac2090b02e731bee0d95402355a6670b503ecb386b584071ac6a39cdcc310"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccSelectedWorkingAttributesDatabaseTest.java",
+      "sha256": "53029d280675399fac91ebd7d5eaf14230f6293bea0da0d35ab20862b529e9c6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingAttributesHttpContractTest.java",
+      "sha256": "af2c5314c0c6fcbfe67e9db5dfe76c3df529f5a7374097dac2bfd3d7c7eaa924"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkflowSelectedIterationDatabaseTest.java",
+      "sha256": "aa0a7486584b51781e79a595026cab9fb1a53f86f2c582f10d81267446d8a4d7"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckinDraftInitializationDatabaseTest.java",
+      "sha256": "4b5b01df09b57bb4d284c96503f2049b77355b6f1946c7d8d25891a497f4284d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributes.java",
+      "sha256": "16d195836c993bf9f19872f15f551a75c38fd83c165ad88c140868a3edebe31d"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectAttributesService.java",
+      "sha256": "72382e61ab76c799fe544bd203010ef6b97ca6e546d556a04f8c4090a5e5fa5c"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/projectcode/attributes/DccProjectApplicationSnapshotService.java",
+      "sha256": "dfd0181413b9cf30827e48b1ea516d90993b648a6700e055bfb036d2727695b3"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationRoundService.java",
+      "sha256": "98ea9acf1957f4c96b7ad3a291538e19ece3263bb3a074fa47cb7dfa674241aa"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileWorkflowServiceImpl.java",
+      "sha256": "566b0886c28534a5e0e662f9146893b6e4c2765bec0bc0bafa69a7d1a81e3b41"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccWorkingApplicationDraftInitializer.java",
+      "sha256": "3291093bd833e0721eb770fed0ab5bb27799a76621bd7a9b7037239e5f1da1ee"
+    }
+  ],
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g66-current-attributes-proof.log",
+    "sha256": "bb5370b952be0bfe722aee2e168525f8e4c820714415699bdfcee9740e1ce12c"
+  },
+  "productionChanged": 0,
+  "testSourceChanged": 0,
+  "fixtureRepairNeeded": false,
+  "missingPriorXmlWas": "evidence gap, not business RED",
+  "isolatedPorts": "account/project permissions/storage/route readiness/HMAC external where fixtures declare; actual attribute SQL/default-source/freezing/rounds are real",
+  "receiptPreparationError": "initial inventory used wrong RoundService source folder; only receipt builder failed, Maven already PASS, original copied XML unchanged",
+  "realUiRootParallel": true
+}

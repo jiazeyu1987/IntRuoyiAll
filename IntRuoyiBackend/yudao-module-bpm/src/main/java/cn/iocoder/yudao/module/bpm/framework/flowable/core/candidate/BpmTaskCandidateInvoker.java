@@ -26,6 +26,7 @@ import java.util.*;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.MODEL_DEPLOY_FAIL_TASK_CANDIDATE_NOT_CONFIG;
+import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.TASK_DCC_CONFIRMED_CANDIDATE_INVALID;
 
 /**
  * {@link BpmTaskCandidateStrategy} 的调用者，用于调用对应的策略，实现任务的候选人的计算
@@ -36,6 +37,13 @@ import static cn.iocoder.yudao.module.bpm.enums.ErrorCodeConstants.MODEL_DEPLOY_
 public class BpmTaskCandidateInvoker {
 
     private final Map<BpmTaskCandidateStrategyEnum, BpmTaskCandidateStrategy> strategyMap = new HashMap<>();
+
+    private static final Set<String> DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS = Set.of(
+            "dcc-controlled-file-approval",
+            "dcc-controlled-file-upload",
+            "dcc-controlled-file-revision",
+            "dcc-controlled-file-obsolete"
+    );
 
     private final AdminUserApi adminUserApi;
 
@@ -106,6 +114,13 @@ public class BpmTaskCandidateInvoker {
             Integer strategy = BpmnModelUtils.parseCandidateStrategy(flowElement);
             String param = BpmnModelUtils.parseCandidateParam(flowElement);
             Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByTask(execution, param);
+            ProcessInstance processInstance = SpringUtil.getBean(BpmProcessInstanceService.class)
+                    .getProcessInstance(execution.getProcessInstanceId());
+            Assert.notNull(processInstance, "流程实例({}) 不存在", execution.getProcessInstanceId());
+            if (isDccControlledFileProcess(processInstance.getProcessDefinitionKey())) {
+                requireConfirmedDccCandidates(userIds);
+                return new LinkedHashSet<>(userIds);
+            }
             // 1.2 移除被禁用的用户
             removeDisableUsers(userIds);
             validateSupervisorCandidates(strategy, userIds);
@@ -118,12 +133,53 @@ public class BpmTaskCandidateInvoker {
             }
 
             // 3. 移除发起人的用户
+            removeStartUserIfSkip(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
+            return userIds;
+        });
+    }
+
+    /**
+     * 计算多实例任务的处理人列表。
+     *
+     * DCC 部门会签要求按“部门义务”创建任务；当两个部门在任务创建时解析到同一个负责人时，重复的 userId
+     * 不能被 Set 去重，否则后续签核证据会丢失部门维度。
+     */
+    @DataPermission(enable = false)
+    public List<Long> calculateUserListByTask(DelegateExecution execution) {
+        return FlowableUtils.execute(execution.getTenantId(), () -> {
+            FlowElement flowElement = execution.getCurrentFlowElement();
+            Integer approveType = BpmnModelUtils.parseApproveType(flowElement);
+            if (ObjectUtils.equalsAny(approveType,
+                    BpmUserTaskApproveTypeEnum.AUTO_APPROVE.getType(),
+                    BpmUserTaskApproveTypeEnum.AUTO_REJECT.getType())) {
+                return new ArrayList<>();
+            }
+
+            Integer strategy = BpmnModelUtils.parseCandidateStrategy(flowElement);
+            String param = BpmnModelUtils.parseCandidateParam(flowElement);
+            Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByTask(execution, param);
             ProcessInstance processInstance = SpringUtil.getBean(BpmProcessInstanceService.class)
                     .getProcessInstance(execution.getProcessInstanceId());
             Assert.notNull(processInstance, "流程实例({}) 不存在", execution.getProcessInstanceId());
+            if (isDccControlledFileProcess(processInstance.getProcessDefinitionKey())) {
+                List<Long> selectedAssignees = getSelectedAssigneeList(strategy, processInstance,
+                        execution.getCurrentActivityId());
+                if (CollUtil.isNotEmpty(selectedAssignees)) {
+                    requireConfirmedDccCandidates(new LinkedHashSet<>(selectedAssignees));
+                    return new ArrayList<>(selectedAssignees);
+                }
+                requireConfirmedDccCandidates(userIds);
+                return new ArrayList<>(userIds);
+            }
+
+            removeDisableUsers(userIds);
+            if (CollUtil.isEmpty(userIds)) {
+                userIds = getCandidateStrategy(BpmTaskCandidateStrategyEnum.ASSIGN_EMPTY.getStrategy())
+                        .calculateUsersByTask(execution, param);
+            }
             routeStartUserToSupervisor(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
             removeStartUserIfSkip(userIds, flowElement, Long.valueOf(processInstance.getStartUserId()));
-            return userIds;
+            return new ArrayList<>(userIds);
         });
     }
 
@@ -148,6 +204,16 @@ public class BpmTaskCandidateInvoker {
         String param = BpmnModelUtils.parseCandidateParam(flowElement);
         Set<Long> userIds = getCandidateStrategy(strategy).calculateUsersByActivity(bpmnModel, activityId, param,
                 startUserId, processDefinitionId, processVariables);
+        if (bpmnModel.getMainProcess() != null
+                && isDccControlledFileProcess(bpmnModel.getMainProcess().getId())) {
+            List<Long> selectedAssignees = getDccSelectedAssigneeList(processVariables, activityId);
+            if (CollUtil.isNotEmpty(selectedAssignees)) {
+                requireConfirmedDccCandidates(new LinkedHashSet<>(selectedAssignees));
+                return new LinkedHashSet<>(selectedAssignees);
+            }
+            requireConfirmedDccCandidates(userIds);
+            return new LinkedHashSet<>(userIds);
+        }
         // 1.2 移除被禁用的用户
         removeDisableUsers(userIds);
         validateSupervisorCandidates(strategy, userIds);
@@ -187,6 +253,51 @@ public class BpmTaskCandidateInvoker {
                 .requireSupervisor(user.getDeptId(), startUserId).getUserId();
         userIds.remove(startUserId);
         userIds.add(supervisor);
+    }
+
+    private void requireConfirmedDccCandidates(Set<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            throw exception(TASK_DCC_CONFIRMED_CANDIDATE_INVALID, "EMPTY");
+        }
+        Map<Long, AdminUserRespDTO> users = adminUserApi.getUserMap(userIds);
+        List<Long> invalid = userIds.stream().filter(id -> users.get(id) == null
+                || !CommonStatusEnum.ENABLE.getStatus().equals(users.get(id).getStatus())).toList();
+        if (!invalid.isEmpty()) throw exception(TASK_DCC_CONFIRMED_CANDIDATE_INVALID, invalid);
+    }
+
+    private List<Long> getSelectedAssigneeList(Integer strategy, ProcessInstance processInstance, String activityId) {
+        if (isDccControlledFileProcess(processInstance.getProcessDefinitionKey())) {
+            List<Long> dccSelectedAssignees = getDccSelectedAssigneeList(processInstance.getProcessVariables(), activityId);
+            if (CollUtil.isNotEmpty(dccSelectedAssignees)) {
+                return dccSelectedAssignees;
+            }
+        }
+        if (ObjectUtil.equal(strategy, BpmTaskCandidateStrategyEnum.START_USER_SELECT.getStrategy())) {
+            Map<String, List<Long>> startUserSelectAssignees = FlowableUtils.getStartUserSelectAssignees(processInstance);
+            return startUserSelectAssignees == null ? null : startUserSelectAssignees.get(activityId);
+        }
+        if (ObjectUtil.equal(strategy, BpmTaskCandidateStrategyEnum.APPROVE_USER_SELECT.getStrategy())) {
+            Map<String, List<Long>> approveUserSelectAssignees = FlowableUtils.getApproveUserSelectAssignees(processInstance);
+            return approveUserSelectAssignees == null ? null : approveUserSelectAssignees.get(activityId);
+        }
+        return null;
+    }
+
+    private List<Long> getDccSelectedAssigneeList(Map<String, Object> processVariables, String activityId) {
+        Map<String, List<Long>> startUserSelectAssignees = FlowableUtils.getStartUserSelectAssignees(processVariables);
+        List<Long> startAssignees = startUserSelectAssignees == null ? null : startUserSelectAssignees.get(activityId);
+        if (CollUtil.isNotEmpty(startAssignees)) {
+            return startAssignees;
+        }
+        Map<String, List<Long>> approveUserSelectAssignees = FlowableUtils.getApproveUserSelectAssignees(processVariables);
+        return approveUserSelectAssignees == null ? null : approveUserSelectAssignees.get(activityId);
+    }
+
+    private boolean isDccControlledFileProcess(String processDefinitionKey) {
+        if (StrUtil.isBlank(processDefinitionKey)) {
+            return false;
+        }
+        return DCC_CONTROLLED_FILE_PROCESS_DEFINITION_KEYS.contains(processDefinitionKey);
     }
 
     @VisibleForTesting

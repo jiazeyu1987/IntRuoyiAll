@@ -1,0 +1,5 @@
+# G19 当前唯一写入负责人
+
+Root确认ProjectReviewerConfiguration.vue正由upload_closure写入；detail_closure应立即停止改这个组件及dcc-project-reviewer.test.cjs，只读复核可以，发现问题交Root/upload_closure。detail_closure继续唯一写ProjectAttributeConfigurationDialog.vue、projectAttributes.ts的configureProjectAttributes包装、自有属性测试/helper。Root的G19主任务记录为权威当前边界；detail既有task中同时分配reviewer的旧文字失效。
+
+Root唯一接G15-R06 detail/index.vue + browser/index.vue +新的shared/working-browser-navigation helper/test；upload_closure不回写G16 browser/index，detail_closure不回写detail/index。后端/Maven只在backend正式新回执后交其所有，否则Root不称已续派。源资产和历史RED保留，无任何回滚别人的改动。

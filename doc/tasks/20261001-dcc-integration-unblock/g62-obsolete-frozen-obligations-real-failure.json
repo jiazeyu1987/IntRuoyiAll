@@ -1,0 +1,23 @@
+{
+  "status": "REAL_PENDING_OBSOLETE_SUBMIT_MAINFLOW_FAILURE_ROLLED_BACK",
+  "entryProof": "r9/277 then302 genuine pendingobsolete dialog frombrowser operationpanel",
+  "configurationUi": "r9/298 actualsavedtwoStageOBSOLETE route",
+  "submit": "r9/304 secondconfirm→305/306 actualPOST businessfailure",
+  "exception": "FormCenterRuntimeServiceImpl1079 missing frozen department obligations",
+  "readonly": [
+    {
+      "query": "SELECT id,status,process_type,process_instance_id,controlled_time,effective_date,activated_time,distributed_time FROM dcc_controlled_file WHERE tenant_id=1 AND id IN (2054545668044084026,2054545668044084032,2054545668044084033) ORDER BY id;",
+      "result": "2054545668044084026\tACTIVE\tCONTROLLED_FILE\te8479810-c062-11f1-bf90-b082e25ec548\t2026-10-05 11:51:36\t2026-10-05\t2026-10-05 11:51:36\t2026-10-05 12:11:29\n2054545668044084032\tCONTROLLED_PENDING_EFFECTIVE\tCONTROLLED_FILE\t174b9f6e-c0c8-11f1-a5ae-b082e25ec548\t2026-10-05 22:40:36\t2026-10-06\tNULL\tNULL\n2054545668044084033\tCONTROLLED_PENDING_EFFECTIVE\tCONTROLLED_FILE\t4c5da4e8-c0cd-11f1-86f2-b082e25ec548\t2026-10-05 23:09:37\t2026-10-06\tNULL\tNULL\n"
+    },
+    {
+      "query": "SELECT id,category_id,action_type,version_no,active,effective_time FROM dcc_category_approval_route WHERE tenant_id=1 AND category_id=908710 AND action_type='OBSOLETE' AND id>=914001 ORDER BY id;",
+      "result": "914001\t908710\tOBSOLETE\t4\t0\t2026-09-22 20:00:00\n914002\t908710\tOBSOLETE\t5\t0\t2026-10-05 00:00:00\n914003\t908710\tOBSOLETE\t6\t0\t2026-10-05 00:00:00\n914004\t908710\tOBSOLETE\t7\t1\t2026-10-05 00:00:00\n"
+    },
+    {
+      "query": "SELECT r.id,n.stage_no,n.stage_code,n.candidate_source_type,n.candidate_source_id,n.candidate_source_ids,n.approve_method,n.approve_ratio,n.required FROM dcc_category_approval_route r JOIN dcc_category_approval_route_node n ON n.route_id=r.id WHERE r.tenant_id=1 AND r.category_id=908710 AND r.action_type='OBSOLETE' AND r.active=1 AND r.deleted=0 AND n.deleted=0 ORDER BY n.stage_no;",
+      "result": "914004\t1\tMATRIX_REVIEW\tDEPT\t100\t100\tALL\t100\t1\n914004\t2\tMATRIX_APPROVAL\tUSER\t1\t1\tANY\tNULL\t1\n"
+    }
+  ],
+  "noDirectBusinessWrite": true,
+  "owner": "missing_object_recovery G62 bounded formalcaller TDD"
+}

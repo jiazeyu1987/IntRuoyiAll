@@ -1,0 +1,10 @@
+{
+  "status": "VISIBLE_REVIEW_DOCUMENT_UPDATED_DEVELOPMENT_NO_QUALITY_GATE",
+  "source": "doc\\tasks\\20261001-dcc-integration-unblock\\g27-audit26-quality-review.html",
+  "oldSha256": "591a28e99a5d64deab30898aa977642aff46be7f9ce6165ea3c13a0ff30e5954",
+  "oldProtectedCopy": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g43-document-history\\g27-audit26-quality-review.html",
+  "currentSha256": "f4ff581da7f262b637fe93eb5ab44e815d8aaa8c78dbf2db173ac60983d6a688",
+  "fixedAuditRows": 26,
+  "qualityApprovalInvented": false,
+  "legacyRegistrationComplete": true
+}

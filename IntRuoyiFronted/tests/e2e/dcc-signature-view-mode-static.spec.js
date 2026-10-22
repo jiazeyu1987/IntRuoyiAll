@@ -78,19 +78,16 @@ for (const label of advancedColumnLabels) {
   assert.match(signaturePage, columnPattern, `${label} column must only render in advanced view`)
 }
 
-const detailRequiredLabels = [
-  '任务ID',
-  '源文件 hash',
-  '副本 hash',
-  '证据 hash',
-  '载荷版本',
-  '算法/密钥',
-  '校验结果',
-  '字段顺序',
-  '规范载荷'
+const pdfPreviewRequiredTokens = [
+  '签名证据 PDF',
+  '签名证据 PDF 预览',
+  'fetchDccSignatureEvidencePdfArtifact(controlledFileId)',
+  'URL.createObjectURL(artifact.blob)',
+  'URL.revokeObjectURL(signaturePdfPreviewDialog.objectUrl)',
+  ':src="signaturePdfPreviewDialog.objectUrl"'
 ]
-for (const label of detailRequiredLabels) {
-  assert.match(signaturePage, new RegExp(label), `signature detail must keep ${label}`)
+for (const token of pdfPreviewRequiredTokens) {
+  assert.match(signaturePage, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `signature evidence PDF preview must keep ${token}`)
 }
 
 assert.doesNotMatch(

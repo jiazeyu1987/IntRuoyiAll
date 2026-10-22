@@ -1,0 +1,27 @@
+{
+  "status": "FINAL_G28_DRIVER_SCHEMA_INDEPENDENT_REVIEW_PREPARED_GREEN_NOT_ACTUAL_DDL",
+  "ownerManifestSha256": "ea64fd36d37fc9f3cf98da9f2ebd7b1949301a2ada671c0c96cc4fe1bd5fcadf",
+  "ownerAssetsChecked": 12,
+  "ownerSchemaCases": 11,
+  "ownerDriverCases": 16,
+  "independentCasesPreviouslyVerified": 5,
+  "boundedAdditionalProbes": 2,
+  "boundedProbeResults": [
+    "emptygzip rejected",
+    "writer changed noDDLattemptedfalse"
+  ],
+  "allFindingsClosedOffline": [
+    "R01 exactmaterial beforehistory actualledger proof",
+    "R02 CHECK literalunderscore preserved",
+    "R03 freshbackup sealedcommand actualpayloadcoverage",
+    "R04 currentwriter refusal attemptedfalse"
+  ],
+  "actualDatabaseTransportInvocations": 0,
+  "actualDDLExecuted": false,
+  "productionEdits": 0,
+  "mavenByReviewer": 0,
+  "newWriteAuthorization": false,
+  "qualityApproved": false,
+  "reportSha256": "36d02f4964d27bd1192e1224fb36e6cbe7fe4f455594afac33a1162693185fb6",
+  "testSha256": "0da06fd50cace2dda38f6545332975d3354f939c0b7ba57fcff1d970c137a9c2"
+}

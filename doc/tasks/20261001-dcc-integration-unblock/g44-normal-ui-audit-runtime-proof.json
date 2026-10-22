@@ -1,0 +1,18 @@
+{
+  "status": "ACTUAL_NEW_NORMAL_UI_AUDIT_USERNAME_FIXED_AND_OLD_EVENTS_UNCHANGED",
+  "newEvent": {
+    "actorId": "1",
+    "eventId": "205",
+    "eventHash": "9a20669ece7938ce34a1ed76c757aad0e298d0d40a2ff538e51dda3a5acbeade",
+    "operation": "dcc.project-product.reviewer-config",
+    "isSystemActorLiteral": false,
+    "displayMatchesCurrent": true,
+    "usernameMatchesCurrent": true
+  },
+  "actualFrontendAction": "Project reviewer configuration save confirmation with current actor; no API/DB action substitution",
+  "oldSixEventHashesUnchanged": true,
+  "loadedJarSha256": "fda108fddb591158f47d2f1352d732ce56fa1f262714fa4bec37c311cee3d617",
+  "backendPid": 55612,
+  "apiAndDbReadOnlyCorroboration": true,
+  "wholeGoalComplete": false
+}

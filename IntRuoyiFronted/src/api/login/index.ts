@@ -11,6 +11,12 @@ export interface SmsLoginVO {
   code: string
 }
 
+export interface PreLoginPasswordChangeVO {
+  username: string
+  oldPassword: string
+  newPassword: string
+}
+
 export interface InvoiceVoucherPrintTicketRespVO {
   ticket: string
   expiresTime: string
@@ -42,6 +48,18 @@ export const login = (data: UserLoginVO, tenantId?: number | boolean) => {
     url: '/system/auth/login',
     data,
     headers: {
+      isEncrypt: false,
+      ...(typeof tenantId === 'number' ? { 'tenant-id': tenantId } : {})
+    }
+  })
+}
+
+export const changePasswordBeforeLogin = (data: PreLoginPasswordChangeVO, tenantId?: number | boolean) => {
+  return request.post<boolean>({
+    url: '/system/auth/change-password-before-login',
+    data,
+    headers: {
+      isToken: false,
       isEncrypt: false,
       ...(typeof tenantId === 'number' ? { 'tenant-id': tenantId } : {})
     }

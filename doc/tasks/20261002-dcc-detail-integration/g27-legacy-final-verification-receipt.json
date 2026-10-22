@@ -1,0 +1,37 @@
+{
+  "status": "ISOLATED_SOFTWARE_PASS_PENDING_ROOT_REVIEW",
+  "previousBroadRegression": {
+    "tests": 579,
+    "classes": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "receipt": "g26-legacy-core-verification-receipt.json"
+  },
+  "currentIncrement": {
+    "tests": 324,
+    "classes": 5,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "mavenExitCode": 0,
+    "logSha256": "20f12ce062069bbfc9f35e8fcfaef324bebc9698967114a2c8d770a596bad6f8",
+    "note": "overlaps previous broad tests; do not add totals"
+  },
+  "sourceFingerprintSha256": "740678d518f7d635cdd3aecda437861fdaa7f1e631ce38eb43219533505bbec6",
+  "realUserInterfaceE2E": false,
+  "newMySQLFirstRepeat": false,
+  "actualHistoryActivation": false,
+  "source35of39Complete": false,
+  "qualityApproval": false,
+  "actualObjectRecovery": false,
+  "publicAfterRetentionNumberReuse": false,
+  "authoritativePolicyCandidateSha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "authoritativeCoverage": {
+    "operations": 34,
+    "annotations": 12,
+    "sha256": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+    "exitCode": 0,
+    "qualityApproved": false
+  }
+}

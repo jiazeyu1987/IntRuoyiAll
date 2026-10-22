@@ -663,7 +663,7 @@ const handleReferences = async (row: MdmProductRespVO) => {
 
 const openLinkedProjectCodeManagement = (row: MdmProductRespVO) => {
   router.push({
-    path: '/mes/md/dcc-project-code',
+    path: '/mdm/project-code',
     query: { productMasterId: String(row.id) }
   })
 }

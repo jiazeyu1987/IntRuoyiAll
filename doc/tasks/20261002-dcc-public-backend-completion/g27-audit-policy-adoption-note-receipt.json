@@ -1,0 +1,9 @@
+{
+  "status": "ROOT_ADOPTED_UNAPPROVED_CANDIDATE_SEPARATE_FROM_PREPARATION_RECEIPT",
+  "candidateSha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "reviewNotesSha256": "47753ee88e1b25b32109a6c2fe956c0301260ba0611525bbf197724f630e750e",
+  "priorPreparationReceiptUnchanged": true,
+  "qualityApproved": false,
+  "database26ConfigurationAuthorized": false,
+  "reviewerPolicyEdit": false
+}

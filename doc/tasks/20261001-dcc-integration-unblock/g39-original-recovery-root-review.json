@@ -1,0 +1,14 @@
+{
+  "status": "ACTUAL_THREE_OBJECT_RECOVERY_AND_INDEPENDENT_ALL39_MATCH_PASS_NOT_LEGACY_ACTIVATION",
+  "objectRecoveryExit": 0,
+  "acceptedUniqueKeys": 3,
+  "independentObjectsRead": 39,
+  "matches": 39,
+  "sourceBytesVerified": true,
+  "recoveryReceiptSha256": "b1dcacd763c47d7a7275537a6eeb0b59aea382954e9821f0c5bbc08ae0d7b327",
+  "sourceReceiptSha256": "bb3f2ff2fdaf0d77219f884f771ad6222b54c7d13a267d4e15f88f9fc03e686f",
+  "sourceResultsSha256": "a9f76c66041fcff6c99b59821e3ca974215da05bdc46ed18b8621c4ee988d4e4",
+  "actualDatabaseWrites": false,
+  "actualQualityApproved": false,
+  "legacyActivationExecuted": false
+}

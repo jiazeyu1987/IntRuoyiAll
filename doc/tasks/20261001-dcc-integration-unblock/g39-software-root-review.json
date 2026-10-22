@@ -1,0 +1,61 @@
+{
+  "status": "G39_OWNER_AND_VALIDATOR_PIN_REVIEWED_PACKAGED_NOT_REAL_UI_ACCEPTANCE",
+  "ownerTests": 154,
+  "ownerClasses": 8,
+  "pinTests": 28,
+  "pinClasses": 3,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "packageExit": 0,
+  "ownerSourceManifestSha256": "f0d435ee7acd9ccde8a7b10bf53c11f3a41db3e872e22068af95032bd06e6609",
+  "pinSourceManifestSha256": "e290ccdf6d160175d34e6840b5187bee932a51b947d666124577457e4f876ad0",
+  "independentOwnerReviewSha256": "7e52657bd98416a8bc9e2e62cbf8df58d7de3db40eb28c73627e4fbe5ea7db4b",
+  "jar": {
+    "path": "C:\\IntRuoyi\\20261001-dcc-integration\\IntRuoyiBackend\\yudao-server\\target\\yudao-server-exec.jar",
+    "bytes": 507324377,
+    "sha256": "851ba7ed21a86e0866734f75b44f69f59d2f56612cf3f0186d96f5c72f42c5c2"
+  },
+  "nestedDccSha256": "b020ec8ae0057b04657bddc24efbd378cbf5066e09e0765f26064e201b045e4a",
+  "newProductionCompiledClasses": [
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessService.class",
+      "sha256": "77dac58a06b51e1c26e368dc3ae55b695106f791f7de3f3fb176b07ac637a5be"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/access/DccProjectAccessServiceImpl.class",
+      "sha256": "55ca0aa37790ec14b8bc712a6880e9319ed990c73938a0dc6b28686636ce54b8"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductCreateWriteService.class",
+      "sha256": "581485e05919190a9153b3cf068fd10d0ca032677a0607ba6da6972667a1d064"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService$Snapshot.class",
+      "sha256": "7900cff8bd2b720740f89fc8ac51106f615e77c62ea67ac790a3bf83d9971051"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/projectcode/productcreate/DccProjectProductAuditService.class",
+      "sha256": "4c5bf8b34ed0c108d4119afe134b70cc9e25faa7b1c3686e534c877c944dee15"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Descriptor.class",
+      "sha256": "0b2e0cf3345e1859db2fad9e5ccc617716b3c37ef90e620c5e3c4f06f432682a"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate$Input.class",
+      "sha256": "0d8488eae3522f6e5eefaf3436d3ca84f440c41819035dec50198fd0da9f3ab9"
+    },
+    {
+      "class": "cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceGate.class",
+      "sha256": "135a922427cc9188ce7508a90257a05ddd3d135a99dc20b01325c235ea09d544"
+    }
+  ],
+  "old41SourceUnchanged": true,
+  "oldG33SupersededOnlyGateAndGateTest": true,
+  "protectedNontask6Unchanged": true,
+  "actualQualityApproved": false,
+  "actualProjectBusinessDataCreated": false,
+  "actualBrowserAcceptance": false,
+  "localIntQmsMergeExecuted": false
+}

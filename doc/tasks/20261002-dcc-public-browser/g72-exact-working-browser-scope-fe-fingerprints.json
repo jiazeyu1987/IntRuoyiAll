@@ -1,0 +1,117 @@
+{
+  "status": "G72_EXACT_WORKING_BROWSER_SCOPE_FRONTEND_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 2,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/browser/index.vue",
+      "bytes": 161590,
+      "sha256": "7b90dccf0b31e03f634cbf41a45d1a593b73803ec1c276e38ab94a3ac3434701"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "bytes": 86472,
+      "sha256": "727a3f219bf2efdf240decd21dd4fc94192d0c6dec250dc1d8cef7fb2c163eec"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-exact-working-browser-scope.test.cjs",
+      "bytes": 3984,
+      "sha256": "6b7633949171c949148c5f857826310455a52643bf914b7f802dd334837c2657"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-bdd.md",
+      "bytes": 3027,
+      "sha256": "75cf334e143ff1b1d0c1eac2bbe18e2338bd63a6eada3765b5e9426a4d1dd1e6"
+    }
+  ],
+  "previousBrowserStage": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g69-browser-upload-business-error-fingerprints.json",
+    "bytes": 4023,
+    "sha256": "e208550ac6d33f54a8ad8ad2d157d2c0888c98ff48c8d1c03198b5e3db524200"
+  },
+  "verification": {
+    "effectiveRED": {
+      "tests": 3,
+      "pass": 1,
+      "failures": 2,
+      "exitCode": 1
+    },
+    "finalRegression": {
+      "files": 5,
+      "tests": 37,
+      "pass": 37,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "3new+34existingG69checkin/display/navigation,notadditive"
+    },
+    "ownedLint": {
+      "files": 2,
+      "warnings": 0,
+      "exitCode": 0,
+      "session": 78138
+    },
+    "fullTypes": {
+      "session": 70969,
+      "exitCode": 0,
+      "command": "node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json"
+    },
+    "fullBuild": {
+      "status": "Not run per Root bounded scope,oldG67build notclaimednewsource"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-red.log",
+      "bytes": 2356,
+      "sha256": "e8abd24a0f25f9b6a37c9e0635ed73ce619f0cf41d1ae93b32a3f2593df04fec"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-final.log",
+      "bytes": 4258,
+      "sha256": "8769ec6f4c02d414ac2115e45a937f8f580374ed3c93b692fd11e9b36f1f1dbd"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g72-exact-working-browser-scope-fe-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g72-final-types.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "protectedOtherStages": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g68-withdrawn-revision-hint-fingerprints-r2.json",
+      "bytes": 2718,
+      "sha256": "25091b10bd348d7ea0759c0f448c344bbff3b1a8f7ad3f72925da3d770c7d714"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g67-relation-remediation-notification-fingerprints.json",
+      "bytes": 5053,
+      "sha256": "810f2d66ad1c8cfd85f943c518e3cfbc499bb1679752cdd783b1eee9834383c0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g64-upload-http-business-error-fingerprints-r2.json",
+      "bytes": 2926,
+      "sha256": "71955979cffe4a9f23506ee05727f0ee58317fa853a072aa7d89013836f3d92d"
+    }
+  ],
+  "exactContracts": [
+    "Only storagegetList/requestcontext opt in existing strictworkingquery identity pair;positiveexactLongstrings notNumber",
+    "Sharedbuilder defaultfalse ensures existing3exports no pair;otherbuilders/routes/cache/currentselectionpolicy unchanged",
+    "Normal/project/noPair requests unchanged;malformed orhalf pair strict error,not unrestricted fallback",
+    "SameexistingbrowserAPI and actualAxiosadapter prove params;BE alone validates sameTenantFileMaster before candidate scope/authorization/originalaggregation",
+    "workflow PageReq only optionalstringfields added;prior storageMapping and errorlogic retained"
+  ],
+  "supersedes": "Only declared G69browser requestbuilder/getList bytes and workflowPageReq2typefield bytes,plus newtest;previousmanifests retained,protectedParent/notify/submitter unchanged",
+  "limitations": [
+    "Offline actualnav/builder/HTTPwrapper/Axiosadapterplusfulltypes/lint,not realUI/runtimeperformanceorlocks",
+    "Root scopedBEnewpackage/ordinaryaccountnormalnavigation and selectedversion lock acceptance pending",
+    "No Vitebuild/API/UI/DB/Git/runtime/Maven by agent;sharedtaskin_progress"
+  ]
+}

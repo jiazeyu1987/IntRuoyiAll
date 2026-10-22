@@ -1,0 +1,12 @@
+{
+  "status": "G54_ROOT_FROZEN_TWO_PRODUCTION_CONTEXT_AND_SCOPE_XML69_PASS_NOT_UI",
+  "manifestSha256": "d595597800804270aaf6d964398023e340d31d5476222df15be4cce063715577",
+  "tests": 69,
+  "classes": 6,
+  "currentTaskDefinitionIdentity": "EXACT_ID_TENANT_THREE_KEYS",
+  "nonRevisionRemediation": "NOT_EXECUTED_NONEMPTY_REJECTED_BEFORE_SIGNATURE",
+  "revisionRemediation": "UNCHANGED_STRICT_SAVED",
+  "actualFixedAssignment": "NOT_YET",
+  "lastNecessaryExistingContextFixture": "PASS_ACTUAL_SINGLECASE_EXIT_0_6576_R3_7800",
+  "additionalExistingContextCase": 1
+}

@@ -1,0 +1,15 @@
+# G72 正常检出浏览传送准确文件及Master范围
+
+Status: ready_for_closeout_for_Root_review。共享任务保持in_progress。Root实际普通账号正常详情4028检出导航到storage列表30秒超时；原route已验证target/fileMaster但未传backend，latest查询先全库权限再聚合。Root正式BE合同新增browser-page可选workingFileId/workingMasterId成对Long；同tenant File.master核对后仅该Master全部candidate仍按原权限/最新聚合/keyword，不改无pair普通列表。
+
+Given原canonical检出导航产生exacttarget与Master两个十进制string，Whenstorage getList构造现浏览请求，Then两字段原精度传existingbrowser-page；不转换Number、不invent参数/API。不带pair的普通浏览和项目/目录/history策略不变，旧route缓存/返回后选项校验保持。
+
+Given相同builder也用于三个导出caller，When其调用原无参builder，Then不携带pair，避免让正式禁止pair的导出接口误收操作身份。只有getList请求和同请求上下文核对显式includeWorkingScope；不改变导出其余参数。Given单字段/非法或溢出identity，Then现helper严格拒，不查全库作替代或伪返回空成功。
+
+唯一生产browser/index.vue（builder includeWorkingScope默认false/getList显式true）、api/dcc/controlledFile/workflow.ts PageReq两个optional string字段；new专属actualnav/builder/原API/实际Axios离线adapter测试。先有效RED→GREEN，G69邻接及导航回归/lint、一次完整types，按Root不全build。ParentG68r2/G69errorlogic/G67notify保，Backend/Maven/runtime/DB/UI/Git Root及BEOwner独占。
+
+有效未改源码RED3=1PASS/2FAIL、exit1（red.log）：actualcanonical workingnav已有pair但真实builder不送、非法单字段builder没校验；普通/export无pair旧行为PASS。实施2生产，仅getList/request-context builder(true)从现strictworkingquery提取stringpair；sharedbuilder默认false保持3export无pair，projectmode不带，G69error4行保持。新增API两optionalstring，不Number/cast query，其他Request builders/选择/缓存原样。
+
+最终5文件37项PASS、0fail/skip、exit0（final.log），新3 actualnav→builder→原browserAPI→actualAxios adapterconfig精度/普通export无pair/坏pair拒及邻接G69/checkin/display/navigation34项，数量不累加历史。2生产ESLint --max-warnings0 exit0（78138终态）、单次全vue-tsc8192/tsconfig.relaxed exit0（70969终态），均无输出；本次未Vitebuild，旧G67build不代新browser验证。没有测试宿主准备错误或业务成功模拟，Axiosadapter仅离线运输证据。
+
+g72-exact-working-browser-scope-fe-fingerprints.json封2生产/1test，声明替代G69browser字节及现workflow.ts这2typefield，不改原hasProjectStorageMapping/DTOparser/wrappers。ParentG68r2、G67通知、G64submitter全原pins保持。Source/testfreeze，Root实际新BE配对同Master过滤及普通账号正常导航/锁UI仍待；本Agent无UI/API/DB/Git/服务/Maven操作。

@@ -1,0 +1,40 @@
+{
+  "status": "REVIEWED_PENDING_SPECIFIC_THREE_OBJECT_USER_PERMISSION",
+  "actualSource19Upgrade": "PASS",
+  "actualQualityApproval": "尚未批准",
+  "objectWritesAttempted": false,
+  "actualReadonlyBucketProbe": "READONLY_POLICY_CAPTURED",
+  "versions": "UNSET",
+  "objectLock": "NOT_CONFIGURED",
+  "restorationToolOfflineCases": 77,
+  "bucketProbeOfflineCases": 34,
+  "rootAuthorizationBoundaryTests": 3,
+  "uniqueRecoveryObjects": 3,
+  "sourceInfraReferences": 4,
+  "assets": [
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26-bucket-probe-runner.py",
+      "sha256": "ef379ceeb2b5b50832fb904cce0d72f03144f592780850b56932052c6effedb1"
+    },
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26-object-recovery-runner.py",
+      "sha256": "1a15fd11125e1898abeb8b65e89adc93076d5506d3ebb3d1a6c364eb498219bf"
+    },
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26_object_recovery_runner_test.py",
+      "sha256": "d8fb275bc74657e35f17b861589b7d7e28e0caef41c7f72e890c4dc99805adf6"
+    },
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26-object-recovery-root-review.md",
+      "sha256": "382c07c08e8b7e9a27b0eb2e0e2ef8319c2f946d12691dc7b8f7566a1889bcd7"
+    },
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26-quality-not-approved.json",
+      "sha256": "a34506f274f7681dc46ef6a4859e4220488a130a99b2d5ddf7a8e18844462e15"
+    },
+    {
+      "path": "doc\\tasks\\20261001-dcc-integration-unblock\\g26-audit-rules-quality-review.html",
+      "sha256": "619299c39fe3d2739ef9f5684f3ee78de996e66c7fe69cbde1f5b67b113b2de0"
+    }
+  ]
+}

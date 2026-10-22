@@ -29,6 +29,9 @@ import static org.mockito.Mockito.when;
 
 class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
 
+    @Mock private cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectFolderStorageMappingMapper storageMappings;
+    @org.junit.jupiter.api.BeforeEach void tenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.setTenantId(1L);}
+    @org.junit.jupiter.api.AfterEach void clearTenant(){cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.clear();}
     @Mock
     private DccDirectoryAccessRuleMapper accessRuleMapper;
     @Mock
@@ -45,6 +48,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
     void getAuthorizedDirectoryIds_queryMatchesUserDeptRoleAndPost() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setStatus(0).setTenantId(1L)
                 .setDeptId(10L)
                 .setPostIds(Set.of(20L)));
         doReturn(List.of(
@@ -65,6 +69,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
     void getAuthorizedDirectoryIds_roleRulesUseCurrentUserRoleIdsOnce() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setStatus(0).setTenantId(1L)
                 .setDeptId(10L)
                 .setPostIds(Set.of()));
         doReturn(List.of(
@@ -83,9 +88,10 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void getAuthorizedDirectoryIds_deptRuleMatchesUserDeptAncestorWithoutChildTraversal() {
+    void getAuthorizedDirectoryIds_nameOnlyDeptRuleDoesNotGrantContentPreview() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setStatus(0).setTenantId(1L)
                 .setDeptId(11L)
                 .setPostIds(Set.of()));
         doReturn(List.of(
@@ -97,7 +103,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
 
         Set<Long> actual = permissionService.getAuthorizedDirectoryIds(99L, DccAccessTypeEnum.PREVIEW);
 
-        assertEquals(Set.of(2L), actual);
+        assertEquals(Set.of(), actual);
         verify(deptApi, never()).getChildDeptList(any());
     }
 
@@ -105,6 +111,7 @@ class DccDirectoryAccessPermissionServiceTest extends BaseMockitoUnitTest {
     void getAuthorizedDirectoryIds_queryTreatsLegacyPreviewOnlyRuleAsMergedReadPermission() {
         when(adminUserApi.getUser(99L)).thenReturn(new AdminUserRespDTO()
                 .setId(99L)
+                .setStatus(0).setTenantId(1L)
                 .setDeptId(10L)
                 .setPostIds(Set.of()));
         doReturn(List.of(

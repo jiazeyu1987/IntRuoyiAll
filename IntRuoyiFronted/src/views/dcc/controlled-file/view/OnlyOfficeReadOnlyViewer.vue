@@ -12,7 +12,7 @@
       <div class="onlyoffice-viewer-toolbar">
         <div class="onlyoffice-viewer-toolbar__hint">
           <span>Ctrl + 滚轮可缩放预览</span>
-          <span>当前仅调整查看比例，不放开受控权限</span>
+          <span>仅调整查看比例和方向；分页、正文搜索使用文档内工具</span>
         </div>
         <div class="onlyoffice-viewer-toolbar__actions">
           <el-button
@@ -25,6 +25,9 @@
           >
             缩小
           </el-button>
+          <el-button text bg size="small" aria-label="旋转预览" @click="rotatePreview">旋转</el-button>
+          <el-button text bg size="small" aria-label="复原预览" :disabled="previewRotationDegrees === 0 && previewZoomValue === DEFAULT_ZOOM_VALUE" @click="resetView">复原</el-button>
+          <span class="onlyoffice-viewer-toolbar__rotation" aria-live="polite">{{ previewRotationDegrees }}°</span>
           <div class="onlyoffice-viewer-toolbar__value">{{ previewZoomLabel }}</div>
           <el-button
             text
@@ -50,6 +53,7 @@
       </div>
       <div
         class="onlyoffice-viewer-frame__stage"
+        ref="stageRef"
         @mouseenter="isPointerInsideStage = true"
         @mouseleave="handleStageLeave"
         @wheel="handleWheelZoom"
@@ -57,13 +61,17 @@
         <div v-if="wheelZoomArmed" class="onlyoffice-viewer-frame__wheel-mask">
           滚轮缩放已激活
         </div>
-        <div class="onlyoffice-viewer-frame__scaler" :style="scalerStyle">
-          <div
-            ref="mountRef"
-            :id="containerId"
-            class="onlyoffice-viewer-frame__mount"
-            :class="{ 'onlyoffice-viewer-frame__mount--wheel-armed': wheelZoomArmed }"
-          ></div>
+        <div class="onlyoffice-viewer-frame__scroll">
+          <div class="onlyoffice-viewer-frame__viewport" :style="viewportStyle">
+            <div class="onlyoffice-viewer-frame__scaler" :style="scalerStyle">
+              <div
+                ref="mountRef"
+                :id="containerId"
+                class="onlyoffice-viewer-frame__mount"
+                :class="{ 'onlyoffice-viewer-frame__mount--wheel-armed': wheelZoomArmed }"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
       <div
@@ -94,6 +102,7 @@ declare global {
       }
     }
     __dccOnlyOfficeScriptPromise?: Promise<void>
+    __dccOnlyOfficeScriptBaseUrl?: string
   }
 }
 
@@ -106,6 +115,10 @@ const props = defineProps<{
   watermarkBackground?: string
   unavailableReason?: string
 }>()
+const emit = defineEmits<{
+  opened: [event: { documentUrl: string }]
+  error: [event: { documentUrl: string; message: string }]
+}>()
 
 const containerId = `dcc-onlyoffice-${Math.random().toString(36).slice(2, 10)}`
 const DEFAULT_ZOOM_VALUE = 100
@@ -115,10 +128,16 @@ const ZOOM_STEP_VALUE = 10
 const VIEWER_STAGE_HEIGHT = 720
 const errorMessage = ref('')
 const mountRef = ref<HTMLDivElement>()
+const stageRef = ref<HTMLDivElement>()
+const stageWidth = ref(0)
+let stageResizeObserver: ResizeObserver | null = null
 const previewZoomValue = ref(DEFAULT_ZOOM_VALUE)
+const previewRotationDegrees = ref(0)
 const isPointerInsideStage = ref(false)
 const isZoomModifierPressed = ref(false)
 let editorInstance: { destroyEditor?: () => void } | null = null
+let editorGeneration = 0
+let viewerUnmounted = false
 
 const onlyOfficeReadOnlyPermissions = {
   edit: false,
@@ -145,12 +164,21 @@ const previewZoomLabel = computed(() => `${previewZoomValue.value}%`)
 const canZoomOut = computed(() => previewZoomValue.value > MIN_ZOOM_VALUE)
 const canZoomIn = computed(() => previewZoomValue.value < MAX_ZOOM_VALUE)
 const wheelZoomArmed = computed(() => isPointerInsideStage.value && isZoomModifierPressed.value)
+const viewportStyle = computed(() => {
+  const quarterTurn = previewRotationDegrees.value % 180 !== 0
+  const width = stageWidth.value || stageRef.value?.clientWidth || 0
+  return {
+    width: `${Math.ceil((quarterTurn ? VIEWER_STAGE_HEIGHT : width) * previewZoomValue.value / 100)}px`,
+    height: `${Math.ceil((quarterTurn ? width : VIEWER_STAGE_HEIGHT) * previewZoomValue.value / 100)}px`
+  }
+})
 const scalerStyle = computed(() => {
   const zoomScale = previewZoomValue.value / 100
+  const width = stageWidth.value || stageRef.value?.clientWidth || 0
   return {
-    width: `${100 / zoomScale}%`,
-    height: `${VIEWER_STAGE_HEIGHT / zoomScale}px`,
-    transform: `scale(${zoomScale})`
+    width: `${width}px`,
+    height: `${VIEWER_STAGE_HEIGHT}px`,
+    transform: `translate(-50%, -50%) rotate(${previewRotationDegrees.value}deg) scale(${zoomScale})`
   }
 })
 
@@ -212,28 +240,50 @@ const resolveOnlyOfficeDocumentErrorMessage = (event: unknown) => {
 }
 
 const loadOnlyOfficeScript = async (baseUrl: string) => {
-  if (window.DocsAPI?.DocEditor) {
-    return
+  const scriptBaseUrl = trimTrailingSlash(baseUrl)
+  if ((window.DocsAPI?.DocEditor || window.__dccOnlyOfficeScriptPromise) && !window.__dccOnlyOfficeScriptBaseUrl) {
+    throw new Error('OnlyOffice 预览服务来源未记录，无法核验当前文档的预览服务')
   }
-  if (!window.__dccOnlyOfficeScriptPromise) {
+  if (window.__dccOnlyOfficeScriptBaseUrl && window.__dccOnlyOfficeScriptBaseUrl !== scriptBaseUrl) {
+    throw new Error('OnlyOffice 预览服务地址发生变化，不能复用其他服务的预览脚本')
+  }
+  if (!window.DocsAPI?.DocEditor && !window.__dccOnlyOfficeScriptPromise) {
+    window.__dccOnlyOfficeScriptBaseUrl = scriptBaseUrl
     window.__dccOnlyOfficeScriptPromise = new Promise<void>((resolve, reject) => {
       const script = document.createElement('script')
       script.src = `${trimTrailingSlash(baseUrl)}/web-apps/apps/api/documents/api.js`
       script.async = true
       script.onload = () => resolve()
       script.onerror = () => {
-        window.__dccOnlyOfficeScriptPromise = undefined
         reject(new Error('OnlyOffice 预览脚本加载失败'))
       }
       document.head.appendChild(script)
     })
   }
-  await window.__dccOnlyOfficeScriptPromise
+  const pending = window.__dccOnlyOfficeScriptPromise
+  try {
+    await pending
+    const DocEditor = window.DocsAPI?.DocEditor
+    if (typeof DocEditor !== 'function') {
+      throw new Error('OnlyOffice 预览脚本已加载，但文档服务接口未就绪')
+    }
+    // Check constructibility without executing the SDK constructor or creating a document.
+    Reflect.construct(Object, [], DocEditor)
+    return DocEditor
+  } catch (error) {
+    if (window.__dccOnlyOfficeScriptPromise === pending && window.__dccOnlyOfficeScriptBaseUrl === scriptBaseUrl) {
+      window.__dccOnlyOfficeScriptPromise = undefined
+      window.__dccOnlyOfficeScriptBaseUrl = undefined
+      window.DocsAPI = undefined
+    }
+    throw error
+  }
 }
 
 const destroyEditor = () => {
-  editorInstance?.destroyEditor?.()
+  const instance = editorInstance
   editorInstance = null
+  instance?.destroyEditor?.()
 }
 
 const applyZoom = (value: number) => {
@@ -251,6 +301,26 @@ const increaseZoom = () => {
 const resetZoom = () => {
   applyZoom(DEFAULT_ZOOM_VALUE)
 }
+
+const rotatePreview = () => {
+  previewRotationDegrees.value = (previewRotationDegrees.value + 90) % 360
+}
+
+const resetView = () => {
+  resetZoom()
+  previewRotationDegrees.value = 0
+}
+
+watch(stageRef, (element) => {
+  stageResizeObserver?.disconnect()
+  if (viewerUnmounted) return
+  stageWidth.value = element?.clientWidth || 0
+  if (!element) return
+  stageResizeObserver = new ResizeObserver(() => {
+    if (!viewerUnmounted && stageRef.value === element) stageWidth.value = element.clientWidth
+  })
+  stageResizeObserver.observe(element)
+})
 
 const syncZoomModifierState = (event?: KeyboardEvent) => {
   isZoomModifierPressed.value = Boolean(event?.ctrlKey || event?.metaKey)
@@ -287,30 +357,35 @@ const handleWheelZoom = (event: WheelEvent) => {
 }
 
 const mountEditor = async () => {
-  destroyEditor()
+  const generation = ++editorGeneration
+  let documentReadyEmitted = false
+  resetView()
+  isPointerInsideStage.value = false
+  isZoomModifierPressed.value = false
   errorMessage.value = props.unavailableReason || ''
-  if (errorMessage.value) {
-    return
-  }
   const baseUrl = trimTrailingSlash(props.baseUrl)
   const documentUrl = String(props.documentUrl || '').trim()
-  if (!baseUrl || !documentUrl) {
-    errorMessage.value = 'OnlyOffice 预览地址未准备好'
-    return
-  }
+  const documentTitle = String(props.documentTitle || '')
+  const matchesEditorSource = () => baseUrl === trimTrailingSlash(props.baseUrl)
+    && documentUrl === String(props.documentUrl || '').trim()
+    && documentTitle === String(props.documentTitle || '') && !props.unavailableReason
+  const isCurrentEditorSource = () => !viewerUnmounted && generation === editorGeneration && matchesEditorSource()
   try {
-    await loadOnlyOfficeScript(baseUrl)
-    if (!window.DocsAPI?.DocEditor) {
-      errorMessage.value = 'OnlyOffice 预览脚本未就绪'
+    destroyEditor()
+    if (errorMessage.value) return
+    if (!baseUrl || !documentUrl) {
+      errorMessage.value = 'OnlyOffice 预览地址未准备好'
       return
     }
-    const extension = resolveFileExtension(props.documentTitle || documentUrl)
+    const DocEditor = await loadOnlyOfficeScript(baseUrl)
+    if (!isCurrentEditorSource()) return
+    const extension = resolveFileExtension(documentTitle || documentUrl)
     const documentType = resolveDocumentType(extension)
-    editorInstance = new window.DocsAPI.DocEditor(containerId, {
+    const instance = new DocEditor(containerId, {
       document: {
         fileType: extension,
         key: buildDocumentKey(documentUrl),
-        title: props.documentTitle || 'Office 受控预览',
+        title: documentTitle || 'Office 受控预览',
         url: documentUrl,
         permissions: onlyOfficeReadOnlyPermissions
       },
@@ -331,17 +406,40 @@ const mountEditor = async () => {
         }
       },
       events: {
+        onDocumentReady: () => {
+          if (!isCurrentEditorSource() || documentReadyEmitted || errorMessage.value) return
+          documentReadyEmitted = true
+          emit('opened', { documentUrl })
+        },
         onError: (event: unknown) => {
-          errorMessage.value = resolveOnlyOfficeDocumentErrorMessage(event)
-          destroyEditor()
+          if (!isCurrentEditorSource()) return
+          let message = resolveOnlyOfficeDocumentErrorMessage(event)
+          const failureGeneration = ++editorGeneration
+          try {
+            destroyEditor()
+          } catch (error) {
+            message += `；关闭 Office 预览失败：${resolveOnlyOfficeErrorMessage(error)}`
+          }
+          if (viewerUnmounted || editorGeneration !== failureGeneration || !matchesEditorSource()) return
+          errorMessage.value = message
+          emit('error', { documentUrl, message })
         }
       },
       type: 'desktop',
       width: '100%',
-      height: '720px'
+      height: '100%'
     })
+    // SDK callbacks may invalidate the source synchronously before the constructor returns.
+    if (!isCurrentEditorSource()) {
+      instance.destroyEditor?.()
+      return
+    }
+    editorInstance = instance
   } catch (error) {
-    errorMessage.value = resolveOnlyOfficeErrorMessage(error)
+    if (isCurrentEditorSource()) {
+      errorMessage.value = resolveOnlyOfficeErrorMessage(error)
+      emit('error', { documentUrl, message: errorMessage.value })
+    }
   }
 }
 
@@ -360,6 +458,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stageResizeObserver?.disconnect()
+  viewerUnmounted = true
+  editorGeneration++
   window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('keyup', handleWindowKeyup)
   window.removeEventListener('blur', handleWindowBlur)
@@ -411,6 +512,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .onlyoffice-viewer-toolbar__value {
@@ -429,14 +531,27 @@ onBeforeUnmount(() => {
 .onlyoffice-viewer-frame__stage {
   position: relative;
   height: 720px;
-  overflow: hidden;
   border: 1px solid #dbe3ef;
   border-radius: 6px;
   background: #fff;
 }
 
+.onlyoffice-viewer-frame__scroll {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.onlyoffice-viewer-frame__viewport {
+  position: relative;
+  margin: 0 auto;
+}
+
 .onlyoffice-viewer-frame__scaler {
-  transform-origin: top left;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
   transition: transform 0.16s ease;
 }
 

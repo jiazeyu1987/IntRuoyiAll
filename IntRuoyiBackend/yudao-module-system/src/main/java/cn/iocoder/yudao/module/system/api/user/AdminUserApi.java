@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.system.api.user;
 
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -22,6 +23,9 @@ public interface AdminUserApi {
      * @return 用户对象信息
      */
     AdminUserRespDTO getUser(Long id);
+
+    /** Exact current-tenant persisted direct-supervisor relation; unconfigured supervisor stays null. */
+    AdminUserDirectSupervisorRespDTO getDirectSupervisorRelation(Long userId);
 
     /**
      * 在调用方事务内锁定当前租户的正式人员身份，用于后续资格变更。

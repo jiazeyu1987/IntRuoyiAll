@@ -1,0 +1,22 @@
+{
+  "scope": "Local tenant1 exact26 candidate only; not approved",
+  "tenantId": 1,
+  "policyVersion": "2026-10-dcc-integration-01",
+  "policyHash": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894",
+  "coverageReportHash": "3acca207c875de851a1e645dec083a82311bdccd98523f1d48465e728d9e394d",
+  "actualQualityApproval": {
+    "approved": null,
+    "approverName": null,
+    "qualityRoleBasis": null,
+    "qualityRoleId": null,
+    "approvedBy": null,
+    "approvedAt": null,
+    "timeZone": "Asia/Shanghai",
+    "approvalReference": null,
+    "qualitySignatureEvidenceReference": null
+  },
+  "explicitLocalWriteAuthorization": {
+    "registerMaximumOneNewVersionRow": false,
+    "registerExact26OperationRows": false
+  }
+}

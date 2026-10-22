@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface DccPaperDistributionAckService {
 
-    List<DccPaperDistributionRecordRespVO> getPaperDistributionRecords(Long controlledFileId);
+    List<DccPaperDistributionRecordRespVO> getPaperDistributionRecords(Long userId, Long controlledFileId);
 
     void acknowledgePaperDistribution(Long userId, Long controlledFileId, Long distributionId,
                                       List<Long> recipientUserIds);

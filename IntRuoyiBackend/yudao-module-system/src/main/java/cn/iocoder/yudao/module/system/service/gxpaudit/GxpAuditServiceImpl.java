@@ -17,6 +17,7 @@ import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditEventRelationMa
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditLedgerSequenceMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyOperationMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.gxpaudit.GxpAuditPolicyActivationMapper;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Propagation;
@@ -48,6 +49,8 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     private GxpAuditPolicyActivationMapper policyActivationMapper;
     @Resource
     private GxpAuditEventRelationMapper eventRelationMapper;
+    @Resource
+    private AdminUserApi adminUserApi;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -76,6 +79,7 @@ public class GxpAuditServiceImpl implements GxpAuditService {
     public GxpAuditAppendResult append(GxpAuditCommand command) {
         validateRequired(command);
         Long tenantId = resolveTenantId();
+        LoginUser actor = resolveActor(tenantId);
         GxpAuditLedgerSequenceDO ledger = lockLedgerSequence(tenantId);
         GxpAuditPolicyActivationDO activation = policyActivationMapper.selectLatestForUpdate(tenantId);
         if (activation == null) {
@@ -93,10 +97,22 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         GxpAuditCommand normalized = GxpAuditCommand.builder().build();
         BeanUtils.copyProperties(command, normalized);
         command = normalized;
-        LoginUser actor = resolveActor();
+        GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKeyForUpdate(tenantId, command.getIdempotencyKey());
+        if (existing != null) {
+            if (!Objects.equals(existing.getActorId(), actor.getId())) {
+                throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT, command.getOperationId());
+            }
+            // Directory names can change; replay preserves the originally recorded server identity.
+            if (StrUtil.isBlank(command.getAuthenticatedActor())) {
+                command.setAuthenticatedActor(existing.getAuthenticatedActorJson());
+            }
+            if (StrUtil.isBlank(command.getPerformedBy())
+                    && Objects.equals(existing.getPerformedByJson(), existing.getAuthenticatedActorJson())) {
+                command.setPerformedBy(existing.getPerformedByJson());
+            }
+        }
         enrichServerOwnedFields(command, actor, tenantId);
         String idempotencyPayloadHash = sha256(canonicalPayload(command, policy));
-        GxpAuditEventDO existing = auditEventMapper.selectByIdempotencyKeyForUpdate(tenantId, command.getIdempotencyKey());
         if (existing != null) {
             if (!Objects.equals(existing.getIdempotencyPayloadHash(), idempotencyPayloadHash)) {
                 throw exception(GXP_AUDIT_IDEMPOTENCY_CONFLICT, command.getOperationId());
@@ -289,15 +305,36 @@ public class GxpAuditServiceImpl implements GxpAuditService {
         return TenantContextHolder.getRequiredTenantId();
     }
 
-    private LoginUser resolveActor() {
+    private LoginUser resolveActor(Long tenantId) {
         LoginUser loginUser = SecurityFrameworkUtils.getLoginUser();
-        if (loginUser != null && loginUser.getId() != null) {
-            return loginUser;
+        if (loginUser != null) {
+            if (TenantContextHolder.isIgnore() || !Objects.equals(tenantId, TenantContextHolder.getTenantId())
+                    || !Objects.equals(tenantId, loginUser.getTenantId()) || loginUser.getId() == null
+                    || !Objects.equals(UserTypeEnum.ADMIN.getValue(), loginUser.getUserType()))
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "authenticated-actor");
+            if (loginUser.getId() == -1L) {
+                if (loginUser.getInfo() == null || !"SYSTEM_ACTOR".equals(loginUser.getInfo().get("username"))
+                        || !"SYSTEM_ACTOR".equals(loginUser.getInfo().get(LoginUser.INFO_KEY_NICKNAME)))
+                    throw exception(GXP_AUDIT_ACTOR_MISMATCH, "declared-system-actor");
+                return loginUser;
+            }
+            if (loginUser.getId() < 1L)
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "authenticated-actor");
+            var current = adminUserApi.getUser(loginUser.getId());
+            if (current == null || !Objects.equals(loginUser.getId(), current.getId())
+                    || !Objects.equals(tenantId, current.getTenantId()) || !Integer.valueOf(0).equals(current.getStatus())
+                    || StrUtil.isBlank(current.getUsername()) || StrUtil.isBlank(current.getNickname()))
+                throw exception(GXP_AUDIT_ACTOR_MISMATCH, "current-account");
+            // Formal OAuth info contains nickname/deptId. The current server directory owns audit account identity.
+            return new LoginUser().setId(current.getId()).setTenantId(current.getTenantId())
+                    .setUserType(loginUser.getUserType()).setInfo(Map.of("username", current.getUsername(),
+                            LoginUser.INFO_KEY_NICKNAME, current.getNickname()));
         }
+        // Existing explicit system callers clear the security context while retaining the tenant.
         LoginUser systemActor = new LoginUser();
         systemActor.setId(-1L);
         systemActor.setUserType(UserTypeEnum.ADMIN.getValue());
-        systemActor.setTenantId(resolveTenantId());
+        systemActor.setTenantId(tenantId);
         systemActor.setInfo(Map.of(LoginUser.INFO_KEY_NICKNAME, "SYSTEM_ACTOR", "username", "SYSTEM_ACTOR"));
         return systemActor;
     }

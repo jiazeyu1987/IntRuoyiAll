@@ -94,7 +94,7 @@
         >
           {{ formatDccProjectCodeLink(file) }}
         </el-link>
-        <span v-else>-</span>
+        <span v-else>未绑定 DCC 项目代码</span>
       </el-descriptions-item>
       <el-descriptions-item label="文件类别 I">
         {{ file?.fileTypeLevel1 || '-' }}
@@ -114,12 +114,16 @@
       <el-descriptions-item label="培训要求">
         {{ file?.needTraining ? '需要培训' : '无需培训' }}
       </el-descriptions-item>
-      <el-descriptions-item label="现行版本">
-        {{ file?.currentActiveVersionNo || '-' }}
+      <el-descriptions-item label="当前执行受控版本">
+        {{ getDccVersionDisplayText(file?.currentActiveVersionNo) }}
       </el-descriptions-item>
       <el-descriptions-item label="流程实例">
         {{ file?.processInstanceId || '-' }}
       </el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟生效时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveTime) || '尚未确认' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名时间">{{ formatDelayedEffectiveFact(file.delayedEffectiveConfirmedAt) || '尚未签名确认' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认签名">{{ file.delayedEffectiveSignatureId ? `#${file.delayedEffectiveSignatureId}` : '未记录' }}</el-descriptions-item>
+      <el-descriptions-item v-if="file?.effectiveMode === 'DELAYED'" label="延迟确认轮次">{{ file.delayedEffectiveProcessInstanceId || '未记录' }}</el-descriptions-item>
       <el-descriptions-item label="提交人">
         {{ requesterName || file?.requesterId || '-' }}
       </el-descriptions-item>
@@ -138,7 +142,7 @@
       <el-descriptions-item v-if="file?.rejectReason" label="驳回原因" :span="column">
         {{ file.rejectReason }}
       </el-descriptions-item>
-      <el-descriptions-item v-if="file?.finalizationError" label="发布失败原因" :span="column">
+      <el-descriptions-item v-if="file?.finalizationError" label="生效失败原因" :span="column">
         {{ file.finalizationError }}
       </el-descriptions-item>
       <el-descriptions-item v-if="file?.obsoleteReason" label="作废原因" :span="column">
@@ -151,6 +155,8 @@
 <script lang="ts" setup>
 import type { ControlledFileVO } from '@/api/dcc/controlledFile/workflow'
 import { formatControlledFileDateTime } from '../detail/presentation'
+import { formatDelayedEffectiveFact } from '../workflow/effective-facts'
+import { getDccVersionDisplayText } from './version-display'
 
 defineOptions({ name: 'ControlledFileBasicInfoPanel' })
 
@@ -196,7 +202,8 @@ const emit = defineEmits<{
 }>()
 
 const formatDccProjectCodeLink = (file: ControlledFileVO) => {
-  return [file.productName, file.productCode].filter(Boolean).join(' / ') || `基础条目 ${file.dccProjectCodeId}`
+  if (!file.dccProjectCodeId) return '未绑定 DCC 项目代码'
+  return [file.projectName?.trim(), file.projectCode?.trim()].filter(Boolean).join(' / ') || '项目名称及编码未记录'
 }
 </script>
 

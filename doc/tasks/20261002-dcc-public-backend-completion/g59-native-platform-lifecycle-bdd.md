@@ -1,0 +1,25 @@
+# G59 Native生命周期与共享投影正式闭环
+
+状态：ready_for_closeout，Root已审根因/八核心文件并授权唯一BE/Maven。共享canonical统一CONTROLLED_PENDING_EFFECTIVE（原设计文档EFFECT拼写仅历史、由本合同取代）；三DCC-only action COMPLETE_CONTROL/ACTIVATE_CONTROLLED/OBSOLETE_CONTROLLED。Root实际SHOWCREATE已核varchar/无状态CHECK、两unique索引，不需DDL。
+
+- Given真实DCC candidate/sharedref FINALIZING与旧ACTIVE、When正式Lifecycle.completeControl当天生效、Then双方ACTIVE、旧双方OBSOLETE、openflagNULL，下一正式candidate不被旧ref拦；旧真实Lifecycle+actualCore/H2验证有效RED，不用adaptermock或新类编译錯。
+- Given未来生效、When完成受控、Thenshared CONTROLLED_PENDING_EFFECTIVE非open/非active且旧执行仍ACTIVE；next candidate可来自DCC实际latestControlled pending（仅DCC支路），sourceNativeVersion是实际revisionSource，不借旧执行ref；非DCC source active guard保留。
+- Given到期/高版覆盖低pending、ThensameMaster/File/sharedref锁与同物理txn更新新ACTIVE、全部低ACTIVE/pendingOBSOLETE并后继，事件/Gxp/sharedaudit同成败；higherfuture、旧签名/BPM/日期/正文不动。
+- Given相同event与完整payload重放、Then零额外审计；wrongtenant/version/BPM/fromstate/另openCandidate强拒，无GETrepair/fallback/清flag假成功。
+- Given真实enabled doc_control具categorymanage+query/update+filehardscope管理者显式repairpreview/POST、Then只修完整事实支持的已控ACTIVE/pending共享FINALIZING投影，精确file/master/ref/BPM/preimage/sourceHash/reason/key；server重读真实control/activation/artifact/签名及BPM/事件，修复时间是当前审计时间，不制造历史。缺policy/证据/身份或lateerror全rollback。真实数据只Root执行。
+
+有限核心源沿Root八文件：CanonicalStatus、TransitionAction、StateMachine、TransitionProfile、LifecycleCore、VersionRefMapper、DccControlledContentAdapter、DccControlledFileLifecycleService；Repair另专属service/controller两个DTO，仅显式技术业务入口，独立Gxpoperation配置forwardSQL只准备不实库。G58Workflow/培训不改。前端Root另owner。
+
+
+## 最终验证
+
+旧实际Lifecycle+realCore/H2有效RED1failure0error（DCC已ACTIVE/sharedFINALIZING）→首GREEN1；核心精确fromdomain/flags/source/successorCAS/nullreplay测试加入后currentcore8PASS。首次最终ThreeControlledVersionActivationTest10旧Gxpaccountbean setupErrors，只补真实current99/tenant1官方目录端口及既有platformmock fixture，不生产降守卫。最终reactor143/9全0 CLI0 21:01:12；原九XMLbyte保留。封存前exacttenant signature roster缺口有效RED1failure0error→requireComplete移到accurateTenant签名之后→repair最后5/1全0 CLI0 21:09:45，原XML独立保存，两轮重叠不相加成实际一次144run。
+
+13production（八core+repairservice/controller/三DTO）/5tests冻结。G58五源/test逐SHA全部不变；原核心genericcandidate/sourceactive/非DCCprofiles/旧MES注册证合同保持。新repairGET无写、显式POSTserverpreimage/真实BPM签名artifact/time事件重读，officialGxp实际事务/latefailure/replay证据通过；测试签名验证/账号/物理客户端为明确portfixture，不实际用户E2E，整体不能靠tests数认HTML完成。
+
+正式技术policy候选35operations/13literalannotations coveragePASS，Root已独立实库配置执行newruleclone/sourcefirstrepeat，不由本owner执行。published与stamped同一合法PDF允许，不制造differentfiles或历史签名。修复操作时间用实际当前Gxp时间，原DCC日期/签名/正文/BPM不修改。所有source/target/Maven冻结FREE，由Root统一package/实际admin管理页面只修具体taskowned漂移样本，前端独立owner。
+
+
+## 最后独立review闭合 R2
+
+Root与独立reviewer提出CONTROLLED/ACTIVATED事件必须exacttenant/file/Master/version/BPM/type/eventKey/occurrence，不能只有count+time。新增实际H2corruptedMaster/version例旧repair未拒有效RED1failure0error；仅repairservice exactEvent校验和对应test变更，不修改原事件/历史。最后repair6/1 CLI0 2026-10-05 21:26:02，全0fail/error/skip，原XMLbyte保存g59-repair-final-r4-junit。原143/9及五项repair历史receipt保留，不能相加冒一次当前全套执行。最终versionedg59-backend-fingerprints-r2和verification-r2只supersede这2源hash、repaircompiledclass及BDD指纹，其余12production与4tests/hash逐项不变。至此代码target/Maven永久本轮freeze并释放Root，只文档闭合，无其它edge新增。

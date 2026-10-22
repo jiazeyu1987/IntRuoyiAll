@@ -173,7 +173,12 @@
     </el-table>
   </ContentWrap>
 
-  <DirectoryForm v-if="directoryFormMounted" ref="formRef" @success="getList" />
+  <DirectoryForm
+    v-if="directoryFormMounted"
+    ref="formRef"
+    @vue:mounted="openPendingDirectoryForm"
+    @success="getList"
+  />
 
   <el-dialog
     v-model="deleteDialogVisible"
@@ -246,6 +251,10 @@ const formRef = ref()
 const loadErrorMessage = ref('')
 const childLoadErrorMessages = reactive<Record<string, string>>({})
 const directoryFormMounted = ref(false)
+const pendingDirectoryFormRequest = ref<{
+  type: 'create' | 'update'
+  row?: ControlledFileDirectoryVO
+}>()
 const deleteDialogVisible = ref(false)
 const deleteConfirmText = ref('')
 const deleteTargetDirectory = ref<ControlledFileDirectoryVO>()
@@ -400,18 +409,25 @@ const resetQuery = async () => {
   await handleQuery(true)
 }
 
-const openForm = async (type: 'create' | 'update', row?: ControlledFileDirectoryVO) => {
-  directoryFormMounted.value = true
-  await import('./components/DirectoryForm.vue')
-  await nextTick()
+const openPendingDirectoryForm = async () => {
+  const request = pendingDirectoryFormRequest.value
+  if (!request) return
   if (!formRef.value?.open) {
     throw new Error('文档目录表单组件加载失败')
   }
-  formRef.value.open(type, {
+  pendingDirectoryFormRequest.value = undefined
+  const { type, row } = request
+  await formRef.value.open(type, {
     id: row?.id,
     parentId: type === 'create' ? row?.id ?? undefined : undefined,
     directories: row ? [row] : directories.value
   })
+}
+
+const openForm = async (type: 'create' | 'update', row?: ControlledFileDirectoryVO) => {
+  pendingDirectoryFormRequest.value = { type, row }
+  directoryFormMounted.value = true
+  if (formRef.value) await openPendingDirectoryForm()
 }
 
 const openAccessRules = (row: ControlledFileDirectoryVO) => {

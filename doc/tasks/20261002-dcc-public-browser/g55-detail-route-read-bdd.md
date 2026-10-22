@@ -1,0 +1,13 @@
+# G55 r2 — 离开详情不得发空文件ID读取
+
+Status: ready_for_closeout_for_Root_review。Root真实受控下发后点受控浏览，r4/067.json自然产生controlled-files空ID、paper records空ID、access-explanation空ID三请求及错误。当前route.fullPath flush-sync watch离开仍reloadAll，loadData无route/ID前置使用liveID，catch无前置再读access，确定实际来源。
+
+Given不在有效 `/dcc/controlled-file/detail/<当前合法正LongID>` 路由或ID缺失/无效，When实际watch调用reloadAll或其loadData/access loader，Then0请求，失效旧generation并清本详情读取状态；不是空数据成功或吞错误。
+
+Given当前合法detail ID和fullPath相同，When刷新/同ID查询变化或切合法ID，Then继续准确读取捕获ID、正常辅助数据与任务链。Given旧读取成功/失败晚到且路由已离开或ID已换，Then不污染新页面、不补读新的/空ID权限说明、不误报当前错误；仍留当前合法真实请求失败可见。
+
+实现范围只有同detail/index.vue的准确route/id/context读入口守卫及对应有限tests；前条签名说明单literal保持，不改G54child/API、upload、Rootscripts/后端/DB。生产handler有效RED→GREEN+有限文案/round/approval对话框回归与该filelint，Root统一types/build/实际浏览验收。无真实UI/API/DB/服务/Git。
+
+实际有效RED4项1PASS/3FAIL/exit1，旧离开invalid仍detail/paper及catchaccess，旧lateerror会补读blank，新旧validselection基础已有PASS。修复后专属4全PASS；随后与copy/round/dialog共4files28PASS，再并项目三场景最终5files31PASS/0fail/0skip/exit0。初RED测试宿主将所有ID共用pending导致96051无终态，精确只停止该本任务node34992（无服务影响）、保初日志；一次将pending只限定原ID后RED终态。初GREEN因VM跨realm数组deepEqual误差失败，改断言清理数组长度后PASS，guard未降级；留该失败日志。
+
+实现isActiveControlledFileDetailRoute验证route.path、scalarparams.id、正整数Long及捕获fullPath；isCurrentDetailLoad沿现sequence/ID/fullPath并加有效scope。reloadAllinvalid失效generation/清file/access/paper/tasks/signatures/prints读状态后return；loadData/access/approval入口拒失效scope，初请求用capt获ID。当前合法真实错误仍可见，未catch吞错误/代数据成功。Root原route.fullPath watcher保留、继续合法刷新，只有离开false时0请求。最终两源lint0warning/exit0；新的项目事实DTO与本route同源只在G55r3总seal统一，不覆盖前copyseal。

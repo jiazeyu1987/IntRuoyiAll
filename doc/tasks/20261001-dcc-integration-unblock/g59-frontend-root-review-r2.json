@@ -1,0 +1,27 @@
+{
+  "status": "ROOT_G59_REPAIR_CONTRACT_R2_FULL_TYPES_BUILD_PASS",
+  "assetsMatched": 4,
+  "manifestSha256": "9e960e4912e080f604d7019294e4a4f6176414486eeac5ac3fbb1af66bba1886",
+  "typesSession": 74305,
+  "typesExit": 0,
+  "buildSession": 3728,
+  "buildExit": 0,
+  "strictPermissionAND": true,
+  "readonlyManagementEntryAbsent": true,
+  "explicitPreviewAndTwoConfirmation": true,
+  "noHiddenPostRetry": true,
+  "serverCurrentDTO": "stable supplied by backendowner; pending sameJarAPIactual",
+  "finiteTests": 13,
+  "noFullHtmlClaim": true,
+  "previousFirst20NotAdded": true,
+  "finalContracts": [
+    "reason<=500",
+    "exactmaxLong",
+    "canonical/domain sameACTIVEorpending",
+    "receipt target matchesformalpreview"
+  ],
+  "logs": {
+    "g59-final-types-r2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "g59-final-build-r2.log": "6d5d273300bb7a2fbc5e0465a37ef7ea7ac634cbd2571c647f3290879b6391e1"
+  }
+}

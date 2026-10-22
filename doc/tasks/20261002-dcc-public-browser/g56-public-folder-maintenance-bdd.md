@@ -1,0 +1,9 @@
+# G56 F02 — 公共项目目录复用正式文件夹维护
+
+Status: ready_for_closeout_for_Root_review。Root已授权ProjectBrowserPanel接现ProjectFolderEditor与正式folderAPI，不新增模板审批/NAS/后端CRUD，维护资格不得用引用负责人canReference推断。
+
+Given当前正式project与folder已选择且菜单update权限存在，When从项目目录点击新增/编辑/删除，Then现editor接准确project/folder原ID，保存/原因/二次确认/非空保护走原接口与后台editor/owner守卫。Given取消，Then不写；当前项目已换时旧保存事件不让页面切回旧项目，当前同项目成功才重读其正式目录。
+
+RED执行实际public入口handler与原模板渲染，GREEN接现组件并回归已有folder取消/late/身份合同及原project-browser。本Agent不DB/API/浏览器/Git/服务，Root统一types/build/实际维护权限验收。
+
+结果：专属3项有效RED全FAIL→GREEN3PASS/exit0，真实handler与实际toolbar Vue renderer通过。public只ProjectBrowserPanel接现editor，projectID/folderID准确，菜单update与backendeditor/owner职责分开，旧refauthority false不影响合法维护入口。保存/删除事件仅当前同project调用state.selectProject重读；key/v-if选中项目绑定原editor，切换使旧界面卸载，不改现delete保护/取消/原因API。最终本批15files90执行全PASS/0skip、7prod lint0warning/exit0；旧directory-wrapper夹具缺既有configuration/state依赖，补真实helper不降级assert，初失败保留。Root真实空目录/非空/独立权限UI另验。

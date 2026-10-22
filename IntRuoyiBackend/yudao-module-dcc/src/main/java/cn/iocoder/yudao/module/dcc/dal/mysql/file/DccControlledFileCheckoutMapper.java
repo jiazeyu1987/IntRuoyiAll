@@ -7,8 +7,14 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.List;
+
 @Mapper
 public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControlledFileCheckoutDO> {
+
+    default List<DccControlledFileCheckoutDO> selectListByBaseIterationId(Long baseIterationId) {
+        return selectList(DccControlledFileCheckoutDO::getBaseIterationId, baseIterationId);
+    }
 
     @Select("""
             SELECT *
@@ -24,6 +30,15 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
     DccControlledFileCheckoutDO selectActiveByMasterId(@Param("tenantId") Long tenantId,
                                                        @Param("masterId") Long masterId);
 
+    /** Current logical edit lock for read projections; never takes lifecycle write locks. */
+    @Select("""
+            SELECT * FROM dcc_controlled_file_checkout
+            WHERE tenant_id = #{tenantId} AND master_id = #{masterId}
+              AND status = 'ACTIVE' AND deleted = 0
+            """)
+    DccControlledFileCheckoutDO selectActiveByMasterIdForRead(@Param("tenantId") Long tenantId,
+                                                            @Param("masterId") Long masterId);
+
     @Select("""
             SELECT *
             FROM dcc_controlled_file_checkout
@@ -32,6 +47,7 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
               AND deleted = 0
             ORDER BY id DESC
             LIMIT 1
+            FOR UPDATE
             """)
     DccControlledFileCheckoutDO selectLatestByBaseIterationId(@Param("tenantId") Long tenantId,
                                                               @Param("baseIterationId") Long baseIterationId);
@@ -43,6 +59,7 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
                    checkin_iteration_id = #{iterationId},
                    checkin_source_file_id = #{sourceFileId},
                    checkin_source_sha256 = #{sourceSha256},
+                   checkin_payload_hash = #{payloadHash},
                    checked_in_time = CURRENT_TIMESTAMP,
                    updater = #{actorId},
                    update_time = CURRENT_TIMESTAMP
@@ -58,7 +75,8 @@ public interface DccControlledFileCheckoutMapper extends BaseMapperX<DccControll
                       @Param("uploadTicket") String uploadTicket,
                       @Param("iterationId") Long iterationId,
                       @Param("sourceFileId") Long sourceFileId,
-                      @Param("sourceSha256") String sourceSha256);
+                      @Param("sourceSha256") String sourceSha256,
+                      @Param("payloadHash") String payloadHash);
 
     @Update("""
             UPDATE dcc_controlled_file_checkout

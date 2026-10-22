@@ -1,0 +1,39 @@
+{
+  "status": "ACTUAL_TWO_WORKING_ITERATIONS_CHECKIN_PASS_AND_NEW_PERMISSION_CONFIGURATION_GAP_FOUND",
+  "baselineFile": "2054545668044084026",
+  "master": "2054545668044079116",
+  "working": [
+    {
+      "id": "2054545668044084029",
+      "version": "A/1-1",
+      "sha256": "4f7fb3939790d1068cc923d50dad677ebfa0fedb5893410c012bebe8fea2a543"
+    },
+    {
+      "id": "2054545668044084030",
+      "version": "A/1-2",
+      "sha256": "e6033e24fcf2855565f66a0d84ea8a47bf9cb7ab0f867521346fd8d2948f4d6b"
+    }
+  ],
+  "locksReleasedAfterBoth": true,
+  "oldControlledStillActive": "A/1",
+  "actualNativeDocAccount": {
+    "id": "910328",
+    "username": "g57dccdoc20261005",
+    "credential": "only in persistent UI process memory, no capture or logs",
+    "initialRoleAssignment": "three-existing-roles transaction rejected by legitimate old log-permission guard, userroles0",
+    "next": "assign doc_control plus task-specific entryrole without admin/log rather than bypass guard"
+  },
+  "newMainGap": "TRAINING_RECORD independent categorypermission in progress",
+  "uiEvidence": [
+    "g56-real-ui-r7/031.json",
+    "g56-real-ui-r7/041.json",
+    "g56-real-ui-r7/018.json"
+  ],
+  "pushThird": {
+    "commit": "85b76ea6b244cdf768d24e43723d0263344b0f63",
+    "origin": "int_qms",
+    "ahead": 0,
+    "behind": 0,
+    "normal": true
+  }
+}

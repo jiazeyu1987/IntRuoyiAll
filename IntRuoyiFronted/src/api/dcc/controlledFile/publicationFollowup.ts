@@ -167,12 +167,6 @@ export const reopenImpactTask = (
 ) => request.post({ url: `/dcc/publication-impact-tasks/${taskId}/reopen`, data,
   ignoreErrorMessage: true })
 
-export const createImpactRevision = (
-  taskId: DccBusinessId,
-  data: { expectedVersion: number; sourceControlledFileId: DccBusinessId; reason: string }
-) => request.post<DccBusinessId>({ url: `/dcc/publication-impact-tasks/${taskId}/create-revision`, data,
-  ignoreErrorMessage: true })
-
 export const getImpactRevisionOptions = (taskId: DccBusinessId) =>
   request.get<DccPublicationImpactRevisionOptionsVO>({
     url: `/dcc/publication-impact-tasks/${taskId}/revision-options`,

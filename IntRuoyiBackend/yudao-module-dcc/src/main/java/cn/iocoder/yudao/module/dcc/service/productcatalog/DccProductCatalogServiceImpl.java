@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DATA_SOURCE_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PRODUCT_CATALOG_ROW_KEY_INVALID;
 
 @Service
@@ -119,13 +120,7 @@ public class DccProductCatalogServiceImpl implements DccProductCatalogService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DccProductCatalogRespVO createProductCatalog(DccProductCatalogSaveReqVO reqVO) {
-        String dataSource = validateDataSource(reqVO.getDataSource());
-        Integer maxOriginalRowNo = productCatalogMapper.selectMaxOriginalRowNo(dataSource);
-        DccProductCatalogDO row = buildProductCatalogDO(reqVO);
-        row.setDataSource(dataSource);
-        row.setOriginalRowNo((maxOriginalRowNo == null ? 1 : maxOriginalRowNo) + 1);
-        productCatalogMapper.insert(row);
-        return BeanUtils.toBean(row, DccProductCatalogRespVO.class);
+        throw exception(DCC_PRODUCT_CATALOG_DIRECT_CREATE_NOT_ALLOWED);
     }
 
     @Override

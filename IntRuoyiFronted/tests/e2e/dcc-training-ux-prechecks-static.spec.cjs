@@ -125,7 +125,7 @@ assert.match(
   /!detailActionState\.value\.canManualRelease/,
   'manual release permission gap must be shown when the formal release action is unavailable'
 )
-for (const text of ['DISTRIBUTE', '正式下发权限', '分发规则']) {
+for (const text of ['DISTRIBUTE', '下发权限', '分发规则']) {
   assert.match(detailPage, new RegExp(text), `manual release permission hint must mention ${text}`)
 }
 

@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "count": 6,
+  "assets": [
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "AGENTS.md",
+      "unchanged": true
+    },
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+      "unchanged": true
+    },
+    {
+      "workspace": "C:/IntRuoyiAll-int_main",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java",
+      "unchanged": true
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "AGENTS.md",
+      "unchanged": true
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/main/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileController.java",
+      "unchanged": true
+    },
+    {
+      "workspace": "C:/IntRuoyi/20261001-dcc-integration",
+      "path": "IntRuoyiBackend/yudao-module-infra/src/test/java/cn/iocoder/yudao/module/infra/controller/admin/file/FileControllerTest.java",
+      "unchanged": true
+    }
+  ]
+}

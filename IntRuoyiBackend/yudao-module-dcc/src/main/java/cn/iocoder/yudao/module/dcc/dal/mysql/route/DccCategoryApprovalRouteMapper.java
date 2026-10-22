@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.dcc.controller.admin.route.vo.DccApprovalRoutePageReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
+import cn.hutool.core.util.StrUtil;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -21,7 +22,9 @@ public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryA
     default PageResult<DccCategoryApprovalRouteDO> selectPage(DccApprovalRoutePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<DccCategoryApprovalRouteDO>()
                 .eqIfPresent(DccCategoryApprovalRouteDO::getCategoryId, reqVO.getCategoryId())
+                .eqIfPresent(DccCategoryApprovalRouteDO::getActionType, reqVO.getActionType())
                 .orderByAsc(DccCategoryApprovalRouteDO::getCategoryId)
+                .orderByAsc(DccCategoryApprovalRouteDO::getActionType)
                 .orderByDesc(DccCategoryApprovalRouteDO::getVersionNo)
                 .orderByDesc(DccCategoryApprovalRouteDO::getId));
     }
@@ -30,14 +33,35 @@ public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryA
         return selectLatestActiveByCategoryId(categoryId, LocalDateTime.now());
     }
 
-    default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId, LocalDateTime effectiveAt) {
+    default DccCategoryApprovalRouteDO selectLatestActiveByCategoryIdAndActionType(Long categoryId, String actionType) {
+        return selectLatestActiveByCategoryIdAndActionType(categoryId, actionType, LocalDateTime.now());
+    }
+
+    default DccCategoryApprovalRouteDO selectLatestActiveByCategoryIdAndActionType(Long categoryId, String actionType,
+                                                                                   LocalDateTime effectiveAt) {
         LocalDateTime selectionTime = effectiveAt == null ? LocalDateTime.now() : effectiveAt;
         return selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId).stream()
                 .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                .filter(item -> StrUtil.equals(actionType, item.getActionType()))
                 .filter(item -> isEffectiveAt(item, selectionTime))
                 .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo)
                         .thenComparing(DccCategoryApprovalRouteDO::getId))
                 .orElse(null);
+    }
+
+    default DccCategoryApprovalRouteDO selectLatestActiveByCategoryId(Long categoryId, LocalDateTime effectiveAt) {
+        LocalDateTime selectionTime = effectiveAt == null ? LocalDateTime.now() : effectiveAt;
+        return selectList(DccCategoryApprovalRouteDO::getCategoryId, categoryId).stream()
+                .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                .filter(item -> isLegacyActionType(item.getActionType()))
+                .filter(item -> isEffectiveAt(item, selectionTime))
+                .max(Comparator.comparing(DccCategoryApprovalRouteDO::getVersionNo)
+                        .thenComparing(DccCategoryApprovalRouteDO::getId))
+                .orElse(null);
+    }
+
+    private static boolean isLegacyActionType(String actionType) {
+        return StrUtil.isBlank(actionType) || StrUtil.equals(actionType, "LEGACY");
     }
 
     private static boolean isEffectiveAt(DccCategoryApprovalRouteDO route, LocalDateTime effectiveAt) {
@@ -50,4 +74,13 @@ public interface DccCategoryApprovalRouteMapper extends BaseMapperX<DccCategoryA
             WHERE category_id = #{categoryId}
             """)
     Integer selectMaxVersionNoIncludingDeleted(@Param("categoryId") Long categoryId);
+
+    @Select("""
+            SELECT COALESCE(MAX(version_no), 0)
+            FROM dcc_category_approval_route
+            WHERE category_id = #{categoryId}
+              AND action_type = #{actionType}
+            """)
+    Integer selectMaxVersionNoIncludingDeletedByActionType(@Param("categoryId") Long categoryId,
+                                                           @Param("actionType") String actionType);
 }

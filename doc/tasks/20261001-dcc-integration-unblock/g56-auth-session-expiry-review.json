@@ -1,0 +1,16 @@
+{
+  "status": "SIGNOFF_PREFLIGHT_HTTP401_AUTH_SESSION_EXPIRED_RELOGIN_REQUIRED_NOT_BUSINESS_SUCCESS",
+  "assignedSignatureId": "412",
+  "assignmentRetained": true,
+  "fileId": "2054545668044084028",
+  "reviewSignatureSubmitted": false,
+  "actualUi401": "C:/IntRuoyiBackups/20261005-dcc-four-direction-runtime/g56-real-ui-r2/045.json",
+  "previousSessionCreatedServerTime": "2026-10-05 15:57:04",
+  "previousSessionExpiresServerTime": "2026-10-05 16:27:04",
+  "nextRealFrontendLoginServerTime": "2026-10-05 16:28:13",
+  "credentialValuesLogged": false,
+  "newUiContext": "g56-real-ui-r3",
+  "codeGuardBypassed": false,
+  "newReadyCheck": "ACTUAL_REAL_UI_R3_004_POST_TASK_ACTION_READINESS200_NO_401",
+  "conclusion": "Old token expiry explained 401; actual re-login renewed session and same assigned task preflight succeeded; no source or signing guard bypass."
+}

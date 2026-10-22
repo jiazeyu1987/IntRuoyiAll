@@ -1,0 +1,53 @@
+{
+  "status": "FINAL_R2_FROZEN_ONE_RUNNER_ONE_TEST_MAVEN_FREE",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/listener/DccLocalActivationStartupSyncRunner.java",
+      "bytes": 9688,
+      "sha256": "7de4bb6a306e3d0c8573aeba979e33a2156f2c3549074aeff3d32376a80acf90"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLocalActivationStartupSyncRunnerTest.java",
+      "bytes": 11664,
+      "sha256": "c4b3fc7a77b8a0d99a1a5d2147db48b2f912c04e1642caacf604aa9460792480"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/listener/DccLocalActivationStartupSyncRunner.class",
+      "bytes": 11773,
+      "sha256": "fcf72ddc83f28d66667a55a6d8e7c00c5163760e1933506b856f52744f9ae9fe"
+    }
+  ],
+  "verification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-verification-receipt-r2.json",
+    "bytes": 4270,
+    "sha256": "42256214b506ca662892f28592d23258f227e80f59ccd81aa1aca44bf6e894bd"
+  },
+  "contracts": [
+    "Default disabled and exclusive dcc-local-development; rejects global startup sync or any other profile",
+    "Exact existing enabled JobID5625 handler dccControlledFileActivationJob cron0 * * * * ?; no DB CRUD/new registration/copy/delete/shared sync",
+    "Actual same DataSource metadata loopback23306/sourceDB_UUID/session+08 and Shanghai JVM; RAM actual scheduler identity only",
+    "Only empty RAM restore or complete exact existing no-op; partial/foreign/wrong row or payload fail, no automatic clear",
+    "Reuse formal SchedulerManager.addJob and JobHandlerInvoker/tenantjob; validate actual JobDetail/CronTrigger payload and nextFire"
+  ],
+  "runtimeFlags": [
+    "--dcc.local-activation-startup-sync.enabled=true",
+    "--dcc.local-activation-startup-sync.job-id=5625"
+  ],
+  "genericJobServiceEdits": 0,
+  "newSql": 0,
+  "sharedConfigEdits": 0,
+  "actualDb": 0,
+  "actualRuntime": 0,
+  "Git": 0,
+  "package": 0,
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g57-local-activation-startup-fingerprints.json",
+    "bytes": 2210,
+    "sha256": "1b7e86ff41d152a9986bde46de1989b49799dd42eaa0c379a5cb678a357085f3"
+  },
+  "exactR2Delta": "Only removed Connection.setReadOnly(true): actual preflight is metadata+SELECT without connection-state setter; positive test verifies no borrowed connection readOnly mutation. No Druid-reset assumption."
+}

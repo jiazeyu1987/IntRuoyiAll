@@ -34,6 +34,8 @@ import org.springframework.validation.annotation.Validated;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
@@ -107,6 +109,8 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
         respVO.setViewerTokenId(accessResult.viewerTokenId());
         respVO.setViewerTokenNonce(accessResult.viewerTokenNonce());
         respVO.setAccessEventCode(accessResult.accessEventCode());
+        respVO.setPreviewRegisteredAt(accessResult.issuedAt().atOffset(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         respVO.setWatermarkTraceCode(accessResult.watermarkTraceCode());
         respVO.setWatermark(watermarkService.build(userId, "preview", displayFileName(file)));
         if (previewKind == DccControlledFilePreviewKindEnum.OFFICE) {
@@ -261,6 +265,7 @@ public class DccOnlineFilePreviewServiceImpl implements DccOnlineFilePreviewServ
 
     private void requirePreviewAccessResult(DccPreviewAccessResult accessResult) {
         if (accessResult == null
+                || accessResult.issuedAt() == null
                 || accessResult.accessEventId() == null
                 || StrUtil.isBlank(accessResult.accessEventCode())
                 || accessResult.watermarkTraceId() == null

@@ -1,5 +1,6 @@
 <template>
   <div class="review-matrix-tab">
+    <el-alert v-if="matrixOpenError" :title="matrixOpenError" type="error" :closable="false" />
     <UnifiedListTemplate
       class="review-matrix-list-template"
       table-key="dcc.controlledFile.permission.reviewMatrix"
@@ -140,15 +141,21 @@
 </template>
 
 <script lang="ts" setup>
+import { onBeforeUnmount } from 'vue'
 import {
   deleteCategoryApprovalMatrix,
   getCategoryReviewMatrixRows,
+  getFileCategoryList,
+  requireCategoryApprovalSourceMode,
   type ControlledFileCategoryVO,
   type ControlledFileCategoryReviewMatrixRuleVO,
   type ControlledFileCategoryReviewMatrixRowVO
 } from '@/api/dcc/controlledFile/fileCategories'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition
+} from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
   type TableQuickFilterDefinition,
@@ -174,6 +181,9 @@ const loading = ref(false)
 const matrixDialogRef = ref()
 const userLookupDialogRef = ref()
 const rows = ref<ControlledFileCategoryReviewMatrixRowVO[]>([])
+const matrixOpenError = ref('')
+let matrixOpenSequence = 0
+let mounted = true
 const message = useMessage()
 
 const queryParams = reactive<{
@@ -239,22 +249,13 @@ const formatStageRuleSummary = (
     .filter((rule) => rule.stageType === stageType && rule.active !== false)
     .map((rule) => {
       const main = rule.subjectLabel || rule.subjectName || rule.subjectDepartmentPath || '-'
-      return `${main} ▲`.trim()
+      return `${main} ${rule.marker || '未记录'}`.trim()
     })
   if (!labels.length) {
     return '-'
   }
   return labels.join(' / ')
 }
-
-const toCategoryVO = (row: ControlledFileCategoryReviewMatrixRowVO): ControlledFileCategoryVO => ({
-  id: row.categoryId,
-  code: row.code,
-  name: row.name,
-  lifecycleStage: row.lifecycleStage,
-  active: row.active,
-  sort: 0
-})
 
 const loadRows = async () => {
   loading.value = true
@@ -277,9 +278,33 @@ const reviewMatrixQuickFilter = useTableQuickFilter(
   loadRows
 )
 
-const openMatrixDialog = (row: ControlledFileCategoryReviewMatrixRowVO, mode: MatrixDialogMode) => {
-  matrixDialogRef.value?.open(toCategoryVO(row), mode)
+const openMatrixDialog = async (row: ControlledFileCategoryReviewMatrixRowVO, mode: MatrixDialogMode) => {
+  if (!props.active) return
+  const sequence = ++matrixOpenSequence
+  const categoryId = row.categoryId
+  const revision = props.categoryRevision
+  matrixOpenError.value = ''
+  const current = () => mounted && props.active && sequence === matrixOpenSequence && revision === props.categoryRevision
+  try {
+    if (!Number.isSafeInteger(categoryId) || categoryId <= 0) throw new Error('正式文件类别身份无效，请重新读取矩阵目录')
+    const categories = await getFileCategoryList()
+    if (!current()) return
+    const matching = categories.filter(category => category.id === categoryId)
+    if (matching.length !== 1) throw new Error(matching.length ? '正式文件类别身份重复，请核对已保存类别' : '正式文件类别记录缺失，请重新读取已保存类别')
+    const saved = matching[0]
+    const category: ControlledFileCategoryVO = { ...saved, approvalSourceMode: requireCategoryApprovalSourceMode(saved.approvalSourceMode) }
+    if (!matrixDialogRef.value) throw new Error('审阅矩阵编辑区域尚未就绪，请重新打开')
+    await matrixDialogRef.value.open(category, mode)
+  } catch (cause) {
+    if (current()) matrixOpenError.value = cause instanceof Error ? cause.message : String(cause)
+  }
 }
+
+watch(() => [props.active, props.categoryRevision], () => {
+  matrixOpenSequence++
+  matrixOpenError.value = ''
+}, { flush: 'sync' })
+onBeforeUnmount(() => { mounted = false; matrixOpenSequence++ })
 
 const openUserLookupDialog = () => {
   userLookupDialogRef.value?.open()

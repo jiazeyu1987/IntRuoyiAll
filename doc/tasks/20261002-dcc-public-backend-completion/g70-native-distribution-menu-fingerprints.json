@@ -1,0 +1,48 @@
+{
+  "status": "FROZEN_PREPARED_ROOT_ONLY_EXECUTION",
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20261006_dcc_native_distribution_menu.sql",
+      "bytes": 5672,
+      "sha256": "c3d947651bf3f279f00de14b3e6af939c6ebd94914ba2596c8f631066b417362"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-contract-test.py",
+      "bytes": 5317,
+      "sha256": "e5745e06171ece6b3bad581718907b33142ed775b9628345948869f8d6578c0e"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-bdd.md",
+      "bytes": 1932,
+      "sha256": "b3c61cae2b13de48d0e2855aa2eda6d812be4f1fccd26e7438d12b703835e904"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-operator-contract.md",
+      "bytes": 4582,
+      "sha256": "065185671baa46fd64032509fd6b86f423f9d1f13c4206d7053857a6b7cd240d"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-preflight.sql",
+      "bytes": 1253,
+      "sha256": "e1d19eff7315499d2321dd7abbf75919b9d531b37e451879aa363eb9f2dcd847"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-readonly-postflight.sql",
+      "bytes": 928,
+      "sha256": "b06dcef33443f5ba1bee63e1dac40f6e2ff6b1c1e2fc1443935e21c41ebd820c"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-menu-migration-fullclosure.json",
+      "bytes": 2763,
+      "sha256": "593ae6d550be0d19a705b79136d94c8d11934ec1784632418b6e12f2660e88d4"
+    }
+  ],
+  "compiledClasses": [],
+  "verificationReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g70-native-distribution-menu-verification-receipt.json",
+    "bytes": 1915,
+    "sha256": "bf4d22213c9917e8982b7eb86f6c76579c9e3cc7949fa0e9abed0b43d3401e82"
+  },
+  "noJavaSourceChanges": true,
+  "noActualDbExecution": true
+}

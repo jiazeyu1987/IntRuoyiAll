@@ -1,0 +1,16 @@
+# G61 待生效受控版本正式作废入口
+
+状态：ready_for_closeout。Root真实4033文控通过已控待生效，Query详情/browser/history只ACTIVE canObsolete且projection只ACTIVE。Parent从服务端allowedActions取入口，无需新FE放权。授权唯一Query和必要当前metadata/publicAPI测试，Maven本owner，G60/R3JDBC其它source不改。
+
+- Given当前租户真实native正式受控pending，保存控制/发布/盖章/版本/轮次与Master复合身份完整、已有类别OBSOLETE权限，When公共详情controller/Query、browser及history投影，Then允许独立OBSOLETE动作，普通候选伪state/少fact不获得能力。ACTIVE旧规则不变。
+- Given另独立作废申请已开放，Thenpending也必须读取该原file申请锁且不重复发起，pendingRequestId/withdraw准确保原合同；旧form作用只限OBSOLETE，不把批准身份借新candidate。
+- Given缺类别权限、只有名称发现/只读页面或缺正式控事实，Then不出现允许作废；查询不写File/Master/日期/签名/共享投影。PRINT/MAJOR_REVISION等其它ACTIVE-only动作不随此修放宽。
+
+isObsoleteControlledStage只为新pending精确验证同tenant/nondeleted/nativeUPLOAD|REVISION、受控时间/发布盖章ID、原轮次/正式非working version、同Master/project/type/number完整身份；ACTIVE旧legacy合同保持。允许非latest的合法低pending，不扫描/降级借currentActive。actionLocked其余语义保持，allowedOBSOLETE由现FE独立actioncontract处理。有效RED actualH2 savedfile/Master→公共HTTP详情投影expectedcanObsolete true但oldfalse；后负向及必要API/read-only/formlock回归，不SQL/实库/UI/服务/Git。
+
+
+## 验证结果
+
+真实保存H2 File/Master及受控事实经公共Controller GET旧canObsoletefalse，有效RED1failure0error，原XML保留。Query仅新增isObsoleteControlledStage，ACTIVE旧合同保持，pending精确currenttenant/nativecontrol/artifact/formalversion/Master身份；detail/browser/history三canObsolete及allowedOBSOLETE统一，pendingForm读取保原锁。不强制latest=id，不扩大PRINT/major/manual/body资格。
+
+首GREEN入口正确，最后只读全列Map比较因generated c_version_key byte[]参考不同失败；改测试canonicalJson整行内容比较，未改数据。组合8PASS23:25:13；最终currentreactor46/2全部0fail/error/skip CLI0 23:27:56（metadataH2全39+原Query action合同7），原2XML byte永久归档。HTTP详情、browser、history positive及missingfacts/permission/nameOnly/pendingForm负向通过；正式访问/permission/formpending端口为明确隔离fixtures，不冒真实E2E。源码1/test1冻结，G60所有及G59其它源hash不变。Maven/source/targetFREE，Rootsolepack/实际4033作废/HTML/Git。

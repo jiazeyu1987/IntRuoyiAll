@@ -18,8 +18,8 @@ public class BpmProcessTaskApiImpl implements BpmProcessTaskApi {
     private BpmTaskService bpmTaskService;
 
     @Override
-    public void triggerTask(String processInstanceId, String taskDefineKey) {
-        bpmTaskService.triggerTask(processInstanceId, taskDefineKey);
+    public boolean triggerTask(String processInstanceId, String taskDefineKey) {
+        return bpmTaskService.triggerTask(processInstanceId, taskDefineKey);
     }
 
 }

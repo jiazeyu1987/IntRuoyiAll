@@ -1,0 +1,6 @@
+{
+  "status": "rejected",
+  "reason": "Column collation mismatch ('bpm_business_approval_policy', 'data_domain')",
+  "migrationExecutionProven": false,
+  "ledgerWrites": false
+}

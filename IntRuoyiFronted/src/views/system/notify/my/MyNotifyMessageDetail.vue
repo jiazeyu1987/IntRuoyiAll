@@ -72,6 +72,12 @@
           <el-button v-if="dccPublicationNavigation" type="primary" @click="navigateToDccPublication">
             查看发布文件
           </el-button>
+          <el-button v-if="dccProjectProductNavigation" type="primary" @click="navigateToDccProjectProduct">
+            查看项目及产品申请
+          </el-button>
+          <el-button v-if="dccOfflineTrainingNavigation" type="primary" @click="navigateToDccOfflineTraining">上传线下培训记录</el-button>
+          <el-button v-if="dccDistributionNavigation" type="primary" @click="handleContentClick">查看下发文件并签收</el-button>
+          <el-button v-if="dccRelationRemediationNavigation" type="primary" data-testid="dcc-relation-remediation-notification-open" @click="navigateToDccRelationRemediation">查看来源受控申请</el-button>
         </div>
       </section>
     </div>
@@ -90,6 +96,9 @@ import {
   type BpmApprovalNotifyTarget,
   type EdhrWorkTaskNotifyTarget,
   type DccPublicationNotifyTarget,
+  type DccProjectProductNotifyTarget,
+  type DccOfflineTrainingNotifyTarget,
+  type DccRelationRemediationNotifyTarget,
   type ShowroomProductNotifyTarget
 } from '@/utils/notifyMessageNavigation'
 
@@ -116,6 +125,7 @@ const normalizeTemplateParams = (value: unknown) => {
 const notifyMessageTargets = computed(() => getNotifyMessageTargets(detailData.value))
 const primaryDetailTarget = computed(() => getNotifyMessageTarget(detailData.value))
 const hasDetailTarget = computed(() => Boolean(primaryDetailTarget.value))
+const dccDistributionNavigation = computed(() => notifyMessageTargets.value.find(target => target.type === 'dccDistribution'))
 const showroomProductNavigation = computed(
   () =>
     notifyMessageTargets.value.find(
@@ -142,6 +152,17 @@ const dccPublicationNavigation = computed(
 )
 
 const hiddenTemplateParamKeys = NOTIFY_MESSAGE_NAVIGATION_PARAM_KEYS
+const dccOfflineTrainingNavigation = computed(() => notifyMessageTargets.value.find(
+  (target): target is DccOfflineTrainingNotifyTarget => target.type === 'dccOfflineTraining'
+) ?? null)
+const dccRelationRemediationNavigation = computed(() => notifyMessageTargets.value.find(
+  (target): target is DccRelationRemediationNotifyTarget => target.type === 'dccRelationRemediation'
+) ?? null)
+const dccProjectProductNavigation = computed(
+  () => notifyMessageTargets.value.find(
+    (target): target is DccProjectProductNotifyTarget => target.type === 'dccProjectProduct'
+  ) ?? null
+)
 
 const templateParamLabels: Record<string, string> = {
   processInstanceName: '流程名称',
@@ -154,7 +175,10 @@ const templateParamLabels: Record<string, string> = {
   result: '处理结果',
   fileNumber: '文件编号',
   versionNo: '发布版本',
-  reasonSummaries: '通知原因'
+  reasonSummaries: '通知原因',
+  sourceControlledFileId: '来源受控文件身份',
+  relatedMasterId: '关联文件 Master 身份',
+  dueAt: '整改期限'
 }
 
 const formatTemplateParamValue = (value: unknown): string => {
@@ -241,6 +265,32 @@ const navigateToDccPublication = async () => {
       resetDialogState()
       await nextTick()
     }
+  })
+}
+
+const navigateToDccProjectProduct = async () => {
+  const navigation = dccProjectProductNavigation.value
+  if (!navigation) return
+  await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => {
+      resetDialogState()
+      await nextTick()
+    }
+  })
+}
+
+const navigateToDccOfflineTraining = async () => {
+  const navigation = dccOfflineTrainingNavigation.value
+  if (!navigation) return
+  await navigateToNotifyMessageTarget(router, navigation, {
+    beforeNavigate: async () => { resetDialogState(); await nextTick() }
+  })
+}
+const navigateToDccRelationRemediation = async () => {
+  const target = dccRelationRemediationNavigation.value
+  if (!target) return
+  await navigateToNotifyMessageTarget(router, target, {
+    beforeNavigate: async () => { resetDialogState(); await nextTick() }
   })
 }
 

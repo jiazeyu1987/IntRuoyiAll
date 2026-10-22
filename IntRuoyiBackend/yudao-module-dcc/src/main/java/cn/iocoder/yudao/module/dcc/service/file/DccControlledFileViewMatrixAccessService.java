@@ -57,6 +57,7 @@ public class DccControlledFileViewMatrixAccessService {
         if (userId == null || file == null || file.getCategoryId() == null) {
             return false;
         }
+        if (!DccAccessUserIdentity.isEnabledTenantUser(userId, adminUserApi.getUser(userId))) return false;
         return resolveCurrentViewMatrixUserIds(file).contains(userId);
     }
 
@@ -64,7 +65,9 @@ public class DccControlledFileViewMatrixAccessService {
         if (file == null || file.getCategoryId() == null) {
             return Set.of();
         }
-        return resolveCurrentViewMatrixAccessDetails(file.getCategoryId()).subjects().stream()
+        var resolution = resolveCurrentViewMatrixAccessDetails(file.getCategoryId());
+        if (resolution.risks().stream().anyMatch(risk -> Boolean.TRUE.equals(risk.blocking()))) return Set.of();
+        return resolution.subjects().stream()
                 .map(ViewMatrixAccessSubject::userId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -140,11 +143,27 @@ public class DccControlledFileViewMatrixAccessService {
             subjects.addAll(resolveRuleSubjects(rule, risks, context));
         }
         subjects = fillMissingUserNames(subjects, context);
+        subjects = requireEnabledSubjectIdentities(subjects, risks, context);
         addDuplicateUserRisks(subjects, risks);
         if (subjects.isEmpty() && risks.stream().noneMatch(ViewMatrixAccessRisk::blocking)) {
             risks.add(risk("VIEW_MATRIX_NO_RESOLVED_USER", "当前查看矩阵未解析到任何实际用户。", "ERROR", true));
         }
         return new ViewMatrixAccessResolution(categoryId, subjects, risks);
+    }
+
+    private List<ViewMatrixAccessSubject> requireEnabledSubjectIdentities(List<ViewMatrixAccessSubject> subjects,
+            List<ViewMatrixAccessRisk> risks, ViewMatrixResolutionContext context) {
+        List<ViewMatrixAccessSubject> valid = new ArrayList<>();
+        for (ViewMatrixAccessSubject subject : subjects) {
+            if (!DccAccessUserIdentity.isEnabledTenantUser(subject.userId(), getUser(subject.userId(), context))) {
+                risks.add(risk("VIEW_MATRIX_ACCOUNT_IDENTITY_INVALID",
+                        "规则“" + subject.subjectLabel() + "”解析账号#" + subject.userId()
+                                + "的启用状态或租户身份无效。", "ERROR", true));
+                continue;
+            }
+            valid.add(subject);
+        }
+        return valid;
     }
 
     private List<ViewMatrixAccessSubject> resolveRuleSubjects(ViewMatrixRuleInput rule,
@@ -425,7 +444,9 @@ public class DccControlledFileViewMatrixAccessService {
         if (!context.usersByDeptIds.containsKey(key)) {
             context.usersByDeptIds.put(key, adminUserApi.getUserListByDeptIds(deptIds));
         }
-        return context.usersByDeptIds.get(key);
+        var users = context.usersByDeptIds.get(key);
+        rememberResolvedUsers(users, context);
+        return users;
     }
 
     private List<AdminUserRespDTO> getUserListByPostIds(List<Long> postIds, ViewMatrixResolutionContext context) {
@@ -433,7 +454,9 @@ public class DccControlledFileViewMatrixAccessService {
         if (!context.usersByPostIds.containsKey(key)) {
             context.usersByPostIds.put(key, adminUserApi.getUserListByPostIds(postIds));
         }
-        return context.usersByPostIds.get(key);
+        var users = context.usersByPostIds.get(key);
+        rememberResolvedUsers(users, context);
+        return users;
     }
 
     private List<AdminUserRespDTO> getUserList(List<Long> userIds, ViewMatrixResolutionContext context) {
@@ -441,7 +464,16 @@ public class DccControlledFileViewMatrixAccessService {
         if (!context.usersByIds.containsKey(key)) {
             context.usersByIds.put(key, adminUserApi.getUserList(userIds));
         }
-        return context.usersByIds.get(key);
+        var users = context.usersByIds.get(key);
+        rememberResolvedUsers(users, context);
+        return users;
+    }
+
+    private void rememberResolvedUsers(List<AdminUserRespDTO> users, ViewMatrixResolutionContext context) {
+        if (users == null) return;
+        for (var user : users) {
+            if (user != null && user.getId() != null) context.userById.putIfAbsent(user.getId(), user);
+        }
     }
 
     private String idsKey(List<Long> ids) {

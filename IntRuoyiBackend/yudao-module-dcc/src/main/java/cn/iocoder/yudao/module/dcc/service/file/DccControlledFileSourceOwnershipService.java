@@ -37,6 +37,25 @@ public class DccControlledFileSourceOwnershipService {
     private FileMapper fileMapper;
     @Resource
     private FileService fileService;
+    @Resource
+    private cn.iocoder.yudao.module.infra.service.file.FileConfigService fileConfigService;
+
+    /** Freeze the exact newly allocated storage address before its metadata rolls back. */
+    Runnable rollbackCleanup(DccControlledFilePreparedSource source) {
+        if (source == null || !source.isolatedCopy()) return () -> {};
+        var file = fileMapper.selectById(source.sourceFileId());
+        if (file == null || file.getConfigId() == null || file.getPath() == null || file.getPath().isBlank())
+            throw new IllegalStateException("new isolated source storage identity is missing");
+        Long configId=file.getConfigId(); String path=file.getPath();
+        return () -> {
+            try {
+                var client=Objects.requireNonNull(fileConfigService.getFileClient(configId),"isolated source storage client");
+                client.delete(path);
+            } catch (Exception failure) {
+                throw new IllegalStateException("Failed to clean rolled-back DCC source copy fileId="+source.sourceFileId(),failure);
+            }
+        };
+    }
 
     public DccControlledFilePreparedSource prepareSubmissionSource(Long sourceFileId, boolean rawFileReference) {
         Long tenantId = TenantContextHolder.getRequiredTenantId();

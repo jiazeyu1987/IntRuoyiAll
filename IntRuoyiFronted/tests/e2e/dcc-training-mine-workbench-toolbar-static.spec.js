@@ -19,41 +19,35 @@ const extractBetween = (source, startToken, endToken) => {
   return source.slice(start, end)
 }
 
-const toolbar = extractBetween(trainingMinePage, '<el-form', '</el-form>')
-const tableShell = extractBetween(trainingMinePage, '<ContentWrap>\n    <el-table', '</ContentWrap>')
+const listTemplate = extractBetween(trainingMinePage, '<UnifiedListTemplate', '</UnifiedListTemplate>')
 
 assert.match(
-  toolbar,
-  /data-testid="dcc-training-mine-toolbar"/,
-  '我的培训筛选工具栏必须提供稳定测试标识'
+  listTemplate,
+  /query-form-test-id="dcc-training-mine-toolbar"/,
+  '我的培训标准筛选工具栏必须提供稳定测试标识'
 )
-
 assert.match(
-  toolbar,
-  /<ControlledFileWorkbenchEntry \/>/,
-  'DCC 工作台入口必须并入我的培训筛选工具栏'
+  listTemplate,
+  /:filter-definitions="trainingMineQuickFilterDefinitions"/,
+  '我的培训筛选必须由标准快速过滤定义驱动'
 )
-
-assert.ok(
-  toolbar.indexOf('resetQuery') < toolbar.indexOf('ControlledFileWorkbenchEntry'),
-  'DCC 工作台入口应位于查询/重置命令之后，形成页面级命令组'
+assert.match(
+  listTemplate,
+  /@quick-filter-query="trainingMineQuickFilter\.applyQuickFilter"/,
+  '我的培训查询必须由标准快速过滤 hook 触发'
 )
-
 assert.doesNotMatch(
   trainingMinePage,
-  /<div class="mb-12px flex justify-end">\s*<ControlledFileWorkbenchEntry \/>/,
-  '我的培训筛选表单上方不应继续保留孤立右对齐工作台入口行'
+  /ControlledFileWorkbenchEntry|const handleQuery|const resetQuery|<Pagination/,
+  '我的培训页不得保留旧独立工作台入口、查询重置 handler 或独立分页'
 )
-
-assert.match(tableShell, /data-testid="dcc-training-summary"/, '我的培训摘要列必须保留')
-assert.match(tableShell, /Pagination/, '我的培训分页必须保留')
+assert.match(listTemplate, /data-testid="dcc-training-summary"/, '我的培训摘要列必须保留')
+assert.match(listTemplate, /@pagination="getList"/, '我的培训分页必须由标准列表模板触发')
 
 for (const behaviorToken of [
   'getMyTrainingTaskPage(queryParams)',
   'getFileCategoryList()',
   'getSimpleDeptList()',
-  'handleQuery',
-  'resetQuery',
   'openTask(row.progressId)',
   'openDetail(row.controlledFileId)',
   "name: 'DccTrainingTask'",
@@ -67,9 +61,9 @@ assert.ok(
 )
 
 assert.doesNotMatch(
-  toolbar,
+  listTemplate,
   /mock|placeholder data|fallback|降级|吞异常/i,
-  '我的培训工作台入口工具栏收敛不得引入 mock、fallback、降级或吞异常'
+  '我的培训统一列表工具栏不得引入 mock、fallback、降级或吞异常'
 )
 
 console.log('PASS: DCC training mine workbench toolbar static contract')

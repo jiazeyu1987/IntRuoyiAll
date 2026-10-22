@@ -1,0 +1,4 @@
+{
+  "status": "failed",
+  "error": "dependsOn missing migration '20260930_dcc_a_lifecycle' for migrationId '20261004_dcc_product_identity_source'"
+}

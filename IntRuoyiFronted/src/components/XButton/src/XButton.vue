@@ -34,7 +34,6 @@ const getBindValue = computed(() => {
 })
 
 const handleClick = (event: MouseEvent) => {
-  props.onClick?.(event)
   emit('click', event)
 }
 </script>

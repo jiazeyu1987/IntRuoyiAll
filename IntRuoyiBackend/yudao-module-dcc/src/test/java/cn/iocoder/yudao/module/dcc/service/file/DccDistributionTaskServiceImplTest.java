@@ -86,6 +86,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                 .versionNo("A")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .publishedTime(publishedTime)
+                .controlledTime(publishedTime).activatedTime(publishedTime).distributedTime(publishedTime)
                 .build());
 
         PageResult<DccDistributionTaskRespVO> page =
@@ -141,7 +142,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                         .userId(99L)
                         .build(),
                 DccControlledFileDistributionRecipientDO.builder()
-                        .id(502L)
+                        .id(502L).messageJobId(8102L)
                         .distributionId(302L)
                         .userId(99L)
                         .build()));
@@ -162,6 +163,9 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                 .versionNo("A")
                 .status(DccControlledFileStatusEnum.ACTIVE.getStatus())
                 .publishedTime(LocalDateTime.of(2026, 7, 20, 9, 30))
+                .controlledTime(LocalDateTime.of(2026, 7, 20, 9, 0))
+                .activatedTime(LocalDateTime.of(2026, 7, 20, 9, 30))
+                .distributedTime(LocalDateTime.of(2026, 7, 20, 9, 30))
                 .build());
 
         PageResult<DccDistributionTaskRespVO> page =
@@ -182,6 +186,7 @@ class DccDistributionTaskServiceImplTest extends BaseMockitoUnitTest {
                         .id(501L)
                         .distributionId(301L)
                         .userId(99L)
+                        .messageJobId(8101L)
                         .build()));
         when(distributionMapper.selectById(301L)).thenReturn(DccControlledFileDistributionDO.builder()
                 .id(301L)

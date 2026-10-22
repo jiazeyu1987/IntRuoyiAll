@@ -1,0 +1,4 @@
+{
+  "status": "failed",
+  "error": "dependsOn missing migration '20260630_dcc_admin_full_config_menu' for migrationId '20261006_dcc_native_distribution_menu'"
+}

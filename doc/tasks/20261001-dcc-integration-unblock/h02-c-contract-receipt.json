@@ -1,0 +1,30 @@
+{
+  "worktree": "C:\\IntRuoyi\\20260930-dcc-c",
+  "branch": "codex/20260930-dcc-c",
+  "normalization": "UTF-8 LF, preserving content",
+  "files": {
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionService.java": "45b7687519fe63ccfc57e169dc61745f17a0ff6ac8be3d14ae37cfdf330b140e",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileRevisionServiceImpl.java": "08856b3d28a84c025bec31e60f9ff01b00bed81a02356bf8c416c6d5a653adbb",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryService.java": "04e890d5e3997b151f807ef57e1248f211d31fd605c9da272d3b73f0765f20f7",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java": "cb6cd1d7f9d70475ceae2db111e638cf30a2aa104f48e89b21a8cba62f58933e",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileSubmitIterationReqVO.java": "e78e472befabe68367c1180893ba0e6870b07b5c798f7d0ea44214a9d00d57fd",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFilePageReqVO.java": "43949c7645ba45e21f00e15c7307cbc5090caebe7286d12fdb1bde5f7bc2a233",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileRespVO.java": "fd49c89111c182c586440341659c92b4b2384330e48ecab8accc772c2cac45f5",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileApplicationEvidence.java": "0141d02048c873f70898361d2b5b5501a6136633c97a76640a39f454b6acbc90",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileApplicationEvidenceMapper.java": "bcc42c58b3f3f7fcc939ddef20f8691d9d2b597a6492db50a0171770e9d81927",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorQuery.java": "fc1604111840cca93ce31e2ac48141fa3732b97852f8253f550da25c3b1dc14e",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorRecord.java": "2f29d0e3609645d9dfec94eaa626510391cdee9bdce49cc08e8c1eaab8031dc7",
+    "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileSelectorMapper.java": "f9a65c5789afaf48a210a907e73a89cbdf743a38ed24a45068aafa87e8e2b328",
+    "IntRuoyiBackend/sql/mysql/20261002_dcc_c_initial_candidate_identity.sql": "adb0dd8f1b536aeaf9f030ddb9c11797ac5ed4bdb4097031ca4541882d4e4e91",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/resources/sql/create_tables.sql": "fd3c34556302d6476213ac9bb3ee9c77f55f58dbb67ead6dcf849df6df28b6d3",
+    "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts": "af10d00e1b836b76950f312cb8caccf69e318777fa8d5f57a2ba12f73e8b32f8",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/revision/DccRevisionPanel.vue": "0a9a2b124afa7daf3d3cca369c9ffb1f3230a1e4d4a37d501a3a017584025fd1",
+    "IntRuoyiFronted/src/views/dcc/controlled-file/revision/revision-model.ts": "648109ccbee90ea5fc59566b4376cf2e1504fd4e7bb714b209b1018d9601d06e",
+    "IntRuoyiFronted/scripts/dcc-revision-component.test.mjs": "7e94fb3dae322637a22885c02195e1febcb2516de8a8fe676eb7972b201d396b",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionServiceTest.java": "bcc6a23001e97f639fe189507d2acdd0b6558beb82e2010cf70551ae63b18a3f",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionDatabaseTest.java": "2ae1891089de3a5c2fb7c999bc7248c1c579cc36cb249eb57809436d3471bd0d",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRevisionMigrationTest.java": "19404e4d008689c2340a788746755c977776d8e6c8039b996e76b4b770bc6467",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceTest.java": "7569df621e1ba1a9148c07eebd39df9786d743458622e9796e29a34df66eba4d",
+    "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileSelectorDatabaseTest.java": "ddd0cc500bad5ea1050bc9aad44e0e39f482d1a99b0e55cba403febe58f822bc"
+  }
+}

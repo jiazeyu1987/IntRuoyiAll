@@ -41,6 +41,51 @@ import static org.mockito.Mockito.when;
 
 class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
 
+    @Test
+    void matrixPreview_delegatesCompleteFormalComparisonContext() {
+        var request = new cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRoutePreviewReqVO();
+        request.setCategoryId(7L);request.setDccProjectCodeId(5L);request.setControlledFileId(91L);
+        request.setActionType("NEW");request.setApplicationContextKey("exact-working-scope");
+        request.setApprovalMatrixBaselineToken("actual-baseline-token");
+        request.setExpectedApprovalRouteId(13L);request.setExpectedApprovalRouteVersionNo(2);
+        request.setExpectedApprovalMatrixDigest("a".repeat(64));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            controller.previewRoute(request);
+            verify(workflowService).previewRoute(99L, request);
+            verify(workflowService, never()).previewRoute(any(), any(), any(), any(), any());
+        }
+    }
+
+    @Test
+    void distributionMetadata_delegatesExactTaskIdentityWithoutOrdinaryPreview() {
+        var request = auditRequest();
+        request.addParameter("distributionId", "9223372036854775001");
+        request.addParameter("recipientId", "9223372036854775002");
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            controller.getPreviewMetadata(900L, request);
+            verify(queryService).getDistributionPreviewMetadata(eq(99L), eq(900L), eq(9223372036854775001L),
+                    eq(9223372036854775002L), any(DccRequestAuditContext.class));
+            verify(queryService, never()).getPreviewMetadata(any(), any(), any());
+        }
+    }
+
+    @Test
+    void distributionMetadata_rejectsMissingDuplicateAndLossyTaskIdentityBeforeService() {
+        for (String[] distribution : new String[][]{{"1"}, {"1", "2"}, {"9223372036854775808"}, {"-1"}, {"1.0"}}) {
+            var request = auditRequest();
+            request.addParameter("distributionId", distribution);
+            if (!java.util.Arrays.equals(distribution, new String[]{"1"})) request.addParameter("recipientId", "3");
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                    () -> controller.getPreviewMetadata(900L, request));
+        }
+        var half = auditRequest();half.addParameter("recipientId", "3");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> controller.getPreviewMetadata(900L, half));
+        org.mockito.Mockito.verifyNoInteractions(queryService);
+    }
+
     private static final String PREVIEW_WATERMARK_HEADER = "X-DCC-Preview-Watermark";
     private static final String ACCESS_EVENT_CODE_HEADER = "X-DCC-Access-Event-Code";
     private static final String VIEWER_TOKEN_HEADER = "X-DCC-Viewer-Token";
@@ -99,7 +144,8 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
 
     @Test
     void previewControlledFile_delegatesToQueryService() {
-        when(queryService.readPreviewFile(99L, 900L,
+        var bodyContext = DccControlledFileBodyReadContext.daily(900L);
+        when(queryService.readPreviewFile(99L, 900L, bodyContext,
                 "viewer-token", "AE-20260528-0001", "WM-20260528-0001", "VT-1", "VN-1",
                 auditContext("AE-20260528-0001")))
                 .thenReturn(new DccControlledFileBinary(
@@ -137,9 +183,10 @@ class DccControlledFilePreviewDownloadApiTest extends BaseMockitoUnitTest {
             assertEquals(
                     PREVIEW_WATERMARK_HEADER + "," + ACCESS_EVENT_CODE_HEADER,
                     response.getHeaders().getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS));
-            verify(queryService).readPreviewFile(99L, 900L,
+            verify(queryService).readPreviewFile(99L, 900L, bodyContext,
                     "viewer-token", "AE-20260528-0001", "WM-20260528-0001", "VT-1", "VN-1",
                     auditContext("AE-20260528-0001"));
+            verify(queryService, never()).readPreviewFile(any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 

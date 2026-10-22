@@ -1,0 +1,23 @@
+{
+  "status": "prepared_reviewed_offline_not_mysql_executed",
+  "scopeTests": 8,
+  "composerTests": 3,
+  "historicalProofTests": 5,
+  "structurePrerequisiteTests": 13,
+  "bpmPrerequisiteTests": 26,
+  "postflightTests": 12,
+  "rehearsalDriverTests": 31,
+  "freshTargetPrerequisites": 25,
+  "freshStructureFacts": 1251,
+  "freshBpmFacts": 264,
+  "sourceProductionManifest": "g20-delivery-fingerprints.json",
+  "prerequisites": "g21-prerequisite-runtime-receipt.json",
+  "rehearsalPrepared": "g21-rehearsal-prepared-root.json",
+  "driverManifestRelative": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-delivery-fingerprints.json",
+  "driverManifestSha256": "c2684ac434d0c550ac83d2909d0b32d07e2e0d09f71b362b8e26832aea0215b2",
+  "independentReview": "doc/tasks/20261002-dcc-detail-integration/g21-rehearsal-driver-review.md",
+  "databaseWritesExecuted": false,
+  "servicesStarted": false,
+  "gitMutated": false,
+  "e2eRun": false
+}

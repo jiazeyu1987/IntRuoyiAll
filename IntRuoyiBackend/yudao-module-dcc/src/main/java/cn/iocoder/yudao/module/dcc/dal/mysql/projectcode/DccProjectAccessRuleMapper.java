@@ -11,6 +11,15 @@ import java.util.List;
 @Mapper
 public interface DccProjectAccessRuleMapper extends BaseMapperX<DccProjectAccessRuleDO> {
 
+    default List<DccProjectAccessRuleDO> selectActiveReaderRules(Long tenantId, LocalDateTime now) {
+        return selectList(new LambdaQueryWrapperX<DccProjectAccessRuleDO>()
+                .eq(DccProjectAccessRuleDO::getTenantId, tenantId)
+                .eq(DccProjectAccessRuleDO::getActive, Boolean.TRUE)
+                .in(DccProjectAccessRuleDO::getAccessLevel, List.of("VIEW", "EDIT", "OWNER"))
+                .and(wrapper -> wrapper.isNull(DccProjectAccessRuleDO::getValidFrom).or().le(DccProjectAccessRuleDO::getValidFrom, now))
+                .and(wrapper -> wrapper.isNull(DccProjectAccessRuleDO::getExpireTime).or().gt(DccProjectAccessRuleDO::getExpireTime, now)));
+    }
+
     default List<DccProjectAccessRuleDO> selectActiveRules(Long projectCodeId, LocalDateTime now) {
         return selectList(new LambdaQueryWrapperX<DccProjectAccessRuleDO>()
                 .eq(DccProjectAccessRuleDO::getDccProjectCodeId, projectCodeId)

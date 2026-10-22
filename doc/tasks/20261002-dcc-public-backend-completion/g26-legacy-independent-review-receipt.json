@@ -1,0 +1,28 @@
+{
+  "reviewType": "READONLY_STATIC_DURING_CONCURRENT_OWNER_WORK",
+  "productionEdits": 0,
+  "mavenRuns": 0,
+  "actualNetworkActions": 0,
+  "databaseActions": 0,
+  "reportSha256": "c103aaad0770114f14a3acc570ecc50e336e885d1b7e42edc772b012f3860fa0",
+  "observedSources": [
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccControlledFileNameClaimService.java",
+      "sha256": "0bac81ba82b6a353a925b3df558ac0ae603db2a083726ccf8a07ae47d3bebe33"
+    },
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\dal\\mysql\\file\\DccLegacySourceNameSql.java",
+      "sha256": "418ba06f0e4e18632e01e368bb8808be0608df4e9bfdfb3152d74dc54eecc5c2"
+    },
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\main\\java\\cn\\iocoder\\yudao\\module\\dcc\\dal\\mysql\\file\\DccSourceNameReservationMapper.java",
+      "sha256": "100062c5ad321577a603b4daef20ff7e4d62ab91c8192625379d90ced8b64f03"
+    },
+    {
+      "path": "IntRuoyiBackend\\yudao-module-dcc\\src\\test\\java\\cn\\iocoder\\yudao\\module\\dcc\\service\\file\\DccLegacySourceNameOccupancyTest.java",
+      "sha256": "097a7516db07ec18ca30a33ae46f3870e3367a7a97703134fdef5aeabeb25e07"
+    }
+  ],
+  "actualBehaviorTestsByReviewer": false,
+  "ownerRedGreenPendingReview": true
+}

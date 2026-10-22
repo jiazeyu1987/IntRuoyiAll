@@ -1,0 +1,9 @@
+{
+  "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccCheckinDraftInitializationDatabaseTest.java",
+  "beforeSha256": "041f3bb1074b47c7b1ff02d03311ec08684142a5310c404557db518f543aa7e0",
+  "afterSha256": "039d235b782cc0d60ae0fae4da66a76742fd1d06c19cd05bd015df603e2c742e",
+  "removedBytes": 1,
+  "location": "empty line 249, one extra CR only",
+  "nonWhitespaceSha256": "787fa0a883b36005f92abf758f4cc3a4270ccffab6c45e96fccd95e8caf6af8d",
+  "noNonWhitespaceChanges": true
+}

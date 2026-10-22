@@ -1,0 +1,16 @@
+{
+  "status": "G69_EXACT_SOURCE_PACKAGE_RUNTIME_HEALTH_UP",
+  "packageSession": 5738,
+  "port": 48061,
+  "pid": 6952,
+  "launcherPid": 18396,
+  "attempt": 16,
+  "health": "UP",
+  "jarSha256": "a6e1a34805829e0e9f4b09d2bdc8d6e316eb5440e08e438c0e997c8f9ac84128",
+  "sourceCommit": "6fa4da6e6c723dfc2e54060e6535af1bb6a27c1a",
+  "sourcePins": 53,
+  "embeddedClasses": 49,
+  "activationScope": "existing owned minutejob5625 only; Shanghai",
+  "sharedDependenciesChanged": false,
+  "realUi": "in_progress"
+}

@@ -27,6 +27,8 @@ public class DccControlledFileSignatureDO extends BaseDO {
     private Long revisionId;
     private String versionNo;
     private String taskId;
+    private String processInstanceId;
+    private String fileNumberSnapshot;
     private Long actorId;
     private String actorUsernameSnapshot;
     private String actorNicknameSnapshot;
@@ -49,6 +51,8 @@ public class DccControlledFileSignatureDO extends BaseDO {
     private Boolean passwordVerified;
     private String comment;
     private LocalDateTime signedAt;
+    private LocalDateTime selectedEffectiveTime;
+    private Integer attributeRound;
     private Long sourceFileId;
     private String sourceFileHash;
     private String sourceFileHashAlgorithm;

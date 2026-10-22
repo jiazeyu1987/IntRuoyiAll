@@ -1,0 +1,85 @@
+{
+  "source": "C:\\IntRuoyi\\20261001-dcc-integration",
+  "base": "a801dc8b91579241e221d129ab34343997673f40",
+  "workers": [
+    {
+      "module": "a",
+      "path": "C:\\IntRuoyi\\20260930-dcc-a",
+      "files": [],
+      "verified_files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+          "sha256": "c922445a7be8369cc4d18fab3bf559e398c9df2aa3148450df9387a369f25e89"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationReadHttpContractTest.java",
+          "sha256": "89dca2db46514eaaaf9ee5b37ab5c96254b758971941d7f3f87bb2d9e1f36e57"
+        },
+        {
+          "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+          "sha256": "3a6be5708376dbd83e269f35ab127d3435ae8142d3507a444976d724c279afb5"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ApplicationEvidencePanel.vue",
+          "sha256": "782433605fe3f8aa434d2784d99411ffb428a8062a329a35b1680aaa620a75dc"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "sha256": "85c0a8553787ab7aeec21644122c8f990d883d4f4b8dc4cb5ff0cc13a35e99c5"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-application-read-loader.test.cjs",
+          "sha256": "24c16dbb113a363a644b31ff846f337c4c909d8c2df51e31c7882329741ba0c2"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-application-evidence-panel.test.cjs",
+          "sha256": "cdba588ba5d46cf898ac8bce2dc8bb831cc33fb68691b23763340b507745af8c"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-detail-training-context.test.cjs",
+          "sha256": "ce0734fa1e500974c01779f565f16628774c73b57a532e2c8ed843098697cd2d"
+        }
+      ]
+    },
+    {
+      "module": "d",
+      "path": "C:\\IntRuoyi\\20260930-dcc-d",
+      "files": [],
+      "verified_files": [
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/DccControlledFileController.java",
+          "sha256": "c922445a7be8369cc4d18fab3bf559e398c9df2aa3148450df9387a369f25e89"
+        },
+        {
+          "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccApplicationReadHttpContractTest.java",
+          "sha256": "89dca2db46514eaaaf9ee5b37ab5c96254b758971941d7f3f87bb2d9e1f36e57"
+        },
+        {
+          "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+          "sha256": "3a6be5708376dbd83e269f35ab127d3435ae8142d3507a444976d724c279afb5"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/project-attributes/ApplicationEvidencePanel.vue",
+          "sha256": "782433605fe3f8aa434d2784d99411ffb428a8062a329a35b1680aaa620a75dc"
+        },
+        {
+          "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+          "sha256": "85c0a8553787ab7aeec21644122c8f990d883d4f4b8dc4cb5ff0cc13a35e99c5"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-application-read-loader.test.cjs",
+          "sha256": "24c16dbb113a363a644b31ff846f337c4c909d8c2df51e31c7882329741ba0c2"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-application-evidence-panel.test.cjs",
+          "sha256": "cdba588ba5d46cf898ac8bce2dc8bb831cc33fb68691b23763340b507745af8c"
+        },
+        {
+          "path": "IntRuoyiFronted/tests/unit/dcc-detail-training-context.test.cjs",
+          "sha256": "ce0734fa1e500974c01779f565f16628774c73b57a532e2c8ed843098697cd2d"
+        }
+      ]
+    }
+  ],
+  "B_C_sources_written": false
+}

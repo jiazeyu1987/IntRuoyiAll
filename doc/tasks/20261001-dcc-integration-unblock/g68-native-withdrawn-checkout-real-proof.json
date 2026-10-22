@@ -1,0 +1,51 @@
+{
+  "status": "ACTUAL_NATIVE_WITHDRAWN_CHECKOUT_PASS_NEW_UPLOAD_CONTEXT_HTTP400_NOT_CHECKIN_PASS",
+  "runtime": "attempt15/PID5760/g68 exact reviewedpackage",
+  "source": "4043 B1 WITHDRAWN retained",
+  "checkout": "30 ACTIVE actor1 exact4043; UIheld and finalreadonly corroboration",
+  "ui": [
+    {
+      "step": "205",
+      "sha256": "1a31c2a409f3128ff9d127f02e9ef39bc0dca3d3588cc80df00fc33af1ce841a",
+      "url": "/dcc/controlled-file/detail/2054545668044084043",
+      "visibleEvidence": "native correct target/history hint, no risk delete/resubmit",
+      "writes": []
+    },
+    {
+      "step": "211",
+      "sha256": "724aadbd366166272df287f4e3fd433bf94c9ce536030c6a0f2c12f20782915a",
+      "url": "/dcc/controlled-file/browser",
+      "visibleEvidence": "admin holds exact withdrawn B1 checkout",
+      "writes": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/2054545668044084043/checkout",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "step": "214",
+      "sha256": "a052f6fefbaa758de260051cee1c97c46065cf63031234f6e1b24da2cd86285c",
+      "url": "/dcc/controlled-file/browser",
+      "visibleEvidence": "new actual upload natural HTTP400",
+      "writes": [
+        {
+          "method": "POST",
+          "pathname": "/admin-api/dcc/controlled-files/upload-preview",
+          "status": 400
+        }
+      ]
+    },
+    {
+      "step": "217",
+      "sha256": "e2ca9c674deb32d7dba16eb681533ffabdeb43dbb5eb7bcf7567eee2aac7eda9",
+      "url": "/dcc/controlled-file/browser",
+      "visibleEvidence": "从所选工作正文单独提交审批。\n培训要求\n需要培训\n修改后的源文件（可选）\n选择文件\n源文件或备注至少一项真实变化即可检入；未上传新源文件时，备注需与当前版本不同。\n修改说明\n66 / 1000\n检入备注\n50 / 1000\n取消\n检入并生成工作小版本\nCopyright ©2026 瑛泰管理系统\n\n已选择的新文件尚未上传成功，请重试或明确删除该文件后再检入。",
+      "writes": []
+    }
+  ],
+  "rootFixtureErrors": "EarlierdirectURL/defaultrouteandhiddenmenu locators NOT business failures; normalvisiblehistoricalselector/operationpanel used205/206",
+  "next": "G69 actual multipart/public source context minimalfix; preserve lock/source history, do notAPI/SQL create ticket",
+  "businessSqlWrites": false
+}

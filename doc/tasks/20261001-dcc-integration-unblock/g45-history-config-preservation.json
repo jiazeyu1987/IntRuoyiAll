@@ -1,0 +1,39 @@
+{
+  "status": "ALL_LOCAL_GIT_HISTORY_BUNDLE_VERIFIED_AND_RUNTIME_CONFIG_PROTECTED",
+  "bundle": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\repository-history.bundle",
+  "bundleSha256": "e4031f02f1335437ab35a12f12321c4ab954a9791643d81317bbf6164d1366bb",
+  "configArchives": [
+    {
+      "workspace": "C:\\IntRuoyi\\20261001-dcc-integration",
+      "archive": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20261001-dcc-integration\\local-runtime-config-source.tar.gz",
+      "sha256": "5a78d477ba37b4b6124fab01369b917f78eb0fcfc555dce7340ace51a0b25d31",
+      "sourceConfigsCount": 3
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-a",
+      "archive": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-a\\local-runtime-config-source.tar.gz",
+      "sha256": "3deb6b9b147e620fc3fd814a7986b4f48753d369dd96e7816081c991caecc3fa",
+      "sourceConfigsCount": 3
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-b",
+      "archive": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-b\\local-runtime-config-source.tar.gz",
+      "sha256": "c7f093b092bec9c1fb81df35d45c9cc89960c3323daddf8b1131bc09dde9e9ef",
+      "sourceConfigsCount": 3
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-c",
+      "archive": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-c\\local-runtime-config-source.tar.gz",
+      "sha256": "2302a84ac43866ea9cd63f0ebeb4804d9cea2c7650b35d7bdc01b468cd26002d",
+      "sourceConfigsCount": 3
+    },
+    {
+      "workspace": "C:\\IntRuoyi\\20260930-dcc-d",
+      "archive": "C:\\IntRuoyiBackups\\20261004-dcc-single-trunk-r2\\20260930-dcc-d\\local-runtime-config-source.tar.gz",
+      "sha256": "6603a8e0cf83242cc8ccfb5938183aba76421e3af442f76e1012500fbc64c696",
+      "sourceConfigsCount": 3
+    }
+  ],
+  "secretsOnlyProtectedArchive": true,
+  "notPublishedToGit": true
+}

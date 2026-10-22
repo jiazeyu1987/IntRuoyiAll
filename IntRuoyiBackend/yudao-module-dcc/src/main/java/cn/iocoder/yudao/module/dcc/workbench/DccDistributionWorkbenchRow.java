@@ -6,5 +6,5 @@ import cn.iocoder.yudao.module.system.api.workbench.TaskSummary;
 @Data @EqualsAndHashCode(callSuper=true)
 public class DccDistributionWorkbenchRow extends TaskSummary {
  private Long ownerUserId;
- private String controlledFileId, distributionId;
+ private String controlledFileId, distributionId, versionNo, approvalProcessInstanceId;
 }

@@ -1,0 +1,21 @@
+{
+  "status": "ROOT_REVIEWED_G33_SOURCE_AND_101_REGRESSION_NOT_RUNTIME_APPROVAL",
+  "manifestSha256": "8db5aa1cd6e23f59e5f2c73829a43e0944f546d30cb89997b4deaa0d724b99b8",
+  "verificationSha256": "2b1a7b2c4ee29e756691b92047e91f8a83ae4d281fc8f0abd44348d77872f370",
+  "independentClosureSha256": "50aeba35fe1cfc184a0743b59175eb9f36e3a273a9398ea0a68c4eb43c28a0b3",
+  "tests": 101,
+  "testClasses": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "sourceFilesVerified": 10,
+  "compiledClassesVerified": 16,
+  "originalFrozenAssetsUnchanged": 41,
+  "priorG20AssetsUnchanged": 20,
+  "protectedNontaskAssetsUnchanged": 6,
+  "actualQualityApproved": false,
+  "actualRegistrationRun": false,
+  "actualSchemaOrObjectWrites": false,
+  "actualBrowserAcceptance": false,
+  "actualLocalMerge": false
+}

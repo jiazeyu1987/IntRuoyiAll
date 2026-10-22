@@ -1,0 +1,193 @@
+{
+  "status": "G57_R2_READONLY_METADATA_GATE_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 6,
+  "testFiles": 6,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/utils/dccOfflineTrainingRecord.ts",
+      "bytes": 4744,
+      "sha256": "04757b4ceca584c0809eb75ff0ca9845a806d2048a877927a270be013616dcf9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 56265,
+      "sha256": "1751e82a53b3738b755c71ba56b1cc43d4c118ad16d676e10a2ba719f035cba4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "bytes": 38361,
+      "sha256": "30ab4c9a40b25b025b7d4b7ff9e04ee8702c5e75b83a8fdbd55c5a3c6a88f4f0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 11217,
+      "sha256": "5921441ae9cf92eacc420686350a69baaf91c6606ee7fec139365e8d302c9285"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 12607,
+      "sha256": "abca7f5a59f59209bba7412ac642a4a4d212b58f3c7350431ad81506b33eea06"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "bytes": 313189,
+      "sha256": "5a34915427e9d1e041bbdd0fc900a827c8f9f5407e609e6b734101de32137176"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-offline-training-entry.test.cjs",
+      "bytes": 9382,
+      "sha256": "87f55bb748e3fe53f549aa1bc3c5762fb62b52ee85d407cc5f23ceeb5105afd0"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5730,
+      "sha256": "595a775f50f36d12cf3a401ad7ea9852e2352aa03288a647af1385dcb08b8af3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12955,
+      "sha256": "975fe3d06f848d6f7d47e7b7d24792f6fae6c9bfa4b42840b7470a5e8b85a0f3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-distribution-public.test.cjs",
+      "bytes": 13827,
+      "sha256": "f078a34406033b78c2dba01a141fd62d0fe52aa458e81e0524cd6783bc20ddb4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
+      "bytes": 4897,
+      "sha256": "f49b004fe5d6531f0927a15f7b07f2ce5ba1458bf0400feee3267e92c533a4b1"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-readonly-metadata-gate.test.cjs",
+      "bytes": 3477,
+      "sha256": "1ec633798334a121301f913f69079562e8bace291a17bc3330a464586ae0fe1a"
+    }
+  ],
+  "documents": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-gate-r2-bdd.md",
+      "bytes": 2940,
+      "sha256": "835b4f1c9832b90a28683755299b3f33cec1ad7928e5c9e1db4df161e58f067d"
+    }
+  ],
+  "previousManifest": {
+    "path": "doc/tasks/20261002-dcc-public-browser/g57-offline-training-entry-frontend-fingerprints.json",
+    "bytes": 10758,
+    "sha256": "55f9edb914b9bf730b78eb70af065009096f848e1429dfcc0f79f9c4177e4703"
+  },
+  "unchangedOtherPriorAssets": [
+    {
+      "path": "IntRuoyiFronted/src/utils/dccOfflineTrainingRecord.ts",
+      "bytes": 4744,
+      "sha256": "04757b4ceca584c0809eb75ff0ca9845a806d2048a877927a270be013616dcf9"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/approval-center/index.vue",
+      "bytes": 56265,
+      "sha256": "1751e82a53b3738b755c71ba56b1cc43d4c118ad16d676e10a2ba719f035cba4"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "bytes": 38361,
+      "sha256": "30ab4c9a40b25b025b7d4b7ff9e04ee8702c5e75b83a8fdbd55c5a3c6a88f4f0"
+    },
+    {
+      "path": "IntRuoyiFronted/src/utils/notifyMessageNavigation.ts",
+      "bytes": 11217,
+      "sha256": "5921441ae9cf92eacc420686350a69baaf91c6606ee7fec139365e8d302c9285"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/system/notify/my/MyNotifyMessageDetail.vue",
+      "bytes": 12607,
+      "sha256": "abca7f5a59f59209bba7412ac642a4a4d212b58f3c7350431ad81506b33eea06"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-offline-training-entry.test.cjs",
+      "bytes": 9382,
+      "sha256": "87f55bb748e3fe53f549aa1bc3c5762fb62b52ee85d407cc5f23ceeb5105afd0"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-viewer-trace-entry.test.cjs",
+      "bytes": 5730,
+      "sha256": "595a775f50f36d12cf3a401ad7ea9852e2352aa03288a647af1385dcb08b8af3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-project-application-entry.test.cjs",
+      "bytes": 12955,
+      "sha256": "975fe3d06f848d6f7d47e7b7d24792f6fae6c9bfa4b42840b7470a5e8b85a0f3"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-workbench-distribution-public.test.cjs",
+      "bytes": 13827,
+      "sha256": "f078a34406033b78c2dba01a141fd62d0fe52aa458e81e0524cd6783bc20ddb4"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/e2e/dcc-approval-center-handling-entry-static.spec.js",
+      "bytes": 4897,
+      "sha256": "f49b004fe5d6531f0927a15f7b07f2ce5ba1458bf0400feee3267e92c533a4b1"
+    }
+  ],
+  "supersedes": "Only Parent canEditMetadata production bytes; adds actual AST/handler/renderer metadata test. Previous G57 seal retained; remaining 5 production and 5 tests unchanged. No Root-owned workflow/navigation or backend change.",
+  "verification": {
+    "actualProductionRED": {
+      "tests": 2,
+      "pass": 0,
+      "failures": 2,
+      "exitCode": 1,
+      "scope": "Root authorized temporary restore of only actual production getter with UI closed; actual SFC tested"
+    },
+    "finalRegression": {
+      "files": 4,
+      "tests": 15,
+      "pass": 15,
+      "failures": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "overlap": "Existing viewer/training/route regression included; not additive to previous 32"
+    },
+    "ownedLint": {
+      "files": 1,
+      "exitCode": 0,
+      "warnings": 0
+    },
+    "normalizedParentBeforeAndAfterProductionRedGreen": "6000ea53da0b4f3b44498129658f7ac1d39ca48df17f8af365accfe9b935b199",
+    "rootPreviousFullTypes": {
+      "session": 34712,
+      "exitCode": 0,
+      "scope": "Previous G57 before this metadata gate"
+    },
+    "rootPreviousBuild": {
+      "session": 40694,
+      "exitCode": 0,
+      "scope": "Previous G57 before this metadata gate"
+    }
+  },
+  "rawLogs": [
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-red.log",
+      "bytes": 2193,
+      "sha256": "64ccca1c738675c46bc57b431798f256e81c6332173a3f75dbe8eb0458e1b0ff"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-green.log",
+      "bytes": 1909,
+      "sha256": "d5a545c949065758e6dc1115921fcf46c2dbc20593c4e8edad1e4c7a169e2dd9"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g57-readonly-metadata-production-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "setupIncidents": [
+    "VM const export TypeError and raw golden newline mismatch were setup failures, not business RED",
+    "Abandoned test-only old-getter reconstruction is not actual production RED and is removed from final test"
+  ],
+  "limitations": [
+    "Actual production AST computed/handler and original template Vue renderer with explicit offline hosts; not browser E2E",
+    "Root final full types/build and real readonly no-edit/no-assignment acceptance pending for r2",
+    "No DB/API/browser/services/Git/Maven/fulltypes/build or role/binary authorization changes by agent",
+    "Shared task remains in_progress; this finite r2 is ready_for_closeout_for_Root_review"
+  ]
+}

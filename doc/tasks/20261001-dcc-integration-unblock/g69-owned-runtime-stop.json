@@ -1,0 +1,9 @@
+{
+  "port": 48061,
+  "sharedDependenciesChanged": false,
+  "stoppedAt": "2026-10-06T08:11:23.2639324+08:00",
+  "uiAgentResourceFree": true,
+  "status": "EXACT_OWNED_QMS_STOPPED_FOR_G69",
+  "pid": 5760,
+  "sha256": "becee2d85e2f039e6b30a9558a3dab79bf6138614f3c3db9564fd82b45494524"
+}

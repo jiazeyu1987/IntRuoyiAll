@@ -1,7 +1,7 @@
 import {
   getDccControlledFileStageByStatus,
   getDccControlledFileStageByKey,
-  type DccControlledFileStageKey,
+  type DccControlledFileRuntimeStageKey,
   type DccControlledFileStatus
 } from './lifecycle'
 import type { ControlledFileRouteSnapshotVO } from '@/api/dcc/controlledFile/workflow'
@@ -22,6 +22,8 @@ export const DCC_BPM_TASK_STATUS = {
 export interface DccTaskLike {
   id?: string
   taskDefinitionKey?: string
+  processInstanceId?: string
+  children?: DccTaskLike[]
   status?: number
   assigneeUserId?: number | string
   assignee?: number | string
@@ -36,7 +38,7 @@ export interface DccTaskLike {
 }
 
 export interface DccTaskStageProgress {
-  stageCode: DccControlledFileStageKey
+  stageCode: DccControlledFileRuntimeStageKey
   stageName: string
   stageOrder: number
   totalCount: number
@@ -67,7 +69,8 @@ export interface DccTaskHandlingHint {
   responsibilityHint: string
 }
 
-const STAGE_CODE_SET = new Set<DccControlledFileStageKey>([
+const STAGE_CODE_SET = new Set<DccControlledFileRuntimeStageKey>([
+  'SUPERVISOR_REVIEW',
   'DOC_CONTROL_REVIEW',
   'MATRIX_REVIEW',
   'MATRIX_APPROVAL',
@@ -77,9 +80,12 @@ const STAGE_CODE_SET = new Set<DccControlledFileStageKey>([
 const toStageCode = (
   stageCode: string | undefined,
   stageNo: number | undefined
-): DccControlledFileStageKey | undefined => {
-  if (stageCode && STAGE_CODE_SET.has(stageCode as DccControlledFileStageKey)) {
-    return stageCode as DccControlledFileStageKey
+): DccControlledFileRuntimeStageKey | undefined => {
+  if (stageCode) {
+    if (!STAGE_CODE_SET.has(stageCode as DccControlledFileRuntimeStageKey)) {
+      throw new Error(`审批节点代码未支持：${stageCode}`)
+    }
+    return stageCode as DccControlledFileRuntimeStageKey
   }
   switch (stageNo) {
     case 1:
@@ -191,7 +197,7 @@ export const buildDccTaskHandlingHint = (
       }
     case 'PENDING_MANUAL_DISTRIBUTION':
       return {
-        handlingHint: '等待文控正式下发',
+        handlingHint: '等待文控下发',
         responsibilityHint: '责任：文控'
       }
     case 'TRAINING_IN_PROGRESS':
@@ -201,12 +207,12 @@ export const buildDccTaskHandlingHint = (
       }
     case 'FINALIZING':
       return {
-        handlingHint: '发布处理中',
-        responsibilityHint: '责任：系统发布任务'
+        handlingHint: '生效处理中',
+        responsibilityHint: '责任：系统生效任务'
       }
     case 'FINALIZATION_FAILED':
       return {
-        handlingHint: '发布失败，需文控处理',
+        handlingHint: '生效失败，需文控处理',
         responsibilityHint: '责任：文控'
       }
     case 'REJECTED':

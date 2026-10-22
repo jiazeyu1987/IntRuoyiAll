@@ -1,0 +1,24 @@
+{
+  "status": "G29_READONLY_COLLECTOR_FROZEN_FOR_ROOT_REVIEW",
+  "actualCollectorInvocations": 0,
+  "actualDatabaseWrites": false,
+  "actualBackupWrites": false,
+  "actualDDLExecuted": false,
+  "specificNewMigrationAuthorization": false,
+  "dependencies": {
+    "g28SealSha256": "ea64fd36d37fc9f3cf98da9f2ebd7b1949301a2ada671c0c96cc4fe1bd5fcadf",
+    "g21SupportSha256": "6416a70ce24ea4fdec6abcbeb1f1a7746bd471533fff5c994b3c6ee08faf1331"
+  },
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g29-collector.py",
+      "bytes": 19305,
+      "sha256": "03061991970e0f0b5b549d3d6b8411282e7c0b73df73608de94d5b325b7ab0bc"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g29-collector-test.py",
+      "bytes": 10837,
+      "sha256": "aedc0a40063b96d5118ca87aa1c46256c885bde7be4727188535e637a4e4a621"
+    }
+  ]
+}

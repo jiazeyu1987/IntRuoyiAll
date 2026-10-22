@@ -1,0 +1,21 @@
+{
+  "status": "ROOT_REVIEWED_VERSION_RELATIONS_REFERENCE_SCRIPT_PREPARATION_REAL_DOM_NOT_EXECUTED",
+  "offlineCases": 26,
+  "manifestPath": "C:\\IntRuoyi\\20261001-dcc-integration\\doc\\tasks\\20261002-dcc-public-backend-completion\\g30-ui-delivery-fingerprints.json",
+  "manifestSha256": "ab8cbf6caeceea408a247100fe6f811bda2a24560002083a36031815c6be9b7e",
+  "supportedModes": [
+    "version",
+    "relations",
+    "reference"
+  ],
+  "assetsVerified": 3,
+  "actualBrowserCalls": 0,
+  "actualUiPass": false,
+  "referenceIdInDom": false,
+  "referenceIdentityBoundary": "Natural pinned source detail id/version; exact unique saved destination folder row, internal frontend owns formal referenceId",
+  "stillMissingModes": [
+    "distribution",
+    "obsolete"
+  ],
+  "g29SourcePreserved": true
+}

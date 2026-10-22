@@ -1,0 +1,39 @@
+{
+  "status": "G43_FORMAL_DIRECTORY_AUDIT_IDENTITY_FROZEN_FOR_ROOT_REVIEW",
+  "productionFiles": 1,
+  "testFiles": 1,
+  "assets": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceAuthAdapter.java",
+      "bytes": 5889,
+      "sha256": "84d9b8a1cea0fdf03b4a703b23affafe8b3610f58e96d9a2770f40449e365bf5"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLegacyMaintenanceEntryTest.java",
+      "bytes": 14956,
+      "sha256": "fd387a4c69730c58ab07747414f23ad7fb8440bdff14153b55567386aa8f511b"
+    }
+  ],
+  "supersededExpirySourceManifest": {
+    "path": "doc/tasks/20261002-dcc-detail-integration/g43-auth-expiry-fingerprints.json",
+    "bytes": 1565,
+    "sha256": "6357fa2f2c0da4f2530dff94a36f81dba13c334392a42dd52c4b2d286be9ab28"
+  },
+  "priorAuthSourceSha256": "dfe025f80d2b7bd97acf1a3021a306d2c9771d4e1b9b7444c2db5a1f230ba130",
+  "preservedExpiryMethod": "sameStoredExpiry unchanged byte text and original stored/checked strictly-future checks retained",
+  "previousG43SixSourcesZeroDrift": true,
+  "original41ZeroDrift": true,
+  "OWNER4AndPolicyAndRunnerZeroDrift": true,
+  "ordinaryOAuthUnchanged": true,
+  "formalConstructorSource": {
+    "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/oauth2/OAuth2TokenServiceImpl.java",
+    "bytes": 14987,
+    "sha256": "7a99afaebc9e399fd130a378912d197707e2405229e973664f6d75e446eee68d"
+  },
+  "auditConsumerSource": {
+    "path": "IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/gxpaudit/GxpAuditServiceImpl.java",
+    "bytes": 12519,
+    "sha256": "1eae82e1beeaa872f697cd26c106c2e2c15b687172f5efd0cb56b93fc83cfc87"
+  },
+  "authorityContract": "Current enabled exactid/tenant directory provides username and nickname for new HashMap principal. Cached nickname mustmatch; optionalcachedusername present mustmatch inclnull/blank reject. Checked sourceMap nevermutated. No role/permission change."
+}

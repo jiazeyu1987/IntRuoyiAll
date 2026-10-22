@@ -1,0 +1,81 @@
+{
+  "state": "offline_reviewed_not_e2e",
+  "frontendCombinedTests": 85,
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/router/modules/remaining.ts",
+      "sha256": "c6a031abf0836a5aa56471ebfe8f3ffd749da6adb2c3bef9614a6747d944bab4",
+      "utf8LfSha256": "91fc488b1b1f17097ef894f8714d927c852271eb7251df7f76e700b07ff3b5ef"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/index.vue",
+      "sha256": "a99f22fb1bb42925c5d52306e529ee2bb8e90953ca28b504f3b50c80f2d1c60f",
+      "utf8LfSha256": "4aaec5fa64b4199d028ffbc7b2d603fcc2e1e5d18ec1b8c55b285b831eb63973"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationPanel.vue",
+      "sha256": "91a32c8060d2e191e8510b2f630407d9eb695dbc4a9d7636345861ab370af1f3",
+      "utf8LfSha256": "91a32c8060d2e191e8510b2f630407d9eb695dbc4a9d7636345861ab370af1f3"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailApplicationHistory.vue",
+      "sha256": "11c8188925e87e459d48b101b0ab881ade2b45b24f46d83b506d8585b18a1305",
+      "utf8LfSha256": "11c8188925e87e459d48b101b0ab881ade2b45b24f46d83b506d8585b18a1305"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/detail/DetailRelationsPanel.vue",
+      "sha256": "5ed9136f2446eda9c9bbdd023510ce8912efb2f2bf3991985f661d5816739cfa",
+      "utf8LfSha256": "8f546499f20f687ced2931be5325d3c8be20a9b0e1a627b545eeaf225359bcda"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/revision/DccRevisionPanel.vue",
+      "sha256": "62a8492826e9762420671daf97f51611c849e855f56c42db82806ca786bf2dd4",
+      "utf8LfSha256": "f4e40082b58839cc0cf6805d0a8449cfd247ceff27af641e8c779f7270c47ec8"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/applicationRead.ts",
+      "sha256": "40813b125bbc359391474e7fe538b10dd57998cfd099caa80595c39676338b4f",
+      "utf8LfSha256": "d856c5cb14a021b9608990541070b01324b89537ea5b35cf61d6f50528839ae2"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflow.ts",
+      "sha256": "b718fedfcacb8f5582e71839a9d504a02524b12a227cbfe60aaec5ceebf50120",
+      "utf8LfSha256": "171e5565a6c57606cd25a218cc7e885ad8056c38218411cc3ad8575f5798a760"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "sha256": "ac6d4acceced7cbfd070302a89a6cf7cf6cc9d5242e64b6125963a0dc60c7169",
+      "utf8LfSha256": "6cd054b9375440c94d3d46a87b6760b46bcd2ff4151929f30baae2849b58df2c"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts",
+      "sha256": "b40a017c5ca5a96131f9743d5a344fd3c50c298e0622f82013edd7a2b8faf7c9",
+      "utf8LfSha256": "9299d9893964ce08b405489c01b400c3f6bf8d1dfd38f663eb90669199e242ad"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/signoff-departments.ts",
+      "sha256": "f13891b9f1b08456c12636538771d11e8452ce0bcf593784cd2ecb3c7fa3684c",
+      "utf8LfSha256": "f13891b9f1b08456c12636538771d11e8452ce0bcf593784cd2ecb3c7fa3684c"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workbench/index.vue",
+      "sha256": "d155f32b72dff6390acdaa0f84cb3037645e5f943eb842541c57089e8e32c244",
+      "utf8LfSha256": "8e82bffd463cdd31e85cbb6a891b2d489acea591432b6a8f02fe1d903b9a7247"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/workflow/PendingWorkflowDistributionList.vue",
+      "sha256": "2f1f4ee52ab58037a775bf1e09f2eaa650b8784d1220ea25c256bb8752333bb7",
+      "utf8LfSha256": "2f1f4ee52ab58037a775bf1e09f2eaa650b8784d1220ea25c256bb8752333bb7"
+    },
+    {
+      "path": "IntRuoyiFronted/src/api/dcc/controlledFile/workflowLifecycle.ts",
+      "sha256": "97531a957903f26ebc13405ceca9b12136d3db06dbad4f6747d74542a85c2276",
+      "utf8LfSha256": "97531a957903f26ebc13405ceca9b12136d3db06dbad4f6747d74542a85c2276"
+    }
+  ],
+  "latestBackendReceipt": "doc/tasks/20261002-dcc-public-backend-completion/p14-p15-delivery-fingerprints.json",
+  "goalComplete": false,
+  "typesAndBuildSession": 30916,
+  "typesAndBuildExitCode": 0,
+  "runtimeDependencyListeners": []
+}

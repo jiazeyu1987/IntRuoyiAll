@@ -37,6 +37,95 @@ public class DccControlledFileSignatureBindingService {
     private DccControlledFileSignatureMapper signatureMapper;
     @Resource
     private FileService fileService;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper controlledFileMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper distributionMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionRecipientMapper distributionRecipientMapper;
+    @Resource private cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMessageJobMapper messageJobMapper;
+    @Resource private cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditService gxpAuditService;
+
+    /** Internal acknowledgment transaction only. Binds one authoritative projection without changing approvals. */
+    @org.springframework.transaction.annotation.Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY,rollbackFor=Exception.class)
+    @cn.iocoder.yudao.module.system.service.gxpaudit.GxpWriteOperation(operationId="dcc.distribution.recipient.signature-bind")
+    public void bindElectronicReceipt(DccControlledFileDO file, Long signatureId, Long actorId,
+                                      Long distributionId, Long recipientId) {
+        if(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("Electronic receipt binding requires its outer acknowledgment transaction");
+        Long tenant=TenantContextHolder.getRequiredTenantId();
+        var login=cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUser();
+        if(TenantContextHolder.isIgnore() || actorId==null || actorId<=0 || signatureId==null || signatureId<=0
+                || distributionId==null || distributionId<=0 || recipientId==null || recipientId<=0
+                || login==null || !Objects.equals(login.getId(),actorId) || !Objects.equals(login.getTenantId(),tenant)
+                || !Integer.valueOf(2).equals(login.getUserType()) || file==null || file.getId()==null
+                || !Objects.equals(file.getTenantId(),tenant))
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执绑定身份不完整或不匹配");
+        var current=controlledFileMapper.selectByIdAndTenantForUpdate(tenant,file.getId());
+        if(current==null || !Objects.equals(current.getTenantId(),tenant) || Boolean.TRUE.equals(current.getDeleted())
+                || !Objects.equals(current.getId(),file.getId()) || !Objects.equals(current.getVersionNo(),file.getVersionNo())
+                || !Objects.equals(current.getPublishedFileId(),file.getPublishedFileId()) || current.getPublishedFileId()==null
+                || !java.util.Set.of("ACTIVE","SUPERSEDED","OBSOLETE").contains(current.getStatus())
+                || current.getControlledTime()==null || current.getActivatedTime()==null || current.getDistributedTime()==null)
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执绑定必须使用本租户已受控生效的精确版本");
+        var scope=distributionMapper.selectByIdAndTenantForUpdate(tenant,distributionId);
+        var recipient=distributionRecipientMapper.selectByIdAndTenantForUpdate(tenant,recipientId);
+        if(scope==null || !Objects.equals(scope.getId(),distributionId) || !Objects.equals(scope.getTenantId(),tenant)
+                || Boolean.TRUE.equals(scope.getDeleted()) || !Objects.equals(scope.getControlledFileId(),current.getId())
+                || !"PUBLIC_FOLDER".equals(scope.getDistributionMedium()) || scope.getRecoveredAt()!=null
+                || !java.util.Set.of("PENDING","SENT","READ","ACKNOWLEDGED").contains(scope.getStatus())
+                || recipient==null || !Objects.equals(recipient.getId(),recipientId) || !Objects.equals(recipient.getTenantId(),tenant)
+                || Boolean.TRUE.equals(recipient.getDeleted()) || !Objects.equals(recipient.getDistributionId(),distributionId)
+                || !Objects.equals(recipient.getUserId(),actorId) || recipient.getMessageJobId()==null)
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执绑定缺少独立精确下发义务");
+        var job=messageJobMapper.selectByIdAndTenantForUpdate(tenant,recipient.getMessageJobId());
+        var signature=signatureMapper.selectById(signatureId);
+        if(job==null || !Objects.equals(job.getId(),recipient.getMessageJobId()) || !Objects.equals(job.getTenantId(),tenant)
+                || Boolean.TRUE.equals(job.getDeleted()) || !"SENT".equals(job.getStatus()) || job.getSentAt()==null
+                || !"DISTRIBUTION".equals(job.getBusinessType()) || !Objects.equals(job.getBusinessId(),distributionId)
+                || !Objects.equals(job.getRecipientUserId(),actorId)
+                || signature==null || !Objects.equals(signature.getId(),signatureId) || Boolean.TRUE.equals(signature.getDeleted())
+                || !Objects.equals(signature.getControlledFileId(),current.getId()) || !Objects.equals(signature.getRevisionId(),current.getId())
+                || !Objects.equals(signature.getVersionNo(),current.getVersionNo()) || !Objects.equals(signature.getActorId(),actorId)
+                || !Objects.equals(signature.getTaskId(),"DISTRIBUTION:"+distributionId+":"+recipientId)
+                || !"DISTRIBUTION_ACK".equals(signature.getActionType()) || !"DISTRIBUTION_ACK".equals(signature.getMeaningCode())
+                || !"DISTRIBUTION_ACK".equals(signature.getSignaturePurpose()) || !Boolean.TRUE.equals(signature.getPasswordVerified())
+                || signature.getSignedAt()==null || !"VALID".equals(signature.getEvidenceStatus())
+                || !"HMAC_SHA256".equals(signature.getEvidenceHashAlgorithm()) || signature.getEvidenceHash()==null
+                || !signature.getEvidenceHash().matches("[a-fA-F0-9]{64}"))
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执必须引用本次人员义务的正式DCC签名");
+        var physical=requireControlledCopyFile(current.getPublishedFileId());
+        if(!Objects.equals(physical.getId(),current.getPublishedFileId()) || Boolean.TRUE.equals(physical.getDeleted()))
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"受控副本对象身份不匹配");
+        byte[] bytes=readControlledCopyContent(physical);
+        String event="DCC_RECEIPT_BIND:"+sha256Hex(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(
+                List.of(tenant,current.getId(),current.getVersionNo(),distributionId,recipientId,signatureId,actorId)).getBytes(StandardCharsets.UTF_8));
+        var candidate=createBindingEvent(signature,current,current.getPublishedFileId(),physical.getPath(),bytes,actorId,event);
+        var existing=bindingMapper.selectBySignatureId(signatureId);
+        if(existing!=null) {
+            if(!sameImmutableBinding(existing,candidate) || !Objects.equals(existing.getBoundBy(),actorId)
+                    || !Objects.equals(existing.getBindingEventKey(),event) || !hasValidBindingHash(existing))throw differentBinding(signatureId);
+            return;
+        }
+        if(bindingMapper.insert(candidate)!=1 || candidate.getId()==null || candidate.getId()<=0)
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执绑定未持久化一条记录");
+        var persisted=bindingMapper.selectBySignatureId(signatureId);
+        if(persisted==null || !Objects.equals(persisted.getId(),candidate.getId()) || !sameImmutableBinding(persisted,candidate)
+                || !Objects.equals(persisted.getBoundBy(),actorId) || !Objects.equals(persisted.getBindingEventKey(),event)
+                || !Objects.equals(persisted.getBoundAt(),candidate.getBoundAt()) || !hasValidBindingHash(persisted))
+            throw exception(CONTROLLED_FILE_SIGNATURE_BINDING_FAILED,"回执绑定持久化证据不匹配");
+        var facts=new java.util.TreeMap<String,Object>();facts.put("tenantId",tenant);facts.put("controlledFileId",current.getId());
+        facts.put("versionNo",current.getVersionNo());facts.put("distributionId",distributionId);facts.put("recipientId",recipientId);
+        facts.put("actorId",actorId);facts.put("signatureId",signatureId);facts.put("signatureEvidenceHash",signature.getEvidenceHash());
+        facts.put("controlledCopyFileId",current.getPublishedFileId());facts.put("bindingHash",persisted.getBindingHash());
+        facts.put("controlledCopySha256",persisted.getControlledCopySha256());facts.put("bindingEventKey",event);
+        gxpAuditService.append(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditCommand.builder()
+                .operationId("dcc.distribution.recipient.signature-bind").subjectId("DCC_DISTRIBUTION_RECIPIENT:"+tenant+":"+recipientId)
+                .subjectVersion(current.getVersionNo()).reason("将本次精确下发签收的正式签名绑定受控副本")
+                .signatureRecordId("DCC_CONTROLLED_FILE_SIGNATURE:"+signatureId).signatureContentHash(signature.getEvidenceHash())
+                .beforeState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder().state("ABSENT")
+                        .objectVersion(current.getVersionNo()).canonicalJson("{}").build())
+                .afterState(cn.iocoder.yudao.module.system.service.gxpaudit.GxpAuditStateEnvelope.builder().state("BOUND")
+                        .objectVersion(current.getVersionNo()).canonicalJson(cn.iocoder.yudao.framework.common.util.json.JsonUtils.toJsonString(facts)).build())
+                .idempotencyKey(event).source("DccControlledFileSignatureBindingService.bindElectronicReceipt").build());
+    }
 
     public void bindPublishedCopy(DccControlledFileDO file, Long controlledCopyFileId,
                                   Long boundBy, String bindingEventKey) {

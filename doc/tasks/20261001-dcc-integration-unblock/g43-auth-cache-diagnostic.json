@@ -1,0 +1,12 @@
+{
+  "status": "ACTUAL_TOKEN_CACHE_DATABASE_IDENTITY_READONLY_DIAGNOSTIC",
+  "userIdMatches": true,
+  "tenantIdMatches": true,
+  "userTypeMatches": true,
+  "scopesMatch": true,
+  "databaseExpiryPrecision": 0,
+  "cachedExpiryHasSubsecondPrecision": true,
+  "expiryMatchesAtPersistedSecondPrecision": false,
+  "tokenOrCredentialPrinted": false,
+  "databaseOrCacheWrites": false
+}

@@ -11,8 +11,18 @@ import {
 } from '../shared/lifecycle'
 import { getControlledFileHandlingSummary } from '../shared/handlingSummary'
 import { formatDateTimeValue } from '@/utils/formatTime'
+import { getDccVersionDisplayText } from '../shared/version-display'
 
 export type DccWorkbenchTone = 'primary' | 'warning' | 'danger' | 'success' | 'info'
+
+/** Text only; selection and every command must continue using controlledFileId. */
+export const getWorkbenchImpactVersionLabel = (option: {
+  controlledFileId: number | string
+  versionNo: string
+}) => {
+  const label = getDccVersionDisplayText(option.versionNo)
+  return label === '草稿' ? `${label} · 文件 #${option.controlledFileId}` : label
+}
 
 export interface DccWorkbenchStatusSection {
   key: string
@@ -22,14 +32,14 @@ export interface DccWorkbenchStatusSection {
 }
 
 export interface DccWorkbenchMetricSource {
-  approvalTodoTotal: number
-  pendingDistributionTotal: number
-  trainingTodoTotal: number
-  finalizationFailedTotal: number
+  approvalTodoTotal: number | null
+  pendingDistributionTotal: number | null
+  trainingTodoTotal: number | null
+  finalizationFailedTotal: number | null
 }
 
 export interface DccWorkbenchMetricItem extends DccWorkbenchStatusSection {
-  count: number
+  count: number | null
 }
 
 export interface DccWorkbenchFileRow {
@@ -79,7 +89,7 @@ export const DCC_WORKBENCH_STATUS_SECTIONS: DccWorkbenchStatusSection[] = [
   },
   {
     key: 'finalizationFailedTotal',
-    label: '发布失败',
+    label: '生效失败',
     tone: 'danger',
     routePath: '/dcc/controlled-file/browser'
   }
@@ -90,7 +100,7 @@ export const buildDccWorkbenchMetricItems = (
 ): DccWorkbenchMetricItem[] =>
   DCC_WORKBENCH_STATUS_SECTIONS.map((section) => ({
     ...section,
-    count: source[section.key as keyof DccWorkbenchMetricSource] ?? 0
+    count: source[section.key as keyof DccWorkbenchMetricSource]
   }))
 
 export const resolveWorkbenchErrorMessage = (error: unknown, fallback: string) => {
@@ -108,7 +118,7 @@ const resolveWorkbenchFilePrimaryAction = (file: ControlledFileVO) => {
     return '下发'
   }
   if (isDccControlledFileActionAllowed(file, 'RETRY_FINALIZATION')) {
-    return '重试发布'
+    return '重试生效'
   }
   return '查看'
 }

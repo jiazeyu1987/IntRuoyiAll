@@ -1,0 +1,10 @@
+{
+  "pid": 34220,
+  "port": 48061,
+  "stoppedAt": "2026-10-06T05:33:26.1230487+08:00",
+  "oldJarSha256": "b5deaba71fb6f1f6ea53124311b126441f32766ace83854d60de1fe026d0f581",
+  "status": "EXACT_OWNED_QMS_RUNTIME_STOPPED_FOR_G67_PACKAGE",
+  "archivedPackage": "C:\\IntRuoyiBackups\\20261005-dcc-four-direction-runtime\\g67-before-package\\g64-reviewed-server-exec.jar",
+  "branch": "int_qms",
+  "sharedDependenciesChanged": false
+}

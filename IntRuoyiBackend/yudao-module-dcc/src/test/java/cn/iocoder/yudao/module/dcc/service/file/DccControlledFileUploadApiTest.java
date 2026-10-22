@@ -65,6 +65,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_UPLOAD_SI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_LIFECYCLE_STAGE_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -80,6 +81,173 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
+
+    @Test
+    void r06SourcePngCreatesExactOriginalTicketAndImagePreview() throws Exception {
+        var image = new java.awt.image.BufferedImage(8, 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 4; y++) for (int x = 0; x < 8; x++) image.setRGB(x, y, x < 4 ? 0xFF0000 : 0x0000FF);
+        var bytes = new java.io.ByteArrayOutputStream();
+        assertTrue(javax.imageio.ImageIO.write(image, "png", bytes));
+        r06AssertSourceTicket("R06.png", "image/png", bytes.toByteArray(), "IMAGE");
+    }
+
+    @Test
+    void r06SourceUtf8TxtCreatesExactOriginalTicketAndTextPreview() throws Exception {
+        r06AssertSourceTicket("R06.txt", "text/plain",
+                "R06 中文正文\r\n第二行\t不得丢失\nEND-MARKER".getBytes(java.nio.charset.StandardCharsets.UTF_8), "TEXT");
+    }
+
+    @Test
+    void r06CorruptPngCannotAllocateNameClaimStorageOrTicket() {
+        var req = uploadReq("SOURCE", new MockMultipartFile("files", "R06.png", "image/png", new byte[]{1, 2, 3}));
+        lenient().when(uploadSizePolicyService.validateUploadSize(eq(10L), eq("SOURCE"), eq(3L), nullable(LocalDateTime.class)))
+                .thenReturn(new DccUploadSizePolicyMatch(1L, "r06", DccUploadSizePolicyScopeType.CATEGORY_PURPOSE,
+                        10L, "SOURCE", 1024L, "v1", 100, 3));
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadService.uploadPreviewFile(99L, req, auditContext("R06-CORRUPT-PNG")));
+        assertEquals(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID.getCode(), failure.getCode());
+        assertEquals("PNG source is empty or invalid", failure.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(nameClaimService, fileService, uploadTicketService);
+    }
+
+    @Test
+    void r06MalformedUtf8TxtCannotAllocateNameClaimStorageOrTicket() {
+        byte[] malformed = {(byte) 0xC3, (byte) 0x28};
+        var req = uploadReq("SOURCE", new MockMultipartFile("files", "R06.txt", "text/plain", malformed));
+        lenient().when(uploadSizePolicyService.validateUploadSize(eq(10L), eq("SOURCE"), eq(2L), nullable(LocalDateTime.class)))
+                .thenReturn(new DccUploadSizePolicyMatch(1L, "r06", DccUploadSizePolicyScopeType.CATEGORY_PURPOSE,
+                        10L, "SOURCE", 1024L, "v1", 100, 3));
+        var failure = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadService.uploadPreviewFile(99L, req, auditContext("R06-MALFORMED-UTF8")));
+        assertEquals(CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID.getCode(), failure.getCode());
+        assertEquals("TXT source must contain valid UTF-8", failure.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(nameClaimService, fileService, uploadTicketService);
+    }
+
+    private void r06AssertSourceTicket(String name, String contentType, byte[] original, String previewKind) throws Exception {
+        byte[] unchanged = original.clone();
+        var req = uploadReq("SOURCE", new MockMultipartFile("files", name, contentType, original));
+        String session = DccSourceUploadSession.scope(DccSourceUploadSession.newUploadPrefix(30L, 20L, "SOP-001"), "session-1");
+        lenient().when(uploadSizePolicyService.validateUploadSize(eq(10L), eq("SOURCE"), eq((long) original.length), nullable(LocalDateTime.class)))
+                .thenReturn(new DccUploadSizePolicyMatch(1L, "r06", DccUploadSizePolicyScopeType.CATEGORY_PURPOSE,
+                        10L, "SOURCE", original.length + 1024L, "v1", 100, 3));
+        lenient().when(fileService.createFileAndReturnId(any(byte[].class), eq(name), eq("dcc/original"), eq(contentType)))
+                .thenReturn(206L);
+        lenient().when(fileMapper.selectById(206L)).thenReturn(storedFile(206L, name, contentType));
+        lenient().when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-R06", session, "SOURCE", "AVAILABLE", LocalDateTime.now().plusHours(1),
+                206L, name, contentType, (long) original.length));
+
+        var response = org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> uploadService.uploadPreviewFile(99L, req, auditContext("R06-VALID-SOURCE")),
+                "PNG/TXT SOURCE must retain original bytes and obtain a purpose-bound ticket");
+        assertEquals(name, response.getFileName());
+        assertEquals(contentType, response.getContentType());
+        assertEquals(previewKind, response.getPreviewKind());
+        assertEquals("UT-R06", response.getUploadTicket());
+        assertEquals(session, response.getSessionId());
+        assertEquals("SOURCE", response.getPurpose());
+        assertNull(response.getOnlyofficeDocumentUrl());
+        ArgumentCaptor<DccUploadTicketCreateCommand> ticket = ArgumentCaptor.forClass(DccUploadTicketCreateCommand.class);
+        verify(uploadTicketService).createTicket(ticket.capture());
+        assertEquals(99L, ticket.getValue().userId());
+        assertEquals(10L, ticket.getValue().categoryId());
+        assertEquals(session, ticket.getValue().sessionId());
+        assertEquals(name, ticket.getValue().originalFileName());
+        assertEquals(contentType, ticket.getValue().contentType());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(unchanged, ticket.getValue().content());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(unchanged, original);
+        verify(nameClaimService).preflightNewSourceName(99L, 10L, 30L, 20L, name, session,
+                cn.hutool.crypto.digest.DigestUtil.sha256Hex(unchanged));
+        org.mockito.Mockito.verifyNoInteractions(onlyOfficePreviewTokenService);
+    }
+
+    @Test
+    void deniedCategorySourceUploadReportsCategoryPermissionBeforeCreatingResources() {
+        ReadFailingMultipartFile source = new ReadFailingMultipartFile("source.docx", 4L);
+        DccControlledFileUploadPreviewReqVO request = uploadReq("SOURCE", source);
+        when(permissionSupport.hasCategoryPermission(10L, 99L,
+                DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(false);
+
+        var denied = assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadService.uploadPreviewFile(99L, request, auditContext("REQ-CATEGORY-UPLOAD-DENIED")));
+
+        assertAll(
+                () -> assertEquals(1_080_000_341, denied.getCode()),
+                () -> assertEquals("当前用户没有该文件类别的上传权限", denied.getMessage()),
+                () -> assertFalse(source.inputStreamRequested),
+                () -> org.mockito.Mockito.verifyNoInteractions(fileService, uploadTicketService));
+        verify(permissionSupport).hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD);
+    }
+
+    @Test
+    void sourceUploadWithoutTemplateContextIsRejectedBeforeReadingFile() {
+        ReadFailingMultipartFile source = new ReadFailingMultipartFile("source.docx", 4L);
+        DccControlledFileUploadPreviewReqVO request = uploadReq("SOURCE", source);
+        request.setUploadContext(null);
+        assertServiceException(() -> uploadService.uploadPreviewFile(99L, request, auditContext("REQ-NO-TEMPLATE")),
+                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_FILE_TEMPLATE_SELECTION_INVALID);
+        assertFalse(source.inputStreamRequested);
+        org.mockito.Mockito.verifyNoInteractions(fileService, uploadTicketService);
+    }
+
+    @Mock
+    private DccControlledFileWorkflowService workflowService;
+    @Mock private cn.iocoder.yudao.module.system.api.permission.PermissionApi permissionApi;
+
+    @Test void trainingPreviewUsesCurrentFileAndRoundAuthorizationBeforeAnyStorageOrTicketWrite() {
+        var req=uploadReq("TRAINING_RECORD",new MockMultipartFile("files","training.pdf","application/pdf","%PDF-1.4".getBytes()));
+        req.setControlledFileId(901L);req.setSessionId("dcc-training:901:6:proc-1:session");
+        org.mockito.Mockito.doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403,"training context denied"))
+                .when(workflowService).validateTrainingRecordUpload(99L,901L,10L,req.getSessionId());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,()->uploadService.uploadPreviewFile(99L,req,auditContext("REQ-TRAINING-DENIED")));
+        verify(workflowService).validateTrainingRecordUpload(99L,901L,10L,req.getSessionId());
+        org.mockito.Mockito.verifyNoInteractions(fileService,uploadTicketService);
+    }
+
+    @Test
+    void approvalOnlyActorCanUseTemporaryStatusAndCleanupEndpoints() {
+        for (String name : new String[] {"getUploadTemporaryStatus", "cleanupUploadTemporarySession", "cleanupUploadTemporaryTicket"}) {
+            Method method = Arrays.stream(cn.iocoder.yudao.module.dcc.controller.admin.file.DccControlledFileController.class.getMethods())
+                    .filter(candidate -> candidate.getName().equals(name)).findFirst().orElseThrow();
+            String expression = method.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value();
+            assertTrue(expression.contains("dcc:controlled-file:approve"), name + " must admit approval actors; service checks ticket ownership");
+        }
+    }
+
+    @Test
+    void approvalPdfUsesTaskAuthorizationWithoutCategoryUploadGrant() throws Exception {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("APPROVAL_PDF",
+                new MockMultipartFile("files", "approval.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        reqVO.setControlledFileId(900L);
+        reqVO.setTaskId("task-4");
+        reqVO.setSessionId("dcc-approval:900:6:task-4:session-1");
+        lenient().when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD))
+                .thenReturn(false);
+        mockSizePolicy("APPROVAL_PDF", 8L);
+        when(fileService.createFileAndReturnId(any(), eq("approval.pdf"), eq("dcc/original"), eq("application/pdf")))
+                .thenReturn(102L);
+        when(fileMapper.selectById(102L)).thenReturn(storedFile(102L, "approval.pdf", "application/pdf"));
+        when(watermarkService.build(99L, "preview", "approval.pdf"))
+                .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
+        when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
+                "UT-APPROVAL", reqVO.getSessionId(), "APPROVAL_PDF", "AVAILABLE",
+                LocalDateTime.now().plusHours(1), 102L, "approval.pdf", "application/pdf", 8L));
+        assertEquals("UT-APPROVAL", uploadService.uploadPreviewFile(99L, reqVO, auditContext("REQ-APPROVAL")).getUploadTicket());
+        verify(workflowService).validateApprovalPdfUpload(99L, 900L, "task-4", 10L, reqVO.getSessionId());
+        verify(permissionSupport, never()).hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD);
+    }
+
+    @Test
+    void deniedApprovalTaskCannotStoreOrCreateAnyTicket() {
+        DccControlledFileUploadPreviewReqVO reqVO = uploadReq("APPROVAL_PDF",
+                new MockMultipartFile("files", "approval.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        org.mockito.Mockito.doThrow(new cn.iocoder.yudao.framework.common.exception.ServiceException(403, "task denied"))
+                .when(workflowService).validateApprovalPdfUpload(any(), any(), any(), any(), any());
+        assertThrows(cn.iocoder.yudao.framework.common.exception.ServiceException.class,
+                () -> uploadService.uploadPreviewFile(99L, reqVO, auditContext("REQ-DENIED")));
+        org.mockito.Mockito.verifyNoInteractions(fileService, uploadTicketService);
+    }
 
     private static final BusinessFileAccessReference TEMP_REFERENCE = new BusinessFileAccessReference(
             "dcc", "DCC_TEMPORARY_UPLOAD", 501L, "TEMP-501", 31L, null);
@@ -104,6 +272,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     private DccFileCategoryMapper categoryMapper;
     @Mock
     private BusinessFileAccessService businessFileAccessService;
+    @Mock private DccControlledFileNameClaimService nameClaimService;
+    @Mock private DccControlledFileSourceOwnershipService sourceOwnershipService;
 
     @InjectMocks
     private DccControlledFileUploadServiceImpl uploadService;
@@ -111,6 +281,9 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     @BeforeEach
     void setUpCategory() {
         TenantContextHolder.setTenantId(31L);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        lenient().when(sourceOwnershipService.rollbackCleanup(any())).thenReturn(()->{});
         lenient().when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L)
                 .active(true)
@@ -123,6 +296,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
     @AfterEach
     void clearTenantContext() {
         TenantContextHolder.clear();
+        org.springframework.transaction.support.TransactionSynchronizationManager.clear();
     }
 
     @Test
@@ -279,7 +453,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         verify(uploadTicketService).createTicket(ticketCaptor.capture());
         assertEquals(99L, ticketCaptor.getValue().userId());
         assertEquals(10L, ticketCaptor.getValue().categoryId());
-        assertEquals("session-1", ticketCaptor.getValue().sessionId());
+        assertEquals(DccSourceUploadSession.scope(DccSourceUploadSession.newUploadPrefix(30L, 20L, "SOP-001"),
+                "session-1"), ticketCaptor.getValue().sessionId());
         assertEquals("SOURCE", ticketCaptor.getValue().purpose());
         assertEquals(100L, ticketCaptor.getValue().storageFileId());
         assertEquals("REQ-UPLOAD-SUCCESS", ticketCaptor.getValue().requestId());
@@ -307,7 +482,9 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
                         "docx".getBytes()));
         assertServiceException(() -> uploadService.uploadPreviewFile(99L, reqVO,
                         auditContext("REQ-UPLOAD-DENIED")),
-                cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED);
+                new cn.iocoder.yudao.framework.common.exception.ErrorCode(
+                        cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_PROJECT_ACCESS_DENIED.getCode(),
+                        "当前用户没有该文件类别的上传权限"));
 
         verify(fileService, never()).createFileAndReturnId(any(byte[].class), any(), any(), any());
         verify(uploadTicketService, never()).createTicket(any());
@@ -696,6 +873,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         ReflectionTestUtils.setField(uploadService, "onlyOfficePreviewProperties", new DccOnlyOfficePreviewProperties());
         DccControlledFileUploadPreviewReqVO reqVO = uploadReq("TRAINING_RECORD",
                 new MockMultipartFile("files", "training.pdf", "application/pdf", "%PDF-1.4".getBytes()));
+        reqVO.setControlledFileId(901L);reqVO.setSessionId("dcc-training:901:6:proc-1:session");
         mockSizePolicy("TRAINING_RECORD", 8L);
         when(fileService.createFileAndReturnId(eq("%PDF-1.4".getBytes()), eq("training.pdf"), eq("dcc/original"),
                 eq("application/pdf"))).thenReturn(103L);
@@ -703,7 +881,7 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         when(watermarkService.build(99L, "preview", "training.pdf"))
                 .thenReturn(DccControlledPreviewWatermarkRespVO.builder().purpose("preview").build());
         when(uploadTicketService.createTicket(any())).thenReturn(new DccUploadTicketCreated(
-                "UT-20260528-0003", "session-1", "TRAINING_RECORD", "AVAILABLE",
+                "UT-20260528-0003", reqVO.getSessionId(), "TRAINING_RECORD", "AVAILABLE",
                 LocalDateTime.of(2026, 5, 28, 12, 30), 103L, "training.pdf", "application/pdf", 8L));
 
         DccControlledFileUploadRespVO respVO = uploadService.uploadPreviewFile(99L, reqVO,
@@ -712,6 +890,8 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         assertEquals("UT-20260528-0003", respVO.getUploadTicket());
         assertEquals("TRAINING_RECORD", respVO.getPurpose());
         assertEquals("PDF", respVO.getPreviewKind());
+        verify(workflowService).validateTrainingRecordUpload(99L, 901L, reqVO.getCategoryId(), reqVO.getSessionId());
+        org.mockito.Mockito.verifyNoInteractions(permissionApi);
     }
 
     @Test
@@ -794,6 +974,10 @@ class DccControlledFileUploadApiTest extends BaseMockitoUnitTest {
         reqVO.setCategoryId(10L);
         reqVO.setSessionId("session-1");
         reqVO.setPurpose(purpose);
+        reqVO.setUploadContext("NEW_UPLOAD");
+        reqVO.setDccProjectCodeId(30L);
+        reqVO.setFileTypeTaxonomyId(20L);
+        reqVO.setFileName("SOP-001");
         reqVO.setFiles(new MultipartFile[]{file});
         return reqVO;
     }

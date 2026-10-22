@@ -1,5 +1,7 @@
 const PLACEHOLDER_STAGE_NAME_PATTERN = /^[\s?？]+$/
 const DCC_STAGE_LABEL_MAP = new Map<string, string>([
+  ['SUPERVISOR_REVIEW', '直属主管审核'],
+  ['DELAYED_EFFECTIVE_CONFIRM', '延迟生效确认'],
   ['DOC_CONTROL_REVIEW', '文控审核'],
   ['MATRIX_REVIEW', '会签审核'],
   ['MATRIX_APPROVAL', '会签批准'],

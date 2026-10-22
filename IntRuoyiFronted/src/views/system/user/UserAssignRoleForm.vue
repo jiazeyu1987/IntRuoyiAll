@@ -9,7 +9,7 @@
       </el-form-item>
       <el-form-item label="角色">
         <el-select v-model="formData.roleIds" :disabled="formLoading || !roleOptionsReady" multiple placeholder="请选择角色">
-          <el-option v-for="item in roleList" :key="item.id" :label="item.name" :value="item.id" />
+          <el-option v-for="item in roleList" :key="item.id" :label="roleOptionLabel(item, roleList)" :value="item.id" />
         </el-select>
       </el-form-item>
       <el-form-item
@@ -37,6 +37,7 @@
 import * as PermissionApi from '@/api/system/permission'
 import * as UserApi from '@/api/system/user'
 import * as RoleApi from '@/api/system/role'
+import { roleOptionLabel } from './role-option-label'
 
 defineOptions({ name: 'SystemUserAssignRoleForm' })
 

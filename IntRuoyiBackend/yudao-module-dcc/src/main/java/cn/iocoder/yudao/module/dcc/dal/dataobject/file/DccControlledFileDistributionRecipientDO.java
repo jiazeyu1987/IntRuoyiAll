@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.dcc.dal.dataobject.file;
 
 import cn.iocoder.yudao.framework.mybatis.core.dataobject.BaseDO;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,8 +22,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class DccControlledFileDistributionRecipientDO extends BaseDO {
 
-    @TableId
+    @TableId(type = IdType.AUTO)
     private Long id;
+    private Long tenantId;
     private Long distributionId;
     private Long userId;
     private Long messageJobId;

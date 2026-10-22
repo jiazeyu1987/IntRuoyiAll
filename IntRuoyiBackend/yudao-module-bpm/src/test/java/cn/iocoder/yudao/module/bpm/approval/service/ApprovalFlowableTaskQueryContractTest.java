@@ -20,6 +20,11 @@ class ApprovalFlowableTaskQueryContractTest {
                 String count=sql(configuration,"count",p),window=sql(configuration,"window",p);
                 assertEquals(count.substring(count.indexOf(" FROM ")),window.substring(window.indexOf(" FROM "),window.indexOf(" ORDER BY ")));
                 assertTrue(window.contains("CAST(t.ID_ AS BINARY) ASC LIMIT ? OFFSET ?"));
+                assertTrue(count.contains("searched.tenant_id=?"));
+                assertTrue(count.contains("CAST(searched.id AS CHAR)=o.authority_id"));
+                assertTrue(count.contains("LOWER(searched.file_number) LIKE ?"));
+                assertEquals(!done && projection.equals("DCC_TASK"),
+                        count.contains("completed.status IN ('ACTIVE','SUPERSEDED','OBSOLETE')"));
                 if(done) assertTrue(count.contains("t.TASK_DEF_KEY_ != ?"));
                 if(!done && !global) {
                     assertTrue(count.contains("bpm_approval_selected_candidate"));

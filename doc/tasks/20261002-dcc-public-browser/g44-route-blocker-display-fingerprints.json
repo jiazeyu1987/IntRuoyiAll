@@ -1,0 +1,98 @@
+{
+  "status": "G44_ROUTE_BLOCKER_DISPLAY_FROZEN_FOR_ROOT_REVIEW",
+  "assets": [
+    {
+      "path": "IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue",
+      "bytes": 114594,
+      "sha256": "651eb911f93f7f5cb6de5d7cc2d0425e40d4654528c6e3a0cdabf7b011343faa"
+    },
+    {
+      "path": "IntRuoyiFronted/tests/unit/dcc-upload-route-blocker-display.test.cjs",
+      "bytes": 7039,
+      "sha256": "47093e471c0d88d52ac4b0f25eec34eadb1555cd51a658a3c9b157839f5b2980"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-bdd.md",
+      "bytes": 2575,
+      "sha256": "e03c3f411439a584ce2045dec06becfb3da6797f5f681af4698f341898d0a131"
+    }
+  ],
+  "productionFiles": 1,
+  "testFiles": 1,
+  "priorUploadSha256": "ac6d4acceced7cbfd070302a89a6cf7cf6cc9d5242e64b6125963a0dc60c7169",
+  "productionDelta": "Exactly existing blocker message interpolation replaced by3textspans; original key/branches/guard/API unchanged. Reverse replacement reconstructs wholeprior rawsha. Original patchlocalCRLF preserved.",
+  "oldG20SealModified": false,
+  "verification": {
+    "red": {
+      "tests": 4,
+      "passed": 1,
+      "failed": 3,
+      "exitCode": 1
+    },
+    "green": {
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "regression": {
+      "files": 3,
+      "tests": 27,
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "lint": {
+      "exitCode": 0,
+      "actualCommand": "node node_modules/eslint/bin/eslint.js src/views/dcc/controlled-file/upload/index.vue",
+      "initialPnpmCommandExitCode": 1,
+      "initialPnpmFailure": "NonTTY dependency status auto-install purge confirmation refused; no intentional install/purge approved."
+    },
+    "finalSourceRender": {
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "exitCode": 0,
+      "overlap": "Same4cases repeated after localEOL restoration, notnewscenarios."
+    }
+  },
+  "rawLogs": {
+    "red": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-red.log",
+      "bytes": 3366,
+      "sha256": "6f560e05a3038ece14a8b1c8cec3793f6ab1156805e518dc1e4e4115c06a9cf3"
+    },
+    "green": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-green.log",
+      "bytes": 514,
+      "sha256": "9e4a02bc8b983bded568da6f0d6ed73346c5110dd7a134895f532c1045f996a5"
+    },
+    "regression": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-regression.log",
+      "bytes": 2795,
+      "sha256": "1bdddf09d772e6d6263958491996594cf7221f2d84e45e5cbaa8512af65b3100"
+    },
+    "lint": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-lint.log",
+      "bytes": 2227,
+      "sha256": "58f644fe308d66dcadd22fc4c3fc7c664def4199ab0567483f6965dc29067fbc"
+    },
+    "lint-r2": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-lint-r2.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "final": {
+      "path": "doc/tasks/20261002-dcc-public-browser/g44-route-blocker-display-final.log",
+      "bytes": 514,
+      "sha256": "7f1dcccae79e23c8db232590d3f35409d078a32076672193aadaaf3cd2c62175"
+    }
+  },
+  "actualBrowserActions": 0,
+  "actualDatabaseActions": 0,
+  "serviceActions": 0,
+  "MavenRuns": 0,
+  "fullTypeOrBuildRuns": 0,
+  "GitMutations": 0
+}

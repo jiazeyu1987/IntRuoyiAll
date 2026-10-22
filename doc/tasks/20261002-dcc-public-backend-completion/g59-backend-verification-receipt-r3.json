@@ -1,0 +1,54 @@
+{
+  "status": "PASS_FINITE_JDBC_TEMPORAL_CONTRACT_FROZEN_NOT_ACTUAL_MYSQL_REPAIR",
+  "previousVerification": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-backend-verification-receipt-r2.json",
+    "bytes": 3060,
+    "sha256": "65ccb33efa2c4ad8b569fb04969736732a3a74c090fd72d79c9c91245c9a6ac9"
+  },
+  "actualCliExitCode": 0,
+  "finishedAt": "2026-10-05T22:00:56+08:00",
+  "tests": 7,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "groups": 1,
+  "xml": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLifecycleProjectionRepairDatabaseTest.xml",
+    "bytes": 97372,
+    "sha256": "ffa873dadebe4412de551d50c3373014aa5c764008d7b425ec7d83c45875f552"
+  },
+  "log": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-green.log",
+    "bytes": 70282,
+    "sha256": "89553fe8ca91af889f2a840f886a2a16e3894ee3ea4cca4399cd0524eda894da"
+  },
+  "effectiveRED": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "reason": "Actual exactEvent with matching LocalDateTime occurrence returned false; Timestamp exact baseline true",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-effective-red.xml",
+      "bytes": 96979,
+      "sha256": "1cd7c16674e4cb29980038c9e363b81716c88697fd2685beeb27b9f8638a7bbc"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g59-jdbc-event-time-red.log",
+      "bytes": 71483,
+      "sha256": "75de8ca38a55d7d0dc31c63406ad1562c7cb3c60619b69a9c15f068163cfd8bf"
+    }
+  },
+  "contract": "Two explicitly valid JDBC temporal representations only: LocalDateTime.equals(savedtime), Timestamp.toLocalDateTime.equals(savedtime). Preserve precision; no stringparse/generalDate coercion/timezone conversion/history mutation.",
+  "guardsVerified": "newcasechecksTimestamptrue/LocalDatetimetrue/nanosdiff1false/stringfalse/wrongMasterfalse, allprior6repairpermission/source/bpm/signature/event/rollback/replay casesPASS.",
+  "rawSourceHashChecks": {
+    "changedAssets": [
+      "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairDatabaseTest.java",
+      "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccLifecycleProjectionRepairService.java"
+    ],
+    "unchangedProduction": 12,
+    "unchangedTest": 4,
+    "otherCompiledClassesUnchanged": true
+  },
+  "RootActualProof": "Parent source4026 controlled/activated/event DATE_FORMAT11:51:36.000000, datetimeprecision0; no actualrepairPOSTwrite yet. Child onlyisolatedtest, no DB/API/browser/service/package/Git.",
+  "mavenOwnership": "FREE_FROZEN_NO_FURTHER_SOURCE_TARGET_OR_MAVEN"
+}

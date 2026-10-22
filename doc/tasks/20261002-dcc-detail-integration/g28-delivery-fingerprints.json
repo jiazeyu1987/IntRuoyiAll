@@ -1,0 +1,69 @@
+{
+  "status": "G28_OFFLINE_PREPARATION_FROZEN_FOR_ROOT_REVIEW",
+  "productionChanged": false,
+  "actualTransportInvocations": 0,
+  "actualDatabaseWrites": false,
+  "specificNewMigrationAuthorized": false,
+  "assets": [
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema.py",
+      "bytes": 14373,
+      "sha256": "c4ef3ac1004df611fa4b81adc936c7f3202de00e65645649e8bc4deb762e3356"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema-test.py",
+      "bytes": 5315,
+      "sha256": "c4c1290faacb7f514f986933dae9af6b84a0df3103d0ef22e504a145244665b0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-driver.py",
+      "bytes": 32687,
+      "sha256": "a0ee11381a0e15d34803770cd82e64f31ce44bfbd4132ab552b45781bd04acf5"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-driver-test.py",
+      "bytes": 10305,
+      "sha256": "8f0b7689735b193d03517c5b2433ad26d3710b87bafbba012ff2f28f6657266a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema-contract.json",
+      "bytes": 46228,
+      "sha256": "f1ec2ec8207b34f0427d021f717c4859d6b71715fbdc436706263ed0fd7e9f0a"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema-capture.sql",
+      "bytes": 2392,
+      "sha256": "a7fa3e3661db6de7d5a525b7e0fd7f5b4bbd8af43dd988d2260146e61e4f969b"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-schema-row-counts.sql",
+      "bytes": 397,
+      "sha256": "627d220fb2ea2072d86f02d1f094e47d521c3288ab6d5f4969c8725e45ae2149"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-source-first.sql",
+      "bytes": 6151,
+      "sha256": "8369d8dd5acf0bae0cff246e04cc4a180becc286df7eecdd977fb14e949d0494"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-source-repeat.sql",
+      "bytes": 5643,
+      "sha256": "60fc0e0102dbb54f92aa4a1a091bb804fdca90d3e15aba0c2cebde95dde671b6"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-plan.json",
+      "bytes": 59098,
+      "sha256": "8e5571fa446ded61eadba3a8ed511f47dc34f38ce533bfb8fb1c0afa7ee7a8d3"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-request-template.json",
+      "bytes": 610,
+      "sha256": "fcd29a6c043d8e77045b86e630a31335d967a085919d483196951a7e167c1bb0"
+    },
+    {
+      "path": "doc/tasks/20261002-dcc-detail-integration/g28-execution-plan.md",
+      "bytes": 7355,
+      "sha256": "71c8f12e40ff74d132ab00037f87327f59351071be86ae10410229881849b1ee"
+    }
+  ]
+}

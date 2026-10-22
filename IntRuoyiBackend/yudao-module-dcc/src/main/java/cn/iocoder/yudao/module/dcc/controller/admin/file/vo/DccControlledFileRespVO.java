@@ -8,9 +8,46 @@ import java.util.List;
 
 @Data
 public class DccControlledFileRespVO {
+    /** Server digest of this exact saved ordinary-attachment manifest; never a client-supplied digest. */
+    private String ordinaryAttachmentManifestHash;
+    private LocalDateTime delayedEffectiveTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long delayedEffectiveSignatureId;
+    private String delayedEffectiveProcessInstanceId;
+    private LocalDateTime delayedEffectiveConfirmedAt;
+    /** Metadata only; does not confer preview, download, or approval rights. */
+    private Boolean canReadTrainingApplicationProgress = false;
 
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long id;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long tenantId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long latestControlledFileId;
+    /** Daily-use pointer; may differ from latestControlledFileId while a successor awaits effectiveness. */
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long currentActiveControlledFileId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long projectFolderId;
+    private String projectFolderName;
+    /** Exact current file placement; project existence alone is not a logical storage location. */
+    private boolean hasProjectStorageMapping;
+    private String projectName;
+    private String projectCode;
+    private Boolean controlled;
+    private Boolean pendingEffect;
+    private Boolean executable;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long masterId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long fileOwnerUserId;
+    private String fileOwnerUsernameSnapshot;
+    private String fileOwnerNicknameSnapshot;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long fileOwnerSignatureId;
+    private String fileOwnerApprovalTaskId;
+    private String fileOwnerProcessInstanceId;
+    private LocalDateTime fileOwnerSelectedTime;
     private Long categoryId;
     private String businessSourceType;
     private Long registrationCertificateId;
@@ -25,10 +62,22 @@ public class DccControlledFileRespVO {
     private String previewUnavailableReason;
     private Boolean publishedArtifactAvailable;
     private Boolean stampedArtifactAvailable;
+    private Boolean trainingRecordAvailable;
+    private String trainingRecordFileName;
+    private Boolean distributionCompleted;
     private String fileNumber;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long productMasterId;
+    private String productSource;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCatalogId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productRelationId;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long productCreateRequestId;
     private String productCode;
     private String productName;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
     private Long dccProjectCodeId;
     private String projectCodeRecognitionType;
     private String projectCodeRecognitionText;
@@ -43,6 +92,15 @@ public class DccControlledFileRespVO {
     private Boolean needTraining;
     private String processType;
     private String versionNo;
+    private String revisionChangeType;
+    private Integer revisionAttemptNo;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long reworkPredecessorControlledFileId;
+    private Long revisionSourceControlledFileId;
+    private String revisionSourceVersionNo;
+    private Long selectedIterationControlledFileId;
+    private String selectedIterationVersionNo;
+    private String sourceOriginalFileName;
     private String revisionCode;
     private Integer iterationNo;
     private Long predecessorControlledFileId;
@@ -51,7 +109,15 @@ public class DccControlledFileRespVO {
     private String previousSourceSha256;
     private String changeDescription;
     private String currentActiveVersionNo;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape = com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate effectiveDate;
+    private String effectiveMode;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern="yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime effectiveTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.STRING)
+    private Long effectiveSignatureId;
+    private String effectiveProcessInstanceId;
+    private List<String> selectedDistributionDepartmentIds;
     private String remark;
     private String status;
     private Long requesterId;
@@ -60,6 +126,14 @@ public class DccControlledFileRespVO {
     private LocalDateTime submittedTime;
     private LocalDateTime approvedTime;
     private LocalDateTime publishedTime;
+    private String changeType;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime controlledTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime activatedTime;
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime distributedTime;
+    private String distributionReminderStage;
     private LocalDateTime rejectedTime;
     private LocalDateTime stampedTime;
     private Long obsoletedBy;
@@ -93,4 +167,5 @@ public class DccControlledFileRespVO {
     private List<DccControlledFileTrainingStatusRespVO> trainingStatuses;
     private List<DccControlledFileSignatureSummaryRespVO> signatureSummaries;
     private List<DccControlledFileRelatedFileRespVO> relatedFiles;
+    private List<DccControlledFileAttachmentRespVO> attachments;
 }

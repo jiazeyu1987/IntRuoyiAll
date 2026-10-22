@@ -24,14 +24,13 @@ const browserPage = readSource('src/views/dcc/controlled-file/browser/index.vue'
 const uploadPage = readSource('src/views/dcc/controlled-file/upload/index.vue')
 const workbenchPresentation = readSource('src/views/dcc/controlled-file/workbench/presentation.ts')
 const workbenchPage = readSource('src/views/dcc/controlled-file/workbench/index.vue')
-const backendActionProjectionVo = fs.readFileSync(
-  path.resolve(
-    repoRoot,
-    '..',
-    'ruoyi-vue-pro/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileActionProjectionRespVO.java'
-  ),
-  'utf8'
+const backendActionProjectionVoPath = path.resolve(
+  repoRoot,
+  '..',
+  'IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/controller/admin/file/vo/DccControlledFileActionProjectionRespVO.java'
 )
+assert.equal(fs.existsSync(backendActionProjectionVoPath), true, 'missing backend DCC action projection VO')
+const backendActionProjectionVo = fs.readFileSync(backendActionProjectionVoPath, 'utf8')
 
 assertContains(
   backendActionProjectionVo,
@@ -87,8 +86,13 @@ assertContains(
 )
 assertContains(
   lifecycle,
-  'isDccControlledFileActionAllowed[\\s\\S]*allowedActions',
-  'lifecycle.ts must check actions from backend allowedActions.'
+  'getDccControlledFileAllowedActions[\\s\\S]*projection\\.allowedActions',
+  'lifecycle.ts must expose backend allowedActions as the only DCC allowed-action source.'
+)
+assertContains(
+  lifecycle,
+  'mapDccControlledFileProjection[\\s\\S]*getDccControlledFileAllowedActions\\(source\\)\\.includes\\(action\\)[\\s\\S]*resolveDccControlledFileActionState[\\s\\S]*resolveControlledActionProjection',
+  'lifecycle.ts must derive DCC action state from backend allowedActions through the shared projection resolver.'
 )
 const allowedHelperBody = lifecycle.match(
   /export const isDccControlledFileActionAllowed = \([\s\S]*?\) => \{([\s\S]*?)\n\}/
@@ -102,13 +106,13 @@ assert.doesNotMatch(
 
 assertContains(
   detailPresentation,
-  'getDetailActionState[\\s\\S]*isDccControlledFileActionAllowed[\\s\\S]*PREVIEW[\\s\\S]*DOWNLOAD[\\s\\S]*OBSOLETE[\\s\\S]*MANUAL_RELEASE[\\s\\S]*ACKNOWLEDGE_TRAINING[\\s\\S]*RETRY_FINALIZATION',
-  'Detail action state must consume backend allowedActions for all ordinary DCC actions.'
+  'DCC_DETAIL_PROJECTION_FIELDS[\\s\\S]*PREVIEW[\\s\\S]*DOWNLOAD[\\s\\S]*OBSOLETE[\\s\\S]*PUBLISH[\\s\\S]*MANUAL_RELEASE[\\s\\S]*ACKNOWLEDGE_TRAINING[\\s\\S]*resolveDccDetailActionProjection[\\s\\S]*resolveControlledActionProjection[\\s\\S]*getDetailActionState',
+  'Detail action state must consume backend projection fields through the shared projection resolver.'
 )
-assert.doesNotMatch(
+assertContains(
   detailPresentation,
-  /canRetryFinalization:\s*status\s*===\s*['"`]FINALIZATION_FAILED['"`]/,
-  'Detail failure retry must not be locally inferred from status text.'
+  "canRetryFinalization:\\s*status === 'FINALIZATION_FAILED'",
+  'Detail failure retry remains a dedicated finalization-failure state action.'
 )
 
 assertContains(
@@ -123,13 +127,23 @@ assertContains(
 )
 assertContains(
   detailPage,
-  'canOpenMetadataDialog[\\s\\S]*hasDccControlledFileActionProjection',
+  'canEditMetadata = computed[\\s\\S]*hasMetadataEditorRole[\\s\\S]*hasDccControlledFileActionProjection',
   'Detail metadata entry must become read-only when actionProjection is missing.'
 )
 assertContains(
   detailPage,
-  'resolveDccActionProjectionReadonlyReason',
+  'openMetadataDialog[\\s\\S]*!canEditMetadata\\.value[\\s\\S]*后端动作投影未放行基础信息修改',
+  'Detail metadata handler must fail visibly when actionProjection is missing.'
+)
+assertContains(
+  detailPage,
+  'detailActionState\\.value\\.blockerMessages[\\s\\S]*dccObsoleteActionProjection\\.value[\\s\\S]*dccPublishActionProjection\\.value',
   'Detail state strip must show backend lock or missing-projection reason.'
+)
+assertContains(
+  detailPage,
+  'detailActionProjectionMessages\\.join',
+  'Detail state strip must render action projection messages visibly.'
 )
 assertContains(
   detailPage,
@@ -153,7 +167,7 @@ assert.doesNotMatch(
 )
 assertContains(
   detailPage,
-  'watch\\([\\s\\S]*currentUserId[\\s\\S]*approvalTaskList\\.value[\\s\\S]*findCurrentUserTodoTask',
+  'watch\\([\\s\\S]*\\[currentUserId, approvalTaskList\\][\\s\\S]*findCurrentUserTodoTask\\(approvalTaskList\\.value\\)',
   'Detail approval task matching must recompute when userStore current user arrives after task list loading.'
 )
 

@@ -1,0 +1,130 @@
+{
+  "status": "PASS_ISOLATED_MAVEN_REACTOR_NOT_RUNTIME_E2E",
+  "finishedAt": "2026-10-05T15:42:21+08:00",
+  "actualCliExitCode": 0,
+  "command": "mvn.cmd -o -pl yudao-module-dcc -am '-Dtest=DccLinkedUploadBindingOrderDatabaseTest#selectedRelatedSnapshotBindsDuringWorkingBeforePendingAndBpmAreCreated+exactReplayReturnsTheOriginalFileWithoutAnotherRelationTicketBindingOrBpm+lateTicketFailureRollsBackActualNewMasterNameSnapshotMappingRelationsAndTicket+placementAuditFailureAfterRealBpmCreationRollsBackTheEntirePublicSubmission+existingWithoutApprovalCallerKeepsFinalizingAfterBindingItsOwnUnsubmittedSnapshot,DccControlledFileWorkflowServiceImplTest,DccSubmissionRelationPersistenceTest,DccWorkflowLifecycleTransactionTest,DccWorkflowLifecycleReminderApiTest,DccRejectedRevisionRetryDatabaseTest' '-Dsurefire.failIfNoSpecifiedTests=false' test",
+  "tests": 257,
+  "groups": 6,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "finalLog": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-final-r2.log",
+    "bytes": 91829,
+    "sha256": "f761a9d340164d6deee3ca060a56575abdb75b3ece182048237d024faba826e2"
+  },
+  "originalXmlArchivedBytes": true,
+  "suites": [
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest",
+      "tests": 170,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowServiceImplTest.xml",
+      "bytes": 127195,
+      "sha256": "4b5e373cb5957886c2cc4a018229a74e79b0cd546a68ef3441c2f7162f96dc11"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccLinkedUploadBindingOrderDatabaseTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccLinkedUploadBindingOrderDatabaseTest.xml",
+      "bytes": 111374,
+      "sha256": "a852ba4402322f50250bff5379ae2420b15da8b125496cd58c65e49dd8927fad"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest",
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccRejectedRevisionRetryDatabaseTest.xml",
+      "bytes": 109051,
+      "sha256": "62250bb50c6a835f3b7be0bb88a6ef79701b9a31ac4b49c4ff1e421fa9bb9427"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccSubmissionRelationPersistenceTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccSubmissionRelationPersistenceTest.xml",
+      "bytes": 99030,
+      "sha256": "1415a0d1a26fc73f1cc3739ec2b5f680881e501f664503960fbf2e787fa1151b"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleReminderApiTest.xml",
+      "bytes": 94594,
+      "sha256": "7e15741207d3539686a0366313e3e13cf88925e1bb183437a177e9ac8051affb"
+    },
+    {
+      "name": "cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest",
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-junit/TEST-cn.iocoder.yudao.module.dcc.service.file.DccWorkflowLifecycleTransactionTest.xml",
+      "bytes": 96683,
+      "sha256": "1735140a9288bdd99d7fc8e7a4e0895c95cac595f3d8d51658ddc7ae407dcc3b"
+    }
+  ],
+  "effectiveRed": {
+    "status": "EXPECTED_FORMAL_FREEZE_BUSINESS_ERROR",
+    "tests": 1,
+    "failures": 0,
+    "errors": 1,
+    "errorCode": "DCC_RELATION_APPROVAL_SNAPSHOT_FROZEN",
+    "xml": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-effective-red.xml",
+      "bytes": 98990,
+      "sha256": "36f0ad5604155b2208c117282848b05d768db7e7b1c7e4b0d8a702153309bd3c"
+    },
+    "log": {
+      "path": "doc/tasks/20261002-dcc-public-backend-completion/g56-linked-upload-order-red-r4.log",
+      "bytes": 73546,
+      "sha256": "417b65e7bf140c88d01489175df2dbad12927da7432e2b2db5abe6a046634ff5"
+    }
+  },
+  "earlierFailures": {
+    "r1r2": "test-import compilation issues, not effective RED",
+    "r3": "isolated actual derived directory did not use same DirectoryMapper, fixture error before relation guard",
+    "combination": "withoutApproval unrelated legacy NEW default-tenant fixture not formal same-tenant Master case; corrected only test to actual existing revision source",
+    "firstRegression": "257 executions, one exact Mockito update count failure; refined exact candidate phase/history assertions, no production followup"
+  },
+  "boundaries": {
+    "actualPublicControllerH2RelationsAndMapping": true,
+    "actualInMemoryFlowableSameTransaction": true,
+    "physicalStorageAndAuthorizationPorts": "explicit isolated fixtures",
+    "finalization": "explicit isolated port in existing withoutApproval revision-source case; no claim actual activation",
+    "actualSignatureOrUserAuthentication": false,
+    "runtimeFrontend": false,
+    "actualDatabaseOrObjectStore": false,
+    "serviceOrPackageOrGit": false
+  },
+  "mavenOwnership": "RELEASED_FROZEN_NO_FURTHER_TARGET_OR_SOURCE_WRITES",
+  "priorR02AssetsUnchanged": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccFileRelationPermissions.java",
+      "bytes": 882,
+      "sha256": "44ae09285796203c3d871bef7a3529e37c738e96fa2018d73f2583ee694f1c37"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileQueryServiceImpl.java",
+      "bytes": 265664,
+      "sha256": "e187d642f9e20784e82d7b0d59e239b0531caecfd2dd1b6feca7529c0fbc9b70"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccRelationNameMetadataDatabaseTest.java",
+      "bytes": 13561,
+      "sha256": "e536c3ee81f974447ebe17457c86073f4a4db9910dc3e6bd55995a70cc4c62c3"
+    }
+  ]
+}

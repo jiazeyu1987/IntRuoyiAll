@@ -1,0 +1,28 @@
+{
+  "status": "prepared_offline_verified_actual_execution_pending",
+  "sourceDriverOfflineTests": 27,
+  "sourceDriverIndependentGroups": 6,
+  "sourceDriverReviewFindingsClosedOffline": [
+    "R01",
+    "R02",
+    "R03",
+    "R04"
+  ],
+  "legacyMappingOfflineTests": 16,
+  "legacyActualMetadataCandidates": 6,
+  "legacyActualUnconfirmed": 19,
+  "legacyMultiNameMasters": 3,
+  "sourceBytesVerified": false,
+  "sourceDriverManifest": "doc/tasks/20261002-dcc-public-backend-completion/g23-source-upgrade-delivery-fingerprints.json",
+  "sourceDriverManifestSha256": "0dd706340810cd1494aaa2cbcaba7c31ded85d9cde9220ee7beadaa301b0fa26",
+  "independentReview": "doc/tasks/20261002-dcc-public-browser/g23-source-upgrade-review.md",
+  "sourceCurrentPrepared": "PREPARED_BLOCKED_MISSING_REAL_REHEARSAL_RECEIPT",
+  "databaseWritesExecuted": false,
+  "cloneActuallyRehearsed": false,
+  "localSourceUpgradeExecuted": false,
+  "servicesStarted": false,
+  "e2eRun": false,
+  "mergedIntoIntQms": false,
+  "productionFingerprintsUnchanged": 20,
+  "unrelatedAssetFingerprintsUnchanged": 6
+}

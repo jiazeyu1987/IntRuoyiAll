@@ -10,8 +10,17 @@
 - Keywords: 资料只读授权, preview权限, readOnly不禁止写入, blocked详情旁路, 纯可见性守卫, 正式批次来源, 不触发任务恢复 -> `docs/backend-development.md#只读追溯结果完整性门禁`
 - Keywords: Winmgmt, WMI超时, Get-CimInstance超时, Get-NetTCPConnection超时, Windows服务权限拒绝, 标准启动归属查询 -> `docs/local-runtime.md#windows-管理查询阻断标准启动`
 
+- Keywords: DCC HTML业务依据、批准产品正式来源、目录ID与MDM身份、取消项目文件模板硬限制、保留唯一类型类别、单主干分层验证、ReceiveTask线下培训待办、当前文件位置投影、只读档案管理门禁、隔离RAM调度恢复 -> `docs/dcc-business-integration-experience.md`。
+
+- Keywords: DCC审批旧readiness续签、新弹框ABA、原签名成功晚响应、route换文件仍旧detail、相同HTTP条件切所选file/Master -> `docs/frontend-development.md#前端确认提交上下文来源门禁`。
+- Keywords: DCC旧迁移hash精确历史来源、缺ledger但结构已满足、严格19白名单与25外部事实、旧种子不能重放、原列逐行hash、MySQL DDL隐式提交 -> `docs/database-rules.md#新生命周期数据迁移历史保护门禁`。
+- Keywords: DCC历史原名、元数据不是正文、NoSuchKey、3对象4引用、If-None-Match条件恢复、PUT结果不确定、PREPARED跨scope污染、真实bucket锁策略、质量尚未批准 -> `docs/database-rules.md#历史原名核验与缺失对象恢复门禁`。
+- 分支是否最新 / 目录名与分支不一致 / 融合最新主线：`docs/powershell-memory.md#合并前确认分支和远端版本`。
+
 - Keywords: DCC 90步静态检查, 新项目授权入口, 产品建档续办, 模板分类与上传不一致, 检入丢关联, 审批预览旧原件, 影响评估小版本跟踪 -> `docs/bugs/20260912-dcc-90-step-static-audit.md`；检查顺序 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`
+- Keywords: DCC历史原名登记、sidecar保留期限审计、GxP原子回滚、受保护facts单buffer、scope精确集合、NoSuchKey阻断激活 -> `docs/database-rules.md#历史原名核验与缺失对象恢复门禁`
 - Keywords: DCC 路线配置未执行, 重复审批环节丢人, 路线未来生效, CAD配套PDF, 仅元数据检入, 重放文本碰撞, 培训并发计时, 发布连续重试, Master逻辑身份漂移, 大版本正式基线 -> `docs/backend-development.md#dcc-跨版本静态检查顺序`；追加静态证据 -> `doc/tasks/20260913-dcc-90-step-followup-audit/verification-report.md`
+- Keywords: DCC 大版本通知门禁, 可配置大版本身份, majorIdentitySegmentCount, A/1 A/2 小版本, A/1 B/1 大版本, A/1/1 A/1/2 小版本, 关联新版通知只走大版本, DccControlledFileVersionPolicy -> `docs/backend-development.md#dcc-windchill-版本链路后端门禁` and `docs/backend-development.md#发布后续账本与业务可见快照门禁`
 
 - Keywords: DCC 上传异常误报成功, 根行唯一冲突, 幂等赢家, 盖章重试权限, 转办加签资格, 培训并发确认卡死, 停用培训人员, 通知 afterCommit 独立事务, 通知重复重放 -> `docs/backend-development.md#dcc-失败重试和并发收口门禁`
 - Keywords: CSV 验证最小包, 计算机化系统验证, GAMP 分类, IQ OQ PQ, URS FS 风险评估, CSV 追溯矩阵, 供应商评估, 周期回顾, 验证报告审批, 中文 Word 交付包, CSV 签字矩阵, 00A 正式递交说明与签字责任矩阵, 正式送审分册包, 药监现场核查 CSV 包, 药监审核老师不代替企业内部批准签字, official-submission-package, 5.1 5.16 -> `docs/csv-validation/README.md`
@@ -96,6 +105,11 @@
 ## 路由
 
 - 经验沉淀 / 新增经验 / 更新经验 / 经验文件格式 / 前置经验 / 经验门禁模板：按本文件“经验文档写入建议”及下方关键词选择合适文档，无固定启动或建档要求。
+
+- Keywords: DCC自定义矩阵, APPLICATION_CUSTOM, canonical跨文件, PUBLIC V2草稿, prepared定义期待, 继承测试夹具, 父类目录重复, fresh XML, 源码漂移 -> `docs/dcc-business-integration-experience.md#审批来源与新版本草稿身份前置检查` and `docs/dcc-business-integration-experience.md#继承测试夹具与正式验证证据`
+- Keywords: DCC附件卸载下载, 租户缓存旧回包, 历史申请wire回跳, 引用详情身份, pagehide/pageshow, 已结束阅读会话, Office脚本来源与销毁异常 -> `docs/dcc-business-integration-experience.md#预览页面切换和卸载`
+- Keywords: DCC预览来源绑定, metadata后换源, infraFileId/configId/path, typed source claim, nullable name/type, SourceBound token, reading来源复核 -> `docs/dcc-business-integration-experience.md#正文预览来源`
+
 - 测试服发布 / 仅测试服 / current HEAD test release / publish-test / 运行态验收 / release-info 版本变更说明：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\test-release-preflight.md`
 - publish-test preview 崩溃 / release package candidate scan / dead RUNNING operation / runtime-control JVM 退出：`docs/release-build-preflight-lessons.md#2026-07-11-runtime-control-发布候选扫描与-dead-operation-门禁`。
 - PowerShell host:port 插值 / SSH IO pending / bash `$()` / Playwright 浏览器缓存 / release-info mojibake：`docs/powershell-preflight-lessons.md`，标题“2026-07-11 PowerShell/SSH/Playwright 发布验收门禁”。
@@ -571,6 +585,8 @@
 - Keywords: release-info.json 返回 index.html, release-info static file missing, 前端容器缺 release-info.json, Write-FrontendReleaseInfo, New-ReleaseDockerBuildContext, code-only release-info 出包 -> `docs/test-release-preflight.md#2026-07-28-release-info-静态文件出包门禁`
 - Keywords: 测试服旧浏览器登录失败, 老浏览器缓存, /index 缓存, SPA 回退入口缓存头, Cache-Control no-store, index.html 不缓存, assets immutable -> `docs/test-release-preflight.md#2026-08-18-测试服前端-spa-回退入口缓存头门禁`
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
+- Keywords: 本地启动 jar 缺失, runtime 源码包缺失, node_modules 缺失, 前后端部分启动 -> `docs/local-runtime.md#本地运行构建输入完整性门禁`
+- Keywords: Java runtime 包被忽略, **/runtime/, package runtime does not exist, FormCenterRuntimeService, ErpKingdeeSyncRuntimeService, QMS Shedule runtime 源码对比 -> `docs/local-runtime.md#java-runtime-源码包误忽略门禁`
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务, VITE_APP_DEFAULT_LOGIN, .env 等号空白, 登录参数错位, 登录响应超时 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: ERP 金蝶账套登录, ValidateUser, 更换 acctId, 复用 ERP baseUrl, K3Cloud 路径补齐, LoginResultType, IsSuccessByAPI, Cookie 不代表登录成功, 单点登录测试链接不等于 WebAPI 登录, ERP 当前连接, 测试账套正式账套切换, 待保存, 保存后生效, active connection, yudao.erp.kingdee.connection.active, 当前连接选择配置缺失, 禁止默认 TEST, 多账套配置不返回凭据, 切换后刷新保持, 回切原始账套, 环境变量为空不等于运行配置缺失, getEffectiveProperties, system_config 保存配置 -> `docs/login-access.md#erp-金蝶账套登录连通性门禁`
 - Keywords: ERP 金蝶生产订单查询, PRD_MO, ExecuteBillQuery, 业务对象读取权限, 登录成功不等于查询成功, 最小字段少量行只读验证 -> `docs/login-access.md#erp-金蝶账套登录连通性门禁`

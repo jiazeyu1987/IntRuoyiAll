@@ -1,0 +1,30 @@
+{
+  "status": "G70_ACTUAL_MYSQL_ISOLATED_EXISTING_AND_ABSENT_FIRST_REPEAT_SOURCE_UI_NOOP_PASS",
+  "scriptSha256": "d31eaefd71bfab3fba2acd2836826b2c8b89edfeebf8e28cbf177e6272527fdb",
+  "rehearsalDatabase": "dcc_g70_native_menu_rehearsal",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "backup": {
+    "tables": [
+      "system_menu",
+      "system_role_menu",
+      "system_role",
+      "system_tenant_package"
+    ],
+    "dumpBytes": 1121354,
+    "dumpSha256": "d2719c4288521e5b9cc542d5f53b86e7c28868584b0c7a133ebc0e0d0a98155a",
+    "compressedSha256": "d3871bf3afb4680e243a2880fcc216967ec5178596a4d4e454ae427a95cc65c3",
+    "status": "BACKUP_EXACT_FOUR_TABLES_PASS",
+    "secretsPrinted": false
+  },
+  "receipts": {
+    "cloneUiFirst": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t605071339\t910233\t1\t0\t0\n",
+    "cloneUiRepeat": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t605071339\t910233\t1\t0\t0\n",
+    "cloneAbsentFirst": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t6839\t910233\t1\t1\t1\n",
+    "cloneAbsentRepeat": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t6839\t910233\t1\t0\t0\n",
+    "sourceUiFirst": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t605071339\t910233\t1\t0\t0\n",
+    "sourceUiRepeat": "G70_NATIVE_DISTRIBUTE_MENU_ONLY\t605071339\t910233\t1\t0\t0\n"
+  },
+  "sourceOldFourTablesExactUnchanged": true,
+  "businessActions": "Menu and grant already performed through real UI; source SQL replay changes zero rows, no business data writes",
+  "databaseKeptForEvidence": true
+}

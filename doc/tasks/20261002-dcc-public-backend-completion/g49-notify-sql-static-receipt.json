@@ -1,0 +1,16 @@
+{
+  "status": "STATIC_CONTRACT_PASS",
+  "sqlSha256": "696bb80f60509ea453fe8c8fda07b42f8020e09415aaf2d2ed9b388ed907a810",
+  "closureReceipt": "g49-notify-policy-green.json",
+  "firstMode": "exact absence -> one new template INSERT",
+  "repeatMode": "exact immutable payload -> zero template writes",
+  "conflictMode": "any duplicate/payload mismatch -> SQLSTATE45000 before INSERT",
+  "scope": [
+    "system_notify_template new code only"
+  ],
+  "newOperationPolicyOrQualityRows": 0,
+  "actualMySqlRuns": 0,
+  "dependencyReplayAuthorized": false,
+  "actualFirstRepeatOrRollbackVerified": false,
+  "paramsIncludeNavigationMarkerIdUrl": true
+}

@@ -1,0 +1,42 @@
+{
+  "status": "prepared_source_request_template_not_authorization",
+  "sourceDatabase": "ruoyi-vue-pro",
+  "sourceContainer": "int-ruoyi-mysql",
+  "serverUuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+  "mysqlVersion": "8.0.40",
+  "maxAgeSeconds": 900,
+  "clonePass": null,
+  "sourceProof": null,
+  "newBackupReceipt": null,
+  "sourceBaseline": null,
+  "sourceEnvironment": null,
+  "writerExclusionReceipt": null,
+  "rehearsalPrepared": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-prepared-inputs.json",
+    "sha256": "9928792f07877c20100d2e785065b2cbbd73b54dc8b14284ad2f00f52face532"
+  },
+  "frozenG21": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g21-rehearsal-driver.py",
+    "sha256": "86e9e8b5504f926dfd1d7ad529afe006393289ec811378232ded997c097e99a9"
+  },
+  "actualUserWriteApprovalRecordedByRoot": false,
+  "rootAuthorizationReference": null,
+  "originalTables": [
+    "act_ge_bytearray",
+    "act_re_deployment",
+    "act_re_model",
+    "act_re_procdef",
+    "bpm_business_approval_policy",
+    "bpm_process_definition_info",
+    "dcc_controlled_file",
+    "dcc_controlled_file_access_log",
+    "dcc_controlled_file_master",
+    "dcc_controlled_file_name_claim",
+    "dcc_controlled_file_obsolete_audit",
+    "dcc_controlled_file_signature",
+    "dcc_controlled_file_task_assignee_snapshot",
+    "dcc_project_code",
+    "dcc_project_product_create_request",
+    "system_notify_template"
+  ]
+}

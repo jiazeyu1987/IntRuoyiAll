@@ -1,0 +1,77 @@
+{
+  "status": "FROZEN",
+  "scope": "Exact native/legacy rejected callback key CAS only",
+  "assets": [
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.java",
+      "bytes": 42345,
+      "sha256": "c0a116e050b5722bd16c3bf5b71cb0bfc0c652eefbbbf7d2e12e8d5b7d622ead"
+    },
+    {
+      "kind": "production",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/main/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.java",
+      "bytes": 76841,
+      "sha256": "2a166f83c346f239a07af4f50647e583237d376b81d37e03fc9af498affda581"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccNativeRejectionTransactionTest.java",
+      "bytes": 13675,
+      "sha256": "b15d70475d34a49f08db2d3994b35d657cd7ab7555bde51bbae48687ded9dc4d"
+    },
+    {
+      "kind": "test",
+      "path": "IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImplTest.java",
+      "bytes": 99009,
+      "sha256": "6c3590db949ffd4027d8bd09e7a1da48696eece1e4eef8c1eb2be3b900e4f7b0"
+    }
+  ],
+  "compiledClasses": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/dal/mysql/file/DccControlledFileMapper.class",
+      "bytes": 46746,
+      "sha256": "895fd33057d6f9777c6b1c8d7866a3c8906a52bb3805b3b1ab9ea9c1e0470adf"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$1.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$1.class",
+      "bytes": 1236,
+      "sha256": "3841247450508d317626584a31da3a7f3be8973a0704f3b9540bb4a16ec5c51a"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$PublishedArtifact.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$PublishedArtifact.class",
+      "bytes": 2170,
+      "sha256": "3738cf10ecf5f0c625458c1299c4bce12d336d7895969ddff9c357fb34d2c714"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$ResolvedDistributionPlan.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl$ResolvedDistributionPlan.class",
+      "bytes": 2249,
+      "sha256": "e87e763225b786a1e548608153fce87eb1a4c9cc9bf98f72d0a9ce50bf84bab6"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-dcc/target/classes/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.class",
+      "jarEntry": "cn/iocoder/yudao/module/dcc/service/file/DccControlledFileFinalizationServiceImpl.class",
+      "bytes": 70626,
+      "sha256": "e58126cce33905a6cefb55e17543f0bee4e01d84924560cfb43c0dabad13f86d"
+    }
+  ],
+  "verificationReceipt": {
+    "path": "doc/tasks/20261002-dcc-public-backend-completion/g64-backend-verification-receipt.json",
+    "sha256": "d456518cfbd583c6acaa8a5e3bac97137f79391971318bd9c96bb9c241c75dc0"
+  },
+  "guardsPreserved": [
+    "tenant",
+    "fileId",
+    "processInstanceId",
+    "verifiedDefinitionKey",
+    "expectedStatus",
+    "deleted=0",
+    "rowcount=1",
+    "synchronousBpmSharedAtomicity"
+  ],
+  "runtimeE2ePending": true
+}

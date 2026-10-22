@@ -1250,15 +1250,25 @@ const remainingRouter: AppRouteRecordRaw[] = [
             String(to.query.traceability || '') === '1' &&
             String(to.query.from || '') === 'browser' &&
             Boolean(String(to.query.returnTo || ''))
+          const isHistoricalTraceability =
+            String(to.query.traceability || '') === '1' &&
+            String(to.query.from || '') === 'version-history' &&
+            Boolean(String(to.query.returnTo || ''))
           const isBrowserManagement =
             String(to.query.management || '') === '1' &&
             String(to.query.from || '') === 'browser' &&
             Boolean(String(to.query.returnTo || ''))
+          const isProjectOrWorkbenchManagement =
+            ['project-browser', 'workbench'].includes(String(to.query.from || '')) &&
+            (String(to.query.management || '') === '1' || String(to.query.mode || '') === 'manage') &&
+            String(to.query.returnTo || '').startsWith('/dcc/controlled-file/')
           if (
             String(to.query.viewer || '') === '1' ||
             isApprovalHandling ||
             isBrowserTraceability ||
-            isBrowserManagement
+            isHistoricalTraceability ||
+            isBrowserManagement ||
+            isProjectOrWorkbenchManagement
           ) {
             return true
           }

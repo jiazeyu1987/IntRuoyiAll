@@ -1,0 +1,26 @@
+{
+  "status": "G43_R3_UTF8_HOST_DEFAULT_READ_PREEXECUTION_FAILURE_REVIEWED",
+  "directory": "C:\\IntRuoyiBackups\\20261003-dcc-integration\\g43-legacy-activation-run-r3",
+  "files": [
+    {
+      "name": "development-audit-policy.yaml",
+      "sha256": "661af676e1406e86659806af8be8f46abd17d101d871d3af8d5b3b736873c894"
+    },
+    {
+      "name": "development-policy.json",
+      "sha256": "747b35bc10ba710c691cc51e9693077370a407e180e728163c6558520e5cac82"
+    },
+    {
+      "name": "historical-decision.json",
+      "sha256": "fd257e2e41e760ee375a5fa5cf08ef1db452bca6f835abb75de52fa6ece9eaa9"
+    }
+  ],
+  "hostDefaultEncoding": "cp936",
+  "requestFileCreated": false,
+  "maintenanceProcessStarted": false,
+  "normalOwnedBackendPid": 12924,
+  "normalBackendHealthUp": true,
+  "explicitUtf8ReadsFixed": true,
+  "oldAttemptPreserved": true,
+  "automaticRetry": false
+}

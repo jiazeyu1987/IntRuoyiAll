@@ -1,0 +1,13 @@
+{
+  "status": "LD04_PLATFORM_NOTIFY_IDEMPOTENCE_READONLY_PREREQUISITE_PASS",
+  "database": "ruoyi-vue-pro",
+  "businessKeyColumnPresent": 1,
+  "uniqueIndexName": "uk_system_notify_message_tenant_business_key",
+  "uniqueIndexColumns": [
+    "tenant_id",
+    "business_key"
+  ],
+  "databaseWrites": false,
+  "oldMigrationReplayRequired": false,
+  "newTemplateSqlCurrentSha256": "696bb80f60509ea453fe8c8fda07b42f8020e09415aaf2d2ed9b388ed907a810"
+}

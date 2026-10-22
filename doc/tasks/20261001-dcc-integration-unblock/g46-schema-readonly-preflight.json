@@ -1,0 +1,29 @@
+{
+  "status": "ACTUAL_NEW_FOUR_FIELD_MIGRATION_NOT_PRESENT_READONLY_PREFLIGHT",
+  "databases": [
+    {
+      "uuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+      "version": "8.0.40",
+      "database": "ruoyi-vue-pro",
+      "signatureCount": 339,
+      "newFieldsPresent": 0,
+      "controlledFileCount": 41615,
+      "targetMigrationRows": 0,
+      "unifiedSignatureCount": 159
+    },
+    {
+      "uuid": "92ca05d0-aec8-11f1-a944-02b4e226a5ef",
+      "version": "8.0.40",
+      "database": "dcc_intqms_g18_rehearsal",
+      "signatureCount": 339,
+      "newFieldsPresent": 0,
+      "controlledFileCount": 41615,
+      "targetMigrationRows": 0,
+      "unifiedSignatureCount": 0
+    }
+  ],
+  "databaseWrites": false,
+  "credentialsPrinted": false,
+  "executionAuthorizationStillPending": true,
+  "migrationSqlSha256": "049d60e2e8f4a7999ebc213cda77154fa78c315bff296f78be127462977a2760"
+}

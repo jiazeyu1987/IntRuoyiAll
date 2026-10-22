@@ -159,9 +159,16 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
     }
 
     @Select("""
-            SELECT COALESCE(MAX(original_row_no), 1)
-            FROM dcc_product_catalog
-            WHERE data_source = #{dataSource}
+            SELECT * FROM dcc_product_catalog
+            WHERE TRIM(product_code) = #{productCode} AND deleted = 0
+            LIMIT 1
             """)
-    Integer selectMaxOriginalRowNo(@Param("dataSource") String dataSource);
+    DccProductCatalogDO selectByNormalizedProductCode(@Param("productCode") String productCode);
+
+    @Select("""
+            SELECT * FROM dcc_product_catalog
+            WHERE TRIM(product) = #{productName} AND deleted = 0
+            LIMIT 1
+            """)
+    DccProductCatalogDO selectByNormalizedProductName(@Param("productName") String productName);
 }

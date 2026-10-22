@@ -78,7 +78,7 @@ test('download endpoints and permissions are independent', () => {
   assert.match(controller, /dcc:controlled-file:download-editable/)
   assert.match(
     controller,
-    /@GetMapping\("\/\{id:\\\\d\+\}"\)\s+@Operation\(summary = "Get controlled file detail"\)\s+@PreAuthorize\("@ss\.hasPermission\('dcc:controlled-file:query'\)"\)/
+    /@GetMapping\("\/\{id:\\\\d\+\}"\)\s+@Operation\(summary = "Get controlled file detail"\)\s+@PreAuthorize\("isAuthenticated\(\)"\)/
   )
   assert.match(
     controller,

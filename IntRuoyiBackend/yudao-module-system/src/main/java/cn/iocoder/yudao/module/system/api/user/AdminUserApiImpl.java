@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
 import cn.iocoder.yudao.framework.datapermission.core.util.DataPermissionUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserDirectSupervisorRespDTO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.DeptDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.dept.UserPostDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
@@ -62,6 +63,14 @@ public class AdminUserApiImpl implements AdminUserApi {
         cn.iocoder.yudao.module.system.service.signature.SignatureIdentityLockContext
                 .registerSystemIdentityLock(tenantId, id);
         return BeanUtils.toBean(user, AdminUserRespDTO.class);
+    }
+
+    @Resource private cn.iocoder.yudao.module.system.service.user.AdminUserDirectSupervisorService directSupervisorService;
+
+    @Override
+    @DataPermission(enable = false)
+    public AdminUserDirectSupervisorRespDTO getDirectSupervisorRelation(Long userId) {
+        return directSupervisorService.getDirectSupervisorRelation(userId);
     }
 
     @Override

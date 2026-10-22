@@ -25,7 +25,7 @@ public class DccProjectionExport implements WorkbenchProjectionExport {
     @Override public List<Task> exportTasks(long tenant,Watermark watermark) {
         List<Task> tasks=new ArrayList<>();
         for(var row:mapper.exportDistribution(query(tenant))) tasks.add(task(tenant,watermark,distribution,row,
-            new ActionEnvelope(distribution.actionKind(),1,Map.of("controlledFileId",row.getControlledFileId(),"distributionId",row.getDistributionId(),"recipientId",row.getBusinessId())),AudienceKind.PERSON,candidates(row.getOwnerUserId(),null)));
+            new ActionEnvelope(distribution.actionKind(),1,Map.of("controlledFileId",row.getControlledFileId(),"distributionId",row.getDistributionId(),"recipientId",row.getBusinessId(),"version",row.getVersionNo(),"approvalProcessInstanceId",row.getApprovalProcessInstanceId())),AudienceKind.PERSON,candidates(row.getOwnerUserId(),null)));
         for(var row:mapper.exportTraining(query(tenant))) tasks.add(task(tenant,watermark,training,row,
             new ActionEnvelope(training.actionKind(),1,Map.of("controlledFileId",row.getControlledFileId(),"progressId",row.getBusinessId())),AudienceKind.PERSON,candidates(row.getOwnerUserId(),null)));
         return List.copyOf(tasks);
